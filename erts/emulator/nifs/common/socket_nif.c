@@ -354,11 +354,11 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 /* Debug stuff... */
-#define SOCKET_GLOBAL_DEBUG_DEFAULT FALSE
-#define SOCKET_DEBUG_DEFAULT        FALSE
+#define ESOCK_GLOBAL_DEBUG_DEFAULT FALSE
+#define ESOCK_DEBUG_DEFAULT        FALSE
 
 /* Counters and stuff (Don't know where to sent this stuff anyway) */
-#define SOCKET_NIF_IOW_DEFAULT FALSE
+#define ESOCK_NIF_IOW_DEFAULT FALSE
 
 
 
@@ -398,10 +398,10 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 #if defined(TCP_CA_NAME_MAX)
-#define SOCKET_OPT_TCP_CONGESTION_NAME_MAX TCP_CA_NAME_MAX
+#define ESOCK_OPT_TCP_CONGESTION_NAME_MAX TCP_CA_NAME_MAX
 #else
 /* This is really excessive, but just in case... */
-#define SOCKET_OPT_TCP_CONGESTION_NAME_MAX 256
+#define ESOCK_OPT_TCP_CONGESTION_NAME_MAX 256
 #endif
 
 
@@ -414,25 +414,25 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 /* *** Socket state defs *** */
 
-#define SOCKET_FLAG_OPEN         0x0001
-#define SOCKET_FLAG_ACTIVE       0x0004
-#define SOCKET_FLAG_LISTEN       0x0008
-#define SOCKET_FLAG_CON          0x0010
-#define SOCKET_FLAG_ACC          0x0020
-#define SOCKET_FLAG_BUSY         0x0040
-#define SOCKET_FLAG_CLOSE        0x0080
+#define ESOCK_FLAG_OPEN         0x0001
+#define ESOCK_FLAG_ACTIVE       0x0004
+#define ESOCK_FLAG_LISTEN       0x0008
+#define ESOCK_FLAG_CON          0x0010
+#define ESOCK_FLAG_ACC          0x0020
+#define ESOCK_FLAG_BUSY         0x0040
+#define ESOCK_FLAG_CLOSE        0x0080
 
-#define SOCKET_STATE_CLOSED          (0)
-#define SOCKET_STATE_OPEN            (SOCKET_FLAG_OPEN)
-#define SOCKET_STATE_CONNECTED       (SOCKET_STATE_OPEN      | SOCKET_FLAG_ACTIVE)
-#define SOCKET_STATE_LISTENING       (SOCKET_STATE_OPEN      | SOCKET_FLAG_LISTEN)
-#define SOCKET_STATE_CONNECTING      (SOCKET_STATE_OPEN      | SOCKET_FLAG_CON)
-#define SOCKET_STATE_ACCEPTING       (SOCKET_STATE_LISTENING | SOCKET_FLAG_ACC)
-#define SOCKET_STATE_CLOSING         (SOCKET_FLAG_CLOSE)
-#define SOCKET_STATE_DTOR            (0xFFFF)
+#define ESOCK_STATE_CLOSED          (0)
+#define ESOCK_STATE_OPEN            (ESOCK_FLAG_OPEN)
+#define ESOCK_STATE_CONNECTED       (ESOCK_STATE_OPEN      | ESOCK_FLAG_ACTIVE)
+#define ESOCK_STATE_LISTENING       (ESOCK_STATE_OPEN      | ESOCK_FLAG_LISTEN)
+#define ESOCK_STATE_CONNECTING      (ESOCK_STATE_OPEN      | ESOCK_FLAG_CON)
+#define ESOCK_STATE_ACCEPTING       (ESOCK_STATE_LISTENING | ESOCK_FLAG_ACC)
+#define ESOCK_STATE_CLOSING         (ESOCK_FLAG_CLOSE)
+#define ESOCK_STATE_DTOR            (0xFFFF)
 
 #define IS_CLOSED(d)                            \
-    ((d)->state == SOCKET_STATE_CLOSED)
+    ((d)->state == ESOCK_STATE_CLOSED)
 
 /*
 #define IS_STATE(d, f) \
@@ -440,55 +440,56 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 */
 
 #define IS_CLOSING(d)                                                   \
-    (((d)->state & SOCKET_STATE_CLOSING) == SOCKET_STATE_CLOSING)
+    (((d)->state & ESOCK_STATE_CLOSING) == ESOCK_STATE_CLOSING)
 
 #define IS_OPEN(d)                                              \
-    (((d)->state & SOCKET_FLAG_OPEN) == SOCKET_FLAG_OPEN)
+    (((d)->state & ESOCK_FLAG_OPEN) == ESOCK_FLAG_OPEN)
 
 #define IS_CONNECTED(d)                                                 \
-    (((d)->state & SOCKET_STATE_CONNECTED) == SOCKET_STATE_CONNECTED)
+    (((d)->state & ESOCK_STATE_CONNECTED) == ESOCK_STATE_CONNECTED)
 
 #define IS_CONNECTING(d)                                \
-    (((d)->state & SOCKET_FLAG_CON) == SOCKET_FLAG_CON)
+    (((d)->state & ESOCK_FLAG_CON) == ESOCK_FLAG_CON)
 
 /*
 #define IS_BUSY(d)                                      \
-    (((d)->state & SOCKET_FLAG_BUSY) == SOCKET_FLAG_BUSY)
+    (((d)->state & ESOCK_FLAG_BUSY) == ESOCK_FLAG_BUSY)
 */
 
-#define SOCKET_SEND_FLAG_CONFIRM    0
-#define SOCKET_SEND_FLAG_DONTROUTE  1
-#define SOCKET_SEND_FLAG_EOR        2
-#define SOCKET_SEND_FLAG_MORE       3
-#define SOCKET_SEND_FLAG_NOSIGNAL   4
-#define SOCKET_SEND_FLAG_OOB        5
-#define SOCKET_SEND_FLAG_LOW        SOCKET_SEND_FLAG_CONFIRM
-#define SOCKET_SEND_FLAG_HIGH       SOCKET_SEND_FLAG_OOB
+#define ESOCK_SEND_FLAG_CONFIRM    0
+#define ESOCK_SEND_FLAG_DONTROUTE  1
+#define ESOCK_SEND_FLAG_EOR        2
+#define ESOCK_SEND_FLAG_MORE       3
+#define ESOCK_SEND_FLAG_NOSIGNAL   4
+#define ESOCK_SEND_FLAG_OOB        5
+#define ESOCK_SEND_FLAG_LOW        ESOCK_SEND_FLAG_CONFIRM
+#define ESOCK_SEND_FLAG_HIGH       ESOCK_SEND_FLAG_OOB
 
-#define SOCKET_RECV_FLAG_CMSG_CLOEXEC 0
-#define SOCKET_RECV_FLAG_ERRQUEUE     1
-#define SOCKET_RECV_FLAG_OOB          2
-#define SOCKET_RECV_FLAG_PEEK         3
-#define SOCKET_RECV_FLAG_TRUNC        4
-#define SOCKET_RECV_FLAG_LOW          SOCKET_RECV_FLAG_CMSG_CLOEXEC
-#define SOCKET_RECV_FLAG_HIGH         SOCKET_RECV_FLAG_TRUNC
+#define ESOCK_RECV_FLAG_CMSG_CLOEXEC 0
+#define ESOCK_RECV_FLAG_ERRQUEUE     1
+#define ESOCK_RECV_FLAG_OOB          2
+#define ESOCK_RECV_FLAG_PEEK         3
+#define ESOCK_RECV_FLAG_TRUNC        4
+#define ESOCK_RECV_FLAG_LOW          ESOCK_RECV_FLAG_CMSG_CLOEXEC
+#define ESOCK_RECV_FLAG_HIGH         ESOCK_RECV_FLAG_TRUNC
 
-#define SOCKET_RECV_BUFFER_SIZE_DEFAULT      8192
-#define SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
-#define SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
+#define ESOCK_RECV_BUFFER_SIZE_DEFAULT      8192
+#define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
+#define ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
-#define VT2S(__VT__) (((__VT__) == SOCKET_OPT_VALUE_TYPE_UNSPEC) ? "unspec" : \
-                      (((__VT__) == SOCKET_OPT_VALUE_TYPE_INT) ? "int" : \
-                       ((__VT__) == SOCKET_OPT_VALUE_TYPE_BOOL) ? "bool" : \
+#define VT2S(__VT__) (((__VT__) == ESOCK_OPT_VALUE_TYPE_UNSPEC) ? "unspec" : \
+                      (((__VT__) == ESOCK_OPT_VALUE_TYPE_INT) ? "int" : \
+                       ((__VT__) == ESOCK_OPT_VALUE_TYPE_BOOL) ? "bool" : \
                        "undef"))
 
-#define SOCKET_OPT_VALUE_TYPE_UNSPEC 0
-#define SOCKET_OPT_VALUE_TYPE_INT    1
-#define SOCKET_OPT_VALUE_TYPE_BOOL   2
+#define ESOCK_OPT_VALUE_TYPE_UNSPEC 0
+#define ESOCK_OPT_VALUE_TYPE_INT    1
+#define ESOCK_OPT_VALUE_TYPE_BOOL   2
 
 #define ESOCK_DESC_PATTERN_CREATED 0x03030303
 #define ESOCK_DESC_PATTERN_DTOR    0xC0C0C0C0
 
+/*
 typedef union {
     struct {
         // 0 = not open, 1 = open
@@ -501,15 +502,16 @@ typedef union {
         unsigned int listen:2;
         // unsigned int listening:1;
         // unsigned int accepting:1;
-        /* Room for more... */
+        / * Room for more... * /
     } flags;
     unsigned int field; // Make it easy to reset all flags...
 } SocketState;
+*/
 
 /*
 #define IS_OPEN(d)       ((d)->state.flags.open)
-#define IS_CONNECTED(d)  ((d)->state.flags.connect == SOCKET_STATE_CONNECTED)
-#define IS_CONNECTING(d) ((d)->state.flags.connect == SOCKET_STATE_CONNECTING)
+#define IS_CONNECTED(d)  ((d)->state.flags.connect == ESOCK_STATE_CONNECTED)
+#define IS_CONNECTING(d) ((d)->state.flags.connect == ESOCK_STATE_CONNECTING)
 */
 
 
@@ -520,151 +522,151 @@ typedef union {
  */
 
 /* domain */
-#define SOCKET_DOMAIN_LOCAL       1
-#define SOCKET_DOMAIN_INET        2
-#define SOCKET_DOMAIN_INET6       3
+#define ESOCK_DOMAIN_LOCAL       1
+#define ESOCK_DOMAIN_INET        2
+#define ESOCK_DOMAIN_INET6       3
 
 /* type */
-#define SOCKET_TYPE_STREAM        1
-#define SOCKET_TYPE_DGRAM         2
-#define SOCKET_TYPE_RAW           3
-// #define SOCKET_TYPE_RDM           4
-#define SOCKET_TYPE_SEQPACKET     5
+#define ESOCK_TYPE_STREAM        1
+#define ESOCK_TYPE_DGRAM         2
+#define ESOCK_TYPE_RAW           3
+// #define ESOCK_TYPE_RDM           4
+#define ESOCK_TYPE_SEQPACKET     5
 
 /* protocol */
-#define SOCKET_PROTOCOL_DEFAULT   0
-#define SOCKET_PROTOCOL_IP        1
-#define SOCKET_PROTOCOL_TCP       2
-#define SOCKET_PROTOCOL_UDP       3
-#define SOCKET_PROTOCOL_SCTP      4
-#define SOCKET_PROTOCOL_ICMP      5
-#define SOCKET_PROTOCOL_IGMP      6
+#define ESOCK_PROTOCOL_DEFAULT   0
+#define ESOCK_PROTOCOL_IP        1
+#define ESOCK_PROTOCOL_TCP       2
+#define ESOCK_PROTOCOL_UDP       3
+#define ESOCK_PROTOCOL_SCTP      4
+#define ESOCK_PROTOCOL_ICMP      5
+#define ESOCK_PROTOCOL_IGMP      6
 
 /* shutdown how */
-#define SOCKET_SHUTDOWN_HOW_RD    0
-#define SOCKET_SHUTDOWN_HOW_WR    1
-#define SOCKET_SHUTDOWN_HOW_RDWR  2
+#define ESOCK_SHUTDOWN_HOW_RD    0
+#define ESOCK_SHUTDOWN_HOW_WR    1
+#define ESOCK_SHUTDOWN_HOW_RDWR  2
 
 
-#define SOCKET_OPT_LEVEL_OTP        0
-#define SOCKET_OPT_LEVEL_SOCKET     1
-#define SOCKET_OPT_LEVEL_IP         2
-#define SOCKET_OPT_LEVEL_IPV6       3
-#define SOCKET_OPT_LEVEL_TCP        4
-#define SOCKET_OPT_LEVEL_UDP        5
-#define SOCKET_OPT_LEVEL_SCTP       6
+#define ESOCK_OPT_LEVEL_OTP        0
+#define ESOCK_OPT_LEVEL_SOCKET     1
+#define ESOCK_OPT_LEVEL_IP         2
+#define ESOCK_OPT_LEVEL_IPV6       3
+#define ESOCK_OPT_LEVEL_TCP        4
+#define ESOCK_OPT_LEVEL_UDP        5
+#define ESOCK_OPT_LEVEL_SCTP       6
 
-#define SOCKET_OPT_OTP_DEBUG        1
-#define SOCKET_OPT_OTP_IOW          2
-#define SOCKET_OPT_OTP_CTRL_PROC    3
-#define SOCKET_OPT_OTP_RCVBUF       4
-#define SOCKET_OPT_OTP_RCVCTRLBUF   6
-#define SOCKET_OPT_OTP_SNDCTRLBUF   7
-#define SOCKET_OPT_OTP_FD           8
-#define SOCKET_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
-#define SOCKET_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
-#define SOCKET_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_DEBUG        1
+#define ESOCK_OPT_OTP_IOW          2
+#define ESOCK_OPT_OTP_CTRL_PROC    3
+#define ESOCK_OPT_OTP_RCVBUF       4
+#define ESOCK_OPT_OTP_RCVCTRLBUF   6
+#define ESOCK_OPT_OTP_SNDCTRLBUF   7
+#define ESOCK_OPT_OTP_FD           8
+#define ESOCK_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
 
-#define SOCKET_OPT_SOCK_ACCEPTCONN     1
-#define SOCKET_OPT_SOCK_BINDTODEVICE   3
-#define SOCKET_OPT_SOCK_BROADCAST      4
-#define SOCKET_OPT_SOCK_DEBUG          6
-#define SOCKET_OPT_SOCK_DOMAIN         7
-#define SOCKET_OPT_SOCK_DONTROUTE      8
-#define SOCKET_OPT_SOCK_KEEPALIVE     10
-#define SOCKET_OPT_SOCK_LINGER        11
-#define SOCKET_OPT_SOCK_OOBINLINE     13
-#define SOCKET_OPT_SOCK_PEEK_OFF      15
-#define SOCKET_OPT_SOCK_PRIORITY      17
-#define SOCKET_OPT_SOCK_PROTOCOL      18
-#define SOCKET_OPT_SOCK_RCVBUF        19
-#define SOCKET_OPT_SOCK_RCVLOWAT      21
-#define SOCKET_OPT_SOCK_RCVTIMEO      22
-#define SOCKET_OPT_SOCK_REUSEADDR     23
-#define SOCKET_OPT_SOCK_REUSEPORT     24
-#define SOCKET_OPT_SOCK_SNDBUF        27
-#define SOCKET_OPT_SOCK_SNDLOWAT      29
-#define SOCKET_OPT_SOCK_SNDTIMEO      30
-#define SOCKET_OPT_SOCK_TIMESTAMP     31
-#define SOCKET_OPT_SOCK_TYPE          32
+#define ESOCK_OPT_SOCK_ACCEPTCONN     1
+#define ESOCK_OPT_SOCK_BINDTODEVICE   3
+#define ESOCK_OPT_SOCK_BROADCAST      4
+#define ESOCK_OPT_SOCK_DEBUG          6
+#define ESOCK_OPT_SOCK_DOMAIN         7
+#define ESOCK_OPT_SOCK_DONTROUTE      8
+#define ESOCK_OPT_SOCK_KEEPALIVE     10
+#define ESOCK_OPT_SOCK_LINGER        11
+#define ESOCK_OPT_SOCK_OOBINLINE     13
+#define ESOCK_OPT_SOCK_PEEK_OFF      15
+#define ESOCK_OPT_SOCK_PRIORITY      17
+#define ESOCK_OPT_SOCK_PROTOCOL      18
+#define ESOCK_OPT_SOCK_RCVBUF        19
+#define ESOCK_OPT_SOCK_RCVLOWAT      21
+#define ESOCK_OPT_SOCK_RCVTIMEO      22
+#define ESOCK_OPT_SOCK_REUSEADDR     23
+#define ESOCK_OPT_SOCK_REUSEPORT     24
+#define ESOCK_OPT_SOCK_SNDBUF        27
+#define ESOCK_OPT_SOCK_SNDLOWAT      29
+#define ESOCK_OPT_SOCK_SNDTIMEO      30
+#define ESOCK_OPT_SOCK_TIMESTAMP     31
+#define ESOCK_OPT_SOCK_TYPE          32
 
-#define SOCKET_OPT_IP_ADD_MEMBERSHIP          1
-#define SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP   2
-#define SOCKET_OPT_IP_BLOCK_SOURCE            3
-#define SOCKET_OPT_IP_DROP_MEMBERSHIP         5
-#define SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
-#define SOCKET_OPT_IP_FREEBIND                7
-#define SOCKET_OPT_IP_HDRINCL                 8
-#define SOCKET_OPT_IP_MINTTL                  9
-#define SOCKET_OPT_IP_MSFILTER               10
-#define SOCKET_OPT_IP_MTU                    11
-#define SOCKET_OPT_IP_MTU_DISCOVER           12
-#define SOCKET_OPT_IP_MULTICAST_ALL          13
-#define SOCKET_OPT_IP_MULTICAST_IF           14
-#define SOCKET_OPT_IP_MULTICAST_LOOP         15
-#define SOCKET_OPT_IP_MULTICAST_TTL          16
-#define SOCKET_OPT_IP_NODEFRAG               17
-#define SOCKET_OPT_IP_PKTINFO                19
-#define SOCKET_OPT_IP_RECVDSTADDR            20
-#define SOCKET_OPT_IP_RECVERR                21
-#define SOCKET_OPT_IP_RECVIF                 22
-#define SOCKET_OPT_IP_RECVOPTS               23
-#define SOCKET_OPT_IP_RECVORIGDSTADDR        24
-#define SOCKET_OPT_IP_RECVTOS                25
-#define SOCKET_OPT_IP_RECVTTL                26
-#define SOCKET_OPT_IP_RETOPTS                27
-#define SOCKET_OPT_IP_ROUTER_ALERT           28
-#define SOCKET_OPT_IP_SENDSRCADDR            29 // Same as IP_RECVDSTADDR?
-#define SOCKET_OPT_IP_TOS                    30
-#define SOCKET_OPT_IP_TRANSPARENT            31
-#define SOCKET_OPT_IP_TTL                    32
-#define SOCKET_OPT_IP_UNBLOCK_SOURCE         33
+#define ESOCK_OPT_IP_ADD_MEMBERSHIP          1
+#define ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP   2
+#define ESOCK_OPT_IP_BLOCK_SOURCE            3
+#define ESOCK_OPT_IP_DROP_MEMBERSHIP         5
+#define ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
+#define ESOCK_OPT_IP_FREEBIND                7
+#define ESOCK_OPT_IP_HDRINCL                 8
+#define ESOCK_OPT_IP_MINTTL                  9
+#define ESOCK_OPT_IP_MSFILTER               10
+#define ESOCK_OPT_IP_MTU                    11
+#define ESOCK_OPT_IP_MTU_DISCOVER           12
+#define ESOCK_OPT_IP_MULTICAST_ALL          13
+#define ESOCK_OPT_IP_MULTICAST_IF           14
+#define ESOCK_OPT_IP_MULTICAST_LOOP         15
+#define ESOCK_OPT_IP_MULTICAST_TTL          16
+#define ESOCK_OPT_IP_NODEFRAG               17
+#define ESOCK_OPT_IP_PKTINFO                19
+#define ESOCK_OPT_IP_RECVDSTADDR            20
+#define ESOCK_OPT_IP_RECVERR                21
+#define ESOCK_OPT_IP_RECVIF                 22
+#define ESOCK_OPT_IP_RECVOPTS               23
+#define ESOCK_OPT_IP_RECVORIGDSTADDR        24
+#define ESOCK_OPT_IP_RECVTOS                25
+#define ESOCK_OPT_IP_RECVTTL                26
+#define ESOCK_OPT_IP_RETOPTS                27
+#define ESOCK_OPT_IP_ROUTER_ALERT           28
+#define ESOCK_OPT_IP_SENDSRCADDR            29 // Same as IP_RECVDSTADDR?
+#define ESOCK_OPT_IP_TOS                    30
+#define ESOCK_OPT_IP_TRANSPARENT            31
+#define ESOCK_OPT_IP_TTL                    32
+#define ESOCK_OPT_IP_UNBLOCK_SOURCE         33
 
-#define SOCKET_OPT_IPV6_ADDRFORM              1
-#define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
-#define SOCKET_OPT_IPV6_AUTHHDR               3
-#define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
-#define SOCKET_OPT_IPV6_DSTOPTS               7
-#define SOCKET_OPT_IPV6_FLOWINFO             11
-#define SOCKET_OPT_IPV6_HOPLIMIT             12
-#define SOCKET_OPT_IPV6_HOPOPTS              13
-#define SOCKET_OPT_IPV6_MTU                  17
-#define SOCKET_OPT_IPV6_MTU_DISCOVER         18
-#define SOCKET_OPT_IPV6_MULTICAST_HOPS       19
-#define SOCKET_OPT_IPV6_MULTICAST_IF         20
-#define SOCKET_OPT_IPV6_MULTICAST_LOOP       21
-#define SOCKET_OPT_IPV6_RECVERR              24
-#define SOCKET_OPT_IPV6_RECVPKTINFO          25 // PKTINFO on FreeBSD
-#define SOCKET_OPT_IPV6_ROUTER_ALERT         27
-#define SOCKET_OPT_IPV6_RTHDR                28
-#define SOCKET_OPT_IPV6_UNICAST_HOPS         30
-#define SOCKET_OPT_IPV6_V6ONLY               32
+#define ESOCK_OPT_IPV6_ADDRFORM              1
+#define ESOCK_OPT_IPV6_ADD_MEMBERSHIP        2
+#define ESOCK_OPT_IPV6_AUTHHDR               3
+#define ESOCK_OPT_IPV6_DROP_MEMBERSHIP       6
+#define ESOCK_OPT_IPV6_DSTOPTS               7
+#define ESOCK_OPT_IPV6_FLOWINFO             11
+#define ESOCK_OPT_IPV6_HOPLIMIT             12
+#define ESOCK_OPT_IPV6_HOPOPTS              13
+#define ESOCK_OPT_IPV6_MTU                  17
+#define ESOCK_OPT_IPV6_MTU_DISCOVER         18
+#define ESOCK_OPT_IPV6_MULTICAST_HOPS       19
+#define ESOCK_OPT_IPV6_MULTICAST_IF         20
+#define ESOCK_OPT_IPV6_MULTICAST_LOOP       21
+#define ESOCK_OPT_IPV6_RECVERR              24
+#define ESOCK_OPT_IPV6_RECVPKTINFO          25 // PKTINFO on FreeBSD
+#define ESOCK_OPT_IPV6_ROUTER_ALERT         27
+#define ESOCK_OPT_IPV6_RTHDR                28
+#define ESOCK_OPT_IPV6_UNICAST_HOPS         30
+#define ESOCK_OPT_IPV6_V6ONLY               32
 
-#define SOCKET_OPT_TCP_CONGESTION   1
-#define SOCKET_OPT_TCP_CORK         2
-#define SOCKET_OPT_TCP_MAXSEG       7
-#define SOCKET_OPT_TCP_NODELAY      9
+#define ESOCK_OPT_TCP_CONGESTION   1
+#define ESOCK_OPT_TCP_CORK         2
+#define ESOCK_OPT_TCP_MAXSEG       7
+#define ESOCK_OPT_TCP_NODELAY      9
 
-#define SOCKET_OPT_UDP_CORK         1
+#define ESOCK_OPT_UDP_CORK         1
 
-#define SOCKET_OPT_SCTP_ASSOCINFO           2
-#define SOCKET_OPT_SCTP_AUTOCLOSE           8
-#define SOCKET_OPT_SCTP_DISABLE_FRAGMENTS  12
-#define SOCKET_OPT_SCTP_EVENTS             14
-#define SOCKET_OPT_SCTP_INITMSG            18
-#define SOCKET_OPT_SCTP_MAXSEG             21
-#define SOCKET_OPT_SCTP_NODELAY            23
-#define SOCKET_OPT_SCTP_RTOINFO            29
+#define ESOCK_OPT_SCTP_ASSOCINFO           2
+#define ESOCK_OPT_SCTP_AUTOCLOSE           8
+#define ESOCK_OPT_SCTP_DISABLE_FRAGMENTS  12
+#define ESOCK_OPT_SCTP_EVENTS             14
+#define ESOCK_OPT_SCTP_INITMSG            18
+#define ESOCK_OPT_SCTP_MAXSEG             21
+#define ESOCK_OPT_SCTP_NODELAY            23
+#define ESOCK_OPT_SCTP_RTOINFO            29
 
 /* We should *eventually* use this instead of hard-coding the size (to 1) */
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
-#define SOCKET_CMD_DEBUG        0x0001
+#define ESOCK_CMD_DEBUG        0x0001
 
-#define SOCKET_SUPPORTS_OPTIONS 0x0001
-#define SOCKET_SUPPORTS_SCTP    0x0002
-#define SOCKET_SUPPORTS_IPV6    0x0003
-#define SOCKET_SUPPORTS_LOCAL   0x0004
+#define ESOCK_SUPPORTS_OPTIONS 0x0001
+#define ESOCK_SUPPORTS_SCTP    0x0002
+#define ESOCK_SUPPORTS_IPV6    0x0003
+#define ESOCK_SUPPORTS_LOCAL   0x0004
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
@@ -3318,7 +3320,7 @@ ERL_NIF_TERM esock_command(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
     SGDBG( ("SOCKET", "esock_command -> entry with 0x%lX\r\n", cmd) );
 
     switch (cmd) {
-    case SOCKET_CMD_DEBUG:
+    case ESOCK_CMD_DEBUG:
         result = esock_command_debug(env, ecdata);
         break;
 
@@ -3366,20 +3368,20 @@ ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
  */
 
 #if !defined(__WIN32__)
-#define SOCKET_INFO_REQ_FUNCS                                                  \
-    SOCKET_INFO_REQ_FUNC_DECL(readers,   readMtx,  currentReaderP,   readersQ) \
-    SOCKET_INFO_REQ_FUNC_DECL(writers,   writeMtx, currentWriterP,   writersQ) \
-    SOCKET_INFO_REQ_FUNC_DECL(acceptors, accMtx,   currentAcceptorP, acceptorsQ)
+#define ESOCK_INFO_REQ_FUNCS                                                  \
+    ESOCK_INFO_REQ_FUNC_DECL(readers,   readMtx,  currentReaderP,   readersQ) \
+    ESOCK_INFO_REQ_FUNC_DECL(writers,   writeMtx, currentWriterP,   writersQ) \
+    ESOCK_INFO_REQ_FUNC_DECL(acceptors, accMtx,   currentAcceptorP, acceptorsQ)
 
-#define SOCKET_INFO_REQ_FUNC_DECL(F, MTX, CRP, Q)                               \
+#define ESOCK_INFO_REQ_FUNC_DECL(F, MTX, CRP, Q)                               \
     static                                                                      \
     ERL_NIF_TERM esock_socket_info_##F(ErlNifEnv*       env,                    \
                                        ESockDescriptor* descP)                  \
     {                                                                           \
         return socket_info_reqs(env, descP, descP->MTX, descP->CRP, &descP->Q); \
     }
-SOCKET_INFO_REQ_FUNCS
-#undef SOCKET_INFO_REQ_FUNC_DECL
+ESOCK_INFO_REQ_FUNCS
+#undef ESOCK_INFO_REQ_FUNC_DECL
 
 
 static
@@ -3481,19 +3483,19 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
     SGDBG( ("SOCKET", "esock_supports -> entry with 0x%lX\r\n", key) );
 
     switch (key) {
-    case SOCKET_SUPPORTS_OPTIONS:
+    case ESOCK_SUPPORTS_OPTIONS:
         result = esock_supports_options(env);
         break;
 
-    case SOCKET_SUPPORTS_SCTP:
+    case ESOCK_SUPPORTS_SCTP:
         result = esock_supports_sctp(env);
         break;
 
-    case SOCKET_SUPPORTS_IPV6:
+    case ESOCK_SUPPORTS_IPV6:
         result = esock_supports_ipv6(env);
         break;
 
-    case SOCKET_SUPPORTS_LOCAL:
+    case ESOCK_SUPPORTS_LOCAL:
         result = esock_supports_local(env);
         break;
 
@@ -3543,7 +3545,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_SOCK_ACCEPTCONN => SO_ACCEPTCONN *** */
+    /* *** ESOCK_OPT_SOCK_ACCEPTCONN => SO_ACCEPTCONN *** */
 #if defined(SO_ACCEPTCONN)
     tmp = MKT2(env, esock_atom_acceptconn, esock_atom_true);
 #else
@@ -3552,12 +3554,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_ACCEPTFILTER => SO_ACCEPTFILTER *** */
+    /* *** ESOCK_OPT_SOCK_ACCEPTFILTER => SO_ACCEPTFILTER *** */
     tmp = MKT2(env, esock_atom_acceptfilter, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_BINDTODEVICE => SO_BINDTODEVICE *** */
+    /* *** ESOCK_OPT_SOCK_BINDTODEVICE => SO_BINDTODEVICE *** */
 #if defined(SO_BINDTODEVICE)
     tmp = MKT2(env, esock_atom_bindtodevice, esock_atom_true);
 #else
@@ -3566,7 +3568,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_BROADCAST => SO_BROADCAST *** */
+    /* *** ESOCK_OPT_SOCK_BROADCAST => SO_BROADCAST *** */
 #if defined(SO_BROADCAST)
     tmp = MKT2(env, esock_atom_broadcast, esock_atom_true);
 #else
@@ -3575,12 +3577,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_BUSY_POLL => SO_BUSY_POLL *** */
+    /* *** ESOCK_OPT_SOCK_BUSY_POLL => SO_BUSY_POLL *** */
     tmp = MKT2(env, esock_atom_busy_poll, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_DEBUG => SO_DEBUG *** */
+    /* *** ESOCK_OPT_SOCK_DEBUG => SO_DEBUG *** */
 #if defined(SO_DEBUG)
     tmp = MKT2(env, esock_atom_debug, esock_atom_true);
 #else
@@ -3589,7 +3591,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_DOMAIN => SO_DOMAIN *** */
+    /* *** ESOCK_OPT_SOCK_DOMAIN => SO_DOMAIN *** */
 #if defined(SO_DOMAIN)
     tmp = MKT2(env, esock_atom_domain, esock_atom_true);
 #else
@@ -3598,7 +3600,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_DONTROUTE => SO_DONTROUTE *** */
+    /* *** ESOCK_OPT_SOCK_DONTROUTE => SO_DONTROUTE *** */
 #if defined(SO_DONTROUTE)
     tmp = MKT2(env, esock_atom_dontroute, esock_atom_true);
 #else
@@ -3607,12 +3609,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_ERROR => SO_ERROR *** */
+    /* *** ESOCK_OPT_SOCK_ERROR => SO_ERROR *** */
     tmp = MKT2(env, esock_atom_error, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_KEEPALIVE => SO_KEEPALIVE *** */
+    /* *** ESOCK_OPT_SOCK_KEEPALIVE => SO_KEEPALIVE *** */
 #if defined(SO_KEEPALIVE)
     tmp = MKT2(env, esock_atom_keepalive, esock_atom_true);
 #else
@@ -3621,7 +3623,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_LINGER => SO_LINGER *** */
+    /* *** ESOCK_OPT_SOCK_LINGER => SO_LINGER *** */
 #if defined(SO_LINGER)
     tmp = MKT2(env, esock_atom_linger, esock_atom_true);
 #else
@@ -3630,12 +3632,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_MARK => SO_MARK *** */
+    /* *** ESOCK_OPT_SOCK_MARK => SO_MARK *** */
     tmp = MKT2(env, esock_atom_mark, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_OOBINLINE => SO_OOBINLINE *** */
+    /* *** ESOCK_OPT_SOCK_OOBINLINE => SO_OOBINLINE *** */
 #if defined(SO_OOBINLINE)
     tmp = MKT2(env, esock_atom_oobinline, esock_atom_true);
 #else
@@ -3644,12 +3646,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_PASSCRED => SO_PASSCRED *** */
+    /* *** ESOCK_OPT_PASSCRED => SO_PASSCRED *** */
     tmp = MKT2(env, esock_atom_passcred, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_PEEK_OFF => SO_PEEK_OFF *** */
+    /* *** ESOCK_OPT_SOCK_PEEK_OFF => SO_PEEK_OFF *** */
 #if defined(SO_PEEK_OFF)
     tmp = MKT2(env, esock_atom_peek_off, esock_atom_true);
 #else
@@ -3658,12 +3660,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_PEEKCRED => SO_PEEKCRED *** */
+    /* *** ESOCK_OPT_SOCK_PEEKCRED => SO_PEEKCRED *** */
     tmp = MKT2(env, esock_atom_peekcred, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_PRIORITY => SO_PRIORITY *** */
+    /* *** ESOCK_OPT_SOCK_PRIORITY => SO_PRIORITY *** */
 #if defined(SO_PRIORITY)
     tmp = MKT2(env, esock_atom_priority, esock_atom_true);
 #else
@@ -3672,7 +3674,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_PROTOCOL => SO_PROTOCOL *** */
+    /* *** ESOCK_OPT_SOCK_PROTOCOL => SO_PROTOCOL *** */
 #if defined(SO_PROTOCOL)
     tmp = MKT2(env, esock_atom_protocol, esock_atom_true);
 #else
@@ -3681,7 +3683,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_RCVBUF => SO_RCVBUF *** */
+    /* *** ESOCK_OPT_SOCK_RCVBUF => SO_RCVBUF *** */
 #if defined(SO_RCVBUF)
     tmp = MKT2(env, esock_atom_rcvbuf, esock_atom_true);
 #else
@@ -3690,12 +3692,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_RCVBUFFORCE => SO_RCVBUFFORCE *** */
+    /* *** ESOCK_OPT_SOCK_RCVBUFFORCE => SO_RCVBUFFORCE *** */
     tmp = MKT2(env, esock_atom_rcvbufforce, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_RCVLOWAT => SO_RCVLOWAT *** */
+    /* *** ESOCK_OPT_SOCK_RCVLOWAT => SO_RCVLOWAT *** */
 #if defined(SO_RCVLOWAT)
     tmp = MKT2(env, esock_atom_rcvlowat, esock_atom_true);
 #else
@@ -3704,7 +3706,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_RCVTIMEO => SO_RCVTIMEO *** */
+    /* *** ESOCK_OPT_SOCK_RCVTIMEO => SO_RCVTIMEO *** */
 #if defined(SO_RCVTIMEO)
     tmp = MKT2(env, esock_atom_rcvtimeo, esock_atom_true);
 #else
@@ -3713,7 +3715,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_REUSEADDR => SO_REUSEADDR *** */
+    /* *** ESOCK_OPT_SOCK_REUSEADDR => SO_REUSEADDR *** */
 #if defined(SO_REUSEADDR)
     tmp = MKT2(env, esock_atom_reuseaddr, esock_atom_true);
 #else
@@ -3722,7 +3724,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_REUSEPORT => SO_REUSEPORT *** */
+    /* *** ESOCK_OPT_SOCK_REUSEPORT => SO_REUSEPORT *** */
 #if defined(SO_REUSEPORT)
     tmp = MKT2(env, esock_atom_reuseport, esock_atom_true);
 #else
@@ -3731,17 +3733,17 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_RXQ_OVFL => SO_RXQ_OVFL *** */
+    /* *** ESOCK_OPT_SOCK_RXQ_OVFL => SO_RXQ_OVFL *** */
     tmp = MKT2(env, esock_atom_rxq_ovfl, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_SETFIB => SO_SETFIB *** */
+    /* *** ESOCK_OPT_SOCK_SETFIB => SO_SETFIB *** */
     tmp = MKT2(env, esock_atom_setfib, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_SNDBUF => SO_SNDBUF *** */
+    /* *** ESOCK_OPT_SOCK_SNDBUF => SO_SNDBUF *** */
 #if defined(SO_SNDBUF)
     tmp = MKT2(env, esock_atom_sndbuf, esock_atom_true);
 #else
@@ -3750,12 +3752,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_SNDBUFFORCE => SO_SNDBUFFORCE *** */
+    /* *** ESOCK_OPT_SOCK_SNDBUFFORCE => SO_SNDBUFFORCE *** */
     tmp = MKT2(env, esock_atom_sndbufforce, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_SNDLOWAT => SO_SNDLOWAT *** */
+    /* *** ESOCK_OPT_SOCK_SNDLOWAT => SO_SNDLOWAT *** */
 #if defined(SO_SNDLOWAT)
     tmp = MKT2(env, esock_atom_sndlowat, esock_atom_true);
 #else
@@ -3764,7 +3766,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_SNDTIMEO => SO_SNDTIMEO *** */
+    /* *** ESOCK_OPT_SOCK_SNDTIMEO => SO_SNDTIMEO *** */
 #if defined(SO_SNDTIMEO)
     tmp = MKT2(env, esock_atom_sndtimeo, esock_atom_true);
 #else
@@ -3773,7 +3775,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_TIMESTAMP => SO_TIMESTAMP *** */
+    /* *** ESOCK_OPT_SOCK_TIMESTAMP => SO_TIMESTAMP *** */
 #if defined(SO_TIMESTAMP)
     tmp = MKT2(env, esock_atom_timestamp, esock_atom_true);
 #else
@@ -3782,7 +3784,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SOCK_TYPE => SO_TYPE *** */
+    /* *** ESOCK_OPT_SOCK_TYPE => SO_TYPE *** */
 #if defined(SO_TYPE)
     tmp = MKT2(env, esock_atom_type, esock_atom_true);
 #else
@@ -3807,7 +3809,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_IP_ADD_MEMBERSHIP => IP_ADD_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IP_ADD_MEMBERSHIP => IP_ADD_MEMBERSHIP *** */
 #if defined(IP_ADD_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_add_membership, esock_atom_true);
 #else
@@ -3816,7 +3818,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP => IP_ADD_SOURCE_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP => IP_ADD_SOURCE_MEMBERSHIP *** */
 #if defined(IP_ADD_SOURCE_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_add_source_membership, esock_atom_true);
 #else
@@ -3825,7 +3827,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_BLOCK_SOURCE => IP_BLOCK_SOURCE *** */
+    /* *** ESOCK_OPT_IP_BLOCK_SOURCE => IP_BLOCK_SOURCE *** */
 #if defined(IP_BLOCK_SOURCE)
     tmp = MKT2(env, esock_atom_block_source, esock_atom_true);
 #else
@@ -3834,12 +3836,12 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_DONTFRAG => IP_DONTFRAG *** */
+    /* *** ESOCK_OPT_IP_DONTFRAG => IP_DONTFRAG *** */
     tmp = MKT2(env, esock_atom_dontfrag, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_DROP_MEMBERSHIP => IP_DROP_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IP_DROP_MEMBERSHIP => IP_DROP_MEMBERSHIP *** */
 #if defined(IP_DROP_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_drop_membership, esock_atom_true);
 #else
@@ -3848,7 +3850,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP => IP_DROP_SOURCE_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP => IP_DROP_SOURCE_MEMBERSHIP *** */
 #if defined(IP_DROP_SOURCE_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_drop_source_membership, esock_atom_true);
 #else
@@ -3857,7 +3859,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_FREEBIND => IP_FREEBIND *** */
+    /* *** ESOCK_OPT_IP_FREEBIND => IP_FREEBIND *** */
 #if defined(IP_FREEBIND)
     tmp = MKT2(env, esock_atom_freebind, esock_atom_true);
 #else
@@ -3866,7 +3868,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_HDRINCL => IP_HDRINCL *** */
+    /* *** ESOCK_OPT_IP_HDRINCL => IP_HDRINCL *** */
 #if defined(IP_HDRINCL)
     tmp = MKT2(env, esock_atom_hdrincl, esock_atom_true);
 #else
@@ -3875,7 +3877,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MINTTL => IP_MINTTL *** */
+    /* *** ESOCK_OPT_IP_MINTTL => IP_MINTTL *** */
 #if defined(IP_MINTTL)
     tmp = MKT2(env, esock_atom_minttl, esock_atom_true);
 #else
@@ -3884,7 +3886,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MSFILTER => IP_MSFILTER / IP_MSFILTER_SIZE *** */
+    /* *** ESOCK_OPT_IP_MSFILTER => IP_MSFILTER / IP_MSFILTER_SIZE *** */
 #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
     tmp = MKT2(env, esock_atom_msfilter, esock_atom_true);
 #else
@@ -3893,12 +3895,12 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MTU => IP_MTU *** */
+    /* *** ESOCK_OPT_IP_MTU => IP_MTU *** */
     tmp = MKT2(env, esock_atom_mtu, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MTU_DISCOVER => IP_MTU_DISCOVER *** */
+    /* *** ESOCK_OPT_IP_MTU_DISCOVER => IP_MTU_DISCOVER *** */
 #if defined(IP_MTU_DISCOVER)
     tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_true);
 #else
@@ -3907,7 +3909,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MULTICAST_ALL => IP_MULTICAST_ALL *** */
+    /* *** ESOCK_OPT_IP_MULTICAST_ALL => IP_MULTICAST_ALL *** */
 #if defined(IP_MULTICAST_ALL)
     tmp = MKT2(env, esock_atom_multicast_all, esock_atom_true);
 #else
@@ -3916,7 +3918,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MULTICAST_IF => IP_MULTICAST_IF *** */
+    /* *** ESOCK_OPT_IP_MULTICAST_IF => IP_MULTICAST_IF *** */
 #if defined(IP_MULTICAST_IF)
     tmp = MKT2(env, esock_atom_multicast_if, esock_atom_true);
 #else
@@ -3925,7 +3927,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MULTICAST_LOOP => IP_MULTICAST_LOOP *** */
+    /* *** ESOCK_OPT_IP_MULTICAST_LOOP => IP_MULTICAST_LOOP *** */
 #if defined(IP_MULTICAST_LOOP)
     tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_true);
 #else
@@ -3934,7 +3936,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_MULTICAST_TTL => IP_MULTICAST_TTL *** */
+    /* *** ESOCK_OPT_IP_MULTICAST_TTL => IP_MULTICAST_TTL *** */
 #if defined(IP_MULTICAST_TTL)
     tmp = MKT2(env, esock_atom_multicast_ttl, esock_atom_true);
 #else
@@ -3943,7 +3945,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_NODEFRAG => IP_NODEFRAG *** */
+    /* *** ESOCK_OPT_IP_NODEFRAG => IP_NODEFRAG *** */
 #if defined(IP_NODEFRAG)
     tmp = MKT2(env, esock_atom_nodefrag, esock_atom_true);
 #else
@@ -3952,12 +3954,12 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_OPTIONS => IP_OPTIONS *** */
+    /* *** ESOCK_OPT_IP_OPTIONS => IP_OPTIONS *** */
     tmp = MKT2(env, esock_atom_options, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_PKTINFO => IP_PKTINFO *** */
+    /* *** ESOCK_OPT_IP_PKTINFO => IP_PKTINFO *** */
 #if defined(IP_PKTINFO)
     tmp = MKT2(env, esock_atom_pktinfo, esock_atom_true);
 #else
@@ -3966,7 +3968,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVDSTADDR => IP_RECVDSTADDR *** */
+    /* *** ESOCK_OPT_IP_RECVDSTADDR => IP_RECVDSTADDR *** */
 #if defined(IP_RECVDSTADDR)
     tmp = MKT2(env, esock_atom_recvdstaddr, esock_atom_true);
 #else
@@ -3975,7 +3977,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVERR => IP_RECVERR *** */
+    /* *** ESOCK_OPT_IP_RECVERR => IP_RECVERR *** */
 #if defined(IP_RECVERR)
     tmp = MKT2(env, esock_atom_recverr, esock_atom_true);
 #else
@@ -3984,7 +3986,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVIF => IP_RECVIF *** */
+    /* *** ESOCK_OPT_IP_RECVIF => IP_RECVIF *** */
 #if defined(IP_RECVIF)
     tmp = MKT2(env, esock_atom_recvif, esock_atom_true);
 #else
@@ -3993,7 +3995,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVOPTS => IP_RECVOPTS *** */
+    /* *** ESOCK_OPT_IP_RECVOPTS => IP_RECVOPTS *** */
 #if defined(IP_RECVOPTS)
     tmp = MKT2(env, esock_atom_recvopts, esock_atom_true);
 #else
@@ -4002,7 +4004,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVORIGDSTADDR => IP_RECVORIGDSTADDR *** */
+    /* *** ESOCK_OPT_IP_RECVORIGDSTADDR => IP_RECVORIGDSTADDR *** */
 #if defined(IP_RECVORIGDSTADDR)
     tmp = MKT2(env, esock_atom_recvorigdstaddr, esock_atom_true);
 #else
@@ -4011,7 +4013,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVTOS => IP_RECVTOS *** */
+    /* *** ESOCK_OPT_IP_RECVTOS => IP_RECVTOS *** */
 #if defined(IP_RECVTOS)
     tmp = MKT2(env, esock_atom_recvtos, esock_atom_true);
 #else
@@ -4020,7 +4022,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RECVTTL => IP_RECVTTL *** */
+    /* *** ESOCK_OPT_IP_RECVTTL => IP_RECVTTL *** */
 #if defined(IP_RECVTTL)
     tmp = MKT2(env, esock_atom_recvttl, esock_atom_true);
 #else
@@ -4029,7 +4031,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_RETOPTS => IP_RETOPTS *** */
+    /* *** ESOCK_OPT_IP_RETOPTS => IP_RETOPTS *** */
 #if defined(IP_RETOPTS)
     tmp = MKT2(env, esock_atom_retopts, esock_atom_true);
 #else
@@ -4038,7 +4040,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_ROUTER_ALERT => IP_ROUTER_ALERT *** */
+    /* *** ESOCK_OPT_IP_ROUTER_ALERT => IP_ROUTER_ALERT *** */
 #if defined(IP_ROUTER_ALERT)
     tmp = MKT2(env, esock_atom_router_alert, esock_atom_true);
 #else
@@ -4047,7 +4049,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_SENDSRCADDR => IP_SENDSRCADDR *** */
+    /* *** ESOCK_OPT_IP_SENDSRCADDR => IP_SENDSRCADDR *** */
 #if defined(IP_SENDSRCADDR)
     tmp = MKT2(env, esock_atom_sendsrcaddr, esock_atom_true);
 #else
@@ -4056,7 +4058,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_TOS => IP_TOS *** */
+    /* *** ESOCK_OPT_IP_TOS => IP_TOS *** */
 #if defined(IP_TOS)
     tmp = MKT2(env, esock_atom_tos, esock_atom_true);
 #else
@@ -4065,7 +4067,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_TRANSPARENT => IP_TRANSPARENT *** */
+    /* *** ESOCK_OPT_IP_TRANSPARENT => IP_TRANSPARENT *** */
 #if defined(IP_TRANSPARENT)
     tmp = MKT2(env, esock_atom_transparent, esock_atom_true);
 #else
@@ -4074,7 +4076,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_TTL => IP_TTL *** */
+    /* *** ESOCK_OPT_IP_TTL => IP_TTL *** */
 #if defined(IP_TTL)
     tmp = MKT2(env, esock_atom_ttl, esock_atom_true);
 #else
@@ -4083,7 +4085,7 @@ ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IP_UNBLOCK_SOURCE => IP_UNBLOCK_SOURCE *** */
+    /* *** ESOCK_OPT_IP_UNBLOCK_SOURCE => IP_UNBLOCK_SOURCE *** */
 #if defined(IP_UNBLOCK_SOURCE)
     tmp = MKT2(env, esock_atom_unblock_source, esock_atom_true);
 #else
@@ -4108,7 +4110,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_IPV6_ADDRFORM => IPV6_ADDRFORM *** */
+    /* *** ESOCK_OPT_IPV6_ADDRFORM => IPV6_ADDRFORM *** */
 #if defined(IPV6_ADDRFORM)
     tmp = MKT2(env, esock_atom_addrform, esock_atom_true);
 #else
@@ -4117,7 +4119,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_ADD_MEMBERSHIP => IPV6_ADD_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IPV6_ADD_MEMBERSHIP => IPV6_ADD_MEMBERSHIP *** */
 #if defined(IPV6_ADD_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_add_membership, esock_atom_true);
 #else
@@ -4126,7 +4128,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_AUTHHDR => IPV6_AUTHHDR *** */
+    /* *** ESOCK_OPT_IPV6_AUTHHDR => IPV6_AUTHHDR *** */
 #if defined(IPV6_AUTHHDR)
     tmp = MKT2(env, esock_atom_authhdr, esock_atom_true);
 #else
@@ -4135,17 +4137,17 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_AUTH_LEVEL => IPV6_AUTH_LEVEL *** */
+    /* *** ESOCK_OPT_IPV6_AUTH_LEVEL => IPV6_AUTH_LEVEL *** */
     tmp = MKT2(env, esock_atom_auth_level, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_CHECKSUM => IPV6_CHECKSUM *** */
+    /* *** ESOCK_OPT_IPV6_CHECKSUM => IPV6_CHECKSUM *** */
     tmp = MKT2(env, esock_atom_checksum, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_DROP_MEMBERSHIP => IPV6_DROP_MEMBERSHIP *** */
+    /* *** ESOCK_OPT_IPV6_DROP_MEMBERSHIP => IPV6_DROP_MEMBERSHIP *** */
 #if defined(IPV6_DROP_MEMBERSHIP)
     tmp = MKT2(env, esock_atom_drop_membership, esock_atom_true);
 #else
@@ -4154,7 +4156,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_DSTOPTS => IPV6_DSTOPTS *** */
+    /* *** ESOCK_OPT_IPV6_DSTOPTS => IPV6_DSTOPTS *** */
 #if defined(IPV6_DSTOPTS)
     tmp = MKT2(env, esock_atom_dstopts, esock_atom_true);
 #else
@@ -4163,22 +4165,22 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL => IPV6_ESP_NETWORK_LEVEL *** */
+    /* *** ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL => IPV6_ESP_NETWORK_LEVEL *** */
     tmp = MKT2(env, esock_atom_esp_network_level, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_ESP_TRANS_LEVEL => IPV6_ESP_TRANS_LEVEL *** */
+    /* *** ESOCK_OPT_IPV6_ESP_TRANS_LEVEL => IPV6_ESP_TRANS_LEVEL *** */
     tmp = MKT2(env, esock_atom_esp_trans_level, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_FAITH => IPV6_FAITH *** */
+    /* *** ESOCK_OPT_IPV6_FAITH => IPV6_FAITH *** */
     tmp = MKT2(env, esock_atom_faith, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_FLOWINFO => IPV6_FLOWINFO *** */
+    /* *** ESOCK_OPT_IPV6_FLOWINFO => IPV6_FLOWINFO *** */
 #if defined(IPV6_FLOWINFO)
     tmp = MKT2(env, esock_atom_flowinfo, esock_atom_true);
 #else
@@ -4187,7 +4189,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_HOPLIMIT => IPV6_HOPLIMIT *** */
+    /* *** ESOCK_OPT_IPV6_HOPLIMIT => IPV6_HOPLIMIT *** */
 #if defined(IPV6_HOPLIMIT)
     tmp = MKT2(env, esock_atom_hoplimit, esock_atom_true);
 #else
@@ -4196,7 +4198,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_HOPOPTS => IPV6_HOPOPTS *** */
+    /* *** ESOCK_OPT_IPV6_HOPOPTS => IPV6_HOPOPTS *** */
 #if defined(IPV6_HOPOPTS)
     tmp = MKT2(env, esock_atom_hopopts, esock_atom_true);
 #else
@@ -4205,22 +4207,22 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_IPCOMP_LEVEL => IPV6_IPCOMP_LEVEL *** */
+    /* *** ESOCK_OPT_IPV6_IPCOMP_LEVEL => IPV6_IPCOMP_LEVEL *** */
     tmp = MKT2(env, esock_atom_ipcomp_level, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_JOIN_GROUP => IPV6_JOIN_GROUP *** */
+    /* *** ESOCK_OPT_IPV6_JOIN_GROUP => IPV6_JOIN_GROUP *** */
     tmp = MKT2(env, esock_atom_join_group, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_LEAVE_GROUP => IPV6_LEAVE_GROUP *** */
+    /* *** ESOCK_OPT_IPV6_LEAVE_GROUP => IPV6_LEAVE_GROUP *** */
     tmp = MKT2(env, esock_atom_leave_group, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_MTU => IPV6_MTU *** */
+    /* *** ESOCK_OPT_IPV6_MTU => IPV6_MTU *** */
 #if defined(IPV6_MTU)
     tmp = MKT2(env, esock_atom_mtu, esock_atom_true);
 #else
@@ -4229,7 +4231,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_MTU_DISCOVER => IPV6_MTU_DISCOVER *** */
+    /* *** ESOCK_OPT_IPV6_MTU_DISCOVER => IPV6_MTU_DISCOVER *** */
 #if defined(IPV6_MTU_DISCOVER)
     tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_true);
 #else
@@ -4238,7 +4240,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_MULTICAST_HOPS => IPV6_MULTICAST_HOPS *** */
+    /* *** ESOCK_OPT_IPV6_MULTICAST_HOPS => IPV6_MULTICAST_HOPS *** */
 #if defined(IPV6_MULTICAST_HOPS)
     tmp = MKT2(env, esock_atom_multicast_hops, esock_atom_true);
 #else
@@ -4247,7 +4249,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_MULTICAST_IF => IPV6_MULTICAST_IF *** */
+    /* *** ESOCK_OPT_IPV6_MULTICAST_IF => IPV6_MULTICAST_IF *** */
 #if defined(IPV6_MULTICAST_IF)
     tmp = MKT2(env, esock_atom_multicast_if, esock_atom_true);
 #else
@@ -4256,7 +4258,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_MULTICAST_LOOP => IPV6_MULTICAST_LOOP *** */
+    /* *** ESOCK_OPT_IPV6_MULTICAST_LOOP => IPV6_MULTICAST_LOOP *** */
 #if defined(IPV6_MULTICAST_LOOP)
     tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_true);
 #else
@@ -4265,17 +4267,17 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_PORTRANGE => IPV6_PORTRANGE *** */
+    /* *** ESOCK_OPT_IPV6_PORTRANGE => IPV6_PORTRANGE *** */
     tmp = MKT2(env, esock_atom_portrange, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_PKTOPTIONS => IPV6_PKTOPTIONS *** */
+    /* *** ESOCK_OPT_IPV6_PKTOPTIONS => IPV6_PKTOPTIONS *** */
     tmp = MKT2(env, esock_atom_pktoptions, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_RECVERR => IPV6_RECVERR *** */
+    /* *** ESOCK_OPT_IPV6_RECVERR => IPV6_RECVERR *** */
 #if defined(IPV6_RECVERR)
     tmp = MKT2(env, esock_atom_recverr, esock_atom_true);
 #else
@@ -4284,7 +4286,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_RECVPKTINFO => IPV6_RECVPKTINFO *** */
+    /* *** ESOCK_OPT_IPV6_RECVPKTINFO => IPV6_RECVPKTINFO *** */
 #if defined(IPV6_RECVPKTINFO)
     tmp = MKT2(env, esock_atom_recvpktinfo, esock_atom_true);
 #else
@@ -4293,12 +4295,12 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_RECVTCLASS => IPV6_RECVTCLASS *** */
+    /* *** ESOCK_OPT_IPV6_RECVTCLASS => IPV6_RECVTCLASS *** */
     tmp = MKT2(env, esock_atom_recvtclass, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_ROUTER_ALERT => IPV6_ROUTER_ALERT *** */
+    /* *** ESOCK_OPT_IPV6_ROUTER_ALERT => IPV6_ROUTER_ALERT *** */
 #if defined(IPV6_ROUTER_ALERT)
     tmp = MKT2(env, esock_atom_router_alert, esock_atom_true);
 #else
@@ -4307,7 +4309,7 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_RTHDR => IPV6_RTHDR *** */
+    /* *** ESOCK_OPT_IPV6_RTHDR => IPV6_RTHDR *** */
 #if defined(IPV6_RTHDR)
     tmp = MKT2(env, esock_atom_rthdr, esock_atom_true);
 #else
@@ -4316,12 +4318,12 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_TCLASS => IPV6_TCLASS *** */
+    /* *** ESOCK_OPT_IPV6_TCLASS => IPV6_TCLASS *** */
     tmp = MKT2(env, esock_atom_tclass, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_UNICAST_HOPS => IPV6_UNICAST_HOPS *** */
+    /* *** ESOCK_OPT_IPV6_UNICAST_HOPS => IPV6_UNICAST_HOPS *** */
 #if defined(IPV6_UNICAST_HOPS)
     tmp = MKT2(env, esock_atom_unicast_hops, esock_atom_true);
 #else
@@ -4330,12 +4332,12 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_USE_MIN_MTU => IPV6_USE_MIN_MTU *** */
+    /* *** ESOCK_OPT_IPV6_USE_MIN_MTU => IPV6_USE_MIN_MTU *** */
     tmp = MKT2(env, esock_atom_use_min_mtu, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_IPV6_V6ONLY => IPV6_V6ONLY *** */
+    /* *** ESOCK_OPT_IPV6_V6ONLY => IPV6_V6ONLY *** */
 #if defined(IPV6_V6ONLY)
     tmp = MKT2(env, esock_atom_v6only, esock_atom_true);
 #else
@@ -4360,7 +4362,7 @@ ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_TCP_CONGESTION => TCP_CONGESTION *** */
+    /* *** ESOCK_OPT_TCP_CONGESTION => TCP_CONGESTION *** */
 #if defined(TCP_CONGESTION)
     tmp = MKT2(env, esock_atom_congestion, esock_atom_true);
 #else
@@ -4369,7 +4371,7 @@ ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_CORK => TCP_CORK *** */
+    /* *** ESOCK_OPT_TCP_CORK => TCP_CORK *** */
 #if defined(TCP_CORK)
     tmp = MKT2(env, esock_atom_cork, esock_atom_true);
 #else
@@ -4378,27 +4380,27 @@ ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_INFO => TCP_INFO *** */
+    /* *** ESOCK_OPT_TCP_INFO => TCP_INFO *** */
     tmp = MKT2(env, esock_atom_info, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_KEEPCNT => TCP_KEEPCNT *** */
+    /* *** ESOCK_OPT_TCP_KEEPCNT => TCP_KEEPCNT *** */
     tmp = MKT2(env, esock_atom_keepcnt, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_KEEPIDLE => TCP_KEEPIDLE *** */
+    /* *** ESOCK_OPT_TCP_KEEPIDLE => TCP_KEEPIDLE *** */
     tmp = MKT2(env, esock_atom_keepidle, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_KEEPINTVL => TCP_KEEPINTVL *** */
+    /* *** ESOCK_OPT_TCP_KEEPINTVL => TCP_KEEPINTVL *** */
     tmp = MKT2(env, esock_atom_keepintvl, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_MAXSEG => TCP_MAXSEG *** */
+    /* *** ESOCK_OPT_TCP_MAXSEG => TCP_MAXSEG *** */
 #if defined(TCP_MAXSEG)
     tmp = MKT2(env, esock_atom_maxseg, esock_atom_true);
 #else
@@ -4407,12 +4409,12 @@ ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_MD5SIG => TCP_MD5SIG *** */
+    /* *** ESOCK_OPT_TCP_MD5SIG => TCP_MD5SIG *** */
     tmp = MKT2(env, esock_atom_md5sig, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_NODELAY => TCP_NODELAY *** */
+    /* *** ESOCK_OPT_TCP_NODELAY => TCP_NODELAY *** */
 #if defined(TCP_NODELAY)
     tmp = MKT2(env, esock_atom_nodelay, esock_atom_true);
 #else
@@ -4421,22 +4423,22 @@ ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_NOOPT => TCP_NOOPT *** */
+    /* *** ESOCK_OPT_TCP_NOOPT => TCP_NOOPT *** */
     tmp = MKT2(env, esock_atom_noopt, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_NOPUSH => TCP_NOPUSH *** */
+    /* *** ESOCK_OPT_TCP_NOPUSH => TCP_NOPUSH *** */
     tmp = MKT2(env, esock_atom_nopush, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_SYNCNT => TCP_SYNCNT *** */
+    /* *** ESOCK_OPT_TCP_SYNCNT => TCP_SYNCNT *** */
     tmp = MKT2(env, esock_atom_syncnt, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_TCP_USER_TIMEOUT => TCP_USER_TIMEOUT *** */
+    /* *** ESOCK_OPT_TCP_USER_TIMEOUT => TCP_USER_TIMEOUT *** */
     tmp = MKT2(env, esock_atom_user_timeout, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
@@ -4457,7 +4459,7 @@ ERL_NIF_TERM esock_supports_options_udp(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_UDP_CORK => UDP_CORK *** */
+    /* *** ESOCK_OPT_UDP_CORK => UDP_CORK *** */
 #if defined(UDP_CORK)
     tmp = MKT2(env, esock_atom_cork, esock_atom_true);
 #else
@@ -4482,12 +4484,12 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     ERL_NIF_TERM tmp, optsL;
 
 
-    /* *** SOCKET_OPT_SCTP_ADAPTION_LAYER => SCTP_ADAPTION_LAYER *** */
+    /* *** ESOCK_OPT_SCTP_ADAPTION_LAYER => SCTP_ADAPTION_LAYER *** */
     tmp = MKT2(env, esock_atom_adaption_layer, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_ASSOCINFO => SCTP_ASSOCINFO *** */
+    /* *** ESOCK_OPT_SCTP_ASSOCINFO => SCTP_ASSOCINFO *** */
 #if defined(SCTP_ASSOCINFO)
     tmp = MKT2(env, esock_atom_associnfo, esock_atom_true);
 #else
@@ -4496,32 +4498,32 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTH_ACTIVE_KEY => SCTP_AUTH_ACTIVE_KEY *** */
+    /* *** ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY => SCTP_AUTH_ACTIVE_KEY *** */
     tmp = MKT2(env, esock_atom_auth_active_key, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTH_ASCONF => SCTP_AUTH_ASCONF *** */
+    /* *** ESOCK_OPT_SCTP_AUTH_ASCONF => SCTP_AUTH_ASCONF *** */
     tmp = MKT2(env, esock_atom_auth_asconf, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTH_CHUNK => SCTP_AUTH_CHUNK *** */
+    /* *** ESOCK_OPT_SCTP_AUTH_CHUNK => SCTP_AUTH_CHUNK *** */
     tmp = MKT2(env, esock_atom_auth_chunk, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTH_DELETE_KEY => SCTP_AUTH_DELETE_KEY *** */
+    /* *** ESOCK_OPT_SCTP_AUTH_DELETE_KEY => SCTP_AUTH_DELETE_KEY *** */
     tmp = MKT2(env, esock_atom_auth_delete_key, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTH_KEY => SCTP_AUTH_KEY *** */
+    /* *** ESOCK_OPT_SCTP_AUTH_KEY => SCTP_AUTH_KEY *** */
     tmp = MKT2(env, esock_atom_auth_key, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_AUTOCLOSE => SCTP_AUTOCLOSE *** */
+    /* *** ESOCK_OPT_SCTP_AUTOCLOSE => SCTP_AUTOCLOSE *** */
 #if defined(SCTP_AUTOCLOSE)
     tmp = MKT2(env, esock_atom_autoclose, esock_atom_true);
 #else
@@ -4530,22 +4532,22 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_CONTEXT => SCTP_CONTEXT *** */
+    /* *** ESOCK_OPT_SCTP_CONTEXT => SCTP_CONTEXT *** */
     tmp = MKT2(env, esock_atom_context, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_DEFAULT_SEND_PARAMS => SCTP_DEFAULT_SEND_PARAMS *** */
+    /* *** ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS => SCTP_DEFAULT_SEND_PARAMS *** */
     tmp = MKT2(env, esock_atom_default_send_params, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_DELAYED_ACK_TIME => SCTP_DELAYED_ACK_TIME *** */
+    /* *** ESOCK_OPT_SCTP_DELAYED_ACK_TIME => SCTP_DELAYED_ACK_TIME *** */
     tmp = MKT2(env, esock_atom_delayed_ack_time, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_DISABLE_FRAGMENTS => SCTP_DISABLE_FRAGMENTS *** */
+    /* *** ESOCK_OPT_SCTP_DISABLE_FRAGMENTS => SCTP_DISABLE_FRAGMENTS *** */
 #if defined(SCTP_DISABLE_FRAGMENTS)
     tmp = MKT2(env, esock_atom_disable_fragments, esock_atom_true);
 #else
@@ -4554,12 +4556,12 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_HMAC_IDENT => SCTP_HMAC_IDENT *** */
+    /* *** ESOCK_OPT_SCTP_HMAC_IDENT => SCTP_HMAC_IDENT *** */
     tmp = MKT2(env, esock_atom_hmac_ident, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_EVENTS => SCTP_EVENTS *** */
+    /* *** ESOCK_OPT_SCTP_EVENTS => SCTP_EVENTS *** */
 #if defined(SCTP_EVENTS)
     tmp = MKT2(env, esock_atom_events, esock_atom_true);
 #else
@@ -4568,22 +4570,22 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_EXPLICIT_EOR => SCTP_EXPLICIT_EOR *** */
+    /* *** ESOCK_OPT_SCTP_EXPLICIT_EOR => SCTP_EXPLICIT_EOR *** */
     tmp = MKT2(env, esock_atom_explicit_eor, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE => SCTP_FRAGMENT_INTERLEAVE *** */
+    /* *** ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE => SCTP_FRAGMENT_INTERLEAVE *** */
     tmp = MKT2(env, esock_atom_fragment_interleave, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO => SCTP_GET_PEER_ADDR_INFO *** */
+    /* *** ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO => SCTP_GET_PEER_ADDR_INFO *** */
     tmp = MKT2(env, esock_atom_get_peer_addr_info, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_INITMSG => SCTP_INITMSG *** */
+    /* *** ESOCK_OPT_SCTP_INITMSG => SCTP_INITMSG *** */
 #if defined(SCTP_INITMSG)
     tmp = MKT2(env, esock_atom_initmsg, esock_atom_true);
 #else
@@ -4592,17 +4594,17 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR => SCTP_I_WANT_MAPPED_V4_ADDR *** */
+    /* *** ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR => SCTP_I_WANT_MAPPED_V4_ADDR *** */
     tmp = MKT2(env, esock_atom_i_want_mapped_v4_addr, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS => SCTP_LOCAL_AUTH_CHUNKS *** */
+    /* *** ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS => SCTP_LOCAL_AUTH_CHUNKS *** */
     tmp = MKT2(env, esock_atom_local_auth_chunks, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_MAXSEG => SCTP_MAXSEG *** */
+    /* *** ESOCK_OPT_SCTP_MAXSEG => SCTP_MAXSEG *** */
 #if defined(SCTP_MAXSEG)
     tmp = MKT2(env, esock_atom_maxseg, esock_atom_true);
 #else
@@ -4611,12 +4613,12 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_MAXBURST => SCTP_MAXBURST *** */
+    /* *** ESOCK_OPT_SCTP_MAXBURST => SCTP_MAXBURST *** */
     tmp = MKT2(env, esock_atom_maxburst, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_NODELAY => SCTP_NODELAY *** */
+    /* *** ESOCK_OPT_SCTP_NODELAY => SCTP_NODELAY *** */
 #if defined(SCTP_NODELAY)
     tmp = MKT2(env, esock_atom_nodelay, esock_atom_true);
 #else
@@ -4625,32 +4627,32 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT => SCTP_PARTIAL_DELIVERY_POINT *** */
+    /* *** ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT => SCTP_PARTIAL_DELIVERY_POINT *** */
     tmp = MKT2(env, esock_atom_partial_delivery_point, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_PEER_ADDR_PARAMS => SCTP_PEER_ADDR_PARAMS *** */
+    /* *** ESOCK_OPT_SCTP_PEER_ADDR_PARAMS => SCTP_PEER_ADDR_PARAMS *** */
     tmp = MKT2(env, esock_atom_peer_addr_params, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS => SCTP_PEER_AUTH_CHUNKS *** */
+    /* *** ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS => SCTP_PEER_AUTH_CHUNKS *** */
     tmp = MKT2(env, esock_atom_peer_auth_chunks, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_PRIMARY_ADDR => SCTP_PRIMARY_ADDR *** */
+    /* *** ESOCK_OPT_SCTP_PRIMARY_ADDR => SCTP_PRIMARY_ADDR *** */
     tmp = MKT2(env, esock_atom_primary_addr, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_RESET_STREAMS => SCTP_RESET_STREAMS *** */
+    /* *** ESOCK_OPT_SCTP_RESET_STREAMS => SCTP_RESET_STREAMS *** */
     tmp = MKT2(env, esock_atom_reset_streams, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_RTOINFO => SCTP_RTOINFO *** */
+    /* *** ESOCK_OPT_SCTP_RTOINFO => SCTP_RTOINFO *** */
 #if defined(SCTP_RTOINFO)
     tmp = MKT2(env, esock_atom_rtoinfo, esock_atom_true);
 #else
@@ -4659,17 +4661,17 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR => SCTP_SET_PEER_PRIMARY_ADDR *** */
+    /* *** ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR => SCTP_SET_PEER_PRIMARY_ADDR *** */
     tmp = MKT2(env, esock_atom_set_peer_primary_addr, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_STATUS => SCTP_STATUS *** */
+    /* *** ESOCK_OPT_SCTP_STATUS => SCTP_STATUS *** */
     tmp = MKT2(env, esock_atom_status, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** SOCKET_OPT_SCTP_USE_EXT_RECVINFO => SCTP_USE_EXT_RECVINFO *** */
+    /* *** ESOCK_OPT_SCTP_USE_EXT_RECVINFO => SCTP_USE_EXT_RECVINFO *** */
     tmp = MKT2(env, esock_atom_use_ext_recvinfo, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
@@ -4919,7 +4921,7 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
         return enif_make_badarg(env);
     }
 
-    descP->state    = SOCKET_STATE_OPEN;
+    descP->state    = ESOCK_STATE_OPEN;
     descP->domain   = domain;
     descP->type     = type;
     descP->protocol = proto;
@@ -5138,7 +5140,7 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     /* Make sure we are ready
      * Not sure how this would even happen, but...
      */
-    if (descP->state != SOCKET_STATE_OPEN)
+    if (descP->state != ESOCK_STATE_OPEN)
         return esock_make_error(env, atom_exbadstate);
 
     if ((xres = esock_decode_sockaddr(env, eSockAddr, &sockAddr, &addrLen)) != NULL)
@@ -5330,7 +5332,7 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
                          &descP->connMon) != 0)
                     return esock_make_error(env, atom_exmon);
 
-                descP->state = SOCKET_STATE_CONNECTING;
+                descP->state = ESOCK_STATE_CONNECTING;
 
                 if ((sres = esock_select_write(env, descP->sock, descP, NULL,
                                                sockRef, ref)) < 0) {
@@ -5351,10 +5353,10 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
                 /* This is ***strange*** so make sure */
                 int err = 0;
                 if (!verify_is_connected(descP, &err)) {
-                    descP->state = SOCKET_STATE_OPEN;  /* restore state */
+                    descP->state = ESOCK_STATE_OPEN;  /* restore state */
                     res = esock_make_error_errno(env, err);
                 } else {
-                    descP->state = SOCKET_STATE_CONNECTED;
+                    descP->state = ESOCK_STATE_CONNECTED;
                     /* And just to be on the safe side, reset these */
                     enif_set_pid_undefined(&descP->connPid);
                     DEMONP("esock_connect -> connected",
@@ -5377,7 +5379,7 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
 
         SSDBG( descP, ("SOCKET", "esock_connect -> connected\r\n") );
 
-        descP->state      = SOCKET_STATE_CONNECTED;
+        descP->state      = ESOCK_STATE_CONNECTED;
         enif_set_pid_undefined(&descP->connPid);
         DEMONP("esock_connect -> connected", env, descP, &descP->connMon);
         descP->isReadable = TRUE;
@@ -5449,11 +5451,11 @@ ERL_NIF_TERM esock_finalize_connection(ErlNifEnv*       env,
         return esock_make_error(env, atom_enotconn);
 
     if (!verify_is_connected(descP, &error)) {
-        descP->state = SOCKET_STATE_OPEN;  /* restore state */
+        descP->state = ESOCK_STATE_OPEN;  /* restore state */
         return esock_make_error_errno(env, error);
     }
 
-    descP->state      = SOCKET_STATE_CONNECTED;
+    descP->state      = ESOCK_STATE_CONNECTED;
     enif_set_pid_undefined(&descP->connPid);
     DEMONP("esock_finalize_connection -> connected",
            env, descP, &descP->connMon);
@@ -5601,7 +5603,7 @@ ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
     if (IS_CLOSED(descP) || IS_CLOSING(descP))
         return esock_make_error(env, atom_closed);
     
-    if (descP->state == SOCKET_STATE_CLOSED)
+    if (descP->state == ESOCK_STATE_CLOSED)
         return esock_make_error(env, atom_exbadstate);
 
     if (!IS_OPEN(descP))
@@ -5615,7 +5617,7 @@ ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
     if (IS_SOCKET_ERROR(sock_listen(descP->sock, backlog)))
         return esock_make_error_errno(env, sock_errno());
 
-    descP->state = SOCKET_STATE_LISTENING;
+    descP->state = ESOCK_STATE_LISTENING;
 
     return esock_atom_ok;
 
@@ -5673,8 +5675,8 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
             "\r\n",
             descP->sock,
             sockRef, ref,
-            ((descP->state == SOCKET_STATE_LISTENING) ? "listening" :
-             ((descP->state == SOCKET_STATE_ACCEPTING) ? "accepting" : "other")),
+            ((descP->state == ESOCK_STATE_LISTENING) ? "listening" :
+             ((descP->state == ESOCK_STATE_ACCEPTING) ? "accepting" : "other")),
             descP->currentAcceptorP,
             descP->currentAcceptor.pid,
             esock_make_monitor_term(env, &descP->currentAcceptor.mon),
@@ -5704,11 +5706,11 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
         return esock_make_error(env, atom_closed);
     
     switch (descP->state) {
-    case SOCKET_STATE_LISTENING:
+    case ESOCK_STATE_LISTENING:
         res = esock_accept_listening(env, descP, sockRef, ref);
         break;
 
-    case SOCKET_STATE_ACCEPTING:
+    case ESOCK_STATE_ACCEPTING:
         res = esock_accept_accepting(env, descP, sockRef, ref);
         break;
 
@@ -5816,7 +5818,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
             descP->currentAcceptorP    = &descP->currentAcceptor;
             res = esock_accept_busy_retry(env, descP,
                                           sockRef, accRef,
-                                          NULL, SOCKET_STATE_ACCEPTING);
+                                          NULL, ESOCK_STATE_ACCEPTING);
         }
     } else {
         SSDBG( descP,
@@ -5980,7 +5982,7 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
                     "esock_accept_accepting_current_accept -> "
                     "no more writers\r\n") );
 
-            descP->state               = SOCKET_STATE_LISTENING;
+            descP->state               = ESOCK_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
             ESOCK_ASSERT(!descP->currentAcceptor.env);
@@ -6165,7 +6167,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->remote = *remote;
     SET_NONBLOCKING(accDescP->sock);
 
-    accDescP->state      = SOCKET_STATE_CONNECTED;
+    accDescP->state      = ESOCK_STATE_CONNECTED;
     accDescP->isReadable = TRUE;
     accDescP->isWritable = TRUE;
 
@@ -7320,12 +7322,12 @@ BOOLEAN_T esock_close_check(ErlNifEnv*       env,
 {
     BOOLEAN_T doClose;
 
-    if (descP->state == SOCKET_STATE_CLOSED) {
+    if (descP->state == ESOCK_STATE_CLOSED) {
 
         doClose = FALSE;
         *reason = atom_closed;
 
-    } else if (descP->state == SOCKET_STATE_CLOSING) {
+    } else if (descP->state == ESOCK_STATE_CLOSING) {
 
         doClose = FALSE;
         *reason = atom_closing;
@@ -7366,7 +7368,7 @@ BOOLEAN_T esock_close_check(ErlNifEnv*       env,
             } else {
 
                 descP->closeLocal = TRUE;
-                descP->state      = SOCKET_STATE_CLOSING;
+                descP->state      = ESOCK_STATE_CLOSING;
                 descP->isReadable = FALSE;
                 descP->isWritable = FALSE;
                 doClose           = TRUE;
@@ -7529,7 +7531,7 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
     descP->sock  = INVALID_SOCKET;
     descP->event = INVALID_EVENT;
 
-    descP->state = SOCKET_STATE_CLOSED;
+    descP->state = ESOCK_STATE_CLOSED;
 
     return reply;
 }
@@ -7747,27 +7749,27 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
             "\r\n", eOpt, eVal) );
 
     switch (eOpt) {
-    case SOCKET_OPT_OTP_DEBUG:
+    case ESOCK_OPT_OTP_DEBUG:
         result = esock_setopt_otp_debug(env, descP, eVal);
         break;
 
-    case SOCKET_OPT_OTP_IOW:
+    case ESOCK_OPT_OTP_IOW:
         result = esock_setopt_otp_iow(env, descP, eVal);
         break;
 
-    case SOCKET_OPT_OTP_CTRL_PROC:
+    case ESOCK_OPT_OTP_CTRL_PROC:
         result = esock_setopt_otp_ctrl_proc(env, descP, eVal);
         break;
 
-    case SOCKET_OPT_OTP_RCVBUF:
+    case ESOCK_OPT_OTP_RCVBUF:
         result = esock_setopt_otp_rcvbuf(env, descP, eVal);
         break;
 
-    case SOCKET_OPT_OTP_RCVCTRLBUF:
+    case ESOCK_OPT_OTP_RCVCTRLBUF:
         result = esock_setopt_otp_rcvctrlbuf(env, descP, eVal);
         break;
 
-    case SOCKET_OPT_OTP_SNDCTRLBUF:
+    case ESOCK_OPT_OTP_SNDCTRLBUF:
         result = esock_setopt_otp_sndctrlbuf(env, descP, eVal);
         break;
 
@@ -7891,7 +7893,7 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 
         if ((xres = esock_decode_bufsz(env,
                                        eVal,
-                                       SOCKET_RECV_BUFFER_SIZE_DEFAULT,
+                                       ESOCK_RECV_BUFFER_SIZE_DEFAULT,
                                        &bufSz)) != NULL)
             return esock_make_error_str(env, xres);
 
@@ -7908,7 +7910,7 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 
         if ((xres = esock_decode_bufsz(env,
                                        t[1],
-                                       SOCKET_RECV_BUFFER_SIZE_DEFAULT,
+                                       ESOCK_RECV_BUFFER_SIZE_DEFAULT,
                                        &bufSz)) != NULL)
             return esock_make_error_str(env, xres);
 
@@ -7936,7 +7938,7 @@ ERL_NIF_TERM esock_setopt_otp_rcvctrlbuf(ErlNifEnv*       env,
 
     if ((xres = esock_decode_bufsz(env,
                                    eVal,
-                                   SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT,
+                                   ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT,
                                    &val)) != NULL)
         return esock_make_error_str(env, xres);
 
@@ -7959,7 +7961,7 @@ ERL_NIF_TERM esock_setopt_otp_sndctrlbuf(ErlNifEnv*       env,
 
     if ((xres = esock_decode_bufsz(env,
                                    eVal,
-                                   SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT,
+                                   ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT,
                                    &val)) != NULL)
         return esock_make_error_str(env, xres);
 
@@ -8099,109 +8101,109 @@ ERL_NIF_TERM esock_setopt_lvl_socket(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(SO_BINDTODEVICE)
-    case SOCKET_OPT_SOCK_BINDTODEVICE:
+    case ESOCK_OPT_SOCK_BINDTODEVICE:
         result = esock_setopt_lvl_sock_bindtodevice(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_BROADCAST)
-    case SOCKET_OPT_SOCK_BROADCAST:
+    case ESOCK_OPT_SOCK_BROADCAST:
         result = esock_setopt_lvl_sock_broadcast(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_DEBUG)
-    case SOCKET_OPT_SOCK_DEBUG:
+    case ESOCK_OPT_SOCK_DEBUG:
         result = esock_setopt_lvl_sock_debug(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_DONTROUTE)
-    case SOCKET_OPT_SOCK_DONTROUTE:
+    case ESOCK_OPT_SOCK_DONTROUTE:
         result = esock_setopt_lvl_sock_dontroute(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_KEEPALIVE)
-    case SOCKET_OPT_SOCK_KEEPALIVE:
+    case ESOCK_OPT_SOCK_KEEPALIVE:
         result = esock_setopt_lvl_sock_keepalive(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_LINGER)
-    case SOCKET_OPT_SOCK_LINGER:
+    case ESOCK_OPT_SOCK_LINGER:
         result = esock_setopt_lvl_sock_linger(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_PEEK_OFF)
-    case SOCKET_OPT_SOCK_PEEK_OFF:
+    case ESOCK_OPT_SOCK_PEEK_OFF:
         result = esock_setopt_lvl_sock_peek_off(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_OOBINLINE)
-    case SOCKET_OPT_SOCK_OOBINLINE:
+    case ESOCK_OPT_SOCK_OOBINLINE:
         result = esock_setopt_lvl_sock_oobinline(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_PRIORITY)
-    case SOCKET_OPT_SOCK_PRIORITY:
+    case ESOCK_OPT_SOCK_PRIORITY:
         result = esock_setopt_lvl_sock_priority(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_RCVBUF)
-    case SOCKET_OPT_SOCK_RCVBUF:
+    case ESOCK_OPT_SOCK_RCVBUF:
         result = esock_setopt_lvl_sock_rcvbuf(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_RCVLOWAT)
-    case SOCKET_OPT_SOCK_RCVLOWAT:
+    case ESOCK_OPT_SOCK_RCVLOWAT:
         result = esock_setopt_lvl_sock_rcvlowat(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_RCVTIMEO)
-    case SOCKET_OPT_SOCK_RCVTIMEO:
+    case ESOCK_OPT_SOCK_RCVTIMEO:
         result = esock_setopt_lvl_sock_rcvtimeo(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_REUSEADDR)
-    case SOCKET_OPT_SOCK_REUSEADDR:
+    case ESOCK_OPT_SOCK_REUSEADDR:
         result = esock_setopt_lvl_sock_reuseaddr(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_REUSEPORT)
-    case SOCKET_OPT_SOCK_REUSEPORT:
+    case ESOCK_OPT_SOCK_REUSEPORT:
         result = esock_setopt_lvl_sock_reuseport(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_SNDBUF)
-    case SOCKET_OPT_SOCK_SNDBUF:
+    case ESOCK_OPT_SOCK_SNDBUF:
         result = esock_setopt_lvl_sock_sndbuf(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_SNDLOWAT)
-    case SOCKET_OPT_SOCK_SNDLOWAT:
+    case ESOCK_OPT_SOCK_SNDLOWAT:
         result = esock_setopt_lvl_sock_sndlowat(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_SNDTIMEO)
-    case SOCKET_OPT_SOCK_SNDTIMEO:
+    case ESOCK_OPT_SOCK_SNDTIMEO:
         result = esock_setopt_lvl_sock_sndtimeo(env, descP, eVal);
         break;
 #endif
 
 #if defined(SO_TIMESTAMP)
-    case SOCKET_OPT_SOCK_TIMESTAMP:
+    case ESOCK_OPT_SOCK_TIMESTAMP:
         result = esock_setopt_lvl_sock_timestamp(env, descP, eVal);
         break;
 #endif
@@ -8461,181 +8463,181 @@ ERL_NIF_TERM esock_setopt_lvl_ip(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(IP_ADD_MEMBERSHIP)
-    case SOCKET_OPT_IP_ADD_MEMBERSHIP:
+    case ESOCK_OPT_IP_ADD_MEMBERSHIP:
         result = esock_setopt_lvl_ip_add_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_ADD_SOURCE_MEMBERSHIP)
-    case SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP:
+    case ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP:
         result = esock_setopt_lvl_ip_add_source_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_BLOCK_SOURCE)
-    case SOCKET_OPT_IP_BLOCK_SOURCE:
+    case ESOCK_OPT_IP_BLOCK_SOURCE:
         result = esock_setopt_lvl_ip_block_source(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_DROP_MEMBERSHIP)
-    case SOCKET_OPT_IP_DROP_MEMBERSHIP:
+    case ESOCK_OPT_IP_DROP_MEMBERSHIP:
         result = esock_setopt_lvl_ip_drop_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_DROP_SOURCE_MEMBERSHIP)
-    case SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP:
+    case ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP:
         result = esock_setopt_lvl_ip_drop_source_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_FREEBIND)
-    case SOCKET_OPT_IP_FREEBIND:
+    case ESOCK_OPT_IP_FREEBIND:
         result = esock_setopt_lvl_ip_freebind(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_HDRINCL)
-    case SOCKET_OPT_IP_HDRINCL:
+    case ESOCK_OPT_IP_HDRINCL:
         result = esock_setopt_lvl_ip_hdrincl(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MINTTL)
-    case SOCKET_OPT_IP_MINTTL:
+    case ESOCK_OPT_IP_MINTTL:
         result = esock_setopt_lvl_ip_minttl(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
-    case SOCKET_OPT_IP_MSFILTER:
+    case ESOCK_OPT_IP_MSFILTER:
         result = esock_setopt_lvl_ip_msfilter(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MTU_DISCOVER)
-    case SOCKET_OPT_IP_MTU_DISCOVER:
+    case ESOCK_OPT_IP_MTU_DISCOVER:
         result = esock_setopt_lvl_ip_mtu_discover(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MULTICAST_ALL)
-    case SOCKET_OPT_IP_MULTICAST_ALL:
+    case ESOCK_OPT_IP_MULTICAST_ALL:
         result = esock_setopt_lvl_ip_multicast_all(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MULTICAST_IF)
-    case SOCKET_OPT_IP_MULTICAST_IF:
+    case ESOCK_OPT_IP_MULTICAST_IF:
         result = esock_setopt_lvl_ip_multicast_if(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MULTICAST_LOOP)
-    case SOCKET_OPT_IP_MULTICAST_LOOP:
+    case ESOCK_OPT_IP_MULTICAST_LOOP:
         result = esock_setopt_lvl_ip_multicast_loop(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_MULTICAST_TTL)
-    case SOCKET_OPT_IP_MULTICAST_TTL:
+    case ESOCK_OPT_IP_MULTICAST_TTL:
         result = esock_setopt_lvl_ip_multicast_ttl(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_NODEFRAG)
-    case SOCKET_OPT_IP_NODEFRAG:
+    case ESOCK_OPT_IP_NODEFRAG:
         result = esock_setopt_lvl_ip_nodefrag(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_PKTINFO)
-    case SOCKET_OPT_IP_PKTINFO:
+    case ESOCK_OPT_IP_PKTINFO:
         result = esock_setopt_lvl_ip_pktinfo(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVDSTADDR)
-    case SOCKET_OPT_IP_RECVDSTADDR:
+    case ESOCK_OPT_IP_RECVDSTADDR:
         result = esock_setopt_lvl_ip_recvdstaddr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVERR)
-    case SOCKET_OPT_IP_RECVERR:
+    case ESOCK_OPT_IP_RECVERR:
         result = esock_setopt_lvl_ip_recverr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVIF)
-    case SOCKET_OPT_IP_RECVIF:
+    case ESOCK_OPT_IP_RECVIF:
         result = esock_setopt_lvl_ip_recvif(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVOPTS)
-    case SOCKET_OPT_IP_RECVOPTS:
+    case ESOCK_OPT_IP_RECVOPTS:
         result = esock_setopt_lvl_ip_recvopts(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVORIGDSTADDR)
-    case SOCKET_OPT_IP_RECVORIGDSTADDR:
+    case ESOCK_OPT_IP_RECVORIGDSTADDR:
         result = esock_setopt_lvl_ip_recvorigdstaddr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVTOS)
-    case SOCKET_OPT_IP_RECVTOS:
+    case ESOCK_OPT_IP_RECVTOS:
         result = esock_setopt_lvl_ip_recvtos(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RECVTTL)
-    case SOCKET_OPT_IP_RECVTTL:
+    case ESOCK_OPT_IP_RECVTTL:
         result = esock_setopt_lvl_ip_recvttl(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_RETOPTS)
-    case SOCKET_OPT_IP_RETOPTS:
+    case ESOCK_OPT_IP_RETOPTS:
         result = esock_setopt_lvl_ip_retopts(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_ROUTER_ALERT)
-    case SOCKET_OPT_IP_ROUTER_ALERT:
+    case ESOCK_OPT_IP_ROUTER_ALERT:
         result = esock_setopt_lvl_ip_router_alert(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_SENDSRCADDR)
-    case SOCKET_OPT_IP_SENDSRCADDR:
+    case ESOCK_OPT_IP_SENDSRCADDR:
         result = esock_setopt_lvl_ip_sendsrcaddr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_TOS)
-    case SOCKET_OPT_IP_TOS:
+    case ESOCK_OPT_IP_TOS:
         result = esock_setopt_lvl_ip_tos(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_TRANSPARENT)
-    case SOCKET_OPT_IP_TRANSPARENT:
+    case ESOCK_OPT_IP_TRANSPARENT:
         result = esock_setopt_lvl_ip_transparent(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_TTL)
-    case SOCKET_OPT_IP_TTL:
+    case ESOCK_OPT_IP_TTL:
         result = esock_setopt_lvl_ip_ttl(env, descP, eVal);
         break;
 #endif
 
 #if defined(IP_UNBLOCK_SOURCE)
-    case SOCKET_OPT_IP_UNBLOCK_SOURCE:
+    case ESOCK_OPT_IP_UNBLOCK_SOURCE:
         result = esock_setopt_lvl_ip_unblock_source(env, descP, eVal);
         break;
 #endif
@@ -9587,115 +9589,115 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(IPV6_ADDRFORM)
-    case SOCKET_OPT_IPV6_ADDRFORM:
+    case ESOCK_OPT_IPV6_ADDRFORM:
         result = esock_setopt_lvl_ipv6_addrform(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_ADD_MEMBERSHIP)
-    case SOCKET_OPT_IPV6_ADD_MEMBERSHIP:
+    case ESOCK_OPT_IPV6_ADD_MEMBERSHIP:
         result = esock_setopt_lvl_ipv6_add_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_AUTHHDR)
-    case SOCKET_OPT_IPV6_AUTHHDR:
+    case ESOCK_OPT_IPV6_AUTHHDR:
         result = esock_setopt_lvl_ipv6_authhdr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_DROP_MEMBERSHIP)
-    case SOCKET_OPT_IPV6_DROP_MEMBERSHIP:
+    case ESOCK_OPT_IPV6_DROP_MEMBERSHIP:
         result = esock_setopt_lvl_ipv6_drop_membership(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_DSTOPTS)
-    case SOCKET_OPT_IPV6_DSTOPTS:
+    case ESOCK_OPT_IPV6_DSTOPTS:
         result = esock_setopt_lvl_ipv6_dstopts(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_FLOWINFO)
-    case SOCKET_OPT_IPV6_FLOWINFO:
+    case ESOCK_OPT_IPV6_FLOWINFO:
         result = esock_setopt_lvl_ipv6_flowinfo(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_HOPLIMIT)
-    case SOCKET_OPT_IPV6_HOPLIMIT:
+    case ESOCK_OPT_IPV6_HOPLIMIT:
         result = esock_setopt_lvl_ipv6_hoplimit(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_HOPOPTS)
-    case SOCKET_OPT_IPV6_HOPOPTS:
+    case ESOCK_OPT_IPV6_HOPOPTS:
         result = esock_setopt_lvl_ipv6_hopopts(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_MTU)
-    case SOCKET_OPT_IPV6_MTU:
+    case ESOCK_OPT_IPV6_MTU:
         result = esock_setopt_lvl_ipv6_mtu(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_MTU_DISCOVER)
-    case SOCKET_OPT_IPV6_MTU_DISCOVER:
+    case ESOCK_OPT_IPV6_MTU_DISCOVER:
         result = esock_setopt_lvl_ipv6_mtu_discover(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_HOPS)
-    case SOCKET_OPT_IPV6_MULTICAST_HOPS:
+    case ESOCK_OPT_IPV6_MULTICAST_HOPS:
         result = esock_setopt_lvl_ipv6_multicast_hops(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_IF)
-    case SOCKET_OPT_IPV6_MULTICAST_IF:
+    case ESOCK_OPT_IPV6_MULTICAST_IF:
         result = esock_setopt_lvl_ipv6_multicast_if(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_LOOP)
-    case SOCKET_OPT_IPV6_MULTICAST_LOOP:
+    case ESOCK_OPT_IPV6_MULTICAST_LOOP:
         result = esock_setopt_lvl_ipv6_multicast_loop(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_RECVERR)
-    case SOCKET_OPT_IPV6_RECVERR:
+    case ESOCK_OPT_IPV6_RECVERR:
         result = esock_setopt_lvl_ipv6_recverr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
-    case SOCKET_OPT_IPV6_RECVPKTINFO:
+    case ESOCK_OPT_IPV6_RECVPKTINFO:
         result = esock_setopt_lvl_ipv6_recvpktinfo(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_ROUTER_ALERT)
-    case SOCKET_OPT_IPV6_ROUTER_ALERT:
+    case ESOCK_OPT_IPV6_ROUTER_ALERT:
         result = esock_setopt_lvl_ipv6_router_alert(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_RTHDR)
-    case SOCKET_OPT_IPV6_RTHDR:
+    case ESOCK_OPT_IPV6_RTHDR:
         result = esock_setopt_lvl_ipv6_rthdr(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
-    case SOCKET_OPT_IPV6_UNICAST_HOPS:
+    case ESOCK_OPT_IPV6_UNICAST_HOPS:
         result = esock_setopt_lvl_ipv6_unicast_hops(env, descP, eVal);
         break;
 #endif
 
 #if defined(IPV6_V6ONLY)
-    case SOCKET_OPT_IPV6_V6ONLY:
+    case ESOCK_OPT_IPV6_V6ONLY:
         result = esock_setopt_lvl_ipv6_v6only(env, descP, eVal);
         break;
 #endif
@@ -10190,19 +10192,19 @@ ERL_NIF_TERM esock_setopt_lvl_tcp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(TCP_CONGESTION)
-    case SOCKET_OPT_TCP_CONGESTION:
+    case ESOCK_OPT_TCP_CONGESTION:
         result = esock_setopt_lvl_tcp_congestion(env, descP, eVal);
         break;
 #endif
 
 #if defined(TCP_MAXSEG)
-    case SOCKET_OPT_TCP_MAXSEG:
+    case ESOCK_OPT_TCP_MAXSEG:
         result = esock_setopt_lvl_tcp_maxseg(env, descP, eVal);
         break;
 #endif
 
 #if defined(TCP_NODELAY)
-    case SOCKET_OPT_TCP_NODELAY:
+    case ESOCK_OPT_TCP_NODELAY:
         result = esock_setopt_lvl_tcp_nodelay(env, descP, eVal);
         break;
 #endif
@@ -10224,7 +10226,7 @@ ERL_NIF_TERM esock_setopt_lvl_tcp_congestion(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
                                              ERL_NIF_TERM     eVal)
 {
-    int max = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
+    int max = ESOCK_OPT_TCP_CONGESTION_NAME_MAX+1;
 
     return esock_setopt_str_opt(env, descP,
                                 IPPROTO_TCP, TCP_CONGESTION, max, eVal);
@@ -10276,7 +10278,7 @@ ERL_NIF_TERM esock_setopt_lvl_udp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(UDP_CORK)
-    case SOCKET_OPT_UDP_CORK:
+    case ESOCK_OPT_UDP_CORK:
         result = esock_setopt_lvl_udp_cork(env, descP, eVal);
         break;
 #endif
@@ -10323,49 +10325,49 @@ ERL_NIF_TERM esock_setopt_lvl_sctp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(SCTP_ASSOCINFO)
-    case SOCKET_OPT_SCTP_ASSOCINFO:
+    case ESOCK_OPT_SCTP_ASSOCINFO:
         result = esock_setopt_lvl_sctp_associnfo(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_AUTOCLOSE)
-    case SOCKET_OPT_SCTP_AUTOCLOSE:
+    case ESOCK_OPT_SCTP_AUTOCLOSE:
         result = esock_setopt_lvl_sctp_autoclose(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_DISABLE_FRAGMENTS)
-    case SOCKET_OPT_SCTP_DISABLE_FRAGMENTS:
+    case ESOCK_OPT_SCTP_DISABLE_FRAGMENTS:
         result = esock_setopt_lvl_sctp_disable_fragments(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_EVENTS)
-    case SOCKET_OPT_SCTP_EVENTS:
+    case ESOCK_OPT_SCTP_EVENTS:
         result = esock_setopt_lvl_sctp_events(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_INITMSG)
-    case SOCKET_OPT_SCTP_INITMSG:
+    case ESOCK_OPT_SCTP_INITMSG:
         result = esock_setopt_lvl_sctp_initmsg(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_MAXSEG)
-    case SOCKET_OPT_SCTP_MAXSEG:
+    case ESOCK_OPT_SCTP_MAXSEG:
         result = esock_setopt_lvl_sctp_maxseg(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_NODELAY)
-    case SOCKET_OPT_SCTP_NODELAY:
+    case ESOCK_OPT_SCTP_NODELAY:
         result = esock_setopt_lvl_sctp_nodelay(env, descP, eVal);
         break;
 #endif
 
 #if defined(SCTP_RTOINFO)
-    case SOCKET_OPT_SCTP_RTOINFO:
+    case ESOCK_OPT_SCTP_RTOINFO:
         result = esock_setopt_lvl_sctp_rtoinfo(env, descP, eVal);
         break;
 #endif
@@ -11024,19 +11026,19 @@ BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
 
     if (isEncoded) {
         switch (eLevel) {
-        case SOCKET_OPT_LEVEL_OTP:
+        case ESOCK_OPT_LEVEL_OTP:
             *isOTP = TRUE;
             *level = -1;
             result = TRUE;
             break;
 
-        case SOCKET_OPT_LEVEL_SOCKET:
+        case ESOCK_OPT_LEVEL_SOCKET:
             *isOTP = FALSE;
             *level = SOL_SOCKET;
             result = TRUE;
             break;
 
-        case SOCKET_OPT_LEVEL_IP:
+        case ESOCK_OPT_LEVEL_IP:
             *isOTP = FALSE;
 #if defined(SOL_IP)
             *level = SOL_IP;
@@ -11047,7 +11049,7 @@ BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
             break;
 
 #if defined(HAVE_IPV6)
-        case SOCKET_OPT_LEVEL_IPV6:
+        case ESOCK_OPT_LEVEL_IPV6:
             *isOTP = FALSE;
 #if defined(SOL_IPV6)
             *level = SOL_IPV6;
@@ -11058,20 +11060,20 @@ BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
             break;
 #endif
 
-        case SOCKET_OPT_LEVEL_TCP:
+        case ESOCK_OPT_LEVEL_TCP:
             *isOTP = FALSE;
             *level = IPPROTO_TCP;
             result = TRUE;
             break;
 
-        case SOCKET_OPT_LEVEL_UDP:
+        case ESOCK_OPT_LEVEL_UDP:
             *isOTP = FALSE;
             *level = IPPROTO_UDP;
             result = TRUE;
             break;
 
 #ifdef HAVE_SCTP
-        case SOCKET_OPT_LEVEL_SCTP:
+        case ESOCK_OPT_LEVEL_SCTP:
             *isOTP = FALSE;
             *level = IPPROTO_SCTP;
             result = TRUE;
@@ -11315,44 +11317,44 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
             "\r\n", eOpt) );
 
     switch (eOpt) {
-    case SOCKET_OPT_OTP_DEBUG:
+    case ESOCK_OPT_OTP_DEBUG:
         result = esock_getopt_otp_debug(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_IOW:
+    case ESOCK_OPT_OTP_IOW:
         result = esock_getopt_otp_iow(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_CTRL_PROC:
+    case ESOCK_OPT_OTP_CTRL_PROC:
         result = esock_getopt_otp_ctrl_proc(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_RCVBUF:
+    case ESOCK_OPT_OTP_RCVBUF:
         result = esock_getopt_otp_rcvbuf(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_RCVCTRLBUF:
+    case ESOCK_OPT_OTP_RCVCTRLBUF:
         result = esock_getopt_otp_rcvctrlbuf(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_SNDCTRLBUF:
+    case ESOCK_OPT_OTP_SNDCTRLBUF:
         result = esock_getopt_otp_sndctrlbuf(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_FD:
+    case ESOCK_OPT_OTP_FD:
         result = esock_getopt_otp_fd(env, descP);
         break;
 
         /* *** INTERNAL *** */
-    case SOCKET_OPT_OTP_DOMAIN:
+    case ESOCK_OPT_OTP_DOMAIN:
         result = esock_getopt_otp_domain(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_TYPE:
+    case ESOCK_OPT_OTP_TYPE:
         result = esock_getopt_otp_type(env, descP);
         break;
 
-    case SOCKET_OPT_OTP_PROTOCOL:
+    case ESOCK_OPT_OTP_PROTOCOL:
         result = esock_getopt_otp_protocol(env, descP);
         break;
 
@@ -11621,14 +11623,14 @@ ERL_NIF_TERM esock_getopt_native(ErlNifEnv*       env,
                 "\r\n", valueType, VT2S(valueType), valueSz) );
 
         switch (valueType) {
-        case SOCKET_OPT_VALUE_TYPE_UNSPEC:
+        case ESOCK_OPT_VALUE_TYPE_UNSPEC:
             result = esock_getopt_native_unspec(env, descP,
                                                 level, opt, valueSz);
             break;
-        case SOCKET_OPT_VALUE_TYPE_INT:
+        case ESOCK_OPT_VALUE_TYPE_INT:
             result = esock_getopt_int_opt(env, descP, level, opt);
             break;
-        case SOCKET_OPT_VALUE_TYPE_BOOL:
+        case ESOCK_OPT_VALUE_TYPE_BOOL:
             result = esock_getopt_bool_opt(env, descP, level, opt);
             break;
         default:
@@ -11800,133 +11802,133 @@ ERL_NIF_TERM esock_getopt_lvl_socket(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(SO_ACCEPTCONN)
-    case SOCKET_OPT_SOCK_ACCEPTCONN:
+    case ESOCK_OPT_SOCK_ACCEPTCONN:
         result = esock_getopt_lvl_sock_acceptconn(env, descP);
         break;
 #endif
 
 #if defined(SO_BINDTODEVICE)
-    case SOCKET_OPT_SOCK_BINDTODEVICE:
+    case ESOCK_OPT_SOCK_BINDTODEVICE:
         result = esock_getopt_lvl_sock_bindtodevice(env, descP);
         break;
 #endif
 
 #if defined(SO_BROADCAST)
-    case SOCKET_OPT_SOCK_BROADCAST:
+    case ESOCK_OPT_SOCK_BROADCAST:
         result = esock_getopt_lvl_sock_broadcast(env, descP);
         break;
 #endif
 
 #if defined(SO_DEBUG)
-    case SOCKET_OPT_SOCK_DEBUG:
+    case ESOCK_OPT_SOCK_DEBUG:
         result = esock_getopt_lvl_sock_debug(env, descP);
         break;
 #endif
 
 #if defined(SO_DOMAIN)
-    case SOCKET_OPT_SOCK_DOMAIN:
+    case ESOCK_OPT_SOCK_DOMAIN:
         result = esock_getopt_lvl_sock_domain(env, descP);
         break;
 #endif
 
 #if defined(SO_DONTROUTE)
-    case SOCKET_OPT_SOCK_DONTROUTE:
+    case ESOCK_OPT_SOCK_DONTROUTE:
         result = esock_getopt_lvl_sock_dontroute(env, descP);
         break;
 #endif
 
 #if defined(SO_KEEPALIVE)
-    case SOCKET_OPT_SOCK_KEEPALIVE:
+    case ESOCK_OPT_SOCK_KEEPALIVE:
         result = esock_getopt_lvl_sock_keepalive(env, descP);
         break;
 #endif
 
 #if defined(SO_LINGER)
-    case SOCKET_OPT_SOCK_LINGER:
+    case ESOCK_OPT_SOCK_LINGER:
         result = esock_getopt_lvl_sock_linger(env, descP);
         break;
 #endif
 
 #if defined(SO_OOBINLINE)
-    case SOCKET_OPT_SOCK_OOBINLINE:
+    case ESOCK_OPT_SOCK_OOBINLINE:
         result = esock_getopt_lvl_sock_oobinline(env, descP);
         break;
 #endif
 
 #if defined(SO_PEEK_OFF)
-    case SOCKET_OPT_SOCK_PEEK_OFF:
+    case ESOCK_OPT_SOCK_PEEK_OFF:
         result = esock_getopt_lvl_sock_peek_off(env, descP);
         break;
 #endif
 
 #if defined(SO_PRIORITY)
-    case SOCKET_OPT_SOCK_PRIORITY:
+    case ESOCK_OPT_SOCK_PRIORITY:
         result = esock_getopt_lvl_sock_priority(env, descP);
         break;
 #endif
 
 #if defined(SO_PROTOCOL)
-    case SOCKET_OPT_SOCK_PROTOCOL:
+    case ESOCK_OPT_SOCK_PROTOCOL:
         result = esock_getopt_lvl_sock_protocol(env, descP);
         break;
 #endif
 
 #if defined(SO_RCVBUF)
-    case SOCKET_OPT_SOCK_RCVBUF:
+    case ESOCK_OPT_SOCK_RCVBUF:
         result = esock_getopt_lvl_sock_rcvbuf(env, descP);
         break;
 #endif
 
 #if defined(SO_RCVLOWAT)
-    case SOCKET_OPT_SOCK_RCVLOWAT:
+    case ESOCK_OPT_SOCK_RCVLOWAT:
         result = esock_getopt_lvl_sock_rcvlowat(env, descP);
         break;
 #endif
 
 #if defined(SO_RCVTIMEO)
-    case SOCKET_OPT_SOCK_RCVTIMEO:
+    case ESOCK_OPT_SOCK_RCVTIMEO:
         result = esock_getopt_lvl_sock_rcvtimeo(env, descP);
         break;
 #endif
 
 #if defined(SO_REUSEADDR)
-    case SOCKET_OPT_SOCK_REUSEADDR:
+    case ESOCK_OPT_SOCK_REUSEADDR:
         result = esock_getopt_lvl_sock_reuseaddr(env, descP);
         break;
 #endif
 
 #if defined(SO_REUSEPORT)
-    case SOCKET_OPT_SOCK_REUSEPORT:
+    case ESOCK_OPT_SOCK_REUSEPORT:
         result = esock_getopt_lvl_sock_reuseport(env, descP);
         break;
 #endif
 
 #if defined(SO_SNDBUF)
-    case SOCKET_OPT_SOCK_SNDBUF:
+    case ESOCK_OPT_SOCK_SNDBUF:
         result = esock_getopt_lvl_sock_sndbuf(env, descP);
         break;
 #endif
 
 #if defined(SO_SNDLOWAT)
-    case SOCKET_OPT_SOCK_SNDLOWAT:
+    case ESOCK_OPT_SOCK_SNDLOWAT:
         result = esock_getopt_lvl_sock_sndlowat(env, descP);
         break;
 #endif
 
 #if defined(SO_SNDTIMEO)
-    case SOCKET_OPT_SOCK_SNDTIMEO:
+    case ESOCK_OPT_SOCK_SNDTIMEO:
         result = esock_getopt_lvl_sock_sndtimeo(env, descP);
         break;
 #endif
 
 #if defined(SO_TIMESTAMP)
-    case SOCKET_OPT_SOCK_TIMESTAMP:
+    case ESOCK_OPT_SOCK_TIMESTAMP:
         result = esock_getopt_lvl_sock_timestamp(env, descP);
         break;
 #endif
 
 #if defined(SO_TYPE)
-    case SOCKET_OPT_SOCK_TYPE:
+    case ESOCK_OPT_SOCK_TYPE:
         result = esock_getopt_lvl_sock_type(env, descP);
         break;
 #endif
@@ -12319,145 +12321,145 @@ ERL_NIF_TERM esock_getopt_lvl_ip(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(IP_FREEBIND)
-    case SOCKET_OPT_IP_FREEBIND:
+    case ESOCK_OPT_IP_FREEBIND:
         result = esock_getopt_lvl_ip_freebind(env, descP);
         break;
 #endif
 
 #if defined(IP_HDRINCL)
-    case SOCKET_OPT_IP_HDRINCL:
+    case ESOCK_OPT_IP_HDRINCL:
         result = esock_getopt_lvl_ip_hdrincl(env, descP);
         break;
 #endif
 
 #if defined(IP_MINTTL)
-    case SOCKET_OPT_IP_MINTTL:
+    case ESOCK_OPT_IP_MINTTL:
         result = esock_getopt_lvl_ip_minttl(env, descP);
         break;
 #endif
 
 #if defined(IP_MTU)
-    case SOCKET_OPT_IP_MTU:
+    case ESOCK_OPT_IP_MTU:
         result = esock_getopt_lvl_ip_mtu(env, descP);
         break;
 #endif
 
 #if defined(IP_MTU_DISCOVER)
-    case SOCKET_OPT_IP_MTU_DISCOVER:
+    case ESOCK_OPT_IP_MTU_DISCOVER:
         result = esock_getopt_lvl_ip_mtu_discover(env, descP);
         break;
 #endif
 
 #if defined(IP_MULTICAST_ALL)
-    case SOCKET_OPT_IP_MULTICAST_ALL:
+    case ESOCK_OPT_IP_MULTICAST_ALL:
         result = esock_getopt_lvl_ip_multicast_all(env, descP);
         break;
 #endif
 
 #if defined(IP_MULTICAST_IF)
-    case SOCKET_OPT_IP_MULTICAST_IF:
+    case ESOCK_OPT_IP_MULTICAST_IF:
         result = esock_getopt_lvl_ip_multicast_if(env, descP);
         break;
 #endif
 
 #if defined(IP_MULTICAST_LOOP)
-    case SOCKET_OPT_IP_MULTICAST_LOOP:
+    case ESOCK_OPT_IP_MULTICAST_LOOP:
         result = esock_getopt_lvl_ip_multicast_loop(env, descP);
         break;
 #endif
 
 #if defined(IP_MULTICAST_TTL)
-    case SOCKET_OPT_IP_MULTICAST_TTL:
+    case ESOCK_OPT_IP_MULTICAST_TTL:
         result = esock_getopt_lvl_ip_multicast_ttl(env, descP);
         break;
 #endif
 
 #if defined(IP_NODEFRAG)
-    case SOCKET_OPT_IP_NODEFRAG:
+    case ESOCK_OPT_IP_NODEFRAG:
         result = esock_getopt_lvl_ip_nodefrag(env, descP);
         break;
 #endif
 
 #if defined(IP_PKTINFO)
-    case SOCKET_OPT_IP_PKTINFO:
+    case ESOCK_OPT_IP_PKTINFO:
         result = esock_getopt_lvl_ip_pktinfo(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVDSTADDR)
-    case SOCKET_OPT_IP_RECVDSTADDR:
+    case ESOCK_OPT_IP_RECVDSTADDR:
         result = esock_getopt_lvl_ip_recvdstaddr(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVERR)
-    case SOCKET_OPT_IP_RECVERR:
+    case ESOCK_OPT_IP_RECVERR:
         result = esock_getopt_lvl_ip_recverr(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVIF)
-    case SOCKET_OPT_IP_RECVIF:
+    case ESOCK_OPT_IP_RECVIF:
         result = esock_getopt_lvl_ip_recvif(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVOPTS)
-    case SOCKET_OPT_IP_RECVOPTS:
+    case ESOCK_OPT_IP_RECVOPTS:
         result = esock_getopt_lvl_ip_recvopts(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVORIGDSTADDR)
-    case SOCKET_OPT_IP_RECVORIGDSTADDR:
+    case ESOCK_OPT_IP_RECVORIGDSTADDR:
         result = esock_getopt_lvl_ip_recvorigdstaddr(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVTOS)
-    case SOCKET_OPT_IP_RECVTOS:
+    case ESOCK_OPT_IP_RECVTOS:
         result = esock_getopt_lvl_ip_recvtos(env, descP);
         break;
 #endif
 
 #if defined(IP_RECVTTL)
-    case SOCKET_OPT_IP_RECVTTL:
+    case ESOCK_OPT_IP_RECVTTL:
         result = esock_getopt_lvl_ip_recvttl(env, descP);
         break;
 #endif
 
 #if defined(IP_RETOPTS)
-    case SOCKET_OPT_IP_RETOPTS:
+    case ESOCK_OPT_IP_RETOPTS:
         result = esock_getopt_lvl_ip_retopts(env, descP);
         break;
 #endif
 
 #if defined(IP_ROUTER_ALERT)
-    case SOCKET_OPT_IP_ROUTER_ALERT:
+    case ESOCK_OPT_IP_ROUTER_ALERT:
         result = esock_getopt_lvl_ip_router_alert(env, descP);
         break;
 #endif
 
 #if defined(IP_SENDSRCADDR)
-    case SOCKET_OPT_IP_SENDSRCADDR:
+    case ESOCK_OPT_IP_SENDSRCADDR:
         result = esock_getopt_lvl_ip_sendsrcaddr(env, descP);
         break;
 #endif
 
 #if defined(IP_TOS)
-    case SOCKET_OPT_IP_TOS:
+    case ESOCK_OPT_IP_TOS:
         result = esock_getopt_lvl_ip_tos(env, descP);
         break;
 #endif
 
 #if defined(IP_TRANSPARENT)
-    case SOCKET_OPT_IP_TRANSPARENT:
+    case ESOCK_OPT_IP_TRANSPARENT:
         result = esock_getopt_lvl_ip_transparent(env, descP);
         break;
 #endif
 
 #if defined(IP_TTL)
-    case SOCKET_OPT_IP_TTL:
+    case ESOCK_OPT_IP_TTL:
         result = esock_getopt_lvl_ip_ttl(env, descP);
         break;
 #endif
@@ -12976,97 +12978,97 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(IPV6_AUTHHDR)
-    case SOCKET_OPT_IPV6_AUTHHDR:
+    case ESOCK_OPT_IPV6_AUTHHDR:
         result = esock_getopt_lvl_ipv6_authhdr(env, descP);
         break;
 #endif
 
 #if defined(IPV6_DSTOPTS)
-    case SOCKET_OPT_IPV6_DSTOPTS:
+    case ESOCK_OPT_IPV6_DSTOPTS:
         result = esock_getopt_lvl_ipv6_dstopts(env, descP);
         break;
 #endif
 
 #if defined(IPV6_FLOWINFO)
-    case SOCKET_OPT_IPV6_FLOWINFO:
+    case ESOCK_OPT_IPV6_FLOWINFO:
         result = esock_getopt_lvl_ipv6_flowinfo(env, descP);
         break;
 #endif
 
 #if defined(IPV6_HOPLIMIT)
-    case SOCKET_OPT_IPV6_HOPLIMIT:
+    case ESOCK_OPT_IPV6_HOPLIMIT:
         result = esock_getopt_lvl_ipv6_hoplimit(env, descP);
         break;
 #endif
 
 #if defined(IPV6_HOPOPTS)
-    case SOCKET_OPT_IPV6_HOPOPTS:
+    case ESOCK_OPT_IPV6_HOPOPTS:
         result = esock_getopt_lvl_ipv6_hopopts(env, descP);
         break;
 #endif
 
 #if defined(IPV6_MTU)
-    case SOCKET_OPT_IPV6_MTU:
+    case ESOCK_OPT_IPV6_MTU:
         result = esock_getopt_lvl_ipv6_mtu(env, descP);
         break;
 #endif
 
 #if defined(IPV6_MTU_DISCOVER)
-    case SOCKET_OPT_IPV6_MTU_DISCOVER:
+    case ESOCK_OPT_IPV6_MTU_DISCOVER:
         result = esock_getopt_lvl_ipv6_mtu_discover(env, descP);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_HOPS)
-    case SOCKET_OPT_IPV6_MULTICAST_HOPS:
+    case ESOCK_OPT_IPV6_MULTICAST_HOPS:
         result = esock_getopt_lvl_ipv6_multicast_hops(env, descP);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_IF)
-    case SOCKET_OPT_IPV6_MULTICAST_IF:
+    case ESOCK_OPT_IPV6_MULTICAST_IF:
         result = esock_getopt_lvl_ipv6_multicast_if(env, descP);
         break;
 #endif
 
 #if defined(IPV6_MULTICAST_LOOP)
-    case SOCKET_OPT_IPV6_MULTICAST_LOOP:
+    case ESOCK_OPT_IPV6_MULTICAST_LOOP:
         result = esock_getopt_lvl_ipv6_multicast_loop(env, descP);
         break;
 #endif
 
 #if defined(IPV6_RECVERR)
-    case SOCKET_OPT_IPV6_RECVERR:
+    case ESOCK_OPT_IPV6_RECVERR:
         result = esock_getopt_lvl_ipv6_recverr(env, descP);
         break;
 #endif
 
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
-    case SOCKET_OPT_IPV6_RECVPKTINFO:
+    case ESOCK_OPT_IPV6_RECVPKTINFO:
         result = esock_getopt_lvl_ipv6_recvpktinfo(env, descP);
         break;
 #endif
 
 #if defined(IPV6_ROUTER_ALERT)
-    case SOCKET_OPT_IPV6_ROUTER_ALERT:
+    case ESOCK_OPT_IPV6_ROUTER_ALERT:
         result = esock_getopt_lvl_ipv6_router_alert(env, descP);
         break;
 #endif
 
 #if defined(IPV6_RTHDR)
-    case SOCKET_OPT_IPV6_RTHDR:
+    case ESOCK_OPT_IPV6_RTHDR:
         result = esock_getopt_lvl_ipv6_rthdr(env, descP);
         break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
-    case SOCKET_OPT_IPV6_UNICAST_HOPS:
+    case ESOCK_OPT_IPV6_UNICAST_HOPS:
         result = esock_getopt_lvl_ipv6_unicast_hops(env, descP);
         break;
 #endif
 
 #if defined(IPV6_V6ONLY)
-    case SOCKET_OPT_IPV6_V6ONLY:
+    case ESOCK_OPT_IPV6_V6ONLY:
         result = esock_getopt_lvl_ipv6_v6only(env, descP);
         break;
 #endif
@@ -13372,19 +13374,19 @@ ERL_NIF_TERM esock_getopt_lvl_tcp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(TCP_CONGESTION)
-    case SOCKET_OPT_TCP_CONGESTION:
+    case ESOCK_OPT_TCP_CONGESTION:
         result = esock_getopt_lvl_tcp_congestion(env, descP);
         break;
 #endif
 
 #if defined(TCP_MAXSEG)
-    case SOCKET_OPT_TCP_MAXSEG:
+    case ESOCK_OPT_TCP_MAXSEG:
         result = esock_getopt_lvl_tcp_maxseg(env, descP);
         break;
 #endif
 
 #if defined(TCP_NODELAY)
-    case SOCKET_OPT_TCP_NODELAY:
+    case ESOCK_OPT_TCP_NODELAY:
         result = esock_getopt_lvl_tcp_nodelay(env, descP);
         break;
 #endif
@@ -13405,7 +13407,7 @@ static
 ERL_NIF_TERM esock_getopt_lvl_tcp_congestion(ErlNifEnv*       env,
                                              ESockDescriptor* descP)
 {
-    int max = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
+    int max = ESOCK_OPT_TCP_CONGESTION_NAME_MAX+1;
 
     return esock_getopt_str_opt(env, descP, IPPROTO_TCP, TCP_CONGESTION, max);
 }
@@ -13448,7 +13450,7 @@ ERL_NIF_TERM esock_getopt_lvl_udp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(UDP_CORK)
-    case SOCKET_OPT_UDP_CORK:
+    case ESOCK_OPT_UDP_CORK:
         result = esock_getopt_lvl_udp_cork(env, descP);
         break;
 #endif
@@ -13492,43 +13494,43 @@ ERL_NIF_TERM esock_getopt_lvl_sctp(ErlNifEnv*       env,
 
     switch (eOpt) {
 #if defined(SCTP_ASSOCINFO)
-    case SOCKET_OPT_SCTP_ASSOCINFO:
+    case ESOCK_OPT_SCTP_ASSOCINFO:
         result = esock_getopt_lvl_sctp_associnfo(env, descP);
         break;
 #endif
 
 #if defined(SCTP_AUTOCLOSE)
-    case SOCKET_OPT_SCTP_AUTOCLOSE:
+    case ESOCK_OPT_SCTP_AUTOCLOSE:
         result = esock_getopt_lvl_sctp_autoclose(env, descP);
         break;
 #endif
 
 #if defined(SCTP_DISABLE_FRAGMENTS)
-    case SOCKET_OPT_SCTP_DISABLE_FRAGMENTS:
+    case ESOCK_OPT_SCTP_DISABLE_FRAGMENTS:
         result = esock_getopt_lvl_sctp_disable_fragments(env, descP);
         break;
 #endif
 
 #if defined(SCTP_INITMSG)
-    case SOCKET_OPT_SCTP_INITMSG:
+    case ESOCK_OPT_SCTP_INITMSG:
         result = esock_getopt_lvl_sctp_initmsg(env, descP);
         break;
 #endif
 
 #if defined(SCTP_MAXSEG)
-    case SOCKET_OPT_SCTP_MAXSEG:
+    case ESOCK_OPT_SCTP_MAXSEG:
         result = esock_getopt_lvl_sctp_maxseg(env, descP);
         break;
 #endif
 
 #if defined(SCTP_NODELAY)
-    case SOCKET_OPT_SCTP_NODELAY:
+    case ESOCK_OPT_SCTP_NODELAY:
         result = esock_getopt_lvl_sctp_nodelay(env, descP);
         break;
 #endif
 
 #if defined(SCTP_RTOINFO)
-    case SOCKET_OPT_SCTP_RTOINFO:
+    case ESOCK_OPT_SCTP_RTOINFO:
         result = esock_getopt_lvl_sctp_rtoinfo(env, descP);
         break;
 #endif
@@ -14263,7 +14265,7 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET", "esock_cancel_accept_current -> no more writers\r\n") );
 
-        descP->state               = SOCKET_STATE_LISTENING;
+        descP->state               = ESOCK_STATE_LISTENING;
 
         descP->currentAcceptorP    = NULL;
         descP->currentAcceptor.ref = esock_atom_undefined;
@@ -15395,7 +15397,7 @@ ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
      */
 
     descP->closeLocal = FALSE;
-    descP->state      = SOCKET_STATE_CLOSING;
+    descP->state      = ESOCK_STATE_CLOSING;
 
     recv_error_current_reader(env, descP, sockRef, res);
 
@@ -17415,11 +17417,11 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
 
         if (COMPARE(nativeOptT[1], atom_int) == 0) {
             SGDBG( ("SOCKET", "decode_native_get_opt -> int\r\n") );
-            *valueType = SOCKET_OPT_VALUE_TYPE_INT;
+            *valueType = ESOCK_OPT_VALUE_TYPE_INT;
             *valueSz   = sizeof(int); // Just to be sure
         } else if (COMPARE(nativeOptT[1], atom_bool) == 0) {
             SGDBG( ("SOCKET", "decode_native_get_opt -> bool\r\n") );
-            *valueType = SOCKET_OPT_VALUE_TYPE_BOOL;
+            *valueType = ESOCK_OPT_VALUE_TYPE_BOOL;
             *valueSz   = sizeof(int); // Just to be sure
         } else {
             return FALSE;
@@ -17427,7 +17429,7 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
     } else if (IS_NUM(env, nativeOptT[1])) {
         if (GET_INT(env, nativeOptT[1], valueSz)) {
             SGDBG( ("SOCKET", "decode_native_get_opt -> unspec\r\n") );
-            *valueType = SOCKET_OPT_VALUE_TYPE_UNSPEC;
+            *valueType = ESOCK_OPT_VALUE_TYPE_UNSPEC;
         } else {
             return FALSE;
         }
@@ -17553,13 +17555,13 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 
         sprintf(buf, "esock[cfg,%d]", sock);
         descP->cfgMtx           = MCREATE(buf);
-        descP->rBufSz           = SOCKET_RECV_BUFFER_SIZE_DEFAULT;
+        descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
         descP->rNum             = 0;
         descP->rNumCnt          = 0;
-        descP->rCtrlSz          = SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT;
-        descP->wCtrlSz          = SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT;
+        descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
+        descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
         descP->iow              = FALSE;
-        descP->dbg              = SOCKET_DEBUG_DEFAULT;
+        descP->dbg              = ESOCK_DEBUG_DEFAULT;
 
         descP->sock             = sock;
         descP->event            = event;
@@ -17686,17 +17688,17 @@ static
 BOOLEAN_T edomain2domain(int edomain, int* domain)
 {
     switch (edomain) {
-    case SOCKET_DOMAIN_INET:
+    case ESOCK_DOMAIN_INET:
         *domain = AF_INET;
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
-    case SOCKET_DOMAIN_INET6:
+    case ESOCK_DOMAIN_INET6:
         *domain = AF_INET6;
         break;
 #endif
 #ifdef HAVE_SYS_UN_H
-    case SOCKET_DOMAIN_LOCAL:
+    case ESOCK_DOMAIN_LOCAL:
         *domain = AF_UNIX;
         break;
 #endif
@@ -17718,20 +17720,20 @@ static
 BOOLEAN_T etype2type(int etype, int* type)
 {
     switch (etype) {
-    case SOCKET_TYPE_STREAM:
+    case ESOCK_TYPE_STREAM:
         *type = SOCK_STREAM;
         break;
 
-    case SOCKET_TYPE_DGRAM:
+    case ESOCK_TYPE_DGRAM:
         *type = SOCK_DGRAM;
         break;
 
-    case SOCKET_TYPE_RAW:
+    case ESOCK_TYPE_RAW:
         *type = SOCK_RAW;
         break;
 
 #ifdef HAVE_SCTP    
-    case SOCKET_TYPE_SEQPACKET:
+    case ESOCK_TYPE_SEQPACKET:
         *type = SOCK_SEQPACKET;
         break;
 #endif
@@ -17763,33 +17765,33 @@ BOOLEAN_T eproto2proto(ErlNifEnv*   env,
         }
 
         switch (ep) {
-        case SOCKET_PROTOCOL_DEFAULT:
+        case ESOCK_PROTOCOL_DEFAULT:
             *proto = 0; // default - note that _IP also has the value 0...
             break;
             
-        case SOCKET_PROTOCOL_IP:
+        case ESOCK_PROTOCOL_IP:
             *proto = IPPROTO_IP;
             break;
             
-        case SOCKET_PROTOCOL_TCP:
+        case ESOCK_PROTOCOL_TCP:
             *proto = IPPROTO_TCP;
             break;
             
-        case SOCKET_PROTOCOL_UDP:
+        case ESOCK_PROTOCOL_UDP:
             *proto = IPPROTO_UDP;
             break;
             
 #if defined(HAVE_SCTP)
-        case SOCKET_PROTOCOL_SCTP:
+        case ESOCK_PROTOCOL_SCTP:
             *proto = IPPROTO_SCTP;
             break;
 #endif
             
-        case SOCKET_PROTOCOL_ICMP:
+        case ESOCK_PROTOCOL_ICMP:
             *proto = IPPROTO_ICMP;
             break;
             
-        case SOCKET_PROTOCOL_IGMP:
+        case ESOCK_PROTOCOL_IGMP:
             *proto = IPPROTO_IGMP;
             break;
             
@@ -17898,47 +17900,47 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
         return TRUE;
     }
         
-    for (ef = SOCKET_SEND_FLAG_LOW; ef <= SOCKET_SEND_FLAG_HIGH; ef++) {
+    for (ef = ESOCK_SEND_FLAG_LOW; ef <= ESOCK_SEND_FLAG_HIGH; ef++) {
 
         switch (ef) {
 #if defined(MSG_CONFIRM)
-        case SOCKET_SEND_FLAG_CONFIRM:
-            if ((1 << SOCKET_SEND_FLAG_CONFIRM) & eflags)
+        case ESOCK_SEND_FLAG_CONFIRM:
+            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags)
                 tmp |= MSG_CONFIRM;
             break;
 #endif
 
 #if defined(MSG_DONTROUTE)
-        case SOCKET_SEND_FLAG_DONTROUTE:
-            if ((1 << SOCKET_SEND_FLAG_DONTROUTE) & eflags)
+        case ESOCK_SEND_FLAG_DONTROUTE:
+            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags)
                 tmp |= MSG_DONTROUTE;
             break;
 #endif
 
 #if defined(MSG_EOR)
-        case SOCKET_SEND_FLAG_EOR:
-            if ((1 << SOCKET_SEND_FLAG_EOR) & eflags)
+        case ESOCK_SEND_FLAG_EOR:
+            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags)
                 tmp |= MSG_EOR;
             break;
 #endif
 
 #if defined(MSG_MORE)
-        case SOCKET_SEND_FLAG_MORE:
-            if ((1 << SOCKET_SEND_FLAG_MORE) & eflags)
+        case ESOCK_SEND_FLAG_MORE:
+            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags)
                 tmp |= MSG_MORE;
             break;
 #endif
 
 #if defined(MSG_NOSIGNAL)
-        case SOCKET_SEND_FLAG_NOSIGNAL:
-            if ((1 << SOCKET_SEND_FLAG_NOSIGNAL) & eflags)
+        case ESOCK_SEND_FLAG_NOSIGNAL:
+            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags)
                 tmp |= MSG_NOSIGNAL;
             break;
 #endif
 
 #if defined(MSG_OOB)
-        case SOCKET_SEND_FLAG_OOB:
-            if ((1 << SOCKET_SEND_FLAG_OOB) & eflags)
+        case ESOCK_SEND_FLAG_OOB:
+            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags)
                 tmp |= MSG_OOB;
             break;
 #endif
@@ -17974,7 +17976,7 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
         return TRUE;
     }
 
-    for (ef = SOCKET_RECV_FLAG_LOW; ef <= SOCKET_RECV_FLAG_HIGH; ef++) {
+    for (ef = ESOCK_RECV_FLAG_LOW; ef <= ESOCK_RECV_FLAG_HIGH; ef++) {
 
         SGDBG( ("SOCKET", "erecvflags2recvflags -> iteration"
                 "\r\n   ef:  %d"
@@ -17983,22 +17985,22 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 
         switch (ef) {
 #if defined(MSG_CMSG_CLOEXEC)
-        case SOCKET_RECV_FLAG_CMSG_CLOEXEC:
-            if ((1 << SOCKET_RECV_FLAG_CMSG_CLOEXEC) & eflags)
+        case ESOCK_RECV_FLAG_CMSG_CLOEXEC:
+            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags)
                 tmp |= MSG_CMSG_CLOEXEC;
             break;
 #endif
 
 #if defined(MSG_ERRQUEUE)
-        case SOCKET_RECV_FLAG_ERRQUEUE:
-            if ((1 << SOCKET_RECV_FLAG_ERRQUEUE) & eflags)
+        case ESOCK_RECV_FLAG_ERRQUEUE:
+            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags)
                 tmp |= MSG_ERRQUEUE;
             break;
 #endif
 
 #if defined(MSG_OOB)
-        case SOCKET_RECV_FLAG_OOB:
-            if ((1 << SOCKET_RECV_FLAG_OOB) & eflags)
+        case ESOCK_RECV_FLAG_OOB:
+            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags)
                 tmp |= MSG_OOB;
             break;
 #endif
@@ -18011,15 +18013,15 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
              * </KOLLA>
              */
 #if defined(MSG_PEEK)
-        case SOCKET_RECV_FLAG_PEEK:
-            if ((1 << SOCKET_RECV_FLAG_PEEK) & eflags)
+        case ESOCK_RECV_FLAG_PEEK:
+            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags)
                 tmp |= MSG_PEEK;
             break;
 #endif
 
 #if defined(MSG_TRUNC)
-        case SOCKET_RECV_FLAG_TRUNC:
-            if ((1 << SOCKET_RECV_FLAG_TRUNC) & eflags)
+        case ESOCK_RECV_FLAG_TRUNC:
+            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags)
                 tmp |= MSG_TRUNC;
             break;
 #endif
@@ -18045,15 +18047,15 @@ static
 BOOLEAN_T ehow2how(unsigned int ehow, int* how)
 {
      switch (ehow) {
-     case SOCKET_SHUTDOWN_HOW_RD:
+     case ESOCK_SHUTDOWN_HOW_RD:
          *how = SHUT_RD;
          break;
 
-     case SOCKET_SHUTDOWN_HOW_WR:
+     case ESOCK_SHUTDOWN_HOW_WR:
          *how = SHUT_WR;
          break;
 
-     case SOCKET_SHUTDOWN_HOW_RDWR:
+     case ESOCK_SHUTDOWN_HOW_RDWR:
          *how = SHUT_RDWR;
          break;
 
@@ -18099,7 +18101,7 @@ BOOLEAN_T ecommand2command(ErlNifEnv*    env,
         return FALSE;
     }
     if (COMPARE(ecmd, esock_atom_debug) == 0) {
-        *command = SOCKET_CMD_DEBUG;
+        *command = ESOCK_CMD_DEBUG;
     } else {
         SGDBG( ("SOCKET", "ecommand2command -> unknown command %T\r\n", ecmd) );
         return FALSE;
@@ -18952,7 +18954,7 @@ void socket_dtor(ErlNifEnv* env, void* obj)
   free_request_queue(&descP->writersQ);
   free_request_queue(&descP->acceptorsQ);
 
-  descP->state   = SOCKET_STATE_DTOR;
+  descP->state   = ESOCK_STATE_DTOR;
   descP->pattern = ESOCK_DESC_PATTERN_DTOR;  
 #endif
 }
@@ -19018,7 +19020,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                    descP->readWaits) );
 
     sockRef           = enif_make_resource(env, descP);
-    descP->state      = SOCKET_STATE_CLOSING; // Just in case...???
+    descP->state      = ESOCK_STATE_CLOSING; // Just in case...???
     descP->isReadable = FALSE;
     descP->isWritable = FALSE;
 
@@ -19294,7 +19296,7 @@ void socket_down(ErlNifEnv*           env,
             SSDBG( descP,
                    ("SOCKET", "socket_down -> controlling process exit\r\n") );
 
-            descP->state      = SOCKET_STATE_CLOSING;
+            descP->state      = ESOCK_STATE_CLOSING;
             descP->closeLocal = TRUE;
             descP->closerPid  = *pid;
             MON_INIT(&descP->closerMon);
@@ -19309,7 +19311,7 @@ void socket_down(ErlNifEnv*           env,
                         "socket_down -> [%d] stop called\r\n", descP->sock) );
 
                 dec_socket(descP->domain, descP->type, descP->protocol);
-                descP->state = SOCKET_STATE_CLOSED;
+                descP->state = ESOCK_STATE_CLOSED;
 
                 /* And finally close the socket.
                  * Since we close the socket because of an exiting owner,
@@ -19332,7 +19334,7 @@ void socket_down(ErlNifEnv*           env,
                 descP->sock  = INVALID_SOCKET;
                 descP->event = INVALID_EVENT;
 
-                descP->state = SOCKET_STATE_CLOSED;
+                descP->state = ESOCK_STATE_CLOSED;
 
             } else if (sres & ERL_NIF_SELECT_STOP_SCHEDULED) {
 
@@ -19383,7 +19385,7 @@ void socket_down(ErlNifEnv*           env,
              * The same goes for the monitor (connMon).
              */
 
-            descP->state = SOCKET_STATE_OPEN;  /* restore state */
+            descP->state = ESOCK_STATE_OPEN;  /* restore state */
             enif_set_pid_undefined(&descP->connPid);
             DEMONP("socket_down -> connector",
                    env, descP, &descP->connMon);
@@ -19448,7 +19450,7 @@ void socket_down_acceptor(ErlNifEnv*       env,
             SSDBG( descP,
                    ("SOCKET", "socket_down_acceptor -> no more writers\r\n") );
 
-            descP->state               = SOCKET_STATE_LISTENING;
+            descP->state               = ESOCK_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
             descP->currentAcceptor.ref = esock_atom_undefined;
@@ -19612,7 +19614,7 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
      */
     ERL_NIF_TERM debug = MKA(env, "debug");
     
-    return esock_extract_bool_from_map(env, map, debug, SOCKET_GLOBAL_DEBUG_DEFAULT);
+    return esock_extract_bool_from_map(env, map, debug, ESOCK_GLOBAL_DEBUG_DEFAULT);
 }
 
 static
@@ -19625,7 +19627,7 @@ BOOLEAN_T extract_iow(ErlNifEnv*   env,
      */
     ERL_NIF_TERM iow = MKA(env, "iow");
     
-    return esock_extract_bool_from_map(env, map, iow, SOCKET_NIF_IOW_DEFAULT);
+    return esock_extract_bool_from_map(env, map, iow, ESOCK_NIF_IOW_DEFAULT);
 }
 #endif // if !defined(__WIN32__)
 
