@@ -1567,7 +1567,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     ok | {error, Reason} when
       Socket :: socket(),
       Data   :: binary(),
-      Dest   :: null | sockaddr(),
+      Dest   :: sockaddr(),
       Reason :: term().
 
 sendto(Socket, Data, Dest) ->
@@ -1576,7 +1576,7 @@ sendto(Socket, Data, Dest) ->
 -spec sendto(Socket, Data, Dest, Flags) -> ok | {error, Reason} when
       Socket    :: socket(),
       Data      :: binary(),
-      Dest      :: null | sockaddr(),
+      Dest      :: sockaddr(),
       Flags     :: send_flags(),
       Reason    :: term()
                    ; (Socket, Data, Dest, Timeout :: nowait) -> ok |
@@ -1584,13 +1584,13 @@ sendto(Socket, Data, Dest) ->
                                                   {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Dest       :: null | sockaddr(),
+      Dest       :: sockaddr(),
       SelectInfo :: select_info(),
       Reason     :: term()
                  ; (Socket, Data, Dest, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Dest       :: null | sockaddr(),
+      Dest       :: sockaddr(),
       Timeout    :: timeout(),
       Reason     :: term().
 
@@ -1605,14 +1605,14 @@ sendto(Socket, Data, Dest, Timeout) ->
                                                    {error, Reason} when
       Socket     :: socket(),
       Data       :: binary(),
-      Dest       :: null | sockaddr(),
+      Dest       :: sockaddr(),
       Flags      :: send_flags(),
       SelectInfo :: select_info(),
       Reason     :: term()
                  ; (Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: binary(),
-      Dest       :: null | sockaddr(),
+      Dest       :: sockaddr(),
       Flags      :: send_flags(),
       Timeout    :: timeout(),
       Reason     :: term().
@@ -1620,15 +1620,6 @@ sendto(Socket, Data, Dest, Timeout) ->
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
-sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
-  when is_binary(Data) andalso
-       (Dest =:= null) andalso
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0))) ->
-    EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, ensure_sockaddr(Dest), EFlags, Timeout);
 sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
   when is_binary(Data) andalso
        ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
