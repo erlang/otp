@@ -456,6 +456,9 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
     (((d)->state & ESOCK_FLAG_BUSY) == ESOCK_FLAG_BUSY)
 */
 
+#define ESOCK_GET_RESOURCE(ENV, REF, RES) \
+    enif_get_resource((ENV), (REF), esocks, (RES))
+
 #define ESOCK_SEND_FLAG_CONFIRM    0
 #define ESOCK_SEND_FLAG_DONTROUTE  1
 #define ESOCK_SEND_FLAG_EOR        2
@@ -2419,11 +2422,11 @@ static BOOLEAN_T decode_native_get_opt(ErlNifEnv*   env,
 // static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
-static void socket_stop_handle_current(ErlNifEnv*       env,
-                                       const char*      role,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     sockRef,
-                                       ESockRequestor*  reqP);
+static void esock_stop_handle_current(ErlNifEnv*       env,
+                                      const char*      role,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ESockRequestor*  reqP);
 static void inform_waiting_procs(ErlNifEnv*         env,
                                  const char*        role,
                                  ESockDescriptor*   descP,
@@ -2562,30 +2565,30 @@ static size_t my_strnlen(const char *s, size_t maxlen);
 #endif
 */
 
-static void socket_dtor(ErlNifEnv* env, void* obj);
-static void socket_stop(ErlNifEnv* env,
-			void*      obj,
-			int        fd,
-			int        is_direct_call);
-static void socket_down(ErlNifEnv*           env,
-			void*                obj,
-			const ErlNifPid*     pid,
-			const ErlNifMonitor* mon);
+static void esock_dtor(ErlNifEnv* env, void* obj);
+static void esock_stop(ErlNifEnv* env,
+                       void*      obj,
+                       int        fd,
+                       int        is_direct_call);
+static void esock_down(ErlNifEnv*           env,
+                       void*                obj,
+                       const ErlNifPid*     pid,
+                       const ErlNifMonitor* mon);
 
 #if !defined(__WIN32__)
 
-static void socket_down_acceptor(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 ERL_NIF_TERM     sockRef,
-                                 const ErlNifPid* pid);
-static void socket_down_writer(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               const ErlNifPid* pid);
-static void socket_down_reader(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               const ErlNifPid* pid);
+static void esock_down_acceptor(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                const ErlNifPid* pid);
+static void esock_down_writer(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pid);
+static void esock_down_reader(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pid);
 
 static char* esock_send_wrap_msg(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
@@ -2997,11 +3000,11 @@ LOCAL_ERROR_REASON_ATOMS
 
 
 /* *** Sockets *** */
-static ErlNifResourceType*    sockets;
-static ErlNifResourceTypeInit socketInit = {
-   socket_dtor,
-   socket_stop,
-   (ErlNifResourceDown*) socket_down
+static ErlNifResourceType*    esocks;
+static ErlNifResourceTypeInit esockInit = {
+   esock_dtor,
+   esock_stop,
+   (ErlNifResourceDown*) esock_down
 };
 
 // Initiated when the nif is loaded
@@ -3102,7 +3105,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
         {
             ESockDescriptor* descP;
 
-            if (!enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+            if (!ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
                 return enif_make_badarg(env);
             }
             SSDBG( descP, ("SOCKET", "nif_info -> get socket info\r\n") );
@@ -5123,7 +5126,7 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 2) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
     eSockAddr = argv[1];
@@ -5224,7 +5227,7 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
 
     sockRef = argv[0];
     if ((argc != 2) ||
-        !enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     eSockAddr = argv[1];
@@ -5427,7 +5430,7 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 1) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -5571,7 +5574,7 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 2) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
         !GET_INT(env, argv[1], &backlog)) {
         return enif_make_badarg(env);
     }
@@ -5654,7 +5657,7 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
 
     sockRef = argv[0];
     if ((argc != 2) ||
-        !enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env); 
     }
     ref = argv[1];
@@ -6220,7 +6223,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     sockRef = argv[0]; // We need this in case we send in case we send abort
     sendRef = argv[1];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -6342,16 +6345,15 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 5) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_BIN(env, argv[2], &sndData) ||
         !GET_UINT(env, argv[4], &eflags)) {
         return enif_make_badarg(env);
     }
-    sockRef   = argv[0]; // We need this in case we send in case we send abort
+    sockRef   = argv[0]; // We need this in case we send abort (to the caller)
     sendRef   = argv[1];
     eSockAddr = argv[3];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     
@@ -6479,11 +6481,11 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
         !GET_UINT(env, argv[3], &eflags)) {
         return enif_make_badarg(env);
     }
-    sockRef = argv[0]; // We need this in case we send in case we send abort
+    sockRef = argv[0]; // We need this in case we send abort (to the caller)
     sendRef = argv[1];
     eMsgHdr = argv[2];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     
@@ -6782,10 +6784,10 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
         !GET_UINT(env, argv[3], &eflags)) {
         return enif_make_badarg(env);
     }
-    sockRef = argv[0]; // We need this in case we case we send abort
+    sockRef = argv[0]; // We need this in case we send abort (to the caller)
     recvRef = argv[1];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     
@@ -6925,10 +6927,10 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
         !GET_UINT(env, argv[3], &eflags)) {
         return enif_make_badarg(env);
     }
-    sockRef = argv[0]; // We need this in case we send in case we send abort
+    sockRef = argv[0]; // We need this in case we send abort (to the caller)
     recvRef = argv[1];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -7094,10 +7096,10 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
         !GET_UINT(env, argv[4], &eflags)) {
         return enif_make_badarg(env);
     }
-    sockRef = argv[0]; // We need this in case we send in case we send abort
+    sockRef = argv[0]; // We need this in case we send abort (to the caller)
     recvRef = argv[1];
 
-    if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+    if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     
@@ -7260,7 +7262,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     ESockDescriptor* descP;
 
     if ((argc != 1) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -7479,7 +7481,7 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 1) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -7563,7 +7565,7 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
     int              how;
 
     if ((argc != 2) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
         !GET_UINT(env, argv[1], &ehow)) {
         return enif_make_badarg(env);
     }
@@ -7652,7 +7654,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 5) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
         !GET_INT(env, argv[2], &eLevel) ||
         !GET_INT(env, argv[3], &eOpt)) {
         SGDBG( ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
@@ -11218,7 +11220,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     SGDBG( ("SOCKET", "nif_getopt -> entry with argc: %d\r\n", argc) );
 
     if ((argc != 4) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
         !GET_INT(env, argv[2], &eLevel)) {
         SGDBG( ("SOCKET", "nif_getopt -> failed processing args\r\n") );
         return enif_make_badarg(env);
@@ -13962,7 +13964,7 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 1) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -14036,7 +14038,7 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 1) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -14112,7 +14114,7 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
 
     sockRef = argv[0];
     if ((argc != 3) ||
-        !enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
+        !ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     op    = argv[1];
@@ -17496,7 +17498,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 {
     ESockDescriptor* descP;
 
-    if ((descP = enif_alloc_resource(sockets, sizeof(ESockDescriptor))) != NULL) {
+    if ((descP = enif_alloc_resource(esocks, sizeof(ESockDescriptor))) != NULL) {
         char buf[64]; /* Buffer used for building the mutex name */
 
         descP->pattern        = ESOCK_DESC_PATTERN_CREATED;
@@ -18923,11 +18925,11 @@ static void free_request_queue(ESockRequestQueue* q)
 }
 
 /* =========================================================================
- * socket_dtor - Callback function for resource destructor
+ * esock_dtor - Callback function for resource destructor
  *
  */
 static
-void socket_dtor(ErlNifEnv* env, void* obj)
+void esock_dtor(ErlNifEnv* env, void* obj)
 {
 #if !defined(__WIN32__)    
   ESockDescriptor* descP = (ESockDescriptor*) obj;
@@ -18961,7 +18963,7 @@ void socket_dtor(ErlNifEnv* env, void* obj)
 
 
 /* =========================================================================
- * socket_stop - Callback function for resource stop
+ * esock_stop - Callback function for resource stop
  *
  * When the socket is stopped, we need to inform:
  *
@@ -18976,14 +18978,14 @@ void socket_dtor(ErlNifEnv* env, void* obj)
  *
  */
 static
-void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
+void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 {
 #if !defined(__WIN32__)
     ESockDescriptor* descP = (ESockDescriptor*) obj;
     ERL_NIF_TERM     sockRef;
 
     SSDBG( descP,
-           ("SOCKET", "socket_stop -> entry when %s"
+           ("SOCKET", "esock_stop -> entry when %s"
             "\r\n   sock: %d (%d)"
             "\r\n",
             ((is_direct_call) ? "called" : "scheduled"), descP->sock, fd) );
@@ -18996,7 +18998,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MLOCK(descP->cfgMtx);
     if (!is_direct_call) MLOCK(descP->closeMtx);
     
-    SSDBG( descP, ("SOCKET", "socket_stop -> "
+    SSDBG( descP, ("SOCKET", "esock_stop -> "
                    "[%d, %T] all mutex(s) locked when counters:"
                    "\r\n   writePkgCnt:  %u"
                    "\r\n   writeByteCnt: %u"
@@ -19031,7 +19033,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
      * there is no point to demonitor. Also, we do not actually
      * have a monitor in that case...
      */
-    DEMONP("socket_stop -> ctrl", env, descP, &descP->ctrlMon);
+    DEMONP("esock_stop -> ctrl", env, descP, &descP->ctrlMon);
 
 
 
@@ -19048,12 +19050,12 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * writers waiting.
          */
 
-        socket_stop_handle_current(env,
-                                   "writer",
-                                   descP, sockRef, &descP->currentWriter);
+        esock_stop_handle_current(env,
+                                  "writer",
+                                  descP, sockRef, &descP->currentWriter);
 
         /* And also deal with the waiting writers (in the same way) */
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting writer(s)\r\n") );
+        SSDBG( descP, ("SOCKET", "esock_stop -> handle waiting writer(s)\r\n") );
         inform_waiting_procs(env, "writer",
                              descP, sockRef, &descP->writersQ, TRUE, atom_closed);
     }
@@ -19072,12 +19074,12 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * readers waiting.
          */
         
-        socket_stop_handle_current(env,
-                                   "reader",
-                                   descP, sockRef, &descP->currentReader);
+        esock_stop_handle_current(env,
+                                  "reader",
+                                  descP, sockRef, &descP->currentReader);
 
         /* And also deal with the waiting readers (in the same way) */
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting reader(s)\r\n") );
+        SSDBG( descP, ("SOCKET", "esock_stop -> handle waiting reader(s)\r\n") );
         inform_waiting_procs(env, "reader",
                              descP, sockRef, &descP->readersQ, TRUE, atom_closed);
     }
@@ -19097,12 +19099,12 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * acceptors waiting.
          */
 
-        socket_stop_handle_current(env,
-                                   "acceptor",
-                                   descP, sockRef, &descP->currentAcceptor);
-
+        esock_stop_handle_current(env,
+                                  "acceptor",
+                                  descP, sockRef, &descP->currentAcceptor);
+        
         /* And also deal with the waiting acceptors (in the same way) */
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting acceptor(s)\r\n") );
+        SSDBG( descP, ("SOCKET", "esock_stop -> handle waiting acceptor(s)\r\n") );
         inform_waiting_procs(env, "acceptor",
                              descP, sockRef, &descP->acceptorsQ, TRUE, atom_closed);
     }
@@ -19126,7 +19128,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
                 esock_send_close_msg(env, descP, &descP->closerPid);
 
-                DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
+                DEMONP("esock_stop -> closer", env, descP, &descP->closerMon);
 
             } else {
 
@@ -19135,14 +19137,14 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                  */
 
                 if (descP->closeEnv != NULL)
-                    esock_free_env("socket_stop - close-env", descP->closeEnv);
+                    esock_free_env("esock_stop - close-env", descP->closeEnv);
 
             }
         }
     }
     
 
-    SSDBG( descP, ("SOCKET", "socket_stop -> unlock all mutex(s)\r\n") );
+    SSDBG( descP, ("SOCKET", "esock_stop -> unlock all mutex(s)\r\n") );
 
     if (!is_direct_call) MUNLOCK(descP->closeMtx);
     MUNLOCK(descP->cfgMtx);
@@ -19151,33 +19153,33 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MUNLOCK(descP->writeMtx);
 
     SSDBG( descP,
-           ("SOCKET", "socket_stop -> done (%d, %d)\r\n", descP->sock, fd) );
+           ("SOCKET", "esock_stop -> done (%d, %d)\r\n", descP->sock, fd) );
 
 #endif // if !defined(__WIN32__)
 }
 
 
 
-/* *** socket_stop_handle_current ***
+/* *** esock_stop_handle_current ***
  *
  * Handle current requestor (reader, writer or acceptor) during
  * socket stop.
  */
 #if !defined(__WIN32__)
 static
-void socket_stop_handle_current(ErlNifEnv*       env,
-                                const char*      role,
-                                ESockDescriptor* descP,
-                                ERL_NIF_TERM     sockRef,
-                                ESockRequestor*  reqP)
+void esock_stop_handle_current(ErlNifEnv*       env,
+                               const char*      role,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ESockRequestor*  reqP)
 {
-    SSDBG( descP, ("SOCKET", "socket_stop -> handle current %s\r\n", role) );
+    SSDBG( descP, ("SOCKET", "esock_stop -> handle current %s\r\n", role) );
 
-    DEMONP("socket_stop_handle_current", env, descP, &reqP->mon);
+    DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
 
     if (COMPARE_PIDS(&descP->closerPid, &reqP->pid) != 0) {
 
-        SSDBG( descP, ("SOCKET", "socket_stop_handle_current -> "
+        SSDBG( descP, ("SOCKET", "esock_stop_handle_current -> "
                        "send abort message to current %s %T\r\n",
                        role, reqP->pid) );
 
@@ -19262,21 +19264,21 @@ void inform_waiting_procs(ErlNifEnv*         env,
 
 
 /* =========================================================================
- * socket_down - Callback function for resource down (monitored processes)
+ * esock_down - Callback function for resource down (monitored processes)
  *
  */
 static
-void socket_down(ErlNifEnv*           env,
-                 void*                obj,
-                 const ErlNifPid*     pid,
-                 const ErlNifMonitor* mon)
+void esock_down(ErlNifEnv*           env,
+                void*                obj,
+                const ErlNifPid*     pid,
+                const ErlNifMonitor* mon)
 {
 #if !defined(__WIN32__)
     ESockDescriptor* descP = (ESockDescriptor*) obj;
     int              sres;
     ERL_NIF_TERM     sockRef;
 
-    SSDBG( descP, ("SOCKET", "socket_down -> entry with"
+    SSDBG( descP, ("SOCKET", "esock_down -> entry with"
                    "\r\n   sock:  %d"
                    "\r\n   pid:   %T"
                    "\r\n   Close: %s (%s)"
@@ -19294,7 +19296,7 @@ void socket_down(ErlNifEnv*           env,
              */
 
             SSDBG( descP,
-                   ("SOCKET", "socket_down -> controlling process exit\r\n") );
+                   ("SOCKET", "esock_down -> controlling process exit\r\n") );
 
             descP->state      = ESOCK_STATE_CLOSING;
             descP->closeLocal = TRUE;
@@ -19308,7 +19310,7 @@ void socket_down(ErlNifEnv*           env,
                 /* We are done - we can finalize (socket close) directly */
                 SSDBG( descP,
                        ("SOCKET", 
-                        "socket_down -> [%d] stop called\r\n", descP->sock) );
+                        "esock_down -> [%d] stop called\r\n", descP->sock) );
 
                 dec_socket(descP->domain, descP->type, descP->protocol);
                 descP->state = ESOCK_STATE_CLOSED;
@@ -19345,7 +19347,7 @@ void socket_down(ErlNifEnv*           env,
                  */
                 SSDBG( descP,
                        ("SOCKET",
-                        "socket_down -> [%d] stop scheduled\r\n",
+                        "esock_down -> [%d] stop scheduled\r\n",
                         descP->sock) );
 
                 dec_socket(descP->domain, descP->type, descP->protocol);
@@ -19387,7 +19389,7 @@ void socket_down(ErlNifEnv*           env,
 
             descP->state = ESOCK_STATE_OPEN;  /* restore state */
             enif_set_pid_undefined(&descP->connPid);
-            DEMONP("socket_down -> connector",
+            DEMONP("esock_down -> connector",
                    env, descP, &descP->connMon);
 
         } else {
@@ -19398,43 +19400,43 @@ void socket_down(ErlNifEnv*           env,
              *
              */
 
-            SSDBG( descP, ("SOCKET", "socket_down -> other process term\r\n") );
+            SSDBG( descP, ("SOCKET", "esock_down -> other process term\r\n") );
 
             sockRef = enif_make_resource(env, descP);
 
             MLOCK(descP->accMtx);
             if (descP->currentAcceptorP != NULL)
-                socket_down_acceptor(env, descP, sockRef, pid);
+                esock_down_acceptor(env, descP, sockRef, pid);
             MUNLOCK(descP->accMtx);
 
             MLOCK(descP->writeMtx);
             if (descP->currentWriterP != NULL)
-                socket_down_writer(env, descP, sockRef, pid);
+                esock_down_writer(env, descP, sockRef, pid);
             MUNLOCK(descP->writeMtx);
 
             MLOCK(descP->readMtx);
             if (descP->currentReaderP != NULL)
-                socket_down_reader(env, descP, sockRef, pid);
+                esock_down_reader(env, descP, sockRef, pid);
             MUNLOCK(descP->readMtx);
 
         }
     }
 
-    SSDBG( descP, ("SOCKET", "socket_down -> done\r\n") );
+    SSDBG( descP, ("SOCKET", "esock_down -> done\r\n") );
 
 #endif // if !defined(__WIN32__)
 }
 
 
 
-/* *** socket_down_acceptor ***
+/* *** esock_down_acceptor ***
  *
  * Check and then handle a downed acceptor process.
  *
  */
 #if !defined(__WIN32__)
 static
-void socket_down_acceptor(ErlNifEnv*       env,
+void esock_down_acceptor(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           ERL_NIF_TERM     sockRef,
                           const ErlNifPid* pid)
@@ -19442,13 +19444,13 @@ void socket_down_acceptor(ErlNifEnv*       env,
     if (COMPARE_PIDS(&descP->currentAcceptor.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_acceptor -> "
+                       "esock_down_acceptor -> "
                        "current acceptor - try activate next\r\n") );
         
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
             SSDBG( descP,
-                   ("SOCKET", "socket_down_acceptor -> no more writers\r\n") );
+                   ("SOCKET", "esock_down_acceptor -> no more writers\r\n") );
 
             descP->state               = ESOCK_STATE_LISTENING;
 
@@ -19463,7 +19465,7 @@ void socket_down_acceptor(ErlNifEnv*       env,
         /* Maybe unqueue one of the waiting acceptors */
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_acceptor -> "
+                       "esock_down_acceptor -> "
                        "not current acceptor - maybe a waiting acceptor\r\n") );
         
         acceptor_unqueue(env, descP, pid);
@@ -19473,13 +19475,13 @@ void socket_down_acceptor(ErlNifEnv*       env,
 
 
 
-/* *** socket_down_writer ***
+/* *** esock_down_writer ***
  *
  * Check and then handle a downed writer process.
  *
  */
 static
-void socket_down_writer(ErlNifEnv*       env,
+void esock_down_writer(ErlNifEnv*       env,
                         ESockDescriptor* descP,
                         ERL_NIF_TERM     sockRef,
                         const ErlNifPid* pid)
@@ -19487,12 +19489,12 @@ void socket_down_writer(ErlNifEnv*       env,
     if (COMPARE_PIDS(&descP->currentWriter.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_writer -> "
+                       "esock_down_writer -> "
                        "current writer - try activate next\r\n") );
         
         if (!activate_next_writer(env, descP, sockRef)) {
             SSDBG( descP, ("SOCKET",
-                           "socket_down_writer -> no active writer\r\n") );
+                           "esock_down_writer -> no active writer\r\n") );
             descP->currentWriterP    = NULL;
             descP->currentWriter.ref = esock_atom_undefined;
             enif_set_pid_undefined(&descP->currentWriter.pid);
@@ -19504,7 +19506,7 @@ void socket_down_writer(ErlNifEnv*       env,
         /* Maybe unqueue one of the waiting writer(s) */
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_writer -> "
+                       "esock_down_writer -> "
                        "not current writer - maybe a waiting writer\r\n") );
         
         writer_unqueue(env, descP, pid);
@@ -19514,13 +19516,13 @@ void socket_down_writer(ErlNifEnv*       env,
 
 
 
-/* *** socket_down_reader ***
+/* *** esock_down_reader ***
  *
  * Check and then handle a downed reader process.
  *
  */
 static
-void socket_down_reader(ErlNifEnv*       env,
+void esock_down_reader(ErlNifEnv*       env,
                         ESockDescriptor* descP,
                         ERL_NIF_TERM     sockRef,
                         const ErlNifPid* pid)
@@ -19528,13 +19530,13 @@ void socket_down_reader(ErlNifEnv*       env,
     if (COMPARE_PIDS(&descP->currentReader.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_reader -> "
+                       "esock_down_reader -> "
                        "current reader - try activate next\r\n") );
         
         if (!activate_next_reader(env, descP, sockRef)) {
             SSDBG( descP,
                    ("SOCKET",
-                    "socket_down_reader -> no more readers\r\n") );
+                    "esock_down_reader -> no more readers\r\n") );
             descP->currentReaderP    = NULL;
             descP->currentReader.ref = esock_atom_undefined;
             enif_set_pid_undefined(&descP->currentReader.pid);
@@ -19546,7 +19548,7 @@ void socket_down_reader(ErlNifEnv*       env,
         /* Maybe unqueue one of the waiting reader(s) */
         
         SSDBG( descP, ("SOCKET",
-                       "socket_down_reader -> "
+                       "esock_down_reader -> "
                        "not current reader - maybe a waiting reader\r\n") );
         
         reader_unqueue(env, descP, pid);
@@ -19562,7 +19564,7 @@ void socket_down_reader(ErlNifEnv*       env,
  */
 
 static
-ErlNifFunc socket_funcs[] =
+ErlNifFunc esock_funcs[] =
 {
     // Some utility and support functions
     {"nif_info",                0, nif_info, 0},
@@ -19648,7 +19650,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.iow = extract_iow(env, load_info);
 
     /* +++ Global Counters +++ */
-    data.cntMtx         = MCREATE("socket[gcnt]");
+    data.cntMtx         = MCREATE("esock[gcnt]");
     data.numSockets     = 0;
     data.numTypeDGrams  = 0;
     data.numTypeStreams = 0;
@@ -19675,13 +19677,21 @@ GLOBAL_ERROR_REASON_ATOMS
 #undef GLOBAL_ATOM_DECL
     esock_atom_socket_tag = MKA(env, "$socket");
 
-    sockets = enif_open_resource_type_x(env,
-                                        "sockets",
-                                        &socketInit,
-                                        ERL_NIF_RT_CREATE,
-                                        NULL);
+    esocks = enif_open_resource_type_x(env,
+                                       "sockets",
+                                       &esockInit,
+                                       ERL_NIF_RT_CREATE,
+                                       NULL);
 
-    return !sockets;
+    return !esocks;
 }
 
-ERL_NIF_INIT(socket, socket_funcs, on_load, NULL, NULL, NULL)
+/*
+ * MODULE:  socket (the erlang API/interface module)
+ * funcs:   esock_funcs (defines the API of this nif)
+ * load:    on_load (load this nif)
+ * upgrade: NULL (not used)
+ * NULL:    THIS IS NOT USED
+ * unload:  NULL (not used)
+ */
+ERL_NIF_INIT(socket, esock_funcs, on_load, NULL, NULL, NULL)
