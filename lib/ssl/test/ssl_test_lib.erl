@@ -2110,6 +2110,8 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'tlsv1.1', "OpenSSL 0" ++ _} ->
 		    false;
+                {'tlsv1', "OpenSSL 0" ++ _} ->
+		    false;
 		{_, _} ->
 		    true
 	    end;
