@@ -993,15 +993,15 @@ expect_exec([#expect_instruction{description = Desc,
 
 skip({What, Why}) when is_atom(What) andalso is_list(Why) ->
     Reason = lists:flatten(io_lib:format("~p: ~s", [What, Why])),
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip({What, Why}) ->
     Reason = lists:flatten(io_lib:format("~p: ~p", [What, Why])),
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip(Reason) when is_list(Reason) ->
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip(Reason1) ->
     Reason2 = lists:flatten(io_lib:format("~p", [Reason1])),
-    exit({skipped, Reason2}).
+    ?SKIP(Reason2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
