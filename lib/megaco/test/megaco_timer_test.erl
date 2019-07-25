@@ -362,6 +362,8 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
 	    case tmr_stop(Ref) of
                 ok ->
                     ok;
+                {ok, _} ->
+                    ok;
                 CancelRes ->
                     ?SKIP({cancel_failed, CancelRes})
             end
