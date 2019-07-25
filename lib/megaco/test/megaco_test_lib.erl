@@ -318,9 +318,9 @@ t({Mod, {group, Name} = Group, Groups}, Config)
 			      [Name, Error]),
 		    [{failed, {Mod, Group}, Error}]
 	    catch
-		exit:{skipped, SkipReason} ->
+		exit:{skip, SkipReason} ->
 		    io:format(" => skipping group: ~p~n", [SkipReason]),
-		    [{skipped, {Mod, Group}, SkipReason, 0}];
+		    [{skip, {Mod, Group}, SkipReason, 0}];
 		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || 
 			      Case <- GroupsAndCases];
@@ -383,9 +383,9 @@ t(Mod, Config) when is_atom(Mod) ->
 		    io:format(" => suite init failed: ~p~n", [Error]),
 		    [{failed, {Mod, init_per_suite}, Error}]
 	    catch 
-		exit:{skipped, SkipReason} ->
+		exit:{skip, SkipReason} ->
 		    io:format(" => skipping suite: ~p~n", [SkipReason]),
-		    [{skipped, {Mod, init_per_suite}, SkipReason, 0}];
+		    [{skip, {Mod, init_per_suite}, SkipReason, 0}];
 		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || Case <- Cases];
 		T:E ->
@@ -458,10 +458,10 @@ wait_for_evaluator(Pid, Mod, Fun, Config, Errors, AccTime) ->
 	    megaco:report_event(20, Mod, ?MODULE, Label ++ " failed",
 				[TestCase, Config, {return, Fail}, Errors]),
 	    {failed, {Mod,Fun}, Fail, Time};
-	{'EXIT', Pid, {skipped, Reason}, Time} -> 
+	{'EXIT', Pid, {skip, Reason}, Time} -> 
 	    megaco:report_event(20, Mod, ?MODULE, Label ++ " skipped",
-				[TestCase, Config, {skipped, Reason}]),
-	    {skipped, {Mod, Fun}, Errors, Time};
+				[TestCase, Config, {skip, Reason}]),
+	    {skip, {Mod, Fun}, Errors, Time};
 	{'EXIT', Pid, Reason, Time} -> 
 	    megaco:report_event(20, Mod, ?MODULE, Label ++ " crashed",
 				[TestCase, Config, {'EXIT', Reason}]),
@@ -492,14 +492,14 @@ do_eval(ReplyTo, Mod, Fun, Config) ->
 	error:undef ->
 	    %% p("do_eval -> error - undef", []),
 	    ReplyTo ! {'EXIT', self(), undef, 0};
-	exit:{skipped, Reason} ->
+	exit:{skip, Reason} ->
 	    %% p("do_eval -> exit - skipped"
 	    %%   "~n   Reason: ~p", [Reason]),
 	    T2   = os:timestamp(), 
 	    Time = timer:now_diff(T2, T1), 
 	    display_tc_time(Time),
 	    display_system_info("after (skipped)", Mod, Fun),
-	    ReplyTo ! {'EXIT', self(), {skipped, Reason}, Time};
+	    ReplyTo ! {'EXIT', self(), {skip, Reason}, Time};
 	exit:{suite_failed, Reason} ->
 	    %% p("do_eval -> exit - suite-failed"
 	    %%   "~n   Reason: ~p", [Reason]),
@@ -616,9 +616,9 @@ display_result(Res) when is_list(Res) ->
     Ok           = [{MF, Time} || {ok,  MF, _, Time}  <- Res],
     Nyi          = [MF || {nyi, MF, _, _Time} <- Res],
     SkippedGrps  = [{{M,G}, Reason} || 
-		       {skipped, {M, {group, G}}, Reason, _Time} <- Res],
+		       {skip, {M, {group, G}}, Reason, _Time} <- Res],
     SkippedCases = [{MF, Reason} || 
-		       {skipped, {_M, F} = MF, Reason, _Time} <- Res, 
+		       {skip, {_M, F} = MF, Reason, _Time} <- Res, 
 		       is_atom(F)],
     FailedGrps   = [{{M,G}, Reason} || 
 		       {failed,  {M, {group, G}}, Reason, _Time} <- Res],
@@ -730,15 +730,18 @@ log(Format, Args, Mod, Line) ->
 		      [self(), Mod, Line] ++ Args)
     end.
 
+skip(Reason) ->
+    exit({skip, Reason}).
+
 skip(Actual, File, Line) ->
-    log("Skipping test case~n", [], File, Line),
-    String = lists:flatten(io_lib:format("Skipping test case ~p(~p): ~p~n",
-					 [File, Line, Actual])),
-    exit({skipped, String}).
+    log("Skipping test case: ~p~n", [Actual], File, Line),
+    String = f("~p(~p): ~p~n", [File, Line, Actual]),
+    skip(String).
 
 fatal_skip(Actual, File, Line) ->
     error(Actual, File, Line),
-    exit({skipped, {fatal, Actual, File, Line}}).
+    skip({fatal, Actual, File, Line}).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -750,7 +753,8 @@ flush() ->
     after 1000 ->
 	    []
     end.
-	    
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Check if process is alive and kicking
 still_alive(Pid) ->   
