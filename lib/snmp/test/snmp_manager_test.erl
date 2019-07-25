@@ -203,13 +203,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Result = 
 	case lists:member(Case, DeprecatedApiCases) of
 	    true ->
-		{skip, api_no_longer_supported};
+		{skip, "API no longer supported"};
 	    false ->
 		try init_per_testcase2(Case, Config)
                 catch
-                    C:{skip, _} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                    C:{skip, _} = E:_ when ((C =:= throw) orelse
+                                            (C =:= exit)) ->
                         E;
-                    C:E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                    C:E:_ when ((C =:= throw) orelse
+                                (C =:= exit)) ->
                         {skip, {catched, C, E}}
                 end
 	end,
@@ -1807,10 +1809,11 @@ do_register_agent3(Config) ->
 simple_sync_get1(doc) -> ["Simple sync get-request - Old style (Addr & Port)"];
 simple_sync_get1(suite) -> [];
 simple_sync_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssg1),
+do_simple_sync_get1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node  = ?config(manager_node, Config),
@@ -1970,10 +1973,11 @@ simple_async_get1(doc) ->
     ["Simple (async) get-request - Old style (Addr & Port)"];
 simple_async_get1(suite) -> [];
 simple_async_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sag1),
+do_simple_async_get1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2191,10 +2195,11 @@ simple_sync_get_next1(doc) -> ["Simple (sync) get_next-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_next1(suite) -> [];
 simple_sync_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get_next1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get_next1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgn1),
+do_simple_sync_get_next1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2487,10 +2492,11 @@ simple_async_get_next1(doc) -> ["Simple (async) get_next-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_next1(suite) -> [];
 simple_async_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get_next1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get_next1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgn1),
+do_simple_async_get_next1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2745,10 +2751,11 @@ simple_sync_set1(doc) -> ["Simple (sync) set-request - "
 			  "Old style (Addr & Port)"];
 simple_sync_set1(suite) -> [];
 simple_sync_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_set1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_set1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sss1),
+do_simple_sync_set1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node = ?config(manager_node, Config),
@@ -2921,10 +2928,11 @@ simple_async_set1(doc) -> ["Simple (async) set-request - "
 			   "Old style (Addr & Port)"];
 simple_async_set1(suite) -> [];
 simple_async_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_set1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_set1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sas1),
+do_simple_async_set1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -3137,10 +3145,11 @@ simple_sync_get_bulk1(doc) -> ["Simple (sync) get_bulk-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_bulk1(suite) -> [];
 simple_sync_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get_bulk1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get_bulk1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgb1),
+do_simple_sync_get_bulk1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode = ?config(manager_node, Config),
@@ -3508,10 +3517,11 @@ simple_async_get_bulk1(doc) -> ["Simple (async) get_bulk-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_bulk1(suite) -> [];
 simple_async_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get_bulk1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get_bulk1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sagb1),
+do_simple_async_get_bulk1(Config) ->
     p("starting with Config: ~p~n", [Config]),
     
     MgrNode   = ?config(manager_node, Config),
@@ -3858,10 +3868,11 @@ misc_async1(doc) -> ["Misc (async) request(s) - "
 		     "Old style (Addr & Port)"];
 misc_async1(suite) -> [];
 misc_async1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(misc_async1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_misc_async1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ms1),
+do_misc_async1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
