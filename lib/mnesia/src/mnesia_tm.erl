@@ -1992,7 +1992,7 @@ sync_send_dirty(Tid, [Head | Tail], Tab, WaitFor) ->
 	    Res =  do_dirty(Tid, Head),
 	    {WF, Res};
 	true ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, ext_format(Head), Tab}},
+	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
 	    sync_send_dirty(Tid, Tail, Tab, [Node | WaitFor])
     end;
 sync_send_dirty(_Tid, [], _Tab, WaitFor) ->
@@ -2011,11 +2011,11 @@ async_send_dirty(Tid, [Head | Tail], Tab, ReadNode, WaitFor, Res) ->
 	    NewRes =  do_dirty(Tid, Head),
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, NewRes);
 	ReadNode == Node ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, ext_format(Head), Tab}},
+	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
 	    NewRes = {'EXIT', {aborted, {node_not_running, Node}}},
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, [Node | WaitFor], NewRes);
 	true ->
-	    {?MODULE, Node} ! {self(), {async_dirty, Tid, ext_format(Head), Tab}},
+	    {?MODULE, Node} ! {self(), {async_dirty, Tid, Head, Tab}},
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, Res)
     end;
 async_send_dirty(_Tid, [], _Tab, _ReadNode, WaitFor, Res) ->
@@ -2072,24 +2072,20 @@ ask_commit(Protocol, Tid, [Head | Tail], DiscNs, RamNs, WaitFor, Local) ->
 	Node == node() ->
 	    ask_commit(Protocol, Tid, Tail, DiscNs, RamNs, WaitFor, Head);
 	true ->
-	    CR = ext_format(Head),
-	    Msg = {ask_commit, Protocol, Tid, CR, DiscNs, RamNs},
+	    Msg = {ask_commit, convert_old(Protocol, Node), Tid, Head, DiscNs, RamNs},
 	    {?MODULE, Node} ! {self(), Msg},
 	    ask_commit(Protocol, Tid, Tail, DiscNs, RamNs, [Node | WaitFor], Local)
     end;
 ask_commit(_Protocol, _Tid, [], _DiscNs, _RamNs, WaitFor, Local) ->
     {WaitFor, Local}.
 
-ext_format(#commit{ext=[]}=CR) -> CR;
-ext_format(#commit{node=Node, ext=Ext}=CR) ->
+convert_old(sync_asym_trans, Node) ->
     case mnesia_monitor:needs_protocol_conversion(Node) of
-	true  ->
-	    case lists:keyfind(snmp, 1, Ext) of
-		false -> CR#commit{ext=[]};
-		{snmp, List} -> CR#commit{ext=List}
-	    end;
-	false -> CR
-    end.
+        true -> asym_trans;
+        false -> sync_asym_trans
+    end;
+convert_old(Protocol, _) ->
+    Protocol.
 
 new_cr_format(#commit{ext=[]}=Cr) -> Cr;
 new_cr_format(#commit{ext=[{_,_}|_]}=Cr) -> Cr;

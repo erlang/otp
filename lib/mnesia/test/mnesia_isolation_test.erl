@@ -29,7 +29,7 @@
 -export([no_conflict/1, simple_queue_conflict/1,
          advanced_queue_conflict/1, simple_deadlock_conflict/1,
          advanced_deadlock_conflict/1, schema_deadlock/1, lock_burst/1,
-         nasty/1, basic_sticky_functionality/1,
+         nasty/1, basic_sticky_functionality/1, sticky_sync/1,
          unbound1/1, unbound2/1,
          create_table/1, delete_table/1, move_table_copy/1,
          add_table_index/1, del_table_index/1, transform_table/1,
@@ -71,7 +71,8 @@ groups() ->
        advanced_deadlock_conflict, schema_deadlock, lock_burst,
        {group, sticky_locks}, {group, unbound_locking},
        {group, admin_conflict}, nasty]},
-     {sticky_locks, [], [basic_sticky_functionality]},
+     {sticky_locks, [],
+      [basic_sticky_functionality,sticky_sync]},
      {unbound_locking, [], [unbound1, unbound2]},
      {admin_conflict, [],
       [create_table, delete_table, move_table_copy,
@@ -594,9 +595,49 @@ get_held() ->
     mnesia_locker ! {get_table, self(), mnesia_sticky_locks},
     receive {mnesia_sticky_locks, Locks} -> Locks end.
 
+sticky_sync(suite) -> [];
+sticky_sync(Config) when is_list(Config) ->
+    %% BUG ERIERL-768
+    Nodes = [N1, N2] = ?acquire_nodes(2, Config),
+
+    mnesia:create_table(dc, [{type, ordered_set}, {disc_copies, Nodes}]),
+    mnesia:create_table(ec, [{type, ordered_set}, {ram_copies, [N2]}]),
+
+    TestFun =
+        fun(I) ->
+                %% In first transaction we initialise {dc, I} record with value 0
+                First = fun() ->
+                                %% Do a lot of writes into ram copies table
+                                %% which on the Slave in do_commit will be
+                                %% processed first
+                                lists:foreach(fun(J) -> ok = mnesia:write(ec, {ec, J, 0}, write) end,
+                                              lists:seq(1, 750)),
+                                %% Then set initial value of {dc, I} record to 0 with sticky_write
+                                mnesia:write(dc, {dc, I, 0}, sticky_write)
+                        end,
+                ok = mnesia:activity(transaction, First),
+                %% In second transaction we set value of {dc, I} record to 1
+                Upd = fun() ->
+                              %% Modify a single ram copies record with ensured lock grant
+                              %% (key not used in previous transactions)
+                              %% we use this second table only to force asym_trans protocol
+                              mnesia:write(ec, {ec, 1001 + I, 0}, write),
+                              %% And set final version of {dc, I} record to 1 with sticky_write
+                              mnesia:write(dc, {dc, I, 1}, sticky_write)
+                    end,
+                ok = mnesia:activity(transaction, Upd)
+        end,
+
+    %% Fill 1000 dc records. At the end all dc records should have value 1.
+    lists:foreach(TestFun, lists:seq(1,1000)),
+    io:format("Written, check content~n",[]),
+    All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
+    ?match({atomic, []}, rpc:call(N1, mnesia, sync_transaction, [All])),
+    ?match({atomic, []}, rpc:call(N2, mnesia, sync_transaction, [All])),
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 unbound1(suite) -> [];
 unbound1(Config) when is_list(Config) ->
