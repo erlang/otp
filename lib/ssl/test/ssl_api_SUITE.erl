@@ -45,17 +45,17 @@ all() ->
 groups() ->
     [
      %%{'tlsv1.3', [], gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1.3', [], gen_api_tests() -- [secret_connection_info, dh_params, honor_server_cipher_order, honor_client_cipher_order,
-                                        new_options_in_handshake]
-      ++ since_1_2()},
+     {'tlsv1.3', [], (gen_api_tests() -- [secret_connection_info, dh_params, honor_server_cipher_order, honor_client_cipher_order,
+                                        new_options_in_handshake])
+      ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'sslv3', [],  gen_api_tests() -- [new_options_in_handshake] ++ beast_mitigation_test() ++ pre_1_3()},
-     {'dtlsv1.2', [], gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                                         invalid_options, new_options_in_handshake]  ++ handshake_paus_tests() ++ pre_1_3()},
-     {'dtlsv1', [],  gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                                         invalid_options, new_options_in_handshake] ++ handshake_paus_tests() ++ pre_1_3()}
+     {'sslv3', [],  (gen_api_tests() -- [new_options_in_handshake]) ++ beast_mitigation_test() ++ pre_1_3()},
+     {'dtlsv1.2', [], (gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
+                                         invalid_options, new_options_in_handshake])  ++ handshake_paus_tests() ++ pre_1_3()},
+     {'dtlsv1', [],  (gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
+                                         invalid_options, new_options_in_handshake]) ++ handshake_paus_tests() ++ pre_1_3()}
     ].
 
 since_1_2() ->
