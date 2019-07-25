@@ -1508,8 +1508,12 @@ extension_value(#signature_algorithms_cert{signature_scheme_list = Schemes}) ->
     Schemes;
 extension_value(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
+extension_value(#key_share_server_hello{server_share = ServerShare}) ->
+    ServerShare;
 extension_value(#client_hello_versions{versions = Versions}) ->
-    Versions.
+    Versions;
+extension_value(#server_hello_selected_version{selected_version = SelectedVersion}) ->
+    SelectedVersion.
 
 
 %%--------------------------------------------------------------------

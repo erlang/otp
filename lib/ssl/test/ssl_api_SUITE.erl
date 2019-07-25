@@ -45,7 +45,7 @@ all() ->
 groups() ->
     [
      %%{'tlsv1.3', [], gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group()) -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
                                         new_options_in_handshake])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
