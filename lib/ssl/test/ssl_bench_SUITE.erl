@@ -174,7 +174,12 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
 	   end,
     {TimeInMicro, _} = timer:tc(Run),
     TotalTests = ParallellConnections * Loop,
-    TestPerSecond = 1000000 * TotalTests div TimeInMicro,
+    TestPerSecond = case TimeInMicro of
+                        0 ->
+                            undefined;
+                        _ -> 
+                            1000000 * TotalTests div TimeInMicro
+                    end,
     io:format("TC ~p ~p ~p ~p 1/s~n", [TC, Type, ParallellConnections, TestPerSecond]),
     unlink(SPid),
     SPid ! quit,
