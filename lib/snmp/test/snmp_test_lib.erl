@@ -23,6 +23,7 @@
 -include_lib("kernel/include/file.hrl").
 
 
+-export([tc_try/2, tc_try/3]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1,
@@ -43,8 +44,105 @@
 -export([watchdog/3, watchdog_start/1, watchdog_start/2, watchdog_stop/1]).
 -export([del_dir/1]).
 -export([cover/1]).
--export([p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
+-export([f/2, p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
 
+
+%% ----------------------------------------------------------------------
+%% Run test-case
+%%
+
+%% *** tc_try/2,3 ***
+%% Case:      Basically the test case name
+%% TCCondFun: A fun that is evaluated before the actual test case
+%%            The point of this is that it can performs checks to
+%%            see if we shall run the test case at all.
+%%            For instance, the test case may only work in specific
+%%            conditions.
+%% FCFun:     The test case fun
+tc_try(Case, TCFun) ->
+    tc_try(Case, fun() -> ok end, TCFun).
+                        
+tc_try(Case, TCCondFun, TCFun)
+  when is_atom(Case) andalso 
+       is_function(TCCondFun, 0) andalso 
+       is_function(TCFun, 0) ->
+    tc_begin(Case),
+    try TCCondFun() of
+        ok ->
+            try 
+                begin
+                    TCFun(),
+                    sleep(seconds(1)),
+                    tc_end("ok")
+                end
+            catch
+                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                    SKIP;
+                C:E:S ->
+                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                    erlang:raise(C, E, S)
+            end;
+        {skip, _} = SKIP ->
+            tc_end("skipping(tc)"),
+            SKIP;
+        {error, Reason} ->
+            tc_end("failed(tc)"),
+            exit({tc_cond_failed, Reason})
+    catch
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+            tc_end( f("skipping(catched,~w,cond)", [C]) ),
+            SKIP;
+        C:E:S ->
+            tc_end( f("failed(catched,~w,cond)", [C]) ),
+            erlang:raise(C, E, S)
+    end.
+
+
+tc_set_name(N) when is_atom(N) ->
+    tc_set_name(atom_to_list(N));
+tc_set_name(N) when is_list(N) ->
+    put(tc_name, N).
+
+tc_get_name() ->
+    get(tc_name).
+
+tc_begin(TC) ->
+    OldVal = process_flag(trap_exit, true),
+    put(old_trap_exit, OldVal),
+    tc_set_name(TC),
+    tc_print("begin ***",
+             "~n----------------------------------------------------~n", "").
+
+tc_end(Result) when is_list(Result) ->
+    OldVal = erase(old_trap_exit),
+    process_flag(trap_exit, OldVal),
+    tc_print("done: ~s", [Result], 
+             "", "----------------------------------------------------~n~n"),
+    ok.
+
+tc_print(F, Before, After) ->
+    tc_print(F, [], Before, After).
+
+tc_print(F, A, Before, After) ->
+    Name = tc_which_name(),
+    FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+             [formated_timestamp(),Name,self()|A]),
+    io:format(user, Before ++ FStr ++ After, []).
+
+tc_which_name() ->
+    case tc_get_name() of
+        undefined ->
+            case get(sname) of
+                undefined ->
+                    "";
+                SName when is_list(SName) ->
+                    SName
+            end;
+        Name when is_list(Name) ->
+            Name
+    end.
+    
 
 %% ----------------------------------------------------------------------
 %% Misc functions
@@ -714,6 +812,9 @@ cover([Suite, Case] = Args) when is_atom(Suite) andalso is_atom(Case) ->
 %% ----------------------------------------------------------------------
 %% (debug) Print functions
 %%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 p(Mod, Case) when is_atom(Mod) andalso is_atom(Case) ->
     case get(test_case) of

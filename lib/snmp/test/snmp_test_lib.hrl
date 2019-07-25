@@ -18,14 +18,10 @@
 %% The Initial Developer of the Original Code is Ericsson AB.
 %% %CopyrightEnd%
 %%
+
 %%----------------------------------------------------------------------
-%% Purpose: Define common macros for testing
+%% Purpose: Define common macros for (the snmp) testing
 %%----------------------------------------------------------------------
-
-%% - (some of the) Macros stolen from the test server -
-
-%% -define(line,put(test_server_loc,{?MODULE,?LINE}),).
-
 
 %% - Misc macros -
 
@@ -45,6 +41,8 @@
 
 
 %% - Test case macros - 
+-define(TC_TRY(C, TC),         snmp_test_lib:tc_try(C, TC)).
+-define(TC_TRY(C, TCCond, TC), snmp_test_lib:tc_try(C, TCCond, TC)).
 -define(OS_BASED_SKIP(Skippable),
         snmp_test_lib:os_based_skip(Skippable)).
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
