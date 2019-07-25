@@ -27,6 +27,7 @@
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 
 -define(SLEEP, 500).
 
@@ -49,7 +50,7 @@ groups() ->
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
      {'tlsv1', [],  api_tests()},
-     {'sslv3', [],  api_tests()}
+     {'sslv3', [],  api_tests() ++ [ssl3_cipher_suite_limitation]}
     ].
 
 api_tests() ->
@@ -70,7 +71,9 @@ api_tests() ->
      peername,
      sockname,
      tls_server_handshake_timeout,
-     transport_close
+     transport_close,
+     emulated_options,
+     accept_pool
     ].
 
 init_per_suite(Config0) ->
@@ -601,6 +604,124 @@ transport_close(Config) when is_list(Config) ->
     {error, _} = ssl:send(SslS, "Hello world").
 
 %%--------------------------------------------------------------------
+ssl3_cipher_suite_limitation()  ->
+    [{doc,"Test a SSLv3 client cannot negotiate a TLSv* cipher suite."}].
+ssl3_cipher_suite_limitation(Config) when is_list(Config) ->
+    
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
+    ok = gen_tcp:send(Socket, 
+		      <<22, 3,0, 49:16, % handshake, SSL 3.0, length
+			1, 45:24, % client_hello, length
+			3,0, % SSL 3.0
+			16#deadbeef:256, % 32 'random' bytes = 256 bits
+			0, % no session ID
+			%% three cipher suites -- null, one with sha256 hash and one with sha hash
+			6:16, 0,255, 0,61, 0,57, 
+			1, 0 % no compression
+		      >>),
+    {ok, <<22, RecMajor:8, RecMinor:8, _RecLen:16, 2, HelloLen:24>>} = gen_tcp:recv(Socket, 9, 10000),
+    {ok, <<HelloBin:HelloLen/binary>>} = gen_tcp:recv(Socket, HelloLen, 5000),
+    ServerHello = tls_handshake:decode_handshake({RecMajor, RecMinor}, 2, HelloBin),
+    case ServerHello of
+	#server_hello{server_version = {3,0}, cipher_suite = <<0,57>>} -> 
+	    ok;
+	_ ->
+	    ct:fail({unexpected_server_hello, ServerHello})
+    end.
+%%--------------------------------------------------------------------
+emulated_options() ->
+    [{doc,"Test API function getopts/2 and setopts/2"}].
+
+emulated_options(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Values = [{mode, list}, {packet, 0}, {header, 0},
+		      {active, true}],    
+    %% Shall be the reverse order of Values! 
+    Options = [active, header, packet, mode],
+    
+    NewValues = [{mode, binary}, {active, once}],
+    %% Shall be the reverse order of NewValues! 
+    NewOptions = [active, mode],
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, tls_socket_options_result, 
+				  [Options, Values, NewOptions, NewValues]}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, tls_socket_options_result, 
+				  [Options, Values, NewOptions, NewValues]}},
+			   {options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    
+    {ok, Listen} = ssl:listen(0, ServerOpts),
+    {ok,[{mode,list}]} = ssl:getopts(Listen, [mode]),
+    ok = ssl:setopts(Listen, [{mode, binary}]),
+    {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
+    {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
+    ssl:close(Listen).
+accept_pool() ->
+    [{doc,"Test having an accept pool."}].
+accept_pool(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server0 = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{accepters, 3},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server0),
+    [Server1, Server2] = ssl_test_lib:accepters(2),
+
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+    
+    Client2 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+
+    ssl_test_lib:check_ok([Server0, Server1, Server2, Client0, Client1, Client2]),
+    
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Client2).
+    
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -703,3 +824,17 @@ sockname_result(S) ->
 
 peername_result(S) ->
     ssl:peername(S).
+
+tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
+    %% Test get/set emulated opts
+    {ok, DefaultValues} = ssl:getopts(Socket, Options), 
+    ssl:setopts(Socket, NewValues),
+    {ok, NewValues} = ssl:getopts(Socket, NewOptions),
+    %% Test get/set inet opts
+    {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
+    ssl:setopts(Socket, [{nodelay, true}]),
+    {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
+    {ok, All} = ssl:getopts(Socket, []),
+    ct:log("All opts ~p~n", [All]),
+    ok.
+	
