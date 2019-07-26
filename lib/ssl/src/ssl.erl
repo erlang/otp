@@ -982,7 +982,8 @@ cipher_suites(all) ->
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
-cipher_suites(Base, Version) when Version == 'tlsv1.2';
+cipher_suites(Base, Version) when Version == 'tlsv1.3';
+                                  Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
                                   Version == tlsv1;
                                   Version == sslv3 ->
