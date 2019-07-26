@@ -97,7 +97,6 @@ gen_api_tests() ->
      honor_client_cipher_order,
      ipv6,
      der_input,
-     reuseaddr,
      new_options_in_handshake,
      max_handshake_size,
      invalid_certfile,
@@ -1360,45 +1359,6 @@ invalid_cacertfile(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, {error, {options, {cacertfile, File,{error,enoent}}}},
 			      Client1, {error, closed}),
     ok.
-
-%%--------------------------------------------------------------------
-reuseaddr() ->
-    [{doc,"Test reuseaddr option"}].
-
-reuseaddr(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {options,  [{active, false}, {reuseaddr, true}| ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client =
-	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-				   {host, Hostname},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {options, [{active, false} | ClientOpts]}]),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client),
-    
-    Server1 =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  [{active, false}, {reuseaddr, true} | ServerOpts]}]),
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-				   {host, Hostname},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, [{active, false} | ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server1, ok, Client1, ok),
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
 new_options_in_handshake() ->
