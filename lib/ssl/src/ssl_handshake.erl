@@ -709,7 +709,25 @@ encode_extensions([#key_share_server_hello{server_share = ServerShare0} | Rest],
 encode_extensions([#key_share_hello_retry_request{selected_group = Group0} | Rest], Acc) ->
     Group = tls_v1:group_to_enum(Group0),
     encode_extensions(Rest, <<?UINT16(?KEY_SHARE_EXT),
-                              ?UINT16(2), ?UINT16(Group), Acc/binary>>).
+                              ?UINT16(2), ?UINT16(Group), Acc/binary>>);
+encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
+    KEModes = encode_psk_key_exchange_modes(KEModes0),
+    KEModesLen = byte_size(KEModes),
+    ExtLen = KEModesLen + 1,
+    encode_extensions(Rest, <<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT),
+                              ?UINT16(ExtLen), ?BYTE(KEModesLen), KEModes/binary, Acc/binary>>);
+encode_extensions([#pre_shared_key_client_hello{
+                      offered_psks = #offered_psks{
+                                        identities = Identities0,
+                                        binders = Binders0} = PSKs} | Rest], Acc) ->
+    Identities = encode_psk_identities(Identities0),
+    Binders = encode_psk_binders(Binders0),
+    Len = byte_size(Identities) + byte_size(Binders),
+    encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
+                              ?UINT16(Len), Identities/binary, Binders/binary, Acc/binary>>);
+encode_extensions([#pre_shared_key_server_hello{selected_identity = Identity} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
+                              ?UINT16(2), ?UINT16(Identity), Acc/binary>>).
 
 
 encode_client_protocol_negotiation(undefined, _) ->
@@ -1490,8 +1508,12 @@ extension_value(#signature_algorithms_cert{signature_scheme_list = Schemes}) ->
     Schemes;
 extension_value(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
+extension_value(#key_share_server_hello{server_share = ServerShare}) ->
+    ServerShare;
 extension_value(#client_hello_versions{versions = Versions}) ->
-    Versions.
+    Versions;
+extension_value(#server_hello_selected_version{selected_version = SelectedVersion}) ->
+    SelectedVersion.
 
 
 %%--------------------------------------------------------------------
@@ -2093,6 +2115,41 @@ encode_key_share_entry(#key_share_entry{
     Len = byte_size(KeyExchange),
     <<?UINT16((tls_v1:group_to_enum(Group))),?UINT16(Len),KeyExchange/binary>>.
 
+encode_psk_key_exchange_modes(KEModes) ->
+    encode_psk_key_exchange_modes(lists:reverse(KEModes), <<>>).
+%%
+encode_psk_key_exchange_modes([], Acc) ->
+    Acc;
+encode_psk_key_exchange_modes([psk_ke|T], Acc) ->
+    encode_psk_key_exchange_modes(T, <<?BYTE(?PSK_KE),Acc/binary>>);
+encode_psk_key_exchange_modes([psk_dhe_ke|T], Acc) ->
+    encode_psk_key_exchange_modes(T, <<?BYTE(?PSK_DHE_KE),Acc/binary>>).
+
+
+encode_psk_identities(Identities) ->
+    encode_psk_identities(Identities, <<>>).
+%%
+encode_psk_identities([], Acc) ->
+    Len = byte_size(Acc),
+    <<?UINT16(Len), Acc/binary>>;
+encode_psk_identities([#psk_identity{
+                          identity = Identity,
+                          obfuscated_ticket_age = Age}|T], Acc) ->
+    IdLen = byte_size(Identity),
+    encode_psk_identities(T, <<Acc/binary,?UINT16(IdLen),Identity/binary,Age/binary>>).
+
+
+encode_psk_binders(Binders) ->
+    encode_psk_binders(Binders, <<>>).
+%%
+encode_psk_binders([], Acc) ->
+    Len = byte_size(Acc),
+    <<?UINT16(Len), Acc/binary>>;
+encode_psk_binders([Binder|T], Acc) ->
+    Len = byte_size(Binder),
+    encode_psk_binders(T, <<Acc/binary,?BYTE(Len),Binder/binary>>).
+
+
 hello_extensions_list(HelloExtensions) ->
     [Ext || {_, Ext} <- maps:to_list(HelloExtensions), Ext =/= undefined].
 
@@ -2445,6 +2502,33 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                                #key_share_hello_retry_request{
                                   selected_group = tls_v1:enum_to_group(Group)}});
 
+decode_extensions(<<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT), ?UINT16(Len),
+                       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+    <<?BYTE(PLen),KEModes:PLen/binary>> = ExtData,
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{psk_key_exchange_modes =>
+                               #psk_key_exchange_modes{
+                                  ke_modes = decode_psk_key_exchange_modes(KEModes)}});
+
+decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
+                       ExtData:Len/binary, Rest/binary>>,
+                  Version, MessageType = client_hello, Acc) ->
+    <<?UINT16(IdLen),Identities:IdLen/binary,?UINT16(BLen),Binders:BLen/binary>> = ExtData,
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{pre_shared_key =>
+                               #pre_shared_key_client_hello{
+                                  offered_psks = #offered_psks{
+                                                    identities = decode_psk_identities(Identities),
+                                                    binders = decode_psk_binders(Binders)}}});
+
+decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
+                       ExtData:Len/binary, Rest/binary>>,
+                  Version, MessageType = server_hello, Acc) ->
+    <<?UINT16(Identity)>> = ExtData,
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{pre_shared_key =>
+                               #pre_shared_key_server_hello{
+                                  selected_identity = Identity}});
 
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
@@ -2503,6 +2587,38 @@ decode_protocols(<<?BYTE(Len), Protocol:Len/binary, Rest/binary>>, Acc) ->
     end;
 decode_protocols(_Bytes, _Acc) ->
     {error, invalid_protocols}.
+
+
+decode_psk_key_exchange_modes(KEModes) ->
+    decode_psk_key_exchange_modes(KEModes, []).
+%%
+decode_psk_key_exchange_modes(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_psk_key_exchange_modes(<<?BYTE(?PSK_KE), Rest/binary>>, Acc) ->
+    decode_psk_key_exchange_modes(Rest, [psk_ke|Acc]);
+decode_psk_key_exchange_modes(<<?BYTE(?PSK_DHE_KE), Rest/binary>>, Acc) ->
+    decode_psk_key_exchange_modes(Rest, [psk_dhe_ke|Acc]).
+
+
+decode_psk_identities(Identities) ->
+    decode_psk_identities(Identities, []).
+%%
+decode_psk_identities(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_psk_identities(<<?UINT16(Len), Identity:Len/binary, Age:4/binary, Rest/binary>>, Acc) ->
+    decode_psk_identities(Rest, [#psk_identity{
+                                    identity = Identity,
+                                    obfuscated_ticket_age = Age}|Acc]).
+
+
+decode_psk_binders(Binders) ->
+    decode_psk_binders(Binders, []).
+%%
+decode_psk_binders(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_psk_binders(<<?BYTE(Len), Binder:Len/binary, Rest/binary>>, Acc) ->
+    decode_psk_binders(Rest, [Binder|Acc]).
+
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
@@ -3042,7 +3158,7 @@ empty_extensions({3,4}, client_hello) ->
       %% padding => undefined,
       key_share => undefined,
       pre_shared_key => undefined,
-      %% psk_key_exhange_modes => undefined,
+      psk_key_exchange_modes => undefined,
       %% early_data => undefined,
       %% cookie => undefined,
       client_hello_versions => undefined,

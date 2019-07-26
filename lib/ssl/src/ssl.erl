@@ -128,7 +128,8 @@
               tls_alert/0,
               srp_param_type/0,
               named_curve/0,
-              sign_scheme/0]).
+              sign_scheme/0,
+              group/0]).
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -243,7 +244,7 @@
                                  secp160r2. % exported
 
 -type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
-                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
+                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
 
 -type srp_param_type()        :: srp_1024 |
                                  srp_1536 |
@@ -296,6 +297,7 @@
                                 {ciphers, cipher_suites()} |
                                 {eccs, [named_curve()]} |
                                 {signature_algs_cert, signature_schemes()} |
+                                {supported_groups, supported_groups()} |
                                 {secure_renegotiate, secure_renegotiation()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
@@ -342,6 +344,7 @@
 -type protocol_versions()        ::  [protocol_version()].
 -type signature_algs()           ::  [{hash(), sign_algo()}].
 -type signature_schemes()        ::  [sign_scheme()].
+-type supported_groups()         ::  [group()].
 -type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: any()}.
 -type padding_check()            :: boolean(). 
 -type beast_mitigation()         :: one_n_minus_one | zero_n | disabled.
