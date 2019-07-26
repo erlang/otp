@@ -44,8 +44,7 @@ all() ->
 
 groups() ->
     [
-     %%{'tlsv1.3', [], gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1.3', [], (gen_api_tests() -- [secret_connection_info, dh_params, honor_server_cipher_order, honor_client_cipher_order,
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
                                         new_options_in_handshake])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
@@ -123,6 +122,14 @@ beast_mitigation_test() ->
      %% Same as default
      rizzo_one_n_minus_one 
     ].
+
+tls13_group() ->
+    [
+     supported_groups,
+     honor_server_cipher_order_tls13,
+     honor_client_cipher_order_tls13
+    ].
+
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -418,7 +425,6 @@ no_common_signature_algs(Config) when is_list(Config) ->
     ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
 
 %%--------------------------------------------------------------------
-
 handshake_continue() ->
     [{doc, "Test API function ssl:handshake_continue/3"}].
 handshake_continue(Config) when is_list(Config) -> 
@@ -1166,10 +1172,11 @@ honor_server_cipher_order(Config) when is_list(Config) ->
                        cipher => aes_128_cbc, 
                        mac => sha,
                        prf => default_prf}],
-    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa, 
-                                                                     cipher => aes_256_cbc, 
+    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa,
+                                                                     cipher => aes_256_cbc,
                                                                      mac => sha,
                                                                      prf => default_prf}).
+
 %%--------------------------------------------------------------------
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
@@ -1190,10 +1197,11 @@ honor_client_cipher_order(Config) when is_list(Config) ->
                        cipher => aes_128_cbc, 
                        mac => sha,
                        prf => default_prf}],
-honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa, 
-                                                                  cipher => aes_128_cbc, 
-                                                                  mac => sha,
-                                                                  prf => default_prf}).
+    honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa,
+                                                                      cipher => aes_128_cbc,
+                                                                      mac => sha,
+                                                                      prf => default_prf}).
+
 %%--------------------------------------------------------------------
 ipv6() ->
     [{require, ipv6_hosts},
@@ -1560,6 +1568,82 @@ rizzo_one_n_minus_one (Config) ->
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
+supported_groups() ->
+    [{doc,"Test the supported_groups option in TLS 1.3."}].
+
+supported_groups(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{supported_groups, [x448, x25519]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{supported_groups,[x448]} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+honor_client_cipher_order_tls13() ->
+    [{doc,"Test API honor server cipher order in TLS 1.3."}].
+honor_client_cipher_order_tls13(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    ServerCiphers = [#{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => any,
+                                                                      cipher => aes_256_gcm,
+                                                                      mac => aead,
+                                                                      prf => sha384}).
+
+%%--------------------------------------------------------------------
+honor_server_cipher_order_tls13() ->
+    [{doc,"Test API honor server cipher order in TLS 1.3."}].
+honor_server_cipher_order_tls13(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    ServerCiphers = [#{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => any,
+                                                                     cipher => aes_128_gcm,
+                                                                     mac => aead,
+                                                                     prf => sha256}).
+
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -1578,10 +1662,23 @@ connection_information_result(Socket) ->
 	    ct:fail(no_ssl_options_returned)
     end.
 secret_connection_info_result(Socket) ->
-    {ok, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]} 
-        = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
-    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret). 
+    {ok, [{protocol, Protocol}]} = ssl:connection_information(Socket, [protocol]),
+    {ok, ConnInfo} = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
+    check_connection_info(Protocol, ConnInfo).
   
+
+%% In TLS 1.3 the master_secret field is used to store multiple secrets from the key schedule and it is a tuple.
+%% client_random and server_random are not used in the TLS 1.3 key schedule.
+check_connection_info('tlsv1.3', [{client_random, ClientRand}, {master_secret, {master_secret, MasterSecret}}]) ->
+    is_binary(ClientRand) andalso is_binary(MasterSecret);
+check_connection_info('tlsv1.3', [{server_random, ServerRand}, {master_secret, {master_secret, MasterSecret}}]) ->
+    is_binary(ServerRand) andalso is_binary(MasterSecret);
+check_connection_info(_, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]) ->
+    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret);
+check_connection_info(_, _) ->
+    false.
+
+
 prf_create_plan(TlsVersions, PRFs, Results) ->
     lists:foldl(fun(Ver, Acc) ->
                         A = prf_ciphers_and_expected(Ver, PRFs, Results),

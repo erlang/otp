@@ -138,6 +138,15 @@ decode_cipher_text(#ssl_tls{type = ?ALERT,
     {#ssl_tls{type = ?ALERT,
               version = {3,4}, %% Internally use real version
               fragment = <<2,47>>}, ConnectionStates0};
+%% TLS 1.3 server can receive a User Cancelled Alert when handshake is
+%% paused and then cancelled on the client side.
+decode_cipher_text(#ssl_tls{type = ?ALERT,
+                            version = ?LEGACY_VERSION,
+                            fragment = <<2,90>>},
+		   ConnectionStates0) ->
+    {#ssl_tls{type = ?ALERT,
+              version = {3,4}, %% Internally use real version
+              fragment = <<2,90>>}, ConnectionStates0};
 %% RFC8446 - TLS 1.3
 %% D.4.  Middlebox Compatibility Mode
 %%    -  If not offering early data, the client sends a dummy
