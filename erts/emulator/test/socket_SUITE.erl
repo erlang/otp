@@ -16241,6 +16241,7 @@ traffic_send_and_recv_counters_tcpL(doc) ->
 traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_send_and_recv_counters_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -16330,6 +16331,7 @@ traffic_sendmsg_and_recvmsg_counters_tcpL(doc) ->
 traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -16378,6 +16380,8 @@ traffic_send_and_recv_tcp(InitState) ->
                            case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
+                               {error, eafnosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -16722,6 +16726,8 @@ traffic_send_and_recv_tcp(InitState) ->
                            case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
+                               {error, eafnosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -17278,6 +17284,7 @@ traffic_sendto_and_recvfrom_counters_udpL(doc) ->
 traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendto_and_recvfrom_counters_udp4,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -17373,6 +17380,7 @@ traffic_sendmsg_and_recvmsg_counters_udpL(doc) ->
 traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(traffic_sendmsg_and_recvmsg_counters_udpL,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
