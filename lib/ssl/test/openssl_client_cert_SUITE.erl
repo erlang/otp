@@ -47,7 +47,8 @@ groups() ->
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
+     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
+                                                              unsupported_sign_algo_cert_client_auth]},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -328,6 +329,10 @@ unsupported_sign_algo_cert_client_auth() ->
  ssl_cert_tests:unsupported_sign_algo_cert_client_auth().
 unsupported_sign_algo_cert_client_auth(Config) ->
     ssl_cert_tests:unsupported_sign_algo_cert_client_auth(Config).
+unsupported_sign_algo_client_auth() ->
+ ssl_cert_tests:unsupported_sign_algo_client_auth().
+unsupported_sign_algo_client_auth(Config) ->
+    ssl_cert_tests:unsupported_sign_algo_client_auth(Config).
 %%--------------------------------------------------------------------
 hello_retry_client_auth() ->
  ssl_cert_tests:hello_retry_client_auth().

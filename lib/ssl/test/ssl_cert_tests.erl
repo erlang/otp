@@ -262,11 +262,26 @@ unsupported_sign_algo_cert_client_auth(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {verify, verify_peer},
+                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
                   %% Skip rsa_pkcs1_sha256!
-                  {signature_algs, [rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
+                  {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure).
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+%%--------------------------------------------------------------------
+unsupported_sign_algo_client_auth() ->
+     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm"}].
+
+unsupported_sign_algo_client_auth(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  %% Skip rsa_pkcs1_sha256!
+                  {signature_algs, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 %%--------------------------------------------------------------------
 hello_retry_client_auth() ->
     [{doc, "TLS 1.3 (HelloRetryRequest): Test client authentication."}].

@@ -46,8 +46,10 @@ groups() ->
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}, 
-      %%++ [unsupported_sign_algo_cert_client_auth]},
+     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
+      %% TODO: Create proper conf of openssl server
+      %%++ [unsupported_sign_algo_client_auth,
+      %% unsupported_sign_algo_cert_client_auth]},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -343,18 +345,22 @@ hello_retry_request(Config) ->
     ssl_cert_tests:hello_retry_request(Config).
 %%--------------------------------------------------------------------
 custom_groups() ->
- ssl_cert_tests:custom_groups().
+    ssl_cert_tests:custom_groups().
 custom_groups(Config) ->
-  ssl_cert_tests:custom_groups(Config).
+    ssl_cert_tests:custom_groups(Config).
 unsupported_sign_algo_cert_client_auth() ->
- ssl_cert_tests:unsupported_sign_algo_cert_client_auth().
+    ssl_cert_tests:unsupported_sign_algo_cert_client_auth().
 unsupported_sign_algo_cert_client_auth(Config) ->
     ssl_cert_tests:unsupported_sign_algo_cert_client_auth(Config).
+unsupported_sign_algo_client_auth() ->
+    ssl_cert_tests:unsupported_sign_algo_client_auth().
+unsupported_sign_algo_client_auth(Config) ->
+    ssl_cert_tests:unsupported_sign_algo_client_auth(Config).
 %%--------------------------------------------------------------------
 hello_retry_client_auth() ->
- ssl_cert_tests:hello_retry_client_auth().
+    ssl_cert_tests:hello_retry_client_auth().
 hello_retry_client_auth(Config) ->
-  ssl_cert_tests:hello_retry_client_auth(Config).
+    ssl_cert_tests:hello_retry_client_auth(Config).
 %%--------------------------------------------------------------------
 hello_retry_client_auth_empty_cert_accepted() ->
     ssl_cert_tests:hello_retry_client_auth_empty_cert_accepted().
@@ -364,4 +370,4 @@ hello_retry_client_auth_empty_cert_accepted(Config) ->
 hello_retry_client_auth_empty_cert_rejected() ->
     ssl_cert_tests:hello_retry_client_auth_empty_cert_rejected().
 hello_retry_client_auth_empty_cert_rejected(Config) ->
-   ssl_cert_tests:hello_retry_client_auth_empty_cert_rejected(Config).
+    ssl_cert_tests:hello_retry_client_auth_empty_cert_rejected(Config).
