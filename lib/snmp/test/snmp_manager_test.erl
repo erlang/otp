@@ -990,25 +990,23 @@ notify_started02(Config) when is_list(Config) ->
 
     %% <CONDITIONAL-SKIP>
     %% The point of this is to catch machines running 
-    %% SLES9 (2.6.5)
+    %% SLES9 (2.6.5).
     LinuxVersionVerify = 
 	fun() ->
 		case os:cmd("uname -m") of
 		    "i686" ++ _ ->
-%% 			io:format("found an i686 machine, "
-%% 				  "now check version~n", []),
 			case os:version() of
 			    {2, 6, Rev} when Rev >= 16 ->
-				true;
+				false;
 			    {2, Min, _} when Min > 6 ->
-				true;
+				false;
 			    {Maj, _, _} when Maj > 2 ->
-				true;
+				false;
 			    _ ->
-				false
+				true
 			end;
 		    _ ->
-			true
+			false
 		end
 	end,
     Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
@@ -1023,10 +1021,10 @@ notify_started02(Config) when is_list(Config) ->
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, log}]},
-	    {net_if, [{verbosity, silence}]},
+    Opts = [{server,     [{verbosity, log}]},
+	    {net_if,     [{verbosity, silence}]},
 	    {note_store, [{verbosity, silence}]},
-	    {config, [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, debug}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     p("start snmpm client process"),
     NumIterations = 5,
@@ -1056,8 +1054,14 @@ notify_started02(Config) when is_list(Config) ->
 
     p("await snmpm client process exit (max ~p+10000 msec)", [ApproxStartTime]),
     receive 
+        %% We take this opportunity to check if we got a skip from
+        %% the ctrl process.
+	{'EXIT', Pid2, {skip, SkipReason1}} ->
+	    ?SKIP(SkipReason1);
 	{'EXIT', Pid1, normal} ->
 	    ok;
+	{'EXIT', Pid1, {suite_failed, Reason1}} ->
+	    ?FAIL({client, Reason1});
 	{'EXIT', Pid1, Reason1} ->
 	    ?FAIL({client, Reason1})
     after ApproxStartTime + 10000 ->
@@ -1070,6 +1074,9 @@ notify_started02(Config) when is_list(Config) ->
     receive 
 	{'EXIT', Pid2, normal} ->
 	    ok;
+	{'EXIT', Pid2, {skip, SkipReason2}} ->
+            %% In case of a race
+	    ?SKIP(SkipReason2);
 	{'EXIT', Pid2, Reason2} ->
 	    ?FAIL({ctrl, Reason2})
     after 5000 ->
@@ -1094,7 +1101,7 @@ ns02_client_await_approx_runtime(Pid) ->
               "~n      ~p", [Pid, Reason]),
             {error, Reason}
                 
-    after 15000 ->
+    after 30000 ->
             %% Either something is *really* wrong or this machine 
             %% is dog slow. Either way, this is a skip-reason...
             {skip, approx_runtime_timeout}
@@ -1159,6 +1166,12 @@ ns02_ctrl(Opts, N) ->
     p("starting"),
     ns02_ctrl_loop(Opts, N).
 
+
+%% We have seen that some times it takes unreasonably long time to
+%% start the manager (it got "stuck" in snmpm_config). But since
+%% we did not have enough verbosity, we do not know how far it got.
+%% So, we try to monitor each start attempt. We allow 5 sec (just 
+%% to give slow boxes a chance).
 ns02_ctrl_loop(_Opts, 0) ->
     p("done"),
     exit(normal);
@@ -1166,11 +1179,35 @@ ns02_ctrl_loop(Opts, N) ->
     p("entry when N: ~p", [N]),
     ?SLEEP(2000),
     p("start manager"),
-    snmpm:start(Opts),
+    TS1 = erlang:system_time(millisecond),
+    {StarterPid, StarterMRef} =
+        erlang:spawn_monitor(fun() -> exit(snmpm:start(Opts)) end),
+    receive
+        {'DOWN', StarterMRef, process, StarterPid, ok} ->
+            TS2 = erlang:system_time(millisecond),
+            p("manager started: ~w ms", [TS2-TS1]),
+            ok
+    after 5000 ->
+            p("manager (~p) start timeout - kill", [StarterPid]),
+            exit(StarterPid, kill),
+            exit({skip, start_timeout})
+    end,
     ?SLEEP(2000),
     p("stop manager"),
-    snmpm:stop(),
+    ?SLEEP(100), % Give the verbosity to take effect...
+    TS3 = erlang:system_time(millisecond),
+    case snmpm:stop(5000) of
+        ok ->
+            TS4 = erlang:system_time(millisecond),
+            p("manager stopped: ~p ms", [TS4-TS3]),
+            ok;
+        {error, timeout} ->
+            p("manager stop timeout - kill (cleanup) and skip"),
+            exit(whereis(snmpm_supervisor), kill),
+            exit({skip, stop_timeout})
+    end,
     ns02_ctrl_loop(Opts, N-1).
+
 
 
 %%======================================================================

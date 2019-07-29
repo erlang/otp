@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 	 %% Management API
 	 start/0, start/1, 
 	 start_link/0, start_link/1, 
-	 stop/0, 
+	 stop/0, stop/1,
 
 	 monitor/0, demonitor/1, 
 	 notify_started/1, cancel_notify_started/1, 
@@ -196,7 +196,12 @@ start(Opts) ->
     ok.
 
 stop() ->
-    snmpm_supervisor:stop().
+    stop(0).
+
+stop(Timeout) when (Timeout =:= infinity) orelse
+                   (is_integer(Timeout) andalso (Timeout >= 0)) ->
+    snmpm_supervisor:stop(Timeout).
+
 
 
 monitor() ->

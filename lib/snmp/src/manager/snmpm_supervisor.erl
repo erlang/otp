@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 
 %% External exports
--export([start_link/2, stop/0]).
+-export([start_link/2, stop/0, stop/1]).
 
 %% supervisor callbacks
 -export([init/1]).
@@ -44,20 +44,47 @@ start_link(Type, Opts) ->
     SupName = {local, ?MODULE}, 
     supervisor:start_link(SupName, ?MODULE, [Type, Opts]).
 
+
 stop() ->
+    stop(0).
+
+stop(Timeout) ->
     ?d("stop -> entry", []),
     case whereis(?SERVER) of
 	Pid when is_pid(Pid) ->
-	    ?d("stop -> Pid: ~p", [Pid]),
-	    exit(Pid, shutdown),
-	    ?d("stop -> stopped", []),
-	    ok;
+            stop(Pid, Timeout);
 	_ ->
 	    ?d("stop -> not running", []),
 	    not_running
     end.
 
+%% For some unfathomable reason there is no "nice" way to stop
+%% a supervisor. The "normal" way to do it is:
+%% 1) exit(Pid, kill) (kaboom)
+%% 2) If the caller is the *parent*: exit(Pid, shutdown)
+%% So, here we do it the really unly way...but since this function is 
+%% intended for testing (mostly)...
+stop(Pid, Timeout) when (Timeout =:= 0) ->
+    ?d("stop -> Pid: ~p", [Pid]),
+    sys:terminate(whereis(?SERVER), shutdown),
+    ?d("stop -> stopped", []),
+    ok;
+stop(Pid, Timeout) ->
+    ?d("stop -> Pid: ~p", [Pid]),
+    MRef = erlang:monitor(process, Pid),
+    sys:terminate(whereis(?SERVER), shutdown),
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ?d("stop -> stopped", []),
+            ok
+    after Timeout ->
+            ?d("stop -> timeout", []),
+            erlang:demonitor(MRef, [flush]),
+            {error, timeout}
+    end.
 
+
+    
 %%%-------------------------------------------------------------------
 %%% Callback functions from supervisor
 %%%-------------------------------------------------------------------

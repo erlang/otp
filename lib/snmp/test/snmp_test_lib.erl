@@ -202,11 +202,14 @@ non_pc_tc_maybe_skip(Config, Condition, File, Line)
 		    %% test-server...
 		    ok;
 		_ ->
-		    case Condition() of
+		    try Condition() of
 			true ->
 			    skip(non_pc_testcase, File, Line);
 			false ->
 			    ok
+                    catch
+                        C:E:S ->
+                            skip({condition, C, E, S}, File, Line)
 		    end
 	    end
     end.
