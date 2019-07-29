@@ -2553,6 +2553,7 @@ os_prompt%</pre>
 true
 > is_map_key(value,Map).
 false</code>
+        <p>Allowed in guard tests.</p>
       </desc>
     </func>
 
