@@ -41,20 +41,27 @@ all() ->
      {group, 'tlsv1'}].
 
 groups() ->
-    [{'tlsv1.2', [], npn_tests()},
-     {'tlsv1.1', [], npn_tests()},
-     {'tlsv1', [], npn_tests()}
+    [{'tlsv1.2', [], npn_tests() ++ npn_renegotiate_tests()},
+     {'tlsv1.1', [], npn_tests() ++ npn_renegotiate_tests()},
+     {'tlsv1', [], npn_tests() ++ npn_renegotiate_tests()}
     ].
  
 npn_tests() ->
     [erlang_client_openssl_server_npn,
      erlang_server_openssl_client_npn,
-     erlang_server_openssl_client_npn_renegotiate,
-     erlang_client_openssl_server_npn_renegotiate,
      erlang_server_openssl_client_npn_only_client,
      erlang_server_openssl_client_npn_only_server,
      erlang_client_openssl_server_npn_only_client,
      erlang_client_openssl_server_npn_only_server].
+
+npn_renegotiate_tests() ->
+   case ssl_test_lib:sane_openssl_alpn_npn_renegotiate() of
+        true ->
+           [erlang_server_openssl_client_npn_renegotiate,
+            erlang_client_openssl_server_npn_renegotiate];
+        false ->
+            []
+    end.
 
 init_per_suite(Config0) ->
     case os:find_executable("openssl") of

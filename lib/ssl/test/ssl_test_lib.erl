@@ -2716,3 +2716,25 @@ new_config(PrivDir, ServerOpts0) ->
 
     [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
      {keyfile, NewKeyFile} | ServerOpts].
+
+sane_openssl_alpn_npn_renegotiate() ->
+     case os:cmd("openssl version") of 
+         "LibreSSL 2.9.1" ++ _ ->
+             false;
+         "LibreSSL 2.6.4" ++ _ ->
+             false;
+         "OpenSSL 1.1.1a-freebsd" ++ _ ->
+             false;
+         _  ->
+             true
+     end.
+
+openssl_sane_dtls_alpn() ->
+    case os:cmd("openssl version") of
+        "OpenSSL 1.1.0g" ++ _ ->
+            false;
+        "OpenSSL 1.1.1a" ++ _ ->
+            false;
+        _->
+            openssl_sane_dtls()
+    end.
