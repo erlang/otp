@@ -1363,7 +1363,7 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
     Exe = "openssl",
     CertArgs = openssl_cert_options(ServerOpts),
     [Cipher|_] = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
-    Args = ["s_server", "-accept", integer_to_list(Port), "-cipher",
+    Args = ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
             ssl_cipher_format:suite_map_to_openssl_str(Cipher),
             ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"],
     OpenSslPort = portable_open_port(Exe, Args),
@@ -1380,6 +1380,11 @@ start_server(erlang, _, ServerOpts, Config) ->
                                   [KeyEx]}},
                            {options, [{verify, verify_peer}, {versions, Versions} | ServerOpts]}]),
     {Server, inet_port(Server)}.
+
+cipher_flag('tlsv1.3') ->
+    "-ciphersuites";
+cipher_flag(_) ->
+    "-cipher".
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),

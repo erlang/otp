@@ -37,7 +37,7 @@ all() ->
 groups() ->
     [
      {openssl_client, [], protocol_groups()},
-     %%{'tlsv1.3', [], tls_1_3_protocol_groups()}, 
+     {'tlsv1.3', [], tls_1_3_protocol_groups()},
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
@@ -46,13 +46,13 @@ groups() ->
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()}
-     %%{rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
-     %%{ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {dsa, [], all_version_tests()},
+     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
+     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 protocol_groups() ->
-    [%%{group, 'tlsv1.3'},
+    [{group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
