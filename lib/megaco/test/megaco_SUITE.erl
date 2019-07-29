@@ -110,6 +110,20 @@ groups() ->
      {flex,           [], [{megaco_flex_test,           all}]}].
 
 init_per_suite(Config) ->
+    io:format("~w:init_per_suite -> entry with"
+	      "~n   Config:     ~p"
+              "~n   OS Type:    ~p"
+              "~n   OS Version: ~s"
+	      "~n", 
+              [?MODULE, 
+               Config, 
+               os:type(), 
+               case os:version() of
+                   {Major, Minor, Release} ->
+                       ?F("~w.~w.~w", [Major, Minor, Release]);
+                   Str when is_list(Str) ->
+                       Str
+               end]),
     Config.
 
 end_per_suite(_Config) ->
