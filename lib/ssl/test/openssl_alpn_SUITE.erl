@@ -59,8 +59,8 @@ groups() ->
              {'tlsv1.2', [], alpn_tests() ++ alpn_npn_coexist() ++ rengotiation_tests()},
              {'tlsv1.1', [], alpn_tests() ++ alpn_npn_coexist() ++ rengotiation_tests()},
              {'tlsv1', [], alpn_tests() ++ alpn_npn_coexist() ++ rengotiation_tests()},
-             {'dtlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
-             {'dtlsv1', [], alpn_tests() ++ alpn_npn_coexist()}
+             {'dtlsv1.2', [], alpn_tests()},
+             {'dtlsv1', [], alpn_tests()}
             ];
          false ->
             [

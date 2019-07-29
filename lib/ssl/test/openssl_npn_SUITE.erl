@@ -33,40 +33,18 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
 all() -> 
-    %% Note: NPN not supported in sslv3
-    case ssl_test_lib:openssl_sane_dtls() of 
-        true ->
-            [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'dtlsv1.2'},
-             {group, 'dtlsv1'}];
-        false ->
-            [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'}]
-    end.
+    %% NPN is not supported in TLS-1.3 (replaced by ALPN and deprecated in TLS 1.2)
+    %% OpenSSL DTLS support for NPN is either not there or broken.
+    [{group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'}].
 
 groups() ->
-     case ssl_test_lib:openssl_sane_dtls() of 
-         true ->
-             [{'tlsv1.2', [], npn_tests()},
-              {'tlsv1.1', [], npn_tests()},
-              {'tlsv1', [], npn_tests()},
-              {'dtlsv1.2', [], npn_tests() -- [erlang_server_openssl_client_npn_renegotiate,
-                                               erlang_client_openssl_server_npn_renegotiate]},
-              {'dtlsv1', [], npn_tests() -- [erlang_server_openssl_client_npn_renegotiate,
-                                             erlang_client_openssl_server_npn_renegotiate]
-              }
-             ];
-        false ->
-             [{'tlsv1.2', [], npn_tests()},
-              {'tlsv1.1', [], npn_tests()},
-              {'tlsv1', [], npn_tests()}
-             ]
-     end.
+    [{'tlsv1.2', [], npn_tests()},
+     {'tlsv1.1', [], npn_tests()},
+     {'tlsv1', [], npn_tests()}
+    ].
  
 npn_tests() ->
     [erlang_client_openssl_server_npn,
