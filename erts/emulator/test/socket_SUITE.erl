@@ -12156,7 +12156,7 @@ sc_cpe_socket_cleanup_tcp4(suite) ->
 sc_cpe_socket_cleanup_tcp4(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_tcp4,
            fun() ->
                    InitState = #{domain   => inet,
@@ -12176,7 +12176,7 @@ sc_cpe_socket_cleanup_tcp6(suite) ->
 sc_cpe_socket_cleanup_tcp6(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -12197,7 +12197,7 @@ sc_cpe_socket_cleanup_tcpL(suite) ->
 sc_cpe_socket_cleanup_tcpL(doc) ->
     [];
 sc_cpe_socket_cleanup_tcpL(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -12218,7 +12218,7 @@ sc_cpe_socket_cleanup_udp4(suite) ->
 sc_cpe_socket_cleanup_udp4(doc) ->
     [];
 sc_cpe_socket_cleanup_udp4(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_udp4,
            fun() ->
                    InitState = #{domain   => inet,
@@ -12239,7 +12239,7 @@ sc_cpe_socket_cleanup_udp6(suite) ->
 sc_cpe_socket_cleanup_udp6(doc) ->
     [];
 sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -12260,7 +12260,7 @@ sc_cpe_socket_cleanup_udpL(suite) ->
 sc_cpe_socket_cleanup_udpL(doc) ->
     [];
 sc_cpe_socket_cleanup_udpL(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(sc_cpe_socket_cleanup_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -12366,8 +12366,15 @@ sc_cpe_socket_cleanup(InitState) ->
                                    ERROR
                            end
                    end},
+
+         ?SEV_SLEEP(?SECS(5)),
+
          %% The reason we get closed, is that as long as there is a ref to 
          %% the resource (socket), then it will not be garbage collected.
+         %% Note that its still a race that the nif has processed that the
+         %% "controlling process" has terminated. There really is no 
+         %% proper timeout for this, but the 5 seconds "should" be enough...
+         %% We should really have some way to subscribe to socket events...
          #{desc => "verify no socket (closed)",
            cmd  => fun(#{owner := Pid, sock := Sock} = _State) ->
                            case socket:getopt(Sock, otp, controlling_process) of
