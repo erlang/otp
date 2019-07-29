@@ -36,7 +36,7 @@ all() ->
 groups() ->
     [
      {openssl_server, [], protocol_groups()},
-      %%{'tlsv1.3', [], tls_1_3_protocol_groups()}, 
+     {'tlsv1.3', [], tls_1_3_protocol_groups()},
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
@@ -45,13 +45,13 @@ groups() ->
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()}
-     %%{rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
-     %%{ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {dsa, [], all_version_tests()},
+     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
+     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 protocol_groups() ->
-    [%%{group, 'tlsv1.3'},
+    [{group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -108,8 +108,7 @@ end_per_suite(_Config) ->
 init_per_group(openssl_server, Config0) ->
     Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
     [{client_type, erlang}, {server_type, openssl} | Config];    
-init_per_group(Group, Config0) when Group == rsa;
-                                    Group == rsa_1_3 ->
+init_per_group(rsa = Group, Config0) ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
@@ -133,8 +132,25 @@ init_per_group(Group, Config0) when Group == rsa;
         [] ->
             {skip, {no_sup, Group, Version}}
     end;
-init_per_group(Group, Config0) when Group == ecdsa;
-                                    Group == ecdsa_1_3 ->
+init_per_group(rsa_1_3 = Group, Config0) ->
+    Config = ssl_test_lib:make_rsa_cert(Config0),
+    COpts = proplists:get_value(client_rsa_opts, Config),
+    SOpts = proplists:get_value(server_rsa_opts, Config),
+    %% Make sure _rsa* suite is choosen by ssl_test_lib:start_server
+    Version = proplists:get_value(version,Config),
+    Ciphers = ssl_cert_tests:test_ciphers(undefined, Version),
+    case Ciphers of
+        [_|_] ->
+            [{cert_key_alg, rsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, [{ciphers, Ciphers} | COpts]},
+                           {server_cert_opts, SOpts} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        [] ->
+            {skip, {no_sup, Group, Version}}
+    end;
+init_per_group(ecdsa = Group, Config0) ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse 
                                              lists:member(dh, PKAlg)) of
@@ -158,6 +174,32 @@ init_per_group(Group, Config0) when Group == ecdsa;
                                   [{client_cert_opts, [{ciphers, Ciphers} | COpts]}, 
                                    {server_cert_opts, SOpts} | 
                                    lists:delete(server_cert_opts, 
+                                                lists:delete(client_cert_opts, Config))]
+                                 )];
+                        [] ->
+                    {skip, {no_sup, Group, Version}}
+            end;
+        false ->
+            {skip, "Missing EC crypto support"}
+    end;
+init_per_group(ecdsa_1_3 = Group, Config0) ->
+    PKAlg = crypto:supports(public_keys),
+    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse
+                                             lists:member(dh, PKAlg)) of
+        true ->
+            Config = ssl_test_lib:make_ecdsa_cert(Config0),
+            COpts = proplists:get_value(client_ecdsa_opts, Config),
+            SOpts = proplists:get_value(server_ecdsa_opts, Config),
+            %% Make sure ecdh* suite is choosen by ssl_test_lib:start_server
+            Version = proplists:get_value(version,Config),
+            Ciphers =  ssl_cert_tests:test_ciphers(undefined, Version),
+            case Ciphers of
+                [_|_] ->
+                    [{cert_key_alg, ecdsa} |
+                     lists:delete(cert_key_alg,
+                                  [{client_cert_opts, [{ciphers, Ciphers} | COpts]},
+                                   {server_cert_opts, SOpts} |
+                                   lists:delete(server_cert_opts,
                                                 lists:delete(client_cert_opts, Config))]
                                  )];
                         [] ->

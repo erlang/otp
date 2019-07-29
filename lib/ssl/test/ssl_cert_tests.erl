@@ -243,9 +243,9 @@ custom_groups(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
 
-    {ServerOpts, ClientOpts} = group_config(Config,                                           
-                                            [{versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
-                                            [{versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0]), 
+    {ServerOpts, ClientOpts} = group_config_custom(Config,
+                                                   [{versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
+                                                   [{versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0]),
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
@@ -278,14 +278,14 @@ hello_retry_client_auth(Config) ->
     {ServerOpts, ClientOpts} = group_config(Config,                                           
                                             [{versions, ['tlsv1.2','tlsv1.3']},
                                              {verify, verify_peer},
-                                             {fail_if_no_peer_cert, false} | ServerOpts0],
+                                             {fail_if_no_peer_cert, true} | ServerOpts0],
                                             [{versions, ['tlsv1.2','tlsv1.3']}, {verify, verify_peer} | ClientOpts0]), 
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 hello_retry_client_auth_empty_cert_accepted() ->
      [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication when client sends an empty " 
-       "certificate and fail_if_no_peer_cert is set to true."}].
+       "certificate and fail_if_no_peer_cert is set to false."}].
 
 hello_retry_client_auth_empty_cert_accepted(Config) ->
     ClientOpts0 = proplists:delete(keyfile,
@@ -314,7 +314,7 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
     {ServerOpts, ClientOpts} = group_config(Config,                                           
                                             [{versions, ['tlsv1.2','tlsv1.3']},
                                              {verify, verify_peer},
-                                             {fail_if_no_peer_cert, false} | ServerOpts0],
+                                             {fail_if_no_peer_cert, true} | ServerOpts0],
                                             [{versions, ['tlsv1.2','tlsv1.3']}, {verify, verify_peer} | ClientOpts0]), 
        
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
@@ -324,16 +324,35 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
 
+group_config_custom(Config, ServerOpts, ClientOpts) ->
+        case proplists:get_value(client_type, Config) of
+            erlang ->
+                {[{groups,"X448:P-256:P-384"} | ServerOpts],
+                 [{supported_groups, [secp384r1, secp256r1, x25519]} | ClientOpts]};
+            openssl ->
+                {[{supported_groups, [x448, secp256r1, secp384r1]} | ServerOpts],
+                 [{groups,"P-384:P-256:X25519"} | ClientOpts]}
+        end.
+
 group_config(Config, ServerOpts, ClientOpts) ->
         case proplists:get_value(client_type, Config) of
             erlang ->
-                {[{groups,"P-256:X25519"} | ServerOpts],
+                {[{groups,"X448:X25519"} | ServerOpts],
                  [{supported_groups, [secp256r1, x25519]} | ClientOpts]};
             openssl ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
 
+test_ciphers(_, 'tlsv1.3' = Version) ->
+    Ciphers = ssl:cipher_suites(default, Version),
+    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    OpenSSLCiphers = openssl_ciphers(),
+    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    lists:filter(fun(C) ->
+                         ct:log("Cipher ~p~n", [C]),
+                         lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
+                 end, Ciphers);
 test_ciphers(Kex, Version) ->
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), 
                                        [{key_exchange, Kex}]),
@@ -344,6 +363,8 @@ test_ciphers(Kex, Version) ->
                          ct:log("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
+
+
 
 openssl_ciphers() ->
     Str = os:cmd("openssl ciphers"),
