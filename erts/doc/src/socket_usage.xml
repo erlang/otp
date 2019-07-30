@@ -70,11 +70,6 @@
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
       <p>The user must also be prepared to receive an abort message: </p>
-      <!--
-      <list type="ordered">
-	<item><c>{'$socket', Sock, abort, Info}</c></item>
-      </list>
-      -->
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
