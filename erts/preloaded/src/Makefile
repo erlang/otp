@@ -95,6 +95,15 @@ ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 DIA_PLT      = erts-preloaded.plt
 DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
 
 
 debug opt: $(TARGET_FILES) 
@@ -144,6 +153,7 @@ dialyzer: $(DIA_PLT)
 	@echo "Running dialyzer on $(basename $(DIA_PLT))"
 	@dialyzer --plt $< \
                   ../ebin \
+                  $(DIA_WARNINGS) \
                   --verbose
 
 #
