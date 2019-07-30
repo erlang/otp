@@ -313,7 +313,8 @@
                           path   := binary() | string()}.
 -type sockaddr_in4() :: #{family := inet,
                           port   := port_number(),
-                          addr   := any | loopback | ip4_address()}.
+			  %% The 'broadcast' here is the "limited broadcast"
+                          addr   := any | broadcast | loopback | ip4_address()}.
 -type sockaddr_in6() :: #{family   := inet6,
                           port     := port_number(),
                           addr     := any | loopback | ip6_address(),
@@ -334,7 +335,7 @@
 -define(SOCKADDR_IN6_DEFAULTS,    ?SOCKADDR_IN6_DEFAULTS(any)).
 -define(SOCKADDR_IN6_DEFAULT(A),  (?SOCKADDR_IN6_DEFAULTS(A))#{family => inet6}).
 
-%% otp    - The option is internal to our (OTP) imeplementation.
+%% otp    - This option is internal to our (OTP) implementation.
 %% socket - The socket layer (SOL_SOCKET).
 %% ip     - The IP layer (SOL_IP or is it IPPROTO_IP?).
 %% ipv6   - The IPv6 layer (SOL_IPV6).
@@ -342,6 +343,7 @@
 %% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
 %% sctp   - The SCTP (Stream Control Transmission Protocol) layer (IPPROTO_SCTP).
 %% Int    - Raw level, sent down and used "as is".
+%%          Its up to the caller to make sure this is correct!
 -type sockopt_level() :: otp |
                          socket |
                          ip | ipv6 | tcp | udp | sctp |
@@ -1146,19 +1148,25 @@ open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
 %%
 %% bind - bind a name to a socket
 %%
+%% Note that Addr can only have the value of broadcast *if* Domain =:= inet!
+%%
 
 -spec bind(Socket, Addr) -> ok | {error, Reason} when
       Socket :: socket(),
-      Addr   :: any | loopback | sockaddr(),
+      Addr   :: any | broadcast | loopback | sockaddr(),
       Reason :: term().
 
 bind(#socket{ref = SockRef}, Addr)
-  when ((Addr =:= any) orelse (Addr =:= loopback)) ->
+  when ((Addr =:= any) orelse
+	(Addr =:= broadcast) orelse
+	(Addr =:= loopback)) ->
     try which_domain(SockRef) of
         inet ->
             nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
-        inet6 ->
-            nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr))
+        inet6 when (Addr =:= any) orelse (Addr =:= loopback) ->
+            nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
+	_ ->
+	    einval()
     catch
         %% <WIN32-TEMPORARY>
         error:notsup:S ->
@@ -3377,10 +3385,12 @@ enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
 %% +++ SOCKET socket options +++
 enc_sockopt_key(socket = _L, acceptconn = _Opt, get = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_ACCEPTCONN;
+enc_sockopt_key(socket = L, acceptconn = Opt, Dir, _D, _T, _P) ->
+    not_supported({L, Opt, Dir});
 enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-%% Before linux 3.8, this socket option could be set.
-%% Maximum size of buffer for name: IFNAMSZIZ
+%% Before linux 3.8, this socket option could be set but not get.
+%% Maximum size of buffer for name: IFNAMSIZ
 %% So, we let the implementation decide.
 enc_sockopt_key(socket = _L, bindtodevice = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_BINDTODEVICE;

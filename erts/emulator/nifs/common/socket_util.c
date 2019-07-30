@@ -741,16 +741,24 @@ char* esock_decode_ip4_address(ErlNifEnv*      env,
            "\r\n", eAddr) );
 
     if (IS_ATOM(env, eAddr)) {
-        /* This is either 'any' or 'loopback' */
+
+        /* This is either 'any' | 'broadcast' | 'loopback' */
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
-            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: lookback\r\n") );
+            UDBG( ("SUTIL",
+		   "esock_decode_ip4_address -> address: lookback\r\n") );
             addr.s_addr = htonl(INADDR_LOOPBACK);
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
-            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: any\r\n") );
-            addr.s_addr = htonl(INADDR_ANY);
+	  UDBG( ("SUTIL",
+		 "esock_decode_ip4_address -> address: any\r\n") );
+	  addr.s_addr = htonl(INADDR_ANY);
+        } else if (COMPARE(esock_atom_broadcast, eAddr) == 0) {
+	  UDBG( ("SUTIL",
+		 "esock_decode_ip4_address -> address: broadcast\r\n") );
+	  addr.s_addr = htonl(INADDR_BROADCAST);
         } else {
-            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: unknown\r\n") );
+            UDBG( ("SUTIL",
+		   "esock_decode_ip4_address -> address: unknown\r\n") );
             return ESOCK_STR_EINVAL;
         }
 
