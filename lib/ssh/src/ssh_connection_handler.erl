@@ -386,16 +386,24 @@ init_connection_handler(Role, Socket, Opts) ->
                                   D);
 
         {stop, Error} ->
-            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-            C = #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
-                            sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                            connection_supervisor = proplists:get_value(connection_sup, Sups)
-                           },
+            D = try
+                    %% Only servers have supervisorts defined in Opts
+                    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+                    #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
+                                sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                                connection_supervisor = proplists:get_value(connection_sup, Sups)
+                               }
+                of
+                    C ->
+                        #data{connection_state=C}
+                catch
+                    _:_ ->
+                        #data{connection_state=#connection{}}
+                end,
             gen_statem:enter_loop(?MODULE,
                                   [],
                                   {init_error,Error},
-                                  #data{connection_state=C,
-                                        socket=Socket})
+                                  D#data{socket=Socket})
     end.
 
 
@@ -1550,7 +1558,7 @@ terminate({shutdown,"Connection closed"}, _StateName, D) ->
 
 terminate({shutdown,{init,Reason}}, StateName, D) ->
     %% Error in initiation. "This error should not occur".
-    log(error, D, io_lib:format("Shutdown in init (StateName=~p): ~p~n",[StateName,Reason])),
+    log(error, D, "Shutdown in init (StateName=~p): ~p~n", [StateName,Reason]),
     stop_subsystem(D),
     close_transport(D);
 
@@ -1952,12 +1960,12 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
     case disconnect_fun(LogMsg, D) of
         void ->
-            log(info, D, 
-                io_lib:format("~s~n"
-                              "State = ~p~n"
-                              "Module = ~p, Line = ~p.~n"
-                              "Details:~n  ~s~n",
-                              [LogMsg, StateName, Module, Line, DetailedText]));
+            log(info, D,
+                "~s~n"
+                "State = ~p~n"
+                "Module = ~p, Line = ~p.~n"
+                "Details:~n  ~s~n",
+                [LogMsg, StateName, Module, Line, DetailedText]);
         _ ->
             ok
     end.
@@ -2021,6 +2029,9 @@ fold_keys(Keys, Fun, Extra) ->
 		end, [], Keys).
 
 %%%----------------------------------------------------------------
+log(Tag, D, Format, Args) ->
+    log(Tag, D, io_lib:format(Format,Args)).
+
 log(Tag, D, Reason) ->
     case atom_to_list(Tag) of                   % Dialyzer-technical reasons...
         "error"   -> do_log(error_msg,   Reason, D);
@@ -2028,36 +2039,50 @@ log(Tag, D, Reason) ->
         "info"    -> do_log(info_msg,    Reason, D)
     end.
 
-do_log(F, Reason, #data{ssh_params = #ssh{role = Role} = S
-                       }) ->
-    VSN =
-        case application:get_key(ssh,vsn) of
-            {ok,Vsn} -> Vsn;
-            undefined -> ""
-        end,
-    PeerVersion =
-        case Role of
-            server -> S#ssh.c_version;
-            client -> S#ssh.s_version
-        end,
-    CryptoInfo =
-        try 
-            [{_,_,CI}] = crypto:info_lib(),
-            <<"(",CI/binary,")">>
-        catch
-            _:_ -> ""
-        end,
-    Other =
-         case Role of
-            server -> "Client";
-            client -> "Server"
-        end,
-    error_logger:F("Erlang SSH ~p ~s ~s.~n"
-                   "~s: ~p~n"
-                   "~s~n",
-                   [Role, VSN, CryptoInfo, 
-                    Other, PeerVersion,
-                    Reason]).
+
+do_log(F, Reason, #data{ssh_params = S}) ->
+    case S of
+        #ssh{role = Role} when Role==server ;
+                               Role==client ->
+            {PeerRole,PeerVersion} =
+                case Role of
+                    server -> {"Client", S#ssh.c_version};
+                    client -> {"Server", S#ssh.s_version}
+                end,
+            error_logger:F("Erlang SSH ~p ~s ~s.~n"
+                           "~s: ~p~n"
+                           "~s~n",
+                           [Role,
+                            ssh_log_version(), crypto_log_info(), 
+                            PeerRole, PeerVersion,
+                            Reason]);
+        _ ->
+            error_logger:F("Erlang SSH ~s ~s.~n"
+                           "~s~n",
+                           [ssh_log_version(), crypto_log_info(), 
+                            Reason])
+    end.
+
+crypto_log_info() ->
+    try 
+        [{_,_,CI}] = crypto:info_lib(),
+        case crypto:info_fips() of
+            enabled ->
+                <<"(",CI/binary,". FIPS enabled)">>;
+            not_enabled ->
+                <<"(",CI/binary,". FIPS available but not enabled)">>;
+            _ ->
+                <<"(",CI/binary,")">>
+        end
+    catch
+        _:_ -> ""
+    end.
+
+ssh_log_version() ->
+    case application:get_key(ssh,vsn) of
+        {ok,Vsn} -> Vsn;
+        undefined -> ""
+    end.
 
 %%%----------------------------------------------------------------
 not_connected_filter({connection_reply, _Data}) -> true;
