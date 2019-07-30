@@ -1124,7 +1124,6 @@ static ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
                                                  ERL_NIF_TERM     ref,
                                                  ErlNifPid        caller);
 static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
->>>>>>> maint
                                             ESockDescriptor* descP,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     accRef,
