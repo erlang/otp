@@ -627,11 +627,11 @@
 -opaque select_tag() :: atom().
 -opaque select_ref() :: reference().
 
--record(select_info, {tag :: select_tag(), ref :: select_ref()}).
+%% -record(select_info, {tag :: select_tag(), ref :: select_ref()}).
 
--type select_info() :: #select_info{}.
+-type select_info() :: {select_info, select_tag(), select_ref()}.
 
--define(SELECT_INFO(T, R), #select_info{tag = T, ref = R}).
+-define(SELECT_INFO(T, R), {select_info, T, R}).
 -define(SELECT(T, R),      {select, ?SELECT_INFO(T, R)}).
 
 
@@ -2685,7 +2685,7 @@ peername(#socket{ref = SockRef}) ->
       SelectInfo :: select_info(),
       Reason     :: term().
 
-cancel(#socket{ref = SockRef}, #select_info{tag = Tag, ref = Ref}) ->
+cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref)) ->
     cancel(SockRef, Tag, Ref).
 
 
