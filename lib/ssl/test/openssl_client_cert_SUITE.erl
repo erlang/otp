@@ -225,7 +225,21 @@ end_per_group(GroupName, Config) ->
         false ->
             Config
     end.
-
+init_per_testcase(TestCase, Config) when 
+      TestCase == client_auth_empty_cert_accepted;
+      TestCase == client_auth_empty_cert_rejected ->
+    Version = proplists:get_value(version,Config),
+    case Version of
+        sslv3 ->
+            %% Openssl client sends "No Certificate Reserved" warning ALERT
+            %% instead of sending EMPTY cert message in SSL-3.0 so empty cert test are not
+            %% relevant
+            {skip, openssl_behaves_differently};
+        _ -> 
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 10}),
+            Config
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),

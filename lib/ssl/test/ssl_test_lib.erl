@@ -648,8 +648,7 @@ cert_options(Config) ->
 				   "badcert.pem"]),
     BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 			      "badkey.pem"]),
-    PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
-
+    
     [{client_opts, [{cacertfile, ClientCaCertFile}, 
 		    {certfile, ClientCertFile},  
 		    {keyfile, ClientKeyFile}]}, 
@@ -1227,6 +1226,11 @@ basic_test(COpts, SOpts, Config) ->
     stop(Server, Client).    
 
 basic_alert(ClientOpts, ServerOpts, Config, Alert) ->
+    SType = proplists:get_value(server_type, Config),
+    CType = proplists:get_value(client_type, Config),
+    run_basic_alert(SType, CType, ClientOpts, ServerOpts, Config, Alert).
+
+run_basic_alert(erlang, erlang, ClientOpts, ServerOpts, Config, Alert) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Server = start_server_error([{node, ServerNode}, {port, 0},
@@ -1242,7 +1246,30 @@ basic_alert(ClientOpts, ServerOpts, Config, Alert) ->
                                               {mfa, {ssl_test_lib, no_result, []}},
 					      {options, ClientOpts}]),
 
-    check_server_alert(Server, Client, Alert).
+    check_server_alert(Server, Client, Alert);
+run_basic_alert(openssl = SType, erlang, ClientOpts, ServerOpts, Config, Alert) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    {_Server, Port} = start_server(SType, ClientOpts, ServerOpts, Config),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
+    Client = start_client_error([{node, ClientNode}, {port, Port},
+                                 {host, Hostname},
+                                 {from, self()},
+                                 {mfa, {ssl_test_lib, no_result, []}},
+					      {options, ClientOpts}]),
+    
+    check_client_alert(Client, Alert);
+run_basic_alert(erlang, openssl = CType, ClientOpts, ServerOpts, Config, Alert) ->
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = start_server_error([{node, ServerNode}, {port, 0},
+                                 {host, Hostname},
+                                 {from, self()},
+                                 {mfa, {ssl_test_lib, no_result, []}},
+                                 {options, ServerOpts}]),
+    Port  = inet_port(Server),
+    start_client(CType, Port, ClientOpts, Config),
+
+    check_server_alert(Server, Alert).
+    
 
 ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     {Server, Port} = start_server_ecc(erlang, SOpts, Expect, SECCOpts, Config),
@@ -1285,32 +1312,23 @@ start_basic_client(openssl, Version, Port, ClientOpts) ->
     OpenSslPort.
 
 start_client(openssl, Port, ClientOpts, Config) ->
-    Cert = proplists:get_value(certfile, ClientOpts),
-    Key = proplists:get_value(keyfile, ClientOpts),
-    CA = proplists:get_value(cacertfile, ClientOpts),
     Version = ssl_test_lib:protocol_version(Config),
     Exe = "openssl",
+    Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ClientOpts),
+    CertArgs = openssl_cert_options(ClientOpts, client),
     Exe = "openssl",
-    Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
-	    ssl_test_lib:version_flag(Version),
-	    "-CAfile", CA, "-host", "localhost", "-msg", "-debug"],
-    Args1 =
-       case Groups0 of
-           undefined ->
-               Args0;
-           G ->
-               Args0 ++ ["-groups", G]
-       end,
-    Args2 =
-       case {Cert, Key} of
-           {C, K} when C =:= undefined orelse
-                       K =:= undefined ->
-               Args1;
-           {C, K} ->
-               Args1 ++ ["-cert", C, "-key", K]
-       end,
-    Args = maybe_force_ipv4(Args2),
+    Args0 =  case Groups0 of
+                undefined ->
+                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
+                     ciphers(Ciphers, Version),
+                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                Group ->
+                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
+                     ciphers(Ciphers, Version), "-groups", Group, 
+                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+            end,
+    Args = maybe_force_ipv4(Args0),
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
@@ -1361,11 +1379,19 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
     Port = inet_port(node()),
     Version = protocol_version(Config),
     Exe = "openssl",
-    CertArgs = openssl_cert_options(ServerOpts),
-    [Cipher|_] = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
-    Args = ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
-            ssl_cipher_format:suite_map_to_openssl_str(Cipher),
-            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"],
+    CertArgs = openssl_cert_options(ServerOpts, server),
+    Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
+    Groups0 = proplists:get_value(groups, ServerOpts),
+    Args =  case Groups0 of
+                undefined ->
+                    ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
+                     ciphers(Ciphers, Version),
+                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                Group ->
+                       ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
+                        ciphers(Ciphers, Version), "-groups", Group, 
+                        ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+            end,
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
@@ -1380,11 +1406,27 @@ start_server(erlang, _, ServerOpts, Config) ->
                                   [KeyEx]}},
                            {options, [{verify, verify_peer}, {versions, Versions} | ServerOpts]}]),
     {Server, inet_port(Server)}.
-
+ 
 cipher_flag('tlsv1.3') ->
-    "-ciphersuites";
+     "-ciphersuites";
 cipher_flag(_) ->
     "-cipher".
+
+ciphers(Ciphers, Version) ->
+    Strs = [ssl_cipher_format:suite_map_to_openssl_str(Cipher) || Cipher <- Ciphers],
+    ciphers_concat(Version, Strs, "").
+
+ciphers_concat(_, [], [":" | Acc]) ->
+    lists:append(lists:reverse(Acc));
+ciphers_concat('tlsv1.3' = Version, [Head| Tail], Acc) ->
+    case Head of
+        "TLS" ++ _ ->
+            ciphers_concat(Version, Tail, [":", Head | Acc]);
+        _ ->
+            ciphers_concat(Version, Tail, Acc)
+    end;
+ciphers_concat(Version,  [Head| Tail], Acc) ->
+    ciphers_concat(Version, Tail, [":", Head | Acc]).
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
@@ -1439,23 +1481,31 @@ stop(Client, Server)  ->
     close(Client).
 
 
-openssl_cert_options(ServerOpts) ->
-    Cert = proplists:get_value(certfile, ServerOpts, undefined),
-    Key = proplists:get_value(keyfile, ServerOpts, undefined),
-    CA = proplists:get_value(cacertfile, ServerOpts, undefined),
+openssl_cert_options(Opts, Role) ->
+    Cert = proplists:get_value(certfile, Opts, undefined),
+    Key = proplists:get_value(keyfile, Opts, undefined),
+    CA = proplists:get_value(cacertfile, Opts, undefined),
     case CA of
         undefined ->
             case cert_option("-cert", Cert) ++ cert_option("-key", Key) of
-                [] ->
+                [] when Role == server ->
                     ["-nocert"];
                 Other ->
                     Other
             end;
         _ ->
             cert_option("-cert", Cert) ++  cert_option("-CAfile", CA) ++
-                cert_option("-key", Key) ++ ["-verify", "2"]
+                cert_option("-key", Key) ++ openssl_verify(Opts) ++ ["2"]
     end.
 
+openssl_verify(Opts) ->
+      case proplists:get_value(fail_if_no_peer_cert, Opts, undefined) of
+          true ->
+              ["-Verify"];
+          _ ->
+              ["-verify"]
+      end.
+    
 cert_option(_, undefined) ->
     [];
 cert_option(Opt, Value) ->

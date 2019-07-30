@@ -208,12 +208,12 @@ auth(Config) ->
     ssl_cert_tests:auth(Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
-     ssl_cert_tests:client_auth_empty_cert_accepted().
+    ssl_cert_tests:client_auth_empty_cert_accepted().
 client_auth_empty_cert_accepted(Config) ->
     ssl_cert_tests:client_auth_empty_cert_accepted(Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_rejected() ->
-      ssl_cert_tests:client_auth_empty_cert_rejected().
+    ssl_cert_tests:client_auth_empty_cert_rejected().
 client_auth_empty_cert_rejected(Config) ->
     ssl_cert_tests:client_auth_empty_cert_rejected(Config).
 %%--------------------------------------------------------------------
@@ -238,7 +238,6 @@ client_auth_partial_chain_fun_fail() ->
    ssl_cert_tests:client_auth_partial_chain_fun_fail().
 client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_partial_chain_fun_fail(Config).
-
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
