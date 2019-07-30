@@ -160,6 +160,10 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
     case join(maps:values(TypeMap)) of
         any ->
             opt_finish_1(Args, TypeMaps, ParamInfo0);
+        none ->
+            %% This function will never be called. Pretend that we don't
+            %% know the type for this argument.
+            opt_finish_1(Args, TypeMaps, ParamInfo0);
         JoinedType ->
             JoinedType = verified_type(JoinedType),
             ParamInfo = ParamInfo0#{ Arg => validator_anno(JoinedType) },

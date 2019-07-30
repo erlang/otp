@@ -24,7 +24,8 @@
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
 	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
-         test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1]).
+         test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
+         none_argument/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -49,7 +50,8 @@ groups() ->
        test_size,
        cover_lists_functions,
        list_append,
-       bad_binary_unit
+       bad_binary_unit,
+       none_argument
       ]}].
 
 init_per_suite(Config) ->
@@ -517,6 +519,25 @@ bad_binary_unit(_Config) ->
     Bitstring = <<Bin/binary,1:1>>,
     false = is_binary(Bitstring),
     ok.
+
+%% ERL-1013: The compiler would crash during the type optimization pass.
+none_argument(_Config) ->
+    Binary = id(<<3:16, 42>>),
+    error = id(case Binary of
+                   <<Len:16, Body/binary>> when length(Body) == Len - 2 ->
+                       %% The type for Body will be none. It means
+                       %% that this clause will never match and that
+                       %% uncompress/1 will never be called.
+                       uncompress(Body);
+                   _ ->
+                       error
+               end),
+    ok.
+
+uncompress(CompressedBinary) ->
+    %% The type for CompressedBinary is none, which beam_ssa_type
+    %% did not handle properly.
+    zlib:uncompress(CompressedBinary).
 
 id(I) ->
     I.
