@@ -104,8 +104,9 @@ init_per_group(GroupName, Config) ->
                  true ->
                     case ssl_test_lib:check_sane_openssl_version(GroupName) of
                          true ->
-                            ssl_test_lib:init_tls_version(GroupName, Config);
-                         false ->
+                            ssl_test_lib:check_sane_openssl_renegotaite(ssl_test_lib:init_tls_version(GroupName, Config),
+                                                                        GroupName);
+                        false ->
                             {skip, openssl_does_not_support_version}
                     end;
                 false ->
