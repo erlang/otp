@@ -53,7 +53,8 @@ groups() ->
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_cert_client_auth]},
+     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
+                                                              unsupported_sign_algo_cert_client_auth]},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -208,12 +209,12 @@ auth(Config) ->
     ssl_cert_tests:auth(Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
-     ssl_cert_tests:client_auth_empty_cert_accepted().
+    ssl_cert_tests:client_auth_empty_cert_accepted().
 client_auth_empty_cert_accepted(Config) ->
     ssl_cert_tests:client_auth_empty_cert_accepted(Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_rejected() ->
-      ssl_cert_tests:client_auth_empty_cert_rejected().
+    ssl_cert_tests:client_auth_empty_cert_rejected().
 client_auth_empty_cert_rejected(Config) ->
     ssl_cert_tests:client_auth_empty_cert_rejected(Config).
 %%--------------------------------------------------------------------
@@ -238,7 +239,6 @@ client_auth_partial_chain_fun_fail() ->
    ssl_cert_tests:client_auth_partial_chain_fun_fail().
 client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_partial_chain_fun_fail(Config).
-
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
@@ -484,11 +484,27 @@ unsupported_sign_algo_cert_client_auth(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {verify, verify_peer},
+                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
                   %% Skip rsa_pkcs1_sha256!
-                  {signature_algs, [rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
+                  {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure).
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+
+%%--------------------------------------------------------------------
+unsupported_sign_algo_client_auth() ->
+     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm"}].
+
+unsupported_sign_algo_client_auth(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  %% Skip rsa_pkcs1_sha256!
+                  {signature_algs, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 %%--------------------------------------------------------------------
 hello_retry_client_auth() ->
     [{doc, "TLS 1.3 (HelloRetryRequest): Test client authentication."}].
