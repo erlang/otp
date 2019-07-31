@@ -662,7 +662,7 @@
 
       <fo:flow flow-name="xsl-region-body">
         <fo:block xsl:use-attribute-sets="cover.logo">
-          <fo:external-graphic src="{$logo}"/>
+          <fo:external-graphic src="url('{$logo}')"/>
         </fo:block>
         <fo:block xsl:use-attribute-sets="cover.title" id="cover-page">
           <xsl:apply-templates/>
@@ -1658,10 +1658,10 @@
     <fo:block xsl:use-attribute-sets="image">
       <xsl:choose>
 	<xsl:when test="@width">
-	  <fo:external-graphic content-width="scale-to-fit" width="{@width}" inline-progression-dimension.maximum="100%" src="{@file}"/>
+	  <fo:external-graphic content-width="scale-to-fit" width="{@width}" inline-progression-dimension.maximum="100%" src="url('{@file}')"/>
 	</xsl:when>
 	<xsl:otherwise>
-	   <fo:external-graphic content-width="scale-down-to-fit" inline-progression-dimension.maximum="100%" src="{@file}"/>
+	   <fo:external-graphic content-width="scale-down-to-fit" inline-progression-dimension.maximum="100%" src="url('{@file}')"/>
 	</xsl:otherwise>
       </xsl:choose>
       <xsl:apply-templates>
