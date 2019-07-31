@@ -62,7 +62,7 @@
 
 	 register_user1/1,
 	
-	 register_agent1/1,
+	 register_agent_old/1,
 	 register_agent2/1,
 	 register_agent3/1,
 
@@ -185,7 +185,6 @@ end_per_suite(Config) when is_list(Config) ->
 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     p(Case, "init_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     %% This version of the API, based on Addr and Port, has been deprecated
@@ -204,13 +203,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Result = 
 	case lists:member(Case, DeprecatedApiCases) of
 	    true ->
-		{skip, api_no_longer_supported};
+		{skip, "API no longer supported"};
 	    false ->
 		try init_per_testcase2(Case, Config)
                 catch
-                    C:{skip, _} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                    C:{skip, _} = E:_ when ((C =:= throw) orelse
+                                            (C =:= exit)) ->
                         E;
-                    C:E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                    C:E:_ when ((C =:= throw) orelse
+                                (C =:= exit)) ->
                         {skip, {catched, C, E}}
                 end
 	end,
@@ -479,7 +480,7 @@ groups() ->
      },
      {agent_tests, [], 
       [
-       register_agent1, 
+       register_agent_old,
        register_agent2, 
        register_agent3
       ]
@@ -595,7 +596,7 @@ groups() ->
 
 ipv6_tests() ->
     [
-     register_agent1,
+     register_agent_old,
      simple_sync_get_next3,
      simple_async_get2,
      simple_sync_get3,
@@ -671,11 +672,11 @@ end_per_group(_GroupName, Config) ->
 
 simple_start_and_stop1(suite) -> [];
 simple_start_and_stop1(Config) when is_list(Config) ->
-    %% ?SKIP(not_yet_implemented),
-    process_flag(trap_exit, true),
-    put(tname,ssas1),
-    p("starting with Config: ~n~p", [Config]),
+    ?TC_TRY(simple_start_and_stop1,
+            fun() -> do_simple_start_and_stop1(Config) end).
 
+do_simple_start_and_stop1(Config) ->
+    p("starting with Config: ~n~p", [Config]),
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
 
@@ -696,7 +697,6 @@ simple_start_and_stop1(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 
@@ -704,9 +704,10 @@ simple_start_and_stop1(Config) when is_list(Config) ->
 
 simple_start_and_stop2(suite) -> [];
 simple_start_and_stop2(Config) when is_list(Config) ->
-    %% ?SKIP(not_yet_implemented),
-    process_flag(trap_exit, true),
-    put(tname,ssas2),
+    ?TC_TRY(simple_start_and_stop2,
+            fun() -> do_simple_start_and_stop2(Config) end).
+
+do_simple_start_and_stop2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -744,7 +745,6 @@ simple_start_and_stop2(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 
@@ -752,8 +752,10 @@ simple_start_and_stop2(Config) when is_list(Config) ->
 
 simple_start_and_monitor_crash1(suite) -> [];
 simple_start_and_monitor_crash1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,ssamc1),
+    ?TC_TRY(simple_start_and_monitor_crash1,
+            fun() -> do_simple_start_and_monitor_crash1(Config) end).
+
+do_simple_start_and_monitor_crash1(Config) ->
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -797,7 +799,6 @@ simple_start_and_monitor_crash1(Config) when is_list(Config) ->
 	    ?FAIL(timeout)
     end,
 
-    p("end"),
     ok.
 
 
@@ -805,8 +806,10 @@ simple_start_and_monitor_crash1(Config) when is_list(Config) ->
 
 simple_start_and_monitor_crash2(suite) -> [];
 simple_start_and_monitor_crash2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,ssamc2),
+    ?TC_TRY(simple_start_and_monitor_crash2,
+            fun() -> do_simple_start_and_monitor_crash2(Config) end).
+
+do_simple_start_and_monitor_crash2(Config) ->
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -851,7 +854,6 @@ simple_start_and_monitor_crash2(Config) when is_list(Config) ->
 	    ?FAIL(timeout)
     end,
 
-    p("end"),
     ok.
 
 
@@ -897,8 +899,10 @@ simulate_crash(NumKills, _) ->
 
 notify_started01(suite) -> [];
 notify_started01(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,ns01),
+    ?TC_TRY(notify_started01,
+            fun() -> do_notify_started01(Config) end).
+
+do_notify_started01(Config) ->
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -985,12 +989,11 @@ snmpm_starter(Opts, To) ->
 
 notify_started02(suite) -> [];
 notify_started02(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,ns02),
+    ?TC_TRY(notify_started02,
+            fun() -> notify_started02_cond(Config) end,
+            fun() -> do_notify_started02(Config) end).
 
-    %% <CONDITIONAL-SKIP>
-    %% The point of this is to catch machines running 
-    %% SLES9 (2.6.5).
+notify_started02_cond(Config) ->
     LinuxVersionVerify = 
 	fun() ->
 		case os:cmd("uname -m") of
@@ -1011,9 +1014,9 @@ notify_started02(Config) when is_list(Config) ->
 	end,
     Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
+    ?NON_PC_TC_MAYBE_SKIP(Config, Condition).
+    
+do_notify_started02(Config) ->
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -1214,8 +1217,10 @@ ns02_ctrl_loop(Opts, N) ->
 
 info(suite) -> [];
 info(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,info),
+    ?TC_TRY(info,
+            fun() -> do_info(Config) end).
+
+do_info(Config) ->
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -1243,7 +1248,6 @@ info(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 verify_info(Info) when is_list(Info) ->
@@ -1283,9 +1287,10 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 
 register_user1(suite) -> [];
 register_user1(Config) when is_list(Config) ->
-    %% ?SKIP(not_yet_implemented).
-    process_flag(trap_exit, true),
-    put(tname,ru1),
+    ?TC_TRY(register_user1,
+            fun() -> do_register_user1(Config) end).
+
+do_register_user1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -1359,7 +1364,6 @@ register_user1(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 verify_users([], []) ->
@@ -1377,14 +1381,15 @@ verify_users(ActualUsers0, [User|RegUsers]) ->
 
 %%======================================================================
 
-register_agent1(doc) -> 
+register_agent_old(doc) -> 
     ["Test registration of agents with the OLD interface functions"];
-register_agent1(suite) -> 
+register_agent_old(suite) -> 
     [];
-register_agent1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,ra1),
-    
+register_agent_old(Config) when is_list(Config) ->
+    ?TC_TRY(register_agent_old,
+            fun() -> do_register_agent_old(Config) end).
+
+do_register_agent_old(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -1499,7 +1504,6 @@ register_agent1(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 
@@ -1510,8 +1514,10 @@ register_agent2(doc) ->
 register_agent2(suite) -> 
     [];
 register_agent2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ra2),
+    ?TC_TRY(register_agent2,
+            fun() -> do_register_agent2(Config) end).
+
+do_register_agent2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -1644,7 +1650,6 @@ register_agent2(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 
@@ -1656,8 +1661,10 @@ register_agent3(doc) ->
 register_agent3(suite) -> 
     [];
 register_agent3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ra3),
+    ?TC_TRY(register_agent3,
+            fun() -> do_register_agent3(Config) end).
+
+do_register_agent3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -1794,7 +1801,6 @@ register_agent3(Config) when is_list(Config) ->
 
     ?SLEEP(1000),
 
-    p("end"),
     ok.
 
 
@@ -1803,10 +1809,11 @@ register_agent3(Config) when is_list(Config) ->
 simple_sync_get1(doc) -> ["Simple sync get-request - Old style (Addr & Port)"];
 simple_sync_get1(suite) -> [];
 simple_sync_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssg1),
+do_simple_sync_get1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node  = ?config(manager_node, Config),
@@ -1865,18 +1872,18 @@ simple_sync_get2(doc) ->
     ["Simple sync get-request - Version 2 API (TargetName)"];
 simple_sync_get2(suite) -> [];
 simple_sync_get2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssg2),
-    do_simple_sync_get2(Config),
-    display_log(Config),
-    ok.
+    ?TC_TRY(simple_sync_get2,
+            fun() -> do_simple_sync_get2(Config) end).
 
 do_simple_sync_get2(Config) ->
+    p("starting with Config: ~n~p", [Config]),
     Get = fun(Node, TargetName, Oids) -> 
 		  mgr_user_sync_get(Node, TargetName, Oids) 
 	  end, 
     PostVerify = fun() -> ok end,
-    do_simple_sync_get2(Config, Get, PostVerify).
+    do_simple_sync_get2(Config, Get, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_sync_get2(Config, Get, PostVerify) ->
     p("starting with Config: ~p~n", [Config]),
@@ -1932,13 +1939,11 @@ simple_sync_get3(doc) ->
     ["Simple sync get-request - Version 3 API (TargetName and send-opts)"];
 simple_sync_get3(suite) -> [];
 simple_sync_get3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssg3),
-    do_simple_sync_get3(Config),
-    display_log(Config),
-    ok.
+    ?TC_TRY(simple_sync_get3,
+            fun() -> do_simple_sync_get3(Config) end).
 
 do_simple_sync_get3(Config) ->
+    p("starting with Config: ~n~p", [Config]),
     Self  = self(), 
     Msg   = simple_sync_get3, 
     Fun   = fun() -> Self ! Msg end,
@@ -1957,7 +1962,9 @@ do_simple_sync_get3(Config) ->
 			ok
 		end
 	end,
-    do_simple_sync_get2(Config, Get, PostVerify).
+    do_simple_sync_get2(Config, Get, PostVerify),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -1966,10 +1973,11 @@ simple_async_get1(doc) ->
     ["Simple (async) get-request - Old style (Addr & Port)"];
 simple_async_get1(suite) -> [];
 simple_async_get1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sag1),
+do_simple_async_get1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2070,8 +2078,10 @@ simple_async_get2(doc) ->
     ["Simple (async) get-request - Version 2 API (TargetName)"];
 simple_async_get2(suite) -> [];
 simple_async_get2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sag2),
+    ?TC_TRY(simple_async_get2,
+            fun() -> do_simple_async_get2(Config) end).
+
+do_simple_async_get2(Config) ->
     p("starting with Config: ~p~n", [Config]),
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -2151,8 +2161,10 @@ simple_async_get3(doc) ->
     ["Simple (async) get-request - Version 3 API (TargetName and send-opts)"];
 simple_async_get3(suite) -> [];
 simple_async_get3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sag3),
+    ?TC_TRY(simple_async_get3,
+            fun() -> do_simple_async_get3(Config) end).
+
+do_simple_async_get3(Config) ->
     p("starting with Config: ~p~n", [Config]),
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -2183,10 +2195,11 @@ simple_sync_get_next1(doc) -> ["Simple (sync) get_next-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_next1(suite) -> [];
 simple_sync_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get_next1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get_next1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgn1),
+do_simple_sync_get_next1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2324,8 +2337,10 @@ simple_sync_get_next2(doc) ->
     ["Simple (sync) get_next-request - Version 2 API (TargetName)"];
 simple_sync_get_next2(suite) -> [];
 simple_sync_get_next2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssgn2),
+    ?TC_TRY(simple_sync_get_next2,
+            fun() -> do_simple_sync_get_next2(Config) end).
+
+do_simple_sync_get_next2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     GetNext = fun(Node, TargetName, Oids) -> 
@@ -2477,10 +2492,11 @@ simple_async_get_next1(doc) -> ["Simple (async) get_next-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_next1(suite) -> [];
 simple_async_get_next1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get_next1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get_next1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgn1),
+do_simple_async_get_next1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2577,8 +2593,10 @@ simple_async_get_next2(doc) ->
     ["Simple (async) get_next-request - Version 2 API (TargetName)"];
 simple_async_get_next2(suite) -> [];
 simple_async_get_next2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssgn2),
+    ?TC_TRY(simple_async_get_next2,
+            fun() -> do_simple_async_get_next2(Config) end).
+
+do_simple_async_get_next2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -2688,8 +2706,10 @@ simple_async_get_next3(doc) ->
      "Version 3 API (TargetName with send-opts)"];
 simple_async_get_next3(suite) -> [];
 simple_async_get_next3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssgn2),
+    ?TC_TRY(simple_async_get_next3,
+            fun() -> do_simple_async_get_next3(Config) end).
+
+do_simple_async_get_next3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -2731,10 +2751,11 @@ simple_sync_set1(doc) -> ["Simple (sync) set-request - "
 			  "Old style (Addr & Port)"];
 simple_sync_set1(suite) -> [];
 simple_sync_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_set1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_set1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sss1),
+do_simple_sync_set1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node = ?config(manager_node, Config),
@@ -2804,8 +2825,10 @@ simple_sync_set2(doc) ->
     ["Simple (sync) set-request - Version 2 API (TargetName)"];
 simple_sync_set2(suite) -> [];
 simple_sync_set2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sss2),
+    ?TC_TRY(simple_sync_set2,
+            fun() -> do_simple_sync_set2(Config) end).
+
+do_simple_sync_set2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Set = fun(Node, TargetName, VAVs) -> 
@@ -2874,8 +2897,10 @@ simple_sync_set3(doc) ->
     ["Simple (sync) set-request - Version 3 API (TargetName with send-opts)"];
 simple_sync_set3(suite) -> [];
 simple_sync_set3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sss3),
+    ?TC_TRY(simple_sync_set3,
+            fun() -> do_simple_sync_set3(Config) end).
+
+do_simple_sync_set3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Self  = self(), 
@@ -2903,10 +2928,11 @@ simple_async_set1(doc) -> ["Simple (async) set-request - "
 			   "Old style (Addr & Port)"];
 simple_async_set1(suite) -> [];
 simple_async_set1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_set1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_set1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sas1),
+do_simple_async_set1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -2998,8 +3024,10 @@ simple_async_set2(doc) ->
     ["Simple (async) set-request - Version 2 API (TargetName)"];
 simple_async_set2(suite) -> [];
 simple_async_set2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sas2),
+    ?TC_TRY(simple_async_set2,
+            fun() -> do_simple_async_set2(Config) end).
+
+do_simple_async_set2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3071,8 +3099,10 @@ simple_async_set3(doc) ->
     ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
 simple_async_set3(suite) -> [];
 simple_async_set3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sas3),
+    ?TC_TRY(simple_async_set3,
+            fun() -> do_simple_async_set3(Config) end).
+
+do_simple_async_set3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3115,10 +3145,11 @@ simple_sync_get_bulk1(doc) -> ["Simple (sync) get_bulk-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_bulk1(suite) -> [];
 simple_sync_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_sync_get_bulk1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_sync_get_bulk1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ssgb1),
+do_simple_sync_get_bulk1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode = ?config(manager_node, Config),
@@ -3289,8 +3320,10 @@ simple_sync_get_bulk2(doc) ->
     ["Simple (sync) get_bulk-request - Version 2 API (TargetName)"];
 simple_sync_get_bulk2(suite) -> [];
 simple_sync_get_bulk2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssgb2),
+    ?TC_TRY(simple_sync_get_bulk2,
+            fun() -> do_simple_sync_get_bulk2(Config) end).
+
+do_simple_sync_get_bulk2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3445,8 +3478,10 @@ simple_sync_get_bulk3(doc) ->
      "Version 3 API (TargetName with send-opts)"];
 simple_sync_get_bulk3(suite) -> [];
 simple_sync_get_bulk3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ssgb3),
+    ?TC_TRY(simple_sync_get_bulk3,
+            fun() -> do_simple_sync_get_bulk3(Config) end).
+
+do_simple_sync_get_bulk3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3482,10 +3517,11 @@ simple_async_get_bulk1(doc) -> ["Simple (async) get_bulk-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_bulk1(suite) -> [];
 simple_async_get_bulk1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(simple_async_get_bulk1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_simple_async_get_bulk1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, sagb1),
+do_simple_async_get_bulk1(Config) ->
     p("starting with Config: ~p~n", [Config]),
     
     MgrNode   = ?config(manager_node, Config),
@@ -3628,8 +3664,10 @@ simple_async_get_bulk2(doc) ->
     ["Simple (async) get_bulk-request - Version 2 API (TargetName)"];
 simple_async_get_bulk2(suite) -> [];
 simple_async_get_bulk2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sagb2),
+    ?TC_TRY(simple_async_get_bulk2,
+            fun() -> do_simple_async_get_bulk2(Config) end).
+
+do_simple_async_get_bulk2(Config) ->
     p("starting with Config: ~p~n", [Config]),
     
     MgrNode    = ?config(manager_node, Config),
@@ -3784,8 +3822,10 @@ simple_async_get_bulk3(doc) ->
      "Version 3 API (TargetName with send-opts)"];
 simple_async_get_bulk3(suite) -> [];
 simple_async_get_bulk3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, sagb3),
+    ?TC_TRY(simple_async_get_bulk3,
+            fun() -> do_simple_async_get_bulk3(Config) end).
+
+do_simple_async_get_bulk3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3828,10 +3868,11 @@ misc_async1(doc) -> ["Misc (async) request(s) - "
 		     "Old style (Addr & Port)"];
 misc_async1(suite) -> [];
 misc_async1(Config) when is_list(Config) ->
-    ?SKIP(api_no_longer_supported), 
+    ?TC_TRY(misc_async1,
+            fun() -> {skip, "API no longer supported"} end,
+            fun() -> do_misc_async1(Config) end).
 
-    process_flag(trap_exit, true),
-    put(tname, ms1),
+do_misc_async1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4020,8 +4061,10 @@ misc_async2(doc) ->
     ["Misc (async) request(s) - Version 2 API (TargetName)"];
 misc_async2(suite) -> [];
 misc_async2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, ms2),
+    ?TC_TRY(misc_async2,
+            fun() -> do_misc_async2(Config) end).
+
+do_misc_async2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4270,8 +4313,10 @@ verify_trap(Trap, [{Id, Verifier}|Verifiers]) ->
 
 trap1(suite) -> [];
 trap1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,t1),
+    ?TC_TRY(trap1,
+            fun() -> do_trap1(Config) end).
+
+do_trap1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4423,8 +4468,10 @@ trap1(Config) when is_list(Config) ->
 
 trap2(suite) -> [];
 trap2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,t2),
+    ?TC_TRY(trap2,
+            fun() -> do_trap2(Config) end).
+
+do_trap2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4616,8 +4663,10 @@ trap2(Config) when is_list(Config) ->
 
 inform1(suite) -> [];
 inform1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,i1),
+    ?TC_TRY(inform1,
+            fun() -> do_inform1(Config) end).
+
+do_inform1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4743,8 +4792,10 @@ inform1(Config) when is_list(Config) ->
 
 inform2(suite) -> [];
 inform2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, i2),
+    ?TC_TRY(inform2,
+            fun() -> do_inform2(Config) end).
+
+do_inform2(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4915,8 +4966,10 @@ inform2(Config) when is_list(Config) ->
 
 inform3(suite) -> [];
 inform3(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,i3),
+    ?TC_TRY(inform3,
+            fun() -> do_inform3(Config) end).
+
+do_inform3(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -5051,8 +5104,10 @@ inform3(Config) when is_list(Config) ->
 
 inform4(suite) -> [];
 inform4(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname,i4),
+    ?TC_TRY(inform4,
+            fun() -> do_inform4(Config) end).
+
+do_inform4(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -5171,8 +5226,10 @@ inform4(Config) when is_list(Config) ->
 
 inform_swarm(suite) -> [];
 inform_swarm(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, is),
+    ?TC_TRY(inform_swarm,
+            fun() -> do_inform_swarm(Config) end).
+
+do_inform_swarm(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -5343,8 +5400,10 @@ report(Config) when is_list(Config) ->
 otp8015_1(doc) -> ["OTP-8015:1 - testing the new api-function."];
 otp8015_1(suite) -> [];
 otp8015_1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, otp8015_1),
+    ?TC_TRY(otp8015_1,
+            fun() -> do_otp8015_1(Config) end).
+
+do_otp8015_1(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
@@ -5391,8 +5450,10 @@ otp8015_1(Config) when is_list(Config) ->
 otp8395_1(doc) -> ["OTP-8395:1 - simple get with ATL sequence numbering."];
 otp8395_1(suite) -> [];
 otp8395_1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    put(tname, otp8395_1),
+    ?TC_TRY(otp8395_1,
+            fun() -> do_otp8395_1(Config) end).
+
+do_otp8395_1(Config) ->
     do_simple_sync_get2(Config).
 
 
