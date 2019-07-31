@@ -30,7 +30,7 @@
 -import(lists, [append/1,keymember/3,last/1,member/2,
                 takewhile/2,reverse/1]).
 
--type used_vars() :: #{beam_ssa:label():=ordsets:ordset(beam_ssa:var_name())}.
+-type used_vars() :: #{beam_ssa:label():=cerl_sets:set(beam_ssa:var_name())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
@@ -90,13 +90,11 @@ shortcut_opt(#st{bs=Blocks}=St) ->
     %% the diff.)
     %%
     %% Unfortunately, processing the blocks in reverse post order
-    %% potentially makes the time complexity quadratic or even cubic if
-    %% the ordset of unset variables grows large, instead of
-    %% linear for post order processing. We try to still get reasonable
-    %% compilation times by optimizations that will keep the constant
-    %% factor as low as possible, and we try to avoid the cubic time
-    %% complexity by trying to keep the set of unset variables as small
-    %% as possible.
+    %% potentially makes the time complexity quadratic, instead of
+    %% linear for post order processing. We avoid drastic slowdowns by
+    %% limiting how far we search forward to a common block that
+    %% both the success and failure label will reach (see the comment
+    %% in the first clause of shortcut_2/5).
 
     Ls = beam_ssa:rpo(Blocks),
     shortcut_opt(Ls, #{}, St).
@@ -124,10 +122,15 @@ shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
                     Is, From, Bs, St0) ->
     St = St0#st{target=one_way},
     RelOp = get_rel_op(Bool, Is),
-    SuccBs = bind_var(Bool, #b_literal{val=true}, Bs),
+
+    %% The boolean in a `br` is seldom used by the successors. By
+    %% not binding its value unless it is actually used we might be able
+    %% to skip some work in shortcut/4 and sub/2.
+    SuccBs = bind_var_if_used(Succ0, Bool, #b_literal{val=true}, Bs, St),
     BrSucc = shortcut(Succ0, From, SuccBs, St#st{rel_op=RelOp}),
-    FailBs = bind_var(Bool, #b_literal{val=false}, Bs),
+    FailBs = bind_var_if_used(Fail0, Bool, #b_literal{val=false}, Bs, St),
     BrFail = shortcut(Fail0, From, FailBs, St#st{rel_op=invert_op(RelOp)}),
+
     case {BrSucc,BrFail} of
         {#b_br{bool=#b_literal{val=true},succ=Succ},
          #b_br{bool=#b_literal{val=true},succ=Fail}}
@@ -152,8 +155,14 @@ shortcut_switch([{Lit,L0}|T], Bool, From, Bs, St0) ->
     [{Lit,L}|shortcut_switch(T, Bool, From, Bs, St0)];
 shortcut_switch([], _, _, _, _) -> [].
 
+shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 ->
+    %% There is no way that we can find a suitable branch, because there is no
+    %% relational operator stored, there are no bindings, and the block L can't
+    %% have any phi nodes from which we could pick bindings because when the target
+    %% is `one_way`, it implies the From block has a two-way `br` terminator.
+    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
-    shortcut_1(L, From, Bs, ordsets:new(), St).
+    shortcut_1(L, From, Bs, cerl_sets:new(), St).
 
 shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     case shortcut_2(L, From, Bs0, UnsetVars0, St) of
@@ -170,7 +179,19 @@ shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     end.
 
 %% Try to shortcut this block, branching to a successor.
-shortcut_2(L, From, Bs0, UnsetVars0, St) ->
+shortcut_2(L, From, Bs, UnsetVars, St) ->
+    case cerl_sets:size(UnsetVars) of
+        SetSize when SetSize > 128 ->
+            %% This is an heuristic to limit the search for a forced label
+            %% before it drastically slows down the compiler. Experiments
+            %% with scripts/diffable showed that limits larger than 31 did not
+            %% find any more opportunities for optimization.
+            none;
+        _SetSize ->
+            shortcut_3(L, From, Bs, UnsetVars, St)
+    end.
+
+shortcut_3(L, From, Bs0, UnsetVars0, St) ->
     #b_blk{is=Is,last=Last} = get_block(L, St),
     case eval_is(Is, From, Bs0, St) of
         none ->
@@ -347,7 +368,7 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
             SetInThisBlock = [V || #b_set{dst=V} <- Is],
-            ordsets:union(UnsetVars, ordsets:from_list(SetInThisBlock))
+            cerl_sets:union(UnsetVars, cerl_sets:from_list(SetInThisBlock))
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
@@ -376,14 +397,14 @@ is_br_safe(UnsetVars, Br, #st{us=Us}=St) ->
 
             %% A two-way branch never branches to a phi node, so there
             %% is no need to check for phi nodes here.
-             not member(V, UnsetVars) andalso
-                ordsets:is_disjoint(Used0, UnsetVars) andalso
-                ordsets:is_disjoint(Used1, UnsetVars);
+            not cerl_sets:is_element(V, UnsetVars) andalso
+                cerl_sets:is_disjoint(Used0, UnsetVars) andalso
+                cerl_sets:is_disjoint(Used1, UnsetVars);
         #b_br{succ=Same,fail=Same} ->
             %% An unconditional branch must not jump to
             %% a phi node.
             not is_forbidden(Same, St) andalso
-                ordsets:is_disjoint(map_get(Same, Us), UnsetVars)
+                cerl_sets:is_disjoint(map_get(Same, Us), UnsetVars)
     end.
 
 is_forbidden(L, St) ->
@@ -499,6 +520,15 @@ eval_switch_1([{Lit,Lbl}|T], Arg, PrevOp, Fail) ->
 eval_switch_1([], _Arg, _PrevOp, Fail) ->
     %% Fail is now either the failure label or 'none'.
     Fail.
+
+bind_var_if_used(L, Var, Val0, Bs, #st{us=Us}) ->
+    case cerl_sets:is_element(Var, map_get(L, Us)) of
+        true ->
+            Val = get_value(Val0, Bs),
+            Bs#{Var=>Val};
+        false ->
+            Bs
+    end.
 
 bind_var(Var, Val0, Bs) ->
     Val = get_value(Val0, Bs),
@@ -989,7 +1019,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0, []),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, cerl_sets:new()),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -1000,8 +1030,8 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Defined0 = [Def || #b_set{dst=Def} <- Is],
-    Defined = ordsets:from_list(Defined0),
-    MaySkip = ordsets:is_disjoint(Defined, Used0),
+    Defined = cerl_sets:from_list(Defined0),
+    MaySkip = cerl_sets:is_disjoint(Defined, Used0),
     case MaySkip of
         true ->
             Skip = Skip0#{L=>true},
@@ -1018,11 +1048,11 @@ used_vars_succ([S|Ss], L, LiveMap, Live0) ->
         #{Key:=Live} ->
             %% The successor has a phi node, and the value for
             %% this block in the phi node is a variable.
-            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
         #{S:=Live} ->
             %% No phi node in the successor, or the value for
             %% this block in the phi node is a literal.
-            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
         #{} ->
             %% A peek_message block which has not been processed yet.
             used_vars_succ(Ss, L, LiveMap, Live0)
@@ -1040,7 +1070,7 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},ordsets:union(ordsets:from_list(Vs), Live0)} ||
+                    PhiLive = [{{L,P},cerl_sets:union(cerl_sets:from_list(Vs), Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(UsedVars, maps:from_list(PhiLive));
                 [] ->
@@ -1050,14 +1080,14 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
     end.
 
 used_vars_blk(#b_blk{is=Is,last=Last}, Used0) ->
-    Used = ordsets:union(Used0, beam_ssa:used(Last)),
+    Used = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(Last))),
     used_vars_is(reverse(Is), Used).
 
 used_vars_is([#b_set{op=phi}|Is], Used) ->
     used_vars_is(Is, Used);
 used_vars_is([#b_set{dst=Dst}=I|Is], Used0) ->
-    Used1 = ordsets:union(Used0, beam_ssa:used(I)),
-    Used = ordsets:del_element(Dst, Used1),
+    Used1 = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(I))),
+    Used = cerl_sets:del_element(Dst, Used1),
     used_vars_is(Is, Used);
 used_vars_is([], Used) ->
     Used.
@@ -1066,8 +1096,9 @@ used_vars_is([], Used) ->
 %%% Common utilities.
 %%%
 
-sub(#b_set{args=Args}=I, Sub) ->
-    I#b_set{args=[sub_arg(A, Sub) || A <- Args]}.
+sub(#b_set{args=Args}=I, Sub) when map_size(Sub) =/= 0 ->
+    I#b_set{args=[sub_arg(A, Sub) || A <- Args]};
+sub(I, _Sub) -> I.
 
 sub_arg(#b_var{}=Old, Sub) ->
     case Sub of
