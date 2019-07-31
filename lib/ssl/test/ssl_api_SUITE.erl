@@ -1902,7 +1902,7 @@ do_recv_close(Socket) ->
 
 tls_close(Socket) ->
     ok = ssl_test_lib:send_recv_result(Socket),
-    case ssl:close(Socket, 5000) of
+    case ssl:close(Socket, 10000) of
         ok ->
             ok;
         {error, closed} ->
