@@ -295,7 +295,7 @@ multi_ack_timeout(doc) ->
     [];
 multi_ack_timeout(Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
-    Skippable = [win32, {unix, [darwin, linux]}], 
+    Skippable = [win32, {unix, [darwin, linux, sunos]}], % Is there any left?
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
@@ -9247,10 +9247,10 @@ await_ack(User, N, Timeout, Expected) when (N > 0) andalso is_integer(Timeout) -
     T = tim(),
     receive
 	{ack_received, User, Expected} ->
-	    d("await_ack -> received another ack"),
+	    d("await_ack -> received another expected ack"),
 	    await_ack(User, N-1, Timeout - (tim() - T), Expected);
 	{ack_received, User, UnExpected} ->
-	    e("await_ack -> unexpected ack result: ~p", [UnExpected]),
+	    e("await_ack -> received unexpected ack result: ~p", [UnExpected]),
 	    exit({unexpected_ack_result, UnExpected, Expected})
     after Timeout ->
 	    exit({await_ack_timeout, N})
@@ -9266,35 +9266,6 @@ await_ack(User, N, infinity, Expected) when N > 0 ->
 	    exit({unexpected_ack_result, UnExpected, Expected})
     end.
 
-%% await_req(_User, 0, Timeout) ->
-%%     d("await_req -> done when Timeout = ~p", [Timeout]),
-%%     ok;
-%% await_req(User, N, Timeout) when (N > 0) andalso is_integer(Timeout) ->
-%%     d("await_req -> entry with N: ~p, Timeout: ~p", [N,Timeout]),
-%%     T = tim(),
-%%     receive
-%% 	{req_received, User, ARs} ->
-%% 	    d("await_req -> received req(s) when N = ~w", [N]),
-%% 	    N1 = await_req1(N, ARs),
-%% 	    await_req(User, N1, Timeout - (tim() - T))
-%%     after Timeout ->
-%% 	    exit({await_req_timeout, N})
-%%     end;
-%% await_req(User, N, infinity) when N > 0 ->
-%%     d("await_req -> entry with N: ~p", [N]),
-%%     receive
-%% 	{req_received, User, ARs} ->
-%% 	    d("await_req -> received req(s) when N = ~2",[N]),
-%% 	    N1 = await_req1(N, ARs),
-%% 	    await_req(User, N1, infinity)
-%%     end.
-
-%% await_req1(N, []) when N >= 0 ->
-%%     N;
-%% await_req1(N, [AR|ARs]) when (N > 0) andalso is_record(AR, 'ActionRequest') ->
-%%     await_req1(N-1, ARs);
-%% await_req1(N, ARs) ->
-%%     exit({unexpected_req_result, N, ARs}).
 
 tim() ->
     {A,B,C} = erlang:timestamp(),
