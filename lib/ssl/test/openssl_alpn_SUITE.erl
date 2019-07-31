@@ -36,7 +36,7 @@
 
 all() ->
     %% Note: ALPN not supported in sslv3
-    case ssl_test_lib:openssl_sane_dtls() of 
+    case ssl_test_lib:openssl_sane_dtls_alpn() of 
         true ->
             [
              {group, 'tlsv1.3'},
@@ -52,7 +52,7 @@ all() ->
     end.
 
 groups() ->
-    case ssl_test_lib:openssl_sane_dtls() of 
+    case ssl_test_lib:openssl_sane_dtls_alpn() of 
         true ->             
             [
              {'tlsv1.3', [], alpn_tests()},
@@ -85,9 +85,13 @@ alpn_npn_coexist() ->
      erlang_server_alpn_npn_openssl_client_alpn_npn  
     ].
 rengotiation_tests() ->
-     [erlang_client_alpn_openssl_server_alpn_renegotiate,
-      erlang_server_alpn_openssl_client_alpn_renegotiate].
-
+    case ssl_test_lib:sane_openssl_alpn_npn_renegotiate() of
+        true ->
+            [erlang_client_alpn_openssl_server_alpn_renegotiate,
+             erlang_server_alpn_openssl_client_alpn_renegotiate];
+        false ->
+            []
+    end.
 init_per_suite(Config0) ->
     case os:find_executable("openssl") of
         false ->
