@@ -1251,8 +1251,9 @@ der_input(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     [CADb | _] = element(6, State),
-
+    ct:sleep(?SLEEP*2), %%Make sure there is no outstanding clean cert db msg in manager
     Size = ets:info(CADb, size),
+    ct:pal("Size ~p", [Size]),
 
     SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
@@ -1281,6 +1282,7 @@ der_input(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    %% Using only DER input should not increase file indexed DB 
     Size = ets:info(CADb, size).
 
 %%--------------------------------------------------------------------
