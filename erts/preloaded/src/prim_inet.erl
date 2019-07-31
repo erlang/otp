@@ -427,7 +427,7 @@ accept_opts(L, S, FamilyOpts) ->
     case
         getopts(
           L,
-          [active, nodelay, keepalive, delay_send, priority]
+          [active, nodelay, keepalive, delay_send, priority, linger]
           ++ FamilyOpts)
     of
 	{ok, Opts} ->
