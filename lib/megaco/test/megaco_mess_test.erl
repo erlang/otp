@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,6 +281,8 @@
 
 -define(VERSION, 1).
 
+-define(USER_MOD, megaco_mess_user_test).
+
 -define(TEST_VERBOSITY, debug).
 -define(MGC_VERBOSITY,  debug).
 -define(MG_VERBOSITY,   debug).
@@ -303,26 +305,48 @@
 -define(MG_NOTIF_RAR(Pid), megaco_test_mg:notify_request_and_reply(Pid)).
 
 -define(SEND(Expr), 
-	?VERIFY(ok, megaco_mess_user_test:apply_proxy(fun() -> Expr end))).
+	?VERIFY(ok, ?USER_MOD:apply_proxy(fun() -> Expr end))).
 
 -define(USER(Expected, Reply),
-	megaco_mess_user_test:reply(?MODULE,
-				    ?LINE,
-				    fun(Actual) ->
-				       case ?VERIFY(Expected, Actual) of
-					   Expected   -> {ok, Reply};
-					   UnExpected -> {error, {reply_verify,
-								  ?MODULE,
-								  ?LINE,
-								  UnExpected}}
-				       end
-				    end)).
-	
-%% t()     -> megaco_test_lib:t(?MODULE).
-%% t(Case) -> megaco_test_lib:t({?MODULE, Case}).
+	?USER_MOD:reply(?MODULE,
+                        ?LINE,
+                        fun(Actual) ->
+                                case ?VERIFY(Expected, Actual) of
+                                    Expected   -> {ok, Reply};
+                                    UnExpected -> {error, {reply_verify,
+                                                           ?MODULE,
+                                                           ?LINE,
+                                                           UnExpected}}
+                                end
+                        end)).
+
+%% Some generator (utility) macros
+-define(GM_START(),              megaco_start).
+-define(GM_STOP(),               megaco_stop).
+-define(GM_START_USER(M, RI, C), {megaco_start_user, M, RI, C}).
+-define(GM_START_USER(M, RI),    ?GM_START_USER(M, RI, [])).
+-define(GM_STOP_USER(),          megaco_stop_user).
+-define(GMSI(I),                 {megaco_system_info, I}).
+-define(GMSI_USERS(),            ?GMSI(users)).
+-define(GMSI_CONNS(),            ?GMSI(connections)).
+-define(GMCAST(Reqs, Opts),      {megaco_cast, Reqs, Opts}).
+-define(GMCAST(Reqs),            ?GMCAST(Reqs, [])).
+-define(GMCB(CB, VF),            {megaco_callback, CB, VF}).
+-define(GMCB_CONNECT(VF),        ?GMCB(handle_connect, VF)).
+-define(GMCB_TRANS_REP(VF),      ?GMCB(handle_trans_reply, VF)).
+-define(GMT(T),                  {megaco_trace, T}).
+-define(GMT_ENABLE(),            ?GMT(enable)).
+-define(GMT_DISABLE(),           ?GMT(disable)).
+-define(GD(D),                   {debug, D}).
+-define(GD_ENABLE(),             ?GD(true)).
+-define(GD_DISABLE(),            ?GD(false)).
+-define(GS(T),                   {sleep, T}).
+
+-define(GSND(T, D),              {send, T, D}).
+-define(GERCV(T, VF, TO),        {expect_receive, T, {VF, TO}}).
 
 
-min(M) -> timer:minutes(M).
+min(M) -> ?MINS(M).
 
 %% Test server callbacks
 init_per_testcase(otp_7189 = Case, Config) ->
@@ -396,8 +420,19 @@ groups() ->
 
 init_per_suite(Config) ->
     io:format("~w:init_per_suite -> entry with"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, Config]),
+	      "~n   Config:     ~p"
+              "~n   OS Type:    ~p"
+              "~n   OS Version: ~s"
+	      "~n", 
+              [?MODULE, 
+               Config, 
+               os:type(), 
+               case os:version() of
+                   {Major, Minor, Release} ->
+                       ?F("~w.~w.~w", [Major, Minor, Release]);
+                   Str when is_list(Str) ->
+                       Str
+               end]),
     Config.
 
 end_per_suite(_Config) ->
@@ -491,12 +526,12 @@ request_and_reply_plain(suite) ->
 request_and_reply_plain(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     d("request_and_reply_plain -> start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("request_and_reply_plain -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -564,6 +599,7 @@ request_and_reply_plain(Config) when is_list(Config) ->
     ok.
 
 
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% OTP-4760
@@ -1715,9 +1751,6 @@ rarpaop_mg_event_sequence(Port, EncMod, EncConf) ->
     ScrVerifyFun  = ?rarpaop_mg_verify_service_change_rep_msg_fun(),
     PendVerifyFun = ?rarpaop_mg_verify_pending_msg_fun(TransId),
     NrVerifyFun   = ?rarpaop_mg_verify_notify_rep_msg_fun(TransId, TermId),
-%%     ScrVerifyFun  = rarpaop_mg_verify_service_change_rep_msg_fun(),
-%%     PendVerifyFun = rarpaop_mg_verify_pending_msg_fun(TransId),
-%%     NrVerifyFun   = rarpaop_mg_verify_notify_rep_msg_fun(TransId, TermId),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -2359,9 +2392,6 @@ strar_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?strar_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?strar_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?strar_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = strar_mg_verify_handle_connect_fun(), 
-%%     ServiceChangeReplyVerify = strar_mg_verify_service_change_reply_fun(), 
-%%     NotifyReplyVerify        = fun strar_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -3437,9 +3467,6 @@ raraa_mg_event_sequence(text, tcp) ->
     ScrVerifyFun = ?raraa_mg_verify_service_change_rep_msg_fun(),
     NrVerifyFun  = ?raraa_mg_verify_notify_rep_msg_fun(TermId, 
 						       TransId, ReqId, CtxId),
-%%     ScrVerifyFun = raraa_mg_verify_service_change_rep_msg_fun(),
-%%     NrVerifyFun = raraa_mg_verify_notify_rep_msg_fun(TermId, 
-%% 						     TransId, ReqId, CtxId),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -4048,9 +4075,6 @@ rarana_mg_event_sequence(text, tcp) ->
     ScrVerifyFun = ?rarana_mg_verify_service_change_rep_msg_fun(),
     NrVerifyFun  = ?rarana_mg_verify_notify_rep_msg_fun(TermId, 
 							TransId, ReqId, CtxId),
-%%     ScrVerifyFun = rarana_mg_verify_service_change_rep_msg_fun(),
-%%     NrVerifyFun  = rarana_mg_verify_notify_rep_msg_fun(TermId, 
-%% 			 			          TransId, ReqId, CtxId),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -4663,9 +4687,6 @@ rarala_mg_event_sequence(text, tcp) ->
     ScrVerifyFun = ?rarala_mg_verify_service_change_rep_msg_fun(),
     NrVerifyFun  = ?rarala_mg_verify_notify_rep_msg_fun(TermId, 
 							TransId, ReqId, CtxId),
-%%     ScrVerifyFun = rarala_mg_verify_service_change_rep_msg_fun(),
-%%     NrVerifyFun  = rarala_mg_verify_notify_rep_msg_fun(TermId, 
-%% 						       TransId, ReqId, CtxId),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -5298,15 +5319,6 @@ trarar_mg_event_sequence(text, tcp) ->
 	?trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 3, 3),
     NrVerifyFun4 = 
 	?trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 4, 4),
-%%     ScrVerifyFun = trarar_mg_verify_service_change_rep_msg_fun(),
-%%     NrVerifyFun1 = 
-%% 	trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 1, 1),
-%%     NrVerifyFun2 = 
-%% 	trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 2, 2),
-%%     NrVerifyFun3 = 
-%% 	trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 3, 3),
-%%     NrVerifyFun4 = 
-%% 	trarar_mg_verify_notify_rep_msg_fun(TermId, 2, 4, 4),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -5983,11 +5995,6 @@ pap_mg_event_sequence(text, tcp) ->
 	?pap_mg_verify_pending_msg_fun(TransId),
     NrVerifyFun = 
 	?pap_mg_verify_notify_rep_msg_fun(TermId, TransId, ReqId, CtxId),
-%%     ScrVerifyFun = pap_mg_verify_service_change_rep_msg_fun(),
-%%     PendingVerifyFun = 
-%% 	pap_mg_verify_pending_msg_fun(TransId),
-%%     NrVerifyFun = 
-%% 	pap_mg_verify_notify_rep_msg_fun(TermId, TransId, ReqId, CtxId),
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -6380,10 +6387,6 @@ rapalr_mgc_event_sequence(text, tcp) ->
     NrVerifyFun  = 
 	?rapalr_mgc_verify_notify_req_msg_fun(TermId, TransId, ReqId, CtxId),
     AckVerifyFun = ?rapalr_mgc_verify_trans_ack_msg_fun(TransId),
-%%     ScrVerifyFun     = rapalr_mgc_verify_service_change_req_msg_fun(),
-%%     NrVerifyFun  = 
-%% 	rapalr_mgc_verify_notify_req_msg_fun(TermId, TransId, ReqId, CtxId),
-%%     AckVerifyFun = rapalr_mgc_verify_trans_ack_msg_fun(TransId),
     EvSeq = [{debug,  false},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -6866,12 +6869,12 @@ dist(Config) when is_list(Config) ->
     ?SKIP("Needs a re-write..."),
     [_Local, Dist] = ?ACQUIRE_NODES(2, Config),
     d("dist -> start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("dist -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -6977,7 +6980,7 @@ dist(Config) when is_list(Config) ->
     ?RECEIVE([]),
 
     d("dist -> stop proxy",[]),
-    megaco_mess_user_test:stop_proxy(),
+    ?USER_MOD:stop_proxy(),
 
     d("dist -> done", []),
     ok.
@@ -7444,9 +7447,6 @@ otp_5805_mg_event_sequence(text, tcp) ->
 	?otp_5805_mg_verify_service_change_rep_msg_fun(),
     EDVerify = 
 	?otp_5805_mg_verify_error_descriptor_msg_fun(),
-%%     ServiceChangeReplyVerifyFun = 
-%% 	otp_5805_mg_verify_service_change_rep_msg_fun(),
-%%     EDVerify = otp_5805_mg_verify_error_descriptor_msg_fun(),
     MgEvSeq = [{debug,  true},
 	       {decode, DecodeFun},
 	       {encode, EncodeFun},
@@ -7939,8 +7939,6 @@ otp_5881_mgc_event_sequence(text, tcp) ->
     %% Pending = otp_5881_pending_msg(Mid,2),
     ServiceChangeVerifyFun = ?otp_5881_mgc_verify_service_change_req_msg_fun(),
     NotifyReqVerifyFun     = ?otp_5881_mgc_verify_notify_req_msg_fun(),
-%%     ServiceChangeVerifyFun = otp_5881_verify_service_change_req_msg_fun(),
-%%     NotifyReqVerifyFun     = otp_5881_verify_notify_request_fun(),
     MgcEvSeq = [{debug,  true},
 		{decode, DecodeFun},
 		{encode, EncodeFun},
@@ -8211,8 +8209,6 @@ otp_5887_mgc_event_sequence(text, tcp) ->
     NotifyReply = otp_5887_notify_reply_msg(Mid, 2, 0, TermId),
     ServiceChangeVerifyFun = ?otp_5887_mgc_verify_service_change_req_msg_fun(),
     NotifyReqVerifyFun     = ?otp_5887_mgc_verify_notify_req_msg_fun(),
-%%     ServiceChangeVerifyFun = otp_5887_verify_service_change_req_msg_fun(),
-%%     NotifyReqVerifyFun     = otp_5887_verify_notify_request_fun(),
     MgcEvSeq = [{debug,  true},
 		{decode, DecodeFun},
 		{encode, EncodeFun},
@@ -8362,7 +8358,7 @@ otp_6253(Config) when is_list(Config) ->
     MgMid   = ipv4_mid(4711),
 
     ?VERIFY(ok, application:start(megaco)),
-    ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, megaco_mess_user_test},
+    ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, ?USER_MOD},
 	                                  {request_timer, infinity},
 	                                  {reply_timer, infinity}])),
 
@@ -8668,8 +8664,6 @@ otp_6275_mgc_event_sequence(text, tcp) ->
     NotifyReq = otp_6275_mgc_notify_request_msg(Mid, 2, 1, TermId, 1),
     SCRVerifyFun         = ?otp_6275_mgc_verify_service_change_req_msg_fun(),
     NotifyReplyVerifyFun = ?otp_6275_mgc_verify_notify_rep_msg_fun(),
-%%     SCRVerifyFun         = otp_6275_mgc_verify_service_change_req_fun(),
-%%     NotifyReplyVerifyFun = otp_6275_mgc_verify_notify_reply_fun(),
     MgcEvSeq = 
 	[{debug,  true},
 	 {decode, DecodeFun},
@@ -11015,12 +11009,12 @@ otp_6865_request_and_reply_plain_extra1(Config) when is_list(Config) ->
     ok = megaco_tc_controller:insert(extra_transport_info, ExtraInfo),
 
     d("start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -12286,15 +12280,15 @@ otp_7189_mg_event_sequence(text, tcp) ->
 	?otp_7189_mg_verify_service_change_rep_msg_fun(),
     NotifyReqVerify = ?otp_7189_mg_verify_notify_req_msg_fun(TermId, TransId, ReqId, CtxId),
     EvSeq = [
-	     {debug,  true},
+	     ?GD_ENABLE(),
 	     {decode, DecodeFun},
 	     {encode, EncodeFun},
 	     {connect, 2944},
-	     {send, "service-change-request", ServiceChangeReq}, 
-	     {expect_receive, "service-change-reply", {ServiceChangeReplyVerifyFun, 2000}}, 
-	     {expect_receive, "notify request", {NotifyReqVerify, 2000}},
-	     {sleep, 100},
-	     {send, "pending", Pending}, 
+	     ?GSND("service-change-request", ServiceChangeReq), 
+	     ?GERCV("service-change-reply", ServiceChangeReplyVerifyFun, ?SECS(5)), 
+	     ?GERCV("notify request",       NotifyReqVerify,             ?SECS(5)),
+	     ?GS(100),
+	     ?GSND("pending", Pending), 
 	     {expect_closed, timer:seconds(120)},
 	     disconnect
 	    ],
@@ -12532,7 +12526,7 @@ otp_7259(Config) when is_list(Config) ->
     megaco_test_generic_transport:incomming_message(Pid, NotifyReply),
 
     d("[MG] await the generator reply"),
-    await_completion([MgId], 5000),
+    await_completion([MgId], 7000),
 
     %% Tell Mg to stop
     i("[MG] stop generator"),
@@ -12832,13 +12826,13 @@ otp_7713(Config) when is_list(Config) ->
     i("starting"),
 
     d("start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     Extra = otp7713_extra, 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -12954,10 +12948,11 @@ otp_8183_request1(Config) when is_list(Config) ->
     i("wait some before issuing the notify reply (twice)"),
     sleep(500),
 
-    i("send the notify reply, twice times"),
+    i("send the notify reply - twice"),
     NotifyReply = 
 	otp_8183_r1_mgc_notify_reply_msg(MgcMid, TransId2, Cid2, TermId2),
     megaco_test_generic_transport:incomming_message(Pid, NotifyReply),
+    sleep(100), %% This is to "make sure" the events come in the "right" order
     megaco_test_generic_transport:incomming_message(Pid, NotifyReply),
 
     d("await the generator reply"),
@@ -13228,13 +13223,33 @@ otp_8183_r1_mg_verify_notify_rep_fun(Nr) ->
     end.
 -endif.
 
-otp_8183_r1_mg_verify_notify_rep(Nr, 
+otp_8183_r1_mg_verify_notify_rep(
+  Nr, 
   {handle_trans_reply, _CH, ?VERSION, {ok, Nr, [AR]}, _}) ->
     io:format("otp_8183_r1_mg_verify_notify_rep -> ok"
 	      "~n   Nr: ~p"
 	      "~n   AR: ~p"
 	      "~n", [Nr, AR]),
     {ok, AR, ok};
+otp_8183_r1_mg_verify_notify_rep(
+  ExpNr, 
+  {handle_trans_reply, _CH, ?VERSION, {ok, ActNr, [AR]}, _}) ->
+    io:format("otp_8183_r1_mg_verify_notify_rep -> error"
+	      "~n   Expected Nr: ~p"
+	      "~n   Actual Nr:   ~p"
+	      "~n   AR:          ~p"
+	      "~n", [ExpNr, ActNr, AR]),
+    Error = {unexpected_nr, ExpNr, ActNr},
+    {error, Error, ok};
+otp_8183_r1_mg_verify_notify_rep(
+  Nr, 
+  {handle_trans_reply, _CH, ?VERSION, Res, _}) ->
+    io:format("otp_8183_r1_mg_verify_notify_rep -> error"
+	      "~n   Nr:  ~p"
+	      "~n   Res: ~p"
+	      "~n", [Nr, Res]),
+    Error = {unexpected_result, Nr, Res},
+    {error, Error, ok};
 otp_8183_r1_mg_verify_notify_rep(Nr, Else) ->
     io:format("otp_8183_r1_mg_verify_notify_rep -> unknown"
 	      "~n   Nr:   ~p"

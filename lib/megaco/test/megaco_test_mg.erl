@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,10 @@
 	     reply_counter   = 0,
 	     mload_info      = undefined,
 	     parent          = undefined,
-	     dsi_timer}).
+	     dsi_timer,
+             evs             = []}).
+
+-define(EVS_MAX, 10).
 
 
 %%% --------------------------------------------------------------------
@@ -364,7 +367,7 @@ mg(Parent, Verbosity, Config) ->
 	    MG = #mg{parent = Parent, mid = Mid, dsi_timer = DSITimer},
 	    i("mg -> started"),
 	    put(verbosity, Verbosity),
-	    case (catch loop(MG)) of
+	    case (catch loop(evs(MG, started))) of
 		{'EXIT', normal} ->
 		    exit(normal);
 		{'EXIT', Reason} ->
@@ -438,12 +441,12 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	{display_system_info, Time} ->
 	    display_system_info(S#mg.mid),
 	    NewTimer = create_timer(Time, display_system_info),
-	    loop(S#mg{dsi_timer = NewTimer});
+	    loop(evs(S#mg{dsi_timer = NewTimer}, {dsi, Time}));
 
 	{verbosity, V, Parent} ->
 	    i("loop -> received new verbosity: ~p", [V]),
 	    put(verbosity,V),
-	    loop(S);
+	    loop(evs(S, {verb, V}));
 
 
 	{stop, Parent} ->
@@ -453,7 +456,7 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	    Res = do_stop(Mid),
 	    d("loop -> stop result: ~p", [Res]),
 	    server_reply(Parent, stopped, {ok, Res}),
-	    exit(normal);
+	    done(evs(S, stop), normal);
 
 	{{enable_test_code, Tag, Fun}, Parent} ->
 	    i("loop -> enable_test_code: ~p, ~p", [Tag, Fun]),
@@ -463,52 +466,52 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	      "~n   ets:tab2list(megaco_test_data): ~p", 
 	      [Reply,ets:tab2list(megaco_test_data)]),
 	    server_reply(Parent, enable_test_code_reply, Reply),
-	    loop(S);
+	    loop(evs(S, {enable_test_code, Tag}));
 
 	{{encode_ar_first, EAF}, Parent} ->
 	    i("loop -> encode_ar_first: ~p", [EAF]),
 	    {Reply, S1} = handle_encode_ar_first(S, EAF),
 	    server_reply(Parent, encode_ar_first_reply, Reply),
-	    loop(S1#mg{encode_ar_first = EAF});
+	    loop(evs(S1#mg{encode_ar_first = EAF}, {enc_arf, EAF}));
 
 	%% Give me statistics
 	{statistics, Parent} ->
 	    i("loop -> got request for statistics", []),
 	    Stats = do_get_statistics(Mid),
 	    server_reply(Parent, statistics_reply, {ok, Stats}),
-	    loop(S); 
+	    loop(evs(S, stats)); 
 
 	{reset_stats, Parent} ->
 	    i("loop -> got request to reset stats counters", []),
 	    do_reset_stats(Mid),
 	    server_reply(Parent, reset_stats_ack, ok),
-	    loop(S);
+	    loop(evs(S, rst_stats));
 
 	{{user_info, Tag}, Parent} ->
 	    i("loop -> got user_info request for ~w", [Tag]),
 	    Res = do_get_user_info(Mid, Tag),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, user_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {ui, Tag}));
 
 	{{update_user_info, Tag, Val}, Parent} ->
 	    i("loop -> got update_user_info: ~w -> ~p", [Tag, Val]),
 	    Res = do_update_user_info(Mid, Tag, Val),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_user_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {uui, {Tag, Val}}));
 
 	{{conn_info, Tag}, Parent} ->
 	    i("loop -> got conn_info request for ~w", [Tag]),
 	    Res = do_get_conn_info(Mid, Tag),
 	    server_reply(Parent, conn_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {ci, Tag}));
 
 	{{update_conn_info, Tag, Val}, Parent} ->
 	    i("loop -> got update_conn_info: ~w -> ~p", [Tag, Val]),
 	    Res = do_update_conn_info(Mid, Tag, Val),
 	    server_reply(Parent, update_conn_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {uci, {Tag, Val}}));
 
 
 	%% Do a service change
@@ -526,28 +529,28 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 			server_reply(Parent, service_change_reply, Error),
 			S
 		end,
-	    loop(S1); 
+	    loop(evs(S1, svc_ch)); 
 
 	{{group_requests, N}, Parent} when N > 0 ->
 	    i("loop -> received group_requests ~p", [N]),
 	    Reply = {ok, S#mg.group_size}, 
 	    server_reply(Parent, group_requests_reply, Reply),
-	    loop(S#mg{group_size = N}); 
+	    loop(evs(S#mg{group_size = N}, {grp_reqs, N})); 
 
 	{{ack_info, To}, Parent} ->
 	    i("loop -> received request to inform about received ack's ", []),
-	    loop(S#mg{ack_info = To});
+	    loop(evs(S#mg{ack_info = To}, {acki, To}));
 
 	{{rep_info, To}, Parent} ->
 	    i("loop -> received request to inform about received rep's ", []),
-	    loop(S#mg{rep_info = To});
+	    loop(evs(S#mg{rep_info = To}, {repi, To}));
 
 	%% Make a sync-call
 	{notify_request, Parent} ->
 	    i("loop -> received request to send notify request ", []),
 	    {Res, S1} = do_handle_notify_request(S),
 	    d("loop -> notify request result: ~p", [Res]),
-	    loop(S1);
+	    loop(evs(S1, not_req));
 
 	%% sync-call complete
 	{notify_request_complete, NotifyReply, Pid} ->
@@ -556,7 +559,7 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	      "~n   NotifyReply: ~p", 
 	      [Pid, NotifyReply]),
 	    server_reply(Parent, notify_request_reply, NotifyReply),
-	    loop(S#mg{req_handler = undefined});
+	    loop(evs(S#mg{req_handler = undefined}, {not_reqc, NotifyReply}));
 
 
 	%% cancel requests
@@ -564,14 +567,14 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	    i("loop -> received request to cancel (all) megaco requests ", []),
 	    Res = do_cancel_requests(Mid, Reason),
 	    server_reply(Parent, cancel_request_reply, Res),
-	    loop(S);
+	    loop(evs(S, {creq, Reason}));
 
 
 	%% Apply multi-load
 	{apply_multi_load, {NL, NR}, Parent} -> 
 	    i("loop -> received apply_multi_load request: ~w, ~w", [NL, NR]),
 	    S1 = start_loaders(S, NL, NR),
-	    loop(S1);
+	    loop(evs(S1, {apply_mload, {NL, NR}}));
 
 
 	%% Apply some load
@@ -587,12 +590,12 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 			server_reply(Parent, apply_load_ack, Error),
 			S
 		end,
-	    loop(S1);
+	    loop(evs(S1, {apply_load, Times}));
 
 	{apply_load_timeout, _} ->
 	    d("loop -> received apply_load timeout", []),
 	    S1 = do_apply_load(S),
-	    loop(S1);
+	    loop(evs(S1, apply_loadto));
 
 
 	%% Megaco callback messages
@@ -604,20 +607,33 @@ loop(#mg{parent = Parent, mid = Mid} = S) ->
 	    {Reply, S1} = handle_megaco_request(S, Request),
 	    d("loop -> send (megaco callback) request reply: ~n~p", [Reply]),
 	    From ! {reply, Reply, self()},
-	    loop(S1);
+	    loop(evs(S1, {req, {Request, Mid, From}}));
 
 
 	{'EXIT', Pid, Reason} -> 
-	    i("loop -> received exit signal from ~p: ~n~p", [Pid, Reason]),
+	    i("loop -> received exit signal from ~p: "
+              "~n   ~p", [Pid, Reason]),
 	    S1 = handle_exit(S, Pid, Reason),
-	    loop(S1);
+	    loop(evs(S1, {exit, {Pid, Reason}}));
 
 
 	Invalid ->
 	    error_msg("received invalid request: ~n~p", [Invalid]),
-	    loop(S)
+	    loop(evs(S, {invalid, Invalid}))
 
     end.
+
+
+evs(#mg{evs = EVS} = S, Ev) when (length(EVS) < ?EVS_MAX) ->
+    S#mg{evs = [{?FTS(), Ev}|EVS]};
+evs(#mg{evs = EVS} = S, Ev) ->
+    S#mg{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}.
+
+done(#mg{evs = EVS}, Reason) ->
+    info_msg("Exiting with latest event(s): "
+             "~n   ~p"
+             "~n", [EVS]),
+    exit(Reason).
 
 
 handle_encode_ar_first(#mg{encode_ar_first = Old} = MG, New) 
@@ -776,7 +792,7 @@ do_service_change(#mg{state = State} = MG) ->
     {{error, {invalid_state, State}}, MG}.
 
 do_service_change(ConnHandle, Method, EAF, Reason) ->
-    d("sending service change using:"
+    d("send service change using:"
       "~n   ConnHandle: ~p"
       "~n   Method:     ~p"
       "~n   EAF:        ~p"
@@ -844,10 +860,10 @@ loader_main(EAF, N, CH) ->
 
 
 
-handle_exit(#mg{parent = Pid}, Pid, Reason) ->
+handle_exit(#mg{parent = Pid} = S, Pid, Reason) ->
     error_msg("received exit from the parent:"
 	      "~n   ~p", [Reason]),
-    exit({parent_terminated, Reason});
+    done(S, {parent_terminated, Reason});
 
 handle_exit(#mg{parent = Parent, req_handler = Pid} = MG, Pid, Reason) ->
     error_msg("received unexpected exit from the request handler:"
@@ -1423,6 +1439,7 @@ sleep(X) ->
     receive after X -> ok end.
 
 
+info_msg(F,A)  -> error_logger:info_msg("MG: " ++ F ++ "~n",A).
 error_msg(F,A) -> error_logger:error_msg("MG: " ++ F ++ "~n",A).
 
 
@@ -1536,37 +1553,28 @@ print(Severity, Verbosity, P, F, A) ->
 print(true, P, F, A) ->
     io:format("*** [~s] ~s ~p ~s ***"
               "~n   " ++ F ++ "~n~n", 
-              [format_timestamp(now()), P, self(), get(sname) | A]);
+              [?FTS(), P, self(), get(sname) | A]);
 print(_, _, _, _) ->
     ok.
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random() ->
     random(50).
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 display_system_info(Mid) ->
     display_system_info(Mid, "").
 
 display_system_info(Mid, Pre) ->
-    TimeStr = format_timestamp(now()),
+    TimeStr = ?FTS(),
     MibStr  = lists:flatten(io_lib:format("~p ", [Mid])), 
     megaco_test_lib:display_system_info(MibStr ++ Pre ++ TimeStr).
 

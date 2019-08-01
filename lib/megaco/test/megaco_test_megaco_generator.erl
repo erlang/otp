@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ init([]) ->
 %% ----- instruction parser -----
 
 handle_parse({debug, Debug} = Instruction, State)
-  when (Debug == true) orelse (Debug == false) ->
+  when is_boolean(Debug) ->
     {ok, Instruction, State};
 
 handle_parse({expect_nothing, To} = Instruction, State)
@@ -126,9 +126,9 @@ handle_parse({expect_nothing, To} = Instruction, State)
     {ok, Instruction, State};
 
 handle_parse({megaco_trace, Level} = Instruction, State)
-  when (Level == disable) orelse 
-       (Level == max)     orelse 
-       (Level == min)     orelse
+  when (Level =:= disable) orelse 
+       (Level =:= max)     orelse 
+       (Level =:= min)     orelse
        is_integer(Level) ->
     {ok, Instruction, State};
 
@@ -1096,11 +1096,10 @@ handle_megaco_callback_reply(_, _, _, _) ->
 %%----------------------------------------------------------------------
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 get_config(Key, Opts) ->

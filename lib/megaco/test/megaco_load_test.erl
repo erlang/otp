@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,33 @@
 %%----------------------------------------------------------------------
 -module(megaco_load_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         single_user_light_load/1,
+         single_user_medium_load/1,
+         single_user_heavy_load/1,
+         single_user_extreme_load/1,
+
+         multi_user_light_load/1,
+         multi_user_medium_load/1,
+         multi_user_heavy_load/1,
+         multi_user_extreme_load/1,
+
+         t/0, t/1
+        ]).
+
+-export([
+         do_multi_load/3,
+         multi_load_collector/7
+        ]).
+
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -66,8 +92,6 @@
 t()     -> megaco_test_lib:t(?MODULE).
 t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
-min(M) -> timer:minutes(M).
-
 %% Test server callbacks
 init_per_testcase(single_user_light_load = Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
@@ -108,15 +132,33 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [single_user_light_load,
-     single_user_medium_load, single_user_heavy_load,
-     single_user_extreme_load, multi_user_light_load,
-     multi_user_medium_load, multi_user_heavy_load,
-     multi_user_extreme_load].
+    [
+     {group, single},
+     {group, multi}
+    ].
 
 groups() -> 
-    [].
+    [
+     {single, [], single_cases()},
+     {multi,  [], multi_cases()}
+    ].
 
+single_cases() ->
+    [
+     single_user_light_load,
+     single_user_medium_load,
+     single_user_heavy_load,
+     single_user_extreme_load
+    ].
+
+multi_cases() ->
+    [
+     multi_user_light_load,
+     multi_user_medium_load,
+     multi_user_heavy_load,
+     multi_user_extreme_load
+    ].
+    
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -326,6 +368,17 @@ load_controller(Config, Fun) when is_list(Config) and is_function(Fun) ->
 	    d("load_controller -> "
 	      "loader [~p] terminated with ok~n", [Loader]),
 	    ok;
+	{'EXIT', Loader, {skipped, {fatal, Reason, File, Line}}} ->
+	    i("load_controller -> "
+	      "loader [~p] terminated with fatal skip"
+	      "~n   Reason: ~p"
+	      "~n   At:     ~p:~p", [Loader, Reason, File, Line]),
+	    ?SKIP(Reason);
+	{'EXIT', Loader, {skipped, Reason}} ->
+	    i("load_controller -> "
+	      "loader [~p] terminated with skip"
+	      "~n   Reason: ~p", [Loader, Reason]),
+	    ?SKIP(Reason);
 	{'EXIT', Loader, Reason} ->
 	    i("load_controller -> "
 	      "loader [~p] terminated with"
@@ -629,14 +682,6 @@ make_mids([MgNode|MgNodes], Mids) ->
 	    exit("Test node must be started with '-sname'")
     end.
 
-tim() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
-sleep(X) -> receive after X -> ok end.
-
-error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
-
 maybe_display_system_info(NumLoaders) when NumLoaders > 50 ->
     [{display_system_info, timer:seconds(2)}];
 maybe_display_system_info(NumLoaders) when NumLoaders > 10 ->
@@ -647,50 +692,32 @@ maybe_display_system_info(_) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+min(M) -> timer:minutes(M).
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), now(), get(tc), "INF", F, A).
+    print(info, get(verbosity), get(tc), "INF", F, A).
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), now(), get(tc), "DBG", F, A).
+    print(debug, get(verbosity), get(tc), "DBG", F, A).
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Ts, Tc, P, F, A) ->
-    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
+print(Severity, Verbosity, Tc, P, F, A) ->
+    print(printable(Severity,Verbosity), Tc, P, F, A).
 
-print(true, Ts, Tc, P, F, A) ->
+print(true, Tc, P, F, A) ->
     io:format("*** [~s] ~s ~p ~s:~w ***"
               "~n   " ++ F ++ "~n", 
-              [format_timestamp(Ts), P, self(), get(sname), Tc | A]);
-print(_, _, _, _, _, _) ->
+              [?FTS(), P, self(), get(sname), Tc | A]);
+print(_, _, _, _, _) ->
     ok.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
-
-random() ->
-    10 * random:uniform(50).
-
-apply_load_timer() ->
-    erlang:send_after(random(), self(), apply_load_timeout).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).

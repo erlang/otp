@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -186,4 +186,4 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    io:format("*** [~s] ~p ~w:" ++ F ++ "~n", [?FTS(), self(), ?MODULE | A]).

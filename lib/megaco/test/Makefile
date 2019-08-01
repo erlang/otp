@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,6 +101,9 @@ ERL_COMPILE_FLAGS += +native -Dmegaco_hipe_special=true
 endif
 
 ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
+
+# We have a behaviour in the test catalog (megaco_test_generator)
+ERL_COMPILE_FLAGS += -pa ../../megaco/test
 
 ERL_PATH = -pa ../../megaco/examples/simple \
            -pa ../../megaco/ebin \

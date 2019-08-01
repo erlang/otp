@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,7 +75,10 @@
 	      abort_info  = undefined,
 	      req_info    = undefined,
 	      mg          = [],
-	      dsi_timer}).
+	      dsi_timer,
+              evs         = []}).
+
+-define(EVS_MAX, 10).
 
 
 %%% ------------------------------------------------------------------
@@ -297,7 +300,7 @@ mgc(Parent, Verbosity, Config) ->
 		     dsi_timer = DSITimer},
 	    i("mgc -> started"),
 	    display_system_info("at start "),
-	    loop(S)
+	    loop(evs(S, started))
     end.
 
 init(Config) ->
@@ -359,7 +362,7 @@ loop(S) ->
 	{display_system_info, Time} ->
 	    display_system_info(S#mgc.mid),
 	    NewTimer = create_timer(Time, display_system_info),
-	    loop(S#mgc{dsi_timer = NewTimer});
+	    loop(evs(S#mgc{dsi_timer = NewTimer}, {dsi, Time}));
 
 	{stop, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> stopping", []),
@@ -371,7 +374,7 @@ loop(S) ->
 	    application:stop(megaco),
 	    i("loop -> stopped", []),
 	    server_reply(Parent, stopped, ok),
-	    exit(normal);
+	    done(evs(S, stop), normal);
 
 	{{disconnect, Reason}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> disconnecting", []),
@@ -379,22 +382,22 @@ loop(S) ->
 	    [Conn|_] = megaco:user_info(Mid, connections),
 	    Res = megaco:disconnect(Conn, {self(), Reason}),
 	    server_reply(Parent, disconnected, Res),
-	    loop(S);
+	    loop(evs(S, {disconnect, Reason}));
 
 	{{update_user_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_user_info: ~w -> ~p", [Tag, Val]),
 	    Res = (catch megaco:update_user_info(S#mgc.mid, Tag, Val)),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_user_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {uui, {Tag, Val}}));
 
-	{{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got user_info request for ~w", [Tag]),
-	    Res = (catch megaco:user_info(S#mgc.mid, Tag)),
-	    d("loop -> Res: ~p", [Res]),
-	    server_reply(Parent, user_info_ack, Res),
-	    loop(S);
-
+        {{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
+            i("loop -> got user_info request for ~w", [Tag]),
+            Res = (catch megaco:user_info(S#mgc.mid, Tag)),
+            d("loop -> Res: ~p", [Res]),
+            server_reply(Parent, user_info_ack, Res),
+            loop(evs(S, {ui, Tag}));
+                     
 	{{update_conn_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_conn_info: ~w -> ~p", [Tag, Val]),
 	    Conns = megaco:user_info(S#mgc.mid, connections), 
@@ -404,7 +407,7 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_conn_info_ack, Res),
-	    loop(S);
+            loop(evs(S, {uci, {Tag, Val}}));
 
 	{{conn_info, Tag}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got conn_info request for ~w", [Tag]),
@@ -415,11 +418,11 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, conn_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {ci, Tag}));
 
 
 	%% 
-	{request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
+        {request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got new request_action: ~p:~w", [Action,To]),
 	    {Reply, S1} = 
 		case lists:member(Action, ?valid_actions) of
@@ -432,7 +435,7 @@ loop(S) ->
 			{{error, {invalid_action, Action}}, S}
 		end,
 	    server_reply(Parent, request_action_ack, Reply),
-	    loop(S1);
+            loop(evs(S1, {req_act, {Action, To}}));
 
 
 	%% Reset stats
@@ -440,7 +443,7 @@ loop(S) ->
 	    i("loop -> got request to reset stats counters"),
 	    do_reset_stats(S#mgc.mid),
 	    server_reply(Parent, reset_stats_ack, ok),
-	    loop(S);
+	    loop(evs(S, rst_stats));
 
 
 	%% Give me statistics
@@ -466,7 +469,7 @@ loop(S) ->
 		lists:map(GetTrans, megaco:user_info(Mid, connections)),
 	    Reply = {ok, [{gen, Gen}, {trans, Trans}]},
 	    server_reply(Parent, {statistics_reply, 1}, Reply),
-	    loop(S);
+	    loop(evs(S, {stats, 1}));
 
 
 	{{statistics, 2}, Parent} when S#mgc.parent == Parent ->
@@ -477,7 +480,7 @@ loop(S) ->
 	    UdpStats = get_trans_stats(UdpSup, megaco_udp),
 	    Reply = {ok, [{gen, Gen}, {trans, [TcpStats, UdpStats]}]},
 	    server_reply(Parent, {statistics_reply, 2}, Reply),
-	    loop(S);
+	    loop(evs(S, {stats, 2}));
 
 
 	%% Megaco callback messages
@@ -487,28 +490,28 @@ loop(S) ->
 	    {Reply, S1} = handle_megaco_request(Request, S),
 	    d("loop -> send request reply: ~n~p", [Reply]),
 	    reply(From, Reply),
-	    loop(S1);
+	    loop(evs(S1, {req, Request}));
 
 
 	{ack_info, To, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received request to inform about received ack's ", []),
-	    loop(S#mgc{ack_info = To});
+	    loop(evs(S#mgc{ack_info = To}, {acki, To}));
 
 
 	{abort_info, To, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received request to inform about received aborts ", []),
-	    loop(S#mgc{abort_info = To});
+	    loop(evs(S#mgc{abort_info = To}, {abi, To}));
 
 
 	{req_info, To, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received request to inform about received req's ", []),
-	    loop(S#mgc{req_info = To});
+	    loop(evs(S#mgc{req_info = To}, {reqi, To}));
 
 
 	{verbosity, V, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received new verbosity: ~p", [V]),
 	    put(verbosity,V),
-	    loop(S);
+	    loop(evs(S, {verb, V}));
 
 
 	{'EXIT', Pid, Reason} when S#mgc.tcp_sup =:= Pid ->
@@ -525,7 +528,7 @@ loop(S) ->
 	    i("loop -> stopped", []),
 	    StopReason = {error, {tcp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {tcp_sup_exit, Reason}), StopReason);
 
 
 	{'EXIT', Pid, Reason} when S#mgc.udp_sup =:= Pid ->
@@ -542,13 +545,25 @@ loop(S) ->
 	    i("loop -> stopped", []),
 	    StopReason = {error, {udp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {udp_sup_exit, Reason}), StopReason);
 
 
 	Invalid ->
 	    i("loop -> received invalid request: ~p", [Invalid]),
-	    loop(S)
+	    loop(evs(S, {invalid, Invalid}))
     end.
+
+
+evs(#mgc{evs = EVS} = S, Ev) when (length(EVS) < ?EVS_MAX) ->
+    S#mgc{evs = [{?FTS(), Ev}|EVS]};
+evs(#mgc{evs = EVS} = S, Ev) ->
+    S#mgc{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}.
+
+done(#mgc{evs = EVS}, Reason) ->
+    info_msg("Exiting with latest event(s): "
+             "~n   ~p"
+             "~n", [EVS]),
+    exit(Reason).
 
 
 do_reset_stats(Mid) ->
@@ -825,10 +840,10 @@ handle_megaco_request({handle_trans_ack, CH, PV, AS, AD},
 
 handle_megaco_request({handle_trans_ack, CH, PV, AS, AD}, S) ->
     d("handle_megaco_request(handle_trans_ack) -> entry with"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   AS: ~p"
-      "~n   AD: ~p", [CH, PV, AS, AD]),
+      "~n   Conn Handle:  ~p"
+      "~n   Prot Version: ~p"
+      "~n   Ack Status:   ~p"
+      "~n   Ack Data:     ~p", [CH, PV, AS, AD]),
     {ok, S};
 
 handle_megaco_request({handle_unexpected_trans, CH, PV, TR}, S) ->
@@ -1090,6 +1105,7 @@ sleep(X) ->
     receive after X -> ok end.
 
 
+info_msg(F,A)  -> error_logger:info_msg("MGC: " ++ F ++ "~n",A).
 error_msg(F,A) -> error_logger:error_msg("MGC: " ++ F ++ "~n",A).
 
 
@@ -1153,18 +1169,17 @@ get_conf(Key, Config, Default) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 display_system_info(Mid) ->
     display_system_info(Mid, "").
 
 display_system_info(Mid, Pre) ->
-    TimeStr = format_timestamp(now()),
+    TimeStr = ?FTS(),
     MibStr  = lists:flatten(io_lib:format("~p ", [Mid])), 
     megaco_test_lib:display_system_info(MibStr ++ Pre ++ TimeStr).
 
@@ -1209,14 +1224,6 @@ print(_, _, _, _) ->
 print(P, F, A) ->
     io:format("*** [~s] ~s ~p ~s ***"
 	      "~n   " ++ F ++ "~n~n", 
-	      [format_timestamp(now()), P, self(), get(sname) | A]).
+	      [?FTS(), P, self(), get(sname) | A]).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 

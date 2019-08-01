@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,15 +117,39 @@ end_per_testcase(Case, Config) ->
 %% Test case definitions
 %%======================================================================
 all() -> 
-    [{group, start}, {group, sending}, {group, errors}].
+    [
+     {group, start},
+     {group, sending},
+     {group, errors}
+    ].
 
 groups() -> 
-    [{start, [],
-      [start_normal, start_invalid_opt, start_and_stop]},
-     {sending, [], [sendreceive, block_unblock]},
-     {errors, [],
-      [socket_failure, accept_process, accept_supervisor,
-       connection_supervisor, tcp_server]}].
+    [{start,   [], start_cases()},
+     {sending, [], sending_cases()},
+     {errors,  [], errors_cases()}].
+
+start_cases() ->
+    [
+     start_normal,
+     start_invalid_opt,
+     start_and_stop
+    ].
+
+sending_cases() ->
+    [
+     sendreceive,
+     block_unblock
+    ].
+
+errors_cases() ->
+    [
+     socket_failure,
+     accept_process,
+     accept_supervisor,
+     connection_supervisor,
+     tcp_server
+    ].
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -196,17 +220,8 @@ start_and_stop(Config) when is_list(Config) ->
     Client = client_start_command_handler(ClientNode, ClientCmds),
     p("client command handler started: ~p", [Client]),
 
-    ok = 
-	receive
-	    {listening, Server} ->
-		p("received listening message from server [~p] => "
-		  "send continue to client [~p]~n", [Server, Client]),
-		Client ! {continue, self()},
-		ok
-	after 5000 ->
-		{error, server_timeout}
-	end,
-    
+    await_server_listening(Server, Client),
+
     await_command_handler_completion([Server, Client], timer:seconds(20)),
     p("done"),
     ok.
@@ -335,16 +350,7 @@ sendreceive(Config) when is_list(Config) ->
     Client = client_start_command_handler(ClientNode, ClientCmds),
     p("client command handler started: ~p", [Client]),
 
-    ok = 
-	receive
-	    {listening, Server} ->
-		p("received listening message from server [~p] => "
-		  "send continue to client [~p]~n", [Server, Client]),
-		Client ! {continue, self()},
-		ok
-	after 5000 ->
-		{error, server_timeout}
-	end,
+    await_server_listening(Server, Client),
     
     await_command_handler_completion([Server, Client], timer:seconds(20)),
     p("done"),
@@ -544,27 +550,9 @@ block_unblock(Config) when is_list(Config) ->
     Client = client_start_command_handler(ClientNode, ClientCmds),
     p("client command handler started: ~p", [Client]),
 
-    ok = 
-	receive
-	    {listening, Server} ->
-		p("received listening message from server [~p] => "
-		  "send continue to client [~p]~n", [Server, Client]),
-		Client ! {continue, self()},
-		ok
-	after 5000 ->
-		{error, server_timeout}
-	end,
+    await_server_listening(Server, Client),
 
-    ok = 
-	receive
-	    {blocked, Client} ->
-		p("received blocked message from client [~p] => "
-		  "send continue to server [~p]~n", [Client, Server]),
-		Server ! {continue, self()},
-		ok
-	after 5000 ->
-		{error, timeout}
-	end,
+    await_client_blocked(Server, Client),
 
     await_command_handler_completion([Server, Client], timer:seconds(30)),
     p("done"),
@@ -908,6 +896,42 @@ process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg)
 %% Internal functions
 %%======================================================================
 
+await_server_listening(Server, Client) ->
+    receive
+        {listening, Server} ->
+            p("received listening message from server [~p] => "
+              "send continue to client [~p]"
+              "~n", [Server, Client]),
+            Client ! {continue, self()},
+            ok
+    after 5000 ->
+            %% There is no normal reason why this should take any time.
+            %% Normally, this takes a few milli seconds. So, if we are not
+            %% up and running after 5 seconds, we give up and skip!!
+            exit(Server, kill),
+            exit(Client, kill),
+            ?SKIP("Server timeout (listen)")
+    end.
+
+
+await_client_blocked(Server, Client) ->
+    receive
+        {blocked, Client} ->
+            p("received blocked message from client [~p] => "
+              "send continue to server [~p]~n", [Client, Server]),
+            Server ! {continue, self()},
+            ok
+    after 5000 ->
+            %% There is no normal reason why this should take any time.
+            %% Normally, this takes a few milli seconds. So, if we are not
+            %% up and running after 5 seconds, we give up and skip!!
+            exit(Client, kill),
+            exit(Server, kill),
+            ?SKIP("Client timeout (blocked)")
+    end.
+
+    
+
 %% -------  Server command handler and utility functions ----------
 
 server_start_command_handler(Node, Commands) ->
@@ -1214,23 +1238,14 @@ p(F, A) ->
 p(S, F, A) when is_list(S) ->
     io:format("*** [~s] ~p ~s ***" 
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()), self(), S | A]);
+	      [?FTS(), self(), S | A]);
 p(_S, F, A) ->
     io:format("*** [~s] ~p ~s *** "
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()), self(), "undefined" | A]).
+	      [?FTS(), self(), "undefined" | A]).
 
 
 ms() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-    
+    erlang:monotonic_time(milli_seconds).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+

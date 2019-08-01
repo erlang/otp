@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,21 @@
 
 -module(megaco_SUITE).
 
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         t/0, t/1,
+         init/0
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -96,6 +110,20 @@ groups() ->
      {flex,           [], [{megaco_flex_test,           all}]}].
 
 init_per_suite(Config) ->
+    io:format("~w:init_per_suite -> entry with"
+	      "~n   Config:     ~p"
+              "~n   OS Type:    ~p"
+              "~n   OS Version: ~s"
+	      "~n", 
+              [?MODULE, 
+               Config, 
+               os:type(), 
+               case os:version() of
+                   {Major, Minor, Release} ->
+                       ?F("~w.~w.~w", [Major, Minor, Release]);
+                   Str when is_list(Str) ->
+                       Str
+               end]),
     Config.
 
 end_per_suite(_Config) ->

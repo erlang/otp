@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,13 +20,30 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Verify that it is possible to separatelly encode 
+%% Purpose: Verify that it is possible to separately encode 
 %%          the action requests list. Do this with all codec's
 %%          that supports partial encode.
 %%----------------------------------------------------------------------
 -module(megaco_actions_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         t/0, t/1,
+
+         pretty_text/1,
+         flex_pretty_text/1,
+         compact_text/1,
+         flex_compact_text/1,
+         erl_dist/1, 
+         erl_dist_mc/1
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -364,9 +381,6 @@ sleep(X) ->
     receive after X -> ok end.
 
 
-error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 i(F) ->
@@ -376,8 +390,8 @@ i(F, A) ->
     print(info, get(verbosity), "", F, A).
 
 
-d(F) ->
-    d(F, []).
+%% d(F) ->
+%%     d(F, []).
 
 d(F, A) ->
     print(debug, get(verbosity), "DBG: ", F, A).
@@ -391,20 +405,10 @@ print(Severity, Verbosity, P, F, A) ->
     print(printable(Severity,Verbosity), P, F, A).
 
 print(true, P, F, A) ->
-    io:format("~s~p:~s: " ++ F ++ "~n", [P, self(), get(sname) | A]);
+    io:format("*** [~s] ~s ~p ~s ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), P, self(), get(sname) | A]);
 print(_, _, _, _) ->
     ok.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
-
-random() ->
-    10 * random:uniform(50).
-
-apply_load_timer() ->
-    erlang:send_after(random(), self(), apply_load_timeout).
 

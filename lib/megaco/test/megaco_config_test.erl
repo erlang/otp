@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,24 @@
 
 -module(megaco_config_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         config/1,
+         transaction_id_counter_mg/1,
+         transaction_id_counter_mgc/1,
+         otp_7216/1,
+         otp_8167/1,
+         otp_8183/1,
+
+         t/0, t/1
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -37,6 +54,19 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 min(M) -> timer:minutes(M).
 
 %% Test server callbacks
+init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
+                                     (Case =:= otp_8167) orelse
+                                     (Case =:= otp_8183) ->
+    i("try starting megaco_config"),
+    case megaco_config:start_link() of
+        {ok, _} ->
+            C = lists:keydelete(tc_timeout, 1, Config),
+            do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]);
+        {error, Reason} ->
+            i("Failed starting megaco_config: "
+              "~n   ~p", [Reason]),
+            {skip, ?F("Failed starting config: ~p", [Reason])}
+    end;
 init_per_testcase(Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
     do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]).
@@ -45,6 +75,12 @@ do_init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
+end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
+                                     (Case =:= otp_8167) orelse
+                                     (Case =:= otp_8183) ->
+    (catch megaco_config:stop()),
+    process_flag(trap_exit, false),
+    megaco_test_lib:end_per_testcase(Case, Config);
 end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
@@ -60,20 +96,36 @@ end_per_testcase(Case, Config) ->
 %% Top test case
 
 all() -> 
-    [config, {group, transaction_id_counter},
-     {group, tickets}].
+    [
+     config,
+     {group, transaction_id_counter},
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{transaction_id_counter, [],
-      [transaction_id_counter_mg,
-       transaction_id_counter_mgc]},
-     {tickets, [], [otp_7216, otp_8167, otp_8183]}].
+    [
+     {transaction_id_counter, [], transaction_id_counter_cases()},
+     {tickets,                [], tickets_cases()}
+    ].
 
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+transaction_id_counter_cases() ->
+    [
+     transaction_id_counter_mg,
+     transaction_id_counter_mgc
+    ].
+
+tickets_cases() ->
+    [
+     otp_7216,
+     otp_8167,
+     otp_8183
+    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -736,9 +788,6 @@ otp_7216(Config) when is_list(Config) ->
     put(tc, otp_7216),
     p("start"),
 
-    p("start the megaco config process"),
-    megaco_config:start_link(),
-
     LocalMid1 = {deviceName, "local-mid-1"},
     %% LocalMid2 = {deviceName, "local-mid-2"},
     RemoteMid1 = {deviceName, "remote-mid-1"},
@@ -859,9 +908,6 @@ otp_8167(Config) when is_list(Config) ->
     put(tc, otp8167),
     p("start"),
 
-    p("start the megaco config process"),
-    megaco_config:start_link(),
-
     LocalMid1  = {deviceName, "local-mid-1"},
     LocalMid2  = {deviceName, "local-mid-2"},
     RemoteMid1 = {deviceName, "remote-mid-1"},
@@ -980,9 +1026,6 @@ otp_8183(suite) ->
 otp_8183(Config) when is_list(Config) ->
     put(tc, otp8183),
     p("start"),
-
-    p("start the megaco config process"),
-    megaco_config:start_link(),
 
     LocalMid1  = {deviceName, "local-mid-1"},
     LocalMid2  = {deviceName, "local-mid-2"},
@@ -1122,28 +1165,18 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), now(), get(tc), "INF", F, A).
+    print(info, get(verbosity), get(tc), "INF", F, A).
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Ts, Tc, P, F, A) ->
-    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
+print(Severity, Verbosity, Tc, P, F, A) ->
+    print(printable(Severity,Verbosity), Tc, P, F, A).
 
-print(true, Ts, Tc, P, F, A) ->
+print(true, Tc, P, F, A) ->
     io:format("*** [~s] ~s ~p ~s:~w ***"
               "~n   " ++ F ++ "~n",
-              [format_timestamp(Ts), P, self(), get(sname), Tc | A]);
-print(_, _, _, _, _, _) ->
+              [?FTS(), P, self(), get(sname), Tc | A]);
+print(_, _, _, _, _) ->
     ok.
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,21 @@
 %%----------------------------------------------------------------------
 -module(megaco_mreq_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         req_and_rep/1,
+         req_and_pending/1,
+         req_and_cancel/1,
+
+         t/0, t/1
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -51,15 +65,18 @@
 
 -define(MG_START(Pid, Mid, Enc, Transp, Verb), 
 	megaco_test_mg:start(Pid, Mid, Enc, Transp, Verb)).
--define(MG_STOP(Pid), megaco_test_mg:stop(Pid)).
--define(MG_GET_STATS(Pid, No), megaco_test_mg:get_stats(Pid, No)).
--define(MG_RESET_STATS(Pid), megaco_test_mg:reset_stats(Pid)).
--define(MG_SERV_CHANGE(Pid), megaco_test_mg:service_change(Pid)).
--define(MG_NOTIF_RAR(Pid), megaco_test_mg:notify_request_and_reply(Pid)).
--define(MG_NOTIF_REQ(Pid), megaco_test_mg:notify_request(Pid)).
--define(MG_NOTIF_AR(Pid),  megaco_test_mg:await_notify_reply(Pid)).
--define(MG_CANCEL(Pid,R),  megaco_test_mg:cancel_request(Pid,R)).
+-define(MG_STOP(Pid),                megaco_test_mg:stop(Pid)).
+-define(MG_GET_STATS(Pid),           megaco_test_mg:get_stats(Pid)).
+-define(MG_RESET_STATS(Pid),         megaco_test_mg:reset_stats(Pid)).
+-define(MG_SERV_CHANGE(Pid),         megaco_test_mg:service_change(Pid)).
+-define(MG_NOTIF_RAR(Pid),           megaco_test_mg:notify_request_and_reply(Pid)).
+-define(MG_NOTIF_REQ(Pid),           megaco_test_mg:notify_request(Pid)).
+-define(MG_NOTIF_AR(Pid),            megaco_test_mg:await_notify_reply(Pid)).
+-define(MG_CANCEL(Pid,R),            megaco_test_mg:cancel_request(Pid,R)).
 -define(MG_APPLY_LOAD(Pid,CntStart), megaco_test_mg:apply_load(Pid,CntStart)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t()     -> megaco_test_lib:t(?MODULE).
 t(Case) -> megaco_test_lib:t({?MODULE, Case}).
@@ -73,6 +90,7 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -228,7 +246,7 @@ req_and_rep_stop_mg(MGs) ->
 req_and_rep_get_mg_stats([], Acc) ->
     lists:reverse(Acc);
 req_and_rep_get_mg_stats([{Name, Pid}|Mgs], Acc) ->
-    {ok, Stats} = ?MG_GET_STATS(Pid, 1),
+    {ok, Stats} = ?MG_GET_STATS(Pid),
     d("req_and_rep_get_mg_stats -> stats for ~s: ~n~p~n", [Name, Stats]),
     req_and_rep_get_mg_stats(Mgs, [{Name, Stats}|Acc]).
 
@@ -399,11 +417,13 @@ req_and_cancel(Config) when is_list(Config) ->
 
 
 req_and_cancel_analyze_result({ok,{_PV,Res}}) ->
-    d("req_and_cancel -> notify request result: ~n   ~p", [Res]),
+    i("req_and_cancel -> notify request result: ~n   ~p", [Res]),
     req_and_cancel_analyze_result2(Res);
 req_and_cancel_analyze_result(Unexpected) ->
     exit({unexpected_result,Unexpected}).
 
+req_and_cancel_analyze_result2({error,{user_cancel,req_and_cancel}}) ->
+    ok;
 req_and_cancel_analyze_result2([]) ->
     ok;
 req_and_cancel_analyze_result2([{error,{user_cancel,req_and_cancel}}|Res]) ->
@@ -429,9 +449,6 @@ sleep(X) ->
     receive after X -> ok end.
 
 
-error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 i(F) ->
@@ -441,8 +458,8 @@ i(F, A) ->
     print(info, get(verbosity), "", F, A).
 
 
-d(F) ->
-    d(F, []).
+%% d(F) ->
+%%     d(F, []).
 
 d(F, A) ->
     print(debug, get(verbosity), "DBG: ", F, A).
@@ -456,20 +473,9 @@ print(Severity, Verbosity, P, F, A) ->
     print(printable(Severity,Verbosity), P, F, A).
 
 print(true, P, F, A) ->
-    io:format("~s~p:~s: " ++ F ++ "~n", [P, self(), get(sname) | A]);
+    io:format("*** [~s] ~s ~p ~s ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), P, self(), get(sname) | A]);
 print(_, _, _, _) ->
     ok.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
-
-random() ->
-    10 * random:uniform(50).
-
-apply_load_timer() ->
-    erlang:send_after(random(), self(), apply_load_timeout).
 
