@@ -106,25 +106,34 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
     ERL_NIF_TERM ret_pub, ret_prv, ret;
+    ErlNifBinary prv_key;
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
-
-    ASSERT(argc == 1);
 
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
+    else if (argv[0] == atom_ed25519)
+        type = EVP_PKEY_ED25519;
+    else if (argv[0] == atom_ed448)
+        type = EVP_PKEY_ED448;
     else
         goto bad_arg;
 
-    if ((ctx = EVP_PKEY_CTX_new_id(type, NULL)) == NULL)
-        goto bad_arg;
-
-    if (EVP_PKEY_keygen_init(ctx) != 1)
-        goto err;
-    if (EVP_PKEY_keygen(ctx, &pkey) != 1)
-        goto err;
+    if (argv[1] == atom_undefined) {
+        if ((ctx = EVP_PKEY_CTX_new_id(type, NULL)) == NULL)
+            goto bad_arg;
+        if (EVP_PKEY_keygen_init(ctx) != 1)
+            goto err;
+        if (EVP_PKEY_keygen(ctx, &pkey) != 1)
+            goto err;
+    } else {
+        if (!enif_inspect_binary(env, argv[1], &prv_key))
+            goto bad_arg;
+        if ((pkey = EVP_PKEY_new_raw_private_key(type, NULL, prv_key.data, prv_key.size)) == NULL)
+            goto bad_arg;
+    }
 
     if (EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len) != 1)
         goto err;
