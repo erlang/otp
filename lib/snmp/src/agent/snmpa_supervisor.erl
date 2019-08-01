@@ -22,7 +22,7 @@
 -behaviour(supervisor).
 
 %% External exports
--export([start_link/2]).
+-export([start_link/2, stop/0, stop/1]).
 -export([start_sub_sup/1, start_master_sup/1]).
 -export([start_sub_agent/3, stop_sub_agent/1]).
 
@@ -90,6 +90,39 @@ start_link(master, Opts, {takeover, Node}) ->
         Else ->
             Else
     end.
+
+
+stop() ->
+    stop(0).
+
+stop(Timeout) ->
+    case whereis(?SERVER) of
+	Pid when is_pid(Pid) ->
+            stop(Pid, Timeout);
+	_ ->
+	    not_running
+    end.
+
+%% For some unfathomable reason there is no "nice" way to stop
+%% a supervisor. The "normal" way to do it is:
+%% 1) exit(Pid, kill) (kaboom)
+%% 2) If the caller is the *parent*: exit(Pid, shutdown)
+%% So, here we do it the really ugly way...but since this function is 
+%% intended for testing (mostly)...
+stop(Pid, Timeout) when (Timeout =:= 0) ->
+    sys:terminate(Pid, shutdown),
+    ok;
+stop(Pid, Timeout) ->
+    MRef = erlang:monitor(process, Pid),
+    sys:terminate(Pid, shutdown),
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ok
+    after Timeout ->
+            erlang:demonitor(MRef, [flush]),
+            {error, timeout}
+    end.
+    
 
 get_own_loaded_mibs() ->
     AgentInfo = snmpa:info(snmp_master_agent),
