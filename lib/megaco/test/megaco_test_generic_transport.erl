@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
 		receive_handle}).
 
 -include_lib("megaco/include/megaco.hrl").
-%% -include("megaco_test_lib.hrl").
+-include("megaco_test_lib.hrl").
 -define(SERVER, ?MODULE).
 
 
@@ -335,21 +335,11 @@ d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(now(), F, A).
+    print(F, A).
 
 
-print(Ts, F, A) ->
+print(F, A) ->
     io:format("*** [~s] GENERIC TRANSPORT [~p] ***"
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(Ts), self() | A]).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
-
+	      [?FTS(), self() | A]).
 

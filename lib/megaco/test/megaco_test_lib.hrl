@@ -32,8 +32,6 @@
 -define(ERROR(Reason),
 	megaco_test_lib:error(Reason, ?MODULE, ?LINE)).
 
--define(F(FMT, ARGS), lists:flatten(io_lib:format(FMT, ARGS))).
-
 -define(OS_BASED_SKIP(Skippable),
 	megaco_test_lib:os_based_skip(Skippable)).
 
@@ -83,7 +81,10 @@
 
 -define(SLEEP(MSEC),    megaco_test_lib:sleep(MSEC)).
 -define(HOURS(T),       megaco_test_lib:hours(T)).
--define(MINUTES(T),     megaco_test_lib:minutes(T)).
--define(SECONDS(T),     megaco_test_lib:seconds(T)).
+-define(MINS(T),        megaco_test_lib:minutes(T)).
+-define(MINUTES(T),     ?MINS(T)).
+-define(SECS(T),        megaco_test_lib:seconds(T)).
+-define(SECONDS(T),     ?SECS(T)).
 -define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
-
+-define(FTS(TS),        megaco:format_timestamp(TS)).
+-define(F(F,A),         lists:flatten(io_lib:format(F, A))).

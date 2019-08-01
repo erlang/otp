@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,13 +86,13 @@ reply(Mod, Line, Fun) when is_function(Fun) ->
 	{?MODULE, Pid, UserCallback} ->
 	    UserReply = Fun(UserCallback),
 	    Pid ! {?MODULE, self(), UserReply},
-	    UserReply;
-	Other ->
-	    megaco_test_lib:error(Other, Mod, Line),
-	    {error, Other}
-%%     after 1000 ->
-%% 	       megaco_test_lib:error(timeout, Mod, Line),
-%% 	       {error, timeout}
+	    UserReply%% ;
+	%% Other ->
+	%%     megaco_test_lib:error(Other, Mod, Line),
+	%%     {error, Other}
+     after 10000 ->
+ 	       megaco_test_lib:error(timeout, Mod, Line),
+ 	       {error, timeout}
     end.
   
 call(UserCallback) ->

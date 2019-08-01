@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -361,6 +361,8 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
     after Timeout - 100 ->
 	    case tmr_stop(Ref) of
                 ok ->
+                    ok;
+                {ok, _} ->
                     ok;
                 CancelRes ->
                     ?SKIP({cancel_failed, CancelRes})

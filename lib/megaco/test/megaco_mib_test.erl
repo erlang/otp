@@ -264,7 +264,7 @@ connect(Config) when is_list(Config) ->
     d("connect -> (Mg1) service change result: ~p", [Res1]),
 
     %% Collect the statistics
-    progress("collect MG1 statustics (after service change)"),
+    progress("collect MG1 statistics (after service change)"),
     {ok, Mg1Stats1} = get_stats(Mg1, 1),
     d("connect  -> stats for Mg1: ~n~p", [Mg1Stats1]),
     progress("collect MGC statistics (after MG1 service change)"),
@@ -279,7 +279,7 @@ connect(Config) when is_list(Config) ->
     d("connect -> (Mg2) service change result: ~p", [Res2]),
 
     %% Collect the statistics
-    progress("collect MG2 statustics (after service change)"),
+    progress("collect MG2 statistics (after service change)"),
     {ok, Mg2Stats1} = get_stats(Mg2, 1),
     d("connect  -> stats for Mg1: ~n~p", [Mg2Stats1]),
     progress("collect MGC statistics (after MG2 service change)"),
@@ -751,7 +751,7 @@ mgc_init(Config) ->
     d("mgc_init -> entry"),
     Mid = get_conf(local_mid, Config),
     RI  = get_conf(receive_info, Config),
-    d("mgc_init -> start megaco"),
+    i("mgc_init -> start megaco"),
     application:start(megaco),
     d("mgc_init -> start megaco user"),
     megaco:start_user(Mid, []),
@@ -763,7 +763,7 @@ mgc_init(Config) ->
     RH = megaco:user_info(Mid,receive_handle),
     d("mgc_init -> parse receive info"),
     ListenTo = mgc_parse_receive_info(RI, RH),
-    d("mgc_init -> start transports"),
+    i("mgc_init -> start transport(s)"),
     {Tcp, Udp} = mgc_start_transports(ListenTo),
     {Mid, Tcp, Udp}.
     
@@ -948,7 +948,7 @@ mgc_start_transports([{_Port, RH}|_ListenTo], _TcpSup, _UdpSup) ->
 
 
 mgc_start_tcp(RH, Port, undefined) ->
-    d("start tcp transport"),
+    i("start tcp transport"),
     case megaco_tcp:start_transport() of
 	{ok, Sup} ->
 	    mgc_start_tcp(RH, Port, Sup);
@@ -956,7 +956,7 @@ mgc_start_tcp(RH, Port, undefined) ->
 	    throw({error, {failed_starting_tcp_transport, Else}})
     end;
 mgc_start_tcp(RH, Port, Sup) when is_pid(Sup) ->
-    d("tcp listen on ~p", [Port]),
+    i("tcp listen on ~p", [Port]),
     Opts = [{port,           Port}, 
 	    {receive_handle, RH}, 
 	    {tcp_options,    [{nodelay, true}]}],
@@ -986,7 +986,7 @@ mgc_tcp_create_listen(Sup, Opts, MaxN, N, _InitialReason)
 
 
 mgc_start_udp(RH, Port, undefined) ->
-    d("start udp transport"),
+    i("start udp transport"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
 	    mgc_start_udp(RH, Port, Sup);
@@ -994,7 +994,7 @@ mgc_start_udp(RH, Port, undefined) ->
 	    throw({error, {failed_starting_udp_transport, Else}})
     end;
 mgc_start_udp(RH, Port, Sup) ->
-    d("open udp ~p", [Port]),
+    i("open udp ~p", [Port]),
     Opts = [{port, Port}, {receive_handle, RH}],
     case megaco_udp:open(Sup, Opts) of
 	{ok, _SendHandle, _ControlPid} ->
@@ -1119,7 +1119,7 @@ mg_init(Config) ->
     d("mg_init -> entry"),
     Mid = get_conf(local_mid, Config),
     RI  = get_conf(receive_info, Config),
-    d("mg_init -> start megaco"),
+    i("mg_init -> start megaco"),
     application:start(megaco),
     d("mg_init -> start megaco user"),
     megaco:start_user(Mid, []),
@@ -1131,7 +1131,7 @@ mg_init(Config) ->
     RH = megaco:user_info(Mid,receive_handle),
     d("mg_init -> parse receive info"),
     {MgcPort,RH1} = mg_parse_receive_info(RI, RH),
-    d("mg_init -> start transport with"),
+    i("mg_init -> start transport(s)"),
     ConnHandle = mg_start_transport(MgcPort, RH1),
     {Mid, ConnHandle}.
 
@@ -1255,16 +1255,6 @@ mg_close_conn(CH) ->
 	SendMod    -> exit(Pid, Reason)
     end.
 
-% display_tuple(T) when tuple(T), size(T) > 0 ->
-%     i("size(T): ~p", [size(T)]),
-%     display_tuple(T,1).
-
-% display_tuple(T,P) when P > size(T) ->
-%     ok;
-% display_tuple(T,P) ->
-%     i("T[~p]: ~p", [P,element(P,T)]),
-%     display_tuple(T,P+1).
-
 
 mg_parse_receive_info(RI, RH) ->
     d("mg_parse_receive_info -> get encoding module"),
@@ -1292,7 +1282,7 @@ mg_start_transport(_, #megaco_receive_handle{send_mod = Mod}) ->
 
 
 mg_start_tcp(MgcPort, RH) ->
-    d("start tcp transport"),
+    i("start tcp transport"),
     case megaco_tcp:start_transport() of
 	{ok, Sup} ->
 	    {ok, LocalHost} = inet:gethostname(),
@@ -1316,7 +1306,7 @@ mg_start_tcp(MgcPort, RH) ->
 
 
 mg_start_udp(MgcPort, RH) ->
-    d("start udp transport"),
+    i("start udp transport"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
             %% Some linux (Ubuntu) has "crap" in their /etc/hosts, that 
@@ -1723,6 +1713,7 @@ progress(F) ->
     progress(F, []).
 
 progress(F, A) ->
+    io:format("~s " ++ F ++ "~n", [?FTS()|A]),
     io:format(user, "~s " ++ F ++ "~n", [?FTS()|A]).
 
 
