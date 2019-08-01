@@ -38,6 +38,7 @@
 %%%-------------------------------------------------------------------
 %%% API
 %%%-------------------------------------------------------------------
+
 start_link(Type, Opts) ->
     ?d("start_link -> entry with"
        "~n   Opts: ~p", [Opts]),
@@ -62,17 +63,17 @@ stop(Timeout) ->
 %% a supervisor. The "normal" way to do it is:
 %% 1) exit(Pid, kill) (kaboom)
 %% 2) If the caller is the *parent*: exit(Pid, shutdown)
-%% So, here we do it the really unly way...but since this function is 
+%% So, here we do it the really ugly way...but since this function is 
 %% intended for testing (mostly)...
 stop(Pid, Timeout) when (Timeout =:= 0) ->
     ?d("stop -> Pid: ~p", [Pid]),
-    sys:terminate(whereis(?SERVER), shutdown),
+    sys:terminate(Pid, shutdown),
     ?d("stop -> stopped", []),
     ok;
 stop(Pid, Timeout) ->
     ?d("stop -> Pid: ~p", [Pid]),
     MRef = erlang:monitor(process, Pid),
-    sys:terminate(whereis(?SERVER), shutdown),
+    sys:terminate(Pid, shutdown),
     receive
         {'DOWN', MRef, process, Pid, _} ->
             ?d("stop -> stopped", []),
