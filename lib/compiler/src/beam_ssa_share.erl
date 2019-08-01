@@ -303,8 +303,12 @@ canonical_is([#b_ret{arg=Arg}], VarMap, Acc0) ->
                    Acc0
            end,
     {{ret,canonical_arg(Arg, VarMap),Acc1},VarMap};
-canonical_is([#b_br{bool=#b_var{},fail=Fail}], VarMap, Acc) ->
-    {{br,succ,Fail,Acc},VarMap};
+canonical_is([#b_br{bool=#b_var{}=Arg,fail=Fail}], VarMap, Acc) ->
+    %% A previous buggy version of this code omitted the canonicalized
+    %% argument in the return value. Unfortunately, that worked most
+    %% of the time, except when `br` terminator referenced a variable
+    %% defined in a previous block instead of in the same block.
+    {{br,canonical_arg(Arg, VarMap),succ,Fail,Acc},VarMap};
 canonical_is([#b_br{succ=Succ}], VarMap, Acc) ->
     {{br,Succ,Acc},VarMap};
 canonical_is([], VarMap, Acc) ->

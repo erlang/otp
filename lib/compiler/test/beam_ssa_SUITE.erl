@@ -484,9 +484,11 @@ do_comb_sw_2(X) ->
     erase(?MODULE).
 
 share_opt(_Config) ->
-    ok = do_share_opt(0).
+    ok = do_share_opt_1(0),
+    ok = do_share_opt_2(),
+    ok.
 
-do_share_opt(A) ->
+do_share_opt_1(A) ->
     %% The compiler would be stuck in an infinite loop in beam_ssa_share.
     case A of
         0 -> a;
@@ -495,6 +497,26 @@ do_share_opt(A) ->
     end,
     receive after 1 -> ok end.
 
+do_share_opt_2() ->
+    ok = sopt_2({[pointtopoint], [{dstaddr,any}]}, ok),
+    ok = sopt_2({[broadcast], [{broadaddr,any}]}, ok),
+    ok = sopt_2({[], []}, ok),
+    ok.
+
+sopt_2({Flags, Opts}, ok) ->
+    Broadcast = lists:member(broadcast, Flags),
+    P2P = lists:member(pointtopoint, Flags),
+    case Opts of
+        %% The following two clauses would be combined to one, silently
+        %% discarding the guard test of the P2P variable.
+        [{broadaddr,_}|Os] when Broadcast ->
+            sopt_2({Flags, Os}, ok);
+        [{dstaddr,_}|Os] when P2P ->
+            sopt_2({Flags, Os}, ok);
+        [] ->
+            ok
+    end.
+    
 beam_ssa_dead_crash(_Config) ->
     not_A_B = do_beam_ssa_dead_crash(id(false), id(true)),
     not_A_not_B = do_beam_ssa_dead_crash(false, false),
