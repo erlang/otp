@@ -764,9 +764,8 @@ defined(Linear, #cg{regs=Regs}) ->
 
 def([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs], DefMap0, Regs) ->
     Def0 = def_get(L, DefMap0),
-    {Is,Def} = def_is(Is0, Regs, Def0, []),
-    Successors = successors(Last),
-    DefMap = def_successors(Successors, Def, DefMap0),
+    {Is,Def,MaybeDef} = def_is(Is0, Regs, Def0, []),
+    DefMap = def_successors(Last, Def, MaybeDef, DefMap0),
     Blk = Blk0#cg_blk{is=Is},
     [{L,Blk}|def(Bs, DefMap, Regs)];
 def([], _, _) -> [].
@@ -780,6 +779,11 @@ def_get(L, DefMap) ->
 def_is([#cg_alloc{anno=Anno0}=I0|Is], Regs, Def, Acc) ->
     I = I0#cg_alloc{anno=Anno0#{def_yregs=>Def}},
     def_is(Is, Regs, Def, [I|Acc]);
+def_is([#cg_set{op=succeeded,args=[Var]}=I], Regs, Def, Acc) ->
+    %% Var will only be defined on the success branch of the `br`
+    %% for this block.
+    MaybeDef = def_add_yreg(Var, [], Regs),
+    {reverse(Acc, [I]),Def,MaybeDef};
 def_is([#cg_set{op=kill_try_tag,args=[#b_var{}=Tag]}=I|Is], Regs, Def0, Acc) ->
     Def = ordsets:del_element(Tag, Def0),
     def_is(Is, Regs, Def, [I|Acc]);
@@ -822,13 +826,19 @@ def_is([#cg_set{anno=Anno0,dst=Dst}=I0|Is], Regs, Def0, Acc) ->
     Def = def_add_yreg(Dst, Def0, Regs),
     def_is(Is, Regs, Def, [I|Acc]);
 def_is([], _, Def, Acc) ->
-    {reverse(Acc),Def}.
+    {reverse(Acc),Def,[]}.
 
 def_add_yreg(Dst, Def, Regs) ->
     case is_yreg(Dst, Regs) of
         true -> ordsets:add_element(Dst, Def);
         false -> Def
     end.
+
+def_successors(#cg_br{bool=#b_var{},succ=Succ,fail=Fail}, Def, MaybeDef, DefMap0) ->
+    DefMap = def_successors([Fail], ordsets:subtract(Def, MaybeDef), DefMap0),
+    def_successors([Succ], Def, DefMap);
+def_successors(Last, Def, [], DefMap) ->
+    def_successors(successors(Last), Def, DefMap).
 
 def_successors([S|Ss], Def0, DefMap) ->
     case DefMap of

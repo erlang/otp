@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1]).
+         beam_ssa_dead_crash/1,stack_init/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -39,7 +39,8 @@ groups() ->
        cover_ssa_dead,
        combine_sw,
        share_opt,
-       beam_ssa_dead_crash
+       beam_ssa_dead_crash,
+       stack_init
       ]}].
 
 init_per_suite(Config) ->
@@ -589,6 +590,30 @@ do_beam_ssa_dead_crash(A, B) ->
             end
     end.
 
+stack_init(_Config) ->
+    6 = stack_init(a, #{a => [1,2,3]}),
+    0 = stack_init(missing, #{}),
+    ok.
+
+stack_init(Key, Map) ->
+    %% beam_ssa_codegen would wrongly assume that y(0) would always be
+    %% initialized by the `get_map_elements` instruction that follows, and
+    %% would set up the stack frame using an `allocate` instruction and
+    %% would not generate an `init` instruction to initialize y(0).
+    Res = case Map of
+              #{Key := Elements} ->
+                  %% Elements will be assigned to y(0) if the key Key exists.
+                  lists:foldl(fun(El, Acc) ->
+                                      Acc + El
+                              end, 0, Elements);
+              #{} ->
+                  %% y(0) will be left uninitialized when the key is not
+                  %% present in the map.
+                  0
+          end,
+    %% y(0) would be uninitialized here if the key was not present in the map
+    %% (if the second clause was executed).
+    id(Res).
 
 %% The identity function.
 id(I) -> I.
