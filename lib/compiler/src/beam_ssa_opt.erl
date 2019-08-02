@@ -1960,12 +1960,24 @@ is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=exception_trampoline}|_]}) ->
     false;
 is_merge_allowed(_, #b_blk{is=[#b_set{op=exception_trampoline}|_]}, #b_blk{}) ->
     false;
-is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{}) ->
+is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
     %% The predecessor block must have exactly one successor (L) for
     %% the merge to be safe.
     case beam_ssa:successors(Blk) of
-        [L] -> true;
-        [_|_] -> false
+        [L] ->
+            case Is of
+                [#b_set{op=phi,args=[_]}|_] ->
+                    %% The type optimizer pass must have been
+                    %% turned off, since it would have removed this
+                    %% redundant phi node. Refuse to merge the blocks
+                    %% to ensure that this phi node remains at the
+                    %% beginning of a block.
+                    false;
+                _ ->
+                    true
+            end;
+        [_|_] ->
+            false
     end;
 is_merge_allowed(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
     false.

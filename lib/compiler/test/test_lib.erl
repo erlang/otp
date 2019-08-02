@@ -99,7 +99,8 @@ get_data_dir(Config) ->
     Data2 = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
     Data3 = re:replace(Data2, "_inline_SUITE", "_SUITE", Opts),
     Data4 = re:replace(Data3, "_r21_SUITE", "_SUITE", Opts),
-    Data = re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts),
+    Data5 = re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts),
+    Data = re:replace(Data5, "_no_type_opt_SUITE", "_SUITE", Opts),
     re:replace(Data, "_no_ssa_opt_SUITE", "_SUITE", Opts).
 
 is_cloned_mod(Mod) ->
