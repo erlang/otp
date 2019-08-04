@@ -77,7 +77,10 @@ MODULES= \
 	ssh_transport \
 	ssh_xfer \
 	sshc_sup \
-	sshd_sup
+	sshd_sup \
+	ssh_forward \
+	ssh_forward_srv \
+	ssh_forward_sup
 
 HRL_FILES =
 

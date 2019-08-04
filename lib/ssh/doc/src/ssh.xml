@@ -1107,6 +1107,88 @@
      </desc>
    </func>
 
+<!-- direct_tcpip/5 -->
+   <func>
+     <name name="direct_tcpip" arity="5" since=""/>
+     <fsummary>Forward local port to a server.</fsummary>
+     <desc>
+       <p>Listen on <c>LocalHost</c>:<c>LocalPort</c> and forward connections to <c>RemoteHost</c>:<c>RemotePort</c>. 
+       </p>
+       <p>Returns a port assigned on the client.</p>
+       <p> <c>LocalHost</c> interpretation:</p>
+       <list>
+         <item><c>"0.0.0.0"</c> means to listen on all IPv4 addresses</item>
+         <item><c>"::"</c> means to listen on all IPv6 addresses</item>
+         <item><c>loopback</c> means to listen on loopback interface</item>
+         <item><c>"127.0.0.1"</c> and <c>"::1"</c> indicate listening on the loopback
+         interfaces for IPv4 and IPv6, respectively</item>
+         <item>other values are interpreted as usually</item>
+       </list>
+       <p>If <c>LocalPort</c> is 0, a listener is assigned to an arbitrary free port</p>
+     </desc>
+   </func>
+<!-- tcpip_forward/5,6 -->
+   <func>
+     <name since="">tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort) -> Result</name>
+     <name since="">tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) -> Result</name>
+     <fsummary>Forward server's port to a client.</fsummary>
+     <type>
+       <v> ConnectionRef = <seealso marker="#type-connection_ref">connection_ref()</seealso></v>
+       <v>RemoteHost = <seealso marker="#type-host">host()</seealso></v>
+       <v>RemotePort = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+       <v>LocalHost = <seealso marker="#type-host">host()</seealso></v>
+       <v>LocalPort = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+       <v>Timeout = timeout()</v>
+       <v>Result = {ok, <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso>} | {error, term()}</v>
+     </type>
+     <desc>
+       <p>Ask the server to listen on <c>RemoteHost</c>:<c>RemotePort</c> and forward connections to <c>LocalHost</c>:<c>LocalPort</c>. 
+       </p>
+       <p>Returns a port assigned on the server.</p>
+       <p> <c>RemoteHost</c> interpretation:</p>
+       <list>
+         <item><c>"0.0.0.0"</c> means to listen on all IPv4 addresses</item>
+         <item><c>"::"</c> means to listen on all IPv6 addresses</item>
+         <item><c>loopback</c> means to listen on loopback interface</item>
+         <item><c>"127.0.0.1"</c> and <c>"::1"</c> indicate listening on the loopback
+         interfaces for IPv4 and IPv6, respectively</item>
+         <item>other values are interpreted as usually</item>
+       </list>
+       <p>If <c>RemotePort</c> is 0, a listener is assigned to an arbitrary free port</p>
+     </desc>
+   </func>
+   
+   <func>
+     <name since="">connect(Host, Port, Options) -> Result </name>
+     <name since="">connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
+     <name since="OTP 19.0">connect(TcpSocket, Options) -> Result</name>
+     <name since="">connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
+     <fsummary>Connects to an SSH server.</fsummary>
+     <type>
+       <v>Host = <seealso marker="#type-host">host()</seealso></v>
+       <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+       <v>Options = <seealso marker="#type-client_options">client_options()</seealso></v>
+       <v>TcpSocket = <seealso marker="#type-open_socket">open_socket()</seealso></v>
+       <v>NegotiationTimeout = timeout()</v>
+       <v>Result = {ok, <seealso marker="#type-connection_ref">connection_ref()</seealso>} | {error, term()}</v>
+     </type>
+     <desc>
+       <p>Connects to an SSH server at the <c>Host</c> on <c>Port</c>.
+       </p>
+       <p>As an alternative, an already open TCP socket could be passed to the function in <c>TcpSocket</c>.
+       The SSH initiation and negotiation will be initiated on that one with the SSH that should be at the
+       other end.
+       </p>
+       <p>No channel is started. This is done by calling <seealso marker="ssh_connection#session_channel/2">
+       ssh_connection:session_channel/[2, 4]</seealso>.
+       </p>
+       <p>The <c>NegotiationTimeout</c> is in milli-seconds. The default value is <c>infinity</c>.
+       For connection timeout, use the option
+       <seealso marker="#type-connect_timeout_client_option"><c>connect_timeout</c></seealso>.
+       </p>
+     </desc>
+   </func>
+
 <!-- DEAMON/1,2,3 -->
    <func>
      <name since="">daemon(Port | TcpSocket) -> Result</name>

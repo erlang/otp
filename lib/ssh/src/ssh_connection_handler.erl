@@ -57,7 +57,9 @@
 	 channel_info/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
-	 get_print_info/1
+	 get_print_info/1,
+         direct_tcpip/5,
+         tcpip_forward/6
 	]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -128,9 +130,11 @@ stop(ConnectionHandler)->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_connection(client = Role, Socket, Options, Timeout) ->
     try
-	{ok, Pid} = sshc_sup:start_child([Role, Socket, Options]),
-	ok = socket_control(Socket, Pid, Options),
-	handshake(Pid, erlang:monitor(process,Pid), Timeout)
+
+        {ok, SupPid} = sshc_sup:start_child(Role, Socket, Options),
+        {ok, Pid} = sshc_sup:start_connection(SupPid, Role, Socket, Options),
+        ok = socket_control(Socket, Pid, Options),
+        handshake(Pid, erlang:monitor(process,Pid), Timeout)
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
@@ -173,7 +177,18 @@ start_connection(server = Role, Socket, Options, Timeout) ->
 
 disconnect(Code, DetailedText, Module, Line) ->
     throw({keep_state_and_data,
-	   [{next_event, internal, {send_disconnect, Code, DetailedText, Module, Line}}]}).
+           [{next_event, internal, {send_disconnect, Code, DetailedText, Module, Line}}]}).
+
+%%--------------------------------------------------------------------
+-spec direct_tcpip(connection_ref(), binary(), inet:port_number(), binary(), inet:port_number()) ->
+                          {ok, inet:port_number()} | {error, any()}.
+direct_tcpip(ConnectionHandler, LocalHost, LocalPort, RemoteHost, RemotePort) ->
+    call(ConnectionHandler, {direct_tcpip, LocalHost, LocalPort, RemoteHost, RemotePort}).
+
+-spec tcpip_forward(connection_ref(), binary(), inet:port_number(), binary(), inet:port_number(), timeout()) ->
+                           {ok, inet:port_number()} | {error, any()}.
+tcpip_forward(ConnectionHandler, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) ->
+    call(ConnectionHandler, {tcpip_forward, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout}).
 
 %%--------------------------------------------------------------------
 -spec open_channel(connection_ref(), 
@@ -224,10 +239,10 @@ request(ConnectionHandler, ChannelId, Type, false, Data, _) ->
 
 %%--------------------------------------------------------------------
 -spec reply_request(connection_ref(),
-		    success | failure,
-		    channel_id()
-		   ) -> ok.
-			   
+                    success | failure | open_confirmation,
+                    channel_id()
+                   ) -> ok.
+
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 reply_request(ConnectionHandler, Status, ChannelId) ->
     cast(ConnectionHandler, {reply_request, Status, ChannelId}).
@@ -412,11 +427,16 @@ init([Role,Socket,Opts]) ->
     case inet:peername(Socket) of
         {ok, PeerAddr} ->
             {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
+            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
             C = #connection{channel_cache = ssh_client_channel:cache_create(),
                             channel_id_seed = 0,
                             port_bindings = [],
                             requests = [],
-                            options = Opts},
+                            system_supervisor =     proplists:get_value(system_sup,     Sups),
+                            sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                            options = Opts
+                           },
+
             D0 = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
                        connection_state = C,
                        socket = Socket,
@@ -433,8 +453,6 @@ init([Role,Socket,Opts]) ->
                         D0#data{connection_state = 
                                     C#connection{cli_spec = ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
                                                  exec =     ?GET_OPT(exec,    Opts),
-                                                 system_supervisor =     proplists:get_value(system_sup,     Sups),
-                                                 sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
                                                  connection_supervisor = proplists:get_value(connection_sup, Sups)
                                                 }}
                 end,
@@ -1109,25 +1127,38 @@ handle_event(cast, _, StateName, _) when not ?CONNECTED(StateName) ->
 
 handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
-	#channel{recv_window_size = WinSize,
-		 recv_window_pending = Pending,
-		 recv_packet_size = PktSize} = Channel
-	  when (WinSize-Bytes) >= 2*PktSize ->
-	    %% The peer can send at least two more *full* packet, no hurry.
-	    ssh_client_channel:cache_update(cache(D),
-				     Channel#channel{recv_window_pending = Pending + Bytes}),
-	    keep_state_and_data;
+        #channel{recv_window_size = WinSize,
+                 recv_window_pending = Pending,
+                 recv_packet_size = PktSize} = Channel
+          when (WinSize-Bytes) >= 2*PktSize ->
+            %% The peer can send at least two more *full* packet, no hurry.
+            ssh_client_channel:cache_update(cache(D),
+                                     Channel#channel{recv_window_pending = Pending + Bytes}),
+            keep_state_and_data;
 
-	#channel{recv_window_size = WinSize,
-		 recv_window_pending = Pending,
-		 remote_id = Id} = Channel ->
-	    %% Now we have to update the window - we can't receive so many more pkts
-	    ssh_client_channel:cache_update(cache(D),
-				     Channel#channel{recv_window_size =
-							 WinSize + Bytes + Pending,
-						     recv_window_pending = 0}),
-	    Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes + Pending),
-	    {keep_state, send_msg(Msg,D)};
+        #channel{recv_window_size = WinSize,
+                 recv_window_pending = Pending,
+                 remote_id = Id} = Channel ->
+            %% Now we have to update the window - we can't receive so many more pkts
+            ssh_client_channel:cache_update(cache(D),
+                                     Channel#channel{recv_window_size =
+                                                         WinSize + Bytes + Pending,
+                                                     recv_window_pending = 0}),
+            Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes + Pending),
+            {keep_state, send_msg(Msg,D)};
+
+        undefined ->
+            keep_state_and_data
+    end;
+
+handle_event(cast, {reply_request, open_confirmation, ChannelId}, StateName, D) when ?CONNECTED(StateName) ->
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
+        #channel{remote_id = RemoteId} ->
+            Msg = ssh_connection:channel_open_confirmation_msg(RemoteId, ChannelId,
+                                                               ?DEFAULT_WINDOW_SIZE,
+                                                               ?DEFAULT_PACKET_SIZE),
+            update_inet_buffers(D#data.socket),
+            {keep_state, send_msg(Msg,D)};
 
 	undefined ->
 	    keep_state_and_data
@@ -1304,6 +1335,32 @@ handle_event({call,From}, {close, ChannelId}, StateName, D0)
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
+handle_event({call,From}, {direct_tcpip, LocalHost, LocalPort, RemoteHost, RemotePort}, StateName,
+            #data{connection_state = Connection})
+  when ?CONNECTED(StateName) ->
+    Role = role(StateName),
+    Reply = ssh_connection:direct_tcpip(Role, LocalHost, LocalPort, RemoteHost, RemotePort, Connection),
+    {keep_state_and_data, [{reply, From, Reply}]};
+
+handle_event({call,From}, {tcpip_forward, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout},
+             StateName, D = #data{connection_state = #connection{forwarded_tcpips = Forwards}})
+  when ?CONNECTED(StateName) ->
+    Role = role(StateName),
+    case Role of
+        server ->
+            {keep_state_and_data, [{reply, From, {error, badarg}}]};
+        client when is_map_key({RemoteHost, RemotePort}, Forwards) ->
+            {keep_state_and_data, [{reply, From, {error, already_registered}}]};
+        client ->
+            Id = {tcpip_forward, RemoteHost, RemotePort, LocalHost, LocalPort},
+            WantReply = true,
+            RemoteHostLen = byte_size(RemoteHost),
+            Data = <<?DEC_BIN(RemoteHost, RemoteHostLen), ?UINT32(RemotePort)>>,
+            D1 = send_msg(ssh_connection:global_request_msg("tcpip-forward", WantReply, Data), D),
+            D2 = add_request(WantReply, Id, From, D1),
+            start_global_request_timer(Id, From, Timeout),
+            {keep_state, D2, []}
+    end;
 
 %%===== Reception of encrypted bytes, decryption and framing
 handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
@@ -1547,24 +1604,24 @@ handle_event(Type, Ev, StateName, D0) ->
 			
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-terminate(normal, _StateName, D) ->
-    stop_subsystem(D),
+terminate(normal, StateName, D) ->
+    stop_subsystem(role(StateName), D),
     close_transport(D);
 
-terminate({shutdown,"Connection closed"}, _StateName, D) ->
+terminate({shutdown,"Connection closed"}, StateName, D) ->
     %% Normal: terminated by a sent by peer
-    stop_subsystem(D),
+    stop_subsystem(role(StateName), D),
     close_transport(D);
 
 terminate({shutdown,{init,Reason}}, StateName, D) ->
     %% Error in initiation. "This error should not occur".
-    log(error, D, "Shutdown in init (StateName=~p): ~p~n", [StateName,Reason]),
-    stop_subsystem(D),
+    log(error, D, io_lib:format("Shutdown in init (StateName=~p): ~p~n",[StateName,Reason])),
+    stop_subsystem(role(StateName), D),
     close_transport(D);
 
-terminate({shutdown,_R}, _StateName, D) ->
+terminate({shutdown,_R}, StateName, D) ->
     %% Internal termination, usually already reported via ?send_disconnect resulting in a log entry
-    stop_subsystem(D),
+    stop_subsystem(role(StateName), D),
     close_transport(D);
 
 terminate(shutdown, _StateName, D0) ->
@@ -1575,9 +1632,9 @@ terminate(shutdown, _StateName, D0) ->
                  D0),
     close_transport(D);
 
-terminate(kill, _StateName, D) ->
+terminate(kill, StateName, D) ->
     %% Got a kill signal
-    stop_subsystem(D),
+    stop_subsystem(role(StateName), D),
     close_transport(D);
 
 terminate(Reason, StateName, D0) ->
@@ -1587,7 +1644,7 @@ terminate(Reason, StateName, D0) ->
                                             "Internal error",
                                             io_lib:format("Reason: ~p",[Reason]),
                                             StateName, D0),
-    stop_subsystem(D),
+    stop_subsystem(role(StateName), D),
     close_transport(D).
 
 %%--------------------------------------------------------------------
@@ -1668,12 +1725,15 @@ start_the_connection_child(UserPid, Role, Socket, Options0) ->
 
 %%--------------------------------------------------------------------
 %% Stopping
-
-stop_subsystem(#data{connection_state =
+stop_subsystem(client, #data{connection_state =
+                                 #connection{system_supervisor = SysSup
+                                            , sub_system_supervisor = SubSysSup}}) ->
+    sshc_sup:stop_subsystem(SysSup, SubSysSup);
+stop_subsystem(server, #data{connection_state =
                          #connection{system_supervisor = SysSup,
                                      sub_system_supervisor = SubSysSup}}) when is_pid(SubSysSup) ->
     ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-stop_subsystem(_) ->
+stop_subsystem(_, _) ->
     ok.
 
 
@@ -2182,6 +2242,11 @@ start_channel_request_timer(_,_, infinity) ->
     ok;
 start_channel_request_timer(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
+
+start_global_request_timer(_,_, infinity) ->
+    ok;
+start_global_request_timer(Req, From, Time) ->
+    erlang:send_after(Time, self(), {timeout, {Req, From}}).
 
 %%%----------------------------------------------------------------
 %%% Connection start and initalization helpers

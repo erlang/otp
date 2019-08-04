@@ -59,9 +59,12 @@
 
 	 request_failure_msg/0, 
 	 request_success_msg/1,
+         global_request_msg/3,
 
          bind/4, unbind/3, unbind_channel/2, 
-	 bound_channel/3, encode_ip/1
+	 bound_channel/3, encode_ip/1,
+
+         direct_tcpip/6
         ]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -433,10 +436,60 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				       "Connection refused", "en"),
     {[{connection_reply, FailMsg}], Connection};
 
-handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, _) ->
-    FailMsg = channel_open_failure_msg(RemoteId, 
-				       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
-				       "Not allowed", "en"),
+handle_msg(#ssh_msg_channel_open{channel_type = Type,
+                                 sender_channel = RemoteId,
+                                 initial_window_size = WindowSz,
+                                 maximum_packet_size = PacketSz,
+                                 data = Data
+                                },
+           #connection{ options = SSHopts,
+                        forwarded_tcpips = Forwards
+                      } = Connection0,
+           Role) when Type == "direct-tcpip"
+                      orelse Type == "forwarded-tcpip" ->
+
+    MinAcceptedPackSz = ?GET_OPT(minimal_remote_max_packet_size, SSHopts),
+
+    <<?UINT32(HL), _/binary>> = Data,
+    <<?DEC_BIN(Host, HL), ?UINT32(Port), Rst/binary>> = Data,
+    <<?UINT32(OL), _/binary>> = Rst,
+    <<?DEC_BIN(OrigAddr, OL), ?UINT32(OrigPort)>> = Rst,
+
+    if  MinAcceptedPackSz > PacketSz ->
+            FailMsg = channel_open_failure_msg(RemoteId,
+                                               ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+                                               lists:concat(["Maximum packet size below ",MinAcceptedPackSz,
+                                                              " not supported"]), "en"),
+            {[{connection_reply, FailMsg}], Connection0};
+        Type == "forwarded-tcpip" andalso not is_map_key({Host, Port}, Forwards) ->
+            FailMsg = channel_open_failure_msg(RemoteId,
+                                               ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+                                               "Request for unregistered host and port peer", "en"),
+            {[{connection_reply, FailMsg}], Connection0};
+        true ->
+
+            {Host1, Port1} =
+                case Type of
+                    "forwarded-tcpip" ->
+                        maps:get({Host, Port}, Forwards);
+                    "direct-tcpip" ->
+                        {Host, Port}
+                end,
+            try start_direct_forward(Role, Type, Connection0, RemoteId, WindowSz, PacketSz,
+                                     Host1, Port1, OrigAddr, OrigPort) of
+                Result ->
+                    Result
+            catch _:_ ->
+                    FailMsg = channel_open_failure_msg(RemoteId,
+                                                       ?SSH_OPEN_CONNECT_FAILED,
+                                                       "Connection refused", "en"),
+                    {[{connection_reply, FailMsg}], Connection0}
+            end
+    end;
+handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, server) ->
+    FailMsg = channel_open_failure_msg(RemoteId,
+                                       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+                                       "Not allowed", "en"),
     {[{connection_reply, FailMsg}], Connection};
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
@@ -598,6 +651,24 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 	    {[], Connection}
     end;
 
+handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
+                                   want_reply = WantReply,
+                                   data = Data = <<?UINT32(HL), _/binary>>}, Connection, Role=server) ->
+    <<?DEC_BIN(Host, HL), ?UINT32(Port)>> = Data,
+
+    Reply = case start_forward(Role, Host, Port, Connection) of
+                {ok, _Pid, Port} ->
+                    request_success_msg(<<"">>);
+                {ok, _Pid, BoundPort} ->
+                    request_success_msg(<<?UINT32(BoundPort)>>);
+                {error, _} ->
+                    request_failure_msg()
+            end,
+    if WantReply == true ->
+            {[{connection_reply, Reply}], Connection};
+       true ->
+            {[], Connection}
+    end;
 handle_msg(#ssh_msg_global_request{name = _Type,
 				   want_reply = WantReply,
 				   data = _Data}, Connection, _) ->
@@ -609,12 +680,29 @@ handle_msg(#ssh_msg_global_request{name = _Type,
     end;
 
 handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
+           #connection{requests = [{{tcpip_forward, _, _, _, _}, From} | Rest]} = Connection, _) ->
+    {[{channel_request_reply, From, {error, failure}}],
+     Connection#connection{requests = Rest}};
+
+handle_msg(#ssh_msg_request_failure{},
+           #connection{requests = [{_, From} | Rest]} = Connection, _) ->
     {[{channel_request_reply, From, {failure, <<>>}}],
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_request_success{data = Data},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
+           #connection{requests = [{{tcpip_forward, RemoteHost, RemotePort, LocalHost, LocalPort}, From} | Rest],
+                       forwarded_tcpips = Forwards
+                      } = Connection, _) ->
+    AssignedPort = case Data of
+                       <<>> -> RemotePort;
+                       <<?UINT32(P)>> -> P
+                   end,
+    {[{channel_request_reply, From, {ok, RemotePort}}],
+     Connection#connection{requests = Rest,
+                           forwarded_tcpips = maps:put({RemoteHost, AssignedPort}, {LocalHost, LocalPort}, Forwards)}};
+
+handle_msg(#ssh_msg_request_success{data = Data},
+           #connection{requests = [{_, From} | Rest]} = Connection, _) ->
     {[{channel_request_reply, From, {success, Data}}],
      Connection#connection{requests = Rest}};
 
@@ -700,6 +788,11 @@ channel_request_msg(ChannelId, Type, WantReply, Data) ->
 channel_success_msg(ChannelId) ->
     #ssh_msg_channel_success{recipient_channel = ChannelId}.
 
+global_request_msg(Name, WantReply, Data) ->
+    #ssh_msg_global_request{name = Name,
+                            want_reply = WantReply,
+                            data = Data}.
+
 %%%----------------------------------------------------------------
 %%% request_*_msg(...)
 %%% Returns a #ssh_msg_....{} for request responses.
@@ -751,6 +844,18 @@ encode_ip(Addr) when is_list(Addr) ->
 		Error -> false
 	    end
     end.
+
+-spec direct_tcpip(role(), binary(), inet:port_number(), binary(), inet:port_number(), #connection{}) ->
+                          {ok, ip_port()} | {error, any()}.
+direct_tcpip(server, _LsnHost, _LsnPort, _FwdHost, _FwdPort, _Connection) ->
+    {error, badarg};
+direct_tcpip(Role, LsnHost, LsnPort, FwdHost, FwdPort, Connection) ->
+    case start_forward(Role, LsnHost, LsnPort, FwdHost, FwdPort, Connection) of
+        {ok, _Pid, Port} ->
+            {ok, Port};
+        Error={error, _} ->
+            Error
+end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -812,6 +917,43 @@ start_subsystem(BinName, #connection{options = Options,
 	    {error, legacy_option_not_supported}
     end.
 
+start_forward(Role, Host, Port, Connection) ->
+    start_forward(Role, Host, Port, undefined, undefined, Connection).
+
+start_forward(Role, LsnHost, LsnPort, FwdHost, FwdPort,
+              #connection{options = Options, sub_system_supervisor = SubSysSup}) ->
+    ForwardSup = ssh_subsystem_sup:forward_supervisor(SubSysSup),
+    ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
+    ssh_forward_sup:start_child(Role, ForwardSup, ChannelSup,
+                                       LsnHost, LsnPort, FwdHost, FwdPort,
+                                       Options).
+
+start_direct_forward(Role, Type, #connection{channel_cache = Cache,
+                                             channel_id_seed = NewChannelID,
+                                             options = Options,
+                                             sub_system_supervisor = SubSysSup} = Connection,
+                     RemoteId, WindowSize, PacketSize,
+                     Host, Port, OrigAddr, OrigPort) ->
+    NextChannelID = NewChannelID + 1,
+
+
+    Args = {Role, self(), Host, Port, OrigAddr, OrigPort, NewChannelID},
+    {ok, Pid} = start_channel(ssh_forward, NewChannelID, Args, SubSysSup, Options),
+    erlang:monitor(process, Pid),
+    Channel =
+        #channel{type = Type,
+                 sys = "none",
+                 user = Pid,
+                 local_id = NewChannelID,
+                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
+                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                 send_window_size = WindowSize,
+                 send_packet_size = PacketSize,
+                 send_buf = queue:new(),
+                 remote_id = RemoteId
+                },
+    ssh_client_channel:cache_update(Cache, Channel),
+    {[], Connection#connection{channel_id_seed = NextChannelID}}.
 
 %%% Helpers for starting cli/subsystems
 start_channel(Cb, Id, Args, SubSysSup, Opts) ->

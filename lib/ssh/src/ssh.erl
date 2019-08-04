@@ -38,7 +38,10 @@
          chk_algos_opts/1,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
-	 shell/1, shell/2, shell/3
+	 shell/1, shell/2, shell/3,
+         direct_tcpip/5,
+         tcpip_forward/5,
+         tcpip_forward/6
 	]).
 
 %%% "Deprecated" types export:
@@ -453,6 +456,43 @@ start_shell({ok, ConnectionRef}) ->
 start_shell(Error) ->
     Error.
 
+-spec direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort) -> Result when
+      ConnectionRef :: connection_ref(),
+      LocalHost :: host(),
+      LocalPort :: inet:port_number(),
+      RemoteHost :: host(),
+      RemotePort :: inet:port_number(),
+      Result :: {ok, ip_port()} | {error, any()}.
+direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort) ->
+    LocalHost1 = list_to_binary(address_to_string(LocalHost, [])),
+    RemoteHost1 = list_to_binary(mangle_connect_address(RemoteHost, [])),
+    ssh_connection_handler:direct_tcpip(ConnectionRef, LocalHost1, LocalPort, RemoteHost1, RemotePort).
+
+-spec tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort) -> Result when
+      ConnectionRef :: connection_ref(),
+      RemoteHost :: host(),
+      RemotePort :: inet:port_number(),
+      LocalHost :: host(),
+      LocalPort :: inet:port_number(),
+      Result :: {ok, ip_port()} | {error, any()}.
+tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort) ->
+    tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, infinity).
+
+-spec tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) -> Result when
+      ConnectionRef :: connection_ref(),
+      RemoteHost :: host(),
+      RemotePort :: inet:port_number(),
+      LocalHost :: host(),
+      LocalPort :: inet:port_number(),
+      Timeout :: timeout(),
+      Result :: {ok, ip_port()} | {error, any()}.
+tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) ->
+    RemoteHost1 = list_to_binary(mangle_connect_address(RemoteHost, [])),
+    LocalHost1 = list_to_binary(address_to_string(LocalHost, [])),
+    ssh_connection_handler:tcpip_forward(ConnectionRef,
+                                         RemoteHost1, RemotePort, LocalHost1, LocalPort,
+                                         Timeout).
+
 %%--------------------------------------------------------------------
 -spec default_algorithms() -> algs_list() .
 %%--------------------------------------------------------------------
@@ -597,3 +637,12 @@ mangle_connect_address1(A, _) ->
         {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
         _ -> A
     end.
+
+address_to_string(A, SockOpts) ->
+    address_to_string1(mangle_connect_address(A, SockOpts)).
+
+address_to_string1(A) when is_tuple(A) ->
+    inet_parse:ntoa(A);
+address_to_string1(A) when is_list(A) ->
+    {ok, _} = inet:getaddr(A, inet),
+    A.

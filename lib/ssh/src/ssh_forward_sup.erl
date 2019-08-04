@@ -1,7 +1,7 @@
-%%
+%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,14 +19,16 @@
 %%
 
 %%
+
+%%
 %%----------------------------------------------------------------------
-%% Purpose: Ssh channel supervisor.
+%% Purpose: Ssh forward supervisor.
 %%----------------------------------------------------------------------
--module(ssh_server_channel_sup).
+-module(ssh_forward_sup).
 
 -behaviour(supervisor).
 
--export([start_link/1, start_child/5, start_child/6]).
+-export([start_link/1, start_child/8]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -37,16 +39,14 @@
 start_link(Args) ->
     supervisor:start_link(?MODULE, [Args]).
 
-start_child(Sup, Callback, Id, Args, Exec) ->
-    start_child(Sup, self(), Callback, Id, Args, Exec).
-
-start_child(Sup, ConnHandler, Callback, Id, Args, Exec) ->
+start_child(Role, Sup, ChannelSup, LsnHost, LsnPort, FwdHost, FwdPort, Options) ->
     ChildSpec =
-        #{id       => make_ref(),
-          start    => {ssh_server_channel, start_link, [ConnHandler, Id, Callback, Args, Exec]},
+        #{id       => {LsnHost, LsnPort},
+          start    => {ssh_forward_srv, start_link,
+                       [Role, self(), LsnHost, LsnPort, FwdHost, FwdPort, ChannelSup, Options]},
           restart  => temporary,
           type     => worker,
-          modules  => [ssh_server_channel]
+          modules  => [ssh_forward_srv]
          },
     supervisor:start_child(Sup, ChildSpec).
 

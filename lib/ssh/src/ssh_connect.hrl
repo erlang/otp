@@ -261,7 +261,8 @@
 	 }).
 
 -record(connection, {
-	  requests = [], %% [{ChannelId, Pid}...] awaiting reply on request,
+	  requests = [], %% [{ChannelId, Pid} | {GlobalReq, From}, ...] awaiting reply on channel or global request,
+          forwarded_tcpips = #{}, %% #{{RemoteHost, RemotePort} => {LocalHost, LocalPort}}
 	  channel_cache,
 	  port_bindings,
 	  channel_id_seed,
