@@ -1068,8 +1068,11 @@ verify_get_map(Fail, Src, List, Vst0) ->
 %%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
 %%
 %% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
+%%
+%% We must be careful to preserve the uninitialized status for Y registers
+%% that have been allocated but not yet defined.
 clobber_map_vals([Key,Dst|T], Map, Vst0) ->
-    case is_reg_defined(Dst, Vst0) of
+    case is_reg_initialized(Dst, Vst0) of
         true ->
             Vst = extract_term(term, {bif,map_get}, [Key, Map], Dst, Vst0),
             clobber_map_vals(T, Map, Vst);
@@ -1078,6 +1081,17 @@ clobber_map_vals([Key,Dst|T], Map, Vst0) ->
     end;
 clobber_map_vals([], _Map, Vst) ->
     Vst.
+
+is_reg_initialized({x,_}=Reg, #vst{current=#st{xs=Xs}}) ->
+    is_map_key(Reg, Xs);
+is_reg_initialized({y,_}=Reg, #vst{current=#st{ys=Ys}}) ->
+    case Ys of
+        #{Reg:=Val} ->
+            Val =/= uninitialized;
+        #{} ->
+            false
+    end;
+is_reg_initialized(V, #vst{}) -> error({not_a_register, V}).
 
 extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
@@ -1873,10 +1887,6 @@ check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
         false ->
             ok
     end.
-
-is_reg_defined({x,_}=Reg, #vst{current=#st{xs=Xs}}) -> is_map_key(Reg, Xs);
-is_reg_defined({y,_}=Reg, #vst{current=#st{ys=Ys}}) -> is_map_key(Reg, Ys);
-is_reg_defined(V, #vst{}) -> error({not_a_register, V}).
 
 assert_term(Src, Vst) ->
     _ = get_term_type(Src, Vst),
