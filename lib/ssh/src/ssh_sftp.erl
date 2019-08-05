@@ -92,34 +92,63 @@
 -define(XF(S), S#state.xf).
 -define(REQID(S), S#state.req_id).
 
+-type sftp_option() :: {timeout, timeout()}
+                     | {sftp_vsn, pos_integer()}
+                     | {window_size, pos_integer()}
+                     | {packet_size, pos_integer()} .
 
 -type reason() :: atom() | string() | tuple() .
 
 %%====================================================================
 %% API
 %%====================================================================
+
+
+%%%================================================================
+%%%
+
+%%%----------------------------------------------------------------
+%%% start_channel/1
+
 start_channel(Cm) when is_pid(Cm) ->
     start_channel(Cm, []);
-
+ 
 start_channel(Socket) when is_port(Socket) ->
     start_channel(Socket, []);
 
-start_channel(Host) when is_list(Host) ->
+start_channel(Host) ->
     start_channel(Host, []).
 
 
--spec start_channel(ssh:connection_ref() | gen_tcp:socket() | string(),
-                    ssh:client_options()
-                   ) -> {ok,pid()} | {ok,pid(),ssh:connection_ref()} | {error,term()}.
+%%%----------------------------------------------------------------
+%%% start_channel/2
+
+%%% -spec:s are as if Dialyzer handled signatures for separate
+%%% function clauses.
+
+-spec start_channel(ssh:open_socket(),
+                    [ssh:client_options() | sftp_option()]
+                   )
+                   -> {ok,pid(),ssh:connection_ref()} | {error,reason()};
+
+                   (ssh:connection_ref(),
+                    [sftp_option()]
+                   )
+                   -> {ok,pid()}  | {ok,pid(),ssh:connection_ref()} | {error,reason()};
+
+                   (ssh:host(),
+                    [ssh:client_options() | sftp_option()]
+                   )
+                   -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
 
 start_channel(Socket, UserOptions) when is_port(Socket) ->
-    {SshOpts, _ChanOpts, SftpOpts} = handle_options(UserOptions),
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
         proplists:get_value(connect_timeout, SshOpts,
                             proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh:connect(Socket, SshOpts, Timeout) of
 	{ok,Cm} ->
-	    case start_channel(Cm, UserOptions) of
+	    case start_channel(Cm, ChanOpts ++ SftpOpts) of
 		{ok, Pid} ->
 		    {ok, Pid, Cm};
 		Error ->
@@ -155,8 +184,14 @@ start_channel(Host, UserOptions) ->
     start_channel(Host, 22, UserOptions).
 
 
--spec start_channel(string(), integer(), ssh:client_options()) ->
-                           {ok,pid(),ssh:connection_ref()} | {error,term()}.
+%%%----------------------------------------------------------------
+%%% start_channel/3
+
+-spec start_channel(ssh:host(),
+                    inet:port_number(),
+                    [ssh:client_option() | sftp_option()]
+                   )
+                   -> {ok,pid(),ssh:connection_ref()} | {error,reason()}.
 
 start_channel(Host, Port, UserOptions) ->
     {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
@@ -182,7 +217,12 @@ start_channel(Host, Port, UserOptions) ->
 	    Error
     end.
 
+%%% Helper for start_channel
 
+wait_for_version_negotiation(Pid, Timeout) ->
+    call(Pid, wait_for_version_negotiation, Timeout).
+
+%%%----------------------------------------------------------------
 -spec stop_channel(ChannelPid) -> ok when
       ChannelPid :: pid().
 
@@ -203,9 +243,7 @@ stop_channel(Pid) ->
 	    ok
     end.
 
-wait_for_version_negotiation(Pid, Timeout) ->
-    call(Pid, wait_for_version_negotiation, Timeout).
-
+%%%----------------------------------------------------------------
 -spec open(ChannelPid, Name, Mode) -> {ok, Handle} | Error when
       ChannelPid :: pid(),
       Name :: string(),

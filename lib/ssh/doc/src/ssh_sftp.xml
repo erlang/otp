@@ -38,6 +38,12 @@
   </description>
   
   <datatypes>
+    <datatype>
+      <name name="sftp_option"/>
+      <desc>
+      </desc>
+    </datatype>
+
     <datatype_title>Error cause</datatype_title>
     <datatype>
       <name name="reason"/>
@@ -423,25 +429,27 @@
 
     <func>
       <name since="">start_channel(ConnectionRef) -></name>
-      <name since="">start_channel(ConnectionRef, Options) ->
-      {ok, Pid} | {error, reason()|term()}</name>
+      <name since="">start_channel(ConnectionRef, SftpOptions) ->
+      {ok, ChannelPid} | Error</name>
 
+      <name since="">start_channel(Host) -></name>
       <name since="">start_channel(Host, Options) -></name>
-      <name since="">start_channel(Host, Port, Options) -> 
-      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
-
+      <name since="">start_channel(Host, Port, Options) -></name>
       <name since="">start_channel(TcpSocket) -></name>
       <name since="">start_channel(TcpSocket, Options) ->
-      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
+      {ok, ChannelPid, ConnectionRef} | Error</name>
 
       <fsummary>Starts an SFTP client.</fsummary>
       <type>
-        <v>Host = string()</v>
-        <v>ConnectionRef = connection_ref()</v>
-        <v>Port = integer()</v>
-	<v>TcpSocket = port()</v>
-	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
-        <v>Options = [{Option, Value}]</v>
+        <v>Host = <seealso marker="ssh:ssh#type-host">ssh:host()</seealso></v>
+        <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<v>TcpSocket = <seealso marker="ssh:ssh#type-open_socket">ssh:open_socket()</seealso></v>
+	<v>Options = [  <seealso marker="#type-sftp_option">sftp_option()</seealso>
+		      | <seealso marker="ssh:ssh#type-client_option">ssh:client_option()</seealso> ]</v>
+	<v>SftpOptions = [  <seealso marker="#type-sftp_option">sftp_option()</seealso> ]</v>
+	<v>ChannelPid = pid()</v>
+        <v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
+	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
       </type>
       <desc>
 	<p>If no connection reference is provided, a connection is set
