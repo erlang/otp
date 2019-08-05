@@ -374,6 +374,8 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
             {dcbsm, ".core_bsm"},
             {dkern, ".kernel"},
             {dssa, ".ssa"},
+            {dbool, ".bool"},
+            {dssashare, ".ssashare"},
             {dssaopt, ".ssaopt"},
             {dprecg, ".precodegen"},
             {dcg, ".codegen"},

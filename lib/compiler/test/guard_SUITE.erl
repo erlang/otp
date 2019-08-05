@@ -1213,6 +1213,10 @@ tricky(Config) when is_list(Config) ->
     error = tricky_3(#{}),
     error = tricky_3({a,b}),
 
+    {'EXIT',_} = (catch tricky_4(x)),
+    {'EXIT',_} = (catch tricky_4(42)),
+    {'EXIT',_} = (catch tricky_4(true)),
+
     ok.
 
 tricky_1(X, Y) when abs((X == 1) or (Y == 2)) -> ok;
@@ -1229,6 +1233,13 @@ tricky_3(X)
     ok;
 tricky_3(_) ->
     error.
+
+tricky_4(X) ->
+    B = (abs(X) or abs(X)) =:= true,
+    case B of
+        true -> ok;
+        false -> error
+    end.
 
 %% From dets_v9:read_buckets/11, simplified.
 
@@ -1931,6 +1942,15 @@ andalso_semi(Config) when is_list(Config) ->
     ok = andalso_semi_bar([a,b,c]),
     ok = andalso_semi_bar(1),
     fc(catch andalso_semi_bar([a,b])),
+
+    ok = andalso_semi_dispatch(name, fun andalso_semi/1),
+    ok = andalso_semi_dispatch(name, fun ?MODULE:andalso_semi/1),
+    ok = andalso_semi_dispatch(name, {?MODULE,andalso_semi,1}),
+    fc(catch andalso_semi_dispatch(42, fun andalso_semi/1)),
+    fc(catch andalso_semi_dispatch(name, not_fun)),
+    fc(catch andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
+    fc(catch andalso_semi_dispatch(42, {a,b})),
+
     ok.
 
 andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
@@ -1939,6 +1959,10 @@ andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
 andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
    ok.
 
+andalso_semi_dispatch(Registry, MFAOrFun) when
+      is_atom(Registry) andalso is_function(MFAOrFun, 1);
+      is_atom(Registry) andalso tuple_size(MFAOrFun) == 3 ->
+    ok.
 
 t_tuple_size(Config) when is_list(Config) ->
     10 = do_tuple_size({1,2,3,4}),
@@ -2234,7 +2258,8 @@ do_guard_in_catch_bin(From) ->
 
 %%%
 %%% The beam_bool pass has been eliminated. Here are the tests from
-%%% beam_bool_SUITE.
+%%% beam_bool_SUITE, as well as new tests to test the new beam_ssa_bool
+%%% module.
 %%%
 
 beam_bool_SUITE(_Config) ->
@@ -2243,6 +2268,9 @@ beam_bool_SUITE(_Config) ->
     y_registers(),
     protected(),
     maps(),
+    cover_shortcut_branches(),
+    wrong_order(),
+    megaco(),
     ok.
 
 before_and_inside_if() ->
@@ -2379,6 +2407,83 @@ maps() ->
 %% Cover handling of put_map in in split_block_label_used/2.
 evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
     ok.
+
+cover_shortcut_branches() ->
+    ok = cover_shortcut_branches({r1}, 0, 42, false),
+    ok = cover_shortcut_branches({r1}, 42, 42, true),
+    error = cover_shortcut_branches({r1}, same, same, false),
+    error = cover_shortcut_branches({r1}, x, y, true),
+    error = cover_shortcut_branches({r2}, 0, 42, false),
+    error = cover_shortcut_branches({}, 0, 42, false),
+    error = cover_shortcut_branches(not_tuple, 0, 42, false),
+    ok.
+
+cover_shortcut_branches(St, X, Y, Z) ->
+    if
+        %% The ((Y =:= X) =:= Z) part will test handling of a comparison
+        %% operator followed by a one-way `br`.
+        ((element(1, St) =:= r1) orelse fail) and ((Y =:= X) =:= Z) ->
+            ok;
+        true ->
+            error
+    end.
+
+wrong_order() ->
+    ok = wrong_order(repeat_until_fail, true),
+    ok = wrong_order(repeat_until_fail, whatever),
+    error = wrong_order(repeat_until_fail, false),
+    error = wrong_order(nope, true),
+    ok.
+
+wrong_order(RepeatType, Mode) ->
+    Parallel = Mode =/= false,
+    RepeatStop = RepeatType =:= repeat_until_fail,
+    if
+        Parallel andalso RepeatStop ->
+            ok;
+        true ->
+            error
+    end.
+
+megaco() ->
+    ok = megaco('NULL', 0),
+    ok = megaco('NULL', 7),
+    ok = megaco('NULL', 15),
+    ok = megaco('NULL', asn1_NOVALUE),
+    ok = megaco(asn1_NOVALUE, 0),
+    ok = megaco(asn1_NOVALUE, 7),
+    ok = megaco(asn1_NOVALUE, 15),
+    ok = megaco(asn1_NOVALUE, asn1_NOVALUE),
+
+    error = megaco(bad, 0),
+    error = megaco(bad, 7),
+    error = megaco(bad, 15),
+    error = megaco(bad, asn1_NOVALUE),
+
+    error = megaco('NULL', not_integer),
+    error = megaco('NULL', -1),
+    error = megaco('NULL', 16),
+    error = megaco(asn1_NOVALUE, not_integer),
+    error = megaco(asn1_NOVALUE, -1),
+    error = megaco(asn1_NOVALUE, 16),
+
+    error = megaco(bad, bad),
+    error = megaco(bad, -1),
+    error = megaco(bad, 42),
+
+    ok.
+
+megaco(Top, SelPrio)
+  when (Top =:= 'NULL' orelse Top =:= asn1_NOVALUE) andalso
+       ((is_integer(SelPrio) andalso ((0 =< SelPrio) and (SelPrio =< 15))) orelse
+	SelPrio =:= asn1_NOVALUE) ->
+    ok;
+megaco(_, _) ->
+    error.
+
+%%%
+%%% End of beam_bool_SUITE tests.
+%%%
 
 repeated_type_tests(_Config) ->
     binary = repeated_type_test(<<42>>),

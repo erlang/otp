@@ -28,7 +28,7 @@
 
 -include("beam_ssa.hrl").
 -import(lists, [append/1,keymember/3,last/1,member/2,
-                takewhile/2,reverse/1]).
+                reverse/1,sort/1,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=cerl_sets:set(beam_ssa:var_name())}.
 
@@ -141,19 +141,34 @@ shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
             %% No change.
             Br
     end;
-shortcut_terminator(#b_switch{arg=Bool,list=List0}=Sw, _Is, From, Bs, St) ->
-    List = shortcut_switch(List0, Bool, From, Bs, St),
-    beam_ssa:normalize(Sw#b_switch{list=List});
+shortcut_terminator(#b_switch{arg=Bool,fail=Fail0,list=List0}=Sw,
+                    _Is, From, Bs, St) ->
+    Fail = shortcut_sw_fail(Fail0, List0, Bool, From, Bs, St),
+    List = shortcut_sw_list(List0, Bool, From, Bs, St),
+    beam_ssa:normalize(Sw#b_switch{fail=Fail,list=List});
 shortcut_terminator(Last, _Is, _Bs, _From, _St) ->
     Last.
 
-shortcut_switch([{Lit,L0}|T], Bool, From, Bs, St0) ->
+shortcut_sw_fail(Fail0, List, Bool, From, Bs, St0) ->
+    case sort(List) of
+        [{#b_literal{val=false},_},
+         {#b_literal{val=true},_}] ->
+            RelOp = {{'not',is_boolean},Bool},
+            St = St0#st{rel_op=RelOp,target=one_way},
+            #b_br{bool=#b_literal{val=true},succ=Fail} =
+                shortcut(Fail0, From, Bs, St),
+            Fail;
+        _ ->
+            Fail0
+    end.
+
+shortcut_sw_list([{Lit,L0}|T], Bool, From, Bs, St0) ->
     RelOp = {'=:=',Bool,Lit},
     St = St0#st{rel_op=RelOp},
     #b_br{bool=#b_literal{val=true},succ=L} =
         shortcut(L0, From, bind_var(Bool, Lit, Bs), St#st{target=one_way}),
-    [{Lit,L}|shortcut_switch(T, Bool, From, Bs, St0)];
-shortcut_switch([], _, _, _, _) -> [].
+    [{Lit,L}|shortcut_sw_list(T, Bool, From, Bs, St0)];
+shortcut_sw_list([], _, _, _, _) -> [].
 
 shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 ->
     %% There is no way that we can find a suitable branch, because there is no
@@ -423,11 +438,22 @@ eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], From, Bs0, St) ->
     Val = get_phi_arg(Args, From),
     Bs = bind_var(Dst, Val, Bs0),
     eval_is(Is, From, Bs, St);
+eval_is([#b_set{op=succeeded,dst=Dst,args=[Var]}], _From, Bs, _St) ->
+    case Bs of
+        #{Var:=failed} ->
+            bind_var(Dst, #b_literal{val=false}, Bs);
+        #{Var:=#b_literal{}} ->
+            bind_var(Dst, #b_literal{val=true}, Bs);
+        #{} ->
+            Bs
+    end;
 eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], From, Bs, St) ->
     I = sub(I0, Bs),
     case eval_bif(I, St) of
         #b_literal{}=Val ->
             eval_is(Is, From, bind_var(Dst, Val, Bs), St);
+        failed ->
+            eval_is(Is, From, bind_var(Dst, failed, Bs), St);
         none ->
             eval_is(Is, From, Bs, St)
     end;
@@ -530,6 +556,8 @@ bind_var_if_used(L, Var, Val0, Bs, #st{us=Us}) ->
             Bs
     end.
 
+bind_var(Var, failed, Bs) ->
+    Bs#{Var=>failed};
 bind_var(Var, Val0, Bs) ->
     Val = get_value(Val0, Bs),
     Bs#{Var=>Val}.
@@ -675,7 +703,7 @@ eval_rel_op(_Bif, _Args, #st{rel_op=none}) ->
 eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
     case normalize_op(Bif, Args) of
         none ->
-            none;
+            eval_boolean(Prev, Bif, Args);
         RelOp ->
             case will_succeed(Prev, RelOp) of
                 yes -> #b_literal{val=true};
@@ -683,6 +711,17 @@ eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
                 maybe -> none
             end
     end.
+
+eval_boolean({{'not',is_boolean},Var}, {bif,'not'}, [Var]) ->
+    failed;
+eval_boolean({{'not',is_boolean},Var}, {bif,Op}, Args)
+  when Op =:= 'and'; Op =:= 'or' ->
+    case member(Var, Args) of
+        true -> failed;
+        false -> none
+    end;
+eval_boolean(_, _, _) ->
+    none.
 
 %% will_succeed(PrevCondition, Condition) -> yes | no | maybe
 %%  PrevCondition is a condition known to be true. This function
@@ -702,6 +741,9 @@ will_succeed({_,_}=Same, {_,_}=Same) ->
     yes;
 will_succeed({Test1,Var}, {Test2,Var}) ->
     will_succeed_test(Test1, Test2);
+will_succeed({{'not',is_boolean},Var}, {'=:=',Var,#b_literal{val=Lit}})
+  when is_boolean(Lit) ->
+    no;
 will_succeed({_,_}, {_,_}) ->
     maybe;
 will_succeed({_,_}, {_,_,_}) ->
