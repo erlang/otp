@@ -1604,13 +1604,8 @@ infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
     fun(Val, S) ->
-            case is_value_alive(Tuple, S) of
-                true ->
-                    Type = {tuple,[Index], #{ Key => get_term_type(Val, S) }},
-                    update_type(fun meet/2, Type, Tuple, S);
-                false ->
-                    S
-            end
+            Type = {tuple,[Index], #{ Key => get_term_type(Val, S) }},
+            update_type(fun meet/2, Type, Tuple, S)
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
     infer_type_test_bif({atom,[]}, Src);
@@ -1634,10 +1629,7 @@ infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
     infer_type_test_bif({tuple,[0],#{}}, Src);
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
     fun({integer,Arity}, S) ->
-            case is_value_alive(Tuple, S) of
-                true -> update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
-                false -> S
-            end;
+            update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
        (_, S) -> S
     end;
 infer_types_1(_) ->
@@ -1645,10 +1637,7 @@ infer_types_1(_) ->
 
 infer_type_test_bif(Type, Src) ->
     fun({atom,true}, S) ->
-            case is_value_alive(Src, S) of
-                true -> update_type(fun meet/2, Type, Src, S);
-                false -> S
-            end;
+            update_type(fun meet/2, Type, Src, S);
        (_, S) ->
             S
     end.
@@ -2285,9 +2274,6 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
 get_raw_type(Src, #vst{}) ->
     get_literal_type(Src).
 
-is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
-    is_map_key(Ref, Vs).
-
 get_literal_type(nil=T) -> T;
 get_literal_type({atom,A}=T) when is_atom(A) -> T;
 get_literal_type({float,F}=T) when is_float(F) -> T;
@@ -2469,24 +2455,43 @@ merge_vrefs(RefA, RefB, Merge, Counter) ->
 
 merge_values(Merge, VsA, VsB) ->
     maps:fold(fun(Spec, New, Acc) ->
-                      merge_values_1(Spec, New, VsA, VsB, Acc)
+                      mv_1(Spec, New, VsA, VsB, Acc)
               end, #{}, Merge).
 
-merge_values_1(Same, Same, VsA, VsB, Acc) ->
+mv_1(Same, Same, VsA, VsB, Acc0) ->
     %% We're merging different versions of the same value, so it's safe to
     %% reuse old entries if the type's unchanged.
-    #value{type=TypeA}=EntryA = map_get(Same, VsA),
-    #value{type=TypeB}=EntryB = map_get(Same, VsB),
+    #value{type=TypeA,args=Args}=EntryA = map_get(Same, VsA),
+    #value{type=TypeB,args=Args}=EntryB = map_get(Same, VsB),
+
     Entry = case join(TypeA, TypeB) of
                 TypeA -> EntryA;
                 TypeB -> EntryB;
                 JoinedType -> EntryA#value{type=JoinedType}
             end,
-    Acc#{ Same => Entry };
-merge_values_1({RefA, RefB}, New, VsA, VsB, Acc) ->
+
+    Acc = Acc0#{ Same => Entry },
+
+    %% Type inference may depend on values that are no longer reachable from a
+    %% register, so all arguments must be merged into the new state.
+    mv_args(Args, VsA, VsB, Acc);
+mv_1({RefA, RefB}, New, VsA, VsB, Acc) ->
     #value{type=TypeA} = map_get(RefA, VsA),
     #value{type=TypeB} = map_get(RefB, VsB),
     Acc#{ New => #value{op=join,args=[],type=join(TypeA, TypeB)} }.
+
+mv_args([#value_ref{}=Arg | Args], VsA, VsB, Acc0) ->
+    case Acc0 of
+        #{ Arg := _ } ->
+            mv_args(Args, VsA, VsB, Acc0);
+        #{} ->
+            Acc = mv_1(Arg, Arg, VsA, VsB, Acc0),
+            mv_args(Args, VsA, VsB, Acc)
+    end;
+mv_args([_ | Args], VsA, VsB, Acc) ->
+    mv_args(Args, VsA, VsB, Acc);
+mv_args([], _VsA, _VsB, Acc) ->
+    Acc.
 
 merge_fragility(FragileA, FragileB) ->
     cerl_sets:union(FragileA, FragileB).
