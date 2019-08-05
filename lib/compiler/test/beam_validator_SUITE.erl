@@ -681,11 +681,16 @@ infer_on_eq_4(T) ->
 
 %% ERIERL-348; types were inferred for dead values, causing validation to fail.
 
+-record(idv, {key}).
+
 infer_dead_value(Config) when is_list(Config) ->
     a = idv_1({a, b, c, d, e, f, g}, {0, 0, 0, 0, 0, 0, 0}),
     b = idv_1({a, b, c, d, 0, 0, 0}, {a, b, c, d, 0, 0, 0}),
     c = idv_1({0, 0, 0, 0, 0, f, g}, {0, 0, 0, 0, 0, f, g}),
     error = idv_1(gurka, gaffel),
+
+    ok = idv_2(id(#idv{})),
+
     ok.
 
 idv_1({_A, _B, _C, _D, _E, _F, _G},
@@ -718,6 +723,23 @@ ion_2(State = #ion{state = open}) -> ion_close(State);
 ion_2(#ion{state = closing}) -> ok.
 
 ion_close(State = #ion{}) -> State#ion{state = closing}.
+
+%% ERL-995: The first solution to ERIERL-348 was incomplete and caused
+%% validation to fail when living values depended on delayed type inference on
+%% "dead" values.
+
+idv_2(State) ->
+    Flag = (State#idv.key == undefined),
+    case id(gurka) of
+        {_} -> id([Flag]);
+        _ -> ok
+    end,
+    if
+        Flag -> idv_called_once(State);
+        true -> ok
+    end.
+
+idv_called_once(_State) -> ok.
 
 %%%-------------------------------------------------------------------------
 

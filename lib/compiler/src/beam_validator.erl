@@ -1585,35 +1585,29 @@ infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
 infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
-            infer_types(eq_exact, LHS, RHS, Vst);
+            update_eq_types(LHS, RHS, Vst);
         {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
-            infer_types(ne_exact, LHS, RHS, Vst);
+            update_ne_types(LHS, RHS, Vst);
         _ ->
             Vst
     end;
 infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
         {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
-            infer_types(ne_exact, LHS, RHS, Vst);
+            update_ne_types(LHS, RHS, Vst);
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
-            infer_types(eq_exact, LHS, RHS, Vst);
+            update_eq_types(LHS, RHS, Vst);
         _ ->
             Vst
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
               Val, Op, Vst) when Index >= 1 ->
-    Merge = case Op of
-                eq_exact -> fun meet/2;
-                ne_exact -> fun subtract/2
-            end,
-    case is_value_alive(Tuple, Vst) of
-        true ->
-            ElementType = get_term_type(Val, Vst),
-            Es = beam_types:set_element_type(Index, ElementType, #{}),
-            Type = #t_tuple{size=Index,elements=Es},
-            update_type(Merge, Type, Tuple, Vst);
-        false ->
-            Vst
+    ElementType = get_term_type(Val, Vst),
+    Es = beam_types:set_element_type(Index, ElementType, #{}),
+    Type = #t_tuple{size=Index,elements=Es},
+    case Op of
+        eq_exact -> update_type(fun meet/2, Type, Tuple, Vst);
+        ne_exact -> update_type(fun subtract/2, Type, Tuple, Vst)
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);
@@ -1637,31 +1631,23 @@ infer_types_1(#value{op={bif,is_tuple},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_tuple{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
               {integer,Arity}, Op, Vst) ->
-    Merge = case Op of
-                eq_exact -> fun meet/2;
-                ne_exact -> fun subtract/2
-            end,
-    case is_value_alive(Tuple, Vst) of
-        true ->
-            Type = #t_tuple{exact=true,size=Arity},
-            update_type(Merge, Type, Tuple, Vst);
-        false ->
-            Vst
+    Type = #t_tuple{exact=true,size=Arity},
+    case Op of
+        eq_exact -> update_type(fun meet/2, Type, Tuple, Vst);
+        ne_exact -> update_type(fun subtract/2, Type, Tuple, Vst)
     end;
 infer_types_1(_, _, _, Vst) ->
     Vst.
 
-infer_type_test_bif(Type, Src, {atom, Bool}, Op, Vst) when is_boolean(Bool) ->
-    case is_value_alive(Src, Vst) of
-        true when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+infer_type_test_bif(Type, Src, Val, Op, Vst) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
             update_type(fun meet/2, Type, Src, Vst);
-        true when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
             update_type(fun subtract/2, Type, Src, Vst);
-        false ->
+        _ ->
             Vst
-    end;
-infer_type_test_bif(_, _, _, _, Vst) ->
-    Vst.
+    end.
 
 %%%
 %%% Keeping track of types.
@@ -2040,11 +2026,6 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
 get_raw_type(Src, #vst{}) ->
     get_literal_type(Src).
 
-is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
-    is_map_key(Ref, Vs);
-is_value_alive(_, _) ->
-    false.
-
 get_literal_type(nil) -> 
     beam_types:make_type_from_value([]);
 get_literal_type({atom,A}) when is_atom(A) -> 
@@ -2214,24 +2195,43 @@ merge_vrefs(RefA, RefB, Merge, Counter) ->
 
 merge_values(Merge, VsA, VsB) ->
     maps:fold(fun(Spec, New, Acc) ->
-                      merge_values_1(Spec, New, VsA, VsB, Acc)
+                      mv_1(Spec, New, VsA, VsB, Acc)
               end, #{}, Merge).
 
-merge_values_1(Same, Same, VsA, VsB, Acc) ->
+mv_1(Same, Same, VsA, VsB, Acc0) ->
     %% We're merging different versions of the same value, so it's safe to
     %% reuse old entries if the type's unchanged.
-    #value{type=TypeA}=EntryA = map_get(Same, VsA),
-    #value{type=TypeB}=EntryB = map_get(Same, VsB),
+    #value{type=TypeA,args=Args}=EntryA = map_get(Same, VsA),
+    #value{type=TypeB,args=Args}=EntryB = map_get(Same, VsB),
+
     Entry = case join(TypeA, TypeB) of
                 TypeA -> EntryA;
                 TypeB -> EntryB;
                 JoinedType -> EntryA#value{type=JoinedType}
             end,
-    Acc#{ Same => Entry };
-merge_values_1({RefA, RefB}, New, VsA, VsB, Acc) ->
+
+    Acc = Acc0#{ Same => Entry },
+
+    %% Type inference may depend on values that are no longer reachable from a
+    %% register, so all arguments must be merged into the new state.
+    mv_args(Args, VsA, VsB, Acc);
+mv_1({RefA, RefB}, New, VsA, VsB, Acc) ->
     #value{type=TypeA} = map_get(RefA, VsA),
     #value{type=TypeB} = map_get(RefB, VsB),
     Acc#{ New => #value{op=join,args=[],type=join(TypeA, TypeB)} }.
+
+mv_args([#value_ref{}=Arg | Args], VsA, VsB, Acc0) ->
+    case Acc0 of
+        #{ Arg := _ } ->
+            mv_args(Args, VsA, VsB, Acc0);
+        #{} ->
+            Acc = mv_1(Arg, Arg, VsA, VsB, Acc0),
+            mv_args(Args, VsA, VsB, Acc)
+    end;
+mv_args([_ | Args], VsA, VsB, Acc) ->
+    mv_args(Args, VsA, VsB, Acc);
+mv_args([], _VsA, _VsB, Acc) ->
+    Acc.
 
 merge_fragility(FragileA, FragileB) ->
     cerl_sets:union(FragileA, FragileB).
