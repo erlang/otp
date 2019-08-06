@@ -30,7 +30,7 @@ By making a contribution to this project, I certify that:
 Erlang/otp is licensed under the
 Apache License 2.0
 
-As stated in: LICENSE.txt 
+As stated in: [LICENSE.txt](LICENSE.txt)
 
 http://developercertificate.org/
 
@@ -95,6 +95,9 @@ a discussion on the mailing list.
 * Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
 but you should at least run the tests for the application you have changed.
 See [Running tests](https://github.com/erlang/otp/wiki/Running-tests).
+* Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
+* Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
+* Make sure that travis passes, if you go to https://travis-ci.org/$YOUR_GITHUB_USER/otp/ you can enable travis builds for you otp fork.
 
 Make sure that your branch contains clean commits:
 
