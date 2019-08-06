@@ -54,7 +54,7 @@ typedef struct hash_db_term {
 #endif
 
 typedef struct DbTableHashLockAndCounter {
-    Uint nitems;
+    Sint nitems;
     erts_rwmtx_t lck;
 } DbTableHashLockAndCounter;
 

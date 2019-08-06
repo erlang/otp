@@ -86,10 +86,19 @@
 #include "erl_db_hash.h"
 
 #define IS_DECENTRALIZED_CTRS(DB) ((DB)->common.counters.is_decentralized)
+
+#define NITEMS_ESTIMATE_FROM_LCK_CTR(LCK_CTR_P)   \
+    (LCK_CTR_P->nitems <= 0 ? 1: LCK_CTR_P->nitems)
+
 #define NITEMS_ESTIMATE(DB, LCK_CTR, HASH)                              \
     (IS_DECENTRALIZED_CTRS(DB) ?                                        \
-     (DB_HASH_LOCK_CNT * (LCK_CTR != NULL ? LCK_CTR->nitems : GET_LOCK_AND_CTR(DB,HASH)->nitems)) : \
-     erts_flxctr_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID))
+     (DB_HASH_LOCK_CNT *                                                \
+      (LCK_CTR != NULL ?                                                \
+       NITEMS_ESTIMATE_FROM_LCK_CTR(LCK_CTR) :                          \
+       NITEMS_ESTIMATE_FROM_LCK_CTR(GET_LOCK_AND_CTR(DB, HASH)))) :     \
+     erts_flxctr_read_centralized(&(DB)->common.counters,               \
+                                  ERTS_DB_TABLE_NITEMS_COUNTER_ID))
+
 #define ADD_NITEMS(DB, LCK_CTR, HASH, TO_ADD)                           \
     do {                                                                \
         if (IS_DECENTRALIZED_CTRS(DB)) {                                \
@@ -2781,11 +2790,40 @@ static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix)
 static void calc_shrink_limit(DbTableHash* tb)
 {
     erts_aint_t shrink_limit;
+    int sample_size_is_enough = 1;
 
-    if (tb->nslots >= (FIRST_SEGSZ + 2*EXT_SEGSZ)) {
+    if (IS_DECENTRALIZED_CTRS(tb)) {
         /*
-         * Start shrink when we can remove one extra segment
-         * and still remain below 50% load.
+           Cochran’s Sample Size Formula indicates that we will get
+           good estimates if we have 100 buckets or more per lock (see
+           calculations below)
+        */
+        /* square of z-score 95% confidence */
+        /* const double z2 = 1.96*1.96; */
+        /* Estimated propotion used buckets */
+        /* const double p = 0.5; */
+        /* margin of error */
+        /* const double moe = 0.1; */
+        /* const double moe2 = moe*moe; */
+        /* Cochran’s Sample Size Formula x=96.040 */
+        /* const double x = (z2 * p * (1-p)) / moe2; */
+        /* Modification for smaller populations */
+        /* for(int n = 10; n < 1000; n = n + 100){ */
+        /*   const double d = n*x / (x + n - 1) + 1; */
+        /*   printf("Cochran_formula=%f size=%d mod_with_size=%f\n", x, n, d); */
+        /* } */
+        const int needed_slots = 100 * DB_HASH_LOCK_CNT;
+        if (tb->nslots < needed_slots) {
+            sample_size_is_enough = 0;
+        }
+    }
+
+    if (sample_size_is_enough && tb->nslots >= (FIRST_SEGSZ + 2*EXT_SEGSZ)) {
+        /*
+         * Start shrink when the sample size is big enough for
+         * decentralized counters if decentralized counters are used
+         * and when we can remove one extra segment and still remain
+         * below 50% load.
          */
         shrink_limit = (tb->nslots - EXT_SEGSZ) / 2;
     }
@@ -3015,9 +3053,11 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
-    if (DB_USING_FINE_LOCKING(tb))
-	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
-    else
+    if (DB_USING_FINE_LOCKING(tb)) {
+	return
+            !erts_atomic_read_acqb(&tb->is_resizing) &&
+            !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
+    } else
         ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
     return 1;
 }
