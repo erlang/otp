@@ -5,6 +5,8 @@ sudo: false
 os:
   - linux
 
+dist: xenial
+
 addons:
   apt:
     packages:
@@ -12,10 +14,8 @@ addons:
       - libncurses-dev
       - build-essential
       - libssl-dev
-      - libwxgtk2.8-dev
-      - libgl1-mesa-dev
+      - libwxgtk3.0-dev
       - libglu1-mesa-dev
-      - libpng3
       - default-jdk
       - g++
       - xsltproc
@@ -64,9 +64,7 @@ matrix:
             - build-essential
             - libssl-dev
             - libwxgtk3.0-dev
-            - libgl1-mesa-dev
             - libglu1-mesa-dev
-            - libpng3
             - default-jdk
             - g++
             - xsltproc
