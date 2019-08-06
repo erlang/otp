@@ -36,5 +36,6 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+DIA_PLT_APPS=runtime_tools et wx
 
 include $(ERL_TOP)/make/app_targets.mk

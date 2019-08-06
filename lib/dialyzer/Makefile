@@ -42,4 +42,6 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+DIA_PLT_APPS=compiler syntax_tools hipe wx
+
 include $(ERL_TOP)/make/app_targets.mk

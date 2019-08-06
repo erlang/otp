@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2019. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,24 +71,6 @@ do_configure: configure
 configure: configure.in
 	autoconf
 
-.PHONY: info gclean
-
-info: 
-	@echo "OS:       $(OS)"
-	@echo "DOCB:     $(DOCB)"
-	@echo ""
-	@echo "SNMP_VSN: $(SNMP_VSN)"
-	@echo "APP_VSN:  $(APP_VSN)"
-	@echo ""
-	@echo "DIA_PLT:      $(DIA_PLT)"
-	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
-	@echo ""
-
-
-gclean: 
-	git clean -fXd
-
-
 # ----------------------------------------------------
 # Application (source) release targets
 # ----------------------------------------------------
@@ -130,30 +112,6 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
-dclean:
-	rm -f $(DIA_PLT)
-	rm -f $(DIA_ANALYSIS)
-
-dialyzer_plt: $(DIA_PLT)
-
-$(DIA_PLT): Makefile
-	@echo "Building $(APPLICATION) plt file"
-	@dialyzer --build_plt \
-                  --output_plt $@ \
-                  -r ../$(APPLICATION)/ebin \
-                     ../../lib/kernel/ebin \
-                     ../../lib/stdlib/ebin \
-                     ../../lib/runtime_tools/ebin \
-                     ../../lib/crypto/ebin \
-                     ../../lib/mnesia/ebin \
-                     ../../erts/preloaded/ebin \
-                  --output $(DIA_ANALYSIS) \
-                  --verbose
-
-dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(APPLICATION)"
-	@dialyzer --plt $< \
-                  ../$(APPLICATION)/ebin \
-                  --verbose
+DIA_PLT_APPS=runtime_tools crypto mnesia
 
 include $(ERL_TOP)/make/app_targets.mk
