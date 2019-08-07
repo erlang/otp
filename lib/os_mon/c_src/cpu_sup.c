@@ -359,7 +359,7 @@ static cpu_t *read_procstat(FILE *fp, cpu_t *cpu) {
 	memset(cpu, 0, sizeof(cpu_t));
 	return cpu;
     }
-    sscanf(buffer, "cpu%u %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu",
+    sscanf(buffer, "cpu%u %llu %llu %llu %llu %llu %llu %llu %llu",
 	&(cpu->id),
 	&(cpu->user),
 	&(cpu->nice_user),
