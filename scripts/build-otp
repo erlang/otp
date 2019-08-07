@@ -44,6 +44,8 @@ fi
 
 do_and_log "Autoconfing" ./otp_build autoconf
 do_and_log "Configuring" ./otp_build configure
+echo Configure result:
+tail -n 20 $log
 do_and_log "Building OTP" ./otp_build boot -a
 
 if [ "$1" = "release" ]; then
