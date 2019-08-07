@@ -2166,7 +2166,11 @@ clause_con(C) -> arg_con(clause_arg(C)).
 
 clause_val(C) -> arg_val(clause_arg(C), C).
 
-is_var_clause(C) -> clause_con(C) =:= k_var.
+is_var_clause(C) ->
+    case arg_arg(clause_arg(C)) of
+        #k_var{} -> true;
+        _ -> false
+    end.
 
 %% arg_arg(Arg) -> Arg.
 %% arg_alias(Arg) -> Aliases.
