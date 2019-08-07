@@ -40,6 +40,15 @@
          lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2,
          alloc_blocks_size/1]).
 
+%% Reroutes calls to the given MFA to error_handler:breakpoint/3
+%%
+%% Note that this is potentially unsafe as compiled code may assume that the
+%% targeted function returns a specific type, triggering undefined behavior if
+%% this function were to return something else.
+%%
+%% For reference, the debugger avoids the issue by purging the affected module
+%% and interpreting all functions in the module, ensuring that no assumptions
+%% are made with regard to return or argument types.
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
               Function :: atom(),
