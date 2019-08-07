@@ -67,6 +67,79 @@
 -type connection_ref() :: ssh:connection_ref().
 -type channel_id()     :: ssh:channel_id().
 
+-type req_status() :: success | failure .
+-type reason() :: closed | timeout .
+
+-type result() :: req_status() | {error, reason()} .
+
+-type ssh_data_type_code() :: non_neg_integer(). % Only 0 and 1 are used
+
+
+%%% The SSH Connection Protocol
+
+-export_type([event/0,
+              ssh_event_msg/0,
+              data_event/0,
+              data_data_event/0,
+              data_eof_event/0,
+              status_event/0,
+              status_signal_event/0,
+              status_exit_signal_event/0,
+              status_exit_status_event/0,
+              status_closed_event/0,
+              terminal_event/0,
+              terminal_env_event/0,
+              terminal_pty_event/0,
+              terminal_shell_event/0,
+              terminal_window_change_event/0,
+              terminal_exec_event/0
+             ]).
+
+-type event() :: {ssh_cm, ssh:connection_ref(), ssh_event_msg()}.
+-type ssh_event_msg() :: data_event() | status_event() | terminal_event() .
+
+-type data_event() :: data_data_event()
+                    | data_eof_event() .
+-type data_data_event() :: {data, ssh:channel_id(), ssh_data_type_code(), Data :: binary()} .
+-type data_eof_event() :: {eof, ssh:channel_id()} .
+
+
+-type status_event() :: status_signal_event()
+                      | status_exit_signal_event()
+                      | status_exit_status_event()
+                      | status_closed_event() .
+
+-type status_signal_event() :: {signal, ssh:channel_id(), SignalName::string()} .
+-type status_exit_signal_event() :: {exit_signal, ssh:channel_id(),
+                                     ExitSignal :: string(),
+                                     ErrorMsg ::string(),
+                                     LanguageString :: string()} .
+-type status_exit_status_event() :: {exit_status, ssh:channel_id(), ExitStatus :: integer()} .
+-type status_closed_event() :: {closed, ssh:channel_id()} .
+
+-type terminal_event() :: terminal_env_event()
+                        | terminal_pty_event()
+                        | terminal_shell_event()
+                        | terminal_window_change_event()
+                        | terminal_exec_event() .
+
+-type terminal_env_event() :: {env, ssh:channel_id(), WantReply :: boolean(), Var ::string(), Value :: string()} .
+-type terminal_pty_event() :: {pty, ssh:channel_id(),
+                               WantReply :: boolean(),
+                               {Terminal :: string(), CharWidth :: integer(), RowHeight :: integer(), PixelWidth :: integer(), PixelHeight :: integer(),
+                                TerminalModes :: [{Opcode  :: atom() | integer(),
+                                                   Value :: integer()}]}} .
+-type terminal_shell_event() :: {shell, WantReply :: boolean()} .
+-type terminal_window_change_event() :: {window_change, ssh:channel_id(), CharWidth :: integer(),
+                                         RowHeight :: integer(), PixWidth :: integer(), PixHeight :: integer()} .
+-type terminal_exec_event() :: {exec, ssh:channel_id(), WantReply :: boolean(), Cmd :: string()} .
+
+%%% This function is soley to convince all
+%%% checks that the type event() exists...
+-export([dummy/1]).
+-spec dummy(event()) -> false.
+dummy(_) -> false.
+
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
@@ -77,14 +150,21 @@
 %% application, a system command, or some built-in subsystem.
 %% --------------------------------------------------------------------
 
--spec session_channel(connection_ref(), timeout()) ->
-                             {ok, channel_id()} | {error, timeout | closed}.
+-spec session_channel(ConnectionRef, Timeout) -> Result when
+      ConnectionRef :: ssh:connection_ref(),
+      Timeout :: timeout(),
+      Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
 session_channel(ConnectionHandler, Timeout) ->
     session_channel(ConnectionHandler, ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
 
--spec session_channel(connection_ref(), integer(), integer(), timeout()) ->
-                             {ok, channel_id()} | {error, timeout | closed}.
+
+-spec session_channel(ConnectionRef, InitialWindowSize, MaxPacketSize, Timeout) -> Result when
+      ConnectionRef :: ssh:connection_ref(),
+      InitialWindowSize :: pos_integer(),
+      MaxPacketSize :: pos_integer(),
+      Timeout :: timeout(),
+      Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
 session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
     case ssh_connection_handler:open_channel(ConnectionHandler, "session", <<>>,
@@ -100,8 +180,11 @@ session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
 %% Description: Will request that the server start the
 %% execution of the given command. 
 %%--------------------------------------------------------------------
--spec exec(connection_ref(), channel_id(), string(), timeout()) -> 
-		  success | failure | {error, timeout | closed}.
+-spec exec(ConnectionRef, ChannelId, Command, Timeout) -> result() when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Command :: string(),
+      Timeout :: timeout().
 
 exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId, "exec",
@@ -112,8 +195,10 @@ exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
 %% defined in /etc/passwd in UNIX systems) be started at the other
 %% end.
 %%--------------------------------------------------------------------
--spec shell(connection_ref(), channel_id()) -> 
-                   ok | success | failure | {error, timeout}.
+-spec shell(ConnectionRef, ChannelId) -> Result when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Result :: ok | success | failure | {error, timeout} .
 
 shell(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId,
@@ -122,8 +207,11 @@ shell(ConnectionHandler, ChannelId) ->
 %%
 %% Description: Executes a predefined subsystem.
 %%--------------------------------------------------------------------
--spec subsystem(connection_ref(), channel_id(), string(), timeout()) -> 
-		       success | failure | {error, timeout | closed}.
+-spec subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> result() when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Subsystem  :: string(),
+      Timeout :: timeout().
 
 subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
      ssh_connection_handler:request(ConnectionHandler, self(),
@@ -134,12 +222,13 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 %%--------------------------------------------------------------------
 -spec send(connection_ref(), channel_id(), iodata()) ->
 		  ok | {error, timeout | closed}.
+
 send(ConnectionHandler, ChannelId, Data) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity).
 
 
--spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
-		  ok | {error, timeout | closed}.
+-spec send(connection_ref(), channel_id(), iodata(), timeout()) -> ok |  {error, reason()};
+          (connection_ref(), channel_id(), ssh_data_type_code(), iodata()) -> ok |  {error, reason()}.
 
 send(ConnectionHandler, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
     send(ConnectionHandler, ChannelId, 0, Data, TimeOut);
@@ -151,14 +240,15 @@ send(ConnectionHandler, ChannelId, Type, Data) ->
     send(ConnectionHandler, ChannelId, Type, Data, infinity).
 
 
--spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
-		  ok | {error, timeout | closed}.
+-spec send(connection_ref(), channel_id(), ssh_data_type_code(), iodata(), timeout()) -> ok |  {error, reason()}.
 
 send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
     ssh_connection_handler:send(ConnectionHandler, ChannelId,
 				Type, Data, TimeOut).
 %%--------------------------------------------------------------------
--spec send_eof(connection_ref(), channel_id()) -> ok | {error, closed}.
+-spec send_eof(ConnectionRef, ChannelId) -> ok  | {error, closed} when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id().
 %%
 %%
 %% Description: Sends eof on the channel <ChannelId>.
@@ -167,7 +257,10 @@ send_eof(ConnectionHandler, Channel) ->
     ssh_connection_handler:send_eof(ConnectionHandler, Channel).
 
 %%--------------------------------------------------------------------
--spec adjust_window(connection_ref(), channel_id(), integer()) -> ok.
+-spec adjust_window(ConnectionRef, ChannelId, NumOfBytes) -> ok when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      NumOfBytes  :: integer().
 %%
 %%
 %% Description: Adjusts the ssh flowcontrol window.
@@ -176,8 +269,12 @@ adjust_window(ConnectionHandler, Channel, Bytes) ->
     ssh_connection_handler:adjust_window(ConnectionHandler, Channel, Bytes).
 
 %%--------------------------------------------------------------------
--spec setenv(connection_ref(), channel_id(), string(), string(), timeout()) ->  
-		    success | failure | {error, timeout | closed}.
+-spec setenv(ConnectionRef, ChannelId, Var, Value, Timeout) -> result() when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Var :: string(),
+      Value :: string(),
+      Timeout :: timeout().
 %%
 %%
 %% Description: Environment variables may be passed to the shell/command to be
@@ -189,7 +286,9 @@ setenv(ConnectionHandler, ChannelId, Var, Value, TimeOut) ->
 
 
 %%--------------------------------------------------------------------
--spec close(connection_ref(), channel_id()) -> ok.
+-spec close(ConnectionRef, ChannelId) -> ok when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id().
 %%
 %%
 %% Description: Sends a close message on the channel <ChannelId>.
@@ -198,7 +297,11 @@ close(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:close(ConnectionHandler, ChannelId).
 
 %%--------------------------------------------------------------------
--spec reply_request(connection_ref(), boolean(), success | failure, channel_id()) -> ok.
+-spec reply_request(ConnectionRef, WantReply, Status, ChannelId) -> ok when
+      ConnectionRef :: ssh:connection_ref(),
+      WantReply :: boolean(),
+      Status :: req_status(),
+      ChannelId :: ssh:channel_id().
 %%
 %%
 %% Description: Send status replies to requests that want such replies.
@@ -211,15 +314,20 @@ reply_request(_,false, _, _) ->
 %%--------------------------------------------------------------------
 %% Description: Sends a ssh connection protocol pty_req.
 %%--------------------------------------------------------------------
--spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist()) -> 
-			success | failure | {error, timeout}.
+-spec ptty_alloc(ConnectionRef, ChannelId, Options) -> result() when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Options  :: proplists:proplist().
 
 ptty_alloc(ConnectionHandler, Channel, Options) ->
     ptty_alloc(ConnectionHandler, Channel, Options, infinity).
 
 
--spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist(), timeout()) -> 
-			success | failure | {error, timeout | closed}.
+-spec ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -> result() when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Options  :: proplists:proplist(),
+      Timeout :: timeout().
 
 ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
     TermData = backwards_compatible(Options0, []), % FIXME
@@ -252,6 +360,10 @@ signal(ConnectionHandler, Channel, Sig) ->
 				   "signal", false, [?string(Sig)], 0).
 
 
+-spec exit_status(ConnectionRef, ChannelId, Status) -> ok when
+      ConnectionRef :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      Status  :: integer().
 exit_status(ConnectionHandler, Channel, Status) ->
     ssh_connection_handler:request(ConnectionHandler, Channel,
 				   "exit-status", false, [?uint32(Status)], 0).
