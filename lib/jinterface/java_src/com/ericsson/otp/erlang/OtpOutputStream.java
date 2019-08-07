@@ -106,9 +106,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     }
 
     /**
-     * Trims the capacity of this <tt>OtpOutputStream</tt> instance to be the
+     * Trims the capacity of this <code>OtpOutputStream</code> instance to be the
      * buffer's current size. An application can use this operation to minimize
-     * the storage of an <tt>OtpOutputStream</tt> instance.
+     * the storage of an <code>OtpOutputStream</code> instance.
      */
     public void trimToSize() {
         resize(super.count);
@@ -125,7 +125,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     }
 
     /**
-     * Increases the capacity of this <tt>OtpOutputStream</tt> instance, if
+     * Increases the capacity of this <code>OtpOutputStream</code> instance, if
      * necessary, to ensure that it can hold at least the number of elements
      * specified by the minimum capacity argument.
      *
@@ -909,7 +909,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @param o
      *            the Erlang term to write.
      * @param level
-     *            the compression level (<tt>0..9</tt>)
+     *            the compression level (<code>0..9</code>)
      */
     public void write_compressed(final OtpErlangObject o, final int level) {
         @SuppressWarnings("resource")
