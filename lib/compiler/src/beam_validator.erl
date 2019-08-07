@@ -151,8 +151,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 %%                      instructions.
 -type tag() :: initialized |
                uninitialized |
-               {catchtag, [label()]} |
-               {trytag, [label()]}.
+               {catchtag, ordsets:ordset(label())} |
+               {trytag, ordsets:ordset(label())}.
 
 -type x_regs() :: #{ {x, index()} => #value_ref{} }.
 -type y_regs() :: #{ {y, index()} => tag() | #value_ref{} }.
@@ -180,7 +180,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
          hf=0,
          %% Floating point state.
          fls=undefined,
-         %% List of hot catch/try labels
+         %% List of hot catch/try tags
          ct=[],
          %% Previous instruction was setelement/3.
          setelem=false,
@@ -556,25 +556,25 @@ valfun_1({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(catchtag, Dst, Fail, Vst);
 valfun_1({'try',Dst,{f,Fail}}, Vst)  when Fail =/= none ->
     init_try_catch_branch(trytag, Dst, Fail, Vst);
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
+valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
-        {catchtag,Fail} ->
+        {catchtag,_Fail}=Tag ->
             %% {x,0} contains the caught term, if any.
             create_term(any, catch_end, [], {x,0}, kill_catch_tag(Reg, Vst0));
         Type ->
             error({wrong_tag_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst) ->
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
     case get_tag_type(Reg, Vst) of
-        {trytag,Fail} ->
+        {trytag,_Fail}=Tag ->
             %% Kill the catch tag, note that x registers are unaffected.
             kill_catch_tag(Reg, Vst);
         Type ->
             error({wrong_tag_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
+valfun_1({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
-        {trytag,Fail} ->
+        {trytag,_Fail}=Tag ->
             %% Kill the catch tag and all x registers.
             Vst1 = prune_x_regs(0, kill_catch_tag(Reg, Vst0)),
 
@@ -615,22 +615,29 @@ valfun_1({jump,{f,Lbl}}, Vst) ->
 valfun_1(I, Vst) ->
     valfun_2(I, Vst).
 
-init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
-    Vst1 = create_tag({Tag,[Fail]}, 'try_catch', [], Dst, Vst0),
-    #vst{current=#st{ct=Fails}=St0} = Vst1,
-    St = St0#st{ct=[[Fail]|Fails]},
-    Vst = Vst0#vst{current=St},
+init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
+    Tag = {Kind, [Fail]},
+    Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
     branch(Fail, Vst,
-           fun(CatchVst) ->
-                    #vst{current=#st{ys=Ys}} = CatchVst,
-                    maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
+           fun(CatchVst0) ->
+                   %% We add the tag here because branch/4 rejects jumps to
+                   %% labels referenced by try tags.
+                   #vst{current=#st{ct=Tags,ys=Ys}=St0} = CatchVst0,
+                   St = St0#st{ct=[Tag|Tags]},
+                   CatchVst = CatchVst0#vst{current=St},
+
+                   maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
            end,
-           fun(SuccVst) ->
-                    %% All potentially-throwing instructions after this
-                    %% one will implicitly branch to the fail label;
-                    %% see valfun_2/2
-                    SuccVst
+           fun(SuccVst0) ->
+                   #vst{current=#st{ct=Tags}=St0} = SuccVst0,
+                   St = St0#st{ct=[Tag|Tags]},
+                   SuccVst = SuccVst0#vst{current=St},
+        
+                   %% All potentially-throwing instructions after this one will
+                   %% implicitly branch to the current try/catch handler; see
+                   %% valfun_2/2
+                   SuccVst
            end).
 
 %% Set the initial state at the try/catch label. Assume that Y registers
@@ -642,11 +649,11 @@ init_catch_handler_1(Reg, uninitialized, Vst) ->
 init_catch_handler_1(_, _, Vst) ->
     Vst.
 
-valfun_2(I, #vst{current=#st{ct=[[Fail]|_]}}=Vst) when is_integer(Fail) ->
+valfun_2(I, #vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst) when is_integer(Fail) ->
     %% We have an active try/catch tag and we can jump there from this
     %% instruction, so we need to update the branched state of the try/catch
     %% handler.
-    valfun_3(I, branch_state(Fail, Vst));
+    valfun_3(I, fork_state(Fail, Vst));
 valfun_2(I, #vst{current=#st{ct=[]}}=Vst) ->
     valfun_3(I, Vst);
 valfun_2(_, _) ->
@@ -1930,9 +1937,9 @@ new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
 
     {Ref, Vst#vst{current=St#st{vs=Vs},ref_ctr=Counter+1}}.
 
-kill_catch_tag(Reg, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
-    Vst = Vst0#vst{current=St#st{ct=Fails,fls=undefined}},
-    {_, Fail} = get_tag_type(Reg, Vst),         %Assertion.
+kill_catch_tag(Reg, #vst{current=#st{ct=[Tag|Tags]}=St}=Vst0) ->
+    Vst = Vst0#vst{current=St#st{ct=Tags,fls=undefined}},
+    Tag = get_tag_type(Reg, Vst),               %Assertion.
     kill_tag(Reg, Vst).
 
 check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
@@ -2112,10 +2119,12 @@ get_literal_type(T) ->
              SuccFun :: BranchFun) -> #vst{} when
      BranchFun :: fun((#vst{}) -> #vst{}).
 branch(Lbl, Vst0, FailFun, SuccFun) ->
+    validate_branch(Lbl, Vst0),
     #vst{current=St0} = Vst0,
+
     try FailFun(Vst0) of
         Vst1 ->
-            Vst2 = branch_state(Lbl, Vst1),
+            Vst2 = fork_state(Lbl, Vst1),
             Vst = Vst2#vst{current=St0},
             try SuccFun(Vst) of
                 V -> V
@@ -2133,6 +2142,24 @@ branch(Lbl, Vst0, FailFun, SuccFun) ->
             SuccFun(Vst0)
     end.
 
+validate_branch(Lbl, #vst{current=#st{ct=Tags}}) ->
+    validate_branch_1(Lbl, Tags).
+
+validate_branch_1(Lbl, [{trytag, FailLbls} | Tags]) ->
+    %% 'try_case' assumes that an exception has been thrown, so a direct branch
+    %% will crash the emulator.
+    %%
+    %% (Jumping to a 'catch_end' is fine however as it will simply nop in the
+    %% absence of an exception.)
+    case ordsets:is_element(Lbl, FailLbls) of
+        true -> error({illegal_branch, try_handler, Lbl});
+        false -> validate_branch_1(Lbl, Tags)
+    end;
+validate_branch_1(Lbl, [_ | Tags]) ->
+    validate_branch_1(Lbl, Tags);
+validate_branch_1(_Lbl, []) ->
+    ok.
+
 %% A shorthand version of branch/4 for when the state is only altered on
 %% success.
 branch(Fail, Vst, SuccFun) ->
@@ -2140,12 +2167,12 @@ branch(Fail, Vst, SuccFun) ->
 
 %% Directly branches off the state. This is an "internal" operation that should
 %% be used sparingly.
-branch_state(0, #vst{}=Vst) ->
+fork_state(0, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned looking for a catch
     %% tag. Therefore the Y registers must be initialized at this point.
     verify_y_init(Vst),
     Vst;
-branch_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
+fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
     case gb_trees:is_defined(L, B) of
         true ->
             {MergedSt, Counter} = merge_states(L, St, B, Counter0),
@@ -2225,10 +2252,10 @@ merge_tags(uninitialized, _) ->
     uninitialized;
 merge_tags(_, uninitialized) ->
     uninitialized;
-merge_tags({catchtag,T0}, {catchtag,T1}) ->
-    {catchtag, ordsets:from_list(T0 ++ T1)};
-merge_tags({trytag,T0}, {trytag,T1}) ->
-    {trytag, ordsets:from_list(T0 ++ T1)};
+merge_tags({trytag, LblsA}, {trytag, LblsB}) ->
+    {trytag, ordsets:union(LblsA, LblsB)};
+merge_tags({catchtag, LblsA}, {catchtag, LblsB}) ->
+    {catchtag, ordsets:union(LblsA, LblsB)};
 merge_tags(_A, _B) ->
     %% All other combinations leave the register initialized. Errors arising
     %% from this will be caught later on.
@@ -2299,10 +2326,14 @@ merge_stk(_, _) -> undecided.
 merge_ct(S, S) -> S;
 merge_ct(Ct0, Ct1) -> merge_ct_1(Ct0, Ct1).
 
-merge_ct_1([C0|Ct0], [C1|Ct1]) ->
-    [ordsets:from_list(C0++C1)|merge_ct_1(Ct0, Ct1)];
-merge_ct_1([], []) -> [];
-merge_ct_1(_, _) -> undecided.
+merge_ct_1([], []) ->
+    [];
+merge_ct_1([{trytag, LblsA} | CtA], [{trytag, LblsB} | CtB]) ->
+    [{trytag, ordsets:union(LblsA, LblsB)} | merge_ct_1(CtA, CtB)];
+merge_ct_1([{catchtag, LblsA} | CtA], [{catchtag, LblsB} | CtB]) ->
+    [{catchtag, ordsets:union(LblsA, LblsB)} | merge_ct_1(CtA, CtB)];
+merge_ct_1(_, _) ->
+    undecided.
 
 verify_y_init(#vst{current=#st{numy=NumY,ys=Ys}}=Vst) when is_integer(NumY) ->
     HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),

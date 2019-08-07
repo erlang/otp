@@ -35,7 +35,8 @@
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
-         infer_on_eq/1,infer_dead_value/1,infer_on_ne/1]).
+         infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
+         branch_to_try_handler/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +66,8 @@ groups() ->
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
-       infer_on_eq,infer_dead_value,infer_on_ne]}].
+       infer_on_eq,infer_dead_value,infer_on_ne,
+       branch_to_try_handler]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -740,6 +742,17 @@ idv_2(State) ->
     end.
 
 idv_called_once(_State) -> ok.
+
+%% Direct jumps to try/catch handlers crash the emulator and must fail
+%% validation. This is provoked by OTP-15945.
+
+branch_to_try_handler(Config) ->
+    Errors = do_val(branch_to_try_handler, Config),
+    [{{branch_to_try_handler,main,1},
+      {{bif,tuple_size,{f,3},[{y,0}],{x,0}},
+       12,
+       {illegal_branch,try_handler,3}}}] = Errors,
+    ok.
 
 %%%-------------------------------------------------------------------------
 
