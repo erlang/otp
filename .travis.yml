@@ -78,7 +78,7 @@ matrix:
         repo: erlang/cd
         target-branch: master
         skip-cleanup: true
-        keep-history: true
+        keep-history: false
         verbose: true
         github-token: $ERLANG_CD_GITHUB_TOKEN
         on:
