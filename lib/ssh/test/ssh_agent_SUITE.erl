@@ -39,18 +39,14 @@ all() ->
 
 init_per_suite(Config) ->
     ok = ssh:start(),
-    TempDir = filename:join(["", "tmp", ?MODULE_STRING]),
-    ok = file:make_dir(TempDir),
-    put_temp_dir(Config, TempDir).
+    Config.
 
-end_per_suite(Config) ->
-    TempDir = get_temp_dir(Config),
-    ok = file:del_dir(TempDir),
+end_per_suite(_Config) ->
     ok = ssh:stop().
 
 init_per_testcase(_TestCase, Config) ->
-    TempDir = get_temp_dir(Config),
-    PathPrefix = filename:join(TempDir, "agent."),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    PathPrefix = filename:join(PrivDir, "agent."),
     SocketPath = test_server:temp_name(PathPrefix),
     put_socket_path(Config, SocketPath).
 
@@ -85,12 +81,6 @@ request_identities(Config) ->
     ok.
 
 %% Utility functions
-
-put_temp_dir(Config, TempDir) ->
-    [{temp_dir, TempDir} | Config].
-
-get_temp_dir(Config) ->
-    proplists:get_value(temp_dir, Config).
 
 put_socket_path(Config, SocketPath) ->
     [{socket_path, SocketPath} | Config].
