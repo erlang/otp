@@ -603,6 +603,10 @@ bs_instrs([{L,#b_blk{is=Is0}=Blk}|Bs], CtxChain, Acc0) ->
 bs_instrs([], _, Acc) ->
     reverse(Acc).
 
+bs_instrs_is([#b_set{op=succeeded}=I|Is], CtxChain, Acc) ->
+    %% This instruction refers to a specific operation, so we must not
+    %% substitute the context argument.
+    bs_instrs_is(Is, CtxChain, [I | Acc]);
 bs_instrs_is([#b_set{op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
     Args = [bs_subst_ctx(A, CtxChain) || A <- Args0],
     I1 = I0#b_set{args=Args},

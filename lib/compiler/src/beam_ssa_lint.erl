@@ -65,7 +65,13 @@ format_error({{_M,F,A},{phi_inside_block, Name, Id}}) ->
                   [F, A, format_var(Name), Id]);
 format_error({{_M,F,A},{undefined_label_in_phi, Label, I}}) ->
     io_lib:format("~p/~p: Unknown block label ~p in phi node ~ts",
-                  [F, A, Label, format_instr(I)]).
+                  [F, A, Label, format_instr(I)]);
+format_error({{_M,F,A},{succeeded_not_preceded, I}}) ->
+    io_lib:format("~p/~p: ~ts does not reference the preceding instruction",
+                  [F, A, format_instr(I)]);
+format_error({{_M,F,A},{succeeded_not_last, I}}) ->
+    io_lib:format("~p/~p: ~ts is not the last instruction in its block",
+                  [F, A, format_instr(I)]).
 
 format_instr(I) ->
     [$',beam_ssa_pp:format_instr(I),$'].
@@ -229,6 +235,18 @@ vvars_block(Id, State0) ->
       State :: #vvars{}.
 vvars_block_1([], State) ->
     State;
+vvars_block_1([#b_set{dst=OpVar,args=OpArgs}=I,
+               #b_set{op=succeeded,args=[OpVar],dst=SuccVar}], State) ->
+    ok = vvars_assert_args(OpArgs, I, State),
+    vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
+vvars_block_1([#b_set{op=succeeded,args=Args}=I | [_|_]], State) ->
+    ok = vvars_assert_args(Args, I, State),
+    %% 'succeeded' must be the last instruction in its block.
+    throw({succeeded_not_last, I});
+vvars_block_1([#b_set{op=succeeded,args=Args}=I], State)->
+    ok = vvars_assert_args(Args, I, State),
+    %% 'succeeded' must be be directly preceded by the operation it checks.
+    throw({succeeded_not_preceded, I});
 vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], State) ->
     %% We don't check phi node arguments at this point since we may not have
     %% visited their definition yet. They'll be handled later on in
