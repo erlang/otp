@@ -40,6 +40,7 @@
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
 	 shell/1, shell/2, shell/3,
          direct_tcpip/5,
+         direct_tcpip/6,
          tcpip_forward/5,
          tcpip_forward/6
 	]).
@@ -458,37 +459,51 @@ start_shell(Error) ->
 
 -spec direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort) -> Result when
       ConnectionRef :: connection_ref(),
-      LocalHost :: host(),
+      LocalHost :: any | loopback | inet:ip_address(),
       LocalPort :: inet:port_number(),
-      RemoteHost :: host(),
+      RemoteHost :: loopback | inet:ip_address(),
       RemotePort :: inet:port_number(),
       Result :: {ok, ip_port()} | {error, any()}.
 direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort) ->
-    LocalHost1 = list_to_binary(address_to_string(LocalHost, [])),
-    RemoteHost1 = list_to_binary(mangle_connect_address(RemoteHost, [])),
+    direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort, []).
+
+-spec direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort, Options) -> Result when
+      ConnectionRef :: connection_ref(),
+      LocalHost :: any | loopback | inet:ip_address(),
+      LocalPort :: inet:port_number(),
+      RemoteHost :: loopback | inet:ip_address(),
+      RemotePort :: inet:port_number(),
+      Options :: [inet6],
+      Result :: {ok, ip_port()} | {error, any()}.
+direct_tcpip(ConnectionRef, LocalHost, LocalPort, RemoteHost, RemotePort, Options) ->
+    Options1 = check_direct_tcpip_opts(Options),
+    LocalHost1 = address_to_binary(LocalHost, Options1),
+    RemoteHost1 = address_to_binary(RemoteHost, Options1),
     ssh_connection_handler:direct_tcpip(ConnectionRef, LocalHost1, LocalPort, RemoteHost1, RemotePort).
 
 -spec tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort) -> Result when
       ConnectionRef :: connection_ref(),
-      RemoteHost :: host(),
+      RemoteHost :: any | loopback | inet:ip_address(),
       RemotePort :: inet:port_number(),
-      LocalHost :: host(),
+      LocalHost :: loopback | inet:ip_address(),
       LocalPort :: inet:port_number(),
       Result :: {ok, ip_port()} | {error, any()}.
 tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort) ->
-    tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, infinity).
+    tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, []).
 
--spec tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) -> Result when
+-spec tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Options) -> Result when
       ConnectionRef :: connection_ref(),
-      RemoteHost :: host(),
+      RemoteHost :: any | loopback | inet:ip_address(),
       RemotePort :: inet:port_number(),
-      LocalHost :: host(),
+      LocalHost :: loopback | inet:ip_address(),
       LocalPort :: inet:port_number(),
-      Timeout :: timeout(),
+      Options :: [inet6 | {timeout, timeout()}],
       Result :: {ok, ip_port()} | {error, any()}.
-tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Timeout) ->
-    RemoteHost1 = list_to_binary(mangle_connect_address(RemoteHost, [])),
-    LocalHost1 = list_to_binary(address_to_string(LocalHost, [])),
+tcpip_forward(ConnectionRef, RemoteHost, RemotePort, LocalHost, LocalPort, Options) ->
+    Options1 = check_tcpip_forward_opts(Options),
+    Timeout = proplists:get_value(timeout, Options1, infinity),
+    RemoteHost1 = address_to_binary(RemoteHost, Options1),
+    LocalHost1 = address_to_binary(LocalHost, Options1),
     ssh_connection_handler:tcpip_forward(ConnectionRef,
                                          RemoteHost1, RemotePort, LocalHost1, LocalPort,
                                          Timeout).
@@ -638,11 +653,21 @@ mangle_connect_address1(A, _) ->
         _ -> A
     end.
 
-address_to_string(A, SockOpts) ->
-    address_to_string1(mangle_connect_address(A, SockOpts)).
+address_to_binary(A, SockOpts) ->
+    list_to_binary(inet_parse:ntoa(mangle_connect_address(A, SockOpts))).
 
-address_to_string1(A) when is_tuple(A) ->
-    inet_parse:ntoa(A);
-address_to_string1(A) when is_list(A) ->
-    {ok, _} = inet:getaddr(A, inet),
-    A.
+check_direct_tcpip_opts(Opts) ->
+    case proplists:split(Opts, [inet6]) of
+        {_, []} ->
+            Opts;
+        {_, _} ->
+            error(badarg)
+    end.
+
+check_tcpip_forward_opts(Opts) ->
+    case proplists:split(Opts, [inet6, timeout]) of
+        {_, []} ->
+            Opts;
+        {_, _} ->
+            error(badarg)
+    end.

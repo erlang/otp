@@ -86,7 +86,7 @@ init({Role, ConnManager, Host, Port, FwdHost, FwdPort, ChannelSup, Options}) ->
             <<"localhost">> ->
                 [{ip, {127, 0, 0, 1}}];
             _ ->
-                {ok, IP} = inet:parse_address(Host),
+                {ok, IP} = inet:parse_address(binary_to_list(Host)),
                 [{ip, IP}]
         end,
     case gen_tcp:listen(Port, LsnOpts ++ ?tcp_options) of

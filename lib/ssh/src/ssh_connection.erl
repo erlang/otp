@@ -334,38 +334,41 @@ handle_msg(#ssh_msg_channel_failure{recipient_channel = ChannelId}, Connection, 
 
 handle_msg(#ssh_msg_channel_eof{recipient_channel = ChannelId}, Connection, _) ->
     reply_msg(ChannelId, Connection, {eof, ChannelId});
-   
-handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},   
-	   #connection{channel_cache = Cache} = Connection0, _) ->
 
-	case ssh_client_channel:cache_lookup(Cache, ChannelId) of
-		#channel{sent_close = Closed, remote_id = RemoteId,
-			 flow_control = FlowControl} = Channel ->
-		ssh_client_channel:cache_delete(Cache, ChannelId),
-		{CloseMsg, Connection} = 
-		    reply_msg(Channel, Connection0, {closed, ChannelId}),
-		ConnReplyMsgs =
-		    case Closed of
-			true -> [];
-			false ->
-			    RemoteCloseMsg = channel_close_msg(RemoteId),
-			    [{connection_reply, RemoteCloseMsg}]
-		    end,
+handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},
+           #connection{channel_cache = Cache} = Connection0, _) ->
 
-		%% if there was a send() in progress, make it fail
-		SendReplyMsgs =
-		    case FlowControl of
-			undefined -> [];
-			From ->
-			    [{flow_control, From, {error, closed}}]
-		    end,
+        case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+                #channel{sent_close = Closed, remote_id = RemoteId,
+                         flow_control = FlowControl} = Channel ->
+                ssh_client_channel:cache_delete(Cache, ChannelId),
+                {CloseMsg, Connection} =
+                    reply_msg(Channel, Connection0, {closed, ChannelId}),
+                ConnReplyMsgs =
+                    case Closed of
+                        true -> [];
+                        %% we can receive message before remote returns remote_id
+                        false when RemoteId == undefined ->
+                            [];
+                        false ->
+                            RemoteCloseMsg = channel_close_msg(RemoteId),
+                            [{connection_reply, RemoteCloseMsg}]
+                    end,
 
-		Replies = ConnReplyMsgs ++ CloseMsg ++ SendReplyMsgs,
-		{Replies, Connection};
+                %% if there was a send() in progress, make it fail
+                SendReplyMsgs =
+                    case FlowControl of
+                        undefined -> [];
+                        From ->
+                            [{flow_control, From, {error, closed}}]
+                    end,
 
-	    undefined ->
-		{[], Connection0}
-	end;
+                Replies = ConnReplyMsgs ++ CloseMsg ++ SendReplyMsgs,
+                {Replies, Connection};
+
+            undefined ->
+                {[], Connection0}
+        end;
 
 handle_msg(#ssh_msg_channel_data{recipient_channel = ChannelId,
 				 data = Data}, 

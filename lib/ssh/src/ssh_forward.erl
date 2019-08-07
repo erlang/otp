@@ -164,7 +164,11 @@ terminate(_Reason, #st{socket = Sock}) ->
 %%--------------------------------------------------------------------
 
 init_socket(Parent, Addr, Port, Opts) ->
-    case gen_tcp:connect(Addr, Port, Opts) of
+    Addr1 = case inet:parse_address(Addr) of
+                {ok, IP} -> IP;
+                {error, _} -> Addr % maybe DN
+            end,
+    case gen_tcp:connect(Addr1, Port, Opts) of
         {ok, Sock} ->
             ok = gen_tcp:controlling_process(Sock, Parent),
             set_socket(Parent, Sock);
