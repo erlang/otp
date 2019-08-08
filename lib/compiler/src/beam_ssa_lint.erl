@@ -65,13 +65,19 @@ format_error({{_M,F,A},{phi_inside_block, Name, Id}}) ->
                   [F, A, format_var(Name), Id]);
 format_error({{_M,F,A},{undefined_label_in_phi, Label, I}}) ->
     io_lib:format("~p/~p: Unknown block label ~p in phi node ~ts",
-                  [F, A, Label, format_instr(I)]).
+                  [F, A, Label, format_instr(I)]);
+format_error({{_M,F,A},{succeeded_not_preceded, I}}) ->
+    io_lib:format("~p/~p: ~ts does not reference the preceding instruction",
+                  [F, A, format_instr(I)]);
+format_error({{_M,F,A},{succeeded_not_last, I}}) ->
+    io_lib:format("~p/~p: ~ts is not the last instruction in its block",
+                  [F, A, format_instr(I)]).
 
 format_instr(I) ->
     [$',beam_ssa_pp:format_instr(I),$'].
 
 format_var(V) ->
-    beam_ssa_pp:format_var(#b_var{name=V}).
+    beam_ssa_pp:format_var(V).
 
 validate_function(F) ->
     try
@@ -86,34 +92,36 @@ validate_function(F) ->
             erlang:raise(Class, Error, Stack)
     end.
 
--type defined_vars() :: gb_sets:set(beam_ssa:var_name()).
+-type defined_vars() :: gb_sets:set(beam_ssa:argument()).
 
 -record(vvars,
         {blocks :: #{ beam_ssa:label() => beam_ssa:b_blk() },
          branch_def_vars :: #{
-           %% Describes the variable state at the time of this exact branch (phi
-           %% node validation).
-           {From :: beam_ssa:label(), To :: beam_ssa:label()} => defined_vars(),
-           %% Describes the variable state common to all branches leading to this
-           %% label (un/redefined variable validation).
-           beam_ssa:label() => defined_vars() },
+                              %% Describes the variable state at the time of
+                              %% this exact branch (phi node validation).
+                              {From :: beam_ssa:label(),
+                               To :: beam_ssa:label()} => defined_vars(),
+                              %% Describes the variable state common to all
+                              %% branches leading to this label (un/redefined
+                              %% variable validation).
+                              beam_ssa:label() => defined_vars() },
          defined_vars :: defined_vars()}).
 
 -spec validate_variables(beam_ssa:b_function()) -> ok.
 validate_variables(#b_function{ args = Args, bs = Blocks }) ->
     %% Prefill the mapping with function arguments.
-    ArgNames = vvars_get_varnames(Args),
-    DefVars = gb_sets:from_list(ArgNames),
+    Args = vvars_get_variables(Args),
+    DefVars = gb_sets:from_list(Args),
     Entry = 0,
 
     State = #vvars{blocks = Blocks,
                    branch_def_vars = #{ Entry => DefVars },
                    defined_vars = DefVars},
-    ok = vvars_assert_unique(Blocks, ArgNames),
+    ok = vvars_assert_unique(Blocks, Args),
     vvars_phi_nodes(vvars_block(Entry, State)).
 
 %% Checks the uniqueness of all variables across all blocks.
--spec vvars_assert_unique(Blocks, [beam_ssa:var_name()]) -> ok when
+-spec vvars_assert_unique(Blocks, [beam_ssa:b_var()]) -> ok when
       Blocks :: #{ beam_ssa:label() => beam_ssa:b_blk() }.
 vvars_assert_unique(Blocks, Args) ->
     BlockIs = [Is || #b_blk{is=Is} <- maps:values(Blocks)],
@@ -124,12 +132,12 @@ vvars_assert_unique(Blocks, Args) ->
     ok.
 
 -spec vvars_assert_unique_1(Is, Defined) -> ok when
-    Is :: list(beam_ssa:b_set()),
-    Defined :: #{ beam_ssa:var_name() => beam_ssa:b_set() }.
-vvars_assert_unique_1([#b_set{dst=#b_var{name=DstName}}=I|Is], Defined) ->
+      Is :: list(beam_ssa:b_set()),
+      Defined :: #{ beam_ssa:b_var() => beam_ssa:b_set() }.
+vvars_assert_unique_1([#b_set{dst=Dst}=I|Is], Defined) ->
     case Defined of
-        #{DstName:=Old} -> throw({redefined_variable, DstName, Old, I});
-        _ -> vvars_assert_unique_1(Is, Defined#{DstName=>I})
+        #{Dst:=Old} -> throw({redefined_variable, Dst, Old, I});
+        _ -> vvars_assert_unique_1(Is, Defined#{Dst=>I})
     end;
 vvars_assert_unique_1([], Defined) ->
     Defined.
@@ -141,17 +149,17 @@ vvars_phi_nodes(#vvars{ blocks = Blocks }=State) ->
     ok.
 
 -spec vvars_phi_nodes_1(Is, Id, State) -> ok when
-    Is :: list(beam_ssa:b_set()),
-    Id :: beam_ssa:label(),
-    State :: #vvars{}.
+      Is :: list(beam_ssa:b_set()),
+      Id :: beam_ssa:label(),
+      State :: #vvars{}.
 vvars_phi_nodes_1([#b_set{ op = phi, args = Phis }=I | Is], Id, State) ->
     ok = vvars_assert_phi_paths(Phis, I, Id, State),
     ok = vvars_assert_phi_vars(Phis, I, Id, State),
     vvars_phi_nodes_1(Is, Id, State);
 vvars_phi_nodes_1([_ | Is], Id, _State) ->
-    case [Dst || #b_set{op=phi,dst=#b_var{name=Dst}} <- Is] of
-        [Name|_] ->
-            throw({phi_inside_block, Name, Id});
+    case [Dst || #b_set{op=phi,dst=Dst} <- Is] of
+        [Var|_] ->
+            throw({phi_inside_block, Var, Id});
         [] ->
             ok
     end;
@@ -161,10 +169,10 @@ vvars_phi_nodes_1([], _Id, _State) ->
 %% Checks whether all paths leading to this phi node are represented, and that
 %% it doesn't reference any non-existent paths.
 -spec vvars_assert_phi_paths(Phis, I, Id, State) -> ok when
-    Phis :: list({beam_ssa:argument(), beam_ssa:label()}),
-    Id :: beam_ssa:label(),
-    I :: beam_ssa:b_set(),
-    State :: #vvars{}.
+      Phis :: list({beam_ssa:argument(), beam_ssa:label()}),
+      Id :: beam_ssa:label(),
+      I :: beam_ssa:b_set(),
+      State :: #vvars{}.
 vvars_assert_phi_paths(Phis, I, Id, State) ->
     BranchKeys = maps:keys(State#vvars.branch_def_vars),
     RequiredPaths = ordsets:from_list([From || {From, To} <- BranchKeys, To =:= Id]),
@@ -173,34 +181,34 @@ vvars_assert_phi_paths(Phis, I, Id, State) ->
         [_|_]=MissingPaths -> throw({missing_phi_paths, MissingPaths, I});
         [] -> ok
     end.
-    %% %% The following test is sometimes useful to find missing optimizations.
-    %% %% It is commented out, though, because it can be triggered by
-    %% %% by weird but legal code.
-    %% case ordsets:subtract(ProvidedPaths, RequiredPaths) of
-    %%     [_|_]=GarbagePaths -> throw({garbage_phi_paths, GarbagePaths, I});
-    %%     [] -> ok
-    %% end.
+%% %% The following test is sometimes useful to find missing optimizations.
+%% %% It is commented out, though, because it can be triggered by
+%% %% by weird but legal code.
+%% case ordsets:subtract(ProvidedPaths, RequiredPaths) of
+%%     [_|_]=GarbagePaths -> throw({garbage_phi_paths, GarbagePaths, I});
+%%     [] -> ok
+%% end.
 
 %% Checks whether all variables used in this phi node are defined in the branch
 %% they arrived on.
 -spec vvars_assert_phi_vars(Phis, I, Id, State) -> ok when
-    Phis :: list({beam_ssa:argument(), beam_ssa:label()}),
-    Id :: beam_ssa:label(),
-    I :: beam_ssa:b_set(),
-    State :: #vvars{}.
+      Phis :: list({beam_ssa:argument(), beam_ssa:label()}),
+      Id :: beam_ssa:label(),
+      I :: beam_ssa:b_set(),
+      State :: #vvars{}.
 vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,
                                           branch_def_vars=BranchDefVars}) ->
     Vars = [{Var, From} || {#b_var{}=Var, From} <- Phis],
-    foreach(fun({#b_var{name=VarName}, From}) ->
+    foreach(fun({Var, From}) ->
                     BranchKey = {From, Id},
                     case BranchDefVars of
                         #{BranchKey:=DefVars} ->
-                            case gb_sets:is_member(VarName, DefVars) of
+                            case gb_sets:is_member(Var, DefVars) of
                                 true -> ok;
-                                false -> throw({unknown_variable, VarName, I})
+                                false -> throw({unknown_variable, Var, I})
                             end;
                         #{} ->
-                            throw({unknown_phi_variable, VarName, BranchKey, I})
+                            throw({unknown_phi_variable, Var, BranchKey, I})
                     end
             end, Vars),
     Labels = [From || {#b_literal{},From} <- Phis],
@@ -214,32 +222,44 @@ vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,
             end, Labels).
 
 -spec vvars_block(Id, State) -> #vvars{} when
-    Id :: beam_ssa:label(),
-    State :: #vvars{}.
+      Id :: beam_ssa:label(),
+      State :: #vvars{}.
 vvars_block(Id, State0) ->
     #{ Id := #b_blk{ is = Is, last = Terminator} } = State0#vvars.blocks,
     #{ Id := DefVars } = State0#vvars.branch_def_vars,
     State = State0#vvars{ defined_vars = DefVars },
     vvars_terminator(Terminator, Id, vvars_block_1(Is, State)).
 
--spec vvars_block_1(Blocks, State) -> #vvars{} when
-    Blocks :: list(beam_ssa:b_blk()),
-    State :: #vvars{}.
+-spec vvars_block_1(Is, State) -> #vvars{} when
+      Is :: list(#b_set{}),
+      State :: #vvars{}.
 vvars_block_1([], State) ->
     State;
-vvars_block_1([#b_set{ dst = #b_var{ name = DstName }, op = phi } | Is], State0) ->
+vvars_block_1([#b_set{dst=OpVar,args=OpArgs}=I,
+               #b_set{op=succeeded,args=[OpVar],dst=SuccVar}], State) ->
+    ok = vvars_assert_args(OpArgs, I, State),
+    vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
+vvars_block_1([#b_set{op=succeeded,args=Args}=I | [_|_]], State) ->
+    ok = vvars_assert_args(Args, I, State),
+    %% 'succeeded' must be the last instruction in its block.
+    throw({succeeded_not_last, I});
+vvars_block_1([#b_set{op=succeeded,args=Args}=I], State)->
+    ok = vvars_assert_args(Args, I, State),
+    %% 'succeeded' must be be directly preceded by the operation it checks.
+    throw({succeeded_not_preceded, I});
+vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], State) ->
     %% We don't check phi node arguments at this point since we may not have
     %% visited their definition yet. They'll be handled later on in
     %% vvars_phi_nodes/1 after all blocks are processed.
-    vvars_block_1(Is, vvars_save_var(DstName, State0));
-vvars_block_1([#b_set{ dst = #b_var{ name = DstName }, args = Args }=I | Is], State0) ->
-    ok = vvars_assert_args(Args, I, State0),
-    vvars_block_1(Is, vvars_save_var(DstName, State0)).
+    vvars_block_1(Is, vvars_save_var(Dst, State));
+vvars_block_1([#b_set{ dst = Dst, args = Args }=I | Is], State) ->
+    ok = vvars_assert_args(Args, I, State),
+    vvars_block_1(Is, vvars_save_var(Dst, State)).
 
 -spec vvars_terminator(Terminator, From, State) -> #vvars{} when
-    Terminator :: beam_ssa:terminator(),
-    From :: beam_ssa:label(),
-    State :: #vvars{}.
+      Terminator :: beam_ssa:terminator(),
+      From :: beam_ssa:label(),
+      State :: #vvars{}.
 vvars_terminator(#b_ret{ arg = Arg }=I, _From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     State;
@@ -264,62 +284,62 @@ vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) -
     vvars_terminator_1(Labels, From, State).
 
 -spec vvars_terminator_1(Labels, From, State) -> #vvars{} when
-    Labels :: list(beam_ssa:label()),
-    From :: beam_ssa:label(),
-    State :: #vvars{}.
+      Labels :: list(beam_ssa:label()),
+      From :: beam_ssa:label(),
+      State :: #vvars{}.
 vvars_terminator_1(Labels0, From, State0) ->
     %% Filter out all branches that have already been taken. This should result
     %% in either all of Labels0 or an empty list.
     Labels = [To || To <- Labels0,
-              not maps:is_key({From, To}, State0#vvars.branch_def_vars)],
+                    not maps:is_key({From, To}, State0#vvars.branch_def_vars)],
     true = Labels =:= Labels0 orelse Labels =:= [], %Assertion
     State1 = foldl(fun(To, State) ->
-                       vvars_save_branch(From, To, State)
+                           vvars_save_branch(From, To, State)
                    end, State0, Labels),
     foldl(fun(To, State) ->
-              vvars_block(To, State)
+                  vvars_block(To, State)
           end, State1, Labels).
 
 %% Gets all variable names in args, ignoring literals etc
--spec vvars_get_varnames(Args) -> list(beam_ssa:var_name()) when
-    Args :: list(beam_ssa:argument()).
-vvars_get_varnames(Args) ->
-    [Name || #b_var{ name = Name } <- Args].
+-spec vvars_get_variables(Args) -> list(beam_ssa:b_var()) when
+      Args :: list(beam_ssa:argument()).
+vvars_get_variables(Args) ->
+    [Var || #b_var{}=Var <- Args].
 
 %% Checks that all variables in Args are defined in all paths leading to the
 %% current State.
 -spec vvars_assert_args(Args, I, State) -> ok when
-    Args :: list(beam_ssa:argument()),
-    I :: beam_ssa:terminator() | beam_ssa:b_set(),
-    State :: #vvars{}.
+      Args :: list(beam_ssa:argument()),
+      I :: beam_ssa:terminator() | beam_ssa:b_set(),
+      State :: #vvars{}.
 vvars_assert_args(Args, I, #vvars{defined_vars=DefVars}=State) ->
     foreach(fun(#b_remote{mod=Mod,name=Name}) ->
                     vvars_assert_args([Mod,Name], I, State);
-               (#b_var{name=Name}) ->
-                    case gb_sets:is_member(Name, DefVars) of
+               (#b_var{}=Var) ->
+                    case gb_sets:is_member(Var, DefVars) of
                         true -> ok;
-                        false -> throw({unknown_variable,Name,I})
+                        false -> throw({unknown_variable,Var,I})
                     end;
                (_) -> ok
             end, Args).
 
 %% Checks that all given labels are defined in State.
 -spec vvars_assert_labels(Labels, I, State) -> ok when
-    Labels :: list(beam_ssa:label()),
-    I :: beam_ssa:terminator(),
-    State :: #vvars{}.
+      Labels :: list(beam_ssa:label()),
+      I :: beam_ssa:terminator(),
+      State :: #vvars{}.
 vvars_assert_labels(Labels, I, #vvars{blocks=Blocks}) ->
     foreach(fun(Label) ->
-                case maps:is_key(Label, Blocks) of
-                    false -> throw({unknown_block, Label, I});
-                    true -> ok
-                end
+                    case maps:is_key(Label, Blocks) of
+                        false -> throw({unknown_block, Label, I});
+                        true -> ok
+                    end
             end, Labels).
 
 -spec vvars_save_branch(From, To, State) -> #vvars{} when
-    From :: beam_ssa:label(),
-    To :: beam_ssa:label(),
-    State :: #vvars{}.
+      From :: beam_ssa:label(),
+      To :: beam_ssa:label(),
+      State :: #vvars{}.
 vvars_save_branch(From, To, State) ->
     DefVars = State#vvars.defined_vars,
     Branches0 = State#vvars.branch_def_vars,
@@ -335,15 +355,15 @@ vvars_save_branch(From, To, State) ->
     end.
 
 -spec vvars_merge_branches(New, Existing) -> defined_vars() when
-    New :: defined_vars(),
-    Existing :: defined_vars().
+      New :: defined_vars(),
+      Existing :: defined_vars().
 vvars_merge_branches(New, Existing) ->
     gb_sets:intersection(New, Existing).
 
--spec vvars_save_var(VarName, State) -> #vvars{} when
-    VarName :: beam_ssa:var_name(),
-    State :: #vvars{}.
-vvars_save_var(VarName, State0) ->
+-spec vvars_save_var(Var, State) -> #vvars{} when
+      Var :: #b_var{},
+      State :: #vvars{}.
+vvars_save_var(Var, State0) ->
     %% vvars_assert_unique guarantees that variables are never set twice.
-    DefVars = gb_sets:insert(VarName, State0#vvars.defined_vars),
+    DefVars = gb_sets:insert(Var, State0#vvars.defined_vars),
     State0#vvars{ defined_vars = DefVars }.
