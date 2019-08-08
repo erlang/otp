@@ -150,12 +150,12 @@
 	  <tag><c>{init_args(), list()}</c></tag>
 	  <item><p>The list of arguments to the <c>init</c> function of the callback module.</p></item>
 
-	  <tag><c>{cm, ssh:connection_ref()}</c></tag>
+	  <tag><c>{cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>}</c></tag>
 	  <item><p>Reference to the <c>ssh</c> connection as returned by
 	  <seealso marker="ssh#connect-3">ssh:connect/3</seealso>.
 	  </p></item>
 	  
-	  <tag><c>{channel_id, ssh:channel_id()}</c></tag>
+	  <tag><c>{channel_id, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}</c></tag>
 	  <item><p>Id of the <c>ssh</c> channel as returned by
 	  <seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
 	  </p></item>
@@ -198,7 +198,7 @@
       {ok, ChannelRef} | {error, Reason}</name>
       <fsummary>Starts a process that handles an SSH channel.</fsummary>
       <type>
-	<v>SshConnection = ssh:connection_ref()</v>
+	<v>SshConnection = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
 	<d>As returned by <seealso marker="ssh#connect-3">ssh:connect/3</seealso></d>
 
 	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
@@ -374,7 +374,7 @@
 	function and all channels are to handle the following message.</p>
 	
 	<taglist>
-	  <tag><c>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</c></tag>
+	  <tag><c>{ssh_channel_up, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>}</c></tag>
 	  <item><p>This is the first message that the channel receives.
 	  It is sent just before the <seealso
 	  marker="#init-1">init/1</seealso> function
@@ -393,21 +393,21 @@
       ChannelId, State}</name>
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
-	<v>Msg = ssh_connection:event()</v>
+	<v>Msg = <seealso marker="ssh_connection#type-event">ssh_connection:event()</seealso></v>
 	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
 	<v>State = term()</v>
       </type>
       <desc>
 	<p>Handles SSH Connection Protocol messages that may need
 	service-specific attention. For details,
-	see <seealso marker="ssh_connection"> ssh_connection:event()</seealso>.
+	see <seealso marker="ssh_connection#type-event">ssh_connection:event()</seealso>.
 	</p>
 	
 	<p>The following message is taken care of by the
 	<c>ssh_client_channel</c> behavior.</p>
 	
 	<taglist>
-	  <tag><c>{closed, ssh:channel_id()}</c></tag>
+	  <tag><c>{closed, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}</c></tag>
 	  <item><p>The channel behavior sends a close message to the
 	  other side, if such a message has not already been sent.
 	  Then it terminates the channel with reason <c>normal</c>.</p></item>
