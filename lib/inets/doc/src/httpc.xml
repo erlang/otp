@@ -702,8 +702,8 @@
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
 	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
-	<v>GoodSessions = session()</v>
-	<v>BadSessions = tuple()</v>
+	<v>GoodSessions = [session()]</v>
+	<v>BadSessions = [tuple()]</v>
 	<v>NonSessions = term()</v>
       </type>
       <desc>
