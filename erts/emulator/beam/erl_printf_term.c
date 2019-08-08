@@ -533,13 +533,34 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	case EXPORT_DEF:
 	    {
 		Export* ep = *((Export **) (export_val(wobj) + 1));
-		Atom* module = atom_tab(atom_val(ep->info.mfa.module));
-		Atom* name = atom_tab(atom_val(ep->info.mfa.function));
+		long tdcount;
+		int tres;
 
 		PRINT_STRING(res, fn, arg, "fun ");
-		PRINT_BUF(res, fn, arg, module->name, module->len);
+
+		/* We pass a temporary 'dcount' and adjust the real one later to ensure
+		 * that the fun doesn't get split up between the module and function
+		 * name. */
+		tdcount = MAX_ATOM_SZ_LIMIT;
+		tres = print_atom_name(fn, arg, ep->info.mfa.module, &tdcount);
+		if (tres < 0) {
+		    res = tres;
+		    goto L_done;
+		}
+		*dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
+		res += tres;
+
 		PRINT_CHAR(res, fn, arg, ':');
-		PRINT_BUF(res, fn, arg, name->name, name->len);
+
+		tdcount = MAX_ATOM_SZ_LIMIT;
+		tres = print_atom_name(fn, arg, ep->info.mfa.function, &tdcount);
+		if (tres < 0) {
+		    res = tres;
+		    goto L_done;
+		}
+		*dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
+		res += tres;
+
 		PRINT_CHAR(res, fn, arg, '/');
 		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
 			    (ErlPfSWord) ep->info.mfa.arity);

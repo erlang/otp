@@ -27,7 +27,7 @@
 	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
-	 t_fun_info/1,t_fun_info_mfa/1]).
+	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1]).
 
 -export([nothing/0]).
 
@@ -44,7 +44,7 @@ all() ->
      equality, ordering, fun_to_port, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
-     t_fun_info_mfa].
+     t_fun_info_mfa,t_fun_to_list].
 
 %% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->
@@ -802,6 +802,12 @@ t_fun_info_mfa(Config) when is_list(Config) ->
     {'EXIT',_} = (catch erlang:fun_info_mfa(id(d))),
     ok.
 
+t_fun_to_list(Config) when is_list(Config) ->
+    "fun a:b/1" = erlang:fun_to_list(fun a:b/1),
+    "fun 'a-esc':'b-esc'/1" = erlang:fun_to_list(fun 'a-esc':'b-esc'/1),
+    "fun 'a-esc':b/1" = erlang:fun_to_list(fun 'a-esc':b/1),
+    "fun a:'b-esc'/1" = erlang:fun_to_list(fun a:'b-esc'/1),
+    ok.
 
 bad_info(Term) ->
     try	erlang:fun_info(Term, module) of
