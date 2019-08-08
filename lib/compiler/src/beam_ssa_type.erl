@@ -481,17 +481,12 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
             eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
     end;
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
-    case normalized_type(Tuple, Ts) of
-        #t_tuple{size=Size,elements=Es} when Size > N ->
-            ElemType = beam_types:get_element_type(N + 1, Es),
-            case beam_types:get_singleton_value(ElemType) of
-                {ok, Val} -> #b_literal{val=Val};
-                error -> I
-            end;
-        none ->
-            %% Will never be executed because of type conflict.
-            %% #b_literal{val=ignored};
-            I
+    #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
+    true = Size > N,                            %Assertion.
+    ElemType = beam_types:get_element_type(N + 1, Es),
+    case beam_types:get_singleton_value(ElemType) of
+        {ok, Val} -> #b_literal{val=Val};
+        error -> I
     end;
 simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
     case normalized_type(Src, Ts) of
