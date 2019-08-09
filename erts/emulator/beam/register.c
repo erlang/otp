@@ -564,18 +564,6 @@ int erts_unregister_name(Process *c_p,
     return res;
 }
 
-int process_reg_size(void)
-{
-    int size;
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	reg_read_lock();
-    size = process_reg.size;
-    if (lock)
-	reg_read_unlock();
-    return size;
-}
-
 int process_reg_sz(void)
 {
     int sz;

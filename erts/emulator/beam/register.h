@@ -41,7 +41,6 @@ typedef struct reg_proc
     Eterm name;         /* Atom name */
 } RegProc;
 
-int process_reg_size(void);
 int process_reg_sz(void);
 void init_register_table(void);
 void register_info(fmtfn_t, void *);
