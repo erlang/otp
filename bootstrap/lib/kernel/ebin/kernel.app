@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "6.3.1"},
+  {vsn, "6.4.1"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -74,6 +74,7 @@
              logger_simple_h,
              logger_std_h,
              logger_sup,
+	     net,
 	     net_adm,
 	     net_kernel,
 	     os,
