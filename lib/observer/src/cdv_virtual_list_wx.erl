@@ -96,8 +96,9 @@ start_detail_win_2(Callback,Id) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([ParentWin, Callback, Owner]) ->
-    {Holder,TW} = spawn_table_holder(Callback, Owner),
     Panel = wxPanel:new(ParentWin),
+    Attrs = observer_lib:create_attrs(Panel),
+    {Holder,TW} = spawn_table_holder(Callback, Owner, Attrs),
     {Grid,MenuCols}  = create_list_box(Panel, Holder, Callback, Owner),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
@@ -233,7 +234,8 @@ handle_call(new_dump, _From,
     Ref = erlang:monitor(process,Holder),
     Holder ! stop,
     receive {'DOWN',Ref,_,_,_} -> ok end,
-    {NewHolder,TW} = spawn_table_holder(Callback, all),
+    Attrs = observer_lib:create_attrs(Grid),
+    {NewHolder,TW} = spawn_table_holder(Callback, all, Attrs),
     {reply, ok, State#state{detail_wins=[],holder=NewHolder,trunc_warn=TW}};
 
 handle_call(Msg, _From, State) ->
@@ -329,9 +331,8 @@ handle_event(Event, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-spawn_table_holder(Callback, Owner) ->
+spawn_table_holder(Callback, Owner, Attrs) ->
     {Info,TW} = Callback:get_info(Owner),
-    Attrs = observer_lib:create_attrs(),
     Parent = self(),
     Holder =
 	case Owner of
