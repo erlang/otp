@@ -1750,9 +1750,8 @@ static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb1;
-    ErlSubBin *sb2;
-    Eterm *hp;
+    Uint hp_need;
+    Eterm *hp, *hp_end;
     Eterm ret;
 
     pos = ff->pos;
@@ -1765,57 +1764,58 @@ static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext
 	if (pos == 0) {
 	    ret = NIL;
 	} else {
-	    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = bit_size;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
+	    Eterm extracted;
 
-	    ret = CONS(hp, make_binary(sb1), NIL);
+	    hp_need = EXTRACT_SUB_BIN_HEAP_NEED + 2;
+
+	    hp = HAlloc(p, hp_need);
+	    hp_end = hp + hp_need;
+
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    extracted = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+	                                        offset * 8 + bit_offset,
+	                                        pos * 8 + bit_size);
+
+	    ret = CONS(hp, extracted, NIL);
 	    hp += 2;
+
+	    HRelease(p, hp_end, hp);
+
+	    return ret;
 	}
     } else {
-	if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
-	    hp = HAlloc(p, 1 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = NULL;
-	} else {
-	    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = 0;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
-	}
+        Eterm first, rest;
 
-	sb2 = (ErlSubBin *) hp;
-	sb2->thing_word = HEADER_SUB_BIN;
-	sb2->size = orig_size - pos - len;
-	sb2->offs = offset + pos + len;
-	sb2->orig = orig;
-	sb2->bitoffs = bit_offset;
-	sb2->bitsize = bit_size;
-	sb2->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
+        hp_need = (EXTRACT_SUB_BIN_HEAP_NEED + 2) * 2;
 
-	ret = CONS(hp, make_binary(sb2), NIL);
-	hp += 2;
-	if (sb1 != NULL) {
-	    ret = CONS(hp, make_binary(sb1), ret);
-	    hp += 2;
-	}
+        hp = HAlloc(p, hp_need);
+        hp_end = hp + hp_need;
+
+        ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+        if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
+            first = NIL;
+        } else {
+            first = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                            offset * 8 + bit_offset,
+                                            pos * 8);
+        }
+
+        rest = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                       (offset + pos + len) * 8 + bit_offset,
+                                       (orig_size - pos - len) * 8 + bit_size);
+
+        ret = CONS(hp, rest, NIL);
+        hp += 2;
+
+        if (first != NIL) {
+            ret = CONS(hp, first, ret);
+            hp += 2;
+        }
+
+        HRelease(p, hp_end, hp);
     }
+
     return ret;
 }
 
@@ -1829,7 +1829,9 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb;
+    Uint extracted_offset;
+    Uint extracted_size;
+    Eterm extracted;
     Uint do_trim;
     Sint i;
     register Uint reds = ctx->reds;
@@ -1852,7 +1854,8 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    *ctxp = ctx;
 	    fa = &(ctx->u.fa);
 	}
-	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) * (ERL_SUB_BIN_SIZE + 2));
+	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) *
+	                                (EXTRACT_SUB_BIN_HEAP_NEED + 2));
 	ctx->state = BFResult;
     }
 
@@ -1871,39 +1874,39 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    }
 	    return THE_NON_VALUE;
 	}
-	sb = (ErlSubBin *)(fa->factory.hp);
-	sb->size = fa->end_pos - (fad[i].pos + fad[i].len);
-	if (!(sb->size == 0 && do_trim)) {
-	    sb->thing_word = HEADER_SUB_BIN;
-	    sb->offs = offset + fad[i].pos + fad[i].len;
-	    sb->orig = orig;
-	    sb->bitoffs = bit_offset;
-	    sb->bitsize = 0;
-	    sb->is_writable = 0;
-	    fa->factory.hp += ERL_SUB_BIN_SIZE;
-	    fa->term = CONS(fa->factory.hp, make_binary(sb), fa->term);
-	    fa->factory.hp += 2;
-	    do_trim &= ~BF_FLAG_SPLIT_TRIM;
-	}
-	fa->end_pos = fad[i].pos;
+
+        extracted_offset = (offset + fad[i].pos + fad[i].len) * 8 + bit_offset;
+        extracted_size = (fa->end_pos - (fad[i].pos + fad[i].len)) * 8;
+
+        if (!(extracted_size == 0 && do_trim)) {
+            extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                                binary_bytes(orig),
+                                                extracted_offset,
+                                                extracted_size);
+            fa->term = CONS(fa->factory.hp, extracted, fa->term);
+            fa->factory.hp += 2;
+
+            do_trim &= ~BF_FLAG_SPLIT_TRIM;
+        }
+
+        fa->end_pos = fad[i].pos;
     }
 
     fa->head = i;
     ctx->reds = reds;
 
-    sb = (ErlSubBin *)(fa->factory.hp);
-    sb->size = fad[0].pos;
-    if (!(sb->size == 0 && do_trim)) {
-	sb->thing_word = HEADER_SUB_BIN;
-	sb->offs = offset;
-	sb->orig = orig;
-	sb->bitoffs = bit_offset;
-	sb->bitsize = 0;
-	sb->is_writable = 0;
-	fa->factory.hp += ERL_SUB_BIN_SIZE;
-	fa->term = CONS(fa->factory.hp, make_binary(sb), fa->term);
-	fa->factory.hp += 2;
+    extracted_offset = offset * 8 + bit_offset;
+    extracted_size = fad[0].pos * 8;
+
+    if (!(extracted_size == 0 && do_trim)) {
+        extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                            binary_bytes(orig),
+                                            extracted_offset,
+                                            extracted_size);
+        fa->term = CONS(fa->factory.hp, extracted, fa->term);
+        fa->factory.hp += 2;
     }
+
     erts_factory_close(&(fa->factory));
 
     return fa->term;
