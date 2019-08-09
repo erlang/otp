@@ -1937,8 +1937,8 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
+    Eterm *hp, *hp_end;
+    Eterm result;
 
     if (is_not_binary(binary)) {
 	goto badarg;
@@ -1970,19 +1970,18 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
-    hp = HeapFragOnlyAlloc(p, ERL_SUB_BIN_SIZE);
+    hp = HeapFragOnlyAlloc(p, EXTRACT_SUB_BIN_HEAP_NEED);
+    hp_end = hp + EXTRACT_SUB_BIN_HEAP_NEED;
 
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
 
-    BIF_RET(make_binary(sb));
+    result = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                     (offset + pos) * 8 + bit_offset,
+                                     len * 8);
+
+    HRelease(p, hp_end, hp);
+
+    BIF_RET(result);
 
  badarg:
     BIF_ERROR(p, BADARG);
