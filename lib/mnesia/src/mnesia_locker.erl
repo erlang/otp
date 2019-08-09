@@ -774,10 +774,12 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
     N = node(),
     receive
 	{?MODULE, N, granted} ->
+            ?ets_insert(Store, {sticky, true}),
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
 	    [?ets_insert(Store, {nodes, Node}) || Node <- WNodes],
 	    granted;
 	{?MODULE, N, {granted, Val}} -> %% for rwlocks
+            ?ets_insert(Store, {sticky, true}),
 	    case opt_lookup_in_client(Val, Oid, write) of
 		C = #cyclic{} ->
 		    exit({aborted, C});

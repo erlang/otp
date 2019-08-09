@@ -730,7 +730,10 @@ api_list2cs(Other) ->
     mnesia:abort({badarg, Other}).
 
 vsn_cs2list(Cs) ->
-    cs2list(need_old_cstructs(), Cs).
+    cs2list(Cs).
+
+cs2list(false, Cs) ->
+    cs2list(Cs).
 
 cs2list(Cs) when is_record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
@@ -755,25 +758,6 @@ cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
 	    cookie,version],
     rec2list(Tags, Tags, 2, Cs).
 
-cs2list(false, Cs) ->
-    cs2list(Cs);
-cs2list({8,3}, Cs) ->
-    cs2list(Cs);
-cs2list({8,Minor}, Cs) when Minor =:= 2; Minor =:= 1 ->
-    Orig = record_info(fields, cstruct),
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,majority,index,snmp,local_content,
-	    record_name,attributes,
-	    user_properties,frag_properties,storage_properties,
-	    cookie,version],
-    CsList = rec2list(Tags, Orig, 2, Cs),
-    case proplists:get_value(index, CsList, []) of
-	[] -> CsList;
-	NewFormat ->
-	    OldFormat = [Pos || {Pos, _Pref} <- NewFormat],
-	    lists:keyreplace(index, 1, CsList, {index, OldFormat})
-    end.
-
 rec2list([index | Tags], [index|Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
     [{index, lists:map(
@@ -796,19 +780,8 @@ rec2list([], _, _Pos, _Rec) ->
 rec2list(Tags, [_|Orig], Pos, Rec) ->
     rec2list(Tags, Orig, Pos+1, Rec).
 
-normalize_cs(Cstructs, Node) ->
-    %% backward-compatibility hack; normalize before returning
-    case need_old_cstructs([Node]) of
-	false ->
-	    Cstructs;
-	Version ->
-	    %% some other format
-	    [convert_cs(Version, Cs) || Cs <- Cstructs]
-    end.
-
-convert_cs(Version, Cs) ->
-    Fields = [Value || {_, Value} <- cs2list(Version, Cs)],
-    list_to_tuple([cstruct|Fields]).
+normalize_cs(Cstructs, _Node) ->
+    Cstructs.
 
 list2cs(List) ->
     list2cs(List, get_ext_types()).
@@ -1864,11 +1837,7 @@ do_move_table(schema, _FromNode, _ToNode) ->
     mnesia:abort({bad_type, schema});
 do_move_table(Tab, FromNode, ToNode) when is_atom(FromNode), is_atom(ToNode) ->
     TidTs = get_tid_ts_and_lock(schema, write),
-    AnyOld = lists:any(fun(Node) -> mnesia_monitor:needs_protocol_conversion(Node) end,
-		       [ToNode|val({Tab, where_to_write})]),
-    if AnyOld -> ignore;  %% Leads to deadlock on old nodes
-       true -> get_tid_ts_and_lock(Tab, write)
-    end,
+    get_tid_ts_and_lock(Tab, write),
     insert_schema_ops(TidTs, make_move_table(Tab, FromNode, ToNode));
 do_move_table(Tab, FromNode, ToNode) ->
     mnesia:abort({badarg, Tab, FromNode, ToNode}).
@@ -3438,15 +3407,14 @@ do_merge_schema(LockTabs0) ->
                                                   mnesia_lib:intersect(Ns,NeedsLock))
                      || {T,Ns} <- LockTabs],
 
-		    NeedsConversion = need_old_cstructs(NeedsLock ++ LockedAlready),
 		    {value, SchemaCs} = lists:keysearch(schema, #cstruct.name, Cstructs),
-		    SchemaDef = cs2list(NeedsConversion, SchemaCs),
+		    SchemaDef = cs2list(false, SchemaCs),
 		    %% Announce that Node is running
 		    A = [{op, announce_im_running, node(), SchemaDef, Running, RemoteRunning}],
 		    do_insert_schema_ops(Store, A),
 
 		    %% Introduce remote tables to local node
-		    do_insert_schema_ops(Store, make_merge_schema(Node, NeedsConversion, Cstructs)),
+		    do_insert_schema_ops(Store, make_merge_schema(Node, false, Cstructs)),
 
 		    %% Introduce local tables to remote nodes
 		    Tabs = val({schema, tables}),
@@ -3471,23 +3439,7 @@ do_merge_schema(LockTabs0) ->
     end.
 
 fetch_cstructs(Node) ->
-    Convert = mnesia_monitor:needs_protocol_conversion(Node),
-    case rpc:call(Node, mnesia_controller, get_remote_cstructs, [])  of
-	{cstructs, Cs0, RemoteRunning1} when Convert ->
-	    {cstructs, [list2cs(cs2list(Cs)) || Cs <- Cs0], RemoteRunning1};
-	Result ->
-	    Result
-    end.
-
-need_old_cstructs() ->
-    need_old_cstructs(val({schema, where_to_write})).
-
-need_old_cstructs(Nodes) ->
-    Filter = fun(Node) -> mnesia_monitor:needs_protocol_conversion(Node) end,
-    case lists:filter(Filter, Nodes) of
-	[] -> false;
-	Ns -> lists:min([element(1, ?catch_val({protocol, Node})) || Node <- Ns])
-    end.
+    rpc:call(Node, mnesia_controller, get_remote_cstructs, []).
 
 tab_to_nodes(Tab) when is_atom(Tab) ->
     Cs = val({Tab, cstruct}),
