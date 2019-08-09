@@ -35,31 +35,32 @@ init_term_page(ParentWin, {Type, [Term, Tab]}) ->
     Expanded = expand(Term, true),
     BinSaved = expand(Term, Tab),
     observer_lib:report_progress({ok,stop_pulse}),
+    Cs = observer_lib:colors(ParentWin),
     cdv_multi_wx:start_link(
       ParentWin,
-      [{"Format \~p",cdv_html_wx,{Type, format_term_fun("~p",BinSaved,Tab)}},
-       {"Format \~tp",cdv_html_wx,{Type,format_term_fun("~tp",BinSaved,Tab)}},
-       {"Format \~w",cdv_html_wx,{Type,format_term_fun("~w",BinSaved,Tab)}},
-       {"Format \~tw",cdv_html_wx,{Type,format_term_fun("~tw",BinSaved,Tab)}},
-       {"Format \~s",cdv_html_wx,{Type,format_term_fun("~s",Expanded,Tab)}},
-       {"Format \~ts",cdv_html_wx,{Type,format_term_fun("~ts",Expanded,Tab)}}]).
+      [{"Format \~p",cdv_html_wx,{Type, format_term_fun("~p",BinSaved,Tab,Cs)}},
+       {"Format \~tp",cdv_html_wx,{Type,format_term_fun("~tp",BinSaved,Tab,Cs)}},
+       {"Format \~w",cdv_html_wx,{Type,format_term_fun("~w",BinSaved,Tab,Cs)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_term_fun("~tw",BinSaved,Tab,Cs)}},
+       {"Format \~s",cdv_html_wx,{Type,format_term_fun("~s",Expanded,Tab,Cs)}},
+       {"Format \~ts",cdv_html_wx,{Type,format_term_fun("~ts",Expanded,Tab,Cs)}}]).
 
-format_term_fun(Format,Term,Tab) ->
+format_term_fun(Format,Term,Tab,Cs) ->
     fun() ->
             observer_lib:report_progress({ok,"Formatting term"}),
             observer_lib:report_progress({ok,start_pulse}),
 	    try io_lib:format(Format,[Term]) of
-		Str -> {expand, plain_html(Str), Tab}
+		Str -> {expand, plain_html(Str,Cs), Tab}
 	    catch error:badarg ->
 		    Warning = "This term cannot be formatted with " ++ Format,
-		    observer_html_lib:warning(Warning)
+		    observer_html_lib:warning(Warning,Cs)
             after
                     observer_lib:report_progress({ok,stop_pulse})
 	    end
     end.
 
-plain_html(Text) ->
-    observer_html_lib:plain_page(Text).
+plain_html(Text,Cs) ->
+    observer_html_lib:plain_page(Text,Cs).
 
 expand(['#CDVBin',Offset,Size,Pos], true) ->
     {ok,Bin} = crashdump_viewer:expand_binary({Offset,Size,Pos}),

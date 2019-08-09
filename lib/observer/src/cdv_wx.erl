@@ -197,8 +197,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_wx, cdv_mem_cb),
 
     %% Persistent Terms Panel
-    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR,
-                               cdv_html_wx, cdv_persistent_cb),
+    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR, cdv_html_wx, cdv_persistent_cb),
 
     %% Memory Panel
     IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_wx, cdv_int_tab_cb),

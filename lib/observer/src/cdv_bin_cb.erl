@@ -33,42 +33,43 @@ detail_pages() ->
     [{"Binary", fun init_bin_page/2}].
 
 init_bin_page(Parent,{Type,Bin}) ->
+    Cs = observer_lib:colors(Parent),
     cdv_multi_wx:start_link(
       Parent,
-      [{"Format \~p",cdv_html_wx,{Type,format_bin_fun("~p",Bin)}},
-       {"Format \~tp",cdv_html_wx,{Type,format_bin_fun("~tp",Bin)}},
-       {"Format \~w",cdv_html_wx,{Type,format_bin_fun("~w",Bin)}},
-       {"Format \~tw",cdv_html_wx,{Type,format_bin_fun("~tw",Bin)}},
-       {"Format \~s",cdv_html_wx,{Type,format_bin_fun("~s",Bin)}},
-       {"Format \~ts",cdv_html_wx,{Type,format_bin_fun("~ts",Bin)}},
-       {"Hex",cdv_html_wx,{Type,hex_binary_fun(Bin)}},
-       {"Term",cdv_html_wx,{Type,binary_to_term_fun(Bin)}}]).
+      [{"Format \~p",cdv_html_wx,{Type,format_bin_fun("~p",Bin,Cs)}},
+       {"Format \~tp",cdv_html_wx,{Type,format_bin_fun("~tp",Bin,Cs)}},
+       {"Format \~w",cdv_html_wx,{Type,format_bin_fun("~w",Bin,Cs)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_bin_fun("~tw",Bin,Cs)}},
+       {"Format \~s",cdv_html_wx,{Type,format_bin_fun("~s",Bin,Cs)}},
+       {"Format \~ts",cdv_html_wx,{Type,format_bin_fun("~ts",Bin,Cs)}},
+       {"Hex",cdv_html_wx,{Type,hex_binary_fun(Bin,Cs)}},
+       {"Term",cdv_html_wx,{Type,binary_to_term_fun(Bin,Cs)}}]).
 
-format_bin_fun(Format,Bin) ->
+format_bin_fun(Format,Bin,Cs) ->
     fun() ->
 	    try io_lib:format(Format,[Bin]) of
-		Str -> plain_html(lists:flatten(Str))
+		Str -> plain_html(lists:flatten(Str),Cs)
 	    catch error:badarg ->
 		    Warning = "This binary cannot be formatted with " ++ Format,
-		    observer_html_lib:warning(Warning)
+		    observer_html_lib:warning(Warning,Cs)
 	    end
     end.
 
-binary_to_term_fun(Bin) ->
+binary_to_term_fun(Bin,Cs) ->
     fun() ->
 	    try binary_to_term(Bin) of
-		Term -> plain_html(io_lib:format("~tp",[Term]))
+		Term -> plain_html(io_lib:format("~tp",[Term]),Cs)
 	    catch error:badarg ->
 		    Warning = "This binary cannot be converted to an Erlang term",
-		    observer_html_lib:warning(Warning)
+		    observer_html_lib:warning(Warning,Cs)
 	    end
     end.
 
 -define(line_break,25).
-hex_binary_fun(Bin) ->
+hex_binary_fun(Bin,Cs) ->
     fun() ->
 	    S = "<<" ++ format_hex(Bin,?line_break) ++ ">>",
-	    plain_html(io_lib:format("~s",[S]))
+	    plain_html(io_lib:format("~s",[S]), Cs)
     end.
 
 format_hex(<<>>,_) ->
@@ -82,5 +83,5 @@ format_hex(<<B1:4,B2:4,Bin/binary>>,N) ->
     [integer_to_list(B1,16),integer_to_list(B2,16),$,
      | format_hex(Bin,N-1)].
 
-plain_html(Text) ->
-    observer_html_lib:plain_page(Text).
+plain_html(Text,Cs) ->
+    observer_html_lib:plain_page(Text,Cs).

@@ -116,8 +116,8 @@ init([Parent, Opts]) ->
 	TabId = table_id(Table),
 	ColumnNames = column_names(Node, Source, TabId),
 	KeyPos = key_pos(Node, Source, TabId),
-
-	Attrs = observer_lib:create_attrs(),
+	Panel = wxPanel:new(Frame),
+	Attrs = observer_lib:create_attrs(Panel),
 
 	Self = self(),
 	Holder = spawn_link(fun() ->
@@ -125,7 +125,6 @@ init([Parent, Opts]) ->
 						      length(ColumnNames), Node, Attrs)
 			    end),
 
-	Panel = wxPanel:new(Frame),
 	Sizer = wxBoxSizer:new(?wxVERTICAL),
 	Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES,
 	Grid = wxListCtrl:new(Panel, [{style, Style},

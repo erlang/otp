@@ -83,9 +83,9 @@
 		going_down = [], tm_started = false, early_connects = [],
 		connecting, mq = [], remote_node_status = []}).
 
--define(current_protocol_version,  {8,3}).
+-define(current_protocol_version,  {8,4}).
 
--define(previous_protocol_version, {8,2}).
+-define(previous_protocol_version, {8,3}).
 
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE,
@@ -196,7 +196,7 @@ protocol_version() ->
 %% A sorted list of acceptable protocols the
 %% preferred protocols are first in the list
 acceptable_protocol_versions() ->
-    [protocol_version(), ?previous_protocol_version, {8,1}].
+    [protocol_version(), ?previous_protocol_version].
 
 needs_protocol_conversion(Node) ->
     case {?catch_val({protocol, Node}), protocol_version()} of
