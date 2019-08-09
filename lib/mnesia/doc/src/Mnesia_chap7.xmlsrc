@@ -295,7 +295,7 @@ ok</pre>
         if the log is large. Notice that the <c>Mnesia</c> system
         continues to operate during log dumps.</p>
       <p>By default <c>Mnesia</c> either dumps the log whenever
-        100 records have
+        1000 records have
         been written in the log or when three minutes have passed.
         This is controlled by the two application parameters
         <c>-mnesia dump_log_write_threshold WriteOperations</c> and
