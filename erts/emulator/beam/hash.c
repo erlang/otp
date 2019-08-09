@@ -343,7 +343,7 @@ hash_remove(Hash *h, void *tmpl)
     return NULL;
 }
 
-void hash_foreach(Hash* h, void (*func)(void *, void *), void *func_arg2)
+void hash_foreach(Hash* h, HFOREACH_FUN func, void *func_arg2)
 {
     int i;
 

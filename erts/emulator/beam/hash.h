@@ -38,6 +38,7 @@ typedef void (*HFREE_FUN)(void*);
 typedef void* (*HMALLOC_FUN)(int,size_t);
 typedef void (*HMFREE_FUN)(int,void*);
 typedef int (*HMPRINT_FUN)(fmtfn_t,void*,char*, ...);
+typedef void (*HFOREACH_FUN)(void *, void *);
 
 /*
 ** This bucket must be placed in top of 
@@ -96,6 +97,6 @@ void* hash_get(Hash*, void*);
 void* hash_put(Hash*, void*);
 void* hash_erase(Hash*, void*);
 void* hash_remove(Hash*, void*);
-void  hash_foreach(Hash*, void (*func)(void *, void *), void *);
+void  hash_foreach(Hash*, HFOREACH_FUN, void *);
 
 #endif
