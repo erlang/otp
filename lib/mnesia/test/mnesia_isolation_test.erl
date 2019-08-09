@@ -1036,29 +1036,57 @@ add_table_copy(Config) when is_list(Config) ->
     Def = [{ram_copies, [ThisNode]}, {attributes, [key, attr1, attr2]}],
     ?match({atomic, ok}, mnesia:create_table(Tab, Def)),
     insert(Tab, 50),
-    {success, [A]} = ?start_activities([ThisNode]), 
+    {success, [A]} = ?start_activities([ThisNode]),
     mnesia_test_lib:start_sync_transactions([A], 0),
 
     A ! fun() -> mnesia:write({Tab, 1, 1, updated}) end,
     ?match_receive({A, ok}),   %% A is executed
 
-    Pid = spawn_link(?MODULE, op, [self(), mnesia, add_table_copy, 
+    Pid = spawn_link(?MODULE, op, [self(), mnesia, add_table_copy,
 				   [Tab, Node2, ram_copies]]),
-   
+
     ?match_receive(timeout),   %% op waits for locks occupied by A
 
     A ! end_trans,             %% Kill A, locks should be released
-    ?match_receive({A,{atomic,end_trans}}),     
-    
-    receive 
+    ?match_receive({A,{atomic,end_trans}}),
+
+    receive
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
 	timer:seconds(20) -> ?error("Operation timed out", [])
     end,
+    ?match_receive({'EXIT', Pid, normal}),
 
     sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
-    ?match([], mnesia:system_info(held_locks)), 
-    ?match([], mnesia:system_info(lock_queue)), 
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
+
+    {atomic, ok} = mnesia:del_table_copy(Tab, Node2),
+    Self = self(),
+    New = spawn_link(Node2,
+                     fun () ->
+                             application:stop(mnesia),
+                             Self ! {self(), ok},
+                             io:format(user, "restart mnesia~n", []),
+                             Self ! {self(), catch application:start(mnesia)}
+                     end),
+    receive {New,ok} -> ok end,
+
+    Add = fun Add() ->
+                  case mnesia:add_table_copy(Tab, Node2, disc_copies) of
+                      {atomic, ok} -> ok;
+                      _R -> io:format(user, "aborted with reason ~p~n", [_R]),
+                            timer:sleep(10),
+                            Add()
+                  end
+          end,
+
+    ?match(ok, Add()),
+    ?match_receive({New,ok}),
+
+    sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
     ok.
 
 del_table_copy(suite) -> [];
