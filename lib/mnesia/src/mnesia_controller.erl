@@ -331,35 +331,39 @@ release_schema_commit_lock() ->
 
 %% Special for preparation of add table copy
 get_network_copy(Tid, Tab, Cs) ->
-%   We can't let the controller queue this one
-%   because that may cause a deadlock between schema_operations
-%   and initial tableloadings which both takes schema locks.
-%   But we have to get copier_done msgs when the other side
-%   goes down.
-    call({add_other, self()}),
-    Reason = {dumper,{add_table_copy, Tid}},
-    Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
-    %% I'll need this cause it's linked trough the subscriber
-    %% might be solved by using monitor in subscr instead.
-    process_flag(trap_exit, true),
-    Load = load_table_fun(Work),
-    Res = ?CATCH(Load()),
-    process_flag(trap_exit, false),
-    call({del_other, self()}),
-    case Res of
- 	#loader_done{is_loaded = true} ->
- 	    Tab = Res#loader_done.table_name,
- 	    case Res#loader_done.needs_announce of
- 		true ->
- 		    i_have_tab(Tab);
- 		false ->
- 		    ignore
- 	    end,
- 	    Res#loader_done.reply;
-	#loader_done{} ->
- 	    Res#loader_done.reply;
- 	Else ->
- 	    {not_loaded, Else}
+    %%   We can't let the controller queue this one
+    %%   because that may cause a deadlock between schema_operations
+    %%   and initial tableloadings which both takes schema locks.
+    %%   But we have to get copier_done msgs when the other side
+    %%   goes down.
+    case call({add_other, self()}) of
+        ok ->
+            Reason = {dumper,{add_table_copy, Tid}},
+            Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
+            %% I'll need this cause it's linked trough the subscriber
+            %% might be solved by using monitor in subscr instead.
+            process_flag(trap_exit, true),
+            Load = load_table_fun(Work),
+            Res = ?CATCH(Load()),
+            process_flag(trap_exit, false),
+            call({del_other, self()}),
+            case Res of
+                #loader_done{is_loaded = true} ->
+                    Tab = Res#loader_done.table_name,
+                    case Res#loader_done.needs_announce of
+                        true ->
+                            i_have_tab(Tab);
+                        false ->
+                            ignore
+                    end,
+                    Res#loader_done.reply;
+                #loader_done{} ->
+                    Res#loader_done.reply;
+                Else ->
+                    {not_loaded, Else}
+            end;
+        {error, Else} ->
+            {not_loaded, Else}
     end.
 
 %% This functions is invoked from the dumper
@@ -772,6 +776,18 @@ handle_call({unannounce_add_table_copy, [Tab, Node], From}, ReplyTo, State) ->
 	    noreply(State#state{early_msgs = [{call, Msg, undefined} | Msgs]})
     end;
 
+handle_call({add_other, Who}, _From, State = #state{others=Others0, schema_is_merged=SM}) ->
+    case SM of
+        true ->
+            Others = [Who|Others0],
+            {reply, ok, State#state{others=Others}};
+        false ->
+            {reply, {error, {not_active,schema,node()}}, State}
+    end;
+handle_call({del_other, Who}, _From, State = #state{others=Others0}) ->
+    Others = lists:delete(Who, Others0),
+    {reply, ok, State#state{others=Others}};
+
 handle_call(Msg, From, State) when State#state.schema_is_merged /= true ->
     %% Buffer early messages
     Msgs = State#state.early_msgs,
@@ -802,13 +818,6 @@ handle_call({block_table, [Tab], From}, _Dummy, State) ->
 
 handle_call({check_w2r, _Node, Tab}, _From, State) ->
     {reply, val({Tab, where_to_read}), State};
-
-handle_call({add_other, Who}, _From, State = #state{others=Others0}) ->
-    Others = [Who|Others0],
-    {reply, ok, State#state{others=Others}};
-handle_call({del_other, Who}, _From, State = #state{others=Others0}) ->
-    Others = lists:delete(Who, Others0),
-    {reply, ok, State#state{others=Others}};
 
 handle_call(Msg, _From, State) ->
     error("~p got unexpected call: ~tp~n", [?SERVER_NAME, Msg]),
