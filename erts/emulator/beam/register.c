@@ -580,15 +580,24 @@ int process_reg_sz(void)
 
 #include "bif.h"
 
+struct registered_foreach_arg {
+    Eterm res;
+    Eterm *hp;
+};
+
+static void
+registered_foreach(RegProc *reg, struct registered_foreach_arg *arg)
+{
+    arg->res = CONS(arg->hp, reg->name, arg->res);
+    arg->hp += 2;
+}
+
 /* return a list of the registered processes */
 
 BIF_RETTYPE registered_0(BIF_ALIST_0)
 {
-    int i;
-    Eterm res;
+    struct registered_foreach_arg arg;
     Uint need;
-    Eterm* hp;
-    HashBucket **bucket;
     ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
 
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(BIF_P);
@@ -596,41 +605,21 @@ BIF_RETTYPE registered_0(BIF_ALIST_0)
     if (!proc_locks)
 	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-    bucket = process_reg.bucket;
-
-    /* work out how much heap we need & maybe garb, by scanning through
-       the registered process table */
-    need = 0;
-    for (i = 0; i < process_reg.size; i++) {
-	HashBucket *b = bucket[i];
-	while (b != NULL) {
-	    need += 2;
-	    b = b->next;
-	}
-    }
+    /* work out how much heap we need */
+    need = process_reg.nobjs * 2;
 
     if (need == 0) {
 	reg_read_unlock();
 	BIF_RET(NIL);
     }
 
-    hp = HAlloc(BIF_P, need);
-     
-     /* scan through again and make the list */ 
-    res = NIL;
+    /* scan through again and make the list */
+    arg.hp = HAlloc(BIF_P, need);
+    arg.res = NIL;
 
-    for (i = 0; i < process_reg.size; i++) {
-	HashBucket *b = bucket[i];
-	while (b != NULL) {
-	    RegProc *reg = (RegProc *) b;
-
-	    res = CONS(hp, reg->name, res);
-	    hp += 2;
-	    b = b->next;
-	}
-    }
+    hash_foreach(&process_reg, (HFOREACH_FUN)registered_foreach, &arg);
 
     reg_read_unlock();
 
-    BIF_RET(res);
+    BIF_RET(arg.res);
 }
