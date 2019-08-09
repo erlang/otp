@@ -218,7 +218,7 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     int ix;
     HashBucket* b;
 
-    ix = hval % export_tables[code_ix].htable.size;
+    ix = hash_get_slot(&export_tables[code_ix].htable, hval);
     b = export_tables[code_ix].htable.bucket[ix];
 
     /*

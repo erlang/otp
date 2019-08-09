@@ -279,7 +279,7 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
         erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     hval = REG_HASH(name);
-    ix = hval % process_reg.size;
+    ix = hash_get_slot(&process_reg, hval);
     b = process_reg.bucket[ix];
 
     /*
@@ -343,7 +343,7 @@ erts_whereis_name(Process *c_p,
      */
 
     hval = REG_HASH(name);
-    ix = hval % process_reg.size;
+    ix = hash_get_slot(&process_reg, hval);
     b = process_reg.bucket[ix];
 
     /*
