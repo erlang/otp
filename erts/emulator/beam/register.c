@@ -265,10 +265,8 @@ Eterm
 erts_whereis_name_to_id(Process *c_p, Eterm name)
 {
     Eterm res = am_undefined;
-    HashValue hval;
-    int ix;
-    HashBucket* b;
     ErtsProcLocks c_p_locks = 0;
+    RegProc *rp, tmpl;
     if (c_p) {
         c_p_locks = ERTS_PROC_LOCK_MAIN;
         ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
@@ -278,29 +276,14 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
     if (c_p && !c_p_locks)
         erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    hval = REG_HASH(name);
-    ix = hash_get_slot(&process_reg, hval);
-    b = process_reg.bucket[ix];
+    tmpl.name = name;
+    rp = hash_fetch(&process_reg, &tmpl, (H_FUN)reg_hash, (HCMP_FUN)reg_cmp);
 
-    /*
-     * Note: We have inlined the code from hash.c for speed.
-     */
-	
-    while (b) {
-	RegProc* rp = (RegProc *) b;
-	if (rp->name == name) {
-	    /*
-	     * SMP NOTE: No need to lock registered entity since it cannot
-	     * be removed without acquiring write reg lock and id on entity
-	     * is read only.
-	     */
-	    if (rp->p)
-		res = rp->p->common.id;
-	    else if (rp->pt)
-		res = rp->pt->common.id;
-	    break;
-	}
-	b = b->next;
+    if (rp) {
+        if (rp->p)
+            res = rp->p->common.id;
+        else if (rp->pt)
+            res = rp->pt->common.id;
     }
 
     reg_read_unlock();
@@ -321,10 +304,7 @@ erts_whereis_name(Process *c_p,
 		  Port** port,
                   int lock_port)
 {
-    RegProc* rp = NULL;
-    HashValue hval;
-    int ix;
-    HashBucket* b;
+    RegProc* rp = NULL, tmpl;
     ErtsProcLocks current_c_p_locks;
     Port *pending_port = NULL;
 
@@ -342,21 +322,8 @@ erts_whereis_name(Process *c_p,
      * - current_c_p_locks (either c_p_locks or 0) on c_p
      */
 
-    hval = REG_HASH(name);
-    ix = hash_get_slot(&process_reg, hval);
-    b = process_reg.bucket[ix];
-
-    /*
-     * Note: We have inlined the code from hash.c for speed.
-     */
-
-    while (b) {
-	if (((RegProc *) b)->name == name) {
-	    rp = (RegProc *) b;
-	    break;
-	}
-	b = b->next;
-    }
+    tmpl.name = name;
+    rp = hash_fetch(&process_reg, &tmpl, (H_FUN)reg_hash, (HCMP_FUN)reg_cmp);
 
     if (proc) {
 	if (!rp)

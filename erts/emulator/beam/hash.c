@@ -225,16 +225,7 @@ static void rehash(Hash* h, int grow)
 */
 void* hash_get(Hash* h, void* tmpl)
 {
-    HashValue hval = h->fun.hash(tmpl);
-    int ix = hash_get_slot(h, hval);
-    HashBucket* b = h->bucket[ix];
-
-    while(b != (HashBucket*) 0) {
-	if ((b->hvalue == hval) && (h->fun.cmp(tmpl, (void*)b) == 0))
-	    return (void*) b;
-	b = b->next;
-    }
-    return (void*) 0;
+    return hash_fetch(h, tmpl, h->fun.hash, h->fun.cmp);
 }
 
 /*

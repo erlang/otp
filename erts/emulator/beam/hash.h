@@ -99,6 +99,7 @@ void* hash_remove(Hash*, void*);
 void  hash_foreach(Hash*, HFOREACH_FUN, void *);
 
 ERTS_GLB_INLINE Uint hash_get_slot(Hash *h, HashValue hv);
+ERTS_GLB_INLINE void* hash_fetch(Hash *, void*, H_FUN, HCMP_FUN);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -125,6 +126,22 @@ hash_get_slot(Hash *h, HashValue hv)
     /* 2^32 / 1.61803398875 = 2654435769.... */
     return (UWORD_CONSTANT(2654435769) * hv) >> h->shift;
 #endif
+}
+
+ERTS_GLB_INLINE void* hash_fetch(Hash *h, void* tmpl, H_FUN hash, HCMP_FUN cmp)
+{
+    HashValue hval = hash(tmpl);
+    Uint ix = hash_get_slot(h, hval);
+    HashBucket* b = h->bucket[ix];
+    ASSERT(h->fun.hash == hash);
+    ASSERT(h->fun.cmp == cmp);
+
+    while(b != (HashBucket*) 0) {
+	if ((b->hvalue == hval) && (cmp(tmpl, (void*)b) == 0))
+	    return (void*) b;
+	b = b->next;
+    }
+    return (void*) 0;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
