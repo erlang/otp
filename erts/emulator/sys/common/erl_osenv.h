@@ -35,15 +35,9 @@
 #  include "config.h"
 #endif
 
-typedef struct __erts_osenv_data_t erts_osenv_data_t;
-
-typedef struct __erts_osenv_t {
-    struct __env_rbtnode_t *tree;
-    int variable_count;
-    int content_size;
-} erts_osenv_t;
-
 #include "sys.h"
+
+typedef struct __erts_osenv_data_t erts_osenv_data_t;
 
 struct __erts_osenv_data_t {
     Sint length;

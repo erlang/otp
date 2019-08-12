@@ -44,6 +44,7 @@
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_osenv.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
 static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs);

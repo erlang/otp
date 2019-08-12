@@ -673,7 +673,16 @@ typedef struct preload {
  */
 typedef Eterm ErtsTracer;
 
-#include "erl_osenv.h"
+
+/*
+ * This structure contains the rb tree for the erlang osenv copy
+ * see erl_osenv.h for more details.
+ */
+typedef struct __erts_osenv_t {
+    struct __env_rbtnode_t *tree;
+    int variable_count;
+    int content_size;
+} erts_osenv_t;
 
 /*
  * This structure contains options to all built in drivers.

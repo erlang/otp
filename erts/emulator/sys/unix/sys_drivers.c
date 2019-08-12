@@ -55,6 +55,7 @@
 
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
+#include "erl_osenv.h"
 
 #include "erl_threads.h"
 

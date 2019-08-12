@@ -23,6 +23,7 @@
 #endif
 
 #include "sys.h"
+#include "erl_osenv.h"
 #include "erl_sys_driver.h"
 #include "erl_alloc.h"
 
