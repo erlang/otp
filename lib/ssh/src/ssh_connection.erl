@@ -78,61 +78,97 @@
 %%% The SSH Connection Protocol
 
 -export_type([event/0,
-              ssh_event_msg/0,
-              data_event/0,
-              data_data_event/0,
-              data_eof_event/0,
-              status_event/0,
-              status_signal_event/0,
-              status_exit_signal_event/0,
-              status_exit_status_event/0,
-              status_closed_event/0,
-              terminal_event/0,
-              terminal_env_event/0,
-              terminal_pty_event/0,
-              terminal_shell_event/0,
-              terminal_window_change_event/0,
-              terminal_exec_event/0
+              channel_msg/0,
+              want_reply/0,
+              data_ch_msg/0,
+              eof_ch_msg/0,
+              signal_ch_msg/0,
+              exit_signal_ch_msg/0,
+              exit_status_ch_msg/0,
+              closed_ch_msg/0,
+              env_ch_msg/0,
+              pty_ch_msg/0,
+              shell_ch_msg/0,
+              window_change_ch_msg/0,
+              exec_ch_msg/0
              ]).
 
--type event() :: {ssh_cm, ssh:connection_ref(), ssh_event_msg()}.
--type ssh_event_msg() :: data_event() | status_event() | terminal_event() .
+-type event() :: {ssh_cm, ssh:connection_ref(), channel_msg()}.
+-type channel_msg() ::  data_ch_msg()
+                      | eof_ch_msg()
+                      | closed_ch_msg()
+                      | pty_ch_msg()
+                      | env_ch_msg()
+                      | shell_ch_msg()
+                      | exec_ch_msg()
+                      | signal_ch_msg()
+                      | window_change_ch_msg()
+                      | exit_status_ch_msg()
+                      | exit_signal_ch_msg()
+                        .
 
--type data_event() :: data_data_event()
-                    | data_eof_event() .
--type data_data_event() :: {data, ssh:channel_id(), ssh_data_type_code(), Data :: binary()} .
--type data_eof_event() :: {eof, ssh:channel_id()} .
+-type want_reply() :: boolean().
 
+-type data_ch_msg() :: {data,
+                        ssh:channel_id(),
+                        ssh_data_type_code(),
+                        Data :: binary()
+                       } .
+-type eof_ch_msg() :: {eof,
+                       ssh:channel_id()
+                      } .
+-type signal_ch_msg() :: {signal,
+                          ssh:channel_id(),
+                          SignalName :: string()
+                         } .
+-type exit_signal_ch_msg() :: {exit_signal, ssh:channel_id(),
+                               ExitSignal :: string(),
+                               ErrorMsg :: string(),
+                               LanguageString :: string()} .
+-type exit_status_ch_msg() :: {exit_status,
+                               ssh:channel_id(),
+                               ExitStatus :: non_neg_integer()
+                              } .
+-type closed_ch_msg() :: {closed,
+                          ssh:channel_id()
+                         } .
+-type env_ch_msg() :: {env,
+                       ssh:channel_id(),
+                       want_reply(),
+                       Var :: string(),
+                       Value :: string()
+                      } .
+-type pty_ch_msg() :: {pty,
+                       ssh:channel_id(),
+                       want_reply(),
+                       {Terminal :: string(),
+                        CharWidth :: non_neg_integer(),
+                        RowHeight :: non_neg_integer(),
+                        PixelWidth :: non_neg_integer(),
+                        PixelHeight :: non_neg_integer(),
+                        TerminalModes :: [term_mode()]
+                       }
+                      } .
 
--type status_event() :: status_signal_event()
-                      | status_exit_signal_event()
-                      | status_exit_status_event()
-                      | status_closed_event() .
+-type term_mode() :: {Opcode :: atom() | byte(),
+                      Value :: non_neg_integer()} .
 
--type status_signal_event() :: {signal, ssh:channel_id(), SignalName::string()} .
--type status_exit_signal_event() :: {exit_signal, ssh:channel_id(),
-                                     ExitSignal :: string(),
-                                     ErrorMsg ::string(),
-                                     LanguageString :: string()} .
--type status_exit_status_event() :: {exit_status, ssh:channel_id(), ExitStatus :: integer()} .
--type status_closed_event() :: {closed, ssh:channel_id()} .
-
--type terminal_event() :: terminal_env_event()
-                        | terminal_pty_event()
-                        | terminal_shell_event()
-                        | terminal_window_change_event()
-                        | terminal_exec_event() .
-
--type terminal_env_event() :: {env, ssh:channel_id(), WantReply :: boolean(), Var ::string(), Value :: string()} .
--type terminal_pty_event() :: {pty, ssh:channel_id(),
-                               WantReply :: boolean(),
-                               {Terminal :: string(), CharWidth :: integer(), RowHeight :: integer(), PixelWidth :: integer(), PixelHeight :: integer(),
-                                TerminalModes :: [{Opcode  :: atom() | integer(),
-                                                   Value :: integer()}]}} .
--type terminal_shell_event() :: {shell, WantReply :: boolean()} .
--type terminal_window_change_event() :: {window_change, ssh:channel_id(), CharWidth :: integer(),
-                                         RowHeight :: integer(), PixWidth :: integer(), PixHeight :: integer()} .
--type terminal_exec_event() :: {exec, ssh:channel_id(), WantReply :: boolean(), Cmd :: string()} .
+-type shell_ch_msg() :: {shell,
+                         ssh:channel_id(),
+                         want_reply()
+                        } .
+-type window_change_ch_msg() :: {window_change,
+                                 ssh:channel_id(),
+                                 CharWidth :: non_neg_integer(),
+                                 RowHeight :: non_neg_integer(),
+                                 PixelWidth :: non_neg_integer(),
+                                 PixelHeight :: non_neg_integer()
+                                } .
+-type exec_ch_msg() :: {exec,
+                        ssh:channel_id(),
+                        want_reply(),
+                        Command :: string()
+                       } .
 
 %%% This function is soley to convince all
 %%% checks that the type event() exists...

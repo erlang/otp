@@ -44,7 +44,7 @@
     The Erlang format of thoose messages is
     (see also <seealso marker="#type-event">below</seealso>):
     </p>
-    <p><c>{ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, </c><seealso marker="#type-ssh_event_msg"><c>ssh_event_msg()</c></seealso><c>}</c>
+    <p><c>{ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, </c><seealso marker="#type-channel_msg"><c>channel_msg()</c></seealso><c>}</c>
     </p>
     <p>
     If the <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior is used to
@@ -94,7 +94,7 @@
     <datatype_title>SSH Connection Protocol: General</datatype_title>
     <datatype>
       <name name="event"/>
-      <name name="ssh_event_msg"/>
+      <name name="channel_msg"/>
       <desc>
 	<p>As mentioned in the introduction, the
 	<url href="https://tools.ietf.org/html/rfc4254">SSH Connection Protocol</url>
@@ -105,39 +105,116 @@
       </desc>
     </datatype>
 
-    <datatype_title>SSH Connection Protocol: Data Events</datatype_title>
     <datatype>
-      <name name="data_event"/>
+      <name name="want_reply"/>
       <desc>
+      <p>Messages that include a <c>WantReply</c> expect the channel handling
+       process to call <seealso marker="ssh_connection#reply_request-4">
+       ssh_connection:reply_request/4</seealso>
+      with the boolean value of <c>WantReply</c> as the second argument.</p>
       </desc>
     </datatype>
 
+
+    <datatype_title>Data Transfer (RFC 4254, section 5.2)</datatype_title>
     <datatype>
-      <name name="data_data_event"/>
+      <name name="data_ch_msg"/>
       <desc>
 	<p>Data has arrived on the channel. This event is sent as a result of calling
 	<seealso marker="ssh_connection#send-3"> ssh_connection:send/[3,4,5]</seealso>.
 	</p>
       </desc>
     </datatype>
+
+
+    <datatype_title>Closing a Channel (RFC 4254, section 5.3)</datatype_title>
     <datatype>
-      <name name="data_eof_event"/>
+      <name name="eof_ch_msg"/>
       <desc>
 	<p>Indicates that the other side sends no more data. This event is sent as a result of calling
 	<seealso marker="ssh_connection#send_eof-2"> ssh_connection:send_eof/2</seealso>.
       </p>
       </desc>
     </datatype>
-    
-    <datatype_title>SSH Connection Protocol: Status Events</datatype_title>
     <datatype>
-      <name name="status_event"/>
+      <name name="closed_ch_msg"/>
       <desc>
+	<p>This event is sent as a result of calling
+	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso>.
+	Both the handling of this event and sending it are taken care of by the
+	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p>
       </desc>
     </datatype>
 
+
+    <datatype_title>Requesting a Pseudo-Terminal (RFC 4254, section 6.2)</datatype_title>
     <datatype>
-      <name name="status_signal_event"/>
+      <name name="pty_ch_msg"/>
+      <name name="term_mode"/>
+      <desc>
+	<p>A pseudo-terminal has been requested for the
+	 session. <c>Terminal</c> is the value of the TERM environment
+	 variable value, that is, <c>vt100</c>. Zero dimension parameters must
+	 be ignored. The character/row dimensions override the pixel
+	 dimensions (when non-zero). Pixel dimensions refer to the
+	 drawable area of the window. <c>Opcode</c> in the
+	 <c>TerminalModes</c> list is the mnemonic name, represented
+	 as a lowercase Erlang atom, defined in
+	 <url href="https://tools.ietf.org/html/rfc4254#section-8">RFC 4254</url>, Section 8.
+	 It can also be an <c>Opcode</c> if the mnemonic name is not listed in the
+	 RFC. Example: <c>OP code: 53, mnemonic name ECHO erlang atom:
+	 echo</c>. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seealso>.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Environment Variable Passing (RFC 4254, section 6.4)</datatype_title>
+    <datatype>
+      <name name="env_ch_msg"/>
+      <desc>
+	<p>Environment variables can be passed to the shell/command
+	 to be started later. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#setenv-5"> ssh_connection:setenv/5</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Starting a Shell or Command (RFC 4254, section 6.5)</datatype_title>
+    <datatype>
+      <name name="shell_ch_msg"/>
+      <desc>
+	<p>This message requests that the user default shell
+	 is started at the other end. This event is sent as a result of calling
+	 <seealso marker="ssh_connection#shell-2"> ssh_connection:shell/2</seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="exec_ch_msg"/>
+      <desc>
+	<p>This message requests that the server starts
+	 execution of the given command. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#exec-4">ssh_connection:exec/4 </seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Window Dimension Change Message (RFC 4254, section 6.7)</datatype_title>
+    <datatype>
+      <name name="window_change_ch_msg"/>
+      <desc>
+	<p>When the window (terminal) size changes on the client
+	 side, it <em>can</em> send a message to the server side to inform it of
+	the new dimensions. No API function generates this event.</p>
+      </desc>
+    </datatype>
+     
+    <datatype_title>Signals (RFC 4254, section 6.9)</datatype_title>
+    <datatype>
+      <name name="signal_ch_msg"/>
       <desc>
 	<p>A signal can be delivered to the remote process/service
 	using the following message. Some systems do not support
@@ -148,17 +225,10 @@
       </desc>
     </datatype>
 
+
+    <datatype_title>Returning Exit Status (RFC 4254, section 6.10)</datatype_title>
     <datatype>
-      <name name="status_exit_signal_event"/>
-      <desc>
-	<p>A remote execution can terminate violently because of a signal.
-	Then this message can be received. For details on valid string
-	values, see <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url>
-	Section 6.10, which shows a special case of these signals.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="status_exit_status_event"/>
+      <name name="exit_status_ch_msg"/>
       <desc>
 	<p>When the command running at the other end terminates, the
 	following message can be sent to return the exit status of the
@@ -169,85 +239,12 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="status_closed_event"/>
+      <name name="exit_signal_ch_msg"/>
       <desc>
-	<p>This event is sent as a result of calling
-	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso>.
-	Both the handling of this event and sending it are taken care of by the
-	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p>
-      </desc>
-    </datatype>
-
-    <datatype_title>SSH Connection Protocol: Terminal Events</datatype_title>
-    <datatype>
-      <name name="terminal_event"/>
-      <desc>
-       <p>Channels implementing a shell and command execution on the
-       server side are to handle the following messages that can be sent by client-
-       channel processes.</p>
-
-      <p>Events that include a <c>WantReply</c> expect the event handling
-       process to call <seealso marker="ssh_connection#reply_request-4">
-       ssh_connection:reply_request/4</seealso>
-      with the boolean value of <c>WantReply</c> as the second argument.</p>
-      </desc>
-    </datatype>
-
-    <datatype>
-      <name name="terminal_env_event"/>
-      <desc>
-	<p>Environment variables can be passed to the shell/command
-	 to be started later. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#setenv-5"> ssh_connection:setenv/5</seealso>.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
-      <name name="terminal_pty_event"/>
-      <desc>
-	<p>A pseudo-terminal has been requested for the
-	 session. <c>Terminal</c> is the value of the TERM environment
-	 variable value, that is, <c>vt100</c>. Zero dimension parameters must
-	 be ignored. The character/row dimensions override the pixel
-	 dimensions (when non-zero). Pixel dimensions refer to the
-	 drawable area of the window. <c>Opcode</c> in the
-	 <c>TerminalModes</c> list is the mnemonic name, represented
-	 as a lowercase Erlang atom, defined in
-	 <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url>, Section 8.
-	 It can also be an <c>Opcode</c> if the mnemonic name is not listed in the
-	 RFC. Example: <c>OP code: 53, mnemonic name ECHO erlang atom:
-	 echo</c>. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seealso>.</p>
-      </desc>
-    </datatype>
-
-    <datatype>
-      <name name="terminal_shell_event"/>
-      <desc>
-	<p>This message requests that the user default shell
-	 is started at the other end. This event is sent as a result of calling
-	 <seealso marker="ssh_connection#shell-2"> ssh_connection:shell/2</seealso>.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
-      <name name="terminal_window_change_event"/>
-      <desc>
-	<p>When the window (terminal) size changes on the client
-	 side, it <em>can</em> send a message to the server side to inform it of
-	the new dimensions. No API function generates this event.</p>
-      </desc>
-    </datatype>
-     
-    <datatype>
-      <name name="terminal_exec_event"/>
-      <desc>
-	<p>This message requests that the server starts
-	 execution of the given command. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#exec-4">ssh_connection:exec/4 </seealso>.
-	</p>
+	<p>A remote execution can terminate violently because of a signal.
+	Then this message can be received. For details on valid string
+	values, see <url href="https://tools.ietf.org/html/rfc4254#section-6.10">RFC 4254</url>
+	Section 6.10, which shows a special case of these signals.</p>
       </desc>
     </datatype>
 
@@ -316,22 +313,22 @@
        </taglist-->
 
        <taglist>
-	 <tag>N x <seealso marker="#type-data_data_event">data message(s)</seealso></tag>
+	 <tag>N x <seealso marker="#type-data_ch_msg">data message(s)</seealso></tag>
 	 <item><p>The result of executing the command can be only one line
 	 or thousands of lines depending on the command.</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-data_eof_event">eof message</seealso></tag>
+	 <tag>0 or 1 x <seealso marker="#type-eof_ch_msg">eof message</seealso></tag>
 	 <item><p>Indicates that no more data is to be sent.</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-status_exit_signal_event">exit signal message</seealso></tag>
+	 <tag>0 or 1 x <seealso marker="#type-exit_signal_ch_msg">exit signal message</seealso></tag>
 	 <item><p>Not all systems send signals. For details on valid string
 	 values, see RFC 4254, Section 6.10</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-status_exit_status_event">exit status message</seealso></tag>
+	 <tag>0 or 1 x <seealso marker="#type-exit_status_ch_msg">exit status message</seealso></tag>
 	 <item><p>It is recommended by the SSH Connection Protocol to send this
 	 message, but that is not always the case.</p></item>
 
-	 <tag>1 x <seealso marker="#type-status_closed_event">closed status message</seealso></tag>
+	 <tag>1 x <seealso marker="#type-closed_ch_msg">closed status message</seealso></tag>
 	 <item><p>Indicates that the <c>ssh_client_channel</c> started for the
 	 execution of the command has now been shut down.</p></item>
        </taglist>
