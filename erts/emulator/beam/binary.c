@@ -1153,51 +1153,47 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 
 BIF_RETTYPE split_binary_2(BIF_ALIST_2)
 {
-    Uint pos;
-    ErlSubBin* sb1;
-    ErlSubBin* sb2;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Eterm* hp;
+    size_t orig_size, left_size, right_size;
+    Uint byte_offset, bit_offset, bit_size;
+    Uint split_at;
+
+    Eterm *hp, *hp_end;
+    Eterm left, right;
+    Eterm real_bin;
+    Eterm result;
+    byte *bptr;
 
     if (is_not_binary(BIF_ARG_1)) {
-	goto error;
+        BIF_ERROR(BIF_P, BADARG);
+    } else if (!term_to_Uint(BIF_ARG_2, &split_at)) {
+        BIF_ERROR(BIF_P, BADARG);
+    } else if ((orig_size = binary_size(BIF_ARG_1)) < split_at) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    if (!term_to_Uint(BIF_ARG_2, &pos)) {
-	goto error;
-    }
-    if ((orig_size = binary_size(BIF_ARG_1)) < pos) {
-	goto error;
-    }
-    hp = HAlloc(BIF_P, 2*ERL_SUB_BIN_SIZE+3);
-    ERTS_GET_REAL_BIN(BIF_ARG_1, orig, offset, bit_offset, bit_size);
-    sb1 = (ErlSubBin *) hp;
-    sb1->thing_word = HEADER_SUB_BIN;
-    sb1->size = pos;
-    sb1->offs = offset;
-    sb1->orig = orig;
-    sb1->bitoffs = bit_offset;
-    sb1->bitsize = 0;
-    sb1->is_writable = 0;
-    hp += ERL_SUB_BIN_SIZE;
 
-    sb2 = (ErlSubBin *) hp;
-    sb2->thing_word = HEADER_SUB_BIN;
-    sb2->size = orig_size - pos;
-    sb2->offs = offset + pos;
-    sb2->orig = orig;
-    sb2->bitoffs = bit_offset;
-    sb2->bitsize = bit_size;	/* The extra bits go into the second binary. */
-    sb2->is_writable = 0;
-    hp += ERL_SUB_BIN_SIZE;
+    left_size = split_at;
+    right_size = orig_size - split_at;
 
-    return TUPLE2(hp, make_binary(sb1), make_binary(sb2));
-    
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    ERTS_GET_REAL_BIN(BIF_ARG_1, real_bin, byte_offset, bit_offset, bit_size);
+    bptr = binary_bytes(real_bin);
+
+    hp = HAlloc(BIF_P, EXTRACT_SUB_BIN_HEAP_NEED * 2 + 3);
+    hp_end = hp + (EXTRACT_SUB_BIN_HEAP_NEED * 2 + 3);
+
+    left = erts_extract_sub_binary(&hp, real_bin, bptr,
+                                   byte_offset * 8 + bit_offset,
+                                   left_size * 8);
+
+    right = erts_extract_sub_binary(&hp, real_bin, bptr,
+                                    (byte_offset + split_at) * 8 + bit_offset,
+                                    right_size * 8 + bit_size);
+
+    result = TUPLE2(hp, left, right);
+    hp += 3;
+
+    HRelease(BIF_P, hp_end, hp);
+
+    return result;
 }
 
 

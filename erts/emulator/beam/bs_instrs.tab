@@ -149,7 +149,7 @@ i_bs_get_binary_all2.execute(Fail, Live, Unit, Dst) {
     ErlBinMatchBuffer *_mb;
     Eterm _result;
 
-    $GC_TEST_PRESERVE(ERL_SUB_BIN_SIZE, $Live, context);
+    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     if (((_mb->size - _mb->offset) % $Unit) == 0) {
         LIGHT_SWAPOUT;
@@ -179,7 +179,7 @@ i_bs_get_binary2.execute(Fail, Live, Sz, Flags, Dst) {
     Eterm _result;
     Uint _size;
     $BS_GET_FIELD_SIZE($Sz, (($Flags) >> 3), $FAIL($Fail), _size);
-    $GC_TEST_PRESERVE(ERL_SUB_BIN_SIZE, $Live, context);
+    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     LIGHT_SWAPOUT;
     _result = erts_bs_get_binary_2(c_p, _size, $Flags, _mb);
@@ -206,8 +206,7 @@ i_bs_get_binary_imm2.fetch(Ctx) {
 i_bs_get_binary_imm2.execute(Fail, Live, Sz, Flags, Dst) {
     ErlBinMatchBuffer *_mb;
     Eterm _result;
-    $GC_TEST_PRESERVE(heap_bin_size(ERL_ONHEAP_BIN_LIMIT),
-                      $Live, context);
+    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     LIGHT_SWAPOUT;
     _result = erts_bs_get_binary_2(c_p, $Sz, $Flags, _mb);
@@ -876,9 +875,7 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         result = erts_bs_start_match_2(c_p, context, slots);
         HTOP = HEAP_TOP(c_p);
         HEAP_SPACE_VERIFIED(0);
-        if (is_non_value(result)) {
-            $FAIL($Fail);
-        }
+
         $REFRESH_GEN_DEST();
         $Dst = result;
     } else {
@@ -1296,10 +1293,6 @@ i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
         HTOP = HEAP_TOP(c_p);
         HEAP_SPACE_VERIFIED(0);
 
-        if (ms == NULL) {
-            $FAIL($Fail);
-        }
-
         $REFRESH_GEN_DEST();
         $Dst = make_matchstate(ms);
         position = ms->mb.offset;
@@ -1347,10 +1340,6 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
         ms = erts_bs_start_match_3(c_p, context);
         HTOP = HEAP_TOP(c_p);
         HEAP_SPACE_VERIFIED(0);
-
-        if (ms == NULL) {
-            $FAIL($Fail);
-        }
 
         $REFRESH_GEN_DEST();
         $Dst = make_matchstate(ms);
@@ -1522,10 +1511,6 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
 
         HTOP = HEAP_TOP(c_p);
         HEAP_SPACE_VERIFIED(0);
-
-        if (is_non_value(result)) {
-            $FAIL($Fail);
-        }
 
         $REFRESH_GEN_DEST();
         $Dst = result;

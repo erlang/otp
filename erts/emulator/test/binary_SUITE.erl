@@ -1438,7 +1438,8 @@ sleeper() ->
 gc_test(Config) when is_list(Config) ->
     %% Note: This test is only relevant for REFC binaries.
     %% Therefore, we take care that all binaries are REFC binaries.
-    B = list_to_binary(lists:seq(0, ?heap_binary_size)),
+    true = 192 > ?heap_binary_size,
+    B = list_to_binary(lists:seq(1, 192)),
     Self = self(),
     F1 = fun() ->
 		 gc(),
@@ -1447,22 +1448,22 @@ gc_test(Config) when is_list(Config) ->
 	 end,
     F = fun() ->
 		receive go -> ok end,
-		{binary,[{_,65,1}]} = process_info(self(), binary),
+		{binary,[{_,192,1}]} = process_info(self(), binary),
 		gc(),
-		{B1,B2} = my_split_binary(B, 4),
+		{B1,B2} = my_split_binary(B, 68),
 		gc(),
 		gc(),
 		{binary,L1} = process_info(self(), binary),
 		[Binfo1,Binfo2,Binfo3] = L1,
-		{_,65,3} = Binfo1 = Binfo2 = Binfo3,
-		65 = size(B),
-		4 = size(B1),
-		61 = size(B2),
+		{_,192,3} = Binfo1 = Binfo2 = Binfo3,
+		192 = size(B),
+		68 = size(B1),
+		124 = size(B2),
 		F1()
 	end,
     gc(),
     gc(),
-    65 = size(B),
+    192 = size(B),
     gc_test1(spawn_opt(erlang, apply, [F,[]], [link,{fullsweep_after,0}])).
 
 gc_test1(Pid) ->

@@ -124,10 +124,10 @@ erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
     ProcBin* pb;
 
     ASSERT(is_binary(Binary));
+
     total_bin_size = binary_size(Binary);
-    if ((total_bin_size >> (8*sizeof(Uint)-3)) != 0) {
-	return THE_NON_VALUE;
-    }
+    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
+
     NeededSize = ERL_BIN_MATCHSTATE_SIZE(Max);
     hp = HeapOnlyAlloc(p, NeededSize);
     ms = (ErlBinMatchState *) hp;
@@ -157,10 +157,9 @@ ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Binary)
     ProcBin* pb;
 
     ASSERT(is_binary(Binary));
+
     total_bin_size = binary_size(Binary);
-    if ((total_bin_size >> (8*sizeof(Uint)-3)) != 0) {
-        return NULL;
-    }
+    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
 
     NeededSize = ERL_BIN_MATCHSTATE_SIZE(0);
     hp = HeapOnlyAlloc(p, NeededSize);
@@ -459,29 +458,25 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 Eterm
 erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
-    ErlSubBin* sb;
+    Eterm result;
 
     CHECK_MATCH_BUFFER(mb);
-    if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
-	return THE_NON_VALUE;
+    if (mb->size - mb->offset < num_bits) {
+        /* Asked for too many bits.  */
+        return THE_NON_VALUE;
     }
 
     /*
      * From now on, we can't fail.
      */
 
-    sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
-    
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->orig = mb->orig;
-    sb->size = BYTE_OFFSET(num_bits);
-    sb->bitsize = BIT_OFFSET(num_bits);
-    sb->offs = BYTE_OFFSET(mb->offset);
-    sb->bitoffs = BIT_OFFSET(mb->offset);
-    sb->is_writable = 0;
+    result = erts_extract_sub_binary(&HEAP_TOP(p),
+                                     mb->orig, mb->base,
+                                     mb->offset, num_bits);
+
     mb->offset += num_bits;
-    
-    return make_binary(sb);
+
+    return result;
 }
 
 Eterm
@@ -545,21 +540,19 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 Eterm
 erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
 {
-    ErlSubBin* sb;
-    Uint size;
+    Uint bit_size;
+    Eterm result;
 
     CHECK_MATCH_BUFFER(mb);
-    size =  mb->size-mb->offset;
-    sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = BYTE_OFFSET(size);
-    sb->bitsize = BIT_OFFSET(size);
-    sb->offs = BYTE_OFFSET(mb->offset);
-    sb->bitoffs = BIT_OFFSET(mb->offset);
-    sb->is_writable = 0;
-    sb->orig = mb->orig;
-    mb->offset = mb->size;  
-    return make_binary(sb);
+    bit_size = mb->size - mb->offset;
+
+    result = erts_extract_sub_binary(&HEAP_TOP(p),
+                                     mb->orig, mb->base,
+                                     mb->offset, bit_size);
+
+    mb->offset = mb->size;
+
+    return result;
 }
 
 /****************************************************************
@@ -2094,6 +2087,42 @@ erts_copy_bits(byte* src,	/* Base pointer to source. */
 	    }
 	    *dst = MASK_BITS(bits1,*dst,rmask);
 	}
+    }
+}
+
+Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
+                              Uint bit_offset, Uint bit_size)
+{
+    Uint byte_offset, byte_size;
+
+    ERTS_CT_ASSERT(ERL_SUB_BIN_SIZE <= ERL_ONHEAP_BIN_LIMIT);
+
+    byte_offset = BYTE_OFFSET(bit_offset);
+    byte_size = BYTE_OFFSET(bit_size);
+
+    if (BIT_OFFSET(bit_size) == 0 && byte_size <= ERL_ONHEAP_BIN_LIMIT) {
+        ErlHeapBin *hb = (ErlHeapBin*)*hp;
+        *hp += heap_bin_size(byte_size);
+
+        hb->thing_word = header_heap_bin(byte_size);
+        hb->size = byte_size;
+
+        copy_binary_to_buffer(hb->data, 0, base_data, bit_offset, bit_size);
+
+        return make_binary(hb);
+    } else {
+        ErlSubBin *sb = (ErlSubBin*)*hp;
+        *hp += ERL_SUB_BIN_SIZE;
+
+        sb->thing_word = HEADER_SUB_BIN;
+        sb->size = byte_size;
+        sb->offs = byte_offset;
+        sb->orig = base_bin;
+        sb->bitoffs = BIT_OFFSET(bit_offset);
+        sb->bitsize = BIT_OFFSET(bit_size);
+        sb->is_writable = 0;
+
+        return make_binary(sb);
     }
 }
 
