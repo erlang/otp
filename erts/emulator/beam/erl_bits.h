@@ -116,7 +116,7 @@ typedef struct erl_bin_match_struct{
   do {											    \
     if (BIT_OFFSET(DstBufOffset) == 0 && (SrcBufferOffset == 0) &&			    \
         (BIT_OFFSET(NumBits)==0) && (NumBits != 0)) {					    \
-      sys_memcpy(DstBuffer+BYTE_OFFSET(DstBufOffset),					    \
+      sys_memcpy(((byte*)DstBuffer)+BYTE_OFFSET(DstBufOffset),					    \
 		 SrcBuffer, NBYTES(NumBits));						    \
     } else {										    \
       erts_copy_bits(SrcBuffer, SrcBufferOffset, 1,					    \
@@ -150,8 +150,11 @@ void erts_bits_destroy_state(ERL_BITS_PROTO_0);
 Eterm erts_bs_start_match_2(Process *p, Eterm Bin, Uint Max);
 ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Bin);
 Eterm erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
-Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
+
+/* These will create heap binaries when appropriate, so they require free space
+ * up to EXTRACT_SUB_BIN_HEAP_NEED. */
+Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb);
 
 /*
@@ -181,6 +184,17 @@ Eterm erts_bs_init_writable(Process* p, Eterm sz);
 void erts_copy_bits(byte* src, size_t soffs, int sdir,
 		    byte* dst, size_t doffs,int ddir, size_t n);        
 int erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size); 
+
+
+/* Extracts a region from base_bin as a sub-binary or heap binary, whichever
+ * is the most appropriate.
+ *
+ * The caller must ensure that there's enough free space at *hp */
+Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
+                              Uint bit_offset, Uint num_bits);
+
+/* Pessimistic estimate of the words required for erts_extract_sub_binary */
+#define EXTRACT_SUB_BIN_HEAP_NEED (heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
 
 /*
  * Flags for bs_get_* / bs_put_* / bs_init* instructions.
