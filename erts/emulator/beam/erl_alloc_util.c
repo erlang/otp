@@ -7112,32 +7112,6 @@ static int blockscan_cpool_yielding(blockscan_t *state)
     return 0;
 }
 
-static int blockscan_yield_helper(blockscan_t *state,
-                                  int (*yielding_op)(blockscan_t*))
-{
-    /* Note that we don't check whether to abort here; only yielding_op knows
-     * whether the carrier is still in the list/pool. */
-
-    if ((state->allocator)->thread_safe) {
-        /* Locked scans have to be as short as possible. */
-        state->reductions = 1;
-
-        erts_mtx_lock(&(state->allocator)->mutex);
-    } else {
-        state->reductions = BLOCKSCAN_REDUCTIONS;
-    }
-
-    if (yielding_op(state)) {
-        state->next_op = state->current_op;
-    }
-
-    if ((state->allocator)->thread_safe) {
-        erts_mtx_unlock(&(state->allocator)->mutex);
-    }
-
-    return 1;
-}
-
 /* */
 
 static int blockscan_finish(blockscan_t *state)
@@ -7152,8 +7126,27 @@ static int blockscan_finish(blockscan_t *state)
     return state->finish(state->user_data);
 }
 
+static void blockscan_lock_helper(blockscan_t *state) {
+    if ((state->allocator)->thread_safe) {
+        /* Locked scans have to be as short as possible. */
+        state->reductions = 1;
+
+        erts_mtx_lock(&(state->allocator)->mutex);
+    } else {
+        state->reductions = BLOCKSCAN_REDUCTIONS;
+    }
+}
+
+static void blockscan_unlock_helper(blockscan_t *state) {
+    if ((state->allocator)->thread_safe) {
+        erts_mtx_unlock(&(state->allocator)->mutex);
+    }
+}
+
 static int blockscan_sweep_sbcs(blockscan_t *state)
 {
+    blockscan_lock_helper(state);
+
     if (state->current_op != blockscan_sweep_sbcs) {
         SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_SBC, state->allocator);
         state->current_clist = &(state->allocator)->sbc_list;
@@ -7163,11 +7156,19 @@ static int blockscan_sweep_sbcs(blockscan_t *state)
     state->current_op = blockscan_sweep_sbcs;
     state->next_op = blockscan_finish;
 
-    return blockscan_yield_helper(state, blockscan_clist_yielding);
+    if (blockscan_clist_yielding(state)) {
+        state->next_op = state->current_op;
+    }
+    
+    blockscan_unlock_helper(state);
+
+    return 1;
 }
 
 static int blockscan_sweep_mbcs(blockscan_t *state)
 {
+    blockscan_lock_helper(state);
+
     if (state->current_op != blockscan_sweep_mbcs) {
         SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->current_clist = &(state->allocator)->mbc_list;
@@ -7177,11 +7178,19 @@ static int blockscan_sweep_mbcs(blockscan_t *state)
     state->current_op = blockscan_sweep_mbcs;
     state->next_op = blockscan_sweep_sbcs;
 
-    return blockscan_yield_helper(state, blockscan_clist_yielding);
+    if (blockscan_clist_yielding(state)) {
+        state->next_op = state->current_op;
+    }
+
+    blockscan_unlock_helper(state);
+
+    return 1;
 }
 
 static int blockscan_sweep_cpool(blockscan_t *state)
 {
+    blockscan_lock_helper(state);
+
     if (state->current_op != blockscan_sweep_cpool) {
         SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->cpool_cursor = (state->allocator)->cpool.sentinel;
@@ -7190,7 +7199,13 @@ static int blockscan_sweep_cpool(blockscan_t *state)
     state->current_op = blockscan_sweep_cpool;
     state->next_op = blockscan_sweep_mbcs;
 
-    return blockscan_yield_helper(state, blockscan_cpool_yielding);
+    if (blockscan_cpool_yielding(state)) {
+        state->next_op = state->current_op;
+    }
+
+    blockscan_unlock_helper(state);
+
+    return 1;
 }
 
 static int blockscan_get_specific_allocator(int allocator_num,
