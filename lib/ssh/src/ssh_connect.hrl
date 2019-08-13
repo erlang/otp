@@ -265,8 +265,6 @@
 	  channel_cache,
 	  channel_id_seed,
 	  cli_spec,
-	  address, 
-	  port,
 	  options,
 	  exec,
 	  system_supervisor,
