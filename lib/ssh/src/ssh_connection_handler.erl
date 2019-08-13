@@ -414,7 +414,6 @@ init([Role,Socket,Opts]) ->
             {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
             C = #connection{channel_cache = ssh_client_channel:cache_create(),
                             channel_id_seed = 0,
-                            port_bindings = [],
                             requests = [],
                             options = Opts},
             D0 = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),

@@ -60,8 +60,7 @@
 	 request_failure_msg/0, 
 	 request_success_msg/1,
 
-         bind/4, unbind/3, unbind_channel/2, 
-	 bound_channel/3, encode_ip/1
+	 encode_ip/1
         ]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -713,29 +712,6 @@ request_success_msg(Data) ->
 %%%----------------------------------------------------------------
 %%%
 %%%
-bind(IP, Port, ChannelPid, Connection) ->
-    Binds = [{{IP, Port}, ChannelPid}
-	     | lists:keydelete({IP, Port}, 1, 
-			       Connection#connection.port_bindings)],
-    Connection#connection{port_bindings = Binds}.
-
-unbind(IP, Port, Connection) ->
-    Connection#connection{
-      port_bindings = 
-      lists:keydelete({IP, Port}, 1,
-		      Connection#connection.port_bindings)}.
-unbind_channel(ChannelPid, Connection) ->
-    Binds = [{Bind, ChannelP} || {Bind, ChannelP} 
-				     <- Connection#connection.port_bindings, 
-				 ChannelP =/= ChannelPid],
-    Connection#connection{port_bindings = Binds}.
-
-bound_channel(IP, Port, Connection) ->
-    case lists:keysearch({IP, Port}, 1, Connection#connection.port_bindings) of
-	{value, {{IP, Port}, ChannelPid}} -> ChannelPid;
-	_ -> undefined
-    end.
-
 encode_ip(Addr) when is_tuple(Addr) ->
     case catch inet_parse:ntoa(Addr) of
 	{'EXIT',_} -> false;
