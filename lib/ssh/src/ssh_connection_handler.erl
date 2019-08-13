@@ -1544,6 +1544,17 @@ handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
 handle_event(info, check_cache, _, D) ->
     {keep_state, D, cond_set_idle_timer(D)};
 
+handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{connection_state = Connection}) ->
+    #connection{options = Options,
+                channel_cache = Cache,
+                sub_system_supervisor = SubSysSup} = Connection,
+    Channel = ssh_client_channel:cache_lookup(Cache, ChId),
+    {ok,Pid} = ssh_subsystem_sup:start_channel(role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
+    ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+    gen_tcp:controlling_process(Sock, Pid),
+    inet:setopts(Sock, [{active,once}]),
+    keep_state_and_data;
+
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of
 	report ->

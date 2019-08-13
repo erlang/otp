@@ -45,6 +45,8 @@
          handle_msg/3,
          handle_stop/1,
 
+         open_channel/4,
+
 	 channel_adjust_window_msg/2,
 	 channel_close_msg/1,
 	 channel_open_failure_msg/4,
@@ -57,6 +59,7 @@
          channel_request_msg/4,
          channel_success_msg/1,
 
+         request_global_msg/3,
 	 request_failure_msg/0, 
 	 request_success_msg/1,
 
@@ -202,10 +205,22 @@ session_channel(ConnectionHandler, Timeout) ->
       Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
 session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
-    case ssh_connection_handler:open_channel(ConnectionHandler, "session", <<>>,
-                                             InitialWindowSize,
-                                             MaxPacketSize, Timeout) of
-	{open, Channel} ->
+    open_channel(ConnectionHandler, "session", <<>>,
+                 InitialWindowSize,
+                 MaxPacketSize,
+                 Timeout).
+
+%%--------------------------------------------------------------------
+%% Description: Opens a channel for the given type.
+%% --------------------------------------------------------------------
+open_channel(ConnectionHandler, Type, ChanData, Timeout) ->
+    open_channel(ConnectionHandler, Type, ChanData, ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
+
+open_channel(ConnectionHandler, Type, ChanData, InitialWindowSize, MaxPacketSize, Timeout) ->
+    case ssh_connection_handler:open_channel(ConnectionHandler, Type, ChanData,
+                                             InitialWindowSize, MaxPacketSize,
+                                             Timeout) of
+        {open, Channel} ->
 	    {ok, Channel};
 	Error ->
 	    Error
@@ -740,9 +755,45 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 	    {[], Connection}
     end;
 
+handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
+				   want_reply = WantReply,
+				   data = <<?DEC_BIN(ListenAddrStr,_Len),?UINT32(ListenPort)>>},
+           #connection{options = Opts} = Connection, server) ->
+    case ?GET_OPT(tcpip_tunnel_out, Opts) of
+        false ->
+            %% This daemon instance has not enabled tcpip_forwarding
+            {[{connection_reply, request_failure_msg()}], Connection};
+
+        true ->
+            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+            SubSysSup = proplists:get_value(subsystem_sup,  Sups),
+            FwdSup = ssh_subsystem_sup:tcpip_fwd_supervisor(SubSysSup),
+            ConnPid = self(),
+            case ssh_tcpip_forward_acceptor:supervised_start(FwdSup,
+                                                             {ListenAddrStr, ListenPort},
+                                                             undefined,
+                                                             "forwarded-tcpip", ssh_tcpip_forward_srv,
+                                                             ConnPid) of
+                {ok,ListenPort} when WantReply==true ->
+                    {[{connection_reply, request_success_msg(<<>>)}], Connection};
+
+                {ok,LPort} when WantReply==true ->
+                    {[{connection_reply, request_success_msg(<<?UINT32(LPort)>>)}], Connection};
+
+                {error,_} when WantReply==true ->
+                    {[{connection_reply, request_failure_msg()}], Connection};
+
+                _ when WantReply==true ->
+                    {[{connection_reply, request_failure_msg()}], Connection};
+
+                _ ->
+                    {[], Connection}
+            end
+    end;
+
 handle_msg(#ssh_msg_global_request{name = _Type,
 				   want_reply = WantReply,
-				   data = _Data}, Connection, _) ->
+				   data = _Data}, Connection, _Role) ->
     if WantReply == true ->
 	    FailMsg = request_failure_msg(),
 	    {[{connection_reply, FailMsg}], Connection};
@@ -855,8 +906,13 @@ channel_success_msg(ChannelId) ->
 
 %%%----------------------------------------------------------------
 %%% request_*_msg(...)
-%%% Returns a #ssh_msg_....{} for request responses.
+%%% Returns a #ssh_msg_....{}
 %%%
+request_global_msg(Name, WantReply, Data) ->
+    #ssh_msg_global_request{name = Name,
+                            want_reply = WantReply,
+                            data = Data}.
+
 request_failure_msg() ->
     #ssh_msg_request_failure{}.
 
@@ -1298,6 +1354,10 @@ handle_cli_msg(C0, ChId, Reply0) ->
         _ ->
             reply_msg(Ch0, C0, Reply0)
     end.
+
+%%%----------------------------------------------------------------
+%%%
+%%% TCP/IP forwarding
 
 %%%----------------------------------------------------------------
 %%%
