@@ -74,6 +74,9 @@ MODULES= \
 	ssh_subsystem_sup \
 	ssh_sup \
 	ssh_system_sup \
+	ssh_tcpip_forward_srv \
+	ssh_tcpip_forward_acceptor_sup \
+	ssh_tcpip_forward_acceptor \
 	ssh_transport \
 	ssh_xfer \
 	sshc_sup \

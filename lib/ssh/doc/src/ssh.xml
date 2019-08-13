@@ -693,6 +693,15 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="tcpip_tunnel_out_daemon_option"/>
+      <desc>
+	<p>Enables (<c>true</c>) or disables (<c>false</c>) the possibility to tunnel a TCP/IP connection out of a
+	<seealso marker="ssh:ssh#daemon-2">server</seealso>.
+	Disabled per default.
+	</p>
+      </desc>
+    </datatype>
 
     <!--................................................................-->
     <datatype_title>Options common to clients and daemons</datatype_title>

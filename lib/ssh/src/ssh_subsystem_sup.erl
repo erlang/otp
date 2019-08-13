@@ -31,6 +31,7 @@
 -export([start_link/5,
 	 connection_supervisor/1,
 	 channel_supervisor/1,
+         tcpip_fwd_supervisor/1,
          start_channel/8
 	]).
 
@@ -50,6 +51,10 @@ connection_supervisor(SupPid) ->
 channel_supervisor(SupPid) when is_pid(SupPid) ->    
     Children = supervisor:which_children(SupPid),
     ssh_channel_sup(Children).
+
+tcpip_fwd_supervisor(SupPid) when is_pid(SupPid) ->    
+    Children = supervisor:which_children(SupPid),
+    tcpip_fwd_sup(Children).
 
 start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
     ChannelSup = channel_supervisor(SupPid),
@@ -71,7 +76,8 @@ init([Role, Address, Port, Profile, Options]) ->
 %%%=========================================================================
 child_specs(Role, Address, Port, Profile, Options) ->
     [ssh_channel_child_spec(Role, Address, Port, Profile, Options), 
-     ssh_connection_child_spec(Role, Address, Port, Profile, Options)].
+     ssh_connection_child_spec(Role, Address, Port, Profile, Options),
+     ssh_tcpip_forward_acceptor_child_spec()].
   
 ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
     #{id       => id(Role, ssh_connection_sup, Address, Port),
@@ -87,6 +93,14 @@ ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
       type     => supervisor
      }.
 
+ssh_tcpip_forward_acceptor_child_spec() ->
+    #{id       => make_ref(),
+      start    => {ssh_tcpip_forward_acceptor_sup, start_link, []},
+      restart  => temporary,
+      type     => supervisor
+     }.
+
+
 id(Role, Sup, Address, Port) ->
     {Role, Sup, Address, Port}.
 
@@ -100,5 +114,8 @@ ssh_channel_sup([{_, Child, _, [ssh_channel_sup]} | _]) ->
 ssh_channel_sup([_ | Rest]) ->
     ssh_channel_sup(Rest).
 
-
+tcpip_fwd_sup([{_, Child, _, [ssh_tcpip_forward_acceptor_sup]} | _]) ->
+    Child;
+tcpip_fwd_sup([_ | Rest]) ->
+    tcpip_fwd_sup(Rest).
 
