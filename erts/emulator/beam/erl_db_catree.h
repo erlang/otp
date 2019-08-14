@@ -46,7 +46,6 @@ typedef struct {
     int is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
-    struct DbTableCATreeNode * next; /* Used when gradually deleting */
 
     char end_of_struct__;
 } DbTableCATreeBaseNode;
@@ -83,9 +82,6 @@ typedef struct db_table_catree {
     /* CA Tree-specific fields */
     erts_atomic_t root;         /* The tree root (DbTableCATreeNode*) */
     Uint deletion;		/* Being deleted */
-    DbTreeStack free_stack_elems;/* Used for deletion ...*/
-    CATreeNodeStack free_stack_rnodes;
-    DbTableCATreeNode *base_nodes_to_free_list;
     int is_routing_nodes_freed;
     /* The fields below are used by delete_all_objects and
        select_delete(DeleteAll)*/
