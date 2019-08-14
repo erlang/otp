@@ -48,10 +48,18 @@ all() ->
     end.
 
 groups() -> 
-    [{erlang_client, [], [erlang_shell_client_openssh_server
+    [{erlang_client, [], [tunnel_in_erlclient_erlserver,
+                          tunnel_out_erlclient_erlserver,
+                          {group, tunnel_distro_server},
+                          erlang_shell_client_openssh_server
 			 ]},
-     {erlang_server, [], [erlang_server_openssh_client_renegotiate
-			 ]}
+     {tunnel_distro_server, [], [tunnel_in_erlclient_openssh_server,
+                                 tunnel_out_erlclient_openssh_server]},
+     {erlang_server, [], [{group, tunnel_distro_client},
+                          erlang_server_openssh_client_renegotiate                          
+			 ]},
+     {tunnel_distro_client, [], [tunnel_in_non_erlclient_erlserver,
+                                 tunnel_out_non_erlclient_erlserver]}
     ].
 
 init_per_suite(Config) ->
@@ -73,6 +81,14 @@ init_per_group(erlang_server, Config) ->
     ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
     ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
     Config;
+init_per_group(G, Config) when G==tunnel_distro_server ;
+                               G==tunnel_distro_client ->
+    case no_forwarding() of
+        true ->
+            {skip, "port forwarding disabled in external ssh"};
+        false ->
+            Config
+    end;
 init_per_group(erlang_client, Config) ->
     CommonAlgs = ssh_test_lib:algo_intersection(
 		   ssh:default_algorithms(),
@@ -177,7 +193,183 @@ erlang_server_openssh_client_renegotiate(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+tunnel_out_non_erlclient_erlserver(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
+                                             {system_dir, SystemDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    {ToSock, _ToHost, ToPort} = tunneling_listner(),
+
+    ListenHost = {127,0,0,1},
+    ListenPort = 2345,
+
+    Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
+                                     [" -o UserKnownHostsFile=", KnownHosts,
+                                      " -o StrictHostKeyChecking=no",
+                                      " -R ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
+    spawn(fun() ->
+                  ct:log(["ssh command:\r\n  ",Cmd],[]),
+                  R = os:cmd(Cmd),
+                  ct:log(["ssh returned:\r\n",R],[])
+          end),
+
+    ct:sleep(1000),
+    test_tunneling(ToSock, ListenHost, ListenPort).
+    
+%%--------------------------------------------------------------------
+tunnel_in_non_erlclient_erlserver(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(UserDir, "known_hosts"),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
+                                              {system_dir, SystemDir},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    {ToSock, _ToHost, ToPort} = tunneling_listner(),
+    
+    ListenHost = {127,0,0,1},
+    ListenPort = 2345,
+
+    Cmd =
+        ssh_test_lib:open_sshc_cmd(Host, Port,
+                                   [" -o UserKnownHostsFile=", KnownHosts,
+                                    " -o StrictHostKeyChecking=no",
+                                    " -L ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
+    spawn(fun() ->
+                  ct:log(["ssh command:\r\n  ",Cmd],[]),
+                  R = os:cmd(Cmd),
+                  ct:log(["ssh returned:\r\n",R],[])
+          end),
+    ct:sleep(1000),
+    test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
+tunnel_in_erlclient_erlserver(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    
+    ListenHost = {127,0,0,1},
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost,ToPort, 2000),
+
+    test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
+tunnel_in_erlclient_openssh_server(_Config) ->
+    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
+                                            {user_interaction, false}]),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    
+    ListenHost = {127,0,0,1},
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost,ToPort, 5000),
+
+    test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
+tunnel_out_erlclient_erlserver(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    
+    ListenHost = {127,0,0,1},
+    {ok,ListenPort} = ssh:tcpip_tunnel_from_server(C, ListenHost,0, ToHost,ToPort, 5000),
+
+    test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
+tunnel_out_erlclient_openssh_server(_Config) ->
+    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
+                                            {user_interaction, false}]),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    
+    ListenHost = {127,0,0,1},
+    {ok,ListenPort} = ssh:tcpip_tunnel_from_server(C, ListenHost,0, ToHost,ToPort, 5000),
+
+    test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
+%%--------------------------------------------------------------------
+tunneling_listner() ->
+    {ok,LSock} = gen_tcp:listen(0, [{active,false}]),
+    {ok, {LHost,LPort}} = inet:sockname(LSock),
+    {LSock, LHost, LPort}.
+
+test_tunneling(ListenSocket, Host, Port) ->
+    {ok,Client1} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Server1} = gen_tcp:accept(ListenSocket),
+    {ok,Client2} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Server2} = gen_tcp:accept(ListenSocket),
+    send_rcv("Hi!", Client1, Server1),
+    send_rcv("Happy to see you!", Server1, Client1),
+    send_rcv("Hi, you to!", Client2, Server2),
+    send_rcv("Happy to see you also!", Server2, Client2),
+    close_and_check(Client1, Server1),
+    send_rcv("Still there?", Client2, Server2),
+    send_rcv("Yes!", Server2, Client2),
+    close_and_check(Server2, Client2).
+    
+    
+tcp_connect(Host, Port, Options) ->
+    tcp_connect(Host, Port, Options, 0).
+tcp_connect(Host, Port, Options, Timeout) ->
+    ct:log("Try connect to ~p:~p ~p Timeout=~p", [Host, Port, Options, Timeout]),
+    case gen_tcp:connect(Host, Port, Options, Timeout) of
+        {error,econnrefused} ->
+            timer:sleep( 2*max(Timeout,250)),
+            tcp_connect(Host, Port, Options, 2*max(Timeout,250));
+        {error,timeout} ->
+            timer:sleep( 2*max(Timeout,250)),
+            tcp_connect(Host, Port, Options, 2*max(Timeout,250));
+        {ok,S} ->
+            ct:log("connect to ~p:~p ~p Timeout=~p -> ~p", [Host, Port, Options, Timeout, S]),
+            {ok,S}
+    end.
+
+close_and_check(OneSide, OtherSide) ->
+    ok = gen_tcp:close(OneSide),
+    ok = chk_closed(OtherSide).
+    
+    
+chk_closed(Sock) ->
+    chk_closed(Sock, 0).
+chk_closed(Sock, Timeout) ->
+    case gen_tcp:recv(Sock, 0, Timeout) of
+        {error,closed} ->
+            ok;
+        {error,timeout} ->
+            chk_closed(Sock, 2*max(Timeout,250));
+        Other ->
+            Other
+    end.
+    
+send_rcv(Txt, From, To) ->
+    ct:log("Send ~p from ~p to ~p", [Txt, From, To]),
+    ok = gen_tcp:send(From, Txt),
+    ct:log("Recv ~p on ~p", [Txt, To]),
+    {ok,Txt} = gen_tcp:recv(To, 0, 5000),
+    ok.    
+
 %%--------------------------------------------------------------------
 receive_data(Data, Conn) ->
     receive
@@ -256,3 +448,40 @@ comment(AtomList) ->
     ct:comment(
       string:join(lists:map(fun erlang:atom_to_list/1, AtomList),
 		", ")).
+
+%%%----------------------------------------------------------------
+no_forwarding() ->
+    %%% Check if the ssh of the OS has tunneling enabled
+    Cmnd = "ssh -R 0:localhost:4567 localhost exit",
+    FailRegExp =
+        "Port forwarding is disabled"
+        "|remote port forwarding failed"
+        "|Bad.*specification",
+    {Result,TheText} =
+        try
+            Parent = self(),
+            Pid = spawn(fun() ->
+                                Parent ! {self(), os:cmd(Cmnd)}
+                        end),
+            receive
+                {Pid, Txt} ->
+                    case re:run(Txt, FailRegExp) of
+                        {match,_} -> {true,Txt};
+                        _ -> {false,Txt}
+                end
+        after 10000 ->
+                ct:log("*** TIMEOUT ***",[]),
+                {true,""}
+        end
+    catch C:E:S ->
+            ct:log("Exception in no_forwarding():~n~p:~p~n~p~n", [C,E,S]),
+            {true, ""}
+    end,
+    ct:log("---- os:cmd(~p) returned:~n~s~n"
+           "~n"
+           "---- Checking with regexp~n"
+           "~p~n"
+           "~n"
+           "---- The function no_forwarding() returns ~p",
+           [Cmnd,TheText, FailRegExp, Result]),
+    Result.
