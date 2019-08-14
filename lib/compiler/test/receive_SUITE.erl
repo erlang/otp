@@ -431,6 +431,20 @@ elusive_common_exit(_Config) ->
     self() ! {1, a},
     self() ! {2, b},
     {[z], [{2,b},{1,a}]} = elusive_loop([x,y,z], 2, []),
+
+    CodeServer = whereis(code_server),
+    Self = self(),
+    Self ! {Self, abc},
+    Self ! {CodeServer, []},
+    Self ! {Self, other},
+    try elusive2([]) of
+        Unexpected ->
+            ct:fail("Expected an exception; got ~p\n", [Unexpected])
+    catch
+        throw:[other, CodeServer, Self] ->
+            ok
+    end,
+
     ok.
 
 elusive_loop(List, 0, Results) ->
@@ -448,5 +462,26 @@ elusive_loop(List, ToReceive, Results) ->
     %% the common exit block for this receive. That would mean
     %% that it would not insert all necessary copy instructions.
     elusive_loop(RemList, ToReceive-1, [Result | Results]).
+
+
+elusive2(Acc) ->
+    receive
+        {Pid, abc} ->
+            ok;
+        {Pid, []} ->
+            ok;
+        {Pid, Res} ->
+            %% beam_ssa_pre_codegen:find_loop_exit/2 attempts to find
+            %% the first block of the common code after the receive
+            %% statement. It used to only look at the two last clauses
+            %% of the receive. In this function, the last two clauses
+            %% don't have any common block, so it would be assumed
+            %% that there was no common block for any of the
+            %% clauses. That would mean that copy instructions would
+            %% not be inserted as needed.
+            throw([Res | Acc])
+    end,
+    %% Common code.
+    elusive2([Pid | Acc]).
 
 id(I) -> I.

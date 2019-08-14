@@ -1544,25 +1544,51 @@ fix_receive([], _Defs, Blocks, Count) ->
     {Blocks,Count}.
 
 %% find_loop_exit([Label], Blocks) -> Label | none.
-%%  Find the block to which control is transferred when the
-%%  the receive loop is exited.
+%%  Given the list of all blocks with the remove_message instructions
+%%  for this receive, find the block to which control is transferred
+%%  when the receive loop is exited (if any).
 
-find_loop_exit([L1,L2|_Ls], Blocks) ->
-    Path1 = beam_ssa:rpo([L1], Blocks),
-    Path2 = beam_ssa:rpo([L2], Blocks),
-    find_loop_exit_1(Path1, cerl_sets:from_list(Path2));
-find_loop_exit(_, _) -> none.
+find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
+    %% We used to only analyze the path from two of the remove_message
+    %% blocks. That would fail to find a common block if one or both
+    %% of the blocks happened to raise an exception. To be sure that
+    %% we always find a common block if there is one (shared by at
+    %% least two clauses), we must analyze the path from all
+    %% remove_message blocks.
+    {Dominators,_} = beam_ssa:dominators(Blocks),
+    RmSet = cerl_sets:from_list(RmBlocks),
+    Rpo = beam_ssa:rpo(RmBlocks, Blocks),
+    find_loop_exit_1(Rpo, RmSet, Dominators);
+find_loop_exit(_, _) ->
+    %% There is (at most) a single clause. There is no common
+    %% loop exit block.
+    none.
 
-find_loop_exit_1([?EXCEPTION_BLOCK | T], OtherPath) ->
-    %% ?EXCEPTION_BLOCK is a marker and not an actual block, so we can't
-    %% consider it to be a common block even if both paths cross it.
-    find_loop_exit_1(T, OtherPath);
-find_loop_exit_1([H|T], OtherPath) ->
-    case cerl_sets:is_element(H, OtherPath) of
-        true -> H;
-        false -> find_loop_exit_1(T, OtherPath)
+find_loop_exit_1([?EXCEPTION_BLOCK|Ls], RmSet, Dominators) ->
+    %% ?EXCEPTION_BLOCK is a marker and not an actual block, so it is not
+    %% the block we are looking for.
+    find_loop_exit_1(Ls, RmSet, Dominators);
+find_loop_exit_1([L|Ls], RmSet, Dominators) ->
+    DomBy = map_get(L, Dominators),
+    case any(fun(E) -> cerl_sets:is_element(E, RmSet) end, DomBy) of
+        true ->
+            %% This block is dominated by one of the remove_message blocks,
+            %% which means that the block is part of only one clause.
+            %% It is not the block we are looking for.
+            find_loop_exit_1(Ls, RmSet, Dominators);
+        false ->
+            %% This block is the first block that is not dominated by
+            %% any of the blocks with remove_message instructions,
+            %% which means that at least two of the receive clauses
+            %% will ultimately transfer control to it. It is the block
+            %% we are looking for.
+            L
     end;
-find_loop_exit_1([], _) -> none.
+find_loop_exit_1([], _, _) ->
+    %% None of clauses transfers control to a common block after the receive
+    %% statement. That means that the receive statement is a the end of a
+    %% function (or that all clauses raise exceptions).
+    none.
 
 %% find_rm_blocks(StartLabel, Blocks) -> [Label].
 %%  Find all blocks that start with remove_message within the receive
