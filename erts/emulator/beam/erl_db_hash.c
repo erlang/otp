@@ -531,6 +531,14 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                       DbUpdateHandle* handle);
 static void
 db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
+static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj);
+static void* db_dbterm_list_prepend_hash(void* list, void* db_term);
+static void* db_dbterm_list_remove_first_hash(void** list);
+static int db_put_dbterm_hash(DbTable* tb,
+                              void* obj,
+                              int key_clash_fail);
+static void db_free_dbterm_hash(int compressed, void* obj);
+static Eterm db_get_dbterm_key_hash(DbTable* tb, void* db_term);
 
 static int
 db_get_binary_info_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
@@ -572,16 +580,36 @@ static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
     }
 }
 
-static ERTS_INLINE HashDbTerm* new_dbterm(DbTableHash* tb, Eterm obj)
+static ERTS_INLINE HashDbTerm* new_dbterm_hash(DbTableCommon* tb, Eterm obj)
 {
     HashDbTerm* p;
-    if (tb->common.compress) {
-	p = db_store_term_comp(&tb->common, NULL, offsetof(HashDbTerm,dbterm), obj);
+    if (tb->compress) {
+	p = db_store_term_comp(tb, tb->keypos, NULL, offsetof(HashDbTerm,dbterm), obj);
     }
     else {
-	p = db_store_term(&tb->common, NULL, offsetof(HashDbTerm,dbterm), obj);
+	p = db_store_term(tb, NULL, offsetof(HashDbTerm,dbterm), obj);
     }
     return p;
+}
+
+/*
+ * This function only differ from new_dbterm_hash in that it does not
+ * adjust the memory size of a given table.
+ */
+static ERTS_INLINE HashDbTerm* new_dbterm_hash_no_tab(int compress, int keypos, Eterm obj)
+{
+    HashDbTerm* p;
+    if (compress) {
+	p = db_store_term_comp(NULL, keypos, NULL, offsetof(HashDbTerm,dbterm), obj);
+    } else {
+	p = db_store_term(NULL, NULL, offsetof(HashDbTerm,dbterm), obj);
+    }
+    return p;
+}
+
+static ERTS_INLINE HashDbTerm* new_dbterm(DbTableHash* tb, Eterm obj)
+{
+    return new_dbterm_hash(&tb->common, obj);
 }
 
 static ERTS_INLINE HashDbTerm* replace_dbterm(DbTableHash* tb, HashDbTerm* old,
@@ -590,10 +618,17 @@ static ERTS_INLINE HashDbTerm* replace_dbterm(DbTableHash* tb, HashDbTerm* old,
     HashDbTerm* ret;
     ASSERT(old != NULL);
     if (tb->common.compress) {
-	ret = db_store_term_comp(&tb->common, &(old->dbterm), offsetof(HashDbTerm,dbterm), obj);
+	ret = db_store_term_comp(&tb->common,
+                                 tb->common.keypos,
+                                 &(old->dbterm),
+                                 offsetof(HashDbTerm,dbterm),
+                                 obj);
     }
     else {
-	ret = db_store_term(&tb->common, &(old->dbterm), offsetof(HashDbTerm,dbterm), obj);
+	ret = db_store_term(&tb->common,
+                            &(old->dbterm),
+                            offsetof(HashDbTerm,dbterm),
+                            obj);
     }
     return ret;
 }
@@ -635,6 +670,12 @@ DbTableMethod db_hash =
     db_foreach_offheap_hash,
     db_lookup_dbterm_hash,
     db_finalize_dbterm_hash,
+    db_eterm_to_dbterm_hash,
+    db_dbterm_list_prepend_hash,
+    db_dbterm_list_remove_first_hash,
+    db_put_dbterm_hash,
+    db_free_dbterm_hash,
+    db_get_dbterm_key_hash,
     db_get_binary_info_hash,
     db_raw_first_hash,
     db_raw_next_hash
@@ -857,6 +898,158 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }    
     return DB_ERROR_NONE;
 }    
+
+static int db_eq_terms_comp(DbTableCommon* tb, DbTerm* a, DbTerm* b)
+{
+    ErlOffHeap tmp_offheap_a;
+    Eterm* allocp_a;
+    Eterm* hp_a;
+    Eterm tmp_a;
+    ErlOffHeap tmp_offheap_b;
+    Eterm* allocp_b;
+    Eterm* hp_b;
+    Eterm tmp_b;
+    int is_eq;
+
+    ASSERT(tb->compress);
+    hp_a = allocp_a = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
+    tmp_offheap_a.first = NULL;
+    tmp_a = db_copy_from_comp(tb, a, &hp_a, &tmp_offheap_a);
+
+    hp_b = allocp_b = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
+    tmp_offheap_b.first = NULL;
+    tmp_b = db_copy_from_comp(tb, b, &hp_b, &tmp_offheap_b);
+
+    is_eq = eq(tmp_a,tmp_b);
+    erts_cleanup_offheap(&tmp_offheap_a);
+    erts_free(ERTS_ALC_T_TMP, allocp_a);
+    erts_cleanup_offheap(&tmp_offheap_b);
+    erts_free(ERTS_ALC_T_TMP, allocp_b);
+    return is_eq;
+}
+
+static ERTS_INLINE int db_terms_eq(DbTableCommon* tb, DbTerm* a, DbTerm* b)
+{
+    if (!tb->compress) {
+	return EQ(make_tuple(a->tpl), make_tuple(b->tpl));
+    }
+    else {
+	return db_eq_terms_comp(tb, a, b);
+    }
+}
+
+static int db_put_dbterm_hash(DbTable* tbl,
+                              void* ob,
+                              int key_clash_fail)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashValue hval;
+    int ix;
+    Eterm key;
+    HashDbTerm** bp;
+    HashDbTerm* b;
+    HashDbTerm* q;
+    DbTableHashLockAndCounter* lck_ctr;
+    int nitems;
+    int ret = DB_ERROR_NONE;
+    HashDbTerm *value_to_insert = ob;
+    Uint size_to_insert = db_term_size(tbl, value_to_insert, offsetof(HashDbTerm, dbterm));
+    ERTS_DB_ALC_MEM_UPDATE_(tbl, 0, size_to_insert);
+    key = GETKEY(tb, value_to_insert->dbterm.tpl);
+    hval = MAKE_HASH(key);
+    value_to_insert->hvalue = hval;
+    lck_ctr = WLOCK_HASH_GET_LCK_AND_CTR(tb, hval);
+    ix = hash_to_ix(tb, hval);
+    bp = &BUCKET(tb, ix);
+    b = *bp;
+
+    for (;;) {
+	if (b == NULL) {
+	    goto Lnew;
+	}
+	if (has_key(tb,b,key,hval)) {
+	    break;
+	}
+	bp = &b->next;
+	b = b->next;
+    }
+    /* Key found
+    */
+    if (tb->common.status & DB_SET) {
+	HashDbTerm* bnext = b->next;
+	if (is_pseudo_deleted(b)) {
+            INC_NITEMS(tb, lck_ctr, hval);
+            b->pseudo_deleted = 0;
+	}
+	else if (key_clash_fail) {
+	    ret = DB_ERROR_BADKEY;
+	    goto Ldone;
+	}
+        value_to_insert->pseudo_deleted = b->pseudo_deleted;
+        free_term(tb, b);
+        q = value_to_insert;
+	q->next = bnext;
+	ASSERT(q->hvalue == hval);
+	*bp = q;
+	goto Ldone;
+    }
+    else if (key_clash_fail) { /* && (DB_BAG || DB_DUPLICATE_BAG) */
+	q = b;
+	do {
+	    if (!is_pseudo_deleted(q)) {
+		ret = DB_ERROR_BADKEY;
+		goto Ldone;
+	    }
+	    q = q->next;
+	}while (q != NULL && has_key(tb,q,key,hval));
+    }
+    else if (tb->common.status & DB_BAG) {
+	HashDbTerm** qp = bp;
+	q = b;
+	do {
+	    if (db_terms_eq(&tb->common,
+                            &value_to_insert->dbterm,
+                            &q->dbterm)) {
+		if (is_pseudo_deleted(q)) {
+                    INC_NITEMS(tb, lck_ctr, hval);
+                    q->pseudo_deleted = 0;
+		    ASSERT(q->hvalue == hval);
+		    if (q != b) { /* must move to preserve key insertion order */
+			*qp = q->next;
+			q->next = b;
+			*bp = q;
+		    }
+		}
+                free_term(tb, value_to_insert);
+		goto Ldone;
+	    }
+	    qp = &q->next;
+	    q = *qp;
+	}while (q != NULL && has_key(tb,q,key,hval));
+    }
+    /*else DB_DUPLICATE_BAG */
+
+Lnew:
+    q = value_to_insert;
+    q->hvalue = hval;
+    q->pseudo_deleted = 0;
+    q->next = b;
+    *bp = q;
+    INC_NITEMS(tb, lck_ctr, hval);
+    nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);
+    WUNLOCK_HASH_LCK_CTR(lck_ctr);
+    {
+	int nactive = NACTIVE(tb);
+	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
+	    grow(tb, nitems);
+	}
+    }
+    return DB_ERROR_NONE;
+
+Ldone:
+    WUNLOCK_HASH_LCK_CTR(lck_ctr);
+    return ret;
+}
 
 int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 {
@@ -3649,6 +3842,49 @@ static int db_raw_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
     *ret = am_EOT;
     return DB_ERROR_NONE;
+}
+
+static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj)
+{
+    HashDbTerm* term = new_dbterm_hash_no_tab(compress, keypos, obj);
+    term->next = NULL;
+    return term;
+}
+
+static void* db_dbterm_list_prepend_hash(void* list, void* db_term)
+{
+    HashDbTerm* l = list;
+    HashDbTerm* t = db_term;
+    t->next = l;
+    return t;
+}
+
+static void* db_dbterm_list_remove_first_hash(void** list)
+{
+    if (*list == NULL) {
+        return NULL;
+    } else {
+        HashDbTerm* t = (*list);
+        HashDbTerm* l = t->next;
+        *list = l;
+        return t;
+    }
+}
+
+/*
+ * Frees a HashDbTerm without updating the memory footprint of the
+ * table.
+ */
+static void db_free_dbterm_hash(int compressed, void* obj)
+{
+    HashDbTerm* p = obj;
+    db_free_term_no_tab(compressed, p, offsetof(HashDbTerm, dbterm));
+}
+
+static Eterm db_get_dbterm_key_hash(DbTable* tb, void* db_term)
+{
+    HashDbTerm *value_to_insert = db_term;
+    return GETKEY(tb, value_to_insert->dbterm.tpl);
 }
 
 /* For testing only */

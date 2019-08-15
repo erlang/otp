@@ -40,9 +40,12 @@
 -export([lookup_element_mult/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
-         select_bound_chunk/1,
-	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
+         select_bound_chunk/1, t_delete_all_objects/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
+-export([t_insert_list/1, t_insert_list_bag/1, t_insert_list_duplicate_bag/1,
+         t_insert_list_set/1, t_insert_list_delete_set/1,
+         t_insert_list_parallel/1, t_insert_list_delete_parallel/1,
+         t_insert_list_kill_process/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
          test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1,
          test_decentralized_counters_setting/1]).
@@ -129,7 +132,7 @@ all() ->
      {group, delete}, firstnext, firstnext_concurrent, slot,
      {group, match}, t_match_spec_run,
      {group, lookup_element}, {group, misc}, {group, files},
-     {group, heavy}, ordered, ordered_match,
+     {group, heavy}, {group, insert_list}, ordered, ordered_match,
      interface_equality, fixtable_next, fixtable_iter_bag, fixtable_insert,
      rename, rename_unnamed, evil_rename, update_element,
      update_counter, evil_update_counter,
@@ -138,7 +141,7 @@ all() ->
      match_heavy, {group, fold}, member, t_delete_object,
      select_bound_chunk,
      t_init_table, t_whitebox, t_delete_all_objects,
-     t_insert_list, t_test_ms, t_select_delete, t_select_replace,
+     t_test_ms, t_select_delete, t_select_replace,
      t_select_replace_next_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      t_named_select, select_fixtab_owner_change,
@@ -197,7 +200,12 @@ groups() ->
        meta_lookup_named_read, meta_lookup_named_write,
        meta_newdel_unnamed, meta_newdel_named]},
      {benchmark, [],
-      [long_throughput_benchmark]}].
+      [long_throughput_benchmark]},
+     {insert_list, [],
+      [t_insert_list, t_insert_list_set, t_insert_list_bag,
+       t_insert_list_duplicate_bag, t_insert_list_delete_set,
+       t_insert_list_parallel, t_insert_list_delete_parallel,
+       t_insert_list_kill_process]}].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1167,7 +1175,7 @@ t_insert_new(Config) when is_list(Config) ->
 		  L),
     verify_etsmem(EtsMem).
 
-%% Test ets:insert/2 with list of objects.
+%% Test ets:insert/2 with list of objects into duplicate bag table.
 t_insert_list(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     repeat_for_opts(fun t_insert_list_do/1),
@@ -1179,6 +1187,245 @@ t_insert_list_do(Opts) ->
     del_one_by_one_dbag_2(T,4000,0),
     ets:delete(T).
 
+% Insert a long list twice in a bag
+t_insert_list_bag(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    T = ets:new(t, [bag]),
+    ListSize = 25000,
+    List = [ {N} || N <- lists:seq(1, ListSize)],
+    ets:insert(T, List),
+    ets:insert(T, List),
+    ListSize = ets:info(T, size),
+    ets:delete(T),
+    verify_etsmem(EtsMem).
+
+% Insert a long list twice in a duplicate_bag
+t_insert_list_duplicate_bag(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    T = ets:new(t, [duplicate_bag]),
+    ListSize = 25000,
+    List = [ {N} || N <- lists:seq(1, ListSize)],
+    ets:insert(T, List),
+    ets:insert(T, List),
+    DoubleListSize = ListSize * 2,
+    DoubleListSize = ets:info(T, size),
+    ets:delete(T),
+    verify_etsmem(EtsMem).
+
+%% Test ets:insert/2 with list of objects into set tables.
+t_insert_list_set(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun t_insert_list_set_do/1, [set_types]),
+    verify_etsmem(EtsMem).
+
+t_insert_list_set_do(Opts) ->
+    Nr = 2,
+    t_insert_list_set_do(Opts, fun ets_insert_with_check/2, Nr, 1, Nr+1),
+    t_insert_list_set_do(Opts, fun ets_insert_with_check/2, Nr*2, 2, Nr*2),
+    InsertNewWithCheck =
+        fun(T,E) ->
+                Res = ets:insert_new(T,E),
+                Seq = element(1, lists:nth(1, E)),
+                case Seq rem 2 =:= 0 of
+                    true -> Res = false;
+                    false -> Res = true
+                end
+        end,
+    t_insert_list_set_do(Opts, InsertNewWithCheck, Nr, 1, Nr),
+    t_insert_list_set_do(Opts, fun ets:insert_new/2, Nr*2, 2, Nr*2),
+    ok.
+
+t_insert_list_set_do(Opts, InsertFun, Nr, Step, ExpectedSize) ->
+    T = ets_new(x,Opts),
+    [InsertFun(T,[{X,X}, {X+1,X}]) || X <- lists:seq(1,Nr,Step)],
+    ExpectedSize = ets:info(T,size),
+    ets:delete(T).
+
+%% Test ets:insert/2 with list of objects into set tables in parallel.
+t_insert_list_parallel(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun t_insert_list_parallel_do/1, [[public], set_types]),
+    verify_etsmem(EtsMem).
+
+ets_insert_with_check(Table, ToInsert) ->
+    true = ets:insert(Table, ToInsert),
+    true.
+
+ets_insert_new_with_check(Table, ToInsert) ->
+    ExpectedRes =
+        case put(is_first_insert_for_list, true) of
+            undefined -> true;
+            true -> false
+        end,
+    ExpectedRes = ets:insert_new(Table, ToInsert),
+    ExpectedRes.
+
+t_insert_list_parallel_do(Opts) ->
+    [(fun(I) ->
+             t_insert_list_parallel_do(Opts, I, 2, 100, 5000),
+             t_insert_list_parallel_do(Opts, I, 10, 100, 500),
+             t_insert_list_parallel_do(Opts, I, 1000, 100, 50),
+             t_insert_list_parallel_do(Opts, I, 50000, 3, 1)
+      end)(InsertFun) || InsertFun <- [fun ets_insert_with_check/2,
+                                       fun ets_insert_new_with_check/2]].
+
+t_insert_list_parallel_do(Opts, InsertFun, ListLength, NrOfProcesses, NrOfInsertsPerProcess) ->
+    T = ets_new(x,Opts),
+    t_insert_list_parallel_do_helper(self(), T, 0, InsertFun, ListLength, NrOfProcesses, NrOfInsertsPerProcess),
+    receive done -> ok end,
+    ExpectedSize = ListLength * NrOfProcesses,
+    ExpectedSize = length(ets:match_object(T, {'$0', '$1'})),
+    ExpectedSize = ets:info(T, size),
+    ets:delete(T),
+    ok.
+
+t_insert_list_delete_parallel(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun t_insert_list_delete_parallel_do/1, [[public], set_types]),
+    verify_etsmem(EtsMem).
+
+t_insert_list_delete_parallel_do(Opts) ->
+    [(fun(I) ->
+              t_insert_list_delete_parallel_do(Opts, I, 30, 32, 1000000),
+              t_insert_list_delete_parallel_do(Opts, I, 300, 8, 1000000),
+              t_insert_list_delete_parallel_do(Opts, I, 3000, 4, 1000000),
+              t_insert_list_delete_parallel_do(Opts, I, 9000, 4, 1000000)
+      end)(InsertFun) || InsertFun <- [fun ets_insert_with_check/2,
+                                       fun ets_insert_new_with_check/2]],
+    ok.
+
+t_insert_list_delete_parallel_do(Opts, InsertFun, ListLength, NrOfProcesses, NrOfInsertsPerProcess) ->
+    T = ets_new(x,Opts),
+    CompletedInsertsCtr = counters:new(1,[]),
+    NewInsertFun =
+        fun(Table, ToInsert) ->
+                try
+                    InsertFun(Table, ToInsert),
+                    counters:add(CompletedInsertsCtr, 1, 1)
+                catch
+                    error:badarg -> put(stop,yes)
+                end
+        end,
+    Self = self(),
+    spawn(fun()->
+                  t_insert_list_parallel_do_helper(self(), T, 0, NewInsertFun, ListLength, NrOfProcesses, NrOfInsertsPerProcess),
+                  receive done -> Self ! done_parallel_insert end
+          end),
+    receive after 3 -> ok end,
+    spawn(fun()->
+                  spawn(fun()->
+                                receive after 7 -> ok end,
+                                ets:delete(T),
+                                Self ! done_delete
+                        end)
+          end),
+    receive done_delete -> ok end,
+    receive done_parallel_insert -> ok end,
+    io:format("~p/~p completed",
+              [counters:get(CompletedInsertsCtr, 1),
+               NrOfProcesses * NrOfInsertsPerProcess]).
+
+
+t_insert_list_parallel_do_helper(Parent, T, StartKey, InsertFun, ListLength, 1, NrOfInsertsPerProcess) ->
+    try
+        repeat(fun()->
+                       case get(stop) of
+                           yes -> throw(end_repeat);
+                           _ -> ok
+                       end,
+                       InsertFun(T,[{X,X} || X <- lists:seq(StartKey,StartKey+ListLength-1,1)])
+               end, NrOfInsertsPerProcess)
+    catch
+        throw:end_repeat -> ok
+    end,
+    Parent ! done;
+t_insert_list_parallel_do_helper(Parent, T, StartKey, InsertFun, ListLength, NrOfProcesses, NrOfInsertsPerProcess) ->
+    Self = self(),
+    spawn(fun() ->
+                  t_insert_list_parallel_do_helper(Self,
+                                                   T,
+                                                   StartKey,
+                                                   InsertFun,
+                                                   ListLength,
+                                                   NrOfProcesses div 2,
+                                                   NrOfInsertsPerProcess) end),
+    spawn(fun() ->
+                  t_insert_list_parallel_do_helper(Self,
+                                                   T,
+                                                   StartKey + ListLength*(NrOfProcesses div 2),
+                                                   InsertFun,
+                                                   ListLength,
+                                                   (NrOfProcesses div 2) + (NrOfProcesses rem 2),
+                                                   NrOfInsertsPerProcess)
+          end),
+    receive done -> ok end,
+    receive done -> ok end,
+    Parent ! done.
+
+t_insert_list_delete_set(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun t_insert_list_delete_set_do/1, [[public],set_types]),
+    verify_etsmem(EtsMem).
+
+t_insert_list_delete_set_do(Opts) ->
+    [(fun(I) ->
+              t_insert_list_delete_set_do(Opts, I, 1000000, 1, 1),
+              t_insert_list_delete_set_do(Opts, I, 100000, 10, 5),
+              t_insert_list_delete_set_do(Opts, I, 10000, 100, 50),
+              t_insert_list_delete_set_do(Opts, I, 1000, 1000, 500)
+      end)(InsertFun) || InsertFun <- [fun ets_insert_with_check/2,
+                                       fun ets_insert_new_with_check/2]],
+    ok.
+
+
+t_insert_list_delete_set_do(Opts, InsertFun, ListLength, NrOfTables, NrOfInserts) ->
+    CompletedInsertsCtr = counters:new(1,[]),
+    Parent = self(),
+    [(fun() ->
+              T = ets_new(x,Opts),
+              spawn(
+                fun() ->
+                        try
+                            repeat(
+                              fun() ->
+                                      InsertFun(T,[{Z,Z} ||
+                                                      Z <- lists:seq(1,ListLength)]),
+                                      counters:add(CompletedInsertsCtr, 1, 1)%,
+                              end, NrOfInserts)
+                        catch
+                            error:badarg -> ok
+                        end,
+                        Parent ! done
+                end),
+              receive after 1 -> ok end,
+              ets:delete(T)
+      end)() || _ <- lists:seq(1,NrOfTables)],
+    [receive done -> ok end || _ <- lists:seq(1,NrOfTables)],
+    io:format("~p/~p completed",
+              [counters:get(CompletedInsertsCtr, 1),
+               NrOfTables * NrOfInserts]).
+
+
+t_insert_list_kill_process(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun t_insert_list_kill_process_do/1, [[public], set_types]),
+    verify_etsmem(EtsMem).
+
+
+t_insert_list_kill_process_do(Opts) ->
+    [(fun(I) ->
+              [(fun(Time) ->
+                        T = ets_new(x,Opts),
+                        List = lists:seq(1,600000),
+                        TupleList = [{E,E} || E <- List],
+                        Pid = spawn(fun() -> I(T, TupleList) end),
+                        receive after Time -> ok end,
+                        exit(Pid, kill),
+                        ets:delete(T)
+                end)(TheTime) || TheTime <- [1,3,5] ++ lists:seq(7,29,7)]
+      end)(InsertFun) || InsertFun <- [fun ets:insert/2,
+                                       fun ets:insert_new/2]],
+    ok.
 
 %% Test interface of ets:test_ms/2.
 t_test_ms(Config) when is_list(Config) ->
@@ -5976,13 +6223,13 @@ otp_7665_act(Tab,Min,Max,DelNr) ->
     true = ets:insert(Tab, List1),
     true = ets:safe_fixtable(Tab, true),
     true = ets:delete_object(Tab, {key,DelNr}),
-    List2 = lists:delete({key,DelNr}, List1),
+    List2 = lists:sort(lists:delete({key,DelNr}, List1)),
 
     %% Now verify that we find all remaining objects
-    List2 = ets:lookup(Tab,key),
-    EList2 = lists:map(fun({key,N})-> N end,
-		       List2),
-    EList2 = ets:lookup_element(Tab,key,2),
+    List2 = lists:sort(ets:lookup(Tab,key)),
+    EList2 = lists:sort(lists:map(fun({key,N})-> N end,
+                                  List2)),
+    EList2 = lists:sort(ets:lookup_element(Tab,key,2)),
     true = ets:delete(Tab, key),
     [] = ets:lookup(Tab, key),
     true = ets:safe_fixtable(Tab, false),
@@ -7007,7 +7254,8 @@ take(Config) when is_list(Config) ->
     %% Same with bag.
     T3 = ets_new(c, [bag]),
     ets:insert(T3, [{1,1},{1,2},{3,3}]),
-    [{1,1},{1,2}] = ets:take(T3, 1),
+    R = lists:sort([{1,1},{1,2}]),
+    R = lists:sort(ets:take(T3, 1)),
     [{3,3}] = ets:take(T3, 3),
     [] = ets:tab2list(T3),
     ets:delete(T1),

@@ -29,7 +29,7 @@ YCF has been created to make it easier to implement yielding Erlang
 YCF features that are useful when implementing yielding Erlang NIFs
 and BIFs:
 
- * YSF automatically generates a destroy function for each yieldable
+ * YCF automatically generates a destroy function for each yieldable
    function. The destroy function frees resources that are used by a
    suspended function. The destroy function is useful when a suspended
    function needs to abort (e.g., when the Erlang process that invoked

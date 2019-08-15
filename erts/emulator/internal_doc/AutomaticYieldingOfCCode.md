@@ -51,3 +51,12 @@ the Erlang/OTP system. The documentation of YCF can be found in
 `"$ERL_TOP"/erts/lib_src/yielding_c_fun/README.md`. A rendered version
 of YCF documentation can be found
 [here](https://github.com/erlang/otp/erts/lib_src/yielding_c_fun/README.md).
+
+Yielding C Fun in the Erlang Run-time System
+-------------------------------------------
+
+YCF is used to implement yielding in the BIFs for the `ets:insert/2`
+and `ets:insert_new/2` functions when these two functions get a list
+as their second parameter. The implementation of these two functions
+is a good starting point if one wants to use YCF to implement
+something else inside ERTS.

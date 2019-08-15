@@ -2698,7 +2698,9 @@ ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 void erts_aux_thread_poke(void);
 ERTS_GLB_INLINE Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key);
 ERTS_GLB_INLINE Uint32 erts_sched_local_random(Uint additional_seed);
-
+#ifdef DEBUG
+ERTS_GLB_INLINE float erts_sched_local_random_float(Uint additional_seed);
+#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2747,6 +2749,20 @@ Uint32 erts_sched_local_random(Uint additional_seed)
         (((Uint64)esdp->no) << 32);
     return erts_sched_local_random_hash_64_to_32_shift(seed);
 }
+
+#ifdef DEBUG
+
+/*
+ * This function returns a random float between 0.0 and 1.0.
+ */
+ERTS_GLB_INLINE
+float erts_sched_local_random_float(Uint additional_seed)
+{
+    Uint32 rnd = erts_sched_local_random(additional_seed);
+    return (float)(((double)rnd)/((double)ERTS_UINT32_MAX));
+}
+
+#endif /* #ifdef DEBUG */
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

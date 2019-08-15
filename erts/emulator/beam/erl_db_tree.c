@@ -142,20 +142,33 @@ static ERTS_INLINE TreeDbTerm* new_dbterm(DbTableCommon *tb, Eterm obj)
 {
     TreeDbTerm* p;
     if (tb->compress) {
-	p = db_store_term_comp(tb, NULL, offsetof(TreeDbTerm,dbterm), obj);
+	p = db_store_term_comp(tb, tb->keypos, NULL, offsetof(TreeDbTerm,dbterm), obj);
     }
     else {
 	p = db_store_term(tb, NULL, offsetof(TreeDbTerm,dbterm), obj);
     }
     return p;
 }
+
+static ERTS_INLINE TreeDbTerm* new_dbterm_no_tab(int compress, int keypos, Eterm obj)
+{
+    TreeDbTerm* p;
+    if (compress) {
+	p = db_store_term_comp(NULL, keypos, NULL, offsetof(TreeDbTerm,dbterm), obj);
+    }
+    else {
+	p = db_store_term(NULL, NULL, offsetof(TreeDbTerm,dbterm), obj);
+    }
+    return p;
+}
+
 static ERTS_INLINE TreeDbTerm* replace_dbterm(DbTableCommon *tb, TreeDbTerm* old,
 					      Eterm obj)
 {
     TreeDbTerm* p;
     ASSERT(old != NULL);
     if (tb->compress) {
-	p = db_store_term_comp(tb, &(old->dbterm), offsetof(TreeDbTerm,dbterm), obj);
+	p = db_store_term_comp(tb, tb->keypos, &(old->dbterm), offsetof(TreeDbTerm,dbterm), obj);
     }
     else {
 	p = db_store_term(tb, &(old->dbterm), offsetof(TreeDbTerm,dbterm), obj);
@@ -458,9 +471,10 @@ db_lookup_dbterm_tree(Process *, DbTable *, Eterm key, Eterm obj,
                       DbUpdateHandle*);
 static void
 db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
-
 static int db_get_binary_info_tree(Process*, DbTable*, Eterm key, Eterm *ret);
-
+static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
+                              void* obj,
+                              int key_clash_fail);
 
 /*
 ** Static variables
@@ -503,6 +517,12 @@ DbTableMethod db_tree =
     db_foreach_offheap_tree,
     db_lookup_dbterm_tree,
     db_finalize_dbterm_tree,
+    db_eterm_to_dbterm_tree_common,
+    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_remove_first_tree_common,
+    db_put_dbterm_tree,
+    db_free_dbterm_tree_common,
+    db_get_dbterm_key_tree_common,
     db_get_binary_info_tree,
     db_first_tree, /* raw_first same as first */
     db_next_tree   /* raw_next same as next */
@@ -658,6 +678,138 @@ static int db_prev_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 static ERTS_INLINE int cmp_key_eq(DbTableCommon* tb, Eterm key, TreeDbTerm* obj) {
     Eterm obj_key = GETKEY(tb,obj->dbterm.tpl);
     return is_same(key, obj_key) || CMP(key, obj_key) == 0;
+}
+
+/* 
+ * This function differ to db_put_tree_common in that it inserts a TreeDbTerm
+ * instead of an Eterm.
+ */
+int db_put_dbterm_tree_common(DbTableCommon *tb,
+                              TreeDbTerm **root,
+                              TreeDbTerm *value_to_insert,
+                              int key_clash_fail,
+                              DbTableTree *stack_container)
+{
+    /* Non recursive insertion in AVL tree, building our own stack */
+    TreeDbTerm **tstack[STACK_NEED];
+    int tpos = 0;
+    int dstack[STACK_NEED+1];
+    int dpos = 0;
+    int state = 0;
+    TreeDbTerm **this = root;
+    Sint c;
+    Eterm key;
+    int dir;
+    TreeDbTerm *p1, *p2, *p;
+    Uint size_to_insert = db_term_size((DbTable*)tb, value_to_insert, offsetof(TreeDbTerm, dbterm));
+    ERTS_DB_ALC_MEM_UPDATE_((DbTable*)tb, 0, size_to_insert);
+    key = GETKEY(tb, value_to_insert->dbterm.tpl);
+
+    reset_static_stack(stack_container);
+
+    dstack[dpos++] = DIR_END;
+    for (;;)
+	if (!*this) { /* Found our place */
+	    state = 1;
+            INC_NITEMS(((DbTable*)tb));
+	    *this = value_to_insert;
+	    (*this)->balance = 0;
+	    (*this)->left = (*this)->right = NULL;
+	    break;
+	} else if ((c = cmp_key(tb, key, *this)) < 0) {
+	    /* go lefts */
+	    dstack[dpos++] = DIR_LEFT;
+	    tstack[tpos++] = this;
+	    this = &((*this)->left);
+	} else if (c > 0) { /* go right */
+	    dstack[dpos++] = DIR_RIGHT;
+	    tstack[tpos++] = this;
+	    this = &((*this)->right);
+	} else if (!key_clash_fail) { /* Equal key and this is a set, replace. */
+            value_to_insert->balance = (*this)->balance;
+            value_to_insert->left = (*this)->left;
+            value_to_insert->right = (*this)->right;
+            free_term((DbTable*)tb, *this);
+            *this = value_to_insert;
+	    break;
+	} else {
+	    return DB_ERROR_BADKEY; /* key already exists */
+	}
+
+    while (state && ( dir = dstack[--dpos] ) != DIR_END) {
+	this = tstack[--tpos];
+	p = *this;
+	if (dir == DIR_LEFT) {
+	    switch (p->balance) {
+	    case 1:
+		p->balance = 0;
+		state = 0;
+		break;
+	    case 0:
+		p->balance = -1;
+		break;
+	    case -1: /* The icky case */
+		p1 = p->left;
+		if (p1->balance == -1) { /* Single LL rotation */
+		    p->left = p1->right;
+		    p1->right = p;
+		    p->balance = 0;
+		    (*this) = p1;
+		} else { /* Double RR rotation */
+		    p2 = p1->right;
+		    p1->right = p2->left;
+		    p2->left = p1;
+		    p->left = p2->right;
+		    p2->right = p;
+		    p->balance = (p2->balance == -1) ? +1 : 0;
+		    p1->balance = (p2->balance == 1) ? -1 : 0;
+		    (*this) = p2;
+		}
+		(*this)->balance = 0;
+		state = 0;
+		break;
+	    }
+	} else { /* dir == DIR_RIGHT */
+	    switch (p->balance) {
+	    case -1:
+		p->balance = 0;
+		state = 0;
+		break;
+	    case 0:
+		p->balance = 1;
+		break;
+	    case 1:
+		p1 = p->right;
+		if (p1->balance == 1) { /* Single RR rotation */
+		    p->right = p1->left;
+		    p1->left = p;
+		    p->balance = 0;
+		    (*this) = p1;
+		} else { /* Double RL rotation */
+		    p2 = p1->left;
+		    p1->left = p2->right;
+		    p2->right = p1;
+		    p->right = p2->left;
+		    p2->left = p;
+		    p->balance = (p2->balance == 1) ? -1 : 0;
+		    p1->balance = (p2->balance == -1) ? 1 : 0;
+		    (*this) = p2;
+		}
+		(*this)->balance = 0; 
+		state = 0;
+		break;
+	    }
+	}
+    }
+    return DB_ERROR_NONE;
+}
+
+static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
+                              void* obj,
+                              int key_clash_fail) /* DB_ERROR_BADKEY if key exists */
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_put_dbterm_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
 }
 
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
@@ -3350,6 +3502,50 @@ Eterm db_binary_info_tree_common(Process* p, TreeDbTerm* this)
     return ret;
 }
 
+
+void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj)
+{
+    TreeDbTerm* term = new_dbterm_no_tab(compress, keypos, obj);
+    term->left = NULL;
+    term->right = NULL;
+    return term;
+}
+
+void* db_dbterm_list_prepend_tree_common(void *list, void *db_term)
+{
+    TreeDbTerm* l = list;
+    TreeDbTerm* t = db_term;
+    t->left = l;
+    return t;
+}
+
+void* db_dbterm_list_remove_first_tree_common(void **list)
+{
+    if (*list == NULL) {
+        return NULL;
+    } else {
+        TreeDbTerm* t = (*list);
+        TreeDbTerm* l = t->left;
+        *list = l;
+        return t;
+    }
+}
+
+/*
+ * Frees a TreeDbTerm without updating the memory footprint of the
+ * table.
+ */
+void db_free_dbterm_tree_common(int compressed, void* obj)
+{
+    TreeDbTerm* p = obj;
+    db_free_term_no_tab(compressed, p, offsetof(TreeDbTerm, dbterm));
+}
+
+Eterm db_get_dbterm_key_tree_common(DbTable* tb, void* db_term)
+{
+    TreeDbTerm *term = db_term;
+    return GETKEY(tb, term->dbterm.tpl);
+}
 
 /*
  * Traverse the tree with a callback function, used by db_match_xxx

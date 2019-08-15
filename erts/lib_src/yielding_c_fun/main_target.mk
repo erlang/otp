@@ -20,7 +20,7 @@ YCF_CFLAGS = $(filter-out -Wstrict-prototypes -Wdeclaration-after-statement -Wmi
 YCF_EXECUTABLE = $(YCF_SOURCE_DIR)/bin/yielding_c_fun.bin
 
 $(YCF_EXECUTABLE): $(YCF_OBJECTS)
-	$(LD) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_OBJECTS) -o $@
+	$(V_LD) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_OBJECTS) -o $@
 
 $(YCF_SOURCE_DIR)/%.o: $(YCF_SOURCE_DIR)/%.c $(YCF_HEADERS)
-	$(CC) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
+	$(V_CC) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@

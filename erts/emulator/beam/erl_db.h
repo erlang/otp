@@ -159,13 +159,15 @@ extern erts_aint_t erts_ets_dbg_force_trap;
  */
 
 #define ERTS_DB_ALC_MEM_UPDATE_(TAB, FREE_SZ, ALLOC_SZ)			\
-do {									\
-    erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
-			- ((erts_aint_t) (FREE_SZ)));			\
-    ASSERT((TAB));							\
-    erts_flxctr_add(&(TAB)->common.counters,                            \
-                    ERTS_DB_TABLE_MEM_COUNTER_ID,                       \
-                    sz__);                                              \
+do {                                                                    \
+    if ((TAB) != NULL) {                                                \
+        erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
+                            - ((erts_aint_t) (FREE_SZ)));               \
+        ASSERT((TAB));							\
+        erts_flxctr_add(&(TAB)->common.counters,                        \
+                        ERTS_DB_TABLE_MEM_COUNTER_ID,                   \
+                        sz__);                                          \
+    }                                                                   \
 } while (0)
 
 #define ERTS_ETS_MISC_MEM_ADD(SZ) \
@@ -310,7 +312,8 @@ erts_db_free(ErtsAlcType_t type, DbTable *tab, void *ptr, Uint size)
     ASSERT(ptr != 0);
     ASSERT(size == ERTS_ALC_DBG_BLK_SZ(ptr));
     ERTS_DB_ALC_MEM_UPDATE_(tab, size, 0);
-    ASSERT(((void *) tab) != ptr ||
+    ASSERT(tab == NULL ||
+           ((void *) tab) != ptr ||
            tab->common.counters.is_decentralized ||
            0 == erts_flxctr_read_centralized(&tab->common.counters,
                                              ERTS_DB_TABLE_MEM_COUNTER_ID));

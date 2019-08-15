@@ -585,7 +585,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[
 #endif])],
   [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     CFLAGS="-std=gnu99 $CFLAGS"])
+     CFLAGS="-std=gnu99 $CFLAGS"
+     DEBUG_CFLAGS="-std=gnu99 $DEBUG_CFLAGS"])
 
 AC_MSG_CHECKING([CFLAGS for -O switch])
 case "$CFLAGS" in
