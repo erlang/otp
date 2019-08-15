@@ -335,6 +335,12 @@ default(server) ->
              class => user_option
             },
 
+      tcpip_tunnel_in =>
+           #{default => false,
+             chk => fun erlang:is_boolean/1,
+             class => user_option
+            },
+
       system_dir =>
           #{default => "/etc/ssh",
             chk => fun(V) -> check_string(V) andalso check_dir(V) end,
