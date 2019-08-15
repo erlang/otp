@@ -583,6 +583,67 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 	    {[{connection_reply, FailMsg}], Connection0}
     end;
 
+handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
+				 sender_channel = RemoteId,
+                                 initial_window_size = WindowSize,
+                                 maximum_packet_size = PacketSize,
+                                 data = <<?DEC_BIN(HostToConnect,_L1),        ?UINT32(PortToConnect),
+                                          ?DEC_BIN(_OriginatorIPaddress,_L2), ?UINT32(_OrignatorPort)
+                                        >>
+                                }, 
+	   #connection{channel_cache = Cache,
+                       channel_id_seed = ChId,
+                       options = Options,
+                       sub_system_supervisor = SubSysSup
+                      } = C,
+	   server) ->
+
+    {ReplyMsg, NextChId} =
+        case ?GET_OPT(tcpip_tunnel_in, Options) of
+            %% May add more to the option, like allowed ip/port pairs to connect to
+            false ->
+                {channel_open_failure_msg(RemoteId, 
+                                          ?SSH_OPEN_CONNECT_FAILED,
+                                          "Forwarding disabled", "en"),
+                 ChId};
+
+            true ->
+                case gen_tcp:connect(binary_to_list(HostToConnect), PortToConnect,
+                                     [{active,false}, binary]) of
+                    {ok,Sock} ->
+                        {ok,Pid} = ssh_subsystem_sup:start_channel(server, SubSysSup, self(),
+                                                                   ssh_tcpip_forward_srv, ChId,
+                                                                   [Sock], undefined, Options),
+                        ssh_client_channel:cache_update(Cache,
+                                                        #channel{type = "direct-tcpip",
+                                                                 sys = "none",
+                                                                 local_id = ChId,
+                                                                 remote_id = RemoteId,
+                                                                 user = Pid,
+                                                                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
+                                                                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                                                                 send_window_size = WindowSize,
+                                                                 send_packet_size = PacketSize,
+                                                                 send_buf = queue:new()
+                                                                }),
+                        gen_tcp:controlling_process(Sock, Pid),
+                        ssh_tcpip_forward_srv:use_socket(Pid, Sock),
+
+                        {channel_open_confirmation_msg(RemoteId, ChId,
+                                                       ?DEFAULT_WINDOW_SIZE, 
+                                                       ?DEFAULT_PACKET_SIZE),
+                         ChId + 1};
+
+                    {error,Error} ->
+                        {channel_open_failure_msg(RemoteId, 
+                                                  ?SSH_OPEN_CONNECT_FAILED,
+                                                  io_lib:format("Forwarded connection refused: ~p",[Error]),
+                                                  "en"),
+                         ChId}
+                end
+        end,
+    {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}};
+
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				 sender_channel = RemoteId}, 
 	   Connection,

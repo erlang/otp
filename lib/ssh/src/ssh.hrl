@@ -303,6 +303,7 @@
       | exec_daemon_option()
       | ssh_cli_daemon_option()
       | tcpip_tunnel_out_daemon_option()
+      | tcpip_tunnel_in_daemon_option()
       | authentication_daemon_options()
       | diffie_hellman_group_exchange_daemon_option()
       | negotiation_timeout_daemon_option()
@@ -331,6 +332,7 @@
 -type ssh_cli_daemon_option()   :: {ssh_cli, mod_args() | no_cli }.
 
 -type tcpip_tunnel_out_daemon_option() :: {tcpip_tunnel_out, boolean()} .
+-type tcpip_tunnel_in_daemon_option() :: {tcpip_tunnel_in, boolean()} .
 
 -type send_ext_info_daemon_option() :: {send_ext_info, boolean()} .
 
