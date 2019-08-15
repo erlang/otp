@@ -200,6 +200,8 @@ recv(_Config) ->
     %% tricky_recv_6/0 is a compile-time error.
     tricky_recv_6(),
 
+    recv_coverage(),
+
     ok.
 
 sync_wait_mon({Pid, Ref}, Timeout) ->
@@ -335,6 +337,69 @@ tricky_recv_6() ->
         {RefB, Number} -> Number + 2.0
     after 0 ->
         ok
+    end.
+
+recv_coverage() ->
+    self() ! 1,
+    a = recv_coverage_1(),
+    self() ! 2,
+    b = recv_coverage_1(),
+
+    self() ! 1,
+    a = recv_coverage_2(),
+    self() ! 2,
+    b = recv_coverage_2(),
+
+    ok.
+
+%% Similar to tricky_recv_5/0, but provides test coverage for the #b_switch{}
+%% terminator.
+recv_coverage_1() ->
+    receive
+        X=1 ->
+            %% Jump to common exit block through #b_switch{list=L}
+            case id(0) of
+                0 -> a;
+                1 -> b;
+                2 -> c;
+                3 -> d
+            end;
+        X=2 ->
+            %% Jump to common exit block through #b_switch{fail=F}
+            case id(42) of
+                0 -> exit(quit);
+                1 -> exit(quit);
+                2 -> exit(quit);
+                3 -> exit(quit);
+                _ -> b
+            end
+    end,
+    case X of
+        1 -> a;
+        2 -> b
+    end.
+
+%% Similar to recv_coverage_1/0, providing test coverage for #b_br{}.
+recv_coverage_2() ->
+    receive
+        X=1 ->
+            A = id(1),
+            %% Jump to common exit block through #b_br{succ=S}.
+            if
+                A =:= 1 -> a;
+                true -> exit(quit)
+            end;
+        X=2 ->
+            A = id(2),
+            %% Jump to common exit block through #b_br{fail=F}.
+            if
+                A =:= 1 -> exit(quit);
+                true -> a
+            end
+    end,
+    case X of
+        1 -> a;
+        2 -> b
     end.
 
 maps(_Config) ->
