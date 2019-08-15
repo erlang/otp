@@ -317,7 +317,7 @@
       </type>
       <desc>
 	<p> Modify the DN of an entry. <c>DeleteOldRDN</c> indicates
-	whether the current RDN should be removed from the attribute list after the after operation.
+	whether the current RDN should be removed from the attribute list after the operation.
 	<c>NewSupDN</c> is the new parent that the RDN shall be moved to.  If the old parent should
 	remain as parent, <c>NewSupDN</c> shall be "".</p>
 	<code>
