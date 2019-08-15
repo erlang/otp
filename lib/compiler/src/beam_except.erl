@@ -152,7 +152,7 @@ dig_out_fc(Arity, Is0) ->
                              ({test,_,_,_}) -> false;
                              (_) -> true
                           end, Is0),
-    {Regs,Acc} = dig_out_fc_1(reverse(Is), Regs0, Acc0),
+    {Regs,Acc} = dig_out_fc_1(reverse(Is), Arity, Regs0, Acc0),
     case Regs of
         #{{x,0}:={atom,function_clause},{x,1}:=Args} ->
             case moves_from_stack(Args, 0, []) of
@@ -165,19 +165,27 @@ dig_out_fc(Arity, Is0) ->
             no
     end.
 
-dig_out_fc_1([{block,Bl}|Is], Regs0, Acc) ->
+dig_out_fc_1([{block,Bl}|Is], Arity, Regs0, Acc) ->
     Regs = dig_out_fc_block(Bl, Regs0),
-    dig_out_fc_1(Is, Regs, Acc);
-dig_out_fc_1([{bs_set_position,_,_}=I|Is], Regs, Acc) ->
-    dig_out_fc_1(Is, Regs, [I|Acc]);
-dig_out_fc_1([{bs_get_tail,Src,Dst,Live0}|Is], Regs0, Acc) ->
-    Regs = prune_xregs(Live0, Regs0),
-    Live = dig_out_stack_live(Regs, Live0),
-    I = {bs_get_tail,Src,Dst,Live},
-    dig_out_fc_1(Is, Regs, [I|Acc]);
-dig_out_fc_1([_|_], _Regs, _Acc) ->
+    dig_out_fc_1(Is, Arity, Regs, Acc);
+dig_out_fc_1([{bs_set_position,_,_}=I|Is], Arity, Regs, Acc) ->
+    dig_out_fc_1(Is, Arity, Regs, [I|Acc]);
+dig_out_fc_1([{bs_get_tail,Src,Dst,Live0}|Is], Arity, Regs0, Acc) ->
+    case Src of
+        {x,X} when X < Arity ->
+            %% The heuristic for determining the number of live
+            %% registers is likely to give an incorrect result.
+            %% Give up.
+            {#{},[]};
+        _ ->
+            Regs = prune_xregs(Live0, Regs0),
+            Live = dig_out_stack_live(Regs, Live0),
+            I = {bs_get_tail,Src,Dst,Live},
+            dig_out_fc_1(Is, Arity, Regs, [I|Acc])
+    end;
+dig_out_fc_1([_|_], _Arity, _Regs, _Acc) ->
     {#{},[]};
-dig_out_fc_1([], Regs, Acc) ->
+dig_out_fc_1([], _Arity, Regs, Acc) ->
     {Regs,Acc}.
 
 dig_out_fc_block([{set,[],[],{alloc,Live,_}}|Is], Regs0) ->

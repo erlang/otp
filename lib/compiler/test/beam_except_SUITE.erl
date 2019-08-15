@@ -72,10 +72,24 @@ bs_get_tail(Config) ->
      {function_clause,
       [{?MODULE,bs_get_tail_1,[<<>>,0,0,Config],_}|_]}} =
         (catch bs_get_tail_1(id(<<>>), 0, 0, Config)),
+
+    ok = bs_get_tail_2(<<"W">>, <<"X">>, <<"Z">>),
+    ok = bs_get_tail_2(<<"M">>, <<"X">>, <<"Z">>),
+    {'EXIT',
+     {function_clause,
+      [{?MODULE,do_get_bs_tail_2,[<<"A">>,<<"B">>,[],<<"C">>],_}|_]}} =
+        (catch bs_get_tail_2(<<"A">>, <<"B">>, <<"C">>)),
+
     ok.
 
 bs_get_tail_1(<<_:32, Rest/binary>>, Z1, Z2, F1) ->
     {Rest,Z1,Z2,F1}.
+
+bs_get_tail_2(A, B, C) ->
+    do_get_bs_tail_2(A, B, [], C).
+
+do_get_bs_tail_2(<<"W">>, <<"X">>, _, <<"Z">>) -> ok;
+do_get_bs_tail_2(<<"M">>, <<"X">>, _, <<"Z">>) -> ok.
 
 coverage(_) ->
     File = {file,"fake.erl"},
