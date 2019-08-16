@@ -66,18 +66,81 @@ deallocate(Deallocate) {
     E = ADD_BYTE_OFFSET(E, $Deallocate);
 }
 
+deallocate_return0 := dealloc_ret.n0.execute;
+deallocate_return1 := dealloc_ret.n1.execute;
+deallocate_return2 := dealloc_ret.n2.execute;
+deallocate_return3 := dealloc_ret.n3.execute;
+deallocate_return4 := dealloc_ret.n4.execute;
+
+dealloc_ret.head() {
+    Uint num_bytes;
+}
+
+dealloc_ret.n0() {
+    num_bytes = (0+1) * sizeof(Eterm);
+}
+
+dealloc_ret.n1() {
+    num_bytes = (1+1) * sizeof(Eterm);
+}
+
+dealloc_ret.n2() {
+    num_bytes = (2+1) * sizeof(Eterm);
+}
+
+dealloc_ret.n3() {
+    num_bytes = (3+1) * sizeof(Eterm);
+}
+
+dealloc_ret.n4() {
+    num_bytes = (4+1) * sizeof(Eterm);
+}
+
+dealloc_ret.execute() {
+    //| -no_next
+
+    /*
+     * Micro-benchmarks showed that the deallocate_return instruction
+     * became slower when the continuation pointer was moved from
+     * the process struct to the stack. The reason seems to be read
+     * dependencies, i.e. that the CPU cannot figure out beforehand
+     * from which position on the stack the continuation pointer
+     * should be fetched.
+     *
+     * Making sure that num_bytes is always initialized with a
+     * constant value seems to restore the lost speed.
+     */
+
+    E = ADD_BYTE_OFFSET(E, num_bytes);
+    $RETURN();
+    CHECK_TERM(x(0));
+    DispatchReturn;
+}
+
 deallocate_return(Deallocate) {
     //| -no_next
-    int words_to_pop = $Deallocate;
-    E = ADD_BYTE_OFFSET(E, words_to_pop);
+    Uint bytes_to_pop = $Deallocate;
+    E = ADD_BYTE_OFFSET(E, bytes_to_pop);
     $RETURN();
     CHECK_TERM(x(0));
     DispatchReturn;
 }
 
 move_deallocate_return(Src, Deallocate) {
-    x(0) = $Src;
-    $deallocate_return($Deallocate);
+    //| -no_next
+
+    /*
+     * Explicitly do reads first to mitigate the impact of read
+     * dependencies.
+     */
+
+    Uint bytes_to_pop = $Deallocate;
+    Eterm src = $Src;
+    E = ADD_BYTE_OFFSET(E, bytes_to_pop);
+    x(0) = src;
+    $RETURN();
+    CHECK_TERM(x(0));
+    DispatchReturn;
 }
 
 // Call instructions
