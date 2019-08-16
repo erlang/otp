@@ -51,6 +51,7 @@
          start_channel/5,
 	 request/6, request/7,
 	 reply_request/3, 
+         global_request/5,
 	 send/5,
 	 send_eof/2,
 	 info/1, info/2,
@@ -241,6 +242,12 @@ request(ConnectionHandler, ChannelId, Type, false, Data, _) ->
 reply_request(ConnectionHandler, Status, ChannelId) ->
     cast(ConnectionHandler, {reply_request, Status, ChannelId}).
 
+%%--------------------------------------------------------------------
+global_request(ConnectionHandler, Type, true, Data, Timeout) ->
+    call(ConnectionHandler, {global_request, Type, Data, Timeout});
+global_request(ConnectionHandler, Type, false, Data, _) ->
+    cast(ConnectionHandler, {global_request, Type, Data}).
+    
 %%--------------------------------------------------------------------
 -spec send(connection_ref(),
 	   channel_id(),
@@ -1178,6 +1185,10 @@ handle_event(cast, {unknown,Data}, StateName, D) when ?CONNECTED(StateName) ->
     Msg = #ssh_msg_unimplemented{sequence = Data},
     {keep_state, send_msg(Msg,D)};
 
+handle_event(cast, {global_request, Type, Data}, StateName, D) when ?CONNECTED(StateName) ->
+    {keep_state, send_msg(ssh_connection:request_global_msg(Type,false,Data), D)};
+
+
 %%% Previously handle_sync_event began here
 handle_event({call,From}, get_print_info, StateName, D) ->
     Reply =
@@ -1254,6 +1265,13 @@ handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, 
             start_channel_request_timer(ChannelId, From, Timeout),
             {keep_state, D, cond_set_idle_timer(D)}
     end;
+
+handle_event({call,From}, {global_request, Type, Data, Timeout}, StateName, D) when ?CONNECTED(StateName) ->
+    Id = make_ref(),
+    D = send_msg(ssh_connection:request_global_msg(Type, true, Data),
+                 add_request(true, Id, From, D)),
+    start_channel_request_timer(Id, From, Timeout),
+    {keep_state, D, cond_set_idle_timer(D)};
 
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0) 
   when ?CONNECTED(StateName) ->
