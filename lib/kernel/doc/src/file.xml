@@ -957,10 +957,9 @@ f.txt:  {person, "kalle", 25}.
           </item>
         </taglist>
         <p><c><anno>IoDevice</anno></c> is really the pid of the process that
-          handles the file. This process is linked to the process
-          that originally opened the file. If any process to which
-          the <c><anno>IoDevice</anno></c> is linked terminates, the file is
-          closed and the process itself is terminated.
+          handles the file. This process monitors the process that originally
+          opened the file (the owner process). If the owner process terminates,
+          the file is closed and the process itself terminates too.
           An <c><anno>IoDevice</anno></c> returned from this call can be used
           as an argument to the I/O functions (see
           <seealso marker="stdlib:io"><c>io(3)</c></seealso>).</p>
