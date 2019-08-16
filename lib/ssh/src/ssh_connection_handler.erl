@@ -54,6 +54,8 @@
          global_request/5,
 	 send/5,
 	 send_eof/2,
+         store/3,
+         retrieve/2,
 	 info/1, info/2,
 	 connection_info/2,
 	 channel_info/3,
@@ -335,6 +337,15 @@ close(ConnectionHandler, ChannelId) ->
 	{error, closed} ->
 	    ok
     end.
+
+
+%%--------------------------------------------------------------------
+store(ConnectionHandler, Key, Value) ->
+    cast(ConnectionHandler, {store,Key,Value}).
+    
+retrieve(ConnectionHandler, Key) ->
+    call(ConnectionHandler, {retrieve,Key}).
+    
 
 %%====================================================================
 %% Test support
@@ -1353,6 +1364,18 @@ handle_event({call,From}, {close, ChannelId}, StateName, D0)
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
+handle_event(cast, {store,Key,Value}, _StateName, #data{connection_state=C0} = D) ->
+    C = #connection{options = ?PUT_INTERNAL_OPT({Key,Value}, C0#connection.options)},
+    {keep_state, D#data{connection_state = C}};
+
+handle_event({call,From}, {retrieve,Key}, _StateName, #data{connection_state=C0}) ->
+    try ?GET_INTERNAL_OPT(Key, C0#connection.options) of
+        Value -> 
+            {keep_state_and_data, [{reply,From,{ok,Value}}]}
+    catch
+        error:{badkey,Key} ->
+            {keep_state_and_data, [{reply,From,undefined}]}
+    end;
 
 %%===== Reception of encrypted bytes, decryption and framing
 handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
