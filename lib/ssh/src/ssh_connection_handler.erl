@@ -2040,7 +2040,13 @@ log(Tag, D, Reason) ->
     end.
 
 
-do_log(F, Reason, #data{ssh_params = S}) ->
+do_log(F, Reason0, #data{ssh_params = S}) ->
+    Reason =
+        try io_lib:format("~s",[Reason0])
+        of _ -> Reason0
+        catch
+            _:_ -> io_lib:format("~p",[Reason0])
+        end,
     case S of
         #ssh{role = Role} when Role==server ;
                                Role==client ->
