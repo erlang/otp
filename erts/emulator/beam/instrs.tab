@@ -165,9 +165,11 @@ i_call(CallDest) {
 }
 
 move_call(Src, CallDest) {
-    x(0) = $Src;
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-    $DISPATCH_REL($CallDest);
+    x(0) = src;
+    $DISPATCH_REL(call_dest);
 }
 
 i_call_last(CallDest, Deallocate) {
@@ -176,8 +178,11 @@ i_call_last(CallDest, Deallocate) {
 }
 
 move_call_last(Src, CallDest, Deallocate) {
-    x(0) = $Src;
-    $i_call_last($CallDest, $Deallocate);
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
+    $deallocate($Deallocate);
+    x(0) = src;
+    $DISPATCH_REL(call_dest);
 }
 
 i_call_only(CallDest) {
@@ -185,8 +190,10 @@ i_call_only(CallDest) {
 }
 
 move_call_only(Src, CallDest) {
-    x(0) = $Src;
-    $i_call_only($CallDest);
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
+    x(0) = src;
+    $DISPATCH_REL(call_dest);
 }
 
 DISPATCHX(Dest) {
@@ -202,18 +209,23 @@ i_call_ext(Dest) {
     $DISPATCHX($Dest);
 }
 
-i_move_call_ext(Src, Dest) {
-    x(0) = $Src;
-    $i_call_ext($Dest);
+i_move_call_ext(Src, CallDest) {
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+    x(0) = src;
+    $DISPATCHX(call_dest);
 }
 
 i_call_ext_only(Dest) {
     $DISPATCHX($Dest);
 }
 
-i_move_call_ext_only(Dest, Src) {
-    x(0) = $Src;
-    $i_call_ext_only($Dest);
+i_move_call_ext_only(CallDest, Src) {
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
+    x(0) = src;
+    $DISPATCHX(call_dest);
 }
 
 i_call_ext_last(Dest, Deallocate) {
@@ -221,9 +233,12 @@ i_call_ext_last(Dest, Deallocate) {
     $DISPATCHX($Dest);
 }
 
-i_move_call_ext_last(Dest, StackOffset, Src) {
-    x(0) = $Src;
-    $i_call_ext_last($Dest, $StackOffset);
+i_move_call_ext_last(CallDest, Deallocate, Src) {
+    Eterm call_dest = $CallDest;
+    Eterm src = $Src;
+    $deallocate($Deallocate);
+    x(0) = src;
+    $DISPATCHX(call_dest);
 }
 
 APPLY(I, Deallocate, Next) {
