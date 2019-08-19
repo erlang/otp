@@ -2187,6 +2187,13 @@ check_sane_openssl_renegotaite(Config, Version) when Version == 'tlsv1.1';
 	_ ->
 	    check_sane_openssl_renegotaite(Config)
     end;
+check_sane_openssl_renegotaite(Config, 'sslv3') ->
+    case os:cmd("openssl version") of     
+	"OpenSSL 1" ++ _ ->
+	    {skip, "Known renegotiation bug with sslv3 in OpenSSL"};
+	_ ->
+	    check_sane_openssl_renegotaite(Config)
+    end;
 check_sane_openssl_renegotaite(Config, _) ->
     check_sane_openssl_renegotaite(Config).
 	
