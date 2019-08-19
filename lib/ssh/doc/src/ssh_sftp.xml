@@ -37,60 +37,112 @@
     SSH.</p>
   </description>
   
- <section>
-    <title>DATA TYPES</title>
-    <p>Type definitions that are used more than once in this module,
-    or abstractions to indicate the intended use of the data type, or both:
-    </p>
+  <datatypes>
+    <datatype>
+      <name name="sftp_option"/>
+      <desc>
+      </desc>
+    </datatype>
 
-    <taglist>
-      <tag><c>reason()</c></tag>
-      <item>
-	<p>= <c>atom() | string() | tuple() </c>A description of the reason why an operation failed.</p>
-	<p>
-	  The <c>atom()</c> value is formed from the sftp error codes in the protocol-level responses as defined in 
-	  <url href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</url>
-	  section 9.1.
-	</p>
-	<p>
+    <datatype_title>Error cause</datatype_title>
+    <datatype>
+      <name name="reason"/>
+      <desc>
+	<p>A description of the reason why an operation failed.</p>
+	<p>The <c>atom()</c> value is formed from the sftp error codes in the protocol-level responses as defined in 
+	<url href="https://tools.ietf.org/html/draft-ietf-secsh-filexfer-13#page-49">draft-ietf-secsh-filexfer-13</url>
+	section 9.1.
 	  The codes are named as <c>SSH_FX_*</c> which are transformed into lowercase of the star-part.
 	  E.g. the error code <c>SSH_FX_NO_SUCH_FILE</c>
 	  will cause the <c>reason()</c> to be <c>no_such_file</c>.
 	</p>
 	<p>The <c>string()</c> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
 	</p>
-	<p>The <c>tuple()</c> reason are other errors like the <c>{exit_status,integer()}</c> if the exit status is not 0.
+	<p>The <c>tuple()</c> reason are other errors like for example <c>{exit_status,1}</c>.
 	</p>
-      </item>
+      </desc>
+    </datatype>
 
-      <tag><c>connection_ref() =</c></tag>
-      <item><p><c>opaque()</c> - as returned by 
-      <seealso marker="ssh#connect-3"><c>ssh:connect/3</c></seealso></p></item>
+    <datatype_title>Crypto operations for open_tar</datatype_title>
+    <datatype>
+      <name name="tar_crypto_spec"/>
+      <name name="encrypt_spec"/>
+      <name name="decrypt_spec"/>
+      <desc>
+	<p>Specifies the encryption or decryption applied to tar files when using
+	<seealso marker="#open_tar/3">open_tar/3</seealso> or 
+	<seealso marker="#open_tar/4">open_tar/4</seealso>.
+	</p>
+	<p>The encryption or decryption is applied to the generated stream of
+	bytes prior to sending the resulting stream to the SFTP server.
+	</p>
+	<p>For code examples see Section
+	<seealso marker="using_ssh#example-with-encryption">Example with encryption</seealso>
+	in the ssh Users Guide.
+	</p>
+      </desc>
+    </datatype>
 
-      <tag><c>timeout()</c></tag>
-      <item><p>= <c>infinity | integer()</c> in milliseconds. Default infinity.</p></item>
-    </taglist>
-   </section>
+    <datatype>
+      <name name="init_fun"/>
+      <name name="chunk_size"/>
+      <name name="crypto_state"/>
+      <desc>
+	<p>The <c>init_fun()</c> in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>
+	is applied once prior to any other <c>crypto</c>
+	operation. The intention is that this function initiates the encryption or
+	decryption for example by calling
+	<seealso marker="crypto:crypto#crypto_init/4">crypto:crypto_init/4</seealso>
+	or similar. The <c>crypto_state()</c> is the state such a function may return.
+	</p>
+	<p>If the selected cipher needs to have the input data partioned into
+	blocks of a certain size, the <c>init_fun()</c> should return the second
+	form of return value with the <c>chunk_size()</c> set to the block size.
+	If the <c>chunk_size()</c> is <c>undefined</c>, the size of the <c>PlainBin</c>s varies,
+	because this is	intended for stream crypto, whereas a fixed <c>chunk_size()</c> is intended for block crypto.
+	A <c>chunk_size()</c> can be changed in the return from the <c>crypto_fun()</c>.
+	The value can be changed between <c>pos_integer()</c> and <c>undefined</c>.
+	</p>
+      </desc>
+    </datatype>
 
- <section>
-    <title>Time-outs</title>
-    <p>If the request functions for the SFTP channel return <c>{error, timeout}</c>,
-     no answer was received from the server within the expected time.</p>
-     <p>The request may have reached the server and may have been performed.
-     However, no answer was received from the server within the expected time.</p>
-   </section>
+    <datatype>
+      <name name="crypto_fun"/>
+      <name name="crypto_result"/>
+      <desc>
+	<p>The initial <c>crypto_state()</c> returned from the
+	<seealso marker="#type-init_fun">init_fun()</seealso>
+	is folded into repeated applications of the <c>crypto_fun()</c> in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>.
+	The binary returned from that fun is sent to the remote SFTP server and
+	the new <c>crypto_state()</c> is used in the next call of the
+	<c>crypto_fun()</c>.
+	</p>
+	<p>If the <c>crypto_fun()</c> reurns a <c>chunk_size()</c>, that value
+	is as block size for further blocks in calls to <c>crypto_fun()</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="final_fun"/>
+      <desc>
+	<p>If doing encryption,
+	the <c>final_fun()</c>  in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>
+	is applied to the last piece of data.
+	The <c>final_fun()</c> is responsible for padding (if needed) and
+	encryption of that last piece.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
      <func>
-       <name since="">apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, reason()}</name>
+       <name name="apread" arity="4" since=""/>
        <fsummary>Reads asynchronously from an open file.</fsummary>
-       <type>
-	 <v>ChannelPid = pid()</v>
-         <v>Handle = term()</v>
-         <v>Position = integer()</v>
-         <v>Len = integer()</v>
-         <v>N = term()</v>
-       </type>
        <desc><p>The <c><![CDATA[apread/4]]></c> function reads from a specified position,
        combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
        <seealso marker="#aread-3"><c>aread/3</c></seealso> functions.</p>
@@ -98,17 +150,8 @@
      </func>
      
      <func>
-	<name since="">apwrite(ChannelPid, Handle, Position, Data) -> {async, N} | {error, reason()}</name>
+	<name name="apwrite" arity="4" since=""/>
 	<fsummary>Writes asynchronously to an open file.</fsummary>
-	<type>
-	  <v>ChannelPid = pid()</v>
-	  <v>Handle = term()</v>
-	  <v>Position = integer()</v>
-	  <v>Len = integer()</v>
-	  <v>Data = binary()</v>
-	  <v>Timeout = timeout()</v>
-          <v>N = term()</v>
-	</type>
        <desc><p>The <c><![CDATA[apwrite/4]]></c> function writes to a specified position,
        combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
        <seealso marker="#awrite-3"><c>awrite/3</c></seealso> functions.</p>
@@ -116,15 +159,8 @@
       </func>
       
       <func>
-	<name since="">aread(ChannelPid, Handle, Len) -> {async, N} | {error, reason()}</name>
+	<name name="aread" arity="3" since=""/>
 	<fsummary>Reads asynchronously from an open file.</fsummary>
-	<type>
-	  <v>ChannelPid = pid()</v>
-	  <v>Handle = term()</v>
-	  <v>Position = integer()</v>
-	  <v>Len = integer()</v>
-	  <v>N = term()</v>
-	</type>
 	<desc>
 	  <p>Reads from an open file, without waiting for the result. If the
           handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
@@ -137,16 +173,8 @@
     </func>
 
     <func>
-      <name since="">awrite(ChannelPid, Handle, Data) -> {async, N} | {error, reason()}</name>
+      <name name="awrite" arity="3" since=""/>
       <fsummary>Writes asynchronously to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Len = integer()</v>
-        <v>Data = binary()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Writes to an open file, without waiting for the result. If the
           handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
@@ -159,28 +187,18 @@
     </func>
 
     <func>
-      <name since="">close(ChannelPid, Handle) -></name>
-      <name since="">close(ChannelPid, Handle, Timeout) -> ok | {error, reason()}</name>
+      <name name="close" arity="2" since=""/>
+      <name name="close" arity="3" since=""/>
       <fsummary>Closes an open handle.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Closes a handle to an open file or directory on the server.</p>
       </desc>
     </func>
 
     <func>
-      <name since="">delete(ChannelPid, Name) -></name>
-      <name since="">delete(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name name="delete" arity="2" since=""/>
+      <name name="delete" arity="3" since=""/>
       <fsummary>Deletes a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Deletes the file specified by <c><![CDATA[Name]]></c>.
 	</p>
@@ -188,14 +206,9 @@
     </func>
 
     <func>
-      <name since="">del_dir(ChannelPid, Name) -></name>
-      <name since="">del_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name name="del_dir" arity="2" since=""/>
+      <name name="del_dir" arity="3" since=""/>
       <fsummary>Deletes an empty directory.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
 	<p>Deletes a directory specified by <c><![CDATA[Name]]></c>.
 	The directory must be empty before it can be successfully deleted.
@@ -204,16 +217,9 @@
     </func>
 
      <func>
-      <name since="">list_dir(ChannelPid, Path) -></name>
-      <name since="">list_dir(ChannelPid, Path, Timeout) -> {ok, Filenames} | {error, reason()}</name>
+      <name name="list_dir" arity="2" since=""/>
+      <name name="list_dir" arity="3" since=""/>
       <fsummary>Lists the directory.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Path = string()</v>
-        <v>Filenames = [Filename]</v>
-        <v>Filename = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Lists the given directory on the server, returning the
           filenames as a list of strings.</p>
@@ -221,14 +227,9 @@
     </func>
 
     <func>
-      <name since="">make_dir(ChannelPid, Name) -></name>
-      <name since="">make_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name name="make_dir" arity="2" since=""/>
+      <name name="make_dir" arity="3" since=""/>
       <fsummary>Creates a directory.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Creates a directory specified by <c><![CDATA[Name]]></c>. <c><![CDATA[Name]]></c>
           must be a full path to a new directory. The directory can only be
@@ -237,14 +238,9 @@
     </func>
 
     <func>
-      <name since="">make_symlink(ChannelPid, Name, Target) -></name>
-      <name since="">make_symlink(ChannelPid, Name, Target, Timeout) -> ok | {error, reason()}</name>
+      <name name="make_symlink" arity="3" since=""/>
+      <name name="make_symlink" arity="4" since=""/>
       <fsummary>Creates a symbolic link.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-        <v>Target = string()</v>
-      </type>
       <desc>
         <p>Creates a symbolic link pointing to <c><![CDATA[Target]]></c> with the
           name <c><![CDATA[Name]]></c>.
@@ -252,32 +248,19 @@
       </desc>
     </func>
 
-       <func>
-      <name since="">open(ChannelPid, File, Mode) -></name>
-      <name since="">open(ChannelPid, File, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
+    <func>
+      <name name="open" arity="3" since=""/>
+      <name name="open" arity="4" since=""/>
       <fsummary>Opens a file and returns a handle.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>File = string()</v>
-        <v>Mode = [Modeflag]</v>
-        <v>Modeflag = read | write | creat | trunc | append | binary</v>
-	<v>Timeout = timeout()</v>
-	<v>Handle = term()</v>
-      </type>
       <desc>
         <p>Opens a file on the server and returns a handle, which
           can be used for reading or writing.</p>
       </desc>
     </func>
     <func>
-      <name since="">opendir(ChannelPid, Path) -></name>
-      <name since="">opendir(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name name="opendir" arity="2" since=""/>
+      <name name="opendir" arity="3" since=""/>
       <fsummary>Opens a directory and returns a handle.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Path = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Opens a handle to a directory on the server. The handle
           can be used for reading directory contents.</p>
@@ -285,72 +268,36 @@
     </func>
 
     <func>
-      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode) -></name>
-      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name name="open_tar" arity="3" since="OTP 17.4"/>
+      <name name="open_tar" arity="4" since="OTP 17.4"/>
       <fsummary>Opens a tar file on the server to which <c>ChannelPid</c>
       is connected and returns a handle.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Path = string()</v>
-	<v>Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt]</v>
-	<v>EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</v>
-	<v>DecryptOpt = {crypto,{InitFun,DecryptFun}}</v>
-	<v>InitFun = (fun() -> {ok,CryptoState}) | (fun() -> {ok,CryptoState,ChunkSize})</v>
-	<v>CryptoState = any()</v>
-	<v>ChunkSize = undefined | pos_integer()</v>
-	<v>EncryptFun = (fun(PlainBin,CryptoState) -> EncryptResult)</v>
-	<v>EncryptResult = {ok,EncryptedBin,CryptoState} | {ok,EncryptedBin,CryptoState,ChunkSize}</v>
-	<v>PlainBin = binary()</v>
-	<v>EncryptedBin = binary()</v>
-	<v>DecryptFun = (fun(EncryptedBin,CryptoState) -> DecryptResult)</v>
-	<v>DecryptResult = {ok,PlainBin,CryptoState} | {ok,PlainBin,CryptoState,ChunkSize}</v>
-	<v>CloseFun = (fun(PlainBin,CryptoState) -> {ok,EncryptedBin})</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Opens a handle to a tar file on the server, associated with <c>ChannelPid</c>.
-	The handle can be used for remote tar creation and extraction, as defined by the
-	<seealso marker="stdlib:erl_tar#init-3">erl_tar:init/3</seealso> function.
+	The handle can be used for remote tar creation and extraction. The actual writing
+	and reading is performed by calls to 
+	<seealso marker="stdlib:erl_tar#add-3">erl_tar:add/3,4</seealso> and
+	<seealso marker="stdlib:erl_tar#extract-2">erl_tar:extract/2</seealso>.
+	Note: The 
+	<seealso marker="stdlib:erl_tar#init-3">erl_tar:init/3</seealso> function should not
+	be called, that one is called by this open_tar function.
 	</p>
-
-	<p> For code exampel see Section
-	<seealso marker="using_ssh">SFTP Client with TAR Compression and Encryption</seealso> in
-	the ssh Users Guide. </p>
-
-	<p>The <c>crypto</c> mode option is applied to the generated stream of bytes prior to sending
-	them to the SFTP server. This is intended for encryption but can be used for other
-	purposes.
+	<p>For code examples see Section
+	<seealso marker="using_ssh#sftp-client-with-tar-compression">SFTP Client with TAR Compression</seealso>
+	in the ssh Users Guide.
 	</p>
-	<p>The <c>InitFun</c> is applied once
-	prior to any other <c>crypto</c> operation. The returned <c>CryptoState</c> is then folded into
-	repeated applications of the <c>EncryptFun</c> or <c>DecryptFun</c>. The binary returned
-	from those funs are sent further to the remote SFTP server. Finally, if doing encryption,
-	the <c>CloseFun</c> is applied to the last piece of data. The <c>CloseFun</c> is
-	responsible for padding (if needed) and encryption of that last piece.
+	<p>The <c>crypto</c> mode option is explained in the data types section above, see
+	<seealso marker="#Crypto operations for open_tar">Crypto operations for open_tar</seealso>.
+	Encryption is assumed if the <c>Mode</c> contains <c>write</c>, and
+	decryption if the <c>Mode</c> contains <c>read</c>.
 	</p>
-	<p>The <c>ChunkSize</c> defines the size of the <c>PlainBin</c>s that <c>EncodeFun</c> is applied
-	to. If the <c>ChunkSize</c> is <c>undefined</c>, the size of the <c>PlainBin</c>s varies,
-	because this is	intended for stream crypto, whereas a fixed <c>ChunkSize</c> is intended for block crypto.
-	<c>ChunkSize</c>s can be changed in the return from the <c>EncryptFun</c> or
-	<c>DecryptFun</c>. The value can be changed between <c>pos_integer()</c> and <c>undefined</c>.
-	</p>
-
       </desc>
     </func>
 
     <func>
-      <name since="">position(ChannelPid, Handle, Location) -></name>
-      <name since="">position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, reason()}</name>
+      <name name="position" arity="3" since=""/>
+      <name name="position" arity="4" since=""/>
       <fsummary>Sets the file position of a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Location = Offset
- | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
-        <v>Offset = integer()</v>
-	<v>Timeout = timeout()</v>
-        <v>NewPosition = integer()</v>
-      </type>
       <desc>
         <p>Sets the file position of the file referenced by <c><![CDATA[Handle]]></c>.
           Returns <c><![CDATA[{ok, NewPosition}]]></c> (as an absolute offset) if
@@ -384,17 +331,9 @@
     </func>
 
     <func>
-      <name since="">pread(ChannelPid, Handle, Position, Len) -></name>
-      <name since="">pread(ChannelPid, Handle, Position, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
+      <name name="pread" arity="4" since=""/>
+      <name name="pread" arity="5" since=""/>
       <fsummary>Reads from an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Len = integer()</v>
-	<v>Timeout = timeout()</v>
-        <v>Data = string() | binary()</v>
-      </type>
        <desc><p>The <c><![CDATA[pread/3,4]]></c> function reads from a specified position,
        combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
        <seealso marker="#read-3"><c>read/3,4</c></seealso> functions.</p>
@@ -402,16 +341,9 @@
      </func>
 
     <func>
-      <name since="">pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
-      <name since="">pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, reason()}</name>
+      <name name="pwrite" arity="4" since=""/>
+      <name name="pwrite" arity="5" since=""/>
       <fsummary>Writes to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Data = iolist()</v>
-	<v>Timeout = timeout()</v>
-      </type>
        <desc><p>The <c><![CDATA[pwrite/3,4]]></c> function writes to a specified position,
        combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
        <seealso marker="#write-3"><c>write/3,4</c></seealso> functions.</p>
@@ -419,16 +351,9 @@
     </func>
 
     <func>
-      <name since="">read(ChannelPid, Handle, Len) -></name>
-      <name since="">read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
+      <name name="read" arity="3" since=""/>
+      <name name="read" arity="4" since=""/>
       <fsummary>Reads from an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Len = integer()</v>
-	<v>Timeout = timeout()</v>
-        <v>Data = string() | binary()</v>
-      </type>
       <desc>
         <p>Reads <c><![CDATA[Len]]></c> bytes from the file referenced by
           <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, <c><![CDATA[eof]]></c>, or
@@ -440,32 +365,19 @@
       </desc>
     </func>
 
-      <func>
-      <name since="">read_file(ChannelPid, File) -></name>
-      <name since="">read_file(ChannelPid, File, Timeout) -> {ok, Data} | {error, reason()}</name>
+    <func>
+      <name name="read_file" arity="2" since=""/>
+      <name name="read_file" arity="3" since=""/>
       <fsummary>Reads a file.</fsummary>
-      <type>
-	<v>ChannelPid = pid()</v>
-	<v>File = string()</v>
-        <v>Data = binary()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Reads a file from the server, and returns the data in a binary.</p>
       </desc>
     </func>
 
-      <func>
-      <name since="">read_file_info(ChannelPid, Name) -></name>
-      <name since="">read_file_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
+    <func>
+      <name name="read_file_info" arity="2" since=""/>
+      <name name="read_file_info" arity="3" since=""/>
       <fsummary>Gets information about a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-        <v>Handle = term()</v>
-	<v>Timeout = timeout()</v>
-        <v>FileInfo = record()</v>
-      </type>
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the file system object specified by
           <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>. See
@@ -474,38 +386,26 @@
 	</p>
 	<p>
 	  Depending on the underlying OS:es links might be followed and info on the final file, directory
-	  etc is returned. See <seealso marker="#read_link_info-2">ssh_sftp::read_link_info/2</seealso>
+	  etc is returned. See <seealso marker="#read_link_info-2">read_link_info/2</seealso>
 	  on how to get information on links instead.
 	</p>
       </desc>
     </func>
 
      <func>
-      <name since="">read_link(ChannelPid, Name) -></name>
-      <name since="">read_link(ChannelPid, Name, Timeout) -> {ok, Target} | {error, reason()}</name>
+      <name name="read_link" arity="2" since=""/>
+      <name name="read_link" arity="3" since=""/>
       <fsummary>Reads symbolic link.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-        <v>Target = string()</v>
-      </type>
       <desc>
         <p>Reads the link target from the symbolic link specified by <c><![CDATA[name]]></c>.
 	</p>
       </desc>
     </func>
 
-     <func>
-      <name since="">read_link_info(ChannelPid, Name) -> {ok, FileInfo} | {error, reason()}</name>
-      <name since="">read_link_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
+    <func>
+      <name since="" name="read_link_info" arity="2"/>
+      <name since="" name="read_link_info" arity="3"/>
       <fsummary>Gets information about a symbolic link.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-        <v>Handle = term()</v>
-	<v>Timeout = timeout()</v>
-        <v>FileInfo = record()</v>
-      </type>
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the symbolic
           link specified by <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>.
@@ -517,15 +417,9 @@
     </func>
 
     <func>
-      <name since="">rename(ChannelPid, OldName, NewName) -> </name>
-      <name since="">rename(ChannelPid, OldName, NewName, Timeout) -> ok | {error, reason()}</name>
+      <name since="" name="rename" arity="3"/>
+      <name since="" name="rename" arity="4"/>
       <fsummary>Renames a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>OldName = string()</v>
-        <v>NewName = string()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Renames a file named <c><![CDATA[OldName]]></c> and gives it the name
           <c><![CDATA[NewName]]></c>.
@@ -535,25 +429,27 @@
 
     <func>
       <name since="">start_channel(ConnectionRef) -></name>
-      <name since="">start_channel(ConnectionRef, Options) ->
-      {ok, Pid} | {error, reason()|term()}</name>
+      <name since="">start_channel(ConnectionRef, SftpOptions) ->
+      {ok, ChannelPid} | Error</name>
 
+      <name since="">start_channel(Host) -></name>
       <name since="">start_channel(Host, Options) -></name>
-      <name since="">start_channel(Host, Port, Options) -> 
-      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
-
+      <name since="">start_channel(Host, Port, Options) -></name>
       <name since="">start_channel(TcpSocket) -></name>
       <name since="">start_channel(TcpSocket, Options) ->
-      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
+      {ok, ChannelPid, ConnectionRef} | Error</name>
 
       <fsummary>Starts an SFTP client.</fsummary>
       <type>
-        <v>Host = string()</v>
-        <v>ConnectionRef = connection_ref()</v>
-        <v>Port = integer()</v>
-	<v>TcpSocket = port()</v>
-	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
-        <v>Options = [{Option, Value}]</v>
+        <v>Host = <seealso marker="ssh:ssh#type-host">ssh:host()</seealso></v>
+        <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<v>TcpSocket = <seealso marker="ssh:ssh#type-open_socket">ssh:open_socket()</seealso></v>
+	<v>Options = [  <seealso marker="#type-sftp_option">sftp_option()</seealso>
+		      | <seealso marker="ssh:ssh#type-client_option">ssh:client_option()</seealso> ]</v>
+	<v>SftpOptions = [  <seealso marker="#type-sftp_option">sftp_option()</seealso> ]</v>
+	<v>ChannelPid = pid()</v>
+        <v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
+	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
       </type>
       <desc>
 	<p>If no connection reference is provided, a connection is set
@@ -594,11 +490,8 @@
     </func>
 
      <func>
-      <name since="">stop_channel(ChannelPid) -> ok</name>
+      <name since="" name="stop_channel" arity="1"/>
       <fsummary>Stops the SFTP client channel.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-      </type>
       <desc>
 	<p>Stops an SFTP channel. Does not close the SSH connection.
 	Use <seealso marker="ssh#close-1">ssh:close/1</seealso> to close it.</p>
@@ -606,16 +499,9 @@
     </func>
 
     <func>
-      <name since="">write(ChannelPid, Handle, Data) -></name>
-      <name since="">write(ChannelPid, Handle, Data, Timeout) -> ok | {error, reason()}</name>
+      <name since="" name="write" arity="3"/>
+      <name since="" name="write" arity="4"/>
       <fsummary>Writes to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Data = iolist()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
 	The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
@@ -625,15 +511,9 @@
     </func>
     
     <func>
-      <name since="">write_file(ChannelPid, File, Iolist) -></name>
-      <name since="">write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, reason()}</name>
+      <name since="" name="write_file" arity="3"/>
+      <name since="" name="write_file" arity="4"/>
       <fsummary>Writes a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>File = string()</v>
-        <v>Iolist = iolist()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Writes a file to the server.	The file is created if it does not exist
 	but overwritten if it exists.</p>
@@ -641,15 +521,9 @@
     </func>
     
     <func>
-      <name since="">write_file_info(ChannelPid, Name, Info) -></name>
-      <name since="">write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, reason()}</name>
+      <name since="" name="write_file_info" arity="3"/>
+      <name since="" name="write_file_info" arity="4"/>
       <fsummary>Writes information for a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Name = string()</v>
-        <v>Info = record()</v>
-	<v>Timeout = timeout()</v>
-      </type>
       <desc>
         <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
 	file specified by <c><![CDATA[Name]]></c>. See

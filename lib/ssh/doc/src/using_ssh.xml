@@ -232,9 +232,10 @@
   </section>
 
   <section>
-    <title>SFTP Client with TAR Compression and Encryption</title>
-
-    <p>Example of writing and then reading a tar file follows:</p>
+    <title>SFTP Client with TAR Compression</title>
+    <section>
+      <title>Basic example</title>
+    <p>This is an example of writing and then reading a tar file:</p>
     <code type="erl">
       {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
       ok = erl_tar:add(HandleWrite, .... ),
@@ -248,8 +249,12 @@
       {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
       ok = erl_tar:close(HandleRead),
     </code>
+  </section>
 
-    <p>The previous write and read example can be extended with encryption and decryption as follows:</p>
+  <section>
+    <title>Example with encryption</title>
+    <p>The previous <seealso marker="using_ssh#basic-example">Basic example</seealso>
+    can be extended with encryption and decryption as follows:</p>
     <code type="erl">
 %% First three parameters depending on which crypto type we select:
 Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
@@ -296,6 +301,7 @@ Cr = {InitFun,DecryptFun},
 {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
 ok = erl_tar:close(HandleRead),
     </code>
+  </section>
   </section>
 
   <section>

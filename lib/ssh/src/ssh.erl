@@ -66,6 +66,8 @@
               cipher_alg/0,
               mac_alg/0,
               compression_alg/0,
+              host/0,
+              open_socket/0,
               ip_port/0
 	     ]).
 
