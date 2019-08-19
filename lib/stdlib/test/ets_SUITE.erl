@@ -4984,7 +4984,7 @@ tabfile_ext4(Config) when is_list(Config) ->
                          {error,Y} = ets:file2tab(FName,[{verify,true}]),
                          ets:tab2file(TL,FName,[{extended_info,[md5sum]}]),
                          {X,Y}
-                     end || N <- lists:seq(500,600)],
+                     end || N <- lists:seq(700,800)],
               io:format("~p~n",[Res]),
               file:delete(FName)
       end),
