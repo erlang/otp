@@ -52,7 +52,10 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
     switch (get8(s)) {
     case ERL_FUN_EXT:
 	/* mark as old (R7 and older) external fun */
-	if (p != NULL) p->arity = -1;
+	if (p != NULL) {
+            p->type = EI_FUN_CLOSURE;
+            p->arity = -1;
+        }
 	/* first number of free vars (environment) */
 	n = get32be(s);
 	/* then the pid */
