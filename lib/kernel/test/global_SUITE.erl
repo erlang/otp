@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2512,8 +2512,10 @@ re_register_name(Config) when is_list(Config) ->
     Me = self(),
     Pid1 = spawn(fun() -> proc(Me) end),
     yes = global:register_name(name, Pid1),
+    wait_for_monitor(Pid1),
     Pid2 = spawn(fun() -> proc(Me) end),
     _ = global:re_register_name(name, Pid2),
+    wait_for_monitor(Pid2),
     Pid2 ! die,
     Pid1 ! die,
     receive {Pid1, MonitoredBy1} -> [] = MonitoredBy1 end,
@@ -2521,6 +2523,15 @@ re_register_name(Config) when is_list(Config) ->
     _ = global:unregister_name(name),
     init_condition(Config),
     ok.
+
+wait_for_monitor(Pid) ->
+    case process_info(Pid, monitored_by) of
+        {monitored_by, []} ->
+            timer:sleep(1),
+            wait_for_monitor(Pid);
+        {monitored_by, [_]} ->
+            ok
+    end.
 
 proc(Parent) ->
     receive die -> ok end,
