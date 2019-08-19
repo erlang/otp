@@ -5339,11 +5339,11 @@ revert_map_type_assoc(Node) ->
 -spec map_type_assoc_name(syntaxTree()) -> syntaxTree().
 
 map_type_assoc_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_assoc, [Name, _]} ->
             Name;
-        _ ->
-            (data(Node))#map_type_assoc.name
+        Node1 ->
+            (data(Node1))#map_type_assoc.name
     end.
 
 
@@ -5355,11 +5355,11 @@ map_type_assoc_name(Node) ->
 -spec map_type_assoc_value(syntaxTree()) -> syntaxTree().
 
 map_type_assoc_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_assoc, [_, Value]} ->
             Value;
-        _ ->
-            (data(Node))#map_type_assoc.value
+        Node1 ->
+            (data(Node1))#map_type_assoc.value
     end.
 
 
@@ -5397,11 +5397,11 @@ revert_map_type_exact(Node) ->
 -spec map_type_exact_name(syntaxTree()) -> syntaxTree().
 
 map_type_exact_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_exact, [Name, _]} ->
             Name;
-        _ ->
-            (data(Node))#map_type_exact.name
+        Node1 ->
+            (data(Node1))#map_type_exact.name
     end.
 
 
@@ -5413,11 +5413,11 @@ map_type_exact_name(Node) ->
 -spec map_type_exact_value(syntaxTree()) -> syntaxTree().
 
 map_type_exact_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_exact, [_, Value]} ->
             Value;
-        _ ->
-            (data(Node))#map_type_exact.value
+        Node1 ->
+            (data(Node1))#map_type_exact.value
     end.
 
 
