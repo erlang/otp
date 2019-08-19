@@ -56,8 +56,8 @@ groups() ->
               {'tlsv1.1', [], tests()},
               {'tlsv1', [], tests()},
               {'sslv3', [], tests()},
-              {'dtlsv1.2', [], dtls_tests()},
-              {'dtlsv1', [], dtls_tests()}
+              {'dtlsv1.2', [], tests()},
+              {'dtlsv1', [], tests()}
              ];
         false ->
              [{'tlsv1.2', [], tests()},
@@ -71,11 +71,6 @@ tests() ->
     [    
          reuse_session_erlang_server,
          reuse_session_erlang_client
-    ].
-
-dtls_tests() ->
-    [    
-         reuse_session_erlang_server
     ].
 
 
@@ -193,19 +188,20 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    
+
+    Version = ssl_test_lib:protocol_version(Config),    
     Port = ssl_test_lib:inet_port(node()),
     CertFile = proplists:get_value(certfile, ServerOpts),
     CACertFile = proplists:get_value(cacertfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port),
+    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
             "-cert", CertFile,"-key", KeyFile, "-CAfile", CACertFile],
 
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port, tls),
+    ssl_test_lib:wait_for_openssl_server(Port,  proplists:get_value(protocol, Config)),
     
     Client0 =
         ssl_test_lib:start_client([{node, ClientNode},
