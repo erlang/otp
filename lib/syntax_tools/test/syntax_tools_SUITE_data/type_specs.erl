@@ -37,6 +37,9 @@
 
 -record(par, {a :: undefined | ?MODULE}).
 
+-record(mt, {e :: #{any() := any()},
+             a :: #{any() => any()}}).
+
 -record(r0, {}).
 
 -record(r,
