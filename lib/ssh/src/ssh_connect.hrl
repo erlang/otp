@@ -263,11 +263,8 @@
 -record(connection, {
 	  requests = [], %% [{ChannelId, Pid}...] awaiting reply on request,
 	  channel_cache,
-	  port_bindings,
 	  channel_id_seed,
 	  cli_spec,
-	  address, 
-	  port,
 	  options,
 	  exec,
 	  system_supervisor,
