@@ -56,8 +56,8 @@ allow(Tid,Level,Module) ->
             false
     end.
 
-allow(Tid,Level) ->
-    PrimaryLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
+allow(_Tid,Level) ->
+    PrimaryLevelInt = persistent_term:get({?MODULE,?PRIMARY_KEY}, ?NOTICE),
     less_or_equal_level(Level,PrimaryLevelInt).
 
 less_or_equal_level(emergency,ModLevel) -> ?EMERGENCY =< ModLevel;
@@ -95,6 +95,12 @@ create(Tid,proxy,Config) ->
     ets:insert(Tid,{table_key(proxy),Config});
 create(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
+    case What of
+        primary ->
+            ok = persistent_term:put({?MODULE,?PRIMARY_KEY}, LevelInt);
+        _ ->
+            ok
+    end,
     ets:insert(Tid,{table_key(What),LevelInt,Config}).
 
 set(Tid,proxy,Config) ->
@@ -109,6 +115,7 @@ set(Tid,What,Config) ->
             _ = ets:select_delete(Tid,[{{'_',{'$1',cached}},
                                         [{'=/=','$1',LevelInt}],
                                         [true]}]),
+            ok = persistent_term:put({?MODULE,?PRIMARY_KEY}, LevelInt),
             ok;
         _ ->
             ok
