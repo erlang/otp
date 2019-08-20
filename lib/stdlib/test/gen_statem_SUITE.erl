@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1042,7 +1042,8 @@ generic_timers(_Config) ->
 
 sys1(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
-    {status, Pid, {module,gen_statem}, _} = sys:get_status(Pid),
+    {status, Pid, {module,gen_statem}, Info} = sys:get_status(Pid),
+    ct:log("Status info: ~p~n", [Info]),
     sys:suspend(Pid),
     Parent = self(),
     Tag = make_ref(),

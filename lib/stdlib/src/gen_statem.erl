@@ -807,13 +807,16 @@ format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
    {#params{name = Name} = P,
-    #state{postponed = Postponed} = S}]) ->
+    #state{
+       postponed = Postponed,
+       timers = {_TimerRefs, TimeoutTypes}} = S}]) ->
     Header = gen:format_status_header("Status for state machine", Name),
     Log = sys:get_log(Debug),
     [{header,Header},
      {data,
       [{"Status",SysState},
        {"Parent",Parent},
+       {"Time-outs",{maps:size(TimeoutTypes),maps:keys(TimeoutTypes)}},
        {"Logged Events",Log},
        {"Postponed",Postponed}]} |
      case format_status(Opt, PDict, update_parent(P, Parent), S) of
@@ -2190,7 +2193,9 @@ error_info(
      name = Name,
      callback_mode = CallbackMode,
      state_enter = StateEnter} = P,
-  #state{postponed = Postponed} = S,
+  #state{
+     postponed = Postponed,
+     timers = {_TimerRefs, TimeoutTypes}} = S,
   Q) ->
     Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
@@ -2200,6 +2205,7 @@ error_info(
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), P, S),
+                 timeouts=>{maps:size(TimeoutTypes),maps:keys(TimeoutTypes)},
                  log=>Log,
                  reason=>{Class,Reason,Stacktrace},
                  client_info=>client_stacktrace(Q)},
@@ -2238,6 +2244,7 @@ format_log(#{label:={gen_statem,terminate},
              callback_mode:=CallbackMode,
              state_enter:=StateEnter,
              state:=FmtData,
+             timeouts:=Timeouts,
              log:=Log,
              reason:={Class,Reason,Stacktrace},
              client_info:=ClientInfo}) ->
@@ -2293,6 +2300,10 @@ format_log(#{label:={gen_statem,terminate},
              [] -> "";
              _ -> "** Stacktrace =~n**  ~tp~n"
          end ++
+         case Timeouts of
+             {0,_} -> "";
+             _ -> "** Time-outs: ~p~n"
+         end ++
          case Log of
              [] -> "";
              _ -> "** Log =~n**  ~tp~n"
@@ -2316,6 +2327,10 @@ format_log(#{label:={gen_statem,terminate},
          case FixedStacktrace of
              [] -> [];
              _ -> [error_logger:limit_term(FixedStacktrace)]
+         end ++
+         case Timeouts of
+             {0,_} -> [];
+             _ -> [error_logger:limit_term(Timeouts)]
          end ++
          case Log of
              [] -> [];
