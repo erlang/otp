@@ -343,6 +343,14 @@ close(ConnectionHandler, ChannelId) ->
 store(ConnectionHandler, Key, Value) ->
     cast(ConnectionHandler, {store,Key,Value}).
     
+retrieve(#connection{options=Opts}, Key) ->
+    try ?GET_INTERNAL_OPT(Key, Opts) of
+        Value -> 
+            {ok,Value}
+    catch
+        error:{badkey,Key} ->
+            undefined
+    end;
 retrieve(ConnectionHandler, Key) ->
     call(ConnectionHandler, {retrieve,Key}).
     
@@ -1277,10 +1285,31 @@ handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, 
             {keep_state, D, cond_set_idle_timer(D)}
     end;
 
-handle_event({call,From}, {global_request, Type, Data, Timeout}, StateName, D) when ?CONNECTED(StateName) ->
+handle_event({call,From}, {global_request, "tcpip-forward" = Type,
+                           {ListenHost,ListenPort,ConnectToHost,ConnectToPort},
+                           Timeout}, StateName, D0) when ?CONNECTED(StateName) ->
+    Id = make_ref(),
+    Data =  <<?STRING(ListenHost), ?Euint32(ListenPort)>>,
+    Fun = fun({success, <<Port:32/unsigned-integer>>}, C) ->
+                  Key = {tcpip_forward,ListenHost,Port},
+                  Value = {ConnectToHost,ConnectToPort},
+                  C#connection{options = ?PUT_INTERNAL_OPT({Key,Value}, C#connection.options)};
+             ({success, <<>>}, C) ->
+                  Key = {tcpip_forward,ListenHost,ListenPort},
+                  Value = {ConnectToHost,ConnectToPort},
+                  C#connection{options = ?PUT_INTERNAL_OPT({Key,Value}, C#connection.options)};
+             (_, C) ->
+                  C
+          end,
+    D = send_msg(ssh_connection:request_global_msg(Type, true, Data),
+                 add_request(Fun, Id, From, D0)),
+    start_channel_request_timer(Id, From, Timeout),
+    {keep_state, D, cond_set_idle_timer(D)};
+
+handle_event({call,From}, {global_request, Type, Data, Timeout}, StateName, D0) when ?CONNECTED(StateName) ->
     Id = make_ref(),
     D = send_msg(ssh_connection:request_global_msg(Type, true, Data),
-                 add_request(true, Id, From, D)),
+                 add_request(true, Id, From, D0)),
     start_channel_request_timer(Id, From, Timeout),
     {keep_state, D, cond_set_idle_timer(D)};
 
@@ -1365,15 +1394,14 @@ handle_event({call,From}, {close, ChannelId}, StateName, D0)
     end;
 
 handle_event(cast, {store,Key,Value}, _StateName, #data{connection_state=C0} = D) ->
-    C = #connection{options = ?PUT_INTERNAL_OPT({Key,Value}, C0#connection.options)},
+    C = C0#connection{options = ?PUT_INTERNAL_OPT({Key,Value}, C0#connection.options)},
     {keep_state, D#data{connection_state = C}};
 
-handle_event({call,From}, {retrieve,Key}, _StateName, #data{connection_state=C0}) ->
-    try ?GET_INTERNAL_OPT(Key, C0#connection.options) of
-        Value -> 
-            {keep_state_and_data, [{reply,From,{ok,Value}}]}
-    catch
-        error:{badkey,Key} ->
+handle_event({call,From}, {retrieve,Key}, _StateName, #data{connection_state=C}) ->
+    case retrieve(C, Key) of
+        {ok,Value} ->
+            {keep_state_and_data, [{reply,From,{ok,Value}}]};
+        _ ->
             {keep_state_and_data, [{reply,From,undefined}]}
     end;
 

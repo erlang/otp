@@ -36,6 +36,7 @@
 	     ssh_sftpd_file_api,
 	     ssh_subsystem_sup,
 	     ssh_sup,
+             ssh_tcpip_forward_client,
              ssh_tcpip_forward_srv,
              ssh_tcpip_forward_acceptor_sup,
              ssh_tcpip_forward_acceptor,
