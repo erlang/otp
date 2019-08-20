@@ -336,8 +336,9 @@ decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) 
        extensions = decode_extensions(EncExts, encrypted_extensions)
       };
 decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
-                                        ?BYTE(Nonce), ?UINT16(TicketSize), Ticket:TicketSize/binary,
-                                        BinExts/binary>>) ->
+                                        ?BYTE(NonceSize), Nonce:NonceSize/binary,
+                                        ?UINT16(TicketSize), Ticket:TicketSize/binary,
+                                        ?UINT16(BinExtSize), BinExts:BinExtSize/binary>>) ->
     Exts = decode_extensions(BinExts, encrypted_extensions),
     #new_session_ticket{ticket_lifetime = LifeTime,  
                         ticket_age_add = Age,   
