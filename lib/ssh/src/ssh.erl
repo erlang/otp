@@ -39,7 +39,8 @@
          chk_algos_opts/1,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
-	 shell/1, shell/2, shell/3
+	 shell/1, shell/2, shell/3,
+         tcpip_tunnel_from_server/5, tcpip_tunnel_from_server/6
 	]).
 
 %%% "Deprecated" types export:
@@ -565,6 +566,60 @@ chk_algos_opts(Opts) ->
     end.
 
 %%--------------------------------------------------------------------
+%% Ask remote server to listen to ListenHost:ListenPort.  When someone
+%% connects that address, connect to ConnectToHost:ConnectToPort from
+%% the client.
+%%--------------------------------------------------------------------
+-spec tcpip_tunnel_from_server(ConnectionRef,
+                               ListenHost, ListenPort,
+                               ConnectToHost, ConnectToPort
+                              ) ->
+                                    {ok,TrueListenPort} | {error, term()} when
+      ConnectionRef :: connection_ref(),
+      ListenHost :: host(),
+      ListenPort :: inet:port_number(),
+      ConnectToHost :: host(),
+      ConnectToPort :: inet:port_number(),
+      TrueListenPort :: inet:port_number().
+
+tcpip_tunnel_from_server(ConnectionRef, ListenHost, ListenPort, ConnectToHost, ConnectToPort) ->
+    tcpip_tunnel_from_server(ConnectionRef, ListenHost, ListenPort, ConnectToHost, ConnectToPort, infinity).
+
+-spec tcpip_tunnel_from_server(ConnectionRef,
+                               ListenHost, ListenPort,
+                               ConnectToHost, ConnectToPort,
+                               Timeout) ->
+                                    {ok,TrueListenPort} | {error, term()} when
+      ConnectionRef :: connection_ref(),
+      ListenHost :: host(),
+      ListenPort :: inet:port_number(),
+      ConnectToHost :: host(),
+      ConnectToPort :: inet:port_number(),
+      Timeout :: timeout(),
+      TrueListenPort :: inet:port_number().
+
+tcpip_tunnel_from_server(ConnectionRef, ListenHost0, ListenPort, ConnectToHost0, ConnectToPort, Timeout) ->
+    SockOpts = [],
+    ListenHost = mangle_tunnel_address(ListenHost0),
+    ConnectToHost = mangle_connect_address(ConnectToHost0, SockOpts),
+    case ssh_connection_handler:global_request(ConnectionRef, "tcpip-forward", true, 
+                                               {ListenHost,ListenPort,ConnectToHost,ConnectToPort},
+                                               Timeout) of
+        {success,<<>>} ->
+            {ok, ListenPort};
+        {success,<<TruePort:32/unsigned-integer>>} when ListenPort==0 ->
+            {ok, TruePort};
+        {success,_} = Res ->
+            {error, {bad_result,Res}};
+        {failure,<<>>} ->
+            {error,not_accepted};
+        {failure,Error} ->
+            {error,Error};
+        Other ->
+            Other
+    end.
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 %% The handle_daemon_args/2 function basically only sets the ip-option in Opts
@@ -681,3 +736,16 @@ mangle_connect_address1(A, _) ->
         {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
         _ -> A
     end.
+
+%%%----------------------------------------------------------------
+mangle_tunnel_address(any) -> <<"">>;
+mangle_tunnel_address(loopback) -> <<"localhost">>;
+mangle_tunnel_address({0,0,0,0}) -> <<"">>;
+mangle_tunnel_address({0,0,0,0,0,0,0,0}) -> <<"">>;
+mangle_tunnel_address(IP) when is_tuple(IP) -> list_to_binary(inet_parse:ntoa(IP));
+mangle_tunnel_address(A) when is_atom(A) -> mangle_tunnel_address(atom_to_list(A));
+mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
+                                     {ok, {0,0,0,0}} -> <<"">>;
+                                     {ok, {0,0,0,0,0,0,0,0}} -> <<"">>;
+                                     _ -> list_to_binary(X)
+                                 end.

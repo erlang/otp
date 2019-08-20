@@ -391,6 +391,7 @@ ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
 	    proplists:get_value(pixel_height, TermData, PixHeight),
 	    proplists:get_value(pty_opts, TermData, []), TimeOut
 	   ).
+
 %%--------------------------------------------------------------------
 %% Not yet officialy supported! The following functions are part of the
 %% initial contributed ssh application. They are untested. Do we want them?
@@ -583,6 +584,64 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 	    {[{connection_reply, FailMsg}], Connection0}
     end;
 
+handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
+				 sender_channel = RemoteId,
+                                 initial_window_size = WindowSize,
+                                 maximum_packet_size = PacketSize,
+                                 data = <<?DEC_BIN(ConnectedHost,_L1), ?UINT32(ConnectedPort),
+                                          ?DEC_BIN(_OriginHost,_L2), ?UINT32(_OriginPort)
+                                        >>
+                                },
+           #connection{channel_cache = Cache,
+                       channel_id_seed = ChId,
+                       options = Options,
+                       sub_system_supervisor = SubSysSup
+                      } = C,
+	   client) ->
+    {ReplyMsg, NextChId} =
+        case ssh_connection_handler:retrieve(C, {tcpip_forward,ConnectedHost,ConnectedPort}) of
+            {ok, {ConnectToHost,ConnectToPort}} ->
+                case gen_tcp:connect(ConnectToHost, ConnectToPort, [{active,false}, binary]) of
+                    {ok,Sock} ->
+                        {ok,Pid} = ssh_subsystem_sup:start_channel(client, SubSysSup, self(),
+                                                                   ssh_tcpip_forward_client, ChId,
+                                                                   [Sock], undefined, Options),
+                        ssh_client_channel:cache_update(Cache,
+                                                        #channel{type = "forwarded-tcpip",
+                                                                 sys = "none",
+                                                                 local_id = ChId,
+                                                                 remote_id = RemoteId,
+                                                                 user = Pid,
+                                                                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
+                                                                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                                                                 send_window_size = WindowSize,
+                                                                 send_packet_size = PacketSize,
+                                                                 send_buf = queue:new()
+                                                                }),
+                        gen_tcp:controlling_process(Sock, Pid),
+                        inet:setopts(Sock, [{active,once}]),
+                        {channel_open_confirmation_msg(RemoteId, ChId,
+                                                       ?DEFAULT_WINDOW_SIZE, 
+                                                       ?DEFAULT_PACKET_SIZE),
+                         ChId + 1};
+
+                    {error,Error} ->
+                        {channel_open_failure_msg(RemoteId, 
+                                                  ?SSH_OPEN_CONNECT_FAILED,
+                                                  io_lib:format("Forwarded connection refused: ~p",[Error]),
+                                                  "en"),
+                         ChId}
+                end;
+
+            undefined ->
+                {channel_open_failure_msg(RemoteId, 
+                                          ?SSH_OPEN_CONNECT_FAILED,
+                                          io_lib:format("No forwarding ordered",[]),
+                                          "en"),
+                 ChId}
+        end,
+    {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}};
+
 handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
 				 sender_channel = RemoteId,
                                  initial_window_size = WindowSize,
@@ -597,7 +656,6 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                        sub_system_supervisor = SubSysSup
                       } = C,
 	   server) ->
-
     {ReplyMsg, NextChId} =
         case ?GET_OPT(tcpip_tunnel_in, Options) of
             %% May add more to the option, like allowed ip/port pairs to connect to
