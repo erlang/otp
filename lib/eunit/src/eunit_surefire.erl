@@ -451,6 +451,11 @@ escape_xml([$< | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $l, $& | Acc]
 escape_xml([$> | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $g, $& | Acc], ForAttr);
 escape_xml([$& | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $p, $m, $a, $& | Acc], ForAttr);
 escape_xml([$" | Tail], Acc, true) -> escape_xml(Tail, [$;, $t, $o, $u, $q, $& | Acc], true); % "
+escape_xml([Char | Tail], Acc, ForAttr) when
+	  Char == $\n; Char == $\r; Char == $\t -> escape_xml(Tail, [Char | Acc], ForAttr);
+%% Strip C0 control codes which are not allowed in XML 1.0
+escape_xml([Char | Tail], Acc, ForAttr) when
+	  0 =< Char, Char =< 31 -> escape_xml(Tail, Acc, ForAttr);
 escape_xml([Char | Tail], Acc, ForAttr) when is_integer(Char) -> escape_xml(Tail, [Char | Acc], ForAttr).
 
 %% the input may be utf8 or latin1; the resulting list is unicode
