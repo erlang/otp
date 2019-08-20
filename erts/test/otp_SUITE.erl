@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,8 +79,7 @@ undefined_functions(Config) when is_list(Config) ->
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
     Undef1 = hipe_filter(Undef0),
-    Undef2 = ssl_crypto_filter(Undef1),
-    Undef3 = edoc_filter(Undef2),
+    Undef3 = ssl_crypto_filter(Undef1),
     Undef4 = eunit_filter(Undef3),
     Undef5 = dialyzer_filter(Undef4),
     Undef6 = wx_filter(Undef5),
@@ -156,12 +155,6 @@ ssl_crypto_filter(Undef) ->
                    end, Undef);
         {_,_} -> Undef
     end.
-
-edoc_filter(Undef) ->
-    %% Filter away function call that is catched.
-    filter(fun({{edoc_lib,uri_get_http,1},{http,request_sync,2}}) -> false;
-              (_) -> true
-           end, Undef).
 
 eunit_filter(Undef) ->
     filter(fun({{eunit_test,wrapper_test_exported_,0},
