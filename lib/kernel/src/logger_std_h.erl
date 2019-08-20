@@ -335,13 +335,22 @@ open_log_file(HandlerName,#{type:=file,
     end.
 
 close_log_file(#{fd:=Fd}) ->
-    _ = file:datasync(Fd),
+    _ = file:datasync(Fd), %% file:datasync may return error as it will flush the delayed_write buffer
     _ = file:close(Fd),
     ok;
 close_log_file(_) ->
     ok.
 
-
+%% A special close that closes the FD properly when the delayed write close failed
+delayed_write_close(#{fd:=Fd}) ->
+    case file:close(Fd) of
+        %% We got an error while closing, could be a delayed write failing
+        %% So we close again in order to make sure the file is closed.
+        {error, _} ->
+            file:close(Fd);
+        Res ->
+            Res
+    end.
 
 %%%-----------------------------------------------------------------
 %%% File control process
@@ -549,10 +558,9 @@ maybe_rotate_file(AddSize,#{rotation:=#{size:=RotSize,
 maybe_rotate_file(_Bin,State) ->
     State.
 
-rotate_file(#{fd:=Fd0,file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
+rotate_file(#{file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
     State1 = sync_dev(State),
-    _ = file:close(Fd0),
-    _ = file:close(Fd0),
+    _ = delayed_write_close(State),
     rotate_files(FileName,maps:get(count,Rotation),maps:get(compress,Rotation)),
     case file:open(FileName,Modes) of
         {ok,Fd} ->
