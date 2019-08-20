@@ -1100,6 +1100,8 @@ normalise({bin,_,Fs}) ->
     B;
 normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
+normalise({op,_,'++',A,B}) ->
+    normalise(A) ++ normalise(B);
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
 normalise({map,_,Pairs0}) ->
