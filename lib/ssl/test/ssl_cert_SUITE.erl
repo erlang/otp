@@ -44,17 +44,16 @@ all() ->
 groups() ->
     [
      {'tlsv1.3', [], tls_1_3_protocol_groups()}, 
-     {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
-     {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
-     {'tlsv1', [], pre_tls_1_3_protocol_groups()},
+     {'tlsv1.2', [], tls_1_2_protocol_groups()},
+     {'tlsv1.1', [], ssl_protocol_groups()},
+     {'tlsv1', [], ssl_protocol_groups()},
      {'sslv3', [], ssl_protocol_groups()},
-     {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
-     {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
-     {rsa, [], all_version_tests()},
+     {'dtlsv1.2', [], tls_1_2_protocol_groups()},
+     {'dtlsv1', [], ssl_protocol_groups()},
+     {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
-                                                              unsupported_sign_algo_cert_client_auth]},
+     {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -62,7 +61,7 @@ ssl_protocol_groups() ->
     [{group, rsa},
      {group, dsa}].
 
-pre_tls_1_3_protocol_groups() ->
+tls_1_2_protocol_groups() ->
     [{group, rsa},
      {group, ecdsa},
      {group, dsa}].
@@ -80,6 +79,22 @@ tls_1_3_tests() ->
      hello_retry_client_auth_empty_cert_rejected
     ].
 
+pre_tls_1_3_rsa_tests() ->
+    [
+     key_auth_ext_sign_only
+    ].
+
+rsa_tests() ->
+   [
+    longer_chain
+   ].
+
+tls_1_3_rsa_tests() ->
+     [
+      unsupported_sign_algo_client_auth,
+      unsupported_sign_algo_cert_client_auth
+     ].
+
 all_version_tests() ->
     [
      no_auth,
@@ -96,8 +111,18 @@ all_version_tests() ->
      missing_root_cert_auth_user_verify_fun_reject,
      verify_fun_always_run_client,
      verify_fun_always_run_server,
-     incomplete_chain_auth
-     %%invalid_signature_client
+     incomplete_chain_auth,
+     invalid_signature_client,
+     invalid_signature_server,
+     critical_extension_auth,
+     critical_extension_client_auth,
+     critical_extension_no_auth,
+     extended_key_usage_auth,
+     extended_key_usage_client_auth,
+     cert_expired,
+     client_auth_once,
+     no_auth_key_identifier_ext,
+     no_auth_key_identifier_ext_keyEncipherment
     ].
 
 init_per_suite(Config) ->
@@ -352,7 +377,8 @@ incomplete_chain_auth(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 verify_fun_always_run_client() ->
-    [{doc,"Verify that user verify_fun is always run (for valid and valid_peer not only unknown_extension)"}].
+    [{doc,"Verify that user verify_fun is always run (for valid and "
+      "valid_peer not only unknown_extension)"}].
 
 verify_fun_always_run_client(Config) when is_list(Config) ->
     ClientOpts =  ssl_test_lib:ssl_options(client_cert_opts, Config),
@@ -392,7 +418,8 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 verify_fun_always_run_server() ->
-    [{doc,"Verify that user verify_fun is always run (for valid and valid_peer not only unknown_extension)"}].
+    [{doc,"Verify that user verify_fun is always run (for valid and "
+      "valid_peer not only unknown_extension)"}].
 verify_fun_always_run_server(Config) when is_list(Config) ->
     ClientOpts =  ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_cert_opts, Config),
@@ -434,12 +461,318 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
 invalid_signature_client() ->
     ssl_cert_tests:invalid_signature_client().
 invalid_signature_client(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
     ssl_cert_tests:invalid_signature_client(Config).
 %%--------------------------------------------------------------------
 invalid_signature_server() ->
-    ssl_cert_tests:invalid_signature_client().
+    ssl_cert_tests:invalid_signature_server().
 invalid_signature_server(Config) when is_list(Config) ->
-    ssl_cert_tests:invalid_signature_client(Config).
+    ssl:clear_pem_cache(),
+    ssl_cert_tests:invalid_signature_server(Config).
+
+%%--------------------------------------------------------------------
+critical_extension_auth() ->
+    [{doc,"Test cert that has a critical unknown extension in verify_peer mode"}].
+
+critical_extension_auth(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0}  = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                         [{server_chain, 
+                                                                           [[],[],[{extensions, Ext}]]},
+                                                                          {client_chain, DefaultCertConf}]),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
+ 
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {ssl_test_lib,  no_result, []}},
+                {options, [{verify, verify_none} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {ssl_test_lib, no_result, []}},
+                {options, [{verify, verify_peer} | ClientOpts]}]),
+
+    ssl_test_lib:check_client_alert(Server, Client, unsupported_certificate).
+
+%%--------------------------------------------------------------------
+critical_extension_client_auth() ->
+    [{doc,"Test cert that has a critical unknown extension in verify_peer mode"}].
+
+critical_extension_client_auth(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+     #{client_config := ClientOpts0,
+      server_config := ServerOpts0}  = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                         [{client_chain, 
+                                                                           [[],[],[{extensions, Ext}]]},
+                                                                          {server_chain, DefaultCertConf}]),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {ssl_test_lib, no_result, []}},
+                {options, [{verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {ssl_test_lib, no_result, []}},
+                {options, [{verify, verify_none} | ClientOpts]}]),
+
+    %% This certificate has a critical extension that we don't
+    %% understand.  Therefore, verification should fail.          
+    ssl_test_lib:check_server_alert(Server, Client, unsupported_certificate).
+
+%%--------------------------------------------------------------------
+critical_extension_no_auth() ->
+    [{doc,"Test cert that has a critical unknown extension in verify_none mode"}].
+
+critical_extension_no_auth(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0}  = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                            [{server_chain, 
+                                                                              [[],[], [{extensions, Ext}]]},
+                                                                             {client_chain, DefaultCertConf}]),
+    ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(ClientOpts0, Config)],
+    ServerOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(ServerOpts0, Config)],            
+    
+     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+
+%%--------------------------------------------------------------------
+extended_key_usage_auth() ->
+    [{doc,"Test cert that has a critical extended_key_usage extension in server cert"}].
+
+extended_key_usage_auth(Config) when is_list(Config) -> 
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    Ext = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                 [?'id-kp-serverAuth'], true}]),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain, 
+                                                                          [[],[], [{extensions, Ext}]]},
+                                                                         {client_chain, DefaultCertConf}
+                                                                        ]),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+			   {options, [{verify, verify_none} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{verify, verify_peer} |
+						   ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+extended_key_usage_client_auth() ->
+    [{doc,"Test cert that has a critical extended_key_usage extension in client and server cert"}].
+
+extended_key_usage_client_auth(Config) when is_list(Config) ->
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], true}]),
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], true}]),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{client_chain, [[],[],[{extensions, ClientExt}]]},
+                                                                         {server_chain, [[],[],[{extensions, ServerExt}]]}]),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),        
+   
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{verify, verify_peer} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+cert_expired() ->
+    [{doc,"Test server with expired certificate"}].
+
+cert_expired(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    {Year, Month, Day} = date(),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain,
+                                                                          [[], 
+                                                                           [{validity, {{Year-2, Month, Day}, 
+                                                                                        {Year-1, Month, Day}}}],
+                                                                           []
+                                                                     ]},
+                                                                         {client_chain, DefaultCertConf}]),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {options, [{verify, verify_peer} | ClientOpts]}]),    
+    
+    ssl_test_lib:check_client_alert(Server, Client, certificate_expired).
+
+%%--------------------------------------------------------------------
+client_auth_once() ->
+    [{doc,"Test server option verify_client_once"}].
+
+client_auth_once(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{verify, verify_peer},
+						   {verify_client_once, true}
+						   | ServerOpts]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client0, ok),
+    Server ! {listen, {mfa, {ssl_test_lib, send_recv_result_active, []}}},
+    ssl_test_lib:close(Client0),
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Client1, ok, Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+no_auth_key_identifier_ext() ->
+    [{doc, "Test cert that does not have authorityKeyIdentifier extension"}].
+
+no_auth_key_identifier_ext(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+      #{client_config := ClientOpts0,
+        server_config := ServerOpts0} = 
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, DefaultCertConf},
+                                           {server_chain, DefaultCertConf}]),
+    ClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(ClientOpts0, Config)],
+    ServerOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(ServerOpts0, Config)],        
+ 
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+    
+%%--------------------------------------------------------------------
+no_auth_key_identifier_ext_keyEncipherment() ->
+    [{doc, "Test cert with keyEncipherment key_usage an no"
+      " authorityKeyIdentifier extension"}].
+
+no_auth_key_identifier_ext_keyEncipherment(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
+    #{client_config := ClientOpts0,
+        server_config := ServerOpts0} = 
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, 
+                                            [[],[],[{extensions, ClientExt}]]},
+                                           {server_chain, DefaultCertConf}
+                                          ]),
+    ClientOpts =   [{verify, verify_peer} | ssl_test_lib:ssl_options(ClientOpts0, Config)],
+    ServerOpts =   [{verify, verify_peer} | ssl_test_lib:ssl_options(ServerOpts0, Config)],  
+    
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+key_auth_ext_sign_only() ->
+    [{doc, "Test that client with a certificate without keyEncipherment usage "
+    " extension can connect to a server with restricted cipher suites "}].
+key_auth_ext_sign_only(Config) when is_list(Config) ->
+    DefaultCertConf = ssl_test_lib:default_cert_chain_conf(),
+    ClientExt = x509_test:extensions([{key_usage, [digitalSignature]}]),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = 
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, 
+                                            [[],[],[{extensions, ClientExt}]]},
+                                           {server_chain, DefaultCertConf}
+                                          ]),
+    Version = proplists:get_value(version, Config),
+    ClientOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(ClientOpts0, Config)], 
+    ServerOpts = [{verify, verify_peer}, {ciphers, 
+                                          ssl_test_lib:rsa_non_signed_suites(n_version(Version))} 
+                  | ssl_test_lib:ssl_options(ServerOpts0, Config)],
+    
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+longer_chain() ->
+    [{doc,"Test depth option"}].
+longer_chain(Config) when is_list(Config) ->      
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} = 
+        public_key:pkix_test_data(#{server_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                      intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}], 
+                                                                        [{key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                                                        [{key, ssl_test_lib:hardcode_rsa_key(4)}]],
+                                                      peer => [{key, ssl_test_lib:hardcode_rsa_key(5)}]},
+                                    client_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(3)}], 
+                                                      intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                      peer => [{key, ssl_test_lib:hardcode_rsa_key(1)}]}}), 
+    [ServerRoot| _] = ServerCas = proplists:get_value(cacerts, ServerOpts0),
+    ClientCas = proplists:get_value(cacerts, ClientOpts0),
+    
+    ServerOpts = ssl_test_lib:ssl_options([{verify, verify_peer}, {cacerts, [ServerRoot]} |  
+                                           proplists:delete(cacerts, ServerOpts0)], Config),
+    ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
+                                           {depth, 5},
+                                           {cacerts,  ServerCas ++ ClientCas} | 
+                                           proplists:delete(cacerts, ClientOpts0)], Config),
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 %% TLS 1.3 Test cases  -----------------------------------------------
@@ -454,7 +787,7 @@ hello_retry_request(Config) ->
     ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups, [x448, x25519]}|ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups, [secp256r1, x25519]}|ClientOpts0],
+                  {supported_groups, [secp256r1, x25519]} | ClientOpts0],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 custom_groups() ->
@@ -561,3 +894,29 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
                   {supported_groups, [secp256r1, x25519]}|ClientOpts2],
    
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------
+two_digits_str(N) when N < 10 ->
+    lists:flatten(io_lib:format("0~p", [N]));
+two_digits_str(N) ->
+    lists:flatten(io_lib:format("~p", [N])).
+
+delete_authority_key_extension([], Acc) ->
+    lists:reverse(Acc);
+delete_authority_key_extension([#'Extension'{extnID = ?'id-ce-authorityKeyIdentifier'} | Rest],
+ 			       Acc) ->
+    delete_authority_key_extension(Rest, Acc);
+delete_authority_key_extension([Head | Rest], Acc) ->
+    delete_authority_key_extension(Rest, [Head | Acc]).
+
+n_version(Version) when Version == 'tlsv1.2';
+                        Version == 'tlsv1.1';
+                        Version == 'tlsv1';
+                        Version == 'sslv3'
+                        ->
+    tls_record:protocol_version(Version);
+n_version(Version) when Version == 'dtlsv1.2';
+                        Version == 'dtlsv1' ->
+    dtls_record:protocol_version(Version).
