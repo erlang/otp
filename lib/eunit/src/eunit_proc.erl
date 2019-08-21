@@ -644,6 +644,8 @@ io_request({get_line, _Enc, _Prompt}, Buf) ->
     {eof, Buf};
 io_request({get_until, _Prompt, _M, _F, _As}, Buf) ->
     {eof, Buf};
+io_request({get_until, _Enc, _Prompt, _M, _F, _As}, Buf) ->
+    {eof, Buf};
 io_request({setopts, _Opts}, Buf) ->
     {ok, Buf};
 io_request(getopts, Buf) ->
