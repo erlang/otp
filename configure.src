@@ -37,6 +37,8 @@ unset CDPATH
 
 default_cflags="-g -O2"
 
+pie_cflags=
+pie_ldflags=
 mXY_build=
 static_cache=
 
@@ -125,6 +127,14 @@ while test $# != 0; do
 	    if test "$mXY_build" = "-m32"; then
 		mXY_build=
 	    fi;;
+	--enable-pie)
+	    pie_cflags="-fPIE"
+	    pie_ldflags="-pie"
+	    ;;
+	--disable-pie)
+	    pie_cflags="-fno-PIE"
+	    pie_ldflags="-no-pie"
+	    ;;
 	CFLAGS=* | LDFLAGS=*)
 	    flgs_var=`expr "$1" : '\([^=]*\)=.*'`
 	    flgs_val=`expr "$1" : '[^=]*=\(.*\)'`
@@ -263,7 +273,7 @@ case "$help" in
 	exit 0;;
 esac
 
-if test "$mXY_build" = ""; then
+if test "$mXY_build" = "" && test "$pie_cflags" = ""; then
     if test "$CFLAGS" != ""; then
 	config_arguments="$config_arguments CFLAGS='$CFLAGS'"
 	unset CFLAGS
@@ -277,9 +287,9 @@ else
     if test "$CFLAGS" = ""; then
 	CFLAGS=$default_cflags
     fi
-    config_arguments="$config_arguments CFLAGS='$mXY_build $CFLAGS'"
+    config_arguments="$config_arguments CFLAGS='$mXY_build $pie_cflags $CFLAGS'"
     unset CFLAGS
-    config_arguments="$config_arguments LDFLAGS='$mXY_build $LDFLAGS'"
+    config_arguments="$config_arguments LDFLAGS='$mXY_build $pie_ldflags $LDFLAGS'"
     unset LDFLAGS
     case $mXY_build in
 	-m32)

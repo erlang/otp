@@ -353,6 +353,7 @@ Some of the available `configure` options are:
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
     `(g)cc`
+*   `--{enable,disable}-pie` - Build position independent executable binaries.
 *   `--with-assumed-cache-line-size=SIZE` - Set assumed cache-line size in
     bytes. Default is 64. Valid values are powers of two between and
     including 16 and 8192. The runtime system use this value in order to

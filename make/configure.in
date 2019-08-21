@@ -339,6 +339,10 @@ AS_HELP_STRING([--enable-m32-build],
   esac
 ],enable_m32_build=no)
 
+AC_ARG_ENABLE(pie,
+AS_HELP_STRING([--enable-pie], [build position independent executables])
+AS_HELP_STRING([--disable-pie], [do no build position independent executables]))
+
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
