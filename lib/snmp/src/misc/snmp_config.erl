@@ -2737,7 +2737,8 @@ read_lines(Fd, Acc, StartLine) ->
     end.
 
 read_and_parse_term(Fd, StartLine) ->
-    case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
+    Enc = latin1,
+    case io:request(Fd, {get_until, Enc, "", erl_scan, tokens, [StartLine]}) of
 	{ok, Tokens, EndLine} ->
 	    case erl_parse:parse_term(Tokens) of
                 {ok, Term} ->

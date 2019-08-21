@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -278,11 +278,11 @@ mini_server(Parent) ->
 	    Parent ! {io_request,From,To,{put_chars,Data}},
 	    From ! {io_reply, To, ok},
 	    mini_server(Parent);
-	{io_request,From,To,{get_chars,'',N}} ->
+	{io_request,From,To,{get_chars,_Encoding,'',N}} ->
 	    Parent ! {io_request,From,To,{get_chars,'',N}},
 	    From ! {io_reply, To, {ok, lists:duplicate(N,$a)}},
 	    mini_server(Parent);
-	{io_request,From,To,{get_line,''}} ->
+	{io_request,From,To,{get_line,_Encoding,''}} ->
 	    Parent ! {io_request,From,To,{get_line,''}},
 	    From ! {io_reply, To, {ok, "hej\n"}},
 	    mini_server(Parent)
