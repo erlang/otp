@@ -149,6 +149,7 @@ reuse_session_erlang_server() ->
     [{doc, "Test erlang server with openssl client that reconnects with the"
       "same session id, to test reusing of sessions."}].
 reuse_session_erlang_server(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
