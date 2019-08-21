@@ -478,14 +478,15 @@ set_application_level(cleanup,_Config) ->
     ok.
 
 cache_module_level(_Config) ->
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+
+    %% This test does a lot of whitebox tests so be prepared for that
+    persistent_term:erase({logger_config,?MODULE}),
+
+    primary = persistent_term:get({logger_config,?MODULE}, primary),
     ?LOG_NOTICE(?map_rep),
-    %% Caching is done asynchronously, so wait a bit for the update
-    timer:sleep(100),
-    [_] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+    5 = persistent_term:get({logger_config,?MODULE}, primary),
+    logger:set_primary_config(level, info),
+    6 = persistent_term:get({logger_config,?MODULE}, primary),
     ok.
 
 cache_module_level(cleanup,_Config) ->

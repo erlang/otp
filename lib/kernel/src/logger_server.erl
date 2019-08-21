@@ -25,7 +25,7 @@
 -export([start_link/0, add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
          set_module_level/2, unset_module_level/0,
-         unset_module_level/1, cache_module_level/1,
+         unset_module_level/1,
          set_config/2, set_config/3,
          update_config/2, update_config/3,
          update_formatter_config/2]).
@@ -103,9 +103,6 @@ unset_module_level(Modules) when is_list(Modules) ->
     end;
 unset_module_level(Modules) ->
     {error,{not_a_list_of_modules,Modules}}.
-
-cache_module_level(Module) ->
-    gen_server:cast(?SERVER,{cache_module_level,Module}).
 
 set_config(Owner,Key,Value) ->
     case sanity_check(Owner,Key,Value) of
@@ -333,10 +330,7 @@ handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
-    call_h_reply(Reply,State);
-handle_cast({cache_module_level,Module}, #state{tid=Tid}=State) ->
-    logger_config:cache_module_level(Tid,Module),
-    {noreply, State}.
+    call_h_reply(Reply,State).
 
 %% Interface for those who can't call the API - e.g. the emulator, or
 %% places related to code loading.

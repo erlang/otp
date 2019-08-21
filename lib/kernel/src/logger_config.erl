@@ -25,10 +25,19 @@
          get/2, get/3,
          create/3, set/3,
          set_module_level/3,unset_module_level/2,
-         get_module_level/1,cache_module_level/2,
+         get_module_level/1,
          level_to_int/1]).
 
 -include("logger_internal.hrl").
+
+-compile({inline,[get_primary_level/0,level_to_int/1]}).
+
+-define(LEVEL_TO_CACHE(Level),Level + 16#10).
+-define(PRIMARY_TO_CACHE(Level),Level).
+-define(IS_CACHED(Level),(Level =< ?LOG_ALL)).
+-define(CACHE_TO_LEVEL(Level),if ?IS_CACHED(Level) -> Level; true -> Level - 16#10 end).
+
+-define(IS_MODULE(Module),is_atom(Module) andalso Module =/= ?PRIMARY_KEY).
 
 new(Name) ->
     _ = ets:new(Name,[set,protected,named_table,
@@ -36,28 +45,31 @@ new(Name) ->
                       {write_concurrency,true}]),
     ets:whereis(Name).
 
-delete(Tid,Id) ->
-    ets:delete(Tid,table_key(Id)).
+delete(Tid,What) ->
+    persistent_term:put({?MODULE,table_key(What)},undefined),
+    ets:delete(Tid,table_key(What)).
 
 %% Optimized for speed.
-allow(Tid,Level,Module) ->
-    LevelInt = level_to_int(Level),
-    case ets:lookup(Tid,Module) of
-        [{Module,{ModLevel,cached}}] when is_integer(ModLevel),
-                                          LevelInt =< ModLevel ->
-            less_or_equal_level(Level,ModLevel);
-        [{Module,ModLevel}] when is_integer(ModLevel),
-                                 LevelInt =< ModLevel ->
-            less_or_equal_level(Level,ModLevel);
-        [] ->
-            logger_server:cache_module_level(Module),
-            allow(Tid,Level);
-        _ ->
-            false
-    end.
+allow(_Tid,Level,Module) ->
+    ModLevel =
+        case persistent_term:get({?MODULE,Module},undefined) of
+            undefined ->
+                %% This is where the module cache takes place. We insert the module level
+                %% plus 16 into the pt and then when looking it up we need to do a check
+                %% and subtraction.
+                %% The reason why we do this dance and not just wrap it all in a tuple
+                %% is because updates of immediates (i.e. small ints in this case)
+                %% is cheap even in pt, so we cannot put any complex terms in there.
+                IntLevel = get_primary_level(),
+                persistent_term:put({?MODULE,Module},?PRIMARY_TO_CACHE(IntLevel)),
+                IntLevel;
+            IntLevel ->
+                ?CACHE_TO_LEVEL(IntLevel)
+        end,
+    less_or_equal_level(Level,ModLevel).
 
 allow(_Tid,Level) ->
-    PrimaryLevelInt = persistent_term:get({?MODULE,?PRIMARY_KEY}, ?NOTICE),
+    PrimaryLevelInt = get_primary_level(),
     less_or_equal_level(Level,PrimaryLevelInt).
 
 less_or_equal_level(emergency,ModLevel) -> ?EMERGENCY =< ModLevel;
@@ -71,6 +83,9 @@ less_or_equal_level(debug,ModLevel) -> ?DEBUG =< ModLevel.
 
 exist(Tid,What) ->
     ets:member(Tid,table_key(What)).
+
+get_primary_level() ->
+    persistent_term:get({?MODULE,?PRIMARY_KEY},?NOTICE).
 
 get(Tid,What) ->
     case ets:lookup(Tid,table_key(What)) of
@@ -108,14 +123,12 @@ set(Tid,proxy,Config) ->
     ok;
 set(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
-    %% Should do this only if the level has actually changed. Possibly
-    %% overwrite instead of delete?
     case What of
         primary ->
-            _ = ets:select_delete(Tid,[{{'_',{'$1',cached}},
-                                        [{'=/=','$1',LevelInt}],
-                                        [true]}]),
             ok = persistent_term:put({?MODULE,?PRIMARY_KEY}, LevelInt),
+            [persistent_term:put(Key, ?PRIMARY_TO_CACHE(LevelInt))
+             || {{?MODULE, Module} = Key,L} <- persistent_term:get(),
+                Module =/= ?PRIMARY_KEY, L > ?LOG_ALL],
             ok;
         _ ->
             ok
@@ -123,29 +136,28 @@ set(Tid,What,Config) ->
     ets:update_element(Tid,table_key(What),[{2,LevelInt},{3,Config}]),
     ok.
 
-set_module_level(Tid,Modules,Level) ->
+set_module_level(_Tid,Modules,Level) ->
     LevelInt = level_to_int(Level),
-    [ets:insert(Tid,{Module,LevelInt}) || Module <- Modules],
+    [persistent_term:put({?MODULE,Module},?LEVEL_TO_CACHE(LevelInt)) || Module <- Modules],
     ok.
 
-%% should possibly overwrite instead of delete?
-unset_module_level(Tid,all) ->
-    MS = [{{'$1','$2'},[{is_atom,'$1'},{is_integer,'$2'}],[true]}],
-    _ = ets:select_delete(Tid,MS),    
+%% We overwrite instead of delete because that is more efficient
+%% when using persistent_term
+unset_module_level(_Tid,all) ->
+    PrimaryLevel = get_primary_level(),
+    [persistent_term:put(Key, ?PRIMARY_TO_CACHE(PrimaryLevel))
+     || {{?MODULE, Module} = Key,_} <- persistent_term:get(), ?IS_MODULE(Module)],
     ok;
-unset_module_level(Tid,Modules) ->
-    [ets:delete(Tid,Module) || Module <- Modules],
+unset_module_level(_Tid,Modules) ->
+    PrimaryLevel = get_primary_level(),
+    [persistent_term:put({?MODULE,Module}, ?PRIMARY_TO_CACHE(PrimaryLevel)) || Module <- Modules],
     ok.
 
-get_module_level(Tid) ->
-    MS = [{{'$1','$2'},[{is_atom,'$1'},{is_integer,'$2'}],[{{'$1','$2'}}]}],
-    Modules = ets:select(Tid,MS),
-    lists:sort([{M,int_to_level(L)} || {M,L} <- Modules]).
-
-cache_module_level(Tid,Module) ->
-    GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
-    ets:insert_new(Tid,{Module,{GlobalLevelInt,cached}}),
-    ok.
+get_module_level(_Tid) ->
+    lists:sort(
+      [{Module,int_to_level(?CACHE_TO_LEVEL(Level))}
+       || {{?MODULE, Module},Level} <- persistent_term:get(),
+          ?IS_MODULE(Module), not ?IS_CACHED(Level)]).
 
 level_to_int(none) -> ?LOG_NONE;
 level_to_int(emergency) -> ?EMERGENCY;
