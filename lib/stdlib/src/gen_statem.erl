@@ -863,6 +863,14 @@ print_event(Dev, SystemEvent, Name) ->
             io:format(
               Dev, "*DBG* ~tp enter in state ~tp~n",
               [Name,State]);
+        {start_timer,Action,State} ->
+            io:format(
+              Dev, "*DBG* ~tp start_timer ~tp in state ~tp~n",
+              [Name,Action,State]);
+        {insert_timeout,Event,State} ->
+            io:format(
+              Dev, "*DBG* ~tp insert_timeout ~tp in state ~tp~n",
+              [Name,Event,State]);
         {terminate,Reason,State} ->
             io:format(
               Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
@@ -1927,35 +1935,62 @@ loop_timeouts(
             %% (Re)start the timer
             TimerRef =
                 erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
-            {TimerRefs,TimeoutTypes} = Timers,
-            case TimeoutTypes of
-                #{TimeoutType := OldTimerRef} ->
-                    %% Cancel the running timer,
-                    %% update the timeout type,
-                    %% insert the new timer ref,
-                    %% and remove the old timer ref
-                    Timers_1 =
-                        {maps:remove(
-                           OldTimerRef,
-                           TimerRefs#{TimerRef => TimeoutType}),
-                         TimeoutTypes#{TimeoutType := TimerRef}},
-                    cancel_timer(OldTimerRef),
+            case Debug of
+                ?not_sys_debug ->
                     loop_timeouts(
-                      P, Debug, S,
-                      Events, NextState_NewData,
+                      P, Debug, S, Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
-                #{} ->
-                    %% Insert the new timer type and ref
-                    Timers_1 =
-                        {TimerRefs#{TimerRef => TimeoutType},
-                         TimeoutTypes#{TimeoutType => TimerRef}},
+                      Timers, Seen, TimeoutEvents,
+                      TimeoutType, TimerRef);
+                _ ->
+                    {State,_Data} = NextState_NewData,
+                    Debug_1 =
+                        sys_debug(
+                          Debug, P#params.name,
+                          {start_timer,
+                           {TimeoutType,Time,TimeoutMsg,TimeoutOpts},
+                           State}),
                     loop_timeouts(
-                      P, Debug, S,
-                      Events, NextState_NewData,
+                      P, Debug_1, S, Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers_1, Seen#{TimeoutType => true}, TimeoutEvents)
+                      Timers, Seen, TimeoutEvents,
+                      TimeoutType, TimerRef)
             end
+    end.
+%%
+loop_timeouts(
+  P, Debug, S, Events, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postponed,
+  {TimerRefs, TimeoutTypes}, Seen, TimeoutEvents,
+  TimeoutType, TimerRef) ->
+    %%
+    case TimeoutTypes of
+        #{TimeoutType := OldTimerRef} ->
+            %% Cancel the running timer,
+            %% update the timeout type,
+            %% insert the new timer ref,
+            %% and remove the old timer ref
+            Timers =
+                {maps:remove(
+                   OldTimerRef,
+                   TimerRefs#{TimerRef => TimeoutType}),
+                 TimeoutTypes#{TimeoutType := TimerRef}},
+            cancel_timer(OldTimerRef),
+            loop_timeouts(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+                      Timers, Seen#{TimeoutType => true}, TimeoutEvents);
+        #{} ->
+            %% Insert the new timer type and ref
+            Timers =
+                {TimerRefs#{TimerRef => TimeoutType},
+                 TimeoutTypes#{TimeoutType => TimerRef}},
+            loop_timeouts(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers, Seen#{TimeoutType => true}, TimeoutEvents)
     end.
 
 %% Loop helper to cancel a timeout
@@ -2082,7 +2117,8 @@ prepend_timeout_events(
             {State,_Data} = S#state.state_data,
             Debug_1 =
               sys_debug(
-                Debug, P#params.name, {in,TimeoutEvent,State}),
+                Debug, P#params.name,
+                {insert_timeout,TimeoutEvent,State}),
             prepend_timeout_events(
               P, Debug_1, S, TimeoutEvents, [TimeoutEvent])
     end;
@@ -2102,7 +2138,8 @@ prepend_timeout_events(
             {State,_Data} = S#state.state_data,
             Debug_1 =
                 sys_debug(
-                  Debug, P#params.name, {in,TimeoutEvent,State}),
+                  Debug, P#params.name,
+                  {insert_timeout,TimeoutEvent,State}),
             prepend_timeout_events(
               P, Debug_1, S, TimeoutEvents, [TimeoutEvent|EventsR])
     end.

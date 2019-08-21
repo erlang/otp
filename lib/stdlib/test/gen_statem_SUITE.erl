@@ -872,7 +872,9 @@ state_timeout(_Config) ->
 		       {reply,From,ok}}
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
+    {ok,STM} =
+        gen_statem:start_link(
+          ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
     sys:trace(STM, true),
     TRef = erlang:start_timer(1000, self(), kull),
     ok = gen_statem:call(STM, {go,500}),
