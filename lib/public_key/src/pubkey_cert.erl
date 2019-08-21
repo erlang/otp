@@ -1169,7 +1169,7 @@ validity(Opts) ->
     Format =
         fun({Y,M,D}) ->
                 lists:flatten(
-                  io_lib:format("~4..0w~2..0w~2..0w000000Z",[Y,M,D]))
+                  io_lib:format("~4..0w~2..0w~2..0w130000Z",[Y,M,D]))
         end,
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.

@@ -493,7 +493,10 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
         {Port,closed} when is_port(Port) ->
-            ct:log("~p:~p~n Openssl port ~n",[?MODULE,?LINE]),
+            ct:log("~p:~p~n Openssl port closed ~n",[?MODULE,?LINE]),
+            check_result(Server, ServerMsg, Client, ClientMsg);
+        {'EXIT', epipe} ->
+            ct:log("~p:~p~n Openssl port died ~n",[?MODULE,?LINE]),
             check_result(Server, ServerMsg, Client, ClientMsg);
 	Unexpected ->
 	    Reason = {{expected, {Client, ClientMsg}},
