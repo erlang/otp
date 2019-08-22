@@ -11458,7 +11458,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #else
     arg_size = size_object_litopt(args, &litarea);
 #endif
-    heap_need = arg_size;
+    heap_need = arg_size + 1;   /* Reserve place for continuation pointer */
 
     p->flags = flags;
 
@@ -11507,7 +11507,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
     p->gen_gcs = 0;
-    p->stop = p->hend = p->heap + sz;
+    p->hend = p->heap + sz;
+    p->stop = p->hend - 1;     /* Reserve place for continuation pointer */
     p->htop = p->heap;
     p->heap_sz = sz;
     p->abandoned_heap = NULL;
@@ -11525,7 +11526,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->current = &p->u.initial;
 
     p->i = (BeamInstr *) beam_apply;
-    p->cp = (BeamInstr *) beam_apply+1;
+    p->stop[0] = make_cp(beam_apply + 1);
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -11839,7 +11840,6 @@ void erts_init_empty_process(Process *p)
     p->u.initial.function = 0;
     p->u.initial.arity = 0;
     p->catches = 0;
-    p->cp = NULL;
     p->i = NULL;
     p->current = NULL;
 
@@ -11917,7 +11917,6 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
-    ASSERT(p->cp == NULL);
     ASSERT(p->i == NULL);
     ASSERT(p->current == NULL);
 
@@ -13146,9 +13145,6 @@ erts_program_counter_info(fmtfn_t to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Program counter: %p (", p->i);
     print_function_from_pc(to, to_arg, p->i);
     erts_print(to, to_arg, ")\n");
-    erts_print(to, to_arg, "CP: %p (", p->cp);
-    print_function_from_pc(to, to_arg, p->cp);
-    erts_print(to, to_arg, ")\n");
     state = erts_atomic32_read_acqb(&p->state);
     if (!(state & (ERTS_PSFLG_RUNNING
 		   | ERTS_PSFLG_RUNNING_SYS
@@ -13424,9 +13420,6 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
 
 	erts_print(to, to_arg, "Current Process Program counter: %p (", p->i);
 	print_function_from_pc(to, to_arg, p->i);
-	erts_print(to, to_arg, ")\n");
-	erts_print(to, to_arg, "Current Process CP: %p (", p->cp);
-	print_function_from_pc(to, to_arg, p->cp);
 	erts_print(to, to_arg, ")\n");
 
 	/* Getting this stacktrace can segfault if we are very very

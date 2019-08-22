@@ -46,11 +46,16 @@ all() ->
 basic(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
-    ExpectedHeapSz = erts_debug:size([Info]),
+    ExpectedHeapSz = expected_heap_size([Info]),
     Child = spawn_link(fun() -> basic_hibernator(Info) end),
     hibernate_wake_up(100, ExpectedHeapSz, Child),
     Child ! please_quit_now,
     ok.
+
+expected_heap_size(Term) ->
+    %% When hibernating, an extra word will be allocated on the stack
+    %% for a continuation pointer.
+    erts_debug:size(Term) + 1.
 
 hibernate_wake_up(0, _, _) -> ok;
 hibernate_wake_up(N, ExpectedHeapSz, Child) ->
@@ -142,7 +147,7 @@ whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
 dynamic_call(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
-    ExpectedHeapSz = erts_debug:size([Info]),
+    ExpectedHeapSz = expected_heap_size([Info]),
     Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
     hibernate_wake_up(100, ExpectedHeapSz, Child),
     Child ! please_quit_now,

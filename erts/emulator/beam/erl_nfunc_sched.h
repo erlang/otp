@@ -28,7 +28,6 @@
 typedef struct {
     int applying;
     Export* ep;
-    BeamInstr *cp;
     Uint32 flags;
     Uint32 flags_meta;
     BeamInstr* I;
@@ -53,7 +52,6 @@ typedef struct {
     NifExportTrace *trace;
     /* --- The following is only used on error --- */
     BeamInstr *pc;	/* Program counter */
-    BeamInstr *cp;	/* Continuation pointer */
     ErtsCodeMFA *mfa;	/* MFA of original call */
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */
@@ -62,7 +60,7 @@ typedef struct {
 
 NifExport *erts_new_proc_nif_export(Process *c_p, int argc);
 void erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
-				Export* ep, BeamInstr *cp, Uint32 flags,
+				Export* ep, Uint32 flags,
 				Uint32 flags_meta, BeamInstr* I,
 				ErtsTracer meta_tracer);
 void erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep);
@@ -85,7 +83,7 @@ ERTS_GLB_INLINE void erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
 						   Eterm *reg, ErtsCodeMFA **nif_mfa);
 ERTS_GLB_INLINE int erts_nif_export_check_save_trace(Process *c_p, Eterm result,
 						     int applying, Export* ep,
-						     BeamInstr *cp, Uint32 flags,
+						     Uint32 flags,
 						     Uint32 flags_meta, BeamInstr* I,
 						     ErtsTracer meta_tracer);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
@@ -131,8 +129,6 @@ erts_check_nif_export_in_area(Process *p, char *start, Uint size)
 	return 0;
     if (ErtsInArea(nep->pc, start, size))
 	return 1;
-    if (ErtsInArea(nep->cp, start, size))
-	return 1;
     if (ErtsInArea(nep->mfa, start, size))
 	return 1;
     if (ErtsInArea(nep->current, start, size))
@@ -164,7 +160,6 @@ erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
 
     ASSERT(nep);
     *pc = nep->pc;
-    c_p->cp = nep->cp;
     *nif_mfa = nep->mfa;
     for (ix = 0; ix < nep->argc; ix++)
 	reg[ix] = nep->argv[ix];
@@ -174,7 +169,7 @@ erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
 ERTS_GLB_INLINE int
 erts_nif_export_check_save_trace(Process *c_p, Eterm result,
 				 int applying, Export* ep,
-				 BeamInstr *cp, Uint32 flags,
+				 Uint32 flags,
 				 Uint32 flags_meta, BeamInstr* I,
 				 ErtsTracer meta_tracer)
 {
@@ -182,7 +177,7 @@ erts_nif_export_check_save_trace(Process *c_p, Eterm result,
 	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
 	if (nep && nep->argc >= 0) {
 	    erts_nif_export_save_trace(c_p, nep, applying, ep,
-				       cp, flags, flags_meta,
+				       flags, flags_meta,
 				       I, meta_tracer);
 	    return 1;
 	}

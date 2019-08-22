@@ -596,7 +596,19 @@ move S x==0 | deallocate D | return => move_deallocate_return S D
 
 move_deallocate_return xycn Q
 
+deallocate u==0 | return => deallocate_return0
+deallocate u==1 | return => deallocate_return1
+deallocate u==2 | return => deallocate_return2
+deallocate u==3 | return => deallocate_return3
+deallocate u==4 | return => deallocate_return4
+
 deallocate D | return => deallocate_return D
+
+deallocate_return0
+deallocate_return1
+deallocate_return2
+deallocate_return3
+deallocate_return4
 
 deallocate_return Q
 

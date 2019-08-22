@@ -860,6 +860,7 @@ error_stacktrace_test() ->
     Types = [apply_const_last, apply_const, apply_last,
 	     apply, double_apply_const_last, double_apply_const,
 	     double_apply_last, double_apply, multi_apply_const_last,
+             apply_const_only, apply_only,
 	     multi_apply_const, multi_apply_last, multi_apply,
 	     call_const_last, call_last, call_const, call],
     lists:foreach(fun (Type) ->
@@ -897,6 +898,8 @@ error_stacktrace_test() ->
     ok.
 
 stk([], Type, Func) ->
+    put(erlang, erlang),
+    put(tail, []),
     tail(Type, Func, jump),
     ok;
 stk([_|L], Type, Func) ->
@@ -910,6 +913,12 @@ tail(Type, error_1, do) ->
 tail(Type, error_2, do) ->
     do_error_2(Type).
 
+do_error_2(apply_const_only) ->
+    apply(erlang, error, [oops, [apply_const_only]]);
+do_error_2(apply_only) ->
+    Erlang = get(erlang),
+    Tail = get(tail),
+    apply(Erlang, error, [oops, [apply_only|Tail]]);
 do_error_2(apply_const_last) ->
     erlang:apply(erlang, error, [oops, [apply_const_last]]);
 do_error_2(apply_const) ->
@@ -951,6 +960,12 @@ do_error_2(call) ->
     erlang:error(id(oops), id([call])).
 
 
+do_error_1(apply_const_only) ->
+    apply(erlang, error, [oops]);
+do_error_1(apply_only) ->
+    Erlang = get(erlang),
+    Tail = get(tail),
+    apply(Erlang, error, [oops|Tail]);
 do_error_1(apply_const_last) ->
     erlang:apply(erlang, error, [oops]);
 do_error_1(apply_const) ->

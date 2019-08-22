@@ -104,14 +104,52 @@ GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
 
 
 // Make sure that there are NeedStack + NeedHeap + 1 words available
-// on the combined heap/stack segment, then allocates NeedHeap + 1
-// words on the stack and saves CP.
+// on the combined heap/stack segment, then decrement the stack
+// pointer by (NeedStack + 1) words. Finally clear the word reserved
+// for the continuation pointer at the top of the stack.
+//
+// Stack frame layout:
+//
+//       +-----------+
+// y(N)  | Term      |
+//       +-----------+
+//            .
+//            .
+//            .
+//       +-----------+
+// y(0)  | Term      |
+//       +-----------+
+// E ==> | NIL or CP |
+//       +-----------+
+//
+// When the function owning the stack frame is the currently executing
+// function, the word at the top of the stack is NIL. When calling
+// another function, the continuation pointer will be stored in the
+// word at the top of the stack. When returning to the function
+// owning the stack frame, the word at the stack top will again be set
+// to NIL.
+
 AH(NeedStack, NeedHeap, Live) {
     unsigned needed = $NeedStack + 1;
     $GC_TEST(needed, $NeedHeap, $Live);
     E -= needed;
-    *E = make_cp(c_p->cp);
-    c_p->cp = 0;
+    *E = NIL;
+}
+
+// Save the continuation pointer in the reserved slot at the
+// top of the stack as preparation for doing a function call.
+
+SAVE_CONTINUATION_POINTER(IP) {
+    ASSERT(VALID_INSTR(*($IP)));
+    *E = (BeamInstr) ($IP);
+}
+
+// Return to the function whose continuation pointer is stored
+// at the top of the stack and set that word to NIL.
+
+RETURN() {
+    SET_I(cp_val(*E));
+    *E = NIL;
 }
 
 NEXT0() {

@@ -65,6 +65,8 @@
 #  define HARDDEBUG 1
 #endif
 
+extern BeamInstr beam_apply[2];
+
 /*
  * Returns number of elements in an array.
  */
@@ -934,13 +936,15 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
      */
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
-    ASSERT(p->stop == p->hend);	/* Stack must be empty. */
+    ASSERT(p->stop == p->hend - 1); /* Only allow one continuation pointer. */
+    ASSERT(p->stop[0] == make_cp(beam_apply+1));
 
     /*
      * Do it.
      */
 
     heap_size = p->heap_sz + (p->old_htop - p->old_heap) + p->mbuf_sz;
+    heap_size += 1;             /* Reserve place for continuation pointer */
 
     heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
 				    sizeof(Eterm)*heap_size);
@@ -966,13 +970,11 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     p->high_water = htop;
     p->htop = htop;
     p->hend = p->heap + heap_size;
-    p->stop = p->hend;
+    p->stop = p->hend - 1;
     p->heap_sz = heap_size;
 
     heap_size = actual_size = p->htop - p->heap;
-    if (heap_size == 0) {
-	heap_size = 1; /* We want a heap... */
-    }
+    heap_size += 1;             /* Reserve place for continuation pointer */
 
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -988,14 +990,15 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
      * hibernated.
      */
 
-    ASSERT(p->hend - p->stop == 0); /* Empty stack */
     ASSERT(actual_size < p->heap_sz);
 
     heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
     sys_memcpy((void *) heap, (void *) p->heap, actual_size*sizeof(Eterm));
     ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, p->heap, p->heap_sz*sizeof(Eterm));
 
-    p->stop = p->hend = heap + heap_size;
+    p->hend = heap + heap_size;
+    p->stop = p->hend - 1;
+    p->stop[0] = make_cp(beam_apply+1);
 
     offs = heap - p->heap;
     area = (char *) p->heap;

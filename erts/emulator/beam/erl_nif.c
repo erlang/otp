@@ -334,7 +334,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 
     ep = erts_nif_export_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
-				  c_p->cp,
+                                  cp_val(c_p->stop[0]),
 				  BeamOpCodeAddr(op_call_nif),
 				  direct_fp, indirect_fp,
 				  mod, func_name,
@@ -4117,7 +4117,6 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
     return lib;
 };
 
-
 BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 {
     static const char bad_lib[] = "bad_lib";
@@ -4140,6 +4139,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
+    BeamInstr* caller_cp;
 
     if (BIF_P->flags & F_HIPE_MODE) {
 	ret = load_nif_error(BIF_P, "notsup", "Calling load_nif from HiPE compiled "
@@ -4175,7 +4175,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(BIF_P->current->module == am_erlang
 	   && BIF_P->current->function == am_load_nif 
 	   && BIF_P->current->arity == 2);
-    caller = find_function_from_pc(BIF_P->cp);
+    caller_cp = cp_val(BIF_P->stop[0]);
+    caller = find_function_from_pc(caller_cp);
     ASSERT(caller != NULL);
     mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));
