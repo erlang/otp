@@ -794,16 +794,16 @@ tls_downgrade_result(Socket, Pid) ->
                 {tcp, TCPSocket, <<"Downgraded">>} ->
 	             ok;
                 {tcp_closed, TCPSocket} ->
-                    ct:fail("Peer timed out, downgrade aborted"),
+                    ct:fail("Did not receive TCP data"),
 	            ok;
 	        Other ->
                     {error, Other}
             end;
 	{error, timeout} ->
-	    ct:fail("Timed out, downgrade aborted"),
+	    ct:comment("Timed out, downgrade aborted"),
 	    ok;
 	Fail ->
-	    {error, Fail}
+            ct:fail(Fail)
     end.
 
 tls_shutdown_result(Socket, server) ->
