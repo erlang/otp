@@ -42,6 +42,7 @@ if [ ! -d "logs" ]; then
     mkdir logs
 fi
 
+export ERLC_USE_SERVER=yes
 do_and_log "Autoconfing" ./otp_build autoconf
 do_and_log "Configuring" ./otp_build configure
 echo Configure result:
