@@ -89,7 +89,7 @@ init(_) ->
 %%%=========================================================================
 child_spec(Address, Port, Profile, Options) ->
     #{id       => id(Address, Port, Profile),
-      start    => {ssh_system_sup, start_link, [Address, Port, Profile, Options]},
+      start    => {ssh_system_sup, start_link, [server, Address, Port, Profile, Options]},
       restart  => temporary, 
       type     => supervisor
      }.

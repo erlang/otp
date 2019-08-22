@@ -31,7 +31,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/4, stop_listener/1,
+-export([start_link/5, stop_listener/1,
 	 stop_listener/3, stop_system/1,
 	 stop_system/3, system_supervisor/3,
 	 subsystem_supervisor/1, channel_supervisor/1,
@@ -45,14 +45,14 @@
 %%%=========================================================================
 %%% API
 %%%=========================================================================
-start_link(Address, Port, Profile, Options) ->
+start_link(Role, Address, Port, Profile, Options) ->
     Name = make_name(Address, Port, Profile),
-    supervisor:start_link({local, Name}, ?MODULE, [Address, Port, Profile, Options]).
+    supervisor:start_link({local, Name}, ?MODULE, [Role, Address, Port, Profile, Options]).
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Address, Port, Profile, Options]) ->
+init([server, Address, Port, Profile, Options]) ->
     SupFlags = #{strategy  => one_for_one,
                  intensity =>    0,
                  period    => 3600
@@ -68,6 +68,14 @@ init([Address, Port, Profile, Options]) ->
             _ ->
                 []
         end,
+    {ok, {SupFlags,ChildSpecs}};
+
+init([client, _Address, _Port, _Profile, _Options]) ->
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>    0,
+                 period    => 3600
+                },
+    ChildSpecs = [],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================

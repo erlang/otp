@@ -126,10 +126,18 @@ stop(ConnectionHandler)->
 		       timeout()
 		      ) -> {ok, connection_ref()} | {error, term()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-start_connection(client = Role, Socket, Options, Timeout) ->
+start_connection(client = Role, Socket, Options0, Timeout) ->
     try
-	{ok, Pid} = sshc_sup:start_child([Role, Socket, Options]),
-	ok = socket_control(Socket, Pid, Options),
+        Profile = ?GET_OPT(profile, Options0),
+        {ok, {Address,Port}} = inet:sockname(Socket),
+        {ok, SystemSup} = sshc_sup:start_child(Address, Port, Profile, Options0),
+        {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, client, Address, Port, Profile, Options0),
+        ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
+        Options = ?PUT_INTERNAL_OPT({supervisors, [{system_sup, SystemSup},
+                                                   {subsystem_sup, SubSysSup},
+                                                   {connection_sup, ConnectionSup}]},
+                                    Options0),
+        Pid = start_the_connection_child(self(), Role, Socket, Options),
 	handshake(Pid, erlang:monitor(process,Pid), Timeout)
     catch
 	exit:{noproc, _} ->

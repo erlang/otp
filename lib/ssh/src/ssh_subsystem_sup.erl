@@ -64,11 +64,9 @@ init([Role, Address, Port, Profile, Options]) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(client, _Address, _Port, _Profile, _Options) ->
-    [];
-child_specs(server, Address, Port, Profile, Options) ->
-    [ssh_channel_child_spec(server, Address, Port, Profile, Options), 
-     ssh_connection_child_spec(server, Address, Port, Profile, Options)].
+child_specs(Role, Address, Port, Profile, Options) ->
+    [ssh_channel_child_spec(Role, Address, Port, Profile, Options), 
+     ssh_connection_child_spec(Role, Address, Port, Profile, Options)].
   
 ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
     #{id       => id(Role, ssh_connection_sup, Address, Port),
