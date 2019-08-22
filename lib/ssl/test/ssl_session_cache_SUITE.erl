@@ -28,7 +28,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -define(DELAY, 500).
--define(SLEEP, 500).
+-define(SLEEP, 1000).
 -define(TIMEOUT, 60000).
 -define(LONG_TIMEOUT, 600000).
 -define(MAX_TABLE_SIZE, 5).
@@ -207,7 +207,7 @@ session_cleanup(Config) when is_list(Config) ->
 	end,
 
     %% Make sure session is registered
-    ct:sleep(?SLEEP),
+    ct:sleep(?SLEEP*2),
 
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
