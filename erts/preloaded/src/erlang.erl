@@ -109,8 +109,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -export([adler32/1, adler32/2, adler32_combine/3, append_element/2]).
--export([atom_to_binary/2, atom_to_list/1, binary_part/2, binary_part/3]).
--export([binary_to_atom/2, binary_to_existing_atom/2, binary_to_float/1]).
+-export([atom_to_binary/1, atom_to_binary/2]).
+-export([atom_to_list/1, binary_part/2, binary_part/3]).
+-export([binary_to_atom/1, binary_to_atom/2]).
+-export([binary_to_existing_atom/1, binary_to_existing_atom/2]).
+-export([binary_to_float/1]).
 -export([binary_to_integer/1,binary_to_integer/2]).
 -export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
@@ -341,6 +344,12 @@ adler32_combine(_FirstAdler, _SecondAdler, _SecondSize) ->
 append_element(_Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
+%% atom_to_binary/1
+-spec atom_to_binary(Atom) -> binary() when
+      Atom :: atom().
+atom_to_binary(Atom) ->
+    erlang:atom_to_binary(Atom, utf8).
+
 %% atom_to_binary/2
 -spec atom_to_binary(Atom, Encoding) -> binary() when
       Atom :: atom(),
@@ -371,12 +380,24 @@ binary_part(_Subject, _PosLen) ->
 binary_part(_Subject, _Start, _Length) ->
     erlang:nif_error(undefined).
 
+%% binary_to_atom/1
+-spec binary_to_atom(Binary) -> atom() when
+      Binary :: binary().
+binary_to_atom(Binary) ->
+    erlang:binary_to_atom(Binary, utf8).
+
 %% binary_to_atom/2
 -spec binary_to_atom(Binary, Encoding) -> atom() when
       Binary :: binary(),
       Encoding :: latin1 | unicode | utf8.
 binary_to_atom(_Binary, _Encoding) ->
     erlang:nif_error(undefined).
+
+%% binary_to_existing_atom/1
+-spec binary_to_existing_atom(Binary) -> atom() when
+      Binary :: binary().
+binary_to_existing_atom(Binary) ->
+    erlang:binary_to_existing_atom(Binary, utf8).
 
 %% binary_to_existing_atom/2
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when

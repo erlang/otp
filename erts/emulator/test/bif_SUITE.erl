@@ -29,8 +29,8 @@
 	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
-	 binary_to_atom/1,binary_to_existing_atom/1,
-	 atom_to_binary/1,min_max/1, erlang_halt/1,
+	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
+	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
          erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
@@ -50,7 +50,7 @@ all() ->
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
-     atom_to_binary, binary_to_atom, binary_to_existing_atom,
+     t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
@@ -496,7 +496,7 @@ test_7526(N) ->
 -define(BADARG(E), {'EXIT',{badarg,_}} = (catch E)).
 -define(SYS_LIMIT(E), {'EXIT',{system_limit,_}} = (catch E)).
 
-binary_to_atom(Config) when is_list(Config) ->
+t_binary_to_atom(Config) when is_list(Config) ->
     HalfLong = lists:seq(0, 127),
     HalfLongAtom = list_to_atom(HalfLong),
     HalfLongBin = list_to_binary(HalfLong),
@@ -524,8 +524,10 @@ binary_to_atom(Config) when is_list(Config) ->
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
 
-    <<"こんにちは"/utf8>> =
-	atom_to_binary(test_binary_to_atom(<<"こんにちは"/utf8>>, utf8), utf8),
+    ExoticBin = <<"こんにちは"/utf8>>,
+    ExoticAtom = test_binary_to_atom(ExoticBin, utf8),
+    ExoticBin = atom_to_binary(ExoticAtom, utf8),
+    ExoticBin = atom_to_binary(ExoticAtom),
 
     %% badarg failures.
     fail_binary_to_atom(atom),
@@ -543,6 +545,7 @@ binary_to_atom(Config) when is_list(Config) ->
 
     %% Bad UTF8 sequences.
     ?BADARG(binary_to_atom(id(<<255>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<255>>))),
     ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
     <<B:1/binary, _/binary>> = id(<<194, 163>>), %Truncated character ERL-474
@@ -550,6 +553,7 @@ binary_to_atom(Config) when is_list(Config) ->
 
     %% system_limit failures.
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>))),
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
     ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
     ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
@@ -562,6 +566,14 @@ binary_to_atom(Config) when is_list(Config) ->
 test_binary_to_atom(Bin0, Encoding) ->
     Res = binary_to_atom(Bin0, Encoding),
     Res = binary_to_existing_atom(Bin0, Encoding),
+    if
+        Encoding =:= utf8;
+        Encoding =:= unicode ->
+            Res = binary_to_atom(Bin0),
+            Res = binary_to_existing_atom(Bin0);
+       true ->
+            ok
+    end,
     Bin1 = id(<<7:3,Bin0/binary,32:5>>),
     Sz = byte_size(Bin0),
     <<_:3,UnalignedBin:Sz/binary,_:5>> = Bin1,
@@ -581,6 +593,12 @@ fail_binary_to_atom(Bin) ->
             ok
     end,
     try
+        binary_to_atom(Bin)
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
         binary_to_existing_atom(Bin, latin1)
     catch
         error:badarg ->
@@ -591,10 +609,16 @@ fail_binary_to_atom(Bin) ->
     catch
         error:badarg ->
             ok
+    end,
+    try
+        binary_to_existing_atom(Bin)
+    catch
+        error:badarg ->
+            ok
     end.
 	
 
-binary_to_existing_atom(Config) when is_list(Config) ->
+t_binary_to_existing_atom(Config) when is_list(Config) ->
     UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
     try
 	binary_to_existing_atom(UnlikelyBin, latin1),
@@ -605,6 +629,12 @@ binary_to_existing_atom(Config) when is_list(Config) ->
 
     try
 	binary_to_existing_atom(UnlikelyBin, utf8),
+	ct:fail(atom_exists)
+    catch
+	error:badarg -> ok
+    end,
+    try
+	binary_to_existing_atom(UnlikelyBin),
 	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
@@ -625,7 +655,7 @@ binary_to_existing_atom(Config) when is_list(Config) ->
     ok.
 
 
-atom_to_binary(Config) when is_list(Config) ->
+t_atom_to_binary(Config) when is_list(Config) ->
     HalfLong = lists:seq(0, 127),
     HalfLongAtom = list_to_atom(HalfLong),
     HalfLongBin = list_to_binary(HalfLong),
@@ -641,12 +671,15 @@ atom_to_binary(Config) when is_list(Config) ->
     LongBin = atom_to_binary(LongAtom, latin1),
 
     %% utf8.
+    <<>> = atom_to_binary(''),
     <<>> = atom_to_binary('', utf8),
     <<>> = atom_to_binary('', unicode),
     <<127>> = atom_to_binary('\177', utf8),
     <<"abcdef">> = atom_to_binary(abcdef, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
+    HalfLongBin = atom_to_binary(HalfLongAtom),
     LongAtomBin = atom_to_binary(LongAtom, utf8),
+    LongAtomBin = atom_to_binary(LongAtom),
     verify_long_atom_bin(LongAtomBin, 0),
 
     %% Failing cases.
@@ -678,7 +711,14 @@ fail_atom_to_binary(Term) ->
     catch
         error:badarg ->
             ok
+    end,
+    try
+        atom_to_binary(Term)
+    catch
+        error:badarg ->
+            ok
     end.
+
 
 min_max(Config) when is_list(Config) ->	
     a = erlang:min(id(a), a),
