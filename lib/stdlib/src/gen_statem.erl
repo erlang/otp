@@ -430,11 +430,9 @@ timeout_event_type(Type) ->
         {state_data = {undefined,undefined} ::
            {State :: term(),Data :: term()},
          postponed = [] :: [{event_type(),term()}],
-         timers = {#{},#{}} ::
-           {%% TimerRef => TimeoutType
-            TimerRefs :: #{reference() => timeout_event_type()},
-            %% TimeoutType => TimerRef
-            TimeoutTypes :: #{timeout_event_type() => reference()}},
+         timers = #{} ::
+           #{TimeoutType :: timeout_event_type() =>
+                            {TimerRef :: reference(), TimeoutMsg :: term()}},
           hibernate = false :: boolean()
         }).
 
@@ -817,16 +815,14 @@ format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
    {#params{name = Name} = P,
-    #state{
-       postponed = Postponed,
-       timers = {_TimerRefs, TimeoutTypes}} = S}]) ->
+    #state{postponed = Postponed, timers = Timers} = S}]) ->
     Header = gen:format_status_header("Status for state machine", Name),
     Log = sys:get_log(Debug),
     [{header,Header},
      {data,
       [{"Status",SysState},
        {"Parent",Parent},
-       {"Time-outs",{maps:size(TimeoutTypes),maps:keys(TimeoutTypes)}},
+       {"Time-outs",list_timeouts(Timers)},
        {"Logged Events",Log},
        {"Postponed",Postponed}]} |
      case format_status(Opt, PDict, update_parent(P, Parent), S) of
@@ -966,15 +962,12 @@ loop_receive(
                 {'$gen_cast',Cast} ->
                     loop_receive_result(P, Debug, S, {cast,Cast});
                 %%
-		{timeout,TimerRef,TimeoutMsg} ->
-                    {TimerRefs,TimeoutTypes} = S#state.timers,
-                    case TimerRefs of
-                        #{TimerRef := TimeoutType} ->
+		{timeout,TimerRef,TimeoutType} ->
+                    case S#state.timers of
+                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers ->
                             %% Our timer
-                            Timers =
-                                {maps:remove(TimerRef, TimerRefs),
-                                 maps:remove(TimeoutType, TimeoutTypes)},
-                            S_1 = S#state{timers = Timers},
+                            Timers_1 = maps:remove(TimeoutType, Timers),
+                            S_1 = S#state{timers = Timers_1},
                             loop_receive_result(
                               P, Debug, S_1, {TimeoutType,TimeoutMsg});
                         #{} ->
@@ -1730,23 +1723,20 @@ loop_state_transition(
 %% State transition to the same state
 %%
 loop_keep_state(
-  P, Debug, #state{timers = {TimerRefs,TimeoutTypes} = Timers} = S,
+  P, Debug, #state{timers = Timers} = S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed) ->
     %%
     %% Cancel event timeout
     %%
-    case TimeoutTypes of
-	%% Optimization
-	%% - only cancel timer when there is a timer to cancel
-	#{timeout := TimerRef} ->
+    case Timers of
+        #{timeout := {TimerRef,_TimeoutMsg}} ->
 	    %% Event timeout active
 	    loop_next_events(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-	      cancel_timer_by_ref_and_type(
-                TimerRef, timeout, TimerRefs, TimeoutTypes));
+	      cancel_timer(timeout, TimerRef, Timers));
 	_ ->
 	    %% No event timeout active
 	    loop_next_events(
@@ -1788,34 +1778,32 @@ loop_state_change(
     end.
 %%
 loop_state_change(
-  P, Debug, #state{timers = {TimerRefs,TimeoutTypes} = Timers} = S,
+  P, Debug, #state{timers = Timers} = S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR) ->
     %%
     %% Cancel state and event timeout
     %%
-    case TimeoutTypes of
+    case Timers of
 	%% Optimization
 	%% - only cancel timeout when it is active
 	%%
-	#{state_timeout := TimerRef} ->
+	#{state_timeout := {TimerRef,_TimeoutMsg}} ->
 	    %% State timeout active
             %% - cancel event timeout too since it is faster than inspecting
 	    loop_next_events(
               P, Debug, S, Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, [],
-              cancel_timer_by_type(
+              cancel_timer(
                 timeout,
-                cancel_timer_by_ref_and_type(
-                  TimerRef, state_timeout, TimerRefs, TimeoutTypes)));
-        #{timeout := TimerRef} ->
+                cancel_timer(state_timeout, TimerRef, Timers)));
+        #{timeout := {TimerRef,_TimeoutMsg}} ->
             %% Event timeout active but not state timeout
             %% - cancel event timeout only
             loop_next_events(
               P, Debug, S, Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, [],
-              cancel_timer_by_ref_and_type(
-                TimerRef, timeout, TimerRefs, TimeoutTypes));
+              cancel_timer(timeout, TimerRef, Timers));
         _ ->
             %% No state nor event timeout active.
             loop_next_events(
@@ -1973,14 +1961,14 @@ loop_timeouts_start(
         _ ->
             %% (Re)start the timer
             TimerRef =
-                erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
+                erlang:start_timer(Time, self(), TimeoutType, TimeoutOpts),
             case Debug of
                 ?not_sys_debug ->
                     loop_timeouts_register(
                       P, Debug, S, Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
                       Timers, Seen, TimeoutEvents,
-                      TimeoutType, TimerRef);
+                      TimeoutType, TimerRef, TimeoutMsg);
                 _ ->
                     {State,_Data} = NextState_NewData,
                     Debug_1 =
@@ -1993,7 +1981,7 @@ loop_timeouts_start(
                       P, Debug_1, S, Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
                       Timers, Seen, TimeoutEvents,
-                      TimeoutType, TimerRef)
+                      TimeoutType, TimerRef, TimeoutMsg)
             end
     end.
 
@@ -2003,36 +1991,28 @@ loop_timeouts_start(
 loop_timeouts_register(
   P, Debug, S, Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  {TimerRefs, TimeoutTypes}, Seen, TimeoutEvents,
-  TimeoutType, TimerRef) ->
+  Timers, Seen, TimeoutEvents,
+  TimeoutType, TimerRef, TimeoutMsg) ->
     %%
-    case TimeoutTypes of
-        #{TimeoutType := OldTimerRef} ->
+    case Timers of
+        #{TimeoutType := {OldTimerRef,_OldTimeoutMsg}} ->
             %% Cancel the running timer,
-            %% update the timeout type,
-            %% insert the new timer ref,
-            %% and remove the old timer ref
-            Timers =
-                {maps:remove(
-                   OldTimerRef,
-                   TimerRefs#{TimerRef => TimeoutType}),
-                 TimeoutTypes#{TimeoutType := TimerRef}},
+            %% and update timer type and ref
             cancel_timer(OldTimerRef),
+            Timers_1 = Timers#{TimeoutType := {TimerRef,TimeoutMsg}},
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen#{TimeoutType => true}, TimeoutEvents);
+              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
         #{} ->
             %% Insert the new timer type and ref
-            Timers =
-                {TimerRefs#{TimerRef => TimeoutType},
-                 TimeoutTypes#{TimeoutType => TimerRef}},
+            Timers_1 = Timers#{TimeoutType => {TimerRef,TimeoutMsg}},
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen#{TimeoutType => true}, TimeoutEvents)
+              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents)
     end.
 
 %% Loop helper to cancel a timeout
@@ -2041,10 +2021,9 @@ loop_timeouts_cancel(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  {TimerRefs,TimeoutTypes} = Timers, Seen, TimeoutEvents,
-  TimeoutType) ->
+  Timers, Seen, TimeoutEvents, TimeoutType) ->
     %% This function body should have been:
-    %%    Timers_1 = cancel_timer_by_type(TimeoutType, Timers),
+    %%    Timers_1 = cancel_timer(TimeoutType, Timers),
     %%    loop_timeouts(
     %%      P, Debug, S,
     %%      Events, NextState_NewData,
@@ -2054,14 +2033,12 @@ loop_timeouts_cancel(
     %% Explicitly separate cases to get separate code paths for when
     %% the map key exists vs. not, since otherwise the external call
     %% to erlang:cancel_timer/1 and to map:remove/2 within
-    %% cancel_timer_by_type/2 would cause all live registers
+    %% cancel_timer/2 would cause all live registers
     %% to be saved to and restored from the stack also for
     %% the case when the map key TimeoutType does not exist
-    case TimeoutTypes of
-        #{TimeoutType := TimerRef} ->
-            Timers_1 =
-                cancel_timer_by_ref_and_type(
-                  TimerRef, TimeoutType, TimerRefs, TimeoutTypes),
+    case Timers of
+        #{TimeoutType := {TimerRef,_TimeoutMsg}} ->
+            Timers_1 = cancel_timer(TimeoutType, TimerRef, Timers),
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
@@ -2075,77 +2052,34 @@ loop_timeouts_cancel(
               Timers, Seen#{TimeoutType => true}, TimeoutEvents)
     end.
 
-%% Loop helper to update the timeout message by cancelling
-%% the old timer and restarting with the remaining time and new message
+%% Loop helper to update the timeout message,
+%% or insert an event if no timer is running
 %%
 loop_timeouts_update(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  {TimerRefs,TimeoutTypes}, Seen, TimeoutEvents,
+  Timers, Seen, TimeoutEvents,
   TimeoutType, TimeoutMsg) ->
     %%
-    case TimeoutTypes of
-        #{TimeoutType := OldTimerRef} ->
-            case erlang:cancel_timer(OldTimerRef) of
-                false ->
-                    %% Already expired - insert timeout event with new msg
-                    receive
-                        {timeout,OldTimerRef,_} ->
-                            ok
-                    end,
-                    Timers =
-                        {maps:remove(OldTimerRef, TimerRefs),
-                         maps:remove(TimeoutType, TimeoutTypes)},
-                    TimeoutEvents_1 =
-                        [{TimeoutType,TimeoutMsg}|TimeoutEvents],
-                    loop_timeouts(
-                      P, Debug, S,
-                      Events, NextState_NewData,
-                      NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers, Seen#{TimeoutType => true}, TimeoutEvents_1);
-                Time ->
-                    %% Start a new timer for the remaining time
-                    TimerRef =
-                        erlang:start_timer(Time, self(), TimeoutMsg),
-                    %% Insert the new timer type and ref
-                    Timers =
-                        {maps:remove(
-                           OldTimerRef,
-                           TimerRefs#{TimerRef => TimeoutType}),
-                         TimeoutTypes#{TimeoutType := TimerRef}},
-                    case Debug of
-                        ?not_sys_debug ->
-                            loop_timeouts(
-                              P, Debug, S,
-                              Events, NextState_NewData,
-                              NextEventsR, Hibernate, TimeoutsR, Postponed,
-                              Timers, Seen#{TimeoutType => true}, TimeoutEvents);
-                        _ ->
-                            {State,_Data} = S#state.state_data,
-                            Debug_1 =
-                                sys_debug(
-                                  Debug, P#params.name,
-                          {start_timer,
-                           {TimeoutType,Time,TimeoutMsg,[]},
-                           State}),
-                            loop_timeouts(
-                              P, Debug_1, S,
-                              Events, NextState_NewData,
-                              NextEventsR, Hibernate, TimeoutsR, Postponed,
-                              Timers, Seen#{TimeoutType => true}, TimeoutEvents)
-                    end
-            end;
+    case Timers of
+        #{TimeoutType := {TimerRef,_OldTimeoutMsg}} ->
+            Timers_1 = Timers#{TimeoutType := {TimerRef,TimeoutMsg}},
+            loop_timeouts(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers_1, Seen#{TimeoutType => true},
+              TimeoutEvents);
         #{} ->
-            Timers = {TimerRefs,TimeoutTypes},
-            %% Not running - insert timeout event
             TimeoutEvents_1 =
                 [{TimeoutType,TimeoutMsg}|TimeoutEvents],
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen#{TimeoutType => true}, TimeoutEvents_1)
+              Timers, Seen#{TimeoutType => true},
+              TimeoutEvents_1)
     end.
 
 %% Continue state transition with prepending timeout zero events
@@ -2347,7 +2281,7 @@ error_info(
      state_enter = StateEnter} = P,
   #state{
      postponed = Postponed,
-     timers = {_TimerRefs, TimeoutTypes}} = S,
+     timers = Timers} = S,
   Q) ->
     Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
@@ -2357,7 +2291,7 @@ error_info(
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), P, S),
-                 timeouts=>{maps:size(TimeoutTypes),maps:keys(TimeoutTypes)},
+                 timeouts=>list_timeouts(Timers),
                  log=>Log,
                  reason=>{Class,Reason,Stacktrace},
                  client_info=>client_stacktrace(Q)},
@@ -2537,40 +2471,55 @@ listify(Item) ->
     [Item].
 
 
--define(cancel_timer(TimerRef),
-    case erlang:cancel_timer(TimerRef) of
-        false ->
-            %% No timer found and we have not seen the timeout message
-            receive
-                {timeout,(TimerRef),_} ->
-                    ok
-            end;
-        _ ->
-            %% Timer was running
-            ok
-    end).
-
+-define(
+   cancel_timer(TimerRef),
+   case erlang:cancel_timer(TimerRef) of
+       false ->
+           %% No timer found and we have not seen the timeout message
+           receive
+               {timeout,(TimerRef),_} ->
+                   ok
+           end;
+       _ ->
+           %% Timer was running
+           ok
+   end).
+%%
+%% Cancel timer and consume timeout message
+%%
 -compile({inline, [cancel_timer/1]}).
 cancel_timer(TimerRef) ->
     ?cancel_timer(TimerRef).
 
+-define(
+   cancel_timer(TimeoutType, TimerRef, Timers),
+   begin
+       ?cancel_timer(TimerRef),
+       maps:remove(begin TimeoutType end, begin Timers end)
+   end).
+%%
+%% Cancel timer and remove from Timers
+%%
+-compile({inline, [cancel_timer/3]}).
+cancel_timer(TimeoutType, TimerRef, Timers) ->
+    ?cancel_timer(TimeoutType, TimerRef, Timers).
+
 %% Cancel timer if running, otherwise no op
 %%
 %% Remove the timer from Timers
--compile({inline, [cancel_timer_by_type/2]}).
-cancel_timer_by_type(TimeoutType, {TimerRefs,TimeoutTypes} = Timers) ->
-    case TimeoutTypes of
+-compile({inline, [cancel_timer/2]}).
+cancel_timer(TimeoutType, Timers) ->
+    case Timers of
         #{TimeoutType := TimerRef} ->
-            ?cancel_timer(TimerRef),
-            {maps:remove(TimerRef, TimerRefs),
-             maps:remove(TimeoutType, TimeoutTypes)};
+            ?cancel_timer(TimeoutType, TimerRef, Timers);
         #{} ->
             Timers
     end.
 
--compile({inline, [cancel_timer_by_ref_and_type/4]}).
-cancel_timer_by_ref_and_type(
-  TimerRef, TimeoutType, TimerRefs, TimeoutTypes) ->
-    ?cancel_timer(TimerRef),
-    {maps:remove(TimerRef, TimerRefs),
-     maps:remove(TimeoutType, TimeoutTypes)}.
+%% Return a list of all pending timeouts
+list_timeouts(Timers) ->
+    {maps:size(Timers),
+     maps:fold(
+       fun(TimeoutType, {_TimerRef,TimeoutMsg}, Acc) ->
+               [{TimeoutType,TimeoutMsg}|Acc]
+       end, [], Timers)}.
