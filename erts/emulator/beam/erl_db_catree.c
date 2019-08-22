@@ -90,9 +90,9 @@
 ** Forward declarations
 */
 
-static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left);
-static SWord do_free_routing_nodes_catree_cont(DbTableCATree *tb, SWord num_left);
-static DbTableCATreeNode *catree_first_base_node_from_free_list(DbTableCATree *tb);
+static SWord do_delete_base_node_cont(DbTableCATree *tb,
+                                    DbTableCATreeNode *base_node,
+                                    SWord num_left);
 
 /* Method interface functions */
 static int db_first_catree(Process *p, DbTable *tbl,
@@ -1364,113 +1364,152 @@ static void split_catree(DbTableCATree *tb,
     }
 }
 
-/*
- * Helper functions for removing the table
+/* @brief Free the entire catree and its sub-trees.
+ *
+ * @param reds Reductions to spend.
+ * @return Reductions left. Negative value if not done.
  */
-
-static void catree_add_base_node_to_free_list(
-        DbTableCATree *tb,
-        DbTableCATreeNode *base_node_container)
+static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
 {
-    base_node_container->u.base.next =
-        tb->base_nodes_to_free_list;
-    tb->base_nodes_to_free_list = base_node_container;
-}
+    DbTableCATree *tb = &tbl->catree;
+    DbTableCATreeNode *node;
+    DbTableCATreeNode *parent;
+    CATreeNodeStack rnode_stack;
+    DbTableCATreeNode *rnode_stack_array[STACK_NEED];
 
-static void catree_deque_base_node_from_free_list(DbTableCATree *tb)
-{
-    if (tb->base_nodes_to_free_list == NULL) {
-        return; /* List empty */
-    } else {
-        DbTableCATreeNode *first = tb->base_nodes_to_free_list;
-        tb->base_nodes_to_free_list = first->u.base.next;
+    if (!tb->deletion) {
+        /* First call */
+        tb->deletion = 1;
+        tb->nr_of_deleted_items = 0;
     }
-}
 
-static DbTableCATreeNode *catree_first_base_node_from_free_list(
-        DbTableCATree *tb)
-{
-    return tb->base_nodes_to_free_list;
-}
+    /*
+     * The route tree is traversed and freed while keeping it consistent
+     * during yields.
+     */
+    rnode_stack.array = rnode_stack_array;
+    rnode_stack.pos = 0;
+    rnode_stack.size = STACK_NEED;
 
-static SWord do_free_routing_nodes_catree_cont(DbTableCATree *tb, SWord num_left)
-{
-    DbTableCATreeNode *root;
-    DbTableCATreeNode *p;
-    for (;;) {
-        root = POP_NODE(&tb->free_stack_rnodes);
-    	if (root == NULL) break;
-        else if(root->is_base_node) {
-            catree_add_base_node_to_free_list(tb, root);
-            break;
+    node = GET_ROOT(tb);
+    if (node->is_base_node) {
+        if (node->u.base.root) {
+            reds = do_delete_base_node_cont(tb, node, reds);
+            if (reds < 0)
+                return reds; /* Yield */
         }
-    	for (;;) {
-            if ((GET_LEFT(root) != NULL) &&
-                (p = GET_LEFT(root))->is_base_node) {
-                SET_LEFT(root, NULL);
-                catree_add_base_node_to_free_list(tb, p);
-            } else if ((GET_RIGHT(root) != NULL) &&
-                       (p = GET_RIGHT(root))->is_base_node) {
-                SET_RIGHT(root, NULL);
-                catree_add_base_node_to_free_list(tb, p);
-            } else if ((p = GET_LEFT(root)) != NULL) {
-                SET_LEFT(root, NULL);
-                PUSH_NODE(&tb->free_stack_rnodes, root);
-                root = p;
-            } else if ((p = GET_RIGHT(root)) != NULL) {
-                SET_RIGHT(root, NULL);
-                PUSH_NODE(&tb->free_stack_rnodes, root);
-                root = p;
-            } else {
-                free_catree_route_node(tb, root);
-                if (--num_left >= 0) {
-                    break;
-                } else {
-                    return num_left;	/* Done enough for now */
-                }
-            }
-        }
+        free_catree_base_node(tb, node);
     }
-    return num_left;
-}
-
-static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left)
-{
-    TreeDbTerm *root;
-    TreeDbTerm *p;
-    DbTableCATreeNode *base_node_container =
-        catree_first_base_node_from_free_list(tb);
-    for (;;) {
-        root = POP_NODE(&tb->free_stack_elems);
-        if (root == NULL) break;
+    else {
         for (;;) {
-            if ((p = root->left) != NULL) {
-                root->left = NULL;
-                PUSH_NODE(&tb->free_stack_elems, root);
-                root = p;
-            } else if ((p = root->right) != NULL) {
-                root->right = NULL;
-                PUSH_NODE(&tb->free_stack_elems, root);
-                root = p;
-            } else {
-                DEC_NITEMS((DbTable*)tb);
-                tb->nr_of_deleted_items++;
-                free_term((DbTable*)tb, root);
-                if (--num_left >= 0) {
+            DbTableCATreeNode* left = GET_LEFT(node);
+            DbTableCATreeNode* right = GET_RIGHT(node);
+
+            if (!left->is_base_node) {
+                PUSH_NODE(&rnode_stack, node);
+                node = left;
+            }
+            else if (!right->is_base_node) {
+                PUSH_NODE(&rnode_stack, node);
+                node = right;
+            }
+            else {
+                if (left->u.base.root) {
+                    reds = do_delete_base_node_cont(tb, left, reds);
+                    if (reds < 0)
+                        return reds; /* Yield */
+                }
+                if (right->u.base.root) {
+                    reds = do_delete_base_node_cont(tb, right, reds);
+                    if (reds < 0)
+                        return reds; /* Yield */
+                }
+
+                free_catree_base_node(tb, right);
+                free_catree_route_node(tb, node);
+                /*
+                 * Keep empty left base node to join with its grandparent
+                 * for tree consistency during yields.
+                 */
+
+                parent = POP_NODE(&rnode_stack);
+                if (parent) {
+                    if (node == GET_LEFT(parent)) {
+                        SET_LEFT(parent, left);
+                    }
+                    else {
+                        ASSERT(node == GET_RIGHT(parent));
+                        SET_RIGHT(parent, left);
+                    }
+
+                    reds -= 2;
+                    if (reds < 0)
+                        return reds; /* Yield */
+
+                    node = parent;
+                }
+                else {  /* Done */
+                    free_catree_base_node(tb, left);
                     break;
-                } else {
-                    return num_left;	/* Done enough for now */
                 }
             }
         }
     }
-    catree_deque_base_node_from_free_list(tb);
-    free_catree_base_node(tb, base_node_container);
-    base_node_container = catree_first_base_node_from_free_list(tb);
-    if (base_node_container != NULL) {
-        PUSH_NODE(&tb->free_stack_elems, base_node_container->u.base.root);
+
+    ASSERT(reds >= 0);
+    SET_ROOT(tb, NULL);
+    return reds;
+}
+
+/* @brief Free all objects of a base node, but keep the base node.
+ *
+ * @param reds Reductions to spend.
+ * @return Reductions left. Negative value if not done.
+ */
+static SWord do_delete_base_node_cont(DbTableCATree *tb,
+                                      DbTableCATreeNode *base_node,
+                                      SWord reds)
+{
+    TreeDbTerm *p;
+    DbTreeStack stack;
+    TreeDbTerm* stack_array[STACK_NEED];
+
+    stack.pos = 0;
+    stack.array = stack_array;
+
+    p = base_node->u.base.root;
+    for (;;) {
+        if (p->left) {
+            PUSH_NODE(&stack, p);
+            p = p->left;
+        }
+        else if (p->right) {
+            PUSH_NODE(&stack, p);
+            p = p->right;
+        }
+        else {
+            TreeDbTerm *parent;
+
+            DEC_NITEMS((DbTable*)tb);
+            tb->nr_of_deleted_items++;
+            free_term((DbTable*)tb, p);
+
+            parent = POP_NODE(&stack);
+            if (!parent)
+                break;
+            if (parent->left == p)
+                parent->left = NULL;
+            else {
+                ASSERT(parent->right == p);
+                parent->right = NULL;
+            }
+            if (--reds < 0)
+                return reds;	/* Yield */
+            p = parent;
+        }
     }
-    return num_left;
+    base_node->u.base.root = NULL;
+    return reds;
 }
 
 
@@ -1494,7 +1533,6 @@ int db_create_catree(Process *p, DbTable *tbl)
 
     root = create_base_node(tb, NULL);
     tb->deletion = 0;
-    tb->base_nodes_to_free_list = NULL;
     tb->nr_of_deleted_items = 0;
 #ifdef DEBUG
     tbl->common.status |= DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN;
@@ -2131,57 +2169,6 @@ static int db_free_table_catree(DbTable *tbl)
     return 1;
 }
 
-static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
-{
-    DbTableCATreeNode *first_base_node;
-    DbTableCATree *tb = &tbl->catree;
-    if (!tb->deletion) {
-        tb->deletion = 1;
-        tb->free_stack_elems.array =
-            erts_db_alloc(ERTS_ALC_T_DB_STK,
-                          (DbTable *) tb,
-                          sizeof(TreeDbTerm *) * STACK_NEED);
-        tb->free_stack_elems.pos = 0;
-        tb->free_stack_elems.slot = 0;
-        tb->free_stack_rnodes.array =
-            erts_db_alloc(ERTS_ALC_T_DB_STK,
-                          (DbTable *) tb,
-                          sizeof(DbTableCATreeNode *) * STACK_NEED);
-        tb->free_stack_rnodes.pos = 0;
-        tb->free_stack_rnodes.size = STACK_NEED;
-        PUSH_NODE(&tb->free_stack_rnodes, GET_ROOT(tb));
-        tb->is_routing_nodes_freed = 0;
-        tb->base_nodes_to_free_list = NULL;
-        tb->nr_of_deleted_items = 0;
-    }
-    if ( ! tb->is_routing_nodes_freed ) {
-        reds = do_free_routing_nodes_catree_cont(tb, reds);
-        if (reds < 0) {
-            return reds; /* Not finished */
-        } else {
-            tb->is_routing_nodes_freed = 1; /* Ready with the routing nodes */
-            first_base_node = catree_first_base_node_from_free_list(tb);
-            PUSH_NODE(&tb->free_stack_elems, first_base_node->u.base.root);
-        }
-    }
-    while (catree_first_base_node_from_free_list(tb) != NULL) {
-        reds = do_free_base_node_cont(tb, reds);
-        if (reds < 0) {
-            return reds; /* Continue later */
-        }
-    }
-    /* Time to free the main structure*/
-    erts_db_free(ERTS_ALC_T_DB_STK,
-                 (DbTable *) tb,
-                 (void *) tb->free_stack_elems.array,
-                 sizeof(TreeDbTerm *) * STACK_NEED);
-    erts_db_free(ERTS_ALC_T_DB_STK,
-                 (DbTable *) tb,
-                 (void *) tb->free_stack_rnodes.array,
-                 sizeof(DbTableCATreeNode *) * STACK_NEED);
-    return 1;
-}
-
 static
 int db_catree_nr_of_items_deleted_wb_dtor(Binary *context_bin) {
     (void)context_bin;
@@ -2258,10 +2245,15 @@ static void db_foreach_offheap_catree(DbTable *tbl,
                                       void (*func)(ErlOffHeap *, void *),
                                       void *arg)
 {
+    DbTableCATree* tb = &tbl->catree;
     CATreeRootIterator iter;
     TreeDbTerm** root;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    if (!GET_ROOT(tb)) {
+        ASSERT(tb->common.status & DB_DELETE);
+        return;
+    }
+    init_root_iterator(tb, &iter, 1);
     root = catree_find_first_root(&iter);
     do {
         db_foreach_offheap_tree_common(*root, func, arg);
@@ -2269,7 +2261,7 @@ static void db_foreach_offheap_catree(DbTable *tbl,
     } while (root);
     destroy_root_iterator(&iter);
 
-    do_for_route_nodes(GET_ROOT(&tbl->catree), func, arg);
+    do_for_route_nodes(GET_ROOT(tb), func, arg);
 }
 
 static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
