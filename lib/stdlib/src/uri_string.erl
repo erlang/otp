@@ -229,6 +229,7 @@
 -export([compose_query/1, compose_query/2,
          dissect_query/1, normalize/1, normalize/2, parse/1,
          recompose/1, transcode/2]).
+-export([is_reserved/1, is_unreserved/1]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
 
@@ -1357,39 +1358,38 @@ encode_fragment(Cs) ->
     encode(Cs, fun is_fragment/1).
 
 %%-------------------------------------------------------------------------
-%% Helper funtions for percent-decode
+%% Helper functions for normalize_percent_encoding
 %%-------------------------------------------------------------------------
 
--spec decode(list()|binary()) -> list() | binary().
-decode(Cs) ->
-    decode(Cs, <<>>).
-%%
-decode(L, Acc) when is_list(L) ->
+-spec normalize_percent_encoding(list()|binary(), binary()) -> list() | binary().
+normalize_percent_encoding(L, Acc) when is_list(L) ->
     B0 = unicode:characters_to_binary(L),
-    B1 = decode(B0, Acc),
+    B1 = normalize_percent_encoding(B0, Acc),
     unicode:characters_to_list(B1);
-decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
+normalize_percent_encoding(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
+            %% 6.2.2.2 In addition to the case normalization issue [...]
+            %% URIs should be normalized by decoding any percent-encoded
+            %% octet that corresponds to an unreserved character
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
-            case is_reserved(B) of
-                true ->
-                    %% [2.2] Characters in the reserved set are protected from
-                    %% normalization.
-                    %% [2.1] For consistency, URI producers and normalizers should
-                    %% use uppercase hexadecimal digits for all percent-
-                    %% encodings.
+            case is_unreserved(B) of
+                false ->
+                    %% 6.2.2.1 the hexadecimal digits within a percent-
+                    %% encoding triplet (e.g., "%3a" versus "%3A") are case-
+                    %% insensitive and therefore should be normalized to use
+                    %% uppercase letters for the digits A-F
                     H0 = hex_to_upper(C0),
                     H1 = hex_to_upper(C1),
-                    decode(Cs, <<Acc/binary,$%,H0,H1>>);
-                false ->
-                    decode(Cs, <<Acc/binary, B>>)
+                    normalize_percent_encoding(Cs, <<Acc/binary,$%,H0,H1>>);
+                true ->
+                    normalize_percent_encoding(Cs, <<Acc/binary, B>>)
             end;
         false -> throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
     end;
-decode(<<C,Cs/binary>>, Acc) ->
-    decode(Cs, <<Acc/binary, C>>);
-decode(<<>>, Acc) ->
+normalize_percent_encoding(<<C,Cs/binary>>, Acc) ->
+    normalize_percent_encoding(Cs, <<Acc/binary, C>>);
+normalize_percent_encoding(<<>>, Acc) ->
     check_utf8(Acc).
 
 %% Returns Cs if it is utf8 encoded.
@@ -1409,6 +1409,9 @@ hex_to_upper(H) when $0 =< H, H =< $9;$A =< H, H =< $F->
     H;
 hex_to_upper(H) ->
     throw({error,invalid_input, H}).
+
+
+%%-------------------------------------------------------------------------
 
 %% Check if char is allowed in host
 -spec is_host(char()) -> boolean().
@@ -1528,7 +1531,7 @@ bracket_ipv6(Addr) when is_list(Addr) ->
 
 
 %%-------------------------------------------------------------------------
-%% Helper funtions for recompose
+%% Helper functions for recompose
 %%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
@@ -1991,7 +1994,7 @@ normalize_case(#{} = Map) ->
 normalize_percent_encoding(Map) ->
     Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
                          K =:= query; K =:= fragment ->
-                  decode(V);
+                  normalize_percent_encoding(V, <<>>);
               %% Handle port and scheme
               (_,V) ->
                   V
