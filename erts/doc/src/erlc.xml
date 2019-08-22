@@ -42,7 +42,7 @@
       Regardless of which compiler is used, the same flags are used to provide
       parameters, such as include paths and output directory.</p>
     <p>The current working directory, <c>"."</c>, is not included
-      in the code path when running the compiler. This to avoid loading
+      in the code path when running the compiler. This is to avoid loading
       Beam files from the current working directory that could potentially
       be in conflict with the compiler or the Erlang/OTP system used by the
       compiler.</p>
