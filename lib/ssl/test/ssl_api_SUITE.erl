@@ -1946,7 +1946,7 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, connection_info_result, []}},
-					{options, [{ciphers, ClientCiphers}, {honor_cipher_order, Honor}
+					{options, [{ciphers, ClientCiphers}
 						   | ClientOpts]}]),
 
     Version = ssl_test_lib:protocol_version(Config),

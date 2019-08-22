@@ -438,6 +438,7 @@
                                   elliptic_curves => [public_key:oid()],
                                   sni => hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
+-define(SSL_OPTIONS, record_info(fields, ssl_options)).
 
 %%%--------------------------------------------------------------------
 %%% API
@@ -1452,13 +1453,40 @@ do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_c
 do_listen(Port,  Config, dtls_connection) ->
     dtls_socket:listen(Port, Config).
 	
-%% Handle extra ssl options given to ssl_accept
--spec handle_options([any()], #ssl_options{}) -> #ssl_options{}
-      ;             ([any()], client | server) -> {ok, #config{}}.
+
+-spec handle_options([any()], client | server) -> {ok, #config{}};
+                    ([any()], #ssl_options{}) -> #ssl_options{}.
+
 handle_options(Opts, Role) ->
     handle_options(Opts, Role, undefined).   
 
 
+%% TODO
+
+%% Helper function for folding over the options
+%% make_handle_option_fun(Opts0) ->
+%%     fun ({K,_}, Acc) ->
+%%             V1 = handle_option(K, Opts0, maps:get(K, Acc)),
+%%             Acc#{K => V1}
+%%     end.
+
+%% handle_options(Opts0, InheritedSslOpts, _) when is_map(InheritedSslOpts) ->
+%%     Fun = make_handle_option_fun(Opts0),
+%%     lists:foldl(Fun, InheritedSslOpts, Opts0);
+
+%% handle_options(Opts0, Role, Host) ->
+%%     %% Expand atoms to proper key-value tuples
+%%     Opts1 = expand_proplist(Opts0),
+%%     Opts2 = process_cert_
+
+%%     Fun = make_handle_option_fun(Opts0),
+%%     DefaultOpts = options_to_map(#ssl_options{}),
+%%     lists:foldl(Fun, DefaultOpts, Opts0).
+
+
+
+
+%% Handle ssl options at handshake_continue
 handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 				   cacertfile = CaCertFile0} = InheritedSslOpts, _) ->
     RecordCB = record_cb(Protocol),
@@ -1493,7 +1521,7 @@ handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 			    NewVerifyOpts#ssl_options{versions = Versions1}, record_cb(Protocol))
     end;
 
-%% Handle all options in listen and connect
+%% Handle all options in listen, connect and handshake
 handle_options(Opts0, Role, Host) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
@@ -1544,36 +1572,21 @@ handle_options(Opts0, Role, Host) ->
 		    user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
 		    psk_identity = handle_option(psk_identity, Opts, undefined),
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
-		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
-						      HighestVersion),
-		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
-                                                    HighestVersion),
-                    supported_groups = handle_supported_groups_option(
-                                         proplists:get_value(supported_groups, Opts, groups(default)),
-                                         HighestVersion),
-		    signature_algs =
-                         handle_hashsigns_option(
-                           proplists:get_value(
-                             signature_algs,
-                             Opts,
-                             default_option_role_sign_algs(server,
-                                                 tls_v1:default_signature_algs(HighestVersion),
-                                                 Role,
-                                                 HighestVersion)),
-                           tls_version(HighestVersion)),
-                    signature_algs_cert =
-                         handle_signature_algorithms_option(
-                           proplists:get_value(
-                             signature_algs_cert,
-                             Opts,
-                             undefined),  %% Do not send by default
-                           tls_version(HighestVersion)),
-                    reuse_sessions = handle_reuse_sessions_option(reuse_sessions, Opts, Role),
-		    reuse_session = handle_reuse_session_option(reuse_session, Opts, Role),
+		    ciphers    = handle_option(ciphers, Opts, undefined, undefined, undefined, HighestVersion),
+
+		    eccs       = handle_option(eccs, Opts, undefined, undefined, undefined, HighestVersion),
+
+                    supported_groups = handle_option(supported_groups, Opts, undefined, undefined, undefined,
+                                                     HighestVersion),
+		    signature_algs = handle_option(signature_algs, Opts, undefined, Role, undefined, HighestVersion),
+                    signature_algs_cert = handle_option(signature_algs_cert, Opts, undefined, undefined, undefined,
+                                                        HighestVersion),
+                    reuse_sessions = handle_option(reuse_sessions, Opts, undefined, Role),
+
+		    reuse_session = handle_option(reuse_session, Opts, undefined, Role),
+
 		    secure_renegotiate = handle_option(secure_renegotiate, Opts, true),
-		    client_renegotiation = handle_option(client_renegotiation, Opts, 
-							 default_option_role(server, true, Role), 
-							 server, Role),
+		    client_renegotiation = handle_option(client_renegotiation, Opts, undefined, Role),
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
 		    hibernate_after = handle_option(hibernate_after, Opts, infinity),
 		    erl_dist = handle_option(erl_dist, Opts, false),
@@ -1584,32 +1597,23 @@ handle_options(Opts0, Role, Host) ->
 		    next_protocols_advertised =
 			handle_option(next_protocols_advertised, Opts, undefined),
 		    next_protocol_selector =
-			make_next_protocol_selector(
-			  handle_option(client_preferred_next_protocols, Opts, undefined)),
-		    server_name_indication = handle_option(server_name_indication, Opts, 
-                                                           default_option_role(client,
-                                                                               server_name_indication_default(Host), Role)),
+                         handle_option(next_protocol_selector, Opts, undefined),
+		    server_name_indication =
+                         handle_option(server_name_indication, Opts, undefined, Role, Host),
 		    sni_hosts = handle_option(sni_hosts, Opts, []),
 		    sni_fun = handle_option(sni_fun, Opts, undefined),
-		    honor_cipher_order = handle_option(honor_cipher_order, Opts, 
-						       default_option_role(server, false, Role), 
-						       server, Role),
-		    honor_ecc_order = handle_option(honor_ecc_order, Opts,
-						       default_option_role(server, false, Role),
-						       server, Role),
+		    honor_cipher_order = handle_option(honor_cipher_order, Opts, undefined, Role),
+		    honor_ecc_order = handle_option(honor_ecc_order, Opts, undefined, Role),
 		    protocol = Protocol,
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
-		    beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
-		    fallback = handle_option(fallback, Opts,
-					     proplists:get_value(fallback, Opts,    
-								 default_option_role(client, 
-										     false, Role)),
-					     client, Role),
+                     beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
+                     fallback = handle_option(fallback, Opts, undefined, Role),
+
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
                     max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE),
                     handshake = handle_option(handshake, Opts, full),
-                    customize_hostname_check = handle_option(customize_hostname_check, Opts, [])
+                     customize_hostname_check = handle_option(customize_hostname_check, Opts, [])
 		   },
     LogLevel = handle_option(log_alert, Opts, true),
     SSLOptions = SSLOptions0#ssl_options{
@@ -1617,24 +1621,12 @@ handle_options(Opts0, Role, Host) ->
                   },
 
     CbInfo  = handle_option(cb_info, Opts, default_cb_info(Protocol)),
-    SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
-		  fail_if_no_peer_cert, verify_client_once,
-		  depth, cert, certfile, key, keyfile,
-		  password, cacerts, cacertfile, dh, dhfile,
-		  user_lookup_fun, psk_identity, srp_identity, ciphers,
-		  reuse_session, reuse_sessions, ssl_imp, client_renegotiation,
-		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, alpn_advertised_protocols, sni_hosts, sni_fun,
-		  alpn_preferred_protocols, next_protocols_advertised,
-		  client_preferred_next_protocols, log_alert, log_level,
-		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, signature_algs_cert, eccs, honor_ecc_order,
-                  beast_mitigation, max_handshake_size, handshake, customize_hostname_check,
-                  supported_groups],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
-			   end, Opts, SslOptions),
+			   end, Opts, ?SSL_OPTIONS ++
+                               [ssl_imp, %% TODO: remove ssl_imp
+                                client_preferred_next_protocols]),  %% next_protocol_selector
 
     {Sock, Emulated} = emulated_options(Protocol, SockOpts),
     ConnetionCb = connection_cb(Opts),
@@ -1643,12 +1635,21 @@ handle_options(Opts0, Role, Host) ->
 		 inet_user = Sock, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
-handle_option(OptionName, Opts, Default, Role, Role) ->
-    handle_option(OptionName, Opts, Default);
-handle_option(_, _, undefined = Value, _, _) ->
-    Value.
+%% handle_option(OptionName, Opts, Default, Role, Role) ->
+%%     handle_option(OptionName, Opts, Default);
+%% handle_option(_, _, undefined = Value, _, _) ->
+%%     Value.
 
-handle_option(sni_fun, Opts, Default) ->
+handle_option(OptionName, Opts, Default) ->
+    handle_option(OptionName, Opts, Default, undefined, undefined, undefined).
+%%
+handle_option(OptionName, Opts, Default, Role) ->
+    handle_option(OptionName, Opts, Default, Role, undefined, undefined).
+%%
+handle_option(OptionName, Opts, Default, Role, Host) ->
+    handle_option(OptionName, Opts, Default, Role, Host, undefined).
+%%
+handle_option(sni_fun, Opts, Default, _Role, _Host, _Version) ->
     OptFun = validate_option(sni_fun,
                              proplists:get_value(sni_fun, Opts, Default)),
     OptHosts = proplists:get_value(sni_hosts, Opts, undefined),
@@ -1660,13 +1661,90 @@ handle_option(sni_fun, Opts, Default) ->
         _ ->
             throw({error, {conflict_options, [sni_fun, sni_hosts]}})
     end;
-handle_option(cb_info, Opts, Default) ->
+handle_option(cb_info, Opts, Default, _Role, _Host, _Version) ->
     CbInfo = proplists:get_value(cb_info, Opts, Default),
     true = validate_option(cb_info, CbInfo),
     handle_cb_info(CbInfo, Default);
-handle_option(OptionName, Opts, Default) ->
+handle_option(ciphers = Key, Opts, _Default, _Role, _Host, HighestVersion) ->
+    handle_cipher_option(proplists:get_value(Key, Opts, []),
+                         HighestVersion);
+handle_option(eccs = Key, Opts, _Default, _Role, _Host, HighestVersion) ->
+    handle_eccs_option(proplists:get_value(Key, Opts, eccs()),
+                       HighestVersion);
+handle_option(supported_groups = Key, Opts, _Default, _Role, _Host, HighestVersion) ->
+    handle_supported_groups_option(proplists:get_value(Key, Opts, groups(default)),
+                                   HighestVersion);
+handle_option(signature_algs = Key, Opts, _Default, Role, _Host, HighestVersion) ->
+    handle_hashsigns_option(
+      proplists:get_value(Key,
+                          Opts,
+                          default_option_role_sign_algs(server,
+                                                        tls_v1:default_signature_algs(HighestVersion),
+                                                        Role,
+                                                        HighestVersion)),
+      tls_version(HighestVersion));
+handle_option(signature_algs_cert = Key, Opts, _Default, _Role, _Host, HighestVersion) ->
+    handle_signature_algorithms_option(
+      proplists:get_value(Key,
+                          Opts,
+                          undefined),  %% Do not send by default
+      tls_version(HighestVersion));
+handle_option(reuse_sessions = Key, Opts, _Default, client, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, true),
+    validate_option(Key, Value),
+    Value;
+handle_option(reuse_sessions = Key, Opts0, _Default, server, _Host, _Version) ->
+    Opts = proplists:delete({Key, save}, Opts0),
+    Value = proplists:get_value(Key, Opts, true),
+    validate_option(Key, Value),
+    Value;
+handle_option(reuse_session = Key, Opts, _Default, client, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, undefined),
+    validate_option(Key, Value),
+    Value;
+handle_option(reuse_session = Key, Opts, _Default, server, _Host, _Version) ->
+    ReuseSessionFun = fun(_, _, _, _) -> true end,
+    Value = proplists:get_value(Key, Opts, ReuseSessionFun),
+    validate_option(Key, Value),
+    Value;
+handle_option(fallback = Key, Opts, _Default, Role, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, default_option_role(client, false, Role)),
+    assert_role(client_only, Role, Key, Value),
+    validate_option(Key, Value);
+handle_option(client_renegotiation = Key, Opts, _Default, Role, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, default_option_role(server, true, Role)),
+    assert_role(server_only, Role, Key, Value),
+    validate_option(Key, Value);
+handle_option(honor_cipher_order = Key, Opts, _Default, Role, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, default_option_role(server, false, Role)),
+    assert_role(server_only, Role, Key, Value),
+    validate_option(Key, Value);
+handle_option(honor_ecc_order = Key, Opts, _Default, Role, _Host, _Version) ->
+    Value = proplists:get_value(Key, Opts, default_option_role(server, false, Role)),
+    assert_role(server_only, Role, Key, Value),
+    validate_option(Key, Value);
+handle_option(next_protocol_selector = _Key, Opts, _Default, _Role, _Host, _Version) ->
+    make_next_protocol_selector(
+      handle_option(client_preferred_next_protocols, Opts, undefined, undefined, undefined, undefined));
+handle_option(server_name_indication = Key, Opts, _Default, Role, Host, _Version) ->
+    Default = default_option_role(client, server_name_indication_default(Host), Role),
+    validate_option(Key, proplists:get_value(Key, Opts, Default));
+handle_option(OptionName, Opts, Default, _Role, _Host, _Version) ->
     validate_option(OptionName,
 		    proplists:get_value(OptionName, Opts, Default)).
+
+
+assert_role(client_only, client, _, _) ->
+    ok;
+assert_role(server_only, server, _, _) ->
+    ok;
+assert_role(client_only, _, _, undefined) ->
+    ok;
+assert_role(server_only, _, _, undefined) ->
+    ok;
+assert_role(Type, _, Key, _) ->
+    throw({error, {option, Type, Key}}).
+
 
 validate_option(versions, Versions)  ->
     validate_versions(Versions, Versions);
@@ -1913,6 +1991,13 @@ validate_option(cb_info, {V1, V2, V3, V4, V5}) when is_atom(V1),
     true;
 validate_option(cb_info, _) ->
     false;
+validate_option(Opt, undefined = Value) ->
+    case lists:member(Opt, ?SSL_OPTIONS) of
+        true ->
+            Value;
+        false ->
+            throw({error, {options, {Opt, Value}}})
+    end;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
@@ -2433,3 +2518,10 @@ add_filter(undefined, Filters) ->
     Filters;
 add_filter(Filter, Filters) ->
     [Filter | Filters].
+
+%% Convert the record #ssl_options{} into a map for internal usage
+options_to_map(Options) ->
+    Fields = record_info(fields, ssl_options),
+    [_Tag| Values] = tuple_to_list(Options),
+    L = lists:zip(Fields, Values),
+    maps:from_list(L).
