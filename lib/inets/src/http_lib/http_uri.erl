@@ -127,18 +127,29 @@ parse(AbsURI, Opts) ->
 	    end
     end.
 
-reserved() ->
-    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
-            $#, $[, $], $<, $>, $\", ${, $}, $|, %"
-			       $\\, $', $^, $%, $ ]).
+%% RFC 3986   reserved:  ! * ' ( ) ; : @ & = + $ , / ? # [ ]
+%%          unreserved:  A-Z a-z 0-9 - _ . ~
+%%
+%% Unreserved characters never need to be escaped. Reserved characters must
+%% always be escaped if they are used for something else than the URI scheme
+%% itself. Characters not in either of these sets should always be escaped.
+%% Since the encode function cannot know the intended use, it must always
+%% escape all characters except the unreserved set.
+
+is_unreserved(Char) when Char >= $0, Char =< $9 -> true;
+is_unreserved(Char) when Char >= $A, Char =< $Z -> true;
+is_unreserved(Char) when Char >= $a, Char =< $z -> true;
+is_unreserved($-) -> true;
+is_unreserved($_) -> true;
+is_unreserved($.) -> true;
+is_unreserved($~) -> true;
+is_unreserved(_) -> false.
 
 -spec encode(uri()) -> hex_uri().
 encode(URI) when is_list(URI) ->
-    Reserved = reserved(), 
-    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
+    lists:append([uri_encode(Char) || Char <- URI]);
 encode(URI) when is_binary(URI) ->
-    Reserved = reserved(),
-    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+    << <<(uri_encode_binary(Char))/binary>> || <<Char>> <= URI >>.
 
 -spec decode(maybe_hex_uri()) -> uri().
 decode(String) when is_list(String) ->
@@ -302,19 +313,19 @@ path("") ->
 path(Path) ->
     Path.
 
-uri_encode(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)];
+uri_encode(Char) ->
+    case is_unreserved(Char) of
 	false ->
+	    [ $% | http_util:integer_to_hexlist(Char)];
+	true ->
 	    [Char]
     end.
 
-uri_encode_binary(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-        true ->
-            << $%, (integer_to_binary(Char, 16))/binary >>;
+uri_encode_binary(Char) ->
+    case is_unreserved(Char) of
         false ->
+            << $%, (integer_to_binary(Char, 16))/binary >>;
+        true ->
             <<Char>>
     end.
 
