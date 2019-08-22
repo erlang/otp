@@ -32,12 +32,12 @@
 -export([count/2, lines/1, split_at/2, split_at_stop/1,
 	 split_at_space/1, filename/1, transpose/1, segment/2,
 	 get_first_sentence/1, is_space/1, strip_space/1, parse_expr/2,
-	 parse_contact/2, escape_uri/1, join_uri/2, is_relative_uri/1,
+	 parse_contact/2, escape_uri/1, join_uri/2,
 	 is_name/1, to_label/1, find_doc_dirs/0, find_sources/2,
 	 find_file/2, try_subdir/2, unique/1,
 	 write_file/3, write_file/4, write_info_file/3,
 	 read_info_file/1, get_doc_env/1, get_doc_env/3, copy_file/2,
-	 uri_get/1, run_doclet/2, run_layout/2,
+	 run_doclet/2, run_layout/2,
 	 simplify_path/1, timestr/1, datestr/1, read_encoding/2]).
 
 -import(edoc_report, [report/2, warning/2]).
@@ -438,128 +438,6 @@ join_uri("", Path) ->
 join_uri(Base, Path) ->
     Base ++ "/" ++ Path.
 
-%% Check for relative URI; "network paths" ("//...") not included!
-
-%% @private
-is_relative_uri([$: | _]) ->
-    false;
-is_relative_uri([$/, $/ | _]) ->
-    false;
-is_relative_uri([$/ | _]) ->
-    true;
-is_relative_uri([$? | _]) ->
-    true;
-is_relative_uri([$# | _]) ->
-    true;
-is_relative_uri([_ | Cs]) ->
-    is_relative_uri(Cs);
-is_relative_uri([]) ->
-    true.
-
-%% @private
-uri_get("file:///" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file://localhost/" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file://" ++ Path) ->
-    Msg = io_lib:format("cannot handle 'file:' scheme with "
-			"nonlocal network-path: 'file://~ts'.",
-			[Path]),
-    {error, Msg};
-uri_get("file:/" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file:" ++ Path) ->
-    Msg = io_lib:format("ignoring malformed URI: 'file:~ts'.", [Path]),
-    {error, Msg};
-uri_get("http:" ++ Path) ->
-    uri_get_http("http:" ++ Path);
-uri_get("ftp:" ++ Path) ->
-    uri_get_ftp("ftp:" ++ Path);
-uri_get("//" ++ Path) ->
-    Msg = io_lib:format("cannot access network-path: '//~ts'.", [Path]),
-    {error, Msg};
-uri_get([C, $:, $/ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
-    uri_get_file(Path);  % special case for Windows
-uri_get([C, $:, $\ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
-    uri_get_file(Path);  % special case for Windows
-uri_get(URI) ->
-    case is_relative_uri(URI) of
-	true ->
-	    uri_get_file(URI);
-	false ->
-	    Msg = io_lib:format("cannot handle URI: '~ts'.", [URI]),
-	    {error, Msg}
-    end.
-
-uri_get_file(File0) ->
-    File = filename:join(?FILE_BASE, File0),
-    case read_file(File) of
-	{ok, Text} ->
-	    {ok, Text};
-	{error, R} ->
-	    {error, file:format_error(R)}
-    end.
-
-uri_get_http(URI) ->
-    %% Try using option full_result=false
-    case catch {ok, httpc:request(get, {URI,[]}, [],
-				  [{full_result, false}])} of
-	{'EXIT', _} ->
-	    uri_get_http_r10(URI);
-	Result ->
-	    uri_get_http_1(Result, URI)
-    end.
-
-uri_get_http_r10(URI) ->
-    %% Try most general form of request
-    Result = (catch {ok, httpc:request(get, {URI,[]}, [], [])}),
-    uri_get_http_1(Result, URI).
-
-uri_get_http_1(Result, URI) ->
-    case Result of
-	{ok, {ok, {200, Text}}} when is_list(Text) ->
-	    %% new short result format
-	    {ok, Text};
-	{ok, {ok, {Status, Text}}} when is_integer(Status), is_list(Text) ->
-	    %% new short result format when status /= 200
-	    Phrase = httpd_util:reason_phrase(Status),
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {ok, {{_Vsn, 200, _Phrase}, _Hdrs, Text}}} when is_list(Text) ->
-	    %% new long result format
-	    {ok, Text};
-	{ok, {ok, {{_Vsn, _Status, Phrase}, _Hdrs, Text}}} when is_list(Text) ->
-	    %% new long result format when status /= 200
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {200,_Hdrs,Text}} when is_list(Text) ->
-	    %% old result format
-	    {ok, Text};
-	{ok, {Status,_Hdrs,Text}} when is_list(Text) ->
-	    %% old result format when status /= 200
-	    Phrase = httpd_util:reason_phrase(Status),
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {error, R}} ->
-	    Reason = inet:format_error(R),
-	    {error, http_errmsg(Reason, URI)};
-	{ok, R} ->
-	    Reason = io_lib:format("bad return value ~tP", [R, 5]),
-	    {error, http_errmsg(Reason, URI)};
-	{'EXIT', R} ->
-	    Reason = io_lib:format("crashed with reason ~tw", [R]),
-	    {error, http_errmsg(Reason, URI)};
-	R ->
-	    Reason = io_lib:format("uncaught throw: ~tw", [R]),
-	    {error, http_errmsg(Reason, URI)}
-    end.
-
-http_errmsg(Reason, URI) ->
-    io_lib:format("http error: ~ts: '~ts'", [Reason, URI]).
-
-%% TODO: implement ftp access method
-
-uri_get_ftp(URI) ->
-    Msg = io_lib:format("cannot access ftp scheme yet: '~ts'.", [URI]),
-    {error, Msg}.
-
 %% @private
 to_label([$\s | Cs]) ->
     to_label(Cs);
@@ -754,18 +632,6 @@ read_info_file(Dir) ->
 	    {?NO_APP, []}
     end.
 
-%% URI access
-
-uri_get_info_file(Base) ->
-    URI = join_uri(Base, ?INFO_FILE),
-    case uri_get(URI) of
-	{ok, Text} ->
-	    parse_info_file(Text, URI);
-	{error, Msg} ->
-	    warning("could not read '~ts': ~ts.", [URI, Msg]),
-	    {?NO_APP, []}
-    end.
-
 parse_info_file(Text, Name) ->
     case parse_terms(Text) of
 	{ok, Vs} ->
@@ -897,7 +763,7 @@ find_doc_dirs([]) ->
 
 get_doc_links(App, Modules, Opts) ->
     Path = proplists:append_values(doc_path, Opts) ++ find_doc_dirs(),
-    Ds = [{P, uri_get_info_file(P)} || P <- Path],
+    Ds = [{P, read_info_file(P)} || P <- Path],
     Ds1 = [{"", {App, Modules}} | Ds],
     D = dict:new(),
     make_links(Ds1, D, D).

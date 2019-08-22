@@ -259,10 +259,9 @@ opt_negations() ->
 %%  </dd>
 %%  <dt>{@type {doc_path, [string()]@}}
 %%  </dt>
-%%  <dd>Specifies a list of URI:s pointing to directories that contain
-%%      EDoc-generated documentation. URI without a `scheme://' part are
-%%      taken as relative to `file://'. (Note that such paths must use
-%%      `/' as separator, regardless of the host operating system.)
+%%  <dd>Specifies a list of file system paths pointing to directories that
+%%      contain EDoc-generated documentation. All paths for applications
+%%      in the code path are automatically added.
 %%  </dd>
 %%  <dt>{@type {doclet, Module::atom()@}}
 %%  </dt>
