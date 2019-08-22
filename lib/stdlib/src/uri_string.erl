@@ -1390,17 +1390,7 @@ normalize_percent_encoding(<<$%,C0,C1,Cs/binary>>, Acc) ->
 normalize_percent_encoding(<<C,Cs/binary>>, Acc) ->
     normalize_percent_encoding(Cs, <<Acc/binary, C>>);
 normalize_percent_encoding(<<>>, Acc) ->
-    check_utf8(Acc).
-
-%% Returns Cs if it is utf8 encoded.
-check_utf8(Cs) ->
-    case unicode:characters_to_list(Cs) of
-        {incomplete,_,_} ->
-            throw({error,invalid_utf8,Cs});
-        {error,_,_} ->
-            throw({error,invalid_utf8,Cs});
-        _ -> Cs
-    end.
+    Acc.
 
 %% Convert hex digit to uppercase form
 hex_to_upper(H) when $a =< H, H =< $f ->
