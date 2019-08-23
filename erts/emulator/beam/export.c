@@ -196,6 +196,17 @@ init_export_table(void)
     }
 }
 
+static struct export_entry* init_template(struct export_templ* templ,
+					  Eterm m, Eterm f, unsigned a)
+{
+    templ->entry.ep = &templ->exp;
+    templ->entry.slot.index = -1;
+    templ->exp.info.mfa.module = m;
+    templ->exp.info.mfa.function = f;
+    templ->exp.info.mfa.arity = a;
+    return &templ->entry;
+}
+
 /*
  * Return a pointer to the export entry for the given function,
  * or NULL otherwise.  Notes:
@@ -214,40 +225,14 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a,ErtsCodeIndex code_ix);
 Export*
 erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 {
-    HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
-    int ix;
-    HashBucket* b;
-
-    ix = hval % export_tables[code_ix].htable.size;
-    b = export_tables[code_ix].htable.bucket[ix];
-
-    /*
-     * Note: We have inlined the code from hash.c for speed.
-     */
-	
-    while (b != (HashBucket*) 0) {
-	Export* ep = ((struct export_entry*) b)->ep;
-	if (ep->info.mfa.module == m &&
-            ep->info.mfa.function == f &&
-            ep->info.mfa.arity == a) {
-	    return ep;
-	}
-	b = b->next;
-    }
+    struct export_templ templ;
+    struct export_entry *ee =
+        hash_fetch(&export_tables[code_ix].htable,
+                   init_template(&templ, m, f, a),
+                   (H_FUN)export_hash, (HCMP_FUN)export_cmp);
+    if (ee) return ee->ep;
     return NULL;
 }
-
-static struct export_entry* init_template(struct export_templ* templ,
-					  Eterm m, Eterm f, unsigned a)
-{
-    templ->entry.ep = &templ->exp;
-    templ->entry.slot.index = -1;
-    templ->exp.info.mfa.module = m;
-    templ->exp.info.mfa.function = f;
-    templ->exp.info.mfa.arity = a;
-    return &templ->entry;
-}
-
 
 /*
  * Find the export entry for a loaded function.

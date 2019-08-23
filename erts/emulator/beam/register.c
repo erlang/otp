@@ -265,10 +265,8 @@ Eterm
 erts_whereis_name_to_id(Process *c_p, Eterm name)
 {
     Eterm res = am_undefined;
-    HashValue hval;
-    int ix;
-    HashBucket* b;
     ErtsProcLocks c_p_locks = 0;
+    RegProc *rp, tmpl;
     if (c_p) {
         c_p_locks = ERTS_PROC_LOCK_MAIN;
         ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
@@ -278,29 +276,14 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
     if (c_p && !c_p_locks)
         erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    hval = REG_HASH(name);
-    ix = hval % process_reg.size;
-    b = process_reg.bucket[ix];
+    tmpl.name = name;
+    rp = hash_fetch(&process_reg, &tmpl, (H_FUN)reg_hash, (HCMP_FUN)reg_cmp);
 
-    /*
-     * Note: We have inlined the code from hash.c for speed.
-     */
-	
-    while (b) {
-	RegProc* rp = (RegProc *) b;
-	if (rp->name == name) {
-	    /*
-	     * SMP NOTE: No need to lock registered entity since it cannot
-	     * be removed without acquiring write reg lock and id on entity
-	     * is read only.
-	     */
-	    if (rp->p)
-		res = rp->p->common.id;
-	    else if (rp->pt)
-		res = rp->pt->common.id;
-	    break;
-	}
-	b = b->next;
+    if (rp) {
+        if (rp->p)
+            res = rp->p->common.id;
+        else if (rp->pt)
+            res = rp->pt->common.id;
     }
 
     reg_read_unlock();
@@ -321,10 +304,7 @@ erts_whereis_name(Process *c_p,
 		  Port** port,
                   int lock_port)
 {
-    RegProc* rp = NULL;
-    HashValue hval;
-    int ix;
-    HashBucket* b;
+    RegProc* rp = NULL, tmpl;
     ErtsProcLocks current_c_p_locks;
     Port *pending_port = NULL;
 
@@ -342,21 +322,8 @@ erts_whereis_name(Process *c_p,
      * - current_c_p_locks (either c_p_locks or 0) on c_p
      */
 
-    hval = REG_HASH(name);
-    ix = hval % process_reg.size;
-    b = process_reg.bucket[ix];
-
-    /*
-     * Note: We have inlined the code from hash.c for speed.
-     */
-
-    while (b) {
-	if (((RegProc *) b)->name == name) {
-	    rp = (RegProc *) b;
-	    break;
-	}
-	b = b->next;
-    }
+    tmpl.name = name;
+    rp = hash_fetch(&process_reg, &tmpl, (H_FUN)reg_hash, (HCMP_FUN)reg_cmp);
 
     if (proc) {
 	if (!rp)
@@ -564,18 +531,6 @@ int erts_unregister_name(Process *c_p,
     return res;
 }
 
-int process_reg_size(void)
-{
-    int size;
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	reg_read_lock();
-    size = process_reg.size;
-    if (lock)
-	reg_read_unlock();
-    return size;
-}
-
 int process_reg_sz(void)
 {
     int sz;
@@ -592,15 +547,24 @@ int process_reg_sz(void)
 
 #include "bif.h"
 
+struct registered_foreach_arg {
+    Eterm res;
+    Eterm *hp;
+};
+
+static void
+registered_foreach(RegProc *reg, struct registered_foreach_arg *arg)
+{
+    arg->res = CONS(arg->hp, reg->name, arg->res);
+    arg->hp += 2;
+}
+
 /* return a list of the registered processes */
 
 BIF_RETTYPE registered_0(BIF_ALIST_0)
 {
-    int i;
-    Eterm res;
+    struct registered_foreach_arg arg;
     Uint need;
-    Eterm* hp;
-    HashBucket **bucket;
     ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
 
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(BIF_P);
@@ -608,41 +572,21 @@ BIF_RETTYPE registered_0(BIF_ALIST_0)
     if (!proc_locks)
 	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-    bucket = process_reg.bucket;
-
-    /* work out how much heap we need & maybe garb, by scanning through
-       the registered process table */
-    need = 0;
-    for (i = 0; i < process_reg.size; i++) {
-	HashBucket *b = bucket[i];
-	while (b != NULL) {
-	    need += 2;
-	    b = b->next;
-	}
-    }
+    /* work out how much heap we need */
+    need = process_reg.nobjs * 2;
 
     if (need == 0) {
 	reg_read_unlock();
 	BIF_RET(NIL);
     }
 
-    hp = HAlloc(BIF_P, need);
-     
-     /* scan through again and make the list */ 
-    res = NIL;
+    /* scan through again and make the list */
+    arg.hp = HAlloc(BIF_P, need);
+    arg.res = NIL;
 
-    for (i = 0; i < process_reg.size; i++) {
-	HashBucket *b = bucket[i];
-	while (b != NULL) {
-	    RegProc *reg = (RegProc *) b;
-
-	    res = CONS(hp, reg->name, res);
-	    hp += 2;
-	    b = b->next;
-	}
-    }
+    hash_foreach(&process_reg, (HFOREACH_FUN)registered_foreach, &arg);
 
     reg_read_unlock();
 
-    BIF_RET(res);
+    BIF_RET(arg.res);
 }

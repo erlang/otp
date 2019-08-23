@@ -171,36 +171,33 @@ erts_erase_fun_entry(ErlFunEntry* fe)
     erts_fun_write_unlock();
 }
 
+struct fun_purge_foreach_args {
+    BeamInstr *start;
+    BeamInstr *end;
+};
+
+static void fun_purge_foreach(ErlFunEntry *fe, struct fun_purge_foreach_args *arg)
+{
+    BeamInstr* addr = fe->address;
+    if (arg->start <= addr && addr < arg->end) {
+        fe->pend_purge_address = addr;
+        ERTS_THR_WRITE_MEMORY_BARRIER;
+        fe->address = unloaded_fun;
+#ifdef HIPE
+        fe->pend_purge_native_address = fe->native_address;
+        hipe_set_closure_stub(fe);
+#endif
+        erts_purge_state_add_fun(fe);
+    }
+}
+
 void
 erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end)
 {
-    int limit;
-    HashBucket** bucket;
-    int i;
+    struct fun_purge_foreach_args args = {start, end};
 
     erts_fun_read_lock();
-    limit = erts_fun_table.size;
-    bucket = erts_fun_table.bucket;
-    for (i = 0; i < limit; i++) {
-	HashBucket* b = bucket[i];
-
-	while (b) {
-	    ErlFunEntry* fe = (ErlFunEntry *) b;
-	    BeamInstr* addr = fe->address;
-
-	    if (start <= addr && addr < end) {
-		fe->pend_purge_address = addr;
-		ERTS_THR_WRITE_MEMORY_BARRIER;
-		fe->address = unloaded_fun;
-#ifdef HIPE
-                fe->pend_purge_native_address = fe->native_address;
-                hipe_set_closure_stub(fe);
-#endif
-		erts_purge_state_add_fun(fe);
-	    }
-	    b = b->next;
-	}
-    }
+    hash_foreach(&erts_fun_table, (HFOREACH_FUN)fun_purge_foreach, &args);
     erts_fun_read_unlock();
 }
 
@@ -250,36 +247,34 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
+struct dump_fun_foreach_args {
+    fmtfn_t to;
+    void *to_arg;
+};
+
+static void
+dump_fun_foreach(ErlFunEntry *fe, struct dump_fun_foreach_args *args)
+{
+    erts_print(args->to, args->to_arg, "=fun\n");
+    erts_print(args->to, args->to_arg, "Module: %T\n", fe->module);
+    erts_print(args->to, args->to_arg, "Uniq: %d\n", fe->old_uniq);
+    erts_print(args->to, args->to_arg, "Index: %d\n",fe->old_index);
+    erts_print(args->to, args->to_arg, "Address: %p\n", fe->address);
+#ifdef HIPE
+    erts_print(args->to, args->to_arg, "Native_address: %p\n", fe->native_address);
+#endif
+    erts_print(args->to, args->to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
+}
+
 void
 erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 {
-    int limit;
-    HashBucket** bucket;
-    int i;
+    struct dump_fun_foreach_args args = {to, to_arg};
     int lock = !ERTS_IS_CRASH_DUMPING;
-
 
     if (lock)
 	erts_fun_read_lock();
-    limit = erts_fun_table.size;
-    bucket = erts_fun_table.bucket;
-    for (i = 0; i < limit; i++) {
-	HashBucket* b = bucket[i];
-
-	while (b) {
-	    ErlFunEntry* fe = (ErlFunEntry *) b;
-	    erts_print(to, to_arg, "=fun\n");
-	    erts_print(to, to_arg, "Module: %T\n", fe->module);
-	    erts_print(to, to_arg, "Uniq: %d\n", fe->old_uniq);
-	    erts_print(to, to_arg, "Index: %d\n",fe->old_index);
-	    erts_print(to, to_arg, "Address: %p\n", fe->address);
-#ifdef HIPE
-	    erts_print(to, to_arg, "Native_address: %p\n", fe->native_address);
-#endif
-	    erts_print(to, to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
-	    b = b->next;
-	}
-    }
+    hash_foreach(&erts_fun_table, (HFOREACH_FUN)dump_fun_foreach, &args);
     if (lock)
 	erts_fun_read_unlock();
 }
