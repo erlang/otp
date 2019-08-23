@@ -86,7 +86,12 @@
             L=:=warning orelse
             L=:=notice orelse
             L=:=info orelse
-            L=:=debug)).
+            L=:=debug )).
+
+-define(IS_LEVEL_ALL(L),
+        ?IS_LEVEL(L) orelse
+            L=:=all orelse
+			L=:=none ).
 
 -define(IS_MSG(Msg),
         ((is_tuple(Msg) andalso tuple_size(Msg)==2)
