@@ -600,11 +600,11 @@ get_module_level() ->
 %%%-----------------------------------------------------------------
 %%% Misc
 -spec compare_levels(Level1,Level2) -> eq | gt | lt when
-      Level1 :: level(),
-      Level2 :: level().
-compare_levels(Level,Level) when ?IS_LEVEL(Level) ->
+      Level1 :: level() | all | none,
+      Level2 :: level() | all | none.
+compare_levels(Level,Level) when ?IS_LEVEL_ALL(Level) ->
     eq;
-compare_levels(Level1,Level2) when ?IS_LEVEL(Level1), ?IS_LEVEL(Level2) ->
+compare_levels(Level1,Level2) when ?IS_LEVEL_ALL(Level1), ?IS_LEVEL_ALL(Level2) ->
     Int1 = logger_config:level_to_int(Level1),
     Int2 = logger_config:level_to_int(Level2),
     if Int1 < Int2 -> gt;
@@ -950,7 +950,7 @@ get_logger_type(Env) ->
 
 get_logger_level() ->
     case application:get_env(kernel,logger_level,info) of
-        Level when ?IS_LEVEL(Level); Level=:=all; Level=:=none ->
+        Level when ?IS_LEVEL_ALL(Level) ->
             Level;
         Level ->
             throw({logger_level, Level})
