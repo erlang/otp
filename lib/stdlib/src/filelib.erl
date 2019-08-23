@@ -281,6 +281,14 @@ do_wildcard_2([], _, Result, _Mod) ->
 
 do_wildcard_3(Base, [[double_star]|Rest], Result, Mod) ->
     do_double_star(".", [Base], Rest, Result, Mod, true);
+do_wildcard_3(Base, [".."|Rest], Result, Mod) ->
+    case do_is_dir(Base, Mod) of
+        true ->
+            Matches = [filename:join(Base, "..")],
+            do_wildcard_2(Matches, Rest, Result, Mod);
+        false ->
+            Result
+    end;
 do_wildcard_3(Base0, [Pattern|Rest], Result, Mod) ->
     case do_list_dir(Base0, Mod) of
 	{ok, Files} ->
@@ -387,14 +395,28 @@ compile_wildcard(Pattern0, Cwd0) ->
     end.
 
 compile_wildcard_2([Part|Rest], Root) ->
-    case compile_part(Part) of
-	Part ->
-	    compile_wildcard_2(Rest, compile_join(Root, Part));
-	Pattern ->
-	    compile_wildcard_3(Rest, [Pattern,Root])
+    Pattern = compile_part(Part),
+    case is_literal_pattern(Pattern) of
+        true ->
+            %% Add this literal pattern to the literal pattern prefix.
+            %% This is an optimization to avoid listing all files of
+            %% a directory only to discard all but one. For example,
+            %% without this optimizaton, there would be three
+            %% redundant directory listings when executing this
+            %% wildcard: "./lib/compiler/ebin/*.beam"
+            compile_wildcard_2(Rest, compile_join(Root, Pattern));
+        false ->
+            %% This is the end of the literal prefix. Compile the
+            %% rest of the pattern.
+            compile_wildcard_3(Rest, [Pattern,Root])
     end;
 compile_wildcard_2([], {root,PrefixLen,Root}) ->
     {{exists,Root},PrefixLen}.
+
+is_literal_pattern([H|T]) ->
+    is_integer(H) andalso is_literal_pattern(T);
+is_literal_pattern([]) ->
+    true.
 
 compile_wildcard_3([Part|Rest], Result) ->
     compile_wildcard_3(Rest, [compile_part(Part)|Result]);
