@@ -28,7 +28,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{seconds,10}}].
 
 all() ->
     [{group, start},
@@ -38,7 +38,8 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, event_types, generic_timers, code_change,
+     state_timeout, timeout_cancel_and_update,
+     event_types, generic_timers, code_change,
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
      undef_in_terminate].
@@ -518,10 +519,11 @@ abnormal2(Config) ->
           ?MODULE, start_arg(Config, []), [{debug,[log]}]),
 
     %% bad return value in the gen_statem loop
-    {{{bad_return_from_state_function,badreturn},_},_} =
+    Cause = bad_return_from_state_function,
+    {{{Cause,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
-	{'EXIT',Pid,{{bad_return_from_state_function,badreturn},_}} -> ok
+	{'EXIT',Pid,{{Cause,badreturn},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -538,10 +540,11 @@ abnormal3(Config) ->
           ?MODULE, start_arg(Config, []), [{debug,[log]}]),
 
     %% bad return value in the gen_statem loop
-    {{{bad_action_from_state_function,badaction},_},_} =
+    Cause = bad_action_from_state_function,
+    {{{Cause,badaction},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badaction), Reason),
     receive
-	{'EXIT',Pid,{{bad_action_from_state_function,badaction},_}} -> ok
+	{'EXIT',Pid,{{Cause,badaction},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -559,10 +562,11 @@ abnormal4(Config) ->
 
     %% bad return value in the gen_statem loop
     BadTimeout = {badtimeout,4711,ouch},
-    {{{bad_action_from_state_function,BadTimeout},_},_} =
-	?EXPECT_FAILURE(gen_statem:call(Pid, BadTimeout), Reason),
+    Cause = bad_action_from_state_function,
+    {{{Cause,BadTimeout},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, {badtimeout,BadTimeout}), Reason),
     receive
-	{'EXIT',Pid,{{bad_action_from_state_function,BadTimeout},_}} -> ok
+	{'EXIT',Pid,{{Cause,BadTimeout},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -875,7 +879,6 @@ state_timeout(_Config) ->
     {ok,STM} =
         gen_statem:start_link(
           ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
-    sys:trace(STM, true),
     TRef = erlang:start_timer(1000, self(), kull),
     ok = gen_statem:call(STM, {go,500}),
     ok = gen_statem:call(STM, check),
@@ -898,6 +901,88 @@ state_timeout(_Config) ->
     end,
 
     verify_empty_msgq().
+
+
+
+timeout_cancel_and_update(_Config) ->
+    process_flag(trap_exit, true),
+    %%
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,0}
+	      end,
+	  start =>
+	      fun
+		  ({call,From}, test, 0)  ->
+		      self() ! message_to_self,
+		      {next_state, state1, From,
+		       %% Verify that internal events goes before external
+		       [{state_timeout,17,1},
+			{next_event,internal,1}]}
+	      end,
+	  state1 =>
+	      fun
+		  (internal, 1, _) ->
+                      {keep_state_and_data,
+                       [{state_timeout,cancel},
+                        {{timeout,a},17,1}]};
+                  (info, message_to_self, _) ->
+                      {keep_state_and_data,
+                       [{{timeout,a},update,a}]};
+                  ({timeout,a}, a, Data) ->
+                      {next_state,state2,Data,
+                       [{state_timeout,17,2},
+                        {next_event,internal,2}]}
+              end,
+	  state2 =>
+	      fun
+		  (internal, 2, _) ->
+                      receive after 50 -> ok end,
+                      %% Now state_timeout 17 should have triggered
+                      {keep_state_and_data,
+                       [{state_timeout,update,b},
+                        {timeout,17,2}]};
+                  (state_timeout, b, From) ->
+                      {next_state,state3,3,
+                       [{reply,From,ok},
+                        17000]}
+	      end,
+          state3 =>
+              fun
+                  ({call,From}, stop, 3) ->
+                      {stop_and_reply, normal,
+                       [{reply,From,ok}]}
+              end
+         },
+    %%
+    {ok,STM} =
+        gen_statem:start_link(
+          ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+    ok = gen_statem:call(STM, test),
+    {status, STM, {module,gen_statem}, Info} = sys:get_status(STM),
+    ct:log("Status info: ~p~n", [Info]),
+    {_,Timeouts} = dig_data_tuple(Info),
+    {_, {1,[{timeout,17000}]}} = lists:keyfind("Time-outs", 1, Timeouts),
+    %%
+    ok = gen_statem:call(STM, stop),
+    receive
+	{'EXIT',STM,normal} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+    %%
+    verify_empty_msgq().
+
+dig_data_tuple([{data,_} = DataTuple|_]) -> DataTuple;
+dig_data_tuple([H|T]) when is_list(H) ->
+    case dig_data_tuple(H) of
+        false -> dig_data_tuple(T);
+        DataTuple -> DataTuple
+    end;
+dig_data_tuple([_|T]) -> dig_data_tuple(T);
+dig_data_tuple([]) -> false.
 
 
 
@@ -1895,7 +1980,7 @@ idle({call,_From}, badreturn, _Data) ->
     badreturn;
 idle({call,_From}, badaction, Data) ->
     {keep_state, Data, [badaction]};
-idle({call,_From}, {badtimeout,_,_} = BadTimeout, Data) ->
+idle({call,_From}, {badtimeout,BadTimeout}, Data) ->
     {keep_state, Data, BadTimeout};
 idle({call,From}, {delayed_answer,T}, Data) ->
     receive

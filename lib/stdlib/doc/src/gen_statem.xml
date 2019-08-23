@@ -57,19 +57,37 @@
       containing detailed facts that may rot by age.
     </p>
     <note>
-      <p>
-        This behavior appeared in Erlang/OTP 19.0.
-	In OTP 19.1 a backwards incompatible change of
-	the return tuple from
-	<seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
-	was made and the mandatory callback function
-	<seealso marker="#Module:callback_mode/0">
-	  <c>Module:callback_mode/0</c>
-	</seealso>
-	was introduced.  In OTP 20.0 the
-        <seealso marker="#type-generic_timeout"><c>generic timeouts</c></seealso>
-	were added.
-      </p>
+      <list type="bulleted">
+	<item>This behavior appeared in Erlang/OTP 19.0.</item>
+	<item>
+	  In OTP 19.1 a backwards incompatible change of
+	  the return tuple from
+	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+	  was made and the mandatory callback function
+	  <seealso marker="#Module:callback_mode/0">
+	    <c>Module:callback_mode/0</c>
+	  </seealso>
+	  was introduced.
+	</item>
+	<item>
+	   In OTP 20.0
+           <seealso marker="#type-generic_timeout">
+	     generic time-outs
+	   </seealso>
+	   were added.
+	</item>
+	<item>
+	  In OTP 22.1 time-out content
+          <seealso marker="#type-timeout_update_action">
+	    <c>update</c>
+	  </seealso>
+	  and explicit time-out
+          <seealso marker="#type-timeout_cancel_action">
+	    <c>cancel</c>
+	  </seealso>
+	  were added.
+	</item>
+      </list>
     </note>
     <p>
       <c>gen_statem</c> has got the same features that
@@ -653,7 +671,7 @@ handle_event(_, _, State, Data) ->
       <name name="timeout_event_type"/>
       <desc>
 	<p>
-	  There are 3 types of timeout events that the state machine
+	  There are 3 types of time-out events that the state machine
 	  can generate for itself with the corresponding
 	  <seealso marker="#type-timeout_action">timeout_action()</seealso>s.
 	</p>
@@ -1176,7 +1194,7 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#enter_loop/5"><c>enter_loop/5,6</c></seealso>.
 	</p>
 	<p>
-	  These timeout actions sets timeout
+	  These time-out actions sets time-out
 	  <seealso marker="#type-transition_option">transition options</seealso>.
 	</p>
 	<taglist>
@@ -1226,6 +1244,36 @@ handle_event(_, _, State, Data) ->
 	    </p>
 	  </item>
 	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout_cancel_action" since="OTP @OTP-15510@"/>
+      <desc>
+	<p>
+	  This is a shorter and clearer form of
+	  <seealso marker="#type-timeout_action">
+	    timeout_action()
+	  </seealso>
+	  with <c>Time = infinity</c> which cancels a time-out.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout_update_action" since="OTP @OTP-15510@"/>
+      <desc>
+	<p>
+	  Updates a time-out with a new <c>EventContent</c>.
+	  See
+	  <seealso marker="#type-timeout_action">
+	    timeout_action()
+	  </seealso>
+	  for how to start a time-out.
+	</p>
+	<p>
+	  If no time-out of the same type is active instead
+	  insert the time-out event just like when starting
+	  a time-out with relative <c>Time = 0</c>.
+	</p>
       </desc>
     </datatype>
     <datatype>

@@ -561,34 +561,48 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       </item>
       <tag>
 	<seealso marker="stdlib:gen_statem#type-state_timeout">
-	  <c>{state_timeout, EventContent, Time}</c>
+	  <c>{state_timeout, Time, EventContent}</c>
 	</seealso>
 	<br />
-	<c>{state_timeout, EventContent, Time, Opts}</c>
+	<c>{state_timeout, Time, EventContent, Opts}</c><br />
+	<seealso marker="stdlib:gen_statem#type-timeout_update_action">
+	  <c>{state_timeout, update, EventContent}</c>
+	</seealso>
+	<br />
+	<seealso marker="stdlib:gen_statem#type-timeout_cancel_action">
+	  <c>{state_timeout, cancel}</c>
+	</seealso>
       </tag>
       <item>
-	Start a state time-out, read more in sections
+	Start, update or cancel a state time-out, read more in sections
 	<seealso marker="#Time-Outs">Time-Outs</seealso> and
 	<seealso marker="#State Time-Outs">State Time-Outs</seealso>.
       </item>
       <tag>
 	<seealso marker="stdlib:gen_statem#type-generic_timeout">
-	  <c>{{timeout, Name}, EventContent, Time}</c>
+	  <c>{{timeout, Name}, Time, EventContent}</c>
 	</seealso>
 	<br />
-	<c>{{timeout, Name}, EventContent, Time, Opts}</c>
+	<c>{{timeout, Name}, Time, EventContent, Opts}</c><br />
+	<seealso marker="stdlib:gen_statem#type-timeout_update_action">
+	  <c>{{timeout, Name}, update, EventContent}</c>
+	</seealso>
+	<br />
+	<seealso marker="stdlib:gen_statem#type-timeout_cancel_action">
+	  <c>{{timeout, Name}, cancel}</c>
+	</seealso>
       </tag>
       <item>
-	Start a generic time-out, read more in sections
+	Start, update or cancel a generic time-out, read more in sections
 	<seealso marker="#Time-Outs">Time-Outs</seealso> and
 	<seealso marker="#Generic Time-Outs">Generic Time-Outs</seealso>.
       </item>
       <tag>
 	<seealso marker="stdlib:gen_statem#type-event_timeout">
-	  <c>{timeout, EventContent, Time}</c>
+	  <c>{timeout, Time, EventContent}</c>
 	</seealso>
 	<br />
-	<c>{timeout, EventContent, Time, Opts}</c><br />
+	<c>{timeout, Time, EventContent, Opts}</c><br />
 	<c>Time</c>
       </tag>
       <item>
@@ -844,9 +858,9 @@ StateName(EventType, EventContent, Data) ->
       </item>
     </taglist>
     <p>
-      When a time-out is started any running time-out with the same tag,
+      When a time-out is started any running time-out of the same type;
       <c>state_timeout</c>, <c>{timeout, Name}</c> or <c>timeout</c>,
-      is cancelled, that is the time-out is restarted with the new time.
+      is cancelled, that is, the time-out is restarted with the new time.
     </p>
     <p>
       All time-outs has got an <c>EventContent</c> that is part of the
@@ -868,6 +882,32 @@ StateName(EventType, EventContent, Data) ->
 	running time-out with the same tag will be cancelled.
 	The <c>EventContent</c> will in this case be ignored,
 	so why not set it to <c>undefined</c>.
+      </p>
+      <p>
+	A more explicit way to cancel a timer is to use
+	a <em>transition action</em> on the form
+	<seealso marker="stdlib:gen_statem#type-timeout_cancel_action">
+	  <c>{TimeoutType, cancel}</c>
+	</seealso>
+	which is a feature introduced in OTP 22.1.
+      </p>
+    </section>
+    <section>
+      <marker id="Updating a Time-Out" />
+      <title>Updating a Time-Out</title>
+      <p>
+	While a time-out is running, its <c>EventContent</c>
+	can be updated using a <em>transition action</em> on the form
+	<seealso marker="stdlib:gen_statem#type-timeout_update_action">
+	  <c>{TimeoutType, update, NewEventContent}</c>
+	</seealso>
+	which is a feature introduced in OTP 22.1.
+      </p>
+      <p>
+	If this feature is used while no such <c>TimeoutType</c>
+	is running then a time-out event is immediately delivered
+	as when starting a
+	<seealso marker="#Time-Out Zero">Time-Out Zero</seealso>.
       </p>
     </section>
     <section>
@@ -1200,10 +1240,12 @@ open(state_timeout, lock,  Data) ->
     <p>
       The timer for a state time-out is automatically cancelled
       when the state machine does a <em>state change</em>.
-      You can restart a state time-out by setting it to a new time,
-      which cancels the running timer and starts a new.
-      This implies that you can cancel a state time-out
-      by restarting it with time <c>infinity</c>.
+    </p>
+    <p>
+      You can restart, cancel or update a state time-out.
+      See section
+      <seealso marker="#Time-Outs">Time-Outs</seealso>
+      for details.
     </p>
   </section>
 
@@ -1472,12 +1514,13 @@ locked(
     <p>
       An event time-out is cancelled by any other event so you either
       get some other event or the time-out event.  It is therefore
-      not possible nor needed to cancel or restart an event time-out.
-      Whatever event you act on has already cancelled
-      the event time-out...
+      not possible nor needed to cancel, restart or update an event time-out.
+      Whatever event you act on has already cancelled the event time-out,
+      so there is never a running event time-out
+      while the <em>state callback</em> executes.
     </p>
     <p>
-      Note that an event time-out does not work well with
+      Note that an event time-out does not work well
       when you have for example a status call as in section
       <seealso marker="#All State Events">All State Events</seealso>,
       or handle unknown events, since all kinds of events
@@ -1547,6 +1590,12 @@ open(cast, {button,_}, Data) ->
       Instead of bothering with when to cancel a time-out,
       a late time-out event can be handled by ignoring it
       if it arrives in a state where it is known to be late.
+    </p>
+    <p>
+      You can restart, cancel or update a generic time-out.
+      See section
+      <seealso marker="#Time-Outs">Time-Outs</seealso>
+      for details.
     </p>
   </section>
 
