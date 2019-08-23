@@ -2212,6 +2212,16 @@ check_sane_openssl_renegotaite(Config) ->
 	    Config
     end.
 
+openssl_allows_client_renegotaite(Config) ->
+     case os:cmd("openssl version") of  
+	"OpenSSL 1.1" ++ _ ->
+	    {skip, "OpenSSL does not allow client renegotiation"};
+	"LibreSSL 2" ++ _ ->
+	    {skip, "LibreSSL does not allow client renegotiation"};
+         _ ->
+             Config
+     end.
+
 workaround_openssl_s_clinent() ->
     %% http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=683159
     %% https://bugs.archlinux.org/task/33919
@@ -2777,17 +2787,6 @@ new_config(PrivDir, ServerOpts0) ->
     [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
      {keyfile, NewKeyFile} | ServerOpts].
 
-sane_openssl_alpn_npn_renegotiate() ->
-     case os:cmd("openssl version") of 
-         "LibreSSL 2.9.1" ++ _ ->
-             false;
-         "LibreSSL 2.6.4" ++ _ ->
-             false;
-         "OpenSSL 1.1.1a-freebsd" ++ _ ->
-             false;
-         _  ->
-             true
-     end.
 
 openssl_sane_dtls_alpn() ->
     case os:cmd("openssl version") of
