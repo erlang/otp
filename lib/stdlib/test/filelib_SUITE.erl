@@ -79,9 +79,11 @@ wildcard_one(Config) when is_list(Config) ->
     do_wildcard_1(Dir,
 		  fun(Wc) ->
 			  L = filelib:wildcard(Wc),
+			  L = filelib:wildcard(disable_prefix_opt(Wc)),
 			  L = filelib:wildcard(Wc, erl_prim_loader),
 			  L = filelib:wildcard(Wc, "."),
 			  L = filelib:wildcard(Wc, Dir),
+			  L = filelib:wildcard(disable_prefix_opt(Wc), Dir),
 			  L = filelib:wildcard(Wc, Dir++"/.")
 		  end),
     file:set_cwd(OldCwd),
@@ -118,6 +120,14 @@ wcc(Wc, Error) ->
 	     [{filelib,wildcard,1,_}|_]}} = (catch filelib:wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
 	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
+
+disable_prefix_opt([C|Wc]) when $a =< C, C =< $z; C =:= $@ ->
+    %% There is an optimization for patterns that have a literal prefix
+    %% (such as "lib/compiler/ebin/*"). Test that we'll get the same result
+    %% if we disable that optimization.
+    [$[, C, $] | Wc];
+disable_prefix_opt(Wc) ->
+    Wc.
 
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),
@@ -300,6 +310,30 @@ do_wildcard_10(Dir, Wcf) ->
     end,
 
     del(Files),
+    wildcard_11(Dir, Wcf).
+
+%% ERL-ERL-1029/OTP-15987: Fix problems with "@/.." and ".." in general.
+wildcard_11(Dir, Wcf) ->
+    Dirs0 = ["@","@dir","dir@"],
+    Dirs = [filename:join(Dir, D) || D <- Dirs0],
+    _ = [ok = file:make_dir(D) || D <- Dirs],
+    Files0 = ["@a","b@","x","y","z"],
+    Files = mkfiles(Files0, Dir),
+
+    ["@","@a","@dir","b@","dir@","x","y","z"] = Wcf("*"),
+    ["@"] = Wcf("@"),
+    ["@","@a","@dir"] = Wcf("@*"),
+    ["@/..","@dir/.."] = Wcf("@*/.."),
+    ["@/../@","@/../@a","@/../@dir",
+     "@dir/../@","@dir/../@a","@dir/../@dir"] = Wcf("@*/../@*"),
+
+    %% Non-directories followed by "/.." should not match any files.
+    [] = Wcf("@a/.."),
+    [] = Wcf("x/.."),
+
+    %% Cleanup.
+    del(Files),
+    [ok = file:del_dir(D) || D <- Dirs],
     ok.
 
 fold_files(Config) when is_list(Config) ->
