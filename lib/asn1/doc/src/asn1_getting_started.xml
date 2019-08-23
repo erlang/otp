@@ -165,7 +165,7 @@ erlc -bber ../Example.asn
 erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn</pre>
       <p>Useful options for the ASN.1 compiler:</p>
       <taglist>
-        <tag><c>-b[ber | per | uper]</c></tag>
+        <tag><c>-b[ber | per | uper | jer]</c></tag>
         <item>
           <p>Choice of encoding rules. If omitted, <c>ber</c> is the
           default.</p>
@@ -185,7 +185,15 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn</pre>
         </item>
         <tag><c>+der</c></tag>
         <item>
-          <p>DER encoding rule. Only when using option <c>-ber</c>.</p>
+          <p>DER encoding rule. Only when using option <c>-bber</c>.</p>
+        </item>
+        <tag><c>+jer</c></tag>
+        <item>
+          <p>Functions <c>jer_encode/2</c> and <c>jer_decode/2</c> for
+	  JSON encoding rules are generated together with functions for
+	  <c>ber</c> or <c>per</c>. Only to be used when the main encoding
+	  option is <c>-bber</c>, <c>-bper</c> or <c>-buper</c> 
+	  </p>
         </item>
         <tag><c>+maps</c></tag>
         <item>

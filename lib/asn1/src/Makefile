@@ -59,6 +59,7 @@ CT_MODULES= \
 	asn1ct_constructed_per \
 	asn1ct_constructed_ber_bin_v2 \
 	asn1ct_gen_ber_bin_v2 \
+	asn1ct_gen_jer \
 	asn1ct_imm \
 	asn1ct_rtt \
 	asn1ct_value \
@@ -173,6 +174,7 @@ RT_TEMPLATES = asn1rtt_check \
 	       asn1rtt_per_common \
                asn1rtt_real_common \
 	       asn1rtt_ber \
+               asn1rtt_jer \
 	       asn1rtt_per \
 	       asn1rtt_uper
 
