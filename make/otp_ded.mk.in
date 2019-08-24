@@ -1,0 +1,49 @@
+#-*-makefile-*-   ; force emacs to enter makefile-mode
+# ----------------------------------------------------
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2009-2013. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+# The version.
+#
+# Note that it is important that the version is
+# explicitly expressed here. Some applications need to
+# be able to check this value *before* configure has
+# been run and generated otp_ded.mk
+DED_MK_VSN = 2
+# ----------------------------------------------------
+# Variables needed for building Dynamic Erlang Drivers
+# ----------------------------------------------------
+DED_CC = @DED_CC@
+DED_GCC = @DED_GCC@
+DED_LD = @DED_LD@
+DED_LDFLAGS = @DED_LDFLAGS@
+DED_BASIC_CFLAGS = @DED_CFLAGS@
+DED_THR_DEFS = @DED_THR_DEFS@
+DED_WERRORFLAGS = @DED_WERRORFLAGS@
+DED_WARN_FLAGS = @DED_WARN_FLAGS@
+DED_CFLAGS = @DED_CFLAGS@
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH = @DED_LD_FLAG_RUNTIME_LIBRARY_PATH@
+DED_STATIC_CFLAGS = @DED_STATIC_CFLAGS@
+DED_LIBS = @DED_LIBS@
+DED_EXT = @DED_EXT@
+DED_OSTYPE = @DED_OSTYPE@
+PRIVDIR = ../priv
+OBJDIR = $(PRIVDIR)/obj/$(TARGET)
+LIBDIR = $(PRIVDIR)/lib/$(TARGET)
+DED_SYS_INCLUDE = @DED_SYS_INCLUDE@
+DED_INCLUDES = @DED_INCLUDE@

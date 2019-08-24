@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<!-- %EricssonCopyright% -->
+<chapter>
+  <header>
+    <copyright>
+      <year>2013</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The program may be used and/or copied only with the written permission from
+      Ericsson AB, or in accordance with the terms and conditions stipulated in
+      the agreement/contract under which the program has been supplied.
+    </legalnotice>
+    <title>Secure Shell (SSH)</title>
+    <prepared>OTP</prepared>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>ssh_protocol.xml</file>
+  </header>
+
+  <section>
+    <title>SSH Protocol Overview</title>
+
+    <p> Conceptually the SSH protocol can be partitioned into four
+    layers:</p>
+
+    <image file="SSH_protocols.png">
+      <icaption>SSH Protocol Architecture</icaption>
+    </image>
+
+    <section>
+      <title>Transport Protocol</title>
+
+      <p> The SSH Transport Protocol is a secure, low level transport.
+      It provides strong encryption, cryptographic host
+      authentication and integrity protection. Currently, only a
+      minimum of MAC- (message authentication code, a short piece of
+      information used to authenticate a message) and encryption
+      algorithms are supported see <seealso marker="ssh">ssh(3)</seealso>
+      </p>
+    </section>
+
+    <section>
+      <title>Authentication Protocol</title>
+
+      <p>The SSH authentication protocol is a general-purpose user
+      authentication protocol run over the SSH transport
+      protocol. Erlang SSH supports user authentication using public
+      key technology (RSA and DSA, X509-certificates are currently not
+      supported). It is also possible to use a so called keyboard
+      interactive authentication. This method is suitable for
+      interactive authentication methods that do not need any special
+      software support on the client side. Instead, all authentication
+      data should be entered via the keyboard. It is also possible
+      to use a pure password based authentication scheme, note that in
+      this case the the plain text password will be encrypted before sent
+      over the network. There are several configuration options for
+      authentication handling available in
+      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
+      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>
+      It is also possible to customize the public key handling
+      by implementing the behaviours <seealso
+      marker="ssh_client_key_api">ssh_client_key_api</seealso> and
+      <seealso
+	  marker="ssh_server_key_api">ssh_server_key_api</seealso>
+      </p>
+    </section>
+
+    <section>
+      <title>Connection Protocol</title>
+
+      <p>The SSH Connection Protocol provides application-support
+      services over the transport pipe, such as channel multiplexing,
+      flow control, remote program execution, signal propagation,
+      connection forwarding, etc.  Functions for handling the SSH
+      Connection Protocol can be found in the module <seealso
+      marker="ssh_connection">ssh_connection</seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>Channels</title>
+
+      <p>All terminal sessions, forwarded connections etc., are
+      channels.  Multiple channels are multiplexed into a single
+      connection, and all channels are flow-controlled.  Typically an
+      SSH client will open a channel, send data/commands, receive
+      data/"control information" and when it is done close the
+      channel. The 
+      <seealso marker="ssh_client_channel">ssh_client_channel</seealso> / 
+      <seealso marker="ssh_server_channel">ssh_server_channel</seealso> (Replaces ssh_daemon_channel)
+      behaviours makes it easy to
+      write your own SSH client/server processes that use flow
+      control. It handles generic parts of SSH channel management and
+      lets you focus on the application logic.
+      </p>
+
+      <p>Channels comes in three flavors</p>
+
+      <list type="bulleted">
+	<item><em>Subsystem</em> - named services that can be run as
+	part of an SSH server such as SFTP <seealso
+	marker="ssh_sftpd">ssh_sftpd</seealso>, that is built in to the
+	SSH daemon (server) by default but may be disabled. The Erlang SSH
+	daemon may be configured to run any Erlang
+	implemented SSH subsystem.
+	</item>
+	<item><em>Shell</em> - interactive shell.  By default the
+	Erlang daemon will run the Erlang shell. It is
+	possible to customize the shell by providing your own
+	read-eval-print loop. It is also possible, but much more work,
+	to provide your own CLI (Command Line Interface) implementation.
+	</item>
+	<item><em>Exec</em> - one-time remote execution of commands. See <seealso
+	marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso></item>
+      </list>
+    </section>
+
+    <p>Channels are flow controlled.  No data may be sent to a channel
+    peer until a message is received to indicate that window space is
+    available.  The 'initial window size' specifies how many bytes of
+    channel data that can be sent to the channel peer without adjusting the
+    window.
+    </p>
+
+    <p>
+      For more detailed information about the SSH protocol, see the
+      following RFCs:
+    </p>
+
+    <list type="bulleted">
+      <item><url href="http://www.ietf.org/rfc/rfc4250.txt">RFC 4250</url> -
+      Protocol Assigned Numbers.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4251.txt">RFC 4251</url> -
+      Protocol Architecture.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4252.txt">RFC 4252</url> -
+      Authentication Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4253.txt">RFC 4253</url> -
+      Transport Layer Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> -
+      Connection Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</url> -
+      Transport Layer Encryption Modes.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</url> -
+      Public Key File Format.</item>
+    </list>
+  </section>
+</chapter>

@@ -1,0 +1,154 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+usage="
+Usage:
+  Install [-cross] [-minimal|-sasl] <ERL_ROOT>
+"
+start_option=query
+unset cross
+while [ $# -ne 0 ]; do
+	case $1 in
+		-minimal) start_option=minimal ;;
+		-sasl)    start_option=sasl    ;;
+		-cross)   cross=yes            ;;
+		*)        ERL_ROOT=$1          ;;
+	esac
+	shift
+done
+
+if [ -z "$cross" ]
+then
+    TARGET_ERL_ROOT="$ERL_ROOT"
+else
+    TARGET_ERL_ROOT="$ERL_ROOT"
+    ERL_ROOT=`pwd`
+fi
+
+if [ -z "$ERL_ROOT" -o ! -d "$ERL_ROOT" ]
+then
+    echo "Install: need <ERL_ROOT> directory as argument" >&2
+    echo $usage >&2
+    exit 1
+fi
+
+case ":$ERL_ROOT" in
+    :/*)
+       ;;
+    *)
+       echo "Install: need an absolute path to <ERL_ROOT>" >&2
+       echo $usage >&2
+       exit 1
+       ;;
+esac
+
+if [ ! -d "$ERL_ROOT/erts-%I_VSN%/bin" ]
+then
+    echo "Install: The directory $ERL_ROOT/erts-%I_VSN%/bin does not exist" >&2
+    echo "         Bad location or erts module not un-tared" >&2
+    echo $usage >&2
+    exit 1
+fi
+
+if [ ! -d "$ERL_ROOT/bin" ]
+then
+    mkdir "$ERL_ROOT/bin"
+fi
+
+cd "$ERL_ROOT/erts-%I_VSN%/bin"
+
+sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" erl.src > erl
+chmod 755 erl
+
+#
+# Create start file for embedded system use,
+#
+(cd "$ERL_ROOT/erts-%I_VSN%/bin";
+  sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" start.src > start;
+  chmod 755 start)
+
+cd "$ERL_ROOT/bin"
+
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/erlc" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/dialyzer" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/typer" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/ct_run" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/escript" .
+
+#
+# Set a soft link to epmd
+# This should not be done for an embedded system!
+#
+
+# Remove old links first.
+if [ -h epmd ]; then
+  /bin/rm -f epmd
+fi
+
+ln -s ../erts-%I_VSN%/bin/epmd epmd
+
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/run_erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/to_erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/start" .
+sed -e "s;%EMU%;%EMULATOR%%EMULATOR_NUMBER%;" "$ERL_ROOT/erts-%I_VSN%/bin/start_erl.src" > start_erl
+chmod 755 start_erl
+echo ""
+
+echo %I_VSN% %I_SYSTEM_VSN% > "$ERL_ROOT/releases/start_erl.data"
+sed -e "s;%ERL_ROOT%;$TARGET_ERL_ROOT;" "$ERL_ROOT/releases/RELEASES.src" > "$ERL_ROOT/releases/RELEASES"
+
+if [ "$start_option" = "query" ]
+then
+    echo "Do you want to use a minimal system startup"
+    echo "instead of the SASL startup? (y/n) [n]: " | tr -d '\012'
+    read reply
+    case $reply in
+    [Yy]*)
+	start_option=minimal ;;
+    *)
+	start_option=sasl ;;
+    esac
+fi
+
+case $start_option in
+    minimal)
+	Name=start_clean ;;
+    sasl)
+	Name=start_sasl  ;;
+    *)
+	Name=start_sasl  ;;
+esac
+
+cp -p ../releases/%I_SYSTEM_VSN%/start_*.boot .
+cp -p ../releases/%I_SYSTEM_VSN%/no_dot_erlang.boot .
+cp -p $Name.boot start.boot
+cp -p ../releases/%I_SYSTEM_VSN%/$Name.script start.script
+#
+# Fixing the man pages
+#
+
+if [ -d "$ERL_ROOT/man" ]
+then
+    cd "$ERL_ROOT"
+    ./misc/format_man_pages "$ERL_ROOT"
+fi
+
+exit 0

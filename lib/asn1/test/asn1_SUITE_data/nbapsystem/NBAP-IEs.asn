@@ -1,0 +1,4127 @@
+--******************************************************************************
+--
+-- Information Element Definitions
+--
+--******************************************************************************
+
+NBAP-IEs {
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) nbap (2) version1 (1) nbap-IEs (2) }
+
+DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+IMPORTS
+	maxNrOfRLs,
+	maxNrOfTFCs,
+	maxNrOfErrors,
+	maxCTFC,
+	maxNrOfTFs,
+	maxTTI-count,
+	maxRateMatching,
+	maxCodeNrComp-1,
+	maxHS-PDSCHCodeNrComp-1,
+	maxHS-SCCHCodeNrComp-1,
+	maxNrOfCellSyncBursts,
+	maxNrOfCodeGroups,
+	maxNrOfMeasNCell,
+	maxNrOfMeasNCell-1,
+	maxNrOfReceptsPerSyncFrame,
+	maxNrOfTFCIGroups,
+	maxNrOfTFCI1Combs,
+	maxNrOfTFCI2Combs,
+	maxNrOfTFCI2Combs-1,
+	maxNrOfSF,
+	maxTGPS,
+	maxNrOfUSCHs,
+	maxNrOfULTSs,
+	maxNrOfULTSLCRs,
+	maxNrOfDPCHs,
+	maxNrOfDPCHLCRs,
+	maxNrOfCodes,
+	maxNrOfDSCHs,
+	maxNrOfDLTSs,
+	maxNrOfDLTSLCRs,
+	maxNrOfDCHs,
+	maxNrOfLevels,
+	maxNoGPSItems,
+	maxNoSat,
+	maxNrOfCellPortionsPerCell,
+	maxNrOfCellPortionsPerCell-1,
+	maxNrOfHSSCCHs,
+	maxNrOfHSSCCHCodes,
+	maxNrOfMACdFlows,
+	maxNrOfMACdFlows-1,
+	maxNrOfMACdPDUIndexes,
+	maxNrOfMACdPDUIndexes-1,
+	maxNrOfPriorityQueues,
+	maxNrOfPriorityQueues-1,
+	maxNrOfHARQProcesses,
+	maxNrOfSyncDLCodesLCR,
+	maxNrOfSyncFramesLCR,
+	maxNrOfContextsOnUeList,
+	maxNrOfPriorityClasses,
+	maxNrOfSatAlmanac-maxNoSat,
+
+	id-MessageStructure,
+	id-ReportCharacteristicsType-OnModification,
+	id-Rx-Timing-Deviation-Value-LCR,
+	id-SFNSFNMeasurementValueInformation,
+	id-SFNSFNMeasurementThresholdInformation,
+	id-TUTRANGPSMeasurementValueInformation,
+	id-TUTRANGPSMeasurementThresholdInformation,
+	id-TypeOfError,
+	id-transportlayeraddress,
+	id-bindingID,
+	id-Angle-Of-Arrival-Value-LCR,
+	id-SyncDLCodeIdThreInfoLCR,
+	id-neighbouringTDDCellMeasurementInformationLCR,
+	id-HS-SICH-Reception-Quality,
+	id-HS-SICH-Reception-Quality-Measurement-Value,
+	id-Initial-DL-Power-TimeslotLCR-InformationItem,
+	id-Maximum-DL-Power-TimeslotLCR-InformationItem,
+	id-Minimum-DL-Power-TimeslotLCR-InformationItem,
+	id-TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmission,
+	id-HS-DSCHRequiredPower,
+	id-HS-DSCHProvidedBitRate,
+	id-HS-DSCHRequiredPowerValue,
+	id-Best-Cell-Portions-Value,
+	id-Unidirectional-DCH-Indicator,
+	id-SAT-Info-Almanac-ExtItem,
+	id-TnlQos
+FROM NBAP-Constants
+
+	Criticality,
+	ProcedureID,
+	ProtocolIE-ID,
+	TransactionID,
+	TriggeringMessage
+FROM NBAP-CommonDataTypes
+
+	NBAP-PROTOCOL-IES,
+	ProtocolExtensionContainer{},
+	ProtocolIE-Single-Container{},
+	NBAP-PROTOCOL-EXTENSION		
+FROM NBAP-Containers;
+
+-- ==========================================
+--	A
+-- ==========================================
+
+AckNack-RepetitionFactor ::= INTEGER (1..4,...)
+-- Step: 1
+
+Ack-Power-Offset ::= INTEGER (0..8,...)
+-- According to mapping in ref. [9] subclause 4.2.1
+
+Acknowledged-PCPCH-access-preambles ::= INTEGER (0..15,...)
+-- According to mapping in [22].
+
+Acknowledged-PRACH-preambles-Value ::= INTEGER(0..240,...)
+-- According to mapping in [22].
+
+AddorDeleteIndicator ::= ENUMERATED {
+	add,
+	delete
+}
+
+Active-Pattern-Sequence-Information ::= SEQUENCE {
+	cMConfigurationChangeCFN								CFN,
+	transmission-Gap-Pattern-Sequence-Status	Transmission-Gap-Pattern-Sequence-Status-List	OPTIONAL,
+	iE-Extensions								ProtocolExtensionContainer { {Active-Pattern-Sequence-Information-ExtIEs} } OPTIONAL,
+	...
+}
+
+Active-Pattern-Sequence-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Transmission-Gap-Pattern-Sequence-Status-List ::= SEQUENCE (SIZE (0..maxTGPS)) OF
+	SEQUENCE {
+		tGPSID			TGPSID,
+		tGPRC			TGPRC,
+		tGCFN			CFN,
+		iE-Extensions		ProtocolExtensionContainer { { Transmission-Gap-Pattern-Sequence-Status-List-ExtIEs } } OPTIONAL,
+		...
+}
+
+Transmission-Gap-Pattern-Sequence-Status-List-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+AICH-Power ::= INTEGER (-22..5)
+-- Offset in dB.
+
+AICH-TransmissionTiming ::= ENUMERATED {
+	v0,
+	v1
+}
+
+AllocationRetentionPriority ::= SEQUENCE {
+	priorityLevel				PriorityLevel,
+	pre-emptionCapability		Pre-emptionCapability,
+	pre-emptionVulnerability	Pre-emptionVulnerability,
+	iE-Extensions				ProtocolExtensionContainer { {AllocationRetentionPriority-ExtIEs} } OPTIONAL,
+	...
+}
+
+AllocationRetentionPriority-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Angle-Of-Arrival-Value-LCR ::= SEQUENCE {
+	aOA-LCR						AOA-LCR,
+	aOA-LCR-Accuracy-Class		AOA-LCR-Accuracy-Class,
+	iE-Extensions				ProtocolExtensionContainer { {Angle-Of-Arrival-Value-LCR-ExtIEs} } OPTIONAL,
+...
+}
+
+Angle-Of-Arrival-Value-LCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+AOA-LCR ::= INTEGER (0..719)
+-- Angle Of Arrival for 1.28Mcps TDD
+
+AOA-LCR-Accuracy-Class	::= ENUMERATED {a,b,c,d,e,f,g,h,...}
+
+APPreambleSignature ::= INTEGER (0..15)
+
+APSubChannelNumber ::= INTEGER (0..11)
+
+AvailabilityStatus ::= ENUMERATED {
+	empty,
+	in-test,
+	failed,
+	power-off,
+	off-line,
+	off-duty,
+	dependency,
+	degraded,
+	not-installed,
+	log-full,
+	...
+}
+
+-- ==========================================
+--	B
+-- ==========================================
+
+BCCH-ModificationTime ::= INTEGER  (0..511)
+-- Time = BCCH-ModificationTime * 8
+-- Range 0 to 4088, step 8
+-- All SFN values in which MIB may be mapped are allowed
+
+Best-Cell-Portions-Value::= SEQUENCE (SIZE (1..maxNrOfCellPortionsPerCell)) OF Best-Cell-Portions-Item
+
+Best-Cell-Portions-Item ::= SEQUENCE {
+	cellPortionID				CellPortionID,
+	sIRValue					SIR-Value,
+	iE-Extensions				ProtocolExtensionContainer { { Best-Cell-Portions-Item-ExtIEs} }	OPTIONAL,
+	...
+}
+
+Best-Cell-Portions-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+BindingID ::= OCTET STRING (SIZE (1..4, ...))
+-- If the Binding ID includes a UDP port, the UDP port is included in octet 1 and 2.The first octet of
+-- the UDP port field is included in the first octet of the Binding ID.
+
+BetaCD ::= INTEGER (0..15)
+
+BlockingPriorityIndicator ::= ENUMERATED {
+	high,
+	normal,
+	low,
+	...
+}
+-- High priority: Block resource immediately.
+-- Normal priority: Block resource when idle or upon timer expiry.
+-- Low priority: Block resource when idle.
+
+SCTD-Indicator ::= ENUMERATED {
+	active,
+	inactive
+}
+
+-- ==========================================
+--	C
+-- ==========================================
+
+Cause ::= CHOICE {
+	radioNetwork			CauseRadioNetwork,
+	transport			CauseTransport,
+	protocol				CauseProtocol,
+	misc					CauseMisc,
+	...
+}
+
+CauseMisc ::= ENUMERATED {
+	control-processing-overload,
+	hardware-failure,
+	oam-intervention,
+	not-enough-user-plane-processing-resources,
+	unspecified,
+	...
+}
+
+CauseProtocol ::= ENUMERATED {
+	transfer-syntax-error,
+	abstract-syntax-error-reject,
+	abstract-syntax-error-ignore-and-notify,
+	message-not-compatible-with-receiver-state,
+	semantic-error,
+	unspecified,
+	abstract-syntax-error-falsely-constructed-message,
+	...
+}
+
+CauseRadioNetwork ::= ENUMERATED {
+	unknown-C-ID,
+	cell-not-available,
+	power-level-not-supported, 
+	dl-radio-resources-not-available,
+	ul-radio-resources-not-available,
+	rl-already-ActivatedOrAllocated,
+	nodeB-Resources-unavailable,
+	measurement-not-supported-for-the-object,
+	combining-resources-not-available,
+	requested-configuration-not-supported,
+	synchronisation-failure,
+	priority-transport-channel-established,
+	sIB-Origination-in-Node-B-not-Supported,
+	requested-tx-diversity-mode-not-supported,
+	unspecified,
+	bCCH-scheduling-error,
+	measurement-temporarily-not-available,
+	invalid-CM-settings,
+	reconfiguration-CFN-not-elapsed,
+	number-of-DL-codes-not-supported,
+	s-cipch-not-supported,
+	combining-not-supported,
+	ul-sf-not-supported,
+	dl-SF-not-supported, 
+	common-transport-channel-type-not-supported,
+	dedicated-transport-channel-type-not-supported,
+	downlink-shared-channel-type-not-supported,
+	uplink-shared-channel-type-not-supported,
+	cm-not-supported,
+	tx-diversity-no-longer-supported,
+	unknown-Local-Cell-ID,
+	...,
+    number-of-UL-codes-not-supported,
+    information-temporarily-not-available,
+    information-provision-not-supported-for-the-object,
+	cell-synchronisation-not-supported,
+	cell-synchronisation-adjustment-not-supported,
+	dpc-mode-change-not-supported,
+	iPDL-already-activated,
+	iPDL-not-supported,
+	iPDL-parameters-not-available,
+	frequency-acquisition-not-supported,
+	power-balancing-status-not-compatible,
+	requested-typeofbearer-re-arrangement-not-supported,
+	signalling-Bearer-Re-arrangement-not-supported,
+	bearer-Re-arrangement-needed,
+	delayed-activation-not-supported,
+	rl-timing-adjustment-not-supported
+}
+
+CauseTransport ::= ENUMERATED {
+	transport-resource-unavailable,
+	unspecified,
+	...
+}
+
+CCTrCH-ID ::= INTEGER (0..15)
+
+CDSubChannelNumbers ::= BIT STRING {
+										subCh11(0),
+										subCh10(1),
+									 	subCh9(2),
+									 	subCh8(3),
+									 	subCh7(4),
+									 	subCh6(5),
+									 	subCh5(6),
+									 	subCh4(7),
+									 	subCh3(8),
+									 	subCh2(9),
+									 	subCh1(10),
+									 	subCh0(11)
+										} (SIZE (12))
+
+CellParameterID ::= INTEGER (0..127,...)
+
+CellPortionID	::= INTEGER (0..maxNrOfCellPortionsPerCell-1,...)
+
+CellSyncBurstCode ::= INTEGER(0..7, ...)
+
+CellSyncBurstCodeShift ::= INTEGER(0..7)
+
+CellSyncBurstRepetitionPeriod ::= INTEGER (0..4095)
+
+CellSyncBurstSIR ::= INTEGER (0..31)
+
+CellSyncBurstTiming ::= CHOICE {
+	initialPhase			INTEGER (0..1048575,...),
+	steadyStatePhase		INTEGER (0..255,...)
+}
+
+CellSyncBurstTimingLCR ::= CHOICE {
+	initialPhase			INTEGER (0..524287,...),
+	steadyStatePhase		INTEGER (0..127,...)
+}
+
+CellSyncBurstTimingThreshold ::= INTEGER(0..254)
+
+CFN ::= INTEGER (0..255)
+
+Channel-Assignment-Indication ::= ENUMERATED {
+	cA-Active,
+	cA-Inactive
+}
+
+ChipOffset ::= INTEGER (0..38399)
+-- Unit Chip
+
+C-ID ::= INTEGER (0..65535)
+
+Closedlooptimingadjustmentmode	::= ENUMERATED {
+	adj-1-slot,
+	adj-2-slot,
+	...
+}
+
+CommonChannelsCapacityConsumptionLaw ::= SEQUENCE (SIZE(1..maxNrOfSF)) OF
+	SEQUENCE {
+		dl-Cost		INTEGER (0..65535),
+		ul-Cost		INTEGER (0..65535),
+		iE-Extensions		ProtocolExtensionContainer { { CommonChannelsCapacityConsumptionLaw-ExtIEs } }		OPTIONAL,
+		...
+}
+
+CommonChannelsCapacityConsumptionLaw-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+CommonMeasurementAccuracy ::= CHOICE {
+	tUTRANGPSMeasurementAccuracyClass		TUTRANGPSAccuracyClass,
+	...
+}
+
+CommonMeasurementType ::= ENUMERATED  {
+	received-total-wide-band-power,
+	transmitted-carrier-power,
+	acknowledged-prach-preambles,
+	ul-timeslot-iscp,
+	acknowledged-PCPCH-access-preambles,
+	detected-PCPCH-access-preambles,
+	...,
+	uTRAN-GPS-Timing-of-Cell-Frames-for-UE-Positioning, 
+	sFN-SFN-Observed-Time-Difference,
+	transmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmission,
+	hS-DSCH-Required-Power,
+	hS-DSCH-Provided-Bit-Rate
+}
+
+CommonMeasurementValue ::= CHOICE {
+	transmitted-carrier-power				Transmitted-Carrier-Power-Value,
+	received-total-wide-band-power			Received-total-wide-band-power-Value,
+	acknowledged-prach-preambles			Acknowledged-PRACH-preambles-Value,
+	uL-TimeslotISCP							UL-TimeslotISCP-Value,
+	acknowledged-PCPCH-access-preambles		Acknowledged-PCPCH-access-preambles,
+	detected-PCPCH-access-preambles			Detected-PCPCH-access-preambles,
+	...,
+	extension-CommonMeasurementValue		Extension-CommonMeasurementValue
+}
+
+Extension-CommonMeasurementValue	::= ProtocolIE-Single-Container {{ Extension-CommonMeasurementValueIE }}
+
+Extension-CommonMeasurementValueIE NBAP-PROTOCOL-IES ::= {
+	{ ID id-TUTRANGPSMeasurementValueInformation	CRITICALITY ignore	TYPE TUTRANGPSMeasurementValueInformation	PRESENCE mandatory }|
+	{ ID id-SFNSFNMeasurementValueInformation	CRITICALITY ignore	TYPE SFNSFNMeasurementValueInformation		PRESENCE mandatory }|
+	{ ID id-TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmission	CRITICALITY ignore	TYPE TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmissionValue		PRESENCE mandatory }|
+	{ ID id-HS-DSCHRequiredPower	CRITICALITY ignore	TYPE HS-DSCHRequiredPower		PRESENCE mandatory }|
+	{ ID id-HS-DSCHProvidedBitRate	CRITICALITY ignore	TYPE HS-DSCHProvidedBitRate		PRESENCE mandatory }
+}
+
+CommonMeasurementValueInformation ::= CHOICE {
+	measurementAvailable		CommonMeasurementAvailable,
+	measurementnotAvailable		CommonMeasurementnotAvailable
+}
+
+CommonMeasurementAvailable::= SEQUENCE {
+	commonmeasurementValue		CommonMeasurementValue,
+	ie-Extensions					ProtocolExtensionContainer { { CommonMeasurementAvailableItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+CommonMeasurementAvailableItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+CommonMeasurementnotAvailable ::= NULL
+
+CommonPhysicalChannelID ::= INTEGER (0..255)
+
+Common-PhysicalChannel-Status-Information ::= SEQUENCE {
+	commonPhysicalChannelID			CommonPhysicalChannelID,
+	resourceOperationalState			ResourceOperationalState,
+	availabilityStatus					AvailabilityStatus,
+	iE-Extensions						ProtocolExtensionContainer  { { Common-PhysicalChannel-Status-Information-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Common-PhysicalChannel-Status-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+CommonTransportChannelID ::= INTEGER (0..255)
+
+CommonTransportChannel-InformationResponse ::= SEQUENCE {
+	commonTransportChannelID			CommonTransportChannelID,
+	bindingID							BindingID				OPTIONAL,
+	transportLayerAddress				TransportLayerAddress	OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer  { { CommonTransportChannel-InformationResponse-ExtIEs} }		OPTIONAL,
+	...
+}
+
+CommonTransportChannel-InformationResponse-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Common-TransportChannel-Status-Information ::= SEQUENCE {
+	commonTransportChannelID			CommonTransportChannelID,
+	resourceOperationalState			ResourceOperationalState,
+	availabilityStatus					AvailabilityStatus,
+	iE-Extensions						ProtocolExtensionContainer  { { Common-TransportChannel-Status-Information-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Common-TransportChannel-Status-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+CommunicationControlPortID ::= INTEGER (0..65535)
+
+Compressed-Mode-Deactivation-Flag::= ENUMERATED {
+	deactivate,
+	maintain-Active
+}
+
+ConfigurationGenerationID ::= INTEGER (0..255)
+-- Value '0' means "No configuration" 
+
+ConstantValue ::= INTEGER (-10..10,...)
+-- -10 dB - +10 dB
+-- unit dB
+-- step 1 dB
+
+CPCH-Allowed-Total-Rate ::= ENUMERATED {
+	v15,
+	v30, 
+	v60,
+	v120,
+	v240,
+	v480,
+	v960,
+	v1920,
+	v2880,
+	v3840,
+	v4800,
+	v5760,
+	...
+}
+
+CPCHScramblingCodeNumber ::= INTEGER (0..79)
+
+CPCH-UL-DPCCH-SlotFormat ::= INTEGER (0..2,...)
+
+CQI-Feedback-Cycle ::= ENUMERATED {v0, v2, v4, v8, v10, v20, v40, v80, v160,...}
+
+CQI-Power-Offset ::= INTEGER (0..8,...)
+-- According to mapping in ref. [9] subclause 4.2.1
+
+CQI-RepetitionFactor ::= INTEGER (1..4,...)
+-- Step: 1
+
+CriticalityDiagnostics ::= SEQUENCE {
+	procedureID					ProcedureID				OPTIONAL,
+	triggeringMessage			TriggeringMessage			OPTIONAL,
+	procedureCriticality		Criticality				OPTIONAL,
+	transactionID				TransactionID				OPTIONAL,
+	iEsCriticalityDiagnostics	CriticalityDiagnostics-IE-List	OPTIONAL,
+	iE-Extensions				ProtocolExtensionContainer { {CriticalityDiagnostics-ExtIEs} }		OPTIONAL,
+	...
+}
+
+CriticalityDiagnostics-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+CriticalityDiagnostics-IE-List ::= SEQUENCE (SIZE (1..maxNrOfErrors)) OF
+	SEQUENCE {
+		iECriticality		Criticality,
+		iE-ID				ProtocolIE-ID,
+		repetitionNumber	RepetitionNumber0		OPTIONAL,
+		iE-Extensions		ProtocolExtensionContainer { {CriticalityDiagnostics-IE-List-ExtIEs} }		OPTIONAL,
+		...
+	}
+
+CriticalityDiagnostics-IE-List-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{	ID id-MessageStructure		CRITICALITY ignore		EXTENSION MessageStructure		PRESENCE optional	}|
+	{	ID id-TypeOfError			CRITICALITY ignore		EXTENSION TypeOfError			PRESENCE mandatory	},
+	...
+}
+
+CRNC-CommunicationContextID ::= INTEGER (0..1048575)
+
+CSBMeasurementID ::= INTEGER (0..65535)
+
+CSBTransmissionID ::= INTEGER (0..65535)
+
+-- ==========================================
+--	D
+-- ==========================================
+
+DATA-ID ::= INTEGER (0..3)
+
+DCH-ID ::= INTEGER (0..255)
+
+DCH-FDD-Information ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-FDD-InformationItem
+
+DCH-FDD-InformationItem ::= SEQUENCE {
+	payloadCRC-PresenceIndicator		PayloadCRC-PresenceIndicator,
+	ul-FP-Mode							UL-FP-Mode,
+	toAWS								ToAWS,
+	toAWE								ToAWE,
+	dCH-SpecificInformationList			DCH-Specific-FDD-InformationList,
+	iE-Extensions						ProtocolExtensionContainer { { DCH-FDD-InformationItem-ExtIEs} }	OPTIONAL,
+	...
+}
+
+DCH-FDD-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-TnlQos						CRITICALITY ignore		EXTENSION TnlQos		PRESENCE optional	},
+	...
+}
+
+DCH-Specific-FDD-InformationList ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-Specific-FDD-Item
+
+DCH-Specific-FDD-Item ::=	SEQUENCE {
+	dCH-ID								DCH-ID,
+	ul-TransportFormatSet				TransportFormatSet,
+	dl-TransportFormatSet				TransportFormatSet,
+	allocationRetentionPriority			AllocationRetentionPriority,
+	frameHandlingPriority				FrameHandlingPriority,
+	qE-Selector							QE-Selector,
+	iE-Extensions						ProtocolExtensionContainer { { DCH-Specific-FDD-Item-ExtIEs} }	OPTIONAL,
+	...
+}
+
+DCH-Specific-FDD-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-Unidirectional-DCH-Indicator	CRITICALITY reject	EXTENSION Unidirectional-DCH-Indicator	PRESENCE optional	},
+	...
+}
+
+DCH-InformationResponse ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-InformationResponseItem
+
+DCH-InformationResponseItem ::= SEQUENCE {
+	dCH-ID											DCH-ID,
+	bindingID										BindingID				OPTIONAL,
+	transportLayerAddress							TransportLayerAddress	OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { DCH-InformationResponseItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DCH-InformationResponseItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DCH-TDD-Information ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-TDD-InformationItem
+
+DCH-TDD-InformationItem ::= SEQUENCE {
+	payloadCRC-PresenceIndicator		PayloadCRC-PresenceIndicator,
+	ul-FP-Mode							UL-FP-Mode,
+	toAWS								ToAWS,
+	toAWE								ToAWE,
+	dCH-SpecificInformationList			DCH-Specific-TDD-InformationList,
+	iE-Extensions							ProtocolExtensionContainer { { DCH-TDD-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DCH-TDD-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ID id-TnlQos						CRITICALITY ignore		EXTENSION TnlQos		PRESENCE optional},
+	...
+}
+
+DCH-Specific-TDD-InformationList ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-Specific-TDD-Item
+
+DCH-Specific-TDD-Item ::=	SEQUENCE {
+	dCH-ID									DCH-ID,
+	ul-CCTrCH-ID							CCTrCH-ID,
+	dl-CCTrCH-ID							CCTrCH-ID,
+	ul-TransportFormatSet					TransportFormatSet,
+	dl-TransportFormatSet					TransportFormatSet,
+	allocationRetentionPriority				AllocationRetentionPriority,
+	frameHandlingPriority					FrameHandlingPriority,
+	qE-Selector								QE-Selector						OPTIONAL,
+	-- This IE shall be present if DCH is part of set of Coordinated DCHs
+	iE-Extensions							ProtocolExtensionContainer { { DCH-Specific-TDD-Item-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DCH-Specific-TDD-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-Unidirectional-DCH-Indicator	CRITICALITY reject	EXTENSION Unidirectional-DCH-Indicator	PRESENCE optional	},
+	...
+}
+
+FDD-DCHs-to-Modify ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF FDD-DCHs-to-ModifyItem
+
+FDD-DCHs-to-ModifyItem	 ::= SEQUENCE {
+	ul-FP-Mode							UL-FP-Mode		OPTIONAL,
+	toAWS								ToAWS			OPTIONAL,
+	toAWE								ToAWE			OPTIONAL,
+	transportBearerRequestIndicator		TransportBearerRequestIndicator,
+	dCH-SpecificInformationList			DCH-ModifySpecificInformation-FDD,
+	iE-Extensions						ProtocolExtensionContainer { { FDD-DCHs-to-ModifyItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+FDD-DCHs-to-ModifyItem-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	{ID id-TnlQos						CRITICALITY ignore		EXTENSION TnlQos		PRESENCE optional},
+	...
+}
+
+DCH-ModifySpecificInformation-FDD::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-ModifySpecificItem-FDD
+
+DCH-ModifySpecificItem-FDD::=	SEQUENCE {
+	dCH-ID											DCH-ID,
+	ul-TransportFormatSet							TransportFormatSet			OPTIONAL,
+	dl-TransportFormatSet							TransportFormatSet			OPTIONAL,
+	allocationRetentionPriority						AllocationRetentionPriority	OPTIONAL,
+	frameHandlingPriority							FrameHandlingPriority		OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { DCH-ModifySpecificItem-FDD-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DCH-ModifySpecificItem-FDD-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+
+TDD-DCHs-to-Modify ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-ModifyItem-TDD
+
+DCH-ModifyItem-TDD ::= SEQUENCE {
+	ul-FP-Mode							UL-FP-Mode		OPTIONAL,
+	toAWS								ToAWS			OPTIONAL,
+	toAWE								ToAWE			OPTIONAL,
+	transportBearerRequestIndicator		TransportBearerRequestIndicator,
+	dCH-SpecificInformationList			DCH-ModifySpecificInformation-TDD,
+	iE-Extensions						ProtocolExtensionContainer { { TDD-DCHs-to-ModifyItem-ExtIEs} }			OPTIONAL,
+	...
+}
+
+TDD-DCHs-to-ModifyItem-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	{ID id-TnlQos						CRITICALITY ignore		EXTENSION TnlQos		PRESENCE optional},
+	...
+}
+
+DCH-ModifySpecificInformation-TDD ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF DCH-ModifySpecificItem-TDD
+
+DCH-ModifySpecificItem-TDD ::=	SEQUENCE {
+	dCH-ID											DCH-ID,
+	ul-CCTrCH-ID									CCTrCH-ID					OPTIONAL,
+	dl-CCTrCH-ID									CCTrCH-ID					OPTIONAL,
+	ul-TransportFormatSet							TransportFormatSet			OPTIONAL,
+	dl-TransportFormatSet							TransportFormatSet			OPTIONAL,
+	allocationRetentionPriority						AllocationRetentionPriority	OPTIONAL,
+	frameHandlingPriority							FrameHandlingPriority		OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { DCH-ModifySpecificItem-TDD-ExtIEs} }			OPTIONAL,
+	...
+}
+
+DCH-ModifySpecificItem-TDD-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DedicatedChannelsCapacityConsumptionLaw ::= SEQUENCE ( SIZE(1..maxNrOfSF) ) OF
+	SEQUENCE {
+		dl-Cost-1		INTEGER (0..65535),
+		dl-Cost-2		INTEGER (0..65535),
+		ul-Cost-1		INTEGER (0..65535),
+		ul-Cost-2		INTEGER (0..65535),
+		iE-Extensions		ProtocolExtensionContainer { { DedicatedChannelsCapacityConsumptionLaw-ExtIEs } }		OPTIONAL,
+	...
+}
+
+DedicatedChannelsCapacityConsumptionLaw-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DedicatedMeasurementType ::= ENUMERATED {
+	sir,
+	sir-error,
+	transmitted-code-power,
+	rscp,
+	rx-timing-deviation,
+	round-trip-time,
+	...,
+	rx-timing-deviation-LCR,
+	angle-Of-Arrival-LCR,
+	hs-sich-quality,
+	best-Cell-Portions
+
+}
+
+DedicatedMeasurementValue ::= CHOICE {
+	sIR-Value						SIR-Value,
+	sIR-ErrorValue					SIR-Error-Value,
+	transmittedCodePowerValue			Transmitted-Code-Power-Value,
+	rSCP								RSCP-Value,
+	rxTimingDeviationValue				Rx-Timing-Deviation-Value,
+	roundTripTime						Round-Trip-Time-Value,
+	...,
+	extension-DedicatedMeasurementValue		Extension-DedicatedMeasurementValue
+}
+
+Extension-DedicatedMeasurementValue	::= ProtocolIE-Single-Container {{ Extension-DedicatedMeasurementValueIE }}
+
+Extension-DedicatedMeasurementValueIE NBAP-PROTOCOL-IES ::= {
+	{ ID id-Rx-Timing-Deviation-Value-LCR	CRITICALITY reject	TYPE Rx-Timing-Deviation-Value-LCR	PRESENCE mandatory }|
+	{ ID id-Angle-Of-Arrival-Value-LCR	CRITICALITY reject	TYPE Angle-Of-Arrival-Value-LCR	PRESENCE mandatory }|
+	{ ID id-HS-SICH-Reception-Quality	CRITICALITY reject	TYPE HS-SICH-Reception-Quality-Value	PRESENCE mandatory }|
+	{ ID id-Best-Cell-Portions-Value	CRITICALITY reject	TYPE Best-Cell-Portions-Value	PRESENCE mandatory },
+	...
+}
+
+DedicatedMeasurementValueInformation ::= CHOICE {
+	measurementAvailable		DedicatedMeasurementAvailable,
+	measurementnotAvailable		DedicatedMeasurementnotAvailable
+}
+
+DedicatedMeasurementAvailable::= SEQUENCE {
+	dedicatedmeasurementValue		DedicatedMeasurementValue,
+    cFN                             CFN							OPTIONAL,
+	ie-Extensions					ProtocolExtensionContainer { { DedicatedMeasurementAvailableItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DedicatedMeasurementAvailableItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DedicatedMeasurementnotAvailable ::= NULL
+
+DelayedActivation ::= CHOICE {
+	cfn						CFN,
+	separate-indication		NULL
+}
+
+DelayedActivationUpdate ::= CHOICE {
+	activate		Activate-Info,
+	deactivate		Deactivate-Info
+}
+
+Activate-Info ::= SEQUENCE {
+	activation-type  		Execution-Type,
+	initial-dl-tx-power 	DL-Power,
+	firstRLS-Indicator		FirstRLS-Indicator											OPTIONAL, --FDD Only
+	propagation-delay		PropagationDelay 											OPTIONAL, --FDD Only
+	iE-Extensions			ProtocolExtensionContainer { { Activate-Info-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Activate-Info-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Deactivate-Info ::= SEQUENCE {
+	deactivation-type  		Execution-Type,
+	iE-Extensions			ProtocolExtensionContainer { { Deactivate-Info-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Deactivate-Info-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Execution-Type ::= CHOICE {
+	synchronised 	CFN,
+	unsynchronised	NULL
+}
+
+Detected-PCPCH-access-preambles ::= INTEGER (0..240,...)
+-- According to mapping in [22].
+
+DeltaSIR				::= INTEGER (0..30)
+-- Unit dB, Step 0.1 dB, Range 0..3 dB.
+
+DGPSCorrections ::= SEQUENCE {
+   gpstow                GPSTOW,
+   status-health         GPS-Status-Health,
+   satelliteinfo         SAT-Info-DGPSCorrections,
+   ie-Extensions		 ProtocolExtensionContainer { { DGPSCorrections-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+DGPSCorrections-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DGPSThresholds ::= SEQUENCE {
+   prcdeviation         PRCDeviation,
+   ie-Extensions		ProtocolExtensionContainer { { DGPSThresholds-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+DGPSThresholds-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DiscardTimer ::= ENUMERATED {v20,v40,v60,v80,v100,v120,v140,v160,v180,v200,v250,v300,v400,v500,v750,v1000,v1250,v1500,v1750,v2000,v2500,v3000,v3500,v4000,v4500,v5000,v7500,
+ ...
+}
+
+DiversityControlField ::= ENUMERATED {
+	may,
+	must,
+	must-not,
+	...
+}
+
+DiversityMode ::= ENUMERATED {
+	none, 
+	sTTD,
+	closed-loop-mode1,
+	closed-loop-mode2,
+	...
+}
+
+DL-DPCH-SlotFormat ::= INTEGER (0..16,...)
+
+DL-DPCH-TimingAdjustment ::= ENUMERATED {
+	timing-advance,
+	timing-delay
+}
+
+DL-Timeslot-Information ::= SEQUENCE (SIZE (1.. maxNrOfDLTSs)) OF DL-Timeslot-InformationItem
+
+DL-Timeslot-InformationItem	 ::= SEQUENCE {
+	timeSlot								TimeSlot,
+	midambleShiftAndBurstType				MidambleShiftAndBurstType,
+	tFCI-Presence							TFCI-Presence,
+	dL-Code-Information						TDD-DL-Code-Information,
+	iE-Extensions							ProtocolExtensionContainer { { DL-Timeslot-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DL-Timeslot-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DL-TimeslotLCR-Information ::= SEQUENCE (SIZE (1.. maxNrOfDLTSLCRs)) OF DL-TimeslotLCR-InformationItem
+
+DL-TimeslotLCR-InformationItem	 ::= SEQUENCE {
+	timeSlotLCR								TimeSlotLCR,
+	midambleShiftLCR						MidambleShiftLCR,
+	tFCI-Presence							TFCI-Presence,
+	dL-Code-LCR-Information					TDD-DL-Code-LCR-Information,
+	iE-Extensions							ProtocolExtensionContainer { { DL-TimeslotLCR-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DL-TimeslotLCR-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-Initial-DL-Power-TimeslotLCR-InformationItem	CRITICALITY ignore   EXTENSION DL-Power		PRESENCE optional	}|
+	-- Applicable to 1.28Mcps TDD only
+	{ ID id-Maximum-DL-Power-TimeslotLCR-InformationItem	CRITICALITY ignore   EXTENSION DL-Power		PRESENCE optional	}|
+	-- Applicable to 1.28Mcps TDD only
+	{ ID id-Minimum-DL-Power-TimeslotLCR-InformationItem	CRITICALITY ignore 	EXTENSION DL-Power		PRESENCE optional	},
+	-- Applicable to 1.28Mcps TDD only
+	...
+}
+
+DL-FrameType ::= ENUMERATED {
+	typeA,
+	typeB,
+	...
+}
+
+DL-or-Global-CapacityCredit ::= INTEGER (0..65535)
+
+DL-Power ::= INTEGER (-350..150)
+-- Value = DL-Power/10
+-- Unit dB, Range -35dB .. +15dB, Step +0.1dB
+
+DLPowerAveragingWindowSize ::= INTEGER (1..60)
+
+DL-PowerBalancing-Information ::= SEQUENCE {
+	powerAdjustmentType					PowerAdjustmentType,
+    dLReferencePower					DL-Power		OPTIONAL,
+	-- This IE shall be present if Power Adjustment Type IE equals to 'Common'
+	dLReferencePowerList-DL-PC-Rqst		DL-ReferencePowerInformationList		OPTIONAL,
+	-- This IE shall be present if Power Adjustment Type IE equals to 'Individual'
+	maxAdjustmentStep					MaxAdjustmentStep		OPTIONAL,
+	-- This IE shall be present if Power Adjustment Type IE equals to 'Common' or 'Individual'
+	adjustmentPeriod					AdjustmentPeriod		OPTIONAL,
+	-- This IE shall be present if Power Adjustment Type IE equals to 'Common' or 'Individual'
+	adjustmentRatio						ScaledAdjustmentRatio	OPTIONAL,
+	-- This IE shall be present if Power Adjustment Type IE equals to 'Common' or 'Individual'
+	iE-Extensions						ProtocolExtensionContainer { { DL-PowerBalancing-Information-ExtIEs } } OPTIONAL,
+	...
+}
+
+DL-PowerBalancing-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DL-ReferencePowerInformationList 		::= SEQUENCE (SIZE (1..maxNrOfRLs)) OF DL-ReferencePowerInformationItem
+
+DL-ReferencePowerInformationItem ::= SEQUENCE {
+	rL-ID						RL-ID,
+	dl-Reference-Power			DL-Power,
+	iE-Extensions				ProtocolExtensionContainer { {DL-ReferencePowerInformationItem-ExtIEs} } OPTIONAL,
+	...
+}
+
+DL-ReferencePowerInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DL-PowerBalancing-ActivationIndicator	::= ENUMERATED {
+	dL-PowerBalancing-Activated
+}
+
+DL-PowerBalancing-UpdatedIndicator	::= ENUMERATED {
+	dL-PowerBalancing-Updated
+}
+
+DL-ScramblingCode ::= INTEGER (0..15)
+-- 0= Primary scrambling code of the cell, 1..15= Secondary scrambling code --
+
+DL-TimeslotISCP ::= INTEGER (0..91)
+
+DL-TimeslotISCPInfo ::= SEQUENCE (SIZE (1..maxNrOfDLTSs)) OF DL-TimeslotISCPInfoItem
+
+DL-TimeslotISCPInfoItem ::= SEQUENCE {
+	timeSlot					TimeSlot,
+	dL-TimeslotISCP				DL-TimeslotISCP,
+	iE-Extensions				ProtocolExtensionContainer { {DL-TimeslotISCPInfoItem-ExtIEs} }			OPTIONAL,
+	...
+	}
+
+DL-TimeslotISCPInfoItem-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DL-TimeslotISCPInfoLCR ::= SEQUENCE (SIZE (1..maxNrOfDLTSLCRs)) OF DL-TimeslotISCPInfoItemLCR
+
+DL-TimeslotISCPInfoItemLCR ::= SEQUENCE {
+	timeSlotLCR					TimeSlotLCR,
+	dL-TimeslotISCP				DL-TimeslotISCP,
+	iE-Extensions				ProtocolExtensionContainer { {DL-TimeslotISCPInfoItemLCR-ExtIEs} }			OPTIONAL,
+	...
+	}
+
+DL-TimeslotISCPInfoItemLCR-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DL-TPC-Pattern01Count ::= INTEGER (0..30,...)
+
+Downlink-Compressed-Mode-Method 	::= ENUMERATED {
+	puncturing,
+	sFdiv2,
+	higher-layer-scheduling,
+	...
+}
+
+DPC-Mode ::= ENUMERATED {
+	mode0,
+	mode1,
+	...
+}
+
+DPCH-ID ::= INTEGER (0..239)
+
+DSCH-ID ::= INTEGER (0..255)
+
+DSCH-InformationResponse ::= SEQUENCE (SIZE (1..maxNrOfDSCHs)) OF DSCH-InformationResponseItem
+
+DSCH-InformationResponseItem ::= SEQUENCE {
+	dSCH-ID											DSCH-ID,
+	bindingID										BindingID					OPTIONAL,
+	transportLayerAddress							TransportLayerAddress		OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { DSCH-InformationResponseItem-ExtIEs } }		OPTIONAL,
+	...
+}
+
+DSCH-InformationResponseItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DSCH-FDD-Common-Information ::= SEQUENCE {
+	enhancedDSCHPCIndicator			EnhancedDSCHPCIndicator		OPTIONAL,
+	enhancedDSCHPC					EnhancedDSCHPC				OPTIONAL,
+	-- The IE shall be present if the Enhanced DSCH PC Indicator IE is set to "Enhanced DSCH PC Active in the UE".
+	iE-Extensions						ProtocolExtensionContainer { { DSCH-FDD-Common-Information-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DSCH-FDD-Common-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+DSCH-FDD-Information ::= SEQUENCE (SIZE (1..maxNrOfDSCHs)) OF DSCH-FDD-InformationItem
+
+DSCH-FDD-InformationItem ::= SEQUENCE {
+	dSCH-ID								DSCH-ID,
+	transportFormatSet					TransportFormatSet,
+	allocationRetentionPriority			AllocationRetentionPriority,
+	frameHandlingPriority				FrameHandlingPriority,
+	toAWS								ToAWS,
+	toAWE								ToAWE,
+	iE-Extensions						ProtocolExtensionContainer { { DSCH-FDD-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DSCH-FDD-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-bindingID						CRITICALITY	ignore		EXTENSION 	BindingID		PRESENCE 	optional	}|
+	{ ID id-transportlayeraddress			CRITICALITY	ignore		EXTENSION 	TransportLayerAddress		PRESENCE 	optional	},
+	...
+}
+
+DSCH-TDD-Information ::= SEQUENCE (SIZE (1..maxNrOfDSCHs)) OF DSCH-TDD-InformationItem
+
+DSCH-TDD-InformationItem ::= SEQUENCE {
+	dSCH-ID									DSCH-ID,
+	cCTrCH-ID								CCTrCH-ID,
+	transportFormatSet						TransportFormatSet,
+	allocationRetentionPriority				AllocationRetentionPriority,
+	frameHandlingPriority					FrameHandlingPriority,
+	toAWS									ToAWS,
+	toAWE									ToAWE,
+	iE-Extensions							ProtocolExtensionContainer { { DSCH-TDD-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+DSCH-TDD-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-bindingID					CRITICALITY	ignore		EXTENSION 	BindingID			PRESENCE 	optional	}|
+	-- Shall be ignored if bearer establishment with ALCAP.
+	{ ID id-transportlayeraddress		CRITICALITY	ignore		EXTENSION 	TransportLayerAddress	PRESENCE 	optional	},
+	-- Shall be ignored if bearer establishment with ALCAP.
+	...
+}
+
+DsField ::= BIT STRING (SIZE (8))
+
+DwPCH-Power ::= INTEGER (-150..400,...)
+-- DwPCH-power = power * 10
+-- If power <= -15 DwPCH shall be set to -150
+-- If power >= 40 DwPCH shall be set to 400
+-- Unit dBm, Range -15dBm .. +40 dBm, Step +0.1dB
+
+
+-- ==========================================
+--	E
+-- ==========================================
+
+End-Of-Audit-Sequence-Indicator ::= ENUMERATED {
+	end-of-audit-sequence,
+	not-end-of-audit-sequence
+}
+
+EnhancedDSCHPC ::= SEQUENCE {
+	enhancedDSCHPCWnd 	EnhancedDSCHPCWnd,
+	enhancedDSCHPCCounter 	EnhancedDSCHPCCounter,
+	enhancedDSCHPowerOffset EnhancedDSCHPowerOffset,
+	...
+}
+
+EnhancedDSCHPCCounter ::= INTEGER (1..50)
+
+EnhancedDSCHPCIndicator ::= ENUMERATED {
+	enhancedDSCHPCActiveInTheUE,
+	enhancedDSCHPCNotActiveInTheUE
+}
+
+EnhancedDSCHPCWnd ::= INTEGER (1..10)
+
+EnhancedDSCHPowerOffset ::= INTEGER (-15..0)
+
+-- ==========================================
+--	F
+-- ==========================================
+
+FDD-DL-ChannelisationCodeNumber ::= INTEGER(0.. 511)
+-- According to the mapping in [9]. The maximum value is equal to the DL spreading factor -1--
+
+FDD-DL-CodeInformation ::= SEQUENCE (SIZE (1..maxNrOfCodes)) OF FDD-DL-CodeInformationItem
+
+FDD-DL-CodeInformationItem ::= SEQUENCE {
+	dl-ScramblingCode						DL-ScramblingCode,
+	fdd-DL-ChannelisationCodeNumber			FDD-DL-ChannelisationCodeNumber,
+	transmissionGapPatternSequenceCodeInformation		TransmissionGapPatternSequenceCodeInformation		OPTIONAL,
+	iE-Extensions							ProtocolExtensionContainer { { FDD-DL-CodeInformationItem-ExtIEs} }	OPTIONAL,
+	...
+}
+
+FDD-DL-CodeInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+FDD-S-CCPCH-Offset ::= INTEGER (0..149)
+-- 0: 0 chip, 1: 256 chip, 2: 512 chip, .. ,149: 38144 chip [7] --
+
+FDD-TPC-DownlinkStepSize ::= ENUMERATED {
+	step-size0-5,
+	step-size1,
+	step-size1-5,
+	step-size2,
+	...
+}
+
+FirstRLS-Indicator ::= ENUMERATED {
+	first-RLS,
+	not-first-RLS,
+	...
+}
+
+FNReportingIndicator ::= ENUMERATED {
+ fN-reporting-required,
+ fN-reporting-not-required
+}
+
+FrameHandlingPriority ::= INTEGER (0..15)
+-- 0=lowest priority, 15=highest priority --
+
+FrameAdjustmentValue ::= INTEGER(0..4095)
+
+FrameOffset ::= INTEGER (0..255)
+
+FPACH-Power ::= INTEGER (-150..400,...) -- FPACH-power = power * 10
+-- If power <= -15 FPACH shall be set to -150
+-- If power >= 40 FPACH shall be set to 400
+-- Unit dBm, Range -15dBm .. +40 dBm, Step +0.1dB
+
+-- ==========================================
+--	G
+-- ==========================================
+
+GapLength				::= INTEGER (1..14)
+-- Unit slot
+
+GapDuration				::= INTEGER (1..144,...)
+-- Unit frame
+
+GenericTrafficCategory	::= BIT STRING (SIZE (8))
+
+GPS-Almanac ::= SEQUENCE {
+    wna-alm              BIT STRING (SIZE (8)),
+     sat-info-almanac     SAT-Info-Almanac,
+	sVGlobalHealth-alm	BIT STRING (SIZE (364))	OPTIONAL,
+    ie-Extensions		 ProtocolExtensionContainer { { GPS-Almanac-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+GPS-Almanac-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-SAT-Info-Almanac-ExtItem	CRITICALITY	ignore		EXTENSION 	SAT-Info-Almanac-ExtList			PRESENCE	optional},
+	...
+}
+
+GPS-Ionospheric-Model ::= SEQUENCE {
+   alpha-zero-ionos      BIT STRING (SIZE (8)),
+   alpha-one-ionos       BIT STRING (SIZE (8)),
+   alpha-two-ionos       BIT STRING (SIZE (8)),
+   alpha-three-ionos     BIT STRING (SIZE (8)),
+   beta-zero-ionos       BIT STRING (SIZE (8)),
+   beta-one-ionos        BIT STRING (SIZE (8)),
+   beta-two-ionos        BIT STRING (SIZE (8)),
+   beta-three-ionos      BIT STRING (SIZE (8)),
+   ie-Extensions		 ProtocolExtensionContainer { { GPS-Ionospheric-Model-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+GPS-Ionospheric-Model-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+GPS-Information ::= SEQUENCE (SIZE (0..maxNoGPSItems)) OF GPS-Information-Item
+-- This IE shall be present if the Information Type Item IE indicates 'GPS Information'
+
+GPS-Information-Item ::= ENUMERATED {
+   gps-navigation-model-and-time-recovery,
+   gps-ionospheric-model,
+   gps-utc-model,
+   gps-almanac,
+   gps-rt-integrity,
+   ...
+}
+
+GPS-RealTime-Integrity ::= CHOICE {
+	bad-satellites		        GPSBadSat-Info-RealTime-Integrity,
+	no-bad-satellites           NULL
+}
+
+GPSBadSat-Info-RealTime-Integrity ::= SEQUENCE {
+	sat-info		                SATInfo-RealTime-Integrity,
+	ie-Extensions					ProtocolExtensionContainer { { GPSBadSat-Info-RealTime-Integrity-ExtIEs} }		OPTIONAL,
+	...
+}
+
+GPSBadSat-Info-RealTime-Integrity-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+GPS-NavigationModel-and-TimeRecovery ::= SEQUENCE (SIZE (1..maxNoSat)) OF GPS-NavandRecovery-Item
+
+GPS-NavandRecovery-Item ::= SEQUENCE {
+  tx-tow-nav                       INTEGER (0..1048575),
+  sat-id-nav                       SAT-ID,
+  tlm-message-nav                  BIT STRING (SIZE (14)),
+  tlm-revd-c-nav                   BIT STRING (SIZE (2)),
+  ho-word-nav                      BIT STRING (SIZE (22)),
+  w-n-nav                          BIT STRING (SIZE (10)),
+  ca-or-p-on-l2-nav                BIT STRING (SIZE (2)),
+  user-range-accuracy-index-nav    BIT STRING (SIZE (4)),
+  sv-health-nav                    BIT STRING (SIZE (6)),
+  iodc-nav                         BIT STRING (SIZE (10)),
+  l2-p-dataflag-nav                BIT STRING (SIZE (1)),
+  sf1-reserved-nav                 BIT STRING (SIZE (87)),
+  t-gd-nav                         BIT STRING (SIZE (8)),
+  t-oc-nav                         BIT STRING (SIZE (16)),
+  a-f-2-nav                        BIT STRING (SIZE (8)),
+  a-f-1-nav                        BIT STRING (SIZE (16)),
+  a-f-zero-nav                     BIT STRING (SIZE (22)),
+  c-rs-nav                         BIT STRING (SIZE (16)),
+  delta-n-nav                      BIT STRING (SIZE (16)),
+  m-zero-nav                       BIT STRING (SIZE (32)),
+  c-uc-nav                         BIT STRING (SIZE (16)),
+  gps-e-nav                        BIT STRING (SIZE (32)),
+  c-us-nav                         BIT STRING (SIZE (16)),
+  a-sqrt-nav                       BIT STRING (SIZE (32)),
+  t-oe-nav                         BIT STRING (SIZE (16)),
+  fit-interval-flag-nav            BIT STRING (SIZE (1)),
+  aodo-nav                         BIT STRING (SIZE (5)),
+  c-ic-nav                         BIT STRING (SIZE (16)),
+  omega-zero-nav                   BIT STRING (SIZE (32)),
+  c-is-nav                         BIT STRING (SIZE (16)),
+  i-zero-nav                       BIT STRING (SIZE (32)),
+  c-rc-nav                         BIT STRING (SIZE (16)),
+  gps-omega-nav                    BIT STRING (SIZE (32)),
+  omegadot-nav                     BIT STRING (SIZE (24)),
+  idot-nav                         BIT STRING (SIZE (14)),
+  spare-zero-fill                  BIT STRING (SIZE (20)),
+  ie-Extensions		               ProtocolExtensionContainer { { GPS-NavandRecovery-Item-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+GPS-NavandRecovery-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+
+GPS-RX-POS ::= SEQUENCE {
+    latitudeSign		    ENUMERATED {north, south},
+	latitude			    INTEGER (0..8388607),
+	longitude			    INTEGER (-8388608..8388607),
+	directionOfAltitude		ENUMERATED {height, depth},
+	altitude				INTEGER (0..32767),
+	iE-Extensions			ProtocolExtensionContainer { { GPS-RX-POS-ExtIEs} } OPTIONAL,
+	...
+}
+
+GPS-RX-POS-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+GPS-Status-Health ::= ENUMERATED {
+   udre-scale-1dot0,
+   udre-scale-0dot75,
+   udre-scale-0dot5,
+   udre-scale-0dot3,
+   udre-scale-0dot1,
+   no-data,
+   invalid-data
+}
+
+GPSTOW ::= INTEGER (0..604799)
+
+GPS-UTC-Model ::= SEQUENCE {
+   a-one-utc             BIT STRING (SIZE (24)),
+   a-zero-utc            BIT STRING (SIZE (32)),
+   t-ot-utc              BIT STRING (SIZE (8)),
+   delta-t-ls-utc        BIT STRING (SIZE (8)),
+   w-n-t-utc             BIT STRING (SIZE (8)),
+   w-n-lsf-utc           BIT STRING (SIZE (8)),
+   dn-utc                BIT STRING (SIZE (8)),
+   delta-t-lsf-utc       BIT STRING (SIZE (8)),
+   ie-Extensions		 ProtocolExtensionContainer { { GPS-UTC-Model-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+GPS-UTC-Model-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+-- ==========================================
+--	H
+-- ==========================================
+
+
+HARQ-MemoryPartitioning	::= CHOICE {
+	implicit		HARQ-MemoryPartitioning-Implicit,
+	explicit		HARQ-MemoryPartitioning-Explicit,
+	...
+	}
+
+HARQ-MemoryPartitioning-Implicit	::= SEQUENCE {
+	number-of-Processes			INTEGER (1..8,...),
+	iE-Extensions				ProtocolExtensionContainer { { HARQ-MemoryPartitioning-Implicit-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HARQ-MemoryPartitioning-Implicit-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HARQ-MemoryPartitioning-Explicit	::= SEQUENCE {
+	hARQ-MemoryPartitioningList			HARQ-MemoryPartitioningList,
+	iE-Extensions						ProtocolExtensionContainer { { HARQ-MemoryPartitioning-Explicit-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HARQ-MemoryPartitioning-Explicit-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HARQ-MemoryPartitioningList	::= SEQUENCE (SIZE (1..maxNrOfHARQProcesses)) OF HARQ-MemoryPartitioningItem
+
+HARQ-MemoryPartitioningItem ::= SEQUENCE {
+	process-Memory-Size					ENUMERATED {
+										hms800, hms1600, hms2400, hms3200, hms4000,
+										hms4800, hms5600, hms6400, hms7200, hms8000,
+										hms8800, hms9600, hms10400, hms11200, hms12000,
+										hms12800, hms13600, hms14400, hms15200, hms16000,
+										hms17600, hms19200, hms20800, hms22400, hms24000,
+										hms25600, hms27200, hms28800, hms30400, hms32000,
+										hms36000, hms40000, hms44000, hms48000, hms52000,
+										hms56000, hms60000, hms64000, hms68000, hms72000,
+										hms76000, hms80000, hms88000, hms96000, hms104000,
+										hms112000, hms120000, hms128000, hms136000, hms144000,
+										hms152000, hms160000, hms176000, hms192000, hms208000,
+										hms224000, hms240000, hms256000, hms272000, hms288000,
+										hms304000,...},
+	iE-Extensions						ProtocolExtensionContainer { { HARQ-MemoryPartitioningItem-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HARQ-MemoryPartitioningItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDPA-Capability ::= ENUMERATED {hsdpa-capable, hsdpa-non-capable}
+
+HS-DSCHProvidedBitRate ::= SEQUENCE (SIZE (1..maxNrOfPriorityClasses)) OF HS-DSCHProvidedBitRate-Item
+
+HS-DSCHProvidedBitRate-Item ::= SEQUENCE {
+	schedulingPriorityIndicator			SchedulingPriorityIndicator,
+	hS-DSCHProvidedBitRateValue			HS-DSCHProvidedBitRateValue,
+	iE-Extensions						ProtocolExtensionContainer { { HS-DSCHProvidedBitRate-Item-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HS-DSCHProvidedBitRate-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-DSCHProvidedBitRateValue ::= INTEGER(0..16777215,...)
+-- Unit bit/s, Range 0..2^24-1, Step 1 bit
+
+
+HS-DSCHRequiredPower ::= SEQUENCE (SIZE (1..maxNrOfPriorityClasses)) OF HS-DSCHRequiredPower-Item
+
+HS-DSCHRequiredPower-Item ::= SEQUENCE {
+	schedulingPriorityIndicator				SchedulingPriorityIndicator,
+	hS-DSCHRequiredPowerValue				HS-DSCHRequiredPowerValue,
+	hS-DSCHRequiredPowerPerUEInformation	HS-DSCHRequiredPowerPerUEInformation						OPTIONAL,
+	iE-Extensions							ProtocolExtensionContainer { { HS-DSCHRequiredPower-Item-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HS-DSCHRequiredPower-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-DSCHRequiredPowerValue ::= INTEGER(0..1000)
+-- Unit %, Range 0 ..1000, Step 0.1%
+
+HS-DSCHRequiredPowerPerUEInformation ::= SEQUENCE (SIZE (1.. maxNrOfContextsOnUeList)) OF HS-DSCHRequiredPowerPerUEInformation-Item
+
+
+HS-DSCHRequiredPowerPerUEInformation-Item ::= SEQUENCE {
+	cRNC-CommunicationContextID				CRNC-CommunicationContextID,
+	hS-DSCHRequiredPowerPerUEWeight			HS-DSCHRequiredPowerPerUEWeight		OPTIONAL,
+	iE-Extensions							ProtocolExtensionContainer { { HS-DSCHRequiredPowerPerUEInformation-Item-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HS-DSCHRequiredPowerPerUEInformation-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-DSCHRequiredPowerPerUEWeight ::= INTEGER(0..100)
+-- Unit %, Range 0 ..100, Step 1%
+
+
+HSDSCH-FDD-Information ::= SEQUENCE {
+	hSDSCH-MACdFlows-Information				HSDSCH-MACdFlows-Information,
+	ueCapability-Info							UE-Capability-Information,
+	mAChs-Reordering-Buffer-Size-for-RLC-UM		MAChsReorderingBufferSize-for-RLC-UM,
+	cqiFeedback-CycleK							CQI-Feedback-Cycle,
+	cqiRepetitionFactor							CQI-RepetitionFactor						OPTIONAL,
+	-- This IE shall be present if the CQI Feedback Cycle k is greater than 0
+	ackNackRepetitionFactor						AckNack-RepetitionFactor,
+	cqiPowerOffset								CQI-Power-Offset,
+	ackPowerOffset								Ack-Power-Offset,
+	nackPowerOffset								Nack-Power-Offset,
+	hsscch-PowerOffset							HSSCCH-PowerOffset							OPTIONAL,
+	measurement-Power-Offset					Measurement-Power-Offset					OPTIONAL,
+	iE-Extensions								ProtocolExtensionContainer { { HSDSCH-FDD-Information-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-FDD-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-TDD-Information ::= SEQUENCE {
+	hSDSCH-MACdFlows-Information				HSDSCH-MACdFlows-Information,
+	ueCapability-Info							UE-Capability-Information,
+	mAChs-Reordering-Buffer-Size-for-RLC-UM		MAChsReorderingBufferSize-for-RLC-UM,
+	tDD-AckNack-Power-Offset					TDD-AckNack-Power-Offset,
+	iE-Extensions								ProtocolExtensionContainer { { HSDSCH-TDD-Information-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-TDD-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+
+HSDSCH-Information-to-Modify ::= SEQUENCE {
+	hsDSCH-MACdFlow-Specific-Info-to-Modify			HSDSCH-MACdFlow-Specific-InfoList-to-Modify		OPTIONAL,
+	priorityQueueInfotoModify						PriorityQueue-InfoList-to-Modify				OPTIONAL,
+	mAChs-Reordering-Buffer-Size-for-RLC-UM			MAChsReorderingBufferSize-for-RLC-UM			OPTIONAL,
+	cqiFeedback-CycleK								CQI-Feedback-Cycle								OPTIONAL,	-- For FDD only
+	cqiRepetitionFactor								CQI-RepetitionFactor							OPTIONAL,	-- For FDD only
+	ackNackRepetitionFactor							AckNack-RepetitionFactor						OPTIONAL,	-- For FDD only
+	cqiPowerOffset									CQI-Power-Offset								OPTIONAL,	-- For FDD only
+	ackPowerOffset									Ack-Power-Offset								OPTIONAL,	-- For FDD only
+	nackPowerOffset									Nack-Power-Offset								OPTIONAL,	-- For FDD only
+	hsscch-PowerOffset								HSSCCH-PowerOffset								OPTIONAL,	-- For FDD only
+	measurement-Power-Offset						Measurement-Power-Offset						OPTIONAL,	-- For FDD only
+	hSSCCHCodeChangeGrant							HSSCCH-Code-Change-Grant						OPTIONAL,
+	tDDAckNackPowerOffset							TDD-AckNack-Power-Offset						OPTIONAL,	-- For TDD only
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-Information-to-Modify-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-Information-to-Modify-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InfoList-to-Modify ::= SEQUENCE (SIZE (1..maxNrOfMACdFlows)) OF HSDSCH-MACdFlow-Specific-InfoItem-to-Modify
+
+HSDSCH-MACdFlow-Specific-InfoItem-to-Modify ::= SEQUENCE {
+	hsDSCH-MACdFlow-ID					HSDSCH-MACdFlow-ID,
+	allocationRetentionPriority			AllocationRetentionPriority					OPTIONAL,
+	transportBearerRequestIndicator		TransportBearerRequestIndicator,
+	bindingID							BindingID									OPTIONAL,
+	transportLayerAddress				TransportLayerAddress						OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { HSDSCH-MACdFlow-Specific-InfoItem-to-Modify-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InfoItem-to-Modify-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-Information-to-Modify-Unsynchronised ::= SEQUENCE {
+	hsDSCH-MACdFlow-Specific-Info-to-Modify			HSDSCH-MACdFlow-Specific-InfoList-to-Modify		OPTIONAL,
+	priorityQueueInfotoModifyUnsynchronised			PriorityQueue-InfoList-to-Modify-Unsynchronised	OPTIONAL,
+	cqiPowerOffset									CQI-Power-Offset								OPTIONAL,	-- For FDD only
+	ackPowerOffset									Ack-Power-Offset								OPTIONAL,	-- For FDD only
+	nackPowerOffset									Nack-Power-Offset								OPTIONAL,	-- For FDD only
+	hsscch-PowerOffset								HSSCCH-PowerOffset								OPTIONAL,	-- For FDD only
+	tDDAckNackPowerOffset							TDD-AckNack-Power-Offset						OPTIONAL,	-- For TDD only
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-Information-to-Modify-Unsynchronised-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-Information-to-Modify-Unsynchronised-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-FDD-Information-Response ::= SEQUENCE {
+	hsDSCH-MACdFlow-Specific-InformationResp		HSDSCH-MACdFlow-Specific-InformationResp							OPTIONAL,
+	hsSCCH-Specific-Information-ResponseFDD			HSSCCH-Specific-InformationRespListFDD								OPTIONAL,
+	hARQ-MemoryPartitioning							HARQ-MemoryPartitioning												OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-FDD-Information-Response-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSDSCH-FDD-Information-Response-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-TDD-Information-Response ::= SEQUENCE {
+	hsDSCH-MACdFlow-Specific-InformationResp		HSDSCH-MACdFlow-Specific-InformationResp	OPTIONAL,
+	hsSCCH-Specific-Information-ResponseTDD			HSSCCH-Specific-InformationRespListTDD		OPTIONAL, -- Not Applicable to 1.28Mcps TDD
+	hsSCCH-Specific-Information-ResponseTDDLCR		HSSCCH-Specific-InformationRespListTDDLCR	OPTIONAL, -- Not Applicable to 3.84Mcps TDD
+	hARQ-MemoryPartitioning							HARQ-MemoryPartitioning						OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-TDD-Information-Response-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSDSCH-TDD-Information-Response-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InformationResp ::= SEQUENCE (SIZE (1..maxNrOfMACdFlows)) OF HSDSCH-MACdFlow-Specific-InformationResp-Item
+
+HSDSCH-MACdFlow-Specific-InformationResp-Item ::= SEQUENCE {
+	hsDSCHMacdFlow-Id								HSDSCH-MACdFlow-ID,
+	bindingID										BindingID					OPTIONAL,
+	transportLayerAddress							TransportLayerAddress		OPTIONAL,
+	hSDSCH-Initial-Capacity-Allocation				HSDSCH-Initial-Capacity-Allocation OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-MACdFlow-Specific-InformationRespItem-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InformationRespItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-MACdFlows-Information ::= SEQUENCE {
+	hSDSCH-MACdFlow-Specific-Info					HSDSCH-MACdFlow-Specific-InfoList,
+	priorityQueue-Info								PriorityQueue-InfoList,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-MACdFlows-Information-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HSDSCH-MACdFlows-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InfoList ::= SEQUENCE (SIZE (1..maxNrOfMACdFlows)) OF HSDSCH-MACdFlow-Specific-InfoItem
+
+HSDSCH-MACdFlow-Specific-InfoItem ::= SEQUENCE {
+	hsDSCH-MACdFlow-ID					HSDSCH-MACdFlow-ID,
+	allocationRetentionPriority			AllocationRetentionPriority,
+	bindingID							BindingID					OPTIONAL,
+	transportLayerAddress				TransportLayerAddress		OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { HSDSCH-MACdFlow-Specific-InfoItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-MACdFlow-Specific-InfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-MACdFlows-to-Delete ::= SEQUENCE (SIZE (1..maxNrOfMACdFlows)) OF HSDSCH-MACdFlows-to-Delete-Item
+
+HSDSCH-MACdFlows-to-Delete-Item ::= SEQUENCE {
+	hsDSCH-MACdFlow-ID					HSDSCH-MACdFlow-ID,
+	iE-Extensions						ProtocolExtensionContainer { { HSDSCH-MACdFlows-to-Delete-Item-ExtIEs} }		OPTIONAL,
+	...
+}
+
+HSDSCH-MACdFlows-to-Delete-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSSCCH-PowerOffset ::= INTEGER (0..255)
+-- PowerOffset = -32 + offset * 0.25
+-- Unit dB, Range -32dB .. +31.75dB, Step +0.25dB
+
+HSDSCH-Initial-Capacity-Allocation::= SEQUENCE (SIZE (1..maxNrOfPriorityQueues)) OF HSDSCH-Initial-Capacity-AllocationItem
+
+HSDSCH-Initial-Capacity-AllocationItem ::= SEQUENCE {
+	schedulingPriorityIndicator		SchedulingPriorityIndicator,
+	maximum-MACdPDU-Size			MACdPDU-Size,
+	hSDSCH-InitialWindowSize		HSDSCH-InitialWindowSize,
+	iE-Extensions					ProtocolExtensionContainer { { HSDSCH-Initial-Capacity-AllocationItem-ExtIEs } } OPTIONAL,
+	...
+}
+
+HSDSCH-Initial-Capacity-AllocationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-InitialWindowSize			::= INTEGER (1..255)
+-- Number of MAC-d PDUs.
+
+HSSCCH-Specific-InformationRespListFDD ::= SEQUENCE (SIZE (1..maxNrOfHSSCCHCodes)) OF HSSCCH-Codes
+
+HSSCCH-Codes ::= SEQUENCE {
+	codeNumber										INTEGER (0..127),
+	iE-Extensions									ProtocolExtensionContainer { { HSSCCH-Specific-InformationRespItemFDD-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSSCCH-Specific-InformationRespItemFDD-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSSCCH-Specific-InformationRespListTDD ::= SEQUENCE (SIZE (1..maxNrOfHSSCCHCodes)) OF HSSCCH-Specific-InformationRespItemTDD
+
+HSSCCH-Specific-InformationRespItemTDD ::= SEQUENCE {
+	timeslot										TimeSlot,
+	midambleShiftAndBurstType						MidambleShiftAndBurstType,
+	tDD-ChannelisationCode							TDD-ChannelisationCode,
+	hSSICH-Info										HSSICH-Info,
+	iE-Extensions									ProtocolExtensionContainer { { HSSCCH-Specific-InformationRespItemTDD-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HSSCCH-Specific-InformationRespItemTDD-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSSCCH-Specific-InformationRespListTDDLCR ::= SEQUENCE (SIZE (1..maxNrOfHSSCCHCodes)) OF HSSCCH-Specific-InformationRespItemTDDLCR
+
+HSSCCH-Specific-InformationRespItemTDDLCR ::= SEQUENCE {
+	timeslotLCR									TimeSlotLCR,
+	midambleShiftLCR							MidambleShiftLCR,
+	first-TDD-ChannelisationCode					TDD-ChannelisationCode,
+	second-TDD-ChannelisationCode			TDD-ChannelisationCode,
+	hSSICH-InfoLCR								HSSICH-InfoLCR,
+	iE-Extensions								ProtocolExtensionContainer { { HSSCCH-Specific-InformationRespItemTDDLCR-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HSSCCH-Specific-InformationRespItemTDDLCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSSICH-Info ::= SEQUENCE {
+	hsSICH-ID										HS-SICH-ID,
+	timeslot										TimeSlot,
+	midambleShiftAndBurstType						MidambleShiftAndBurstType,
+	tDD-ChannelisationCode							TDD-ChannelisationCode,
+	iE-Extensions									ProtocolExtensionContainer { { HSSICH-Info-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HSSICH-Info-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSSICH-InfoLCR ::= SEQUENCE {
+	hsSICH-ID										HS-SICH-ID,
+	timeslotLCR										TimeSlotLCR,
+	midambleShiftLCR								MidambleShiftLCR,
+	tDD-ChannelisationCode						TDD-ChannelisationCode,
+	iE-Extensions									ProtocolExtensionContainer { { HSSICH-Info-LCR-ExtIEs } }			OPTIONAL,
+	...
+}
+
+HSSICH-Info-LCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-SICH-Reception-Quality-Value ::= SEQUENCE {
+	failed-HS-SICH				HS-SICH-failed,
+	missed-HS-SICH				HS-SICH-missed,
+	total-HS-SICH				HS-SICH-total,
+	iE-Extensions				ProtocolExtensionContainer { { HS-SICH-Reception-Quality-Value-ExtIEs} } OPTIONAL,
+...
+}
+
+HS-SICH-Reception-Quality-Value-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-SICH-failed ::= INTEGER (0..20)
+
+HS-SICH-missed ::= INTEGER (0..20)
+
+HS-SICH-total ::= INTEGER (0..20)
+
+HS-SICH-Reception-Quality-Measurement-Value ::= INTEGER (0..20)
+-- According to mapping in [23]
+
+HSDSCH-MACdFlow-ID ::= INTEGER (0..maxNrOfMACdFlows-1)
+
+HSDSCH-RNTI ::= INTEGER (0..65535)
+
+HS-PDSCH-FDD-Code-Information ::= SEQUENCE {
+	number-of-HS-PDSCH-codes						INTEGER (0..maxHS-PDSCHCodeNrComp-1),
+	hS-PDSCH-Start-code-number 					HS-PDSCH-Start-code-number		OPTIONAL, 
+-- Only included when number of HS-DSCH codes > 0
+	iE-Extensions				ProtocolExtensionContainer { { HS-PDSCH-FDD-Code-Information-ExtIEs} } OPTIONAL,
+	...
+}
+
+HS-PDSCH-FDD-Code-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HS-PDSCH-Start-code-number ::=	INTEGER (1..maxHS-PDSCHCodeNrComp-1)
+
+HS-SCCH-ID ::= INTEGER (0..31)
+HS-SICH-ID ::= INTEGER (0..31)
+
+HS-SCCH-FDD-Code-Information::= CHOICE {
+	replace					HS-SCCH-FDD-Code-List,
+	remove					NULL,
+	...
+}
+
+HS-SCCH-FDD-Code-List ::= SEQUENCE (SIZE (1..maxNrOfHSSCCHs)) OF HS-SCCH-FDD-Code-Information-Item
+
+HS-SCCH-FDD-Code-Information-Item ::= INTEGER (0..maxHS-SCCHCodeNrComp-1)
+
+HSSCCH-CodeChangeIndicator	::= ENUMERATED {
+	hsSCCHCodeChangeNeeded
+}
+
+HSSCCH-Code-Change-Grant	::= ENUMERATED {
+	changeGranted
+}
+
+HSDSCH-FDD-Update-Information ::= SEQUENCE {
+	hsSCCHCodeChangeIndicator						HSSCCH-CodeChangeIndicator					OPTIONAL,
+	cqiFeedback-CycleK								CQI-Feedback-Cycle							OPTIONAL, 
+	cqiRepetitionFactor								CQI-RepetitionFactor						OPTIONAL,
+	ackNackRepetitionFactor							AckNack-RepetitionFactor					OPTIONAL,
+	cqiPowerOffset									CQI-Power-Offset 							OPTIONAL,
+	ackPowerOffset									Ack-Power-Offset							OPTIONAL,
+	nackPowerOffset									Nack-Power-Offset							OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-FDD-Update-Information-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSDSCH-FDD-Update-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+HSDSCH-TDD-Update-Information ::= SEQUENCE {
+	hsSCCHCodeChangeIndicator						HSSCCH-CodeChangeIndicator					OPTIONAL,
+	tDDAckNackPowerOffset							TDD-AckNack-Power-Offset					OPTIONAL,
+	iE-Extensions									ProtocolExtensionContainer { { HSDSCH-TDD-Update-Information-ExtIEs } }		OPTIONAL,
+	...
+}
+
+HSDSCH-TDD-Update-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+-- ==========================================
+--	I
+-- ==========================================
+
+IB-OC-ID ::= INTEGER (1..16)
+
+IB-SG-DATA ::= BIT STRING
+-- Contains SIB data fixed" or "SIB data variable" in segment as encoded in ref.[18].
+
+IB-SG-POS ::= INTEGER (0..4094)
+-- Only even positions allowed
+
+IB-SG-REP ::= ENUMERATED {rep4, rep8, rep16, rep32, rep64, rep128, rep256, rep512, rep1024, rep2048, rep4096}
+
+IB-Type ::= ENUMERATED {
+	mIB, 
+	sB1,
+	sB2,
+	sIB1, 
+	sIB2,
+	sIB3,
+	sIB4,
+	sIB5,
+	sIB6,
+	sIB7,
+	sIB8,
+	sIB9,
+	sIB10,
+	sIB11,
+	sIB12,
+	sIB13,
+	sIB13dot1,
+	sIB13dot2,
+	sIB13dot3,
+	sIB13dot4,
+	sIB14,
+	sIB15,
+	sIB15dot1,
+	sIB15dot2,
+	sIB15dot3,
+	sIB16,
+	...,
+	sIB17,
+	sIB15dot4,
+	sIB18,
+	sIB15dot5
+}
+
+InformationReportCharacteristics ::= CHOICE {
+	onDemand				NULL,
+	periodic				InformationReportCharacteristicsType-ReportPeriodicity,
+	onModification          InformationReportCharacteristicsType-OnModification,
+	...
+}
+
+InformationReportCharacteristicsType-ReportPeriodicity ::= CHOICE {
+	min 				ReportPeriodicity-Scaledmin,
+	hours				ReportPeriodicity-Scaledhour,
+	...
+}
+
+InformationReportCharacteristicsType-OnModification ::= SEQUENCE {
+    information-thresholds        InformationThresholds		OPTIONAL,
+    ie-Extensions		          ProtocolExtensionContainer { { InformationReportCharacteristicsType-OnModification-ExtIEs} }	OPTIONAL,
+   ...
+}
+
+InformationReportCharacteristicsType-OnModification-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+InformationThresholds ::= CHOICE {
+    dgps                DGPSThresholds,
+   	...
+} 
+
+InformationExchangeID ::= INTEGER (0..1048575)
+
+InformationType ::= SEQUENCE {
+	information-Type-Item		Information-Type-Item,
+	gPSInformation  			GPS-Information  OPTIONAL,
+	-- The IE shall be present if the Information Type Item IE indicates "GPS Information".
+	iE-Extensions				ProtocolExtensionContainer { { Information-Type-ExtIEs} }		OPTIONAL,
+...
+}
+
+Information-Type-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Information-Type-Item ::= ENUMERATED {
+    gpsinformation,
+    dgpscorrections,
+    gpsrxpos,
+    ...
+}
+
+InnerLoopDLPCStatus ::= ENUMERATED {
+	active,
+	inactive
+}
+
+IPDL-Indicator ::= ENUMERATED {
+	active,
+	inactive
+}
+
+
+IPDL-FDD-Parameters ::= SEQUENCE {
+	iP-SpacingFDD					ENUMERATED{sp5,sp7,sp10,sp15,sp20,sp30,sp40,sp50,...},
+	iP-Length						ENUMERATED{len5, len10},
+	seed							INTEGER(0..63),
+	burstModeParams					BurstModeParams		OPTIONAL,
+	iP-Offset						INTEGER(0..9),
+	iE-Extensions					ProtocolExtensionContainer { { IPDLFDDParameter-ExtIEs} }	OPTIONAL,
+	...
+}
+
+IPDLFDDParameter-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+IPDL-TDD-Parameters ::= SEQUENCE {
+	iP-SpacingTDD					ENUMERATED{sp30,sp40,sp50,sp70,sp100,...},
+	iP-Start						INTEGER(0..4095),
+	iP-Slot							INTEGER(0..14),
+	iP-PCCPCH						ENUMERATED{switchOff-1-Frame,switchOff-2-Frames},
+	burstModeParams					BurstModeParams		OPTIONAL,
+	iE-Extensions			ProtocolExtensionContainer { { IPDLTDDParameter-ExtIEs} }	OPTIONAL,
+	...
+}
+
+IPDL-TDD-Parameters-LCR ::= SEQUENCE {
+	iP-SpacingTDD					ENUMERATED{sp30,sp40,sp50,sp70,sp100,...},
+	iP-Start						INTEGER(0..4095),
+	iP-Sub							ENUMERATED{first,second,both},
+	burstModeParams					BurstModeParams		OPTIONAL,
+	iE-Extensions			ProtocolExtensionContainer { { IPDLTDDParameterLCR-ExtIEs} }	OPTIONAL,
+	...
+}
+
+BurstModeParams ::= SEQUENCE {
+	burstStart							INTEGER(0..15),
+	burstLength							INTEGER(10..25),
+	burstFreq							INTEGER(1..16),
+	...
+}
+
+IPDLTDDParameter-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+IPDLTDDParameterLCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+-- ==========================================
+--	J
+-- ==========================================
+
+-- ==========================================
+--	K
+-- ==========================================
+
+-- ==========================================
+--	L
+-- ==========================================
+
+LimitedPowerIncrease ::= ENUMERATED {
+	used,
+	not-used
+}
+
+Local-Cell-ID ::= INTEGER (0..268435455)
+
+-- ==========================================
+--	M
+-- ==========================================
+
+MACdPDU-Size ::= INTEGER (1..5000,...)
+
+MACdPDU-Size-Indexlist ::= SEQUENCE (SIZE (1..maxNrOfMACdPDUIndexes)) OF MACdPDU-Size-IndexItem
+
+MACdPDU-Size-IndexItem ::= SEQUENCE {
+	sID									SID,
+	macdPDU-Size						MACdPDU-Size,
+	iE-Extensions						ProtocolExtensionContainer { { MACdPDU-Size-IndexItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+MACdPDU-Size-IndexItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+MACdPDU-Size-Indexlist-to-Modify ::= SEQUENCE (SIZE (1..maxNrOfMACdPDUIndexes)) OF MACdPDU-Size-IndexItem-to-Modify
+
+MACdPDU-Size-IndexItem-to-Modify ::= SEQUENCE {
+	sID									SID,
+	macdPDU-Size						MACdPDU-Size,
+	iE-Extensions						ProtocolExtensionContainer { { MACdPDU-Size-IndexItem-to-Modify-ExtIEs} }		OPTIONAL,
+	...
+}
+
+MACdPDU-Size-IndexItem-to-Modify-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+MAChsGuaranteedBitRate ::= INTEGER (0..16777215,...)
+
+MAChsReorderingBufferSize-for-RLC-UM ::= INTEGER (0..300,...)
+-- Unit kBytes
+
+MAC-hsWindowSize		::= ENUMERATED {v4, v6, v8, v12, v16, v24, v32,...}
+
+MaximumDL-PowerCapability ::=  INTEGER(0..500)
+-- Unit dBm, Range 0dBm .. 50dBm, Step +0.1dB
+
+Maximum-PDSCH-Power ::= SEQUENCE {
+	maximum-PDSCH-Power-SF4		DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF8		DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF16	DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF32	DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF64	DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF128	DL-Power		OPTIONAL,
+	maximum-PDSCH-Power-SF256	DL-Power		OPTIONAL,
+	iE-Extensions			ProtocolExtensionContainer { { Maximum-PDSCH-Power-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Maximum-PDSCH-Power-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+MaximumTransmissionPower ::=  INTEGER(0..500)
+-- Unit dBm, Range 0dBm .. 50dBm, Step +0.1dB
+
+MaxNrOfUL-DPDCHs ::= INTEGER (1..6)
+
+Max-Number-of-PCPCHes ::= INTEGER (1..64,...)
+
+MaxPRACH-MidambleShifts ::= ENUMERATED {
+	shift4,
+	shift8,
+	...
+}
+
+MeasurementFilterCoefficient ::= ENUMERATED {k0, k1, k2, k3, k4, k5, k6, k7, k8, k9, k11, k13, k15, k17, k19,...}
+-- Measurement Filter Coefficient to be used for measurement
+
+MeasurementID ::= INTEGER (0..1048575)
+
+Measurement-Power-Offset ::= INTEGER(-12 .. 26)
+-- Actual value = IE value * 0.5
+
+MessageStructure ::= SEQUENCE (SIZE (1..maxNrOfLevels)) OF
+	SEQUENCE { 
+		iE-ID					ProtocolIE-ID,
+		repetitionNumber		RepetitionNumber1		OPTIONAL,
+		iE-Extensions			ProtocolExtensionContainer { {MessageStructure-ExtIEs} } OPTIONAL,
+		...
+	}
+
+MessageStructure-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+MidambleConfigurationLCR ::=	ENUMERATED {v2, v4, v6, v8, v10, v12, v14, v16, ...}
+
+MidambleConfigurationBurstType1And3 ::=		ENUMERATED {v4, v8, v16}
+
+MidambleConfigurationBurstType2 ::=		ENUMERATED {v3, v6}
+
+MidambleShiftAndBurstType ::=		CHOICE {	
+	type1								SEQUENCE {
+		midambleConfigurationBurstType1And3	MidambleConfigurationBurstType1And3,
+		midambleAllocationMode 				CHOICE {
+			defaultMidamble						NULL,
+			commonMidamble						NULL,
+			ueSpecificMidamble					MidambleShiftLong,
+			...
+		},
+	...
+	},
+	type2								SEQUENCE {
+		midambleConfigurationBurstType2		MidambleConfigurationBurstType2,
+		midambleAllocationMode 				CHOICE {
+			defaultMidamble						NULL,
+			commonMidamble						NULL,
+			ueSpecificMidamble					MidambleShiftShort,
+			...
+		},
+		...
+	},
+	type3								SEQUENCE {
+		midambleConfigurationBurstType1And3	MidambleConfigurationBurstType1And3,
+		midambleAllocationMode 				CHOICE {
+			defaultMidamble						NULL,
+			ueSpecificMidamble					MidambleShiftLong,
+		...
+		},
+		...
+	},
+	...
+}
+
+MidambleShiftLong ::=				INTEGER (0..15)
+
+MidambleShiftShort ::=				INTEGER (0..5)
+
+MidambleShiftLCR ::= SEQUENCE {
+	midambleAllocationMode		MidambleAllocationMode,
+	midambleShift				MidambleShiftLong		OPTIONAL,
+	-- The IE shall be present if the Midamble Allocation Mode IE is set to "UE specific midamble".
+midambleConfigurationLCR		MidambleConfigurationLCR,
+	iE-Extensions				ProtocolExtensionContainer { {MidambleShiftLCR-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+MidambleAllocationMode ::= ENUMERATED {
+	defaultMidamble,
+	commonMidamble,
+	uESpecificMidamble, 
+	...
+	}
+
+MidambleShiftLCR-ExtIEs  NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+MinimumDL-PowerCapability ::=  INTEGER(0..800)
+-- Unit dBm, Range -30dBm .. 50dBm, Step +0.1dB
+
+MinSpreadingFactor ::= ENUMERATED {
+		v4,
+		v8,
+		v16,
+		v32,
+		v64,
+		v128,
+		v256,
+		v512
+}
+--  TDD Mapping scheme for the minimum spreading factor 1 and 2: "256" means 1, "512" means 2
+
+ModifyPriorityQueue ::= CHOICE {
+	addPriorityQueue			PriorityQueue-InfoItem-to-Add,
+	modifyPriorityQueue			PriorityQueue-InfoItem-to-Modify,
+	deletePriorityQueue			PriorityQueue-Id,
+	...
+}
+
+Modulation ::= ENUMERATED {
+	qPSK,
+	eightPSK,
+	...
+}
+
+MinUL-ChannelisationCodeLength ::= ENUMERATED {
+	v4,
+	v8,
+	v16,
+	v32,
+	v64,
+	v128,
+	v256,
+	...
+}
+
+MultiplexingPosition ::= ENUMERATED {
+	fixed,
+	flexible
+}
+
+-- ==========================================
+--	N
+-- ==========================================
+
+Nack-Power-Offset ::= INTEGER (0..8,...)
+-- According to mapping in ref. [9] subclause 4.2.1
+
+NCyclesPerSFNperiod ::= ENUMERATED {
+	v1,
+	v2,
+	v4,
+	v8,
+	...,
+	v16,
+	v32,
+	v64
+}
+
+NEOT ::= INTEGER (0..8)
+
+NFmax ::= INTEGER (1..64,...)
+
+NRepetitionsPerCyclePeriod ::= INTEGER (2..10)
+
+N-INSYNC-IND ::= INTEGER (1..256)
+
+N-OUTSYNC-IND ::= INTEGER (1..256)
+
+NeighbouringCellMeasurementInformation ::= SEQUENCE (SIZE (1..maxNrOfMeasNCell)) OF
+		CHOICE {
+				neighbouringFDDCellMeasurementInformation		NeighbouringFDDCellMeasurementInformation, -- FDD only
+				neighbouringTDDCellMeasurementInformation		NeighbouringTDDCellMeasurementInformation,
+				-- Applicable to 3.84Mcps TDD only
+				...,
+				extension-neighbouringCellMeasurementInformation	Extension-neighbouringCellMeasurementInformation
+			}
+
+Extension-neighbouringCellMeasurementInformation	::=	ProtocolIE-Single-Container {{ Extension-neighbouringCellMeasurementInformationIE }}
+
+Extension-neighbouringCellMeasurementInformationIE NBAP-PROTOCOL-IES ::= {
+	{ ID id-neighbouringTDDCellMeasurementInformationLCR	CRITICALITY reject	TYPE NeighbouringTDDCellMeasurementInformationLCR	PRESENCE mandatory },	-- Applicable to 1.28Mcps TDD only
+	...
+}
+
+NeighbouringFDDCellMeasurementInformation ::= SEQUENCE {
+	uC-Id								UC-Id,
+	uARFCN								UARFCN,
+	primaryScramblingCode				PrimaryScramblingCode,
+	iE-Extensions						ProtocolExtensionContainer { { NeighbouringFDDCellMeasurementInformationItem-ExtIEs} } OPTIONAL,
+	...
+}
+
+NeighbouringFDDCellMeasurementInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+NeighbouringTDDCellMeasurementInformation ::= SEQUENCE {
+	uC-Id								UC-Id,
+	uARFCN								UARFCN,
+	cellParameterID						CellParameterID,
+	timeSlot							TimeSlot						OPTIONAL,
+	midambleShiftAndBurstType			MidambleShiftAndBurstType		OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { NeighbouringTDDCellMeasurementInformationItem-ExtIEs} } OPTIONAL,
+	...
+}
+
+NeighbouringTDDCellMeasurementInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+NeighbouringTDDCellMeasurementInformationLCR ::= SEQUENCE {
+	uC-Id								UC-Id,
+	uARFCN								UARFCN,
+	cellParameterID						CellParameterID,
+	timeSlotLCR							TimeSlotLCR				OPTIONAL,
+	midambleShiftLCR					MidambleShiftLCR		OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { NeighbouringTDDCellMeasurementInformationLCRItem-ExtIEs} } OPTIONAL,
+	...
+}
+
+NeighbouringTDDCellMeasurementInformationLCRItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+NodeB-CommunicationContextID ::= INTEGER (0..1048575)
+
+NumberOfReportedCellPortions ::= INTEGER (1..maxNrOfCellPortionsPerCell,...)
+
+NStartMessage ::= INTEGER (1..8)
+
+NSubCyclesPerCyclePeriod ::= INTEGER (1..16,...)
+
+-- ==========================================
+--	O
+-- ==========================================
+
+-- ==========================================
+--	P
+-- ==========================================
+
+PagingIndicatorLength ::= ENUMERATED {
+	v2,
+	v4,
+	v8,
+	...
+}
+
+PayloadCRC-PresenceIndicator ::= ENUMERATED {
+	cRC-Included,
+	cRC-NotIncluded,
+	...
+}
+
+PCCPCH-Power ::= INTEGER (-150..400,...)
+-- PCCPCH-power = power * 10
+-- If power <= -15 PCCPCH shall be set to -150
+-- If power >= 40 PCCPCH shall be set to 400
+-- Unit dBm, Range -15dBm .. +40 dBm, Step +0.1dB
+
+PCP-Length ::= ENUMERATED{
+	v0,
+	v8
+}
+
+PDSCH-CodeMapping ::= SEQUENCE {
+	dl-ScramblingCode				DL-ScramblingCode,
+	signallingMethod					CHOICE {
+		code-Range						PDSCH-CodeMapping-PDSCH-CodeMappingInformationList,
+		tFCI-Range						PDSCH-CodeMapping-DSCH-MappingInformationList,
+		explicit							PDSCH-CodeMapping-PDSCH-CodeInformationList,
+		...,
+		replace							PDSCH-CodeMapping-ReplacedPDSCH-CodeInformationList
+	},
+	iE-Extensions							ProtocolExtensionContainer  { { PDSCH-CodeMapping-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PDSCH-CodeMapping-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PDSCH-CodeMapping-CodeNumberComp ::= INTEGER (0..maxCodeNrComp-1)
+
+PDSCH-CodeMapping-SpreadingFactor ::= ENUMERATED {
+	v4,
+	v8,
+	v16,
+	v32,
+	v64,
+	v128,
+	v256,
+	...
+}
+
+PDSCH-CodeMapping-PDSCH-CodeMappingInformationList ::= SEQUENCE (SIZE (1..maxNrOfCodeGroups)) OF
+	SEQUENCE {
+		spreadingFactor				PDSCH-CodeMapping-SpreadingFactor,
+		multi-CodeInfo				PDSCH-Multi-CodeInfo,
+		start-CodeNumber				PDSCH-CodeMapping-CodeNumberComp,
+		stop-CodeNumber				PDSCH-CodeMapping-CodeNumberComp,
+		iE-Extensions					ProtocolExtensionContainer  { { PDSCH-CodeMapping-PDSCH-CodeMappingInformationList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+PDSCH-CodeMapping-PDSCH-CodeMappingInformationList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PDSCH-CodeMapping-DSCH-MappingInformationList ::= SEQUENCE (SIZE (1..maxNrOfTFCIGroups)) OF
+	SEQUENCE {
+		maxTFCI-field2-Value			PDSCH-CodeMapping-MaxTFCI-Field2-Value,
+		spreadingFactor				PDSCH-CodeMapping-SpreadingFactor,
+		multi-CodeInfo				PDSCH-Multi-CodeInfo,
+		codeNumber					PDSCH-CodeMapping-CodeNumberComp,
+		iE-Extensions					ProtocolExtensionContainer  { { PDSCH-CodeMapping-DSCH-MappingInformationList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+PDSCH-CodeMapping-DSCH-MappingInformationList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PDSCH-CodeMapping-MaxTFCI-Field2-Value ::= INTEGER (1..1023)
+
+PDSCH-CodeMapping-PDSCH-CodeInformationList ::= SEQUENCE (SIZE (1..maxNrOfTFCI2Combs)) OF
+	SEQUENCE {
+		spreadingFactor				PDSCH-CodeMapping-SpreadingFactor,
+		multi-CodeInfo				PDSCH-Multi-CodeInfo,
+		codeNumber					PDSCH-CodeMapping-CodeNumberComp,
+		iE-Extensions					ProtocolExtensionContainer  { { PDSCH-CodeMapping-PDSCH-CodeInformationList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+PDSCH-CodeMapping-PDSCH-CodeInformationList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PDSCH-CodeMapping-ReplacedPDSCH-CodeInformationList ::= SEQUENCE (SIZE (1..maxNrOfTFCI2Combs)) OF
+	SEQUENCE {
+		tfci-Field2					TFCS-MaxTFCI-field2-Value,
+		spreadingFactor				PDSCH-CodeMapping-SpreadingFactor,
+		multi-CodeInfo				PDSCH-Multi-CodeInfo,
+		codeNumber					PDSCH-CodeMapping-CodeNumberComp,
+		iE-Extensions				ProtocolExtensionContainer { { PDSCH-CodeMapping-ReplacedPDSCH-CodeInformationList-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PDSCH-CodeMapping-ReplacedPDSCH-CodeInformationList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PDSCH-Multi-CodeInfo ::= INTEGER (1..16)
+
+PDSCH-ID ::= INTEGER (0..255)
+
+PDSCHSet-ID ::= INTEGER (0..255)
+
+PICH-Mode ::= ENUMERATED {
+	v18,
+	v36,
+	v72,
+	v144,
+	...
+}
+
+PICH-Power ::= INTEGER (-10..5)
+-- Unit dB, Range -10dB .. +5dB, Step +1dB
+
+PowerAdjustmentType ::= ENUMERATED {
+	none,
+	common,
+	individual
+}
+
+PowerOffset ::= INTEGER (0..24)
+-- PowerOffset = offset * 0.25
+-- Unit dB, Range 0dB .. +6dB, Step +0.25dB
+
+PowerRaiseLimit ::= INTEGER (0..10)
+
+PRACH-Midamble ::= ENUMERATED {
+	inverted,
+	direct,
+	...
+}
+
+PRC ::= INTEGER (-2047..2047)
+--pseudo range correction; scaling factor 0.32 meters
+
+PRCDeviation ::= ENUMERATED {
+   one,
+   two,
+   five,
+   ten,
+   ...
+}
+
+PreambleSignatures ::= BIT STRING {
+									signature15(0),
+									signature14(1),
+									signature13(2),
+									signature12(3),
+									signature11(4),
+									signature10(5),
+									signature9(6),
+									signature8(7),
+									signature7(8),
+									signature6(9),
+									signature5(10),
+									signature4(11),
+									signature3(12),
+									signature2(13),
+									signature1(14),
+									signature0(15)
+									} (SIZE (16))
+
+PreambleThreshold ::= INTEGER (0..72)
+-- 0= -36.0dB, 1= -35.5dB, ... , 72= 0.0dB
+
+PredictedSFNSFNDeviationLimit ::=INTEGER (1..256)
+-- Unit chip, Step 1/16 chip, Range 1/16..16 chip
+
+PredictedTUTRANGPSDeviationLimit ::= INTEGER (1..256)
+-- Unit chip, Step 1/16 chip, Range 1/16..16 chip
+
+Pre-emptionCapability ::= ENUMERATED {
+	shall-not-trigger-pre-emption,
+	may-trigger-pre-emption
+}
+
+Pre-emptionVulnerability ::= ENUMERATED {
+	not-pre-emptable,
+	pre-emptable
+}
+
+PrimaryCPICH-Power ::= INTEGER(-100..500)
+-- step 0.1 (Range -10.0..50.0) Unit is dBm
+
+Primary-CPICH-Usage-for-Channel-Estimation ::= ENUMERATED {
+primary-CPICH-may-be-used,
+primary-CPICH-shall-not-be-used
+}
+
+PrimaryScramblingCode ::= INTEGER (0..511)
+
+PriorityLevel				::= INTEGER (0..15)
+-- 0 = spare, 1 = highest priority, ...14 = lowest priority and 15 = no priority
+
+PriorityQueue-Id ::= INTEGER (0..maxNrOfPriorityQueues-1)
+
+PriorityQueue-InfoList ::= SEQUENCE (SIZE (1..maxNrOfPriorityQueues)) OF PriorityQueue-InfoItem
+
+PriorityQueue-InfoItem ::= SEQUENCE {
+	priorityQueueId						PriorityQueue-Id,
+	associatedHSDSCH-MACdFlow			HSDSCH-MACdFlow-ID,
+	schedulingPriorityIndicator			SchedulingPriorityIndicator,
+	t1									T1,
+	discardTimer						DiscardTimer				OPTIONAL,
+	mAC-hsWindowSize					MAC-hsWindowSize,
+	mAChsGuaranteedBitRate				MAChsGuaranteedBitRate										OPTIONAL,
+	macdPDU-Size-Index					MACdPDU-Size-Indexlist,
+	rLC-Mode							RLC-Mode,
+	iE-Extensions						ProtocolExtensionContainer { { PriorityQueue-InfoItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PriorityQueue-InfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PriorityQueue-InfoList-to-Modify ::= SEQUENCE (SIZE (1..maxNrOfPriorityQueues)) OF ModifyPriorityQueue
+
+PriorityQueue-InfoItem-to-Add ::= SEQUENCE {
+	priorityQueueId						PriorityQueue-Id,
+	associatedHSDSCH-MACdFlow			HSDSCH-MACdFlow-ID,
+	schedulingPriorityIndicator			SchedulingPriorityIndicator,
+	t1									T1,
+	discardTimer						DiscardTimer												OPTIONAL,
+	mAC-hsWindowSize					MAC-hsWindowSize,
+	mAChsGuaranteedBitRate				MAChsGuaranteedBitRate										OPTIONAL,
+	macdPDU-Size-Index					MACdPDU-Size-Indexlist,
+	rLC-Mode							RLC-Mode,
+	iE-Extensions						ProtocolExtensionContainer { { PriorityQueue-InfoItem-to-Add-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PriorityQueue-InfoItem-to-Add-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PriorityQueue-InfoItem-to-Modify ::= SEQUENCE {
+	priorityQueueId						PriorityQueue-Id,
+	schedulingPriorityIndicator			SchedulingPriorityIndicator									OPTIONAL,
+	t1									T1															OPTIONAL,
+	discardTimer						DiscardTimer												OPTIONAL,
+	mAC-hsWindowSize					MAC-hsWindowSize											OPTIONAL,
+	mAChsGuaranteedBitRate				MAChsGuaranteedBitRate										OPTIONAL,
+	macdPDU-Size-Index-to-Modify		MACdPDU-Size-Indexlist-to-Modify							OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { PriorityQueue-InfoItem-to-Modify-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PriorityQueue-InfoItem-to-Modify-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PriorityQueue-InfoList-to-Modify-Unsynchronised ::= SEQUENCE (SIZE (1..maxNrOfPriorityQueues)) OF PriorityQueue-InfoItem-to-Modify-Unsynchronised
+
+PriorityQueue-InfoItem-to-Modify-Unsynchronised ::= SEQUENCE {
+	priorityQueueId						PriorityQueue-Id,
+	schedulingPriorityIndicator			SchedulingPriorityIndicator															OPTIONAL,
+	discardTimer						DiscardTimer																		OPTIONAL,
+	mAChsGuaranteedBitRate				MAChsGuaranteedBitRate																OPTIONAL,
+	iE-Extensions						ProtocolExtensionContainer { { PriorityQueue-InfoItem-to-Modify-Unsynchronised-ExtIEs} }		OPTIONAL,
+	...
+}
+
+PriorityQueue-InfoItem-to-Modify-Unsynchronised-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+PrimaryCCPCH-RSCP ::= INTEGER (0..91)
+-- Mapping of non-negative values according to [23]
+
+PrimaryCCPCH-RSCP-Delta	::= INTEGER (-5..-1,...)
+-- Mapping of negative values according to [23]
+
+PropagationDelay ::= INTEGER (0..255)
+-- Unit: chips, step size 3 chips
+-- example: 0 = 0chip, 1 = 3chips
+
+SCH-TimeSlot ::= INTEGER (0..6)
+
+PunctureLimit ::= INTEGER (0..15)
+-- 0: 40%; 1: 44%; ... 14: 96%; 15: 100%
+
+PUSCH-ID ::= INTEGER (0..255)
+
+PUSCHSet-ID ::= INTEGER (0..255)
+
+-- ==========================================
+--	Q
+-- ==========================================
+
+QE-Selector ::= ENUMERATED {
+	selected,
+	non-selected
+}
+
+Qth-Parameter ::= INTEGER (-20..0)
+-- Unit dB, Step 1dB
+
+-- ==========================================
+--	R
+-- ==========================================
+
+RACH-SlotFormat ::= ENUMERATED {
+	v0,
+	v1,
+	v2,
+	v3,
+	...
+}
+
+RACH-SubChannelNumbers ::= BIT STRING {
+										subCh11(0),
+										subCh10(1),
+									 	subCh9(2),
+									 	subCh8(3),
+									 	subCh7(4),
+									 	subCh6(5),
+									 	subCh5(6),
+									 	subCh4(7),
+									 	subCh3(8),
+									 	subCh2(9),
+									 	subCh1(10),
+									 	subCh0(11)
+										} (SIZE (12))
+
+RL-Specific-DCH-Info ::= SEQUENCE (SIZE (1..maxNrOfDCHs)) OF RL-Specific-DCH-Info-Item
+
+RL-Specific-DCH-Info-Item ::= SEQUENCE {
+	dCH-id					DCH-ID,
+	bindingID				BindingID															OPTIONAL,
+	transportlayeraddress	TransportLayerAddress												OPTIONAL,
+	iE-Extensions			ProtocolExtensionContainer { { RL-Specific-DCH-Info-Item-ExtIEs} }	OPTIONAL,
+	...
+}
+
+RL-Specific-DCH-Info-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Range-Correction-Rate ::= INTEGER (-127..127)
+-- scaling factor 0.032 m/s
+
+ReferenceClockAvailability ::= ENUMERATED {
+	available,
+	notAvailable
+}
+
+ReferenceSFNoffset ::= INTEGER (0..255)
+
+RepetitionLength ::= INTEGER (1..63)
+
+RepetitionPeriod ::= ENUMERATED {
+	v1,
+	v2,
+	v4,
+	v8,
+	v16,
+	v32,
+	v64,
+	...
+}
+
+RepetitionNumber0 ::= INTEGER (0..255)
+
+RepetitionNumber1 ::= INTEGER (1..256)
+
+RefTFCNumber ::= INTEGER (0..3)
+
+ReportCharacteristics ::= CHOICE {
+	onDemand			NULL,
+	periodic			ReportCharacteristicsType-ReportPeriodicity,
+	event-a				ReportCharacteristicsType-EventA,
+	event-b				ReportCharacteristicsType-EventB,
+	event-c				ReportCharacteristicsType-EventC,
+	event-d				ReportCharacteristicsType-EventD,
+	event-e				ReportCharacteristicsType-EventE,
+	event-f				ReportCharacteristicsType-EventF,
+	...,
+	extension-ReportCharacteristics		Extension-ReportCharacteristics
+}
+
+Extension-ReportCharacteristics	::= ProtocolIE-Single-Container {{ Extension-ReportCharacteristicsIE }}
+
+Extension-ReportCharacteristicsIE NBAP-PROTOCOL-IES ::= {
+	{ ID id-ReportCharacteristicsType-OnModification	CRITICALITY reject	TYPE ReportCharacteristicsType-OnModification		PRESENCE mandatory }
+}
+
+ReportCharacteristicsType-EventA ::= SEQUENCE {
+	measurementThreshold			ReportCharacteristicsType-MeasurementThreshold,
+	measurementHysteresisTime		ReportCharacteristicsType-ScaledMeasurementHysteresisTime			OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventA-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventA-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-EventB ::= SEQUENCE {
+	measurementThreshold			ReportCharacteristicsType-MeasurementThreshold,
+	measurementHysteresisTime		ReportCharacteristicsType-ScaledMeasurementHysteresisTime			OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventB-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventB-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-EventC ::= SEQUENCE {
+	measurementIncreaseThreshold	ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold,
+	measurementChangeTime			ReportCharacteristicsType-ScaledMeasurementChangeTime,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventC-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventC-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-EventD ::= SEQUENCE {
+	measurementDecreaseThreshold	ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold,
+	measurementChangeTime			ReportCharacteristicsType-ScaledMeasurementChangeTime,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventD-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventD-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-EventE ::= SEQUENCE {
+	measurementThreshold1			ReportCharacteristicsType-MeasurementThreshold,
+	measurementThreshold2			ReportCharacteristicsType-MeasurementThreshold				OPTIONAL,
+	measurementHysteresisTime		ReportCharacteristicsType-ScaledMeasurementHysteresisTime	OPTIONAL,
+	reportPeriodicity				ReportCharacteristicsType-ReportPeriodicity					OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventE-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventE-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-EventF ::= SEQUENCE {
+	measurementThreshold1			ReportCharacteristicsType-MeasurementThreshold,
+	measurementThreshold2			ReportCharacteristicsType-MeasurementThreshold				OPTIONAL,
+	measurementHysteresisTime		ReportCharacteristicsType-ScaledMeasurementHysteresisTime	OPTIONAL,
+	reportPeriodicity				ReportCharacteristicsType-ReportPeriodicity					OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-EventF-ExtIEs} }		OPTIONAL,
+	...
+	}
+
+ReportCharacteristicsType-EventF-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-OnModification ::= SEQUENCE {
+	measurementThreshold			ReportCharacteristicsType-MeasurementThreshold,
+	iE-Extensions					ProtocolExtensionContainer { { ReportCharacteristicsType-OnModification-ExtIEs} }		OPTIONAL,
+		...
+	}
+
+ReportCharacteristicsType-OnModification-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold ::= CHOICE {
+	received-total-wide-band-power							Received-total-wide-band-power-Value-IncrDecrThres,
+	transmitted-carrier-power		Transmitted-Carrier-Power-Value,
+	acknowledged-prach-preambles			Acknowledged-PRACH-preambles-Value,
+	uL-TimeslotISCP					UL-TimeslotISCP-Value-IncrDecrThres,
+	sir							SIR-Value-IncrDecrThres,
+	sir-error					SIR-Error-Value-IncrDecrThres,
+	transmitted-code-power			Transmitted-Code-Power-Value-IncrDecrThres,
+	rscp							RSCP-Value-IncrDecrThres,
+	round-trip-time					Round-Trip-Time-IncrDecrThres,
+	acknowledged-PCPCH-access-preambles		Acknowledged-PCPCH-access-preambles,
+	detected-PCPCH-access-preambles			Detected-PCPCH-access-preambles,
+	...,
+	extension-ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold		Extension-ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold
+}
+
+Extension-ReportCharacteristicsType-MeasurementIncreaseDecreaseThreshold	::= ProtocolIE-Single-Container {{ Extension-ReportCharacteristicsType-MeasurementIncreaseDecreaseThresholdIE }}
+
+Extension-ReportCharacteristicsType-MeasurementIncreaseDecreaseThresholdIE NBAP-PROTOCOL-IES ::= {
+{ ID id-TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmission CRITICALITY reject	TYPE TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmissionValue PRESENCE mandatory}
+}
+
+ReportCharacteristicsType-MeasurementThreshold ::= CHOICE {
+	received-total-wide-band-power							Received-total-wide-band-power-Value,
+	transmitted-carrier-power		Transmitted-Carrier-Power-Value,
+	acknowledged-prach-preambles			Acknowledged-PRACH-preambles-Value,
+	uL-TimeslotISCP					UL-TimeslotISCP-Value,
+	sir							SIR-Value,
+	sir-error					SIR-Error-Value,
+	transmitted-code-power			Transmitted-Code-Power-Value,
+	rscp							RSCP-Value,
+	rx-timing-deviation				Rx-Timing-Deviation-Value,
+	round-trip-time					Round-Trip-Time-Value,
+	acknowledged-PCPCH-access-preambles		Acknowledged-PCPCH-access-preambles,
+	detected-PCPCH-access-preambles			Detected-PCPCH-access-preambles,
+	...,
+	extension-ReportCharacteristicsType-MeasurementThreshold		Extension-ReportCharacteristicsType-MeasurementThreshold
+}
+
+Extension-ReportCharacteristicsType-MeasurementThreshold	::= ProtocolIE-Single-Container {{ Extension-ReportCharacteristicsType-MeasurementThresholdIE }}
+
+Extension-ReportCharacteristicsType-MeasurementThresholdIE NBAP-PROTOCOL-IES ::= {
+	{ ID id-TUTRANGPSMeasurementThresholdInformation	CRITICALITY reject	TYPE TUTRANGPSMeasurementThresholdInformation		PRESENCE mandatory }|
+	{ ID id-SFNSFNMeasurementThresholdInformation	CRITICALITY reject	TYPE SFNSFNMeasurementThresholdInformation		PRESENCE mandatory }|
+	{ ID id-Rx-Timing-Deviation-Value-LCR	CRITICALITY reject	TYPE Rx-Timing-Deviation-Value-LCR	PRESENCE mandatory}|
+	{ ID id-HS-SICH-Reception-Quality-Measurement-Value	CRITICALITY reject	TYPE HS-SICH-Reception-Quality-Measurement-Value	PRESENCE mandatory}|
+	{ ID id-TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmission CRITICALITY reject	TYPE TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmissionValue PRESENCE mandatory}|
+	{ ID id-HS-DSCHRequiredPowerValue CRITICALITY reject	TYPE HS-DSCHRequiredPowerValue PRESENCE mandatory}
+}
+
+ReportCharacteristicsType-ScaledMeasurementChangeTime ::= CHOICE {
+	msec				MeasurementChangeTime-Scaledmsec,
+	...
+}
+
+MeasurementChangeTime-Scaledmsec ::= INTEGER (1..6000,...)
+-- MeasurementChangeTime-Scaledmsec = Time * 10
+-- Unit ms, Range 10ms .. 60000ms(1min), Step 10ms
+
+ReportCharacteristicsType-ScaledMeasurementHysteresisTime ::= CHOICE {
+	msec				MeasurementHysteresisTime-Scaledmsec,
+	...
+}
+
+MeasurementHysteresisTime-Scaledmsec ::= INTEGER (1..6000,...)
+-- MeasurementHysteresisTime-Scaledmsec = Time * 10
+-- Unit ms, Range 10ms .. 60000ms(1min), Step 10ms
+
+ReportCharacteristicsType-ReportPeriodicity ::= CHOICE {
+	msec 				ReportPeriodicity-Scaledmsec,
+	min					ReportPeriodicity-Scaledmin,
+	...
+}
+
+ReportPeriodicity-Scaledmsec ::= INTEGER (1..6000,...)
+-- ReportPeriodicity-msec = ReportPeriodicity * 10
+-- Unit ms, Range 10ms .. 60000ms(1min), Step 10ms
+
+ReportPeriodicity-Scaledmin ::= INTEGER (1..60,...)
+-- Unit min, Range 1min .. 60min(hour), Step 1min
+
+ReportPeriodicity-Scaledhour ::= INTEGER (1..24,...)
+-- Unit hour, Range 1hour .. 24hours(day), Step 1hour
+
+ResourceOperationalState ::= ENUMERATED {
+	enabled,
+	disabled
+}
+
+RL-ID ::= INTEGER (0..31)
+
+RL-Set-ID				::= INTEGER (0..31)
+
+RLC-Mode	::= ENUMERATED {
+	rLC-AM,
+	rLC-UM,
+	...
+}
+
+Round-Trip-Time-IncrDecrThres ::= INTEGER(0..32766)
+
+RNC-ID					::= INTEGER (0..4095)
+
+Round-Trip-Time-Value ::= INTEGER(0..32767)
+-- According to mapping in [22]
+
+RSCP-Value ::= INTEGER (0..127)
+-- According to mapping in [23]
+
+RSCP-Value-IncrDecrThres ::= INTEGER (0..126)
+
+Received-total-wide-band-power-Value ::= INTEGER(0..621)
+-- According to mapping in [22]/[23]
+
+Received-total-wide-band-power-Value-IncrDecrThres ::= INTEGER (0..620)
+
+RequestedDataValueInformation ::= CHOICE {
+	informationAvailable		InformationAvailable,
+	informationnotAvailable		InformationnotAvailable
+}
+
+InformationAvailable::= SEQUENCE {
+	requesteddataValue		RequestedDataValue,
+	ie-Extensions			ProtocolExtensionContainer { { InformationAvailableItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+InformationAvailableItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+InformationnotAvailable ::= NULL
+
+RequestedDataValue ::= SEQUENCE {
+	dgps-corrections		DGPSCorrections													OPTIONAL,
+	gps-navandrecovery		GPS-NavigationModel-and-TimeRecovery								OPTIONAL,
+	gps-ionos-model			GPS-Ionospheric-Model												OPTIONAL,
+	gps-utc-model			GPS-UTC-Model													OPTIONAL,
+	gps-almanac				GPS-Almanac														OPTIONAL,
+	gps-rt-integrity		GPS-RealTime-Integrity											OPTIONAL,
+	gpsrxpos				GPS-RX-POS														OPTIONAL,
+	iE-Extensions			ProtocolExtensionContainer { { RequestedDataValue-ExtIEs} }		OPTIONAL,
+	...
+}
+
+RequestedDataValue-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Rx-Timing-Deviation-Value ::= INTEGER (0..8191)
+-- According to mapping in [23]
+
+Rx-Timing-Deviation-Value-LCR ::= INTEGER (0..511)
+-- According to mapping in [23]
+
+-- ==========================================
+--	S
+-- ==========================================
+
+AdjustmentPeriod			::= INTEGER(1..256)
+-- Unit Frame
+
+SAT-ID ::= INTEGER (0..63) 
+
+SAT-Info-Almanac ::= SEQUENCE (SIZE (1..maxNoSat)) OF SAT-Info-Almanac-Item
+
+SAT-Info-Almanac-Item ::= SEQUENCE {
+	data-id			   DATA-ID,
+    sat-id             SAT-ID,
+    gps-e-alm          BIT STRING (SIZE (16)),
+    gps-toa-alm        BIT STRING (SIZE (8)),     
+    gps-delta-I-alm    BIT STRING (SIZE (16)),
+    omegadot-alm       BIT STRING (SIZE (16)),
+    svhealth-alm       BIT STRING (SIZE (8)),
+    gps-a-sqrt-alm     BIT STRING (SIZE (24)),
+    omegazero-alm      BIT STRING (SIZE (24)),
+    m-zero-alm         BIT STRING (SIZE (24)),
+    gps-omega-alm      BIT STRING (SIZE (24)),
+    gps-af-zero-alm    BIT STRING (SIZE (11)),
+    gps-af-one-alm     BIT STRING (SIZE (11)),
+    ie-Extensions	   ProtocolExtensionContainer { { SAT-Info-Almanac-Item-ExtIEs} }		OPTIONAL,
+   ...
+}	-- This GPS-Almanac-Information is for the 1st 16 satellites
+
+SAT-Info-Almanac-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+} 
+
+SAT-Info-Almanac-ExtList	::= SEQUENCE (SIZE (1..maxNrOfSatAlmanac-maxNoSat)) OF SAT-Info-Almanac-ExtItem
+
+SAT-Info-Almanac-ExtItem	::= SEQUENCE {
+	data-id			   DATA-ID,
+    sat-id             SAT-ID,
+    gps-e-alm          BIT STRING (SIZE (16)),
+    gps-toa-alm        BIT STRING (SIZE (8)),     
+    gps-delta-I-alm    BIT STRING (SIZE (16)),
+    omegadot-alm       BIT STRING (SIZE (16)),
+    svhealth-alm       BIT STRING (SIZE (8)),
+    gps-a-sqrt-alm     BIT STRING (SIZE (24)),
+    omegazero-alm      BIT STRING (SIZE (24)),
+    m-zero-alm         BIT STRING (SIZE (24)),
+    gps-omega-alm      BIT STRING (SIZE (24)),
+    gps-af-zero-alm    BIT STRING (SIZE (11)),
+    gps-af-one-alm     BIT STRING (SIZE (11)),
+    ie-Extensions	   ProtocolExtensionContainer { { SAT-Info-Almanac-ExtItemIEs } }		OPTIONAL,
+   ...
+}	--	Includes the GPS-Almanac-Information for 17th through 32nd satellites.
+
+SAT-Info-Almanac-ExtItemIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SAT-Info-DGPSCorrections ::= SEQUENCE (SIZE (1..maxNoSat)) OF SAT-Info-DGPSCorrections-Item
+
+SAT-Info-DGPSCorrections-Item ::= SEQUENCE {
+    sat-id                                	SAT-ID,
+    iode-dgps                           	BIT STRING (SIZE (8)),
+    udre            						UDRE,
+    prc             						PRC,
+    range-correction-rate             		Range-Correction-Rate,
+    ie-Extensions							ProtocolExtensionContainer { { SAT-Info-DGPSCorrections-Item-ExtIEs} }  OPTIONAL,
+   ...
+}
+
+SAT-Info-DGPSCorrections-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SATInfo-RealTime-Integrity ::= SEQUENCE (SIZE (1..maxNoSat)) OF SAT-Info-RealTime-Integrity-Item
+
+SAT-Info-RealTime-Integrity-Item ::= SEQUENCE {
+  bad-sat-id       SAT-ID,
+  ie-Extensions	   ProtocolExtensionContainer { { SAT-Info-RealTime-Integrity-Item-ExtIEs} }		OPTIONAL,
+   ...
+}
+
+SAT-Info-RealTime-Integrity-Item-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+ScaledAdjustmentRatio			::= INTEGER(0..100)
+-- AdjustmentRatio  = ScaledAdjustmentRatio / 100
+
+MaxAdjustmentStep			::= INTEGER(1..10)
+-- Unit Slot
+
+SchedulingPriorityIndicator 			::= INTEGER (0..15)		 -- lowest (0), highest (15)
+
+SID ::= INTEGER (0..maxNrOfMACdPDUIndexes-1)
+
+ScramblingCodeNumber ::= INTEGER (0..15)
+
+Secondary-CPICH-Information-Change ::= CHOICE {
+	new-secondary-CPICH					CommonPhysicalChannelID,
+	secondary-CPICH-shall-not-be-used	NULL,
+...
+}
+
+SecondaryCCPCH-SlotFormat ::= INTEGER(0..17,...)
+
+Segment-Type ::= ENUMERATED {
+		first-segment, 
+		first-segment-short,
+		subsequent-segment,
+		last-segment, 
+		last-segment-short, 
+		complete-SIB, 
+		complete-SIB-short,
+		...
+}
+
+S-FieldLength ::= ENUMERATED {
+		v1,
+		v2,
+		...
+}
+
+SFN ::= INTEGER (0..4095)
+
+SFNSFN-FDD ::= INTEGER (0..614399)
+
+SFNSFN-TDD ::= INTEGER (0..40961) 
+
+SFNSFNChangeLimit ::= INTEGER (1..256)
+-- Unit chip, Step 1/16 chip, Range 1/16..16 chip
+
+SFNSFNDriftRate ::= INTEGER (-100..100)
+-- Unit chip/s, Step 1/256 chip/s, Range -100/256..+100/256 chip/s
+
+SFNSFNDriftRateQuality ::= INTEGER (0..100)
+-- Unit chip/s, Step 1/256 chip/s, Range 0..100/256 chip/s
+
+SFNSFNMeasurementThresholdInformation::= SEQUENCE {
+	sFNSFNChangeLimit					SFNSFNChangeLimit					OPTIONAL,
+	predictedSFNSFNDeviationLimit		PredictedSFNSFNDeviationLimit		OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { SFNSFNMeasurementThresholdInformation-ExtIEs} }		OPTIONAL,
+	...
+}
+
+SFNSFNMeasurementThresholdInformation-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SFNSFNMeasurementValueInformation ::= SEQUENCE {
+	successfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformation		SEQUENCE (SIZE(1..maxNrOfMeasNCell)) OF
+		SEQUENCE {
+			uC-Id						UC-Id,
+			sFNSFNValue					SFNSFNValue,
+			sFNSFNQuality				SFNSFNQuality				OPTIONAL,
+			sFNSFNDriftRate				SFNSFNDriftRate,
+			sFNSFNDriftRateQuality		SFNSFNDriftRateQuality		OPTIONAL,
+			sFNSFNTimeStampInformation	SFNSFNTimeStampInformation,
+			iE-Extensions		ProtocolExtensionContainer { { SuccessfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformationItem-ExtIEs} }		OPTIONAL,
+			...
+		},
+	unsuccessfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformation		SEQUENCE (SIZE(0..maxNrOfMeasNCell-1)) OF
+		SEQUENCE {
+			uC-Id						UC-Id,
+			iE-Extensions		ProtocolExtensionContainer { { UnsuccessfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformationItem-ExtIEs} }		OPTIONAL,
+				...
+		},
+	iE-Extensions		ProtocolExtensionContainer { { SFNSFNMeasurementValueInformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+SFNSFNMeasurementValueInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SuccessfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UnsuccessfullNeighbouringCellSFNSFNObservedTimeDifferenceMeasurementInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SFNSFNQuality ::= INTEGER (0..255)
+-- Unit chip, Step 1/16 chip, Range 0.. 255/16 chip
+
+ShutdownTimer ::= INTEGER (1..3600)
+-- Unit sec
+
+SIB-Originator ::= ENUMERATED {
+	nodeB, 
+	cRNC,
+	...
+}
+
+SIR-Error-Value ::= INTEGER (0..125)
+-- According to mapping in [22]
+
+SFNSFNTimeStampInformation ::= CHOICE {
+	sFNSFNTimeStamp-FDD		SFN,
+	sFNSFNTimeStamp-TDD		SFNSFNTimeStamp-TDD,
+	...}
+
+SFNSFNTimeStamp-TDD::= SEQUENCE {
+	sFN					SFN,
+	timeSlot			TimeSlot,
+	iE-Extensions					ProtocolExtensionContainer { { SFNSFNTimeStamp-ExtIEs} }		OPTIONAL,
+	...
+}
+
+SFNSFNTimeStamp-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SFNSFNValue ::= CHOICE {
+	sFNSFN-FDD		SFNSFN-FDD,
+	sFNSFN-TDD		SFNSFN-TDD,
+	...
+}
+
+SIR-Error-Value-IncrDecrThres ::= INTEGER (0..124)
+
+SIR-Value ::= INTEGER (0..63)
+-- According to mapping in [22]/[23]
+
+SIR-Value-IncrDecrThres ::= INTEGER (0..62)
+
+SignallingBearerRequestIndicator::= ENUMERATED {bearerRequested}
+
+SpecialBurstScheduling ::= INTEGER (1..256)	-- Number of frames between special burst transmission during DTX
+
+SSDT-Cell-Identity ::= ENUMERATED {a, b, c, d, e, f, g, h}
+
+SSDT-CellID-Length ::= ENUMERATED {
+	short,
+	medium,
+	long
+}
+
+SSDT-Indication ::= ENUMERATED {
+	ssdt-active-in-the-UE,
+	ssdt-not-active-in-the-UE
+}
+
+Start-Of-Audit-Sequence-Indicator ::= ENUMERATED {
+	start-of-audit-sequence,
+	not-start-of-audit-sequence
+}
+
+STTD-Indicator ::= ENUMERATED {
+	active,
+	inactive,
+	...
+}
+
+SSDT-SupportIndicator ::= ENUMERATED {
+	sSDT-Supported,
+	sSDT-not-supported
+}
+
+SyncCase ::= INTEGER (1..2,...)
+
+SYNCDlCodeId ::= INTEGER (1..32,...)
+
+SyncFrameNumber ::= INTEGER (1..10)
+
+SynchronisationReportCharacteristics ::= SEQUENCE {
+	synchronisationReportCharacteristicsType	SynchronisationReportCharacteristicsType,
+	synchronisationReportCharactThreExc			SynchronisationReportCharactThreExc		OPTIONAL,
+		-- This IE shall be included if the synchronisationReportCharacteristicsType IE is set to "thresholdExceeding".
+	iE-Extensions								ProtocolExtensionContainer { { SynchronisationReportCharacteristics-ExtIEs } }	OPTIONAL,
+	...
+}
+
+SynchronisationReportCharacteristics-ExtIEs	NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-SyncDLCodeIdThreInfoLCR	CRITICALITY	ignore EXTENSION	SyncDLCodeIdThreInfoLCR		PRESENCE optional },
+	...
+}
+
+SynchronisationReportCharactThreExc ::= 	SEQUENCE (SIZE (1..maxNrOfCellSyncBursts)) OF SynchronisationReportCharactThreInfoItem  -- Mandatory for 3.84Mcps TDD only. Not Applicable to 1.28Mcps TDD.
+
+SynchronisationReportCharactThreInfoItem ::= SEQUENCE {
+	syncFrameNumber				SyncFrameNumber,
+	cellSyncBurstInformation	SEQUENCE (SIZE (1.. maxNrOfReceptsPerSyncFrame)) OF SynchronisationReportCharactCellSyncBurstInfoItem,
+	iE-Extensions				ProtocolExtensionContainer { { SynchronisationReportCharactThreInfoItem-ExtIEs } }		OPTIONAL,
+	...
+}
+
+SynchronisationReportCharactThreInfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SynchronisationReportCharactCellSyncBurstInfoItem ::= SEQUENCE {
+	cellSyncBurstCode 				CellSyncBurstCode,
+	cellSyncBurstCodeShift 			CellSyncBurstCodeShift,
+	cellSyncBurstTiming 			CellSyncBurstTiming				OPTIONAL,
+	cellSyncBurstTimingThreshold 	CellSyncBurstTimingThreshold	OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { SynchronisationReportCharactCellSyncBurstInfoItem-ExtIEs } }		OPTIONAL,
+	...
+}
+
+SynchronisationReportCharactCellSyncBurstInfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SyncDLCodeIdThreInfoLCR ::= SEQUENCE (SIZE (0..maxNrOfSyncFramesLCR)) OF SyncDLCodeIdThreInfoList  --Mandatory for 1.28Mcps TDD only. Not Applicable to 3.84Mcps TDD.
+
+SyncDLCodeIdThreInfoList ::= SEQUENCE {
+	syncFrameNoToReceive			SyncFrameNumber,
+	syncDLCodeIdInfoLCR				SyncDLCodeInfoListLCR,
+	iE-Extensions					ProtocolExtensionContainer { { SyncDLCodeIdThreInfoList-ExtIEs } }		OPTIONAL,
+	...
+}
+
+SyncDLCodeIdThreInfoList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SyncDLCodeInfoListLCR ::= SEQUENCE (SIZE (1..maxNrOfSyncDLCodesLCR)) OF SyncDLCodeInfoItemLCR
+
+SyncDLCodeInfoItemLCR ::= SEQUENCE {
+	syncDLCodeId					SYNCDlCodeId,
+	syncDLCodeIdArrivTime			CellSyncBurstTimingLCR				OPTIONAL,
+	syncDLCodeIdTimingThre			CellSyncBurstTimingThreshold		OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { SyncDLCodeInfoItem-LCR-ExtIEs } }		OPTIONAL,
+	...
+}
+
+SyncDLCodeInfoItem-LCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SynchronisationReportCharacteristicsType ::= ENUMERATED {
+	frameRelated,
+	sFNperiodRelated,
+	cycleLengthRelated,
+	thresholdExceeding,
+	frequencyAcquisitionCompleted,
+	...
+}
+
+SynchronisationReportType ::= ENUMERATED {
+	initialPhase,
+	steadyStatePhase,
+	lateEntrantCell,
+	frequencyAcquisition,
+	...
+}
+
+-- ==========================================
+--	T
+-- ==========================================
+
+T1 ::= ENUMERATED {v10,v20,v30,v40,v50,v60,v70,v80,v90,v100,v120,v140,v160,v200,v300,v400,...}
+
+T-Cell ::= ENUMERATED {
+	v0,
+	v1,
+	v2,
+	v3,
+	v4,
+	v5,
+	v6,
+	v7,
+	v8,
+	v9
+}
+
+T-RLFAILURE ::= INTEGER (0..255)
+-- Unit seconds, Range 0s .. 25.5s, Step 0.1s
+
+TDD-AckNack-Power-Offset ::= INTEGER (-7..8,...)
+-- Unit dB, Range -7dB .. +8dB, Step 1dB
+
+TDD-ChannelisationCode ::= ENUMERATED {
+	chCode1div1,
+	chCode2div1,
+	chCode2div2,
+	chCode4div1,
+	chCode4div2,
+	chCode4div3,
+	chCode4div4,
+	chCode8div1,
+	chCode8div2,
+	chCode8div3,
+	chCode8div4,
+	chCode8div5,
+	chCode8div6,
+	chCode8div7,
+	chCode8div8,
+	chCode16div1,
+	chCode16div2,
+	chCode16div3,
+	chCode16div4,
+	chCode16div5,
+	chCode16div6,
+	chCode16div7,
+	chCode16div8,
+	chCode16div9,
+	chCode16div10,
+	chCode16div11,
+	chCode16div12,
+	chCode16div13,
+	chCode16div14,
+	chCode16div15,
+	chCode16div16,
+	...
+}
+
+TDD-ChannelisationCodeLCR ::= SEQUENCE {
+	tDD-ChannelisationCode			TDD-ChannelisationCode,
+	modulation						Modulation, -- Modulation options for 1.28Mcps TDD in contrast to 3.84Mcps TDD
+	iE-Extensions							ProtocolExtensionContainer { { TDD-ChannelisationCodeLCR-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TDD-ChannelisationCodeLCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-DL-Code-Information ::= SEQUENCE (SIZE (1..maxNrOfDPCHs)) OF TDD-DL-Code-InformationItem
+
+TDD-DL-Code-InformationItem	 ::= SEQUENCE {
+	dPCH-ID									DPCH-ID,
+	tdd-ChannelisationCode					TDD-ChannelisationCode,
+	iE-Extensions							ProtocolExtensionContainer { { TDD-DL-Code-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TDD-DL-Code-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-DL-Code-LCR-Information ::= SEQUENCE (SIZE (1..maxNrOfDPCHLCRs)) OF TDD-DL-Code-LCR-InformationItem
+
+TDD-DL-Code-LCR-InformationItem ::= SEQUENCE {
+	dPCH-ID									DPCH-ID,
+	tdd-ChannelisationCodeLCR				TDD-ChannelisationCodeLCR,
+	tdd-DL-DPCH-TimeSlotFormat-LCR			TDD-DL-DPCH-TimeSlotFormat-LCR,
+	iE-Extensions							ProtocolExtensionContainer { { TDD-DL-Code-LCR-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TDD-DL-Code-LCR-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-DL-DPCH-TimeSlotFormat-LCR ::= CHOICE {
+	qPSK						QPSK-DL-DPCH-TimeSlotFormatTDD-LCR,
+	eightPSK					EightPSK-DL-DPCH-TimeSlotFormatTDD-LCR,
+	...
+}
+
+QPSK-DL-DPCH-TimeSlotFormatTDD-LCR ::= INTEGER(0..24,...)
+
+EightPSK-DL-DPCH-TimeSlotFormatTDD-LCR ::= INTEGER(0..24,...)
+
+TDD-DPCHOffset ::= CHOICE {
+	initialOffset		INTEGER (0..255),
+	noinitialOffset		INTEGER (0..63)
+}
+
+TDD-PhysicalChannelOffset ::= INTEGER (0..63)
+
+TDD-TPC-DownlinkStepSize ::= ENUMERATED {
+	step-size1,
+	step-size2,
+	step-size3,
+	...
+}
+
+TDD-TPC-UplinkStepSize-LCR ::= ENUMERATED {
+	step-size1,
+	step-size2,
+	step-size3,
+	...
+}
+
+TransportFormatCombination-Beta ::= CHOICE {
+	signalledGainFactors		SEQUENCE {
+		gainFactor					CHOICE {
+			fdd							SEQUENCE {
+				betaC						BetaCD,
+				betaD						BetaCD,
+				iE-Extensions		ProtocolExtensionContainer { { GainFactorFDD-ExtIEs } }		OPTIONAL,
+				...
+			},
+			tdd							BetaCD,
+			...
+		},
+	    refTFCNumber				RefTFCNumber	OPTIONAL,
+		iE-Extensions			ProtocolExtensionContainer { { SignalledGainFactors-ExtIEs } }		OPTIONAL,
+		...
+	},
+	computedGainFactors				RefTFCNumber,
+	...
+}
+
+GainFactorFDD-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SignalledGainFactors-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-UL-Code-Information ::= SEQUENCE (SIZE (1..maxNrOfDPCHs)) OF TDD-UL-Code-InformationItem
+
+TDD-UL-Code-InformationItem ::= SEQUENCE {
+	dPCH-ID									DPCH-ID,
+	tdd-ChannelisationCode					TDD-ChannelisationCode,
+	iE-Extensions							ProtocolExtensionContainer { { TDD-UL-Code-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TDD-UL-Code-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-UL-Code-LCR-Information ::= SEQUENCE (SIZE (1..maxNrOfDPCHLCRs)) OF TDD-UL-Code-LCR-InformationItem
+
+TDD-UL-Code-LCR-InformationItem ::= SEQUENCE {
+	dPCH-ID									DPCH-ID,
+	tdd-ChannelisationCodeLCR				TDD-ChannelisationCodeLCR,
+	tdd-UL-DPCH-TimeSlotFormat-LCR			TDD-UL-DPCH-TimeSlotFormat-LCR,
+	iE-Extensions							ProtocolExtensionContainer { { TDD-UL-Code-LCR-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TDD-UL-Code-LCR-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-UL-DPCH-TimeSlotFormat-LCR ::= CHOICE {
+	qPSK						QPSK-UL-DPCH-TimeSlotFormatTDD-LCR,
+	eightPSK					EightPSK-UL-DPCH-TimeSlotFormatTDD-LCR,
+	...
+}
+
+QPSK-UL-DPCH-TimeSlotFormatTDD-LCR ::= INTEGER(0..69,...)
+
+EightPSK-UL-DPCH-TimeSlotFormatTDD-LCR ::= INTEGER(0..24,...)
+
+TFCI-Coding ::= ENUMERATED {
+	v4,
+	v8,
+	v16,
+	v32,
+	...
+}
+
+TFCI-Presence ::= ENUMERATED {
+	present,
+	not-present
+}
+
+TFCI-SignallingMode ::= SEQUENCE {
+	tFCI-SignallingOption		TFCI-SignallingMode-TFCI-SignallingOption,
+	splitType				TFCI-SignallingMode-SplitType				OPTIONAL,
+	-- This IE shall be present if the TFCI signalling option is set to "split" --
+	lengthOfTFCI2				TFCI-SignallingMode-LengthOfTFCI2			OPTIONAL,
+	iE-Extensions				ProtocolExtensionContainer { { TFCI-SignallingMode-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TFCI-SignallingMode-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCI-SignallingMode-LengthOfTFCI2 ::= INTEGER (1..10)
+
+TFCI-SignallingMode-SplitType ::= ENUMERATED {
+	hard, 
+	logical
+}
+
+TFCI-SignallingMode-TFCI-SignallingOption ::= ENUMERATED {
+	normal,
+	split
+}
+
+TFCI2-BearerInformationResponse ::= SEQUENCE {
+	bindingID										BindingID,
+	transportLayerAddress							TransportLayerAddress,
+	iE-Extensions									ProtocolExtensionContainer { { TFCI2-BearerInformationResponse-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TFCI2-BearerInformationResponse-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCI2BearerRequestIndicator ::= ENUMERATED {newBearerRequested}
+
+TGD					::= INTEGER (0|15..269)
+-- 0 = Undefined, only one transmission gap in the transmission gap pattern sequence 
+
+TGPRC 				::= INTEGER (0..511)
+-- 0 = infinity
+
+TGPSID				::= INTEGER (1.. maxTGPS)
+
+TGSN				::= INTEGER (0..14)
+
+TimeSlot ::= INTEGER (0..14)
+
+TimeSlotDirection ::= ENUMERATED {
+	ul,
+	dl,
+	...
+}
+
+TimeSlotLCR ::= INTEGER (0..6)
+
+TimeSlotStatus ::= ENUMERATED {
+	active,
+	not-active,
+	...
+}
+
+TimingAdjustmentValue ::= CHOICE {
+	initialPhase		INTEGER (0..1048575,...),
+	steadyStatePhase	INTEGER (0..255,...)
+}
+
+TimingAdjustmentValueLCR ::= CHOICE {
+	initialPhase		INTEGER (0..524287,...),
+	steadyStatePhase	INTEGER (0..127,...)
+}
+
+TimingAdvanceApplied ::= ENUMERATED {
+	yes,
+	no
+}
+
+TnlQos ::= CHOICE {
+	dsField					DsField,
+	genericTrafficCategory	GenericTrafficCategory,
+	...
+}
+
+ToAWE ::= INTEGER (0..2559)
+-- Unit ms
+
+ToAWS ::= INTEGER (0..1279)
+-- Unit ms
+
+Transmission-Gap-Pattern-Sequence-Information ::= SEQUENCE (SIZE (1..maxTGPS)) OF
+	SEQUENCE {
+		tGPSID			TGPSID,
+		tGSN			TGSN,
+		tGL1			GapLength,
+		tGL2			GapLength	OPTIONAL,
+		tGD				TGD,
+		tGPL1			GapDuration,
+		tGPL2			GapDuration	OPTIONAL,
+		uL-DL-mode		UL-DL-mode,
+		downlink-Compressed-Mode-Method		Downlink-Compressed-Mode-Method		OPTIONAL,
+			-- This IE shall be present if the UL/DL mode IE is set to "DL only" or "UL/DL"
+		uplink-Compressed-Mode-Method		Uplink-Compressed-Mode-Method		OPTIONAL,
+			-- This IE shall be present if the UL/DL mode IE is set to "UL only" or "UL/DL"
+		dL-FrameType		DL-FrameType,
+		delta-SIR1			DeltaSIR,
+		delta-SIR-after1	DeltaSIR,
+		delta-SIR2			DeltaSIR	OPTIONAL,
+		delta-SIR-after2	DeltaSIR	OPTIONAL,
+		iE-Extensions			ProtocolExtensionContainer { {Transmission-Gap-Pattern-Sequence-Information-ExtIEs} } OPTIONAL,
+		...
+	}
+
+Transmission-Gap-Pattern-Sequence-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransmissionGapPatternSequenceCodeInformation	::= ENUMERATED{
+code-change,
+nocode-change
+}
+
+TransmittedCarrierPowerOfAllCodesNotUsedForHS-PDSCHOrHS-SCCHTransmissionValue ::= INTEGER(0..100)
+-- According to mapping in [22] and [23]
+
+Transmitted-Carrier-Power-Value ::= INTEGER(0..100)
+-- According to mapping in [22]/[23]
+
+Transmitted-Code-Power-Value ::= INTEGER (0..127)
+-- According to mapping in [22]/[23]. Values 0 to 9 and 123 to 127 shall not be used.
+
+Transmitted-Code-Power-Value-IncrDecrThres ::= INTEGER (0..112,...)
+
+TransmissionDiversityApplied ::= BOOLEAN
+-- true: applied, false: not applied
+
+TransmitDiversityIndicator ::= ENUMERATED {
+	active,
+	inactive
+}
+
+TFCS ::= SEQUENCE {
+	tFCSvalues					CHOICE {
+		no-Split-in-TFCI			TFCS-TFCSList,
+		split-in-TFCI				SEQUENCE {
+			transportFormatCombination-DCH		TFCS-DCHList,
+			signallingMethod					CHOICE {
+				tFCI-Range						TFCS-MapingOnDSCHList,
+				explicit							TFCS-DSCHList,
+				...
+			},
+			iE-Extensions						ProtocolExtensionContainer { { Split-in-TFCI-ExtIEs } }		OPTIONAL,	
+			...
+		},
+	...
+	},
+	iE-Extensions		ProtocolExtensionContainer  { { TFCS-ExtIEs} }		OPTIONAL,
+	...
+}
+
+Split-in-TFCI-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCS-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCS-TFCSList ::= SEQUENCE (SIZE (1..maxNrOfTFCs)) OF
+	SEQUENCE {
+		cTFC				TFCS-CTFC,
+		tFC-Beta		TransportFormatCombination-Beta 	OPTIONAL,
+		-- The IE shall be present if the TFCS concerns a UL DPCH or PRACH channel [FDD - or PCPCH channel].
+		iE-Extensions		ProtocolExtensionContainer  { { TFCS-TFCSList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+TFCS-TFCSList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCS-CTFC ::= CHOICE {
+	ctfc2bit							INTEGER (0..3),
+	ctfc4bit							INTEGER (0..15),
+	ctfc6bit							INTEGER (0..63),
+	ctfc8bit							INTEGER (0..255),
+	ctfc12bit							INTEGER (0..4095),
+	ctfc16bit							INTEGER (0..65535),
+	ctfcmaxbit							INTEGER (0..maxCTFC)
+}
+
+TFCS-DCHList ::= SEQUENCE (SIZE (1..maxNrOfTFCI1Combs)) OF
+	SEQUENCE {
+		cTFC				TFCS-CTFC,
+		iE-Extensions		ProtocolExtensionContainer  { { TFCS-DCHList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+TFCS-DCHList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCS-MapingOnDSCHList ::= SEQUENCE (SIZE (1..maxNrOfTFCIGroups)) OF
+	SEQUENCE {
+		maxTFCI-field2-Value		TFCS-MaxTFCI-field2-Value,
+		cTFC-DSCH				TFCS-CTFC,
+		iE-Extensions				ProtocolExtensionContainer  { { TFCS-MapingOnDSCHList-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TFCS-MapingOnDSCHList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TFCS-MaxTFCI-field2-Value ::= INTEGER (1..maxNrOfTFCI2Combs-1)
+
+TFCS-DSCHList ::= SEQUENCE (SIZE (1..maxNrOfTFCI2Combs)) OF
+	SEQUENCE {
+		cTFC-DSCH				TFCS-CTFC,
+		iE-Extensions				ProtocolExtensionContainer  { { TFCS-DSCHList-ExtIEs} }		OPTIONAL,
+		...
+}
+
+TFCS-DSCHList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransportBearerRequestIndicator ::= ENUMERATED {
+	bearerRequested,
+	bearerNotRequested,
+	...
+}
+
+TransportFormatSet ::= SEQUENCE {
+	dynamicParts			TransportFormatSet-DynamicPartList,
+	semi-staticPart			TransportFormatSet-Semi-staticPart,
+	iE-Extensions			ProtocolExtensionContainer  { { TransportFormatSet-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TransportFormatSet-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransportFormatSet-DynamicPartList ::= SEQUENCE (SIZE (1..maxNrOfTFs)) OF
+	SEQUENCE {
+		nrOfTransportBlocks			TransportFormatSet-NrOfTransportBlocks,
+		transportBlockSize			TransportFormatSet-TransportBlockSize		OPTIONAL,
+		-- This IE shall be present if the Number of Transport Blocks IE is set to a value greater than 0
+		mode						TransportFormatSet-ModeDP,
+		iE-Extensions				ProtocolExtensionContainer  { { TransportFormatSet-DynamicPartList-ExtIEs} }		OPTIONAL,
+		...
+	}
+
+TransportFormatSet-DynamicPartList-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TDD-TransportFormatSet-ModeDP ::= SEQUENCE {
+	transmissionTimeIntervalInformation		TransmissionTimeIntervalInformation		OPTIONAL,
+	-- This IE shall be present if the Transmission Time Interval IE in the Semi-static Transport Format Information IE is set to "dynamic"
+	iE-Extensions							ProtocolExtensionContainer { {TDD-TransportFormatSet-ModeDP-ExtIEs} } OPTIONAL,
+	...
+	}
+
+TDD-TransportFormatSet-ModeDP-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransmissionTimeIntervalInformation ::= SEQUENCE (SIZE (1..maxTTI-count)) OF
+	SEQUENCE {
+		transmissionTimeInterval		TransportFormatSet-TransmissionTimeIntervalDynamic,
+	iE-Extensions						ProtocolExtensionContainer { { TransmissionTimeIntervalInformation-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TransmissionTimeIntervalInformation-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransportFormatSet-Semi-staticPart ::= SEQUENCE {
+	transmissionTimeInterval	 		TransportFormatSet-TransmissionTimeIntervalSemiStatic,
+	channelCoding					TransportFormatSet-ChannelCodingType,
+	codingRate						TransportFormatSet-CodingRate				OPTIONAL,
+	-- This IE shall be present if the Type of channel coding IE is set to 'convolutional' or 'turbo' 
+	rateMatchingAttribute			TransportFormatSet-RateMatchingAttribute,
+	cRC-Size						TransportFormatSet-CRC-Size,
+	mode							TransportFormatSet-ModeSSP	,
+	iE-Extensions					ProtocolExtensionContainer { { TransportFormatSet-Semi-staticPart-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TransportFormatSet-Semi-staticPart-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TransportFormatSet-ChannelCodingType ::= ENUMERATED {
+	no-codingTDD,
+	convolutional-coding,
+	turbo-coding,
+	...
+}
+
+TransportFormatSet-CodingRate ::= ENUMERATED {
+	half,
+	third,
+	...
+}
+
+TransportFormatSet-CRC-Size ::= ENUMERATED {
+	v0,
+	v8,
+	v12,
+	v16,
+	v24,
+	...
+}
+
+TransportFormatSet-ModeDP ::= CHOICE {
+	tdd 				TDD-TransportFormatSet-ModeDP,
+	notApplicable				NULL,
+	...
+}
+
+TransportFormatSet-ModeSSP ::= CHOICE {
+	tdd				TransportFormatSet-SecondInterleavingMode,
+	notApplicable				NULL,
+	...
+}
+
+TransportFormatSet-NrOfTransportBlocks ::= INTEGER (0..512)
+
+TransportFormatSet-RateMatchingAttribute ::= INTEGER (1..maxRateMatching)
+
+TransportFormatSet-SecondInterleavingMode ::= ENUMERATED {
+	frame-related,
+	timeSlot-related,
+	...
+}
+
+TransportFormatSet-TransmissionTimeIntervalDynamic ::= ENUMERATED {
+	msec-10,
+	msec-20,
+	msec-40,
+	msec-80,
+	...
+}
+
+TransportFormatSet-TransmissionTimeIntervalSemiStatic ::= ENUMERATED {
+	msec-10,
+	msec-20,
+	msec-40,
+	msec-80,
+	dynamic,
+	...,
+	msec-5
+}
+
+TransportFormatSet-TransportBlockSize ::= INTEGER (0..5000)
+
+TransportLayerAddress ::= BIT STRING (SIZE (1..160, ...))
+
+TSTD-Indicator ::= ENUMERATED {
+	active,
+	inactive
+}
+
+TUTRANGPS ::= SEQUENCE {
+	ms-part 	INTEGER (0..16383),
+	ls-part		INTEGER (0..4294967295)
+}
+
+TUTRANGPSChangeLimit ::= INTEGER (1..256)
+-- Unit chip, Step 1/16 chip, Range 1/16..16 chip
+
+TUTRANGPSDriftRate ::= INTEGER (-50..50)
+-- Unit chip/s, Step 1/256 chip/s, Range -50/256..+50/256 chip/s
+
+TUTRANGPSDriftRateQuality ::= INTEGER (0..50)
+-- Unit chip/s, Step 1/256 chip/s, Range 0..50/256 chip/s
+
+TUTRANGPSAccuracyClass ::= ENUMERATED {
+	accuracy-class-A,
+	accuracy-class-B,
+	accuracy-class-C,
+	...
+}
+
+TUTRANGPSMeasurementThresholdInformation ::= SEQUENCE {
+	tUTRANGPSChangeLimit					TUTRANGPSChangeLimit					OPTIONAL,
+	predictedTUTRANGPSDeviationLimit		PredictedTUTRANGPSDeviationLimit		OPTIONAL,
+	iE-Extensions					ProtocolExtensionContainer { { TUTRANGPSMeasurementThresholdInformation-ExtIEs} }		OPTIONAL,
+	...
+}
+
+TUTRANGPSMeasurementThresholdInformation-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TUTRANGPSMeasurementValueInformation ::= SEQUENCE {
+		tUTRANGPS						TUTRANGPS,
+		tUTRANGPSQuality				TUTRANGPSQuality				OPTIONAL,
+		tUTRANGPSDriftRate				TUTRANGPSDriftRate,
+		tUTRANGPSDriftRateQuality		TUTRANGPSDriftRateQuality		OPTIONAL,
+		iE-Extensions					ProtocolExtensionContainer { {TUTRANGPSMeasurementValueInformationItem-ExtIEs} }		OPTIONAL,
+		...
+}
+
+TUTRANGPSMeasurementValueInformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+TUTRANGPSQuality ::= INTEGER (0..255)
+-- Unit chip, Step 1/16 chip, Range 0.. 255/16 chip
+
+TypeOfError ::= ENUMERATED {
+	not-understood,
+	missing,
+	...
+}
+
+-- ==========================================
+--	U
+-- ==========================================
+
+UARFCN ::= INTEGER (0..16383, ...)
+-- corresponds to 0MHz .. 3276.6MHz
+
+UC-Id ::= SEQUENCE {
+	rNC-ID				RNC-ID,
+	c-ID				C-ID,
+	iE-Extensions			ProtocolExtensionContainer { {UC-Id-ExtIEs} } OPTIONAL,
+	...
+}
+UC-Id-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UDRE ::= ENUMERATED {
+    udre-minusequal-one-m,
+    udre-betweenoneandfour-m,
+    udre-betweenfourandeight-m,
+    udre-greaterequaleight-m
+}
+
+
+UE-Capability-Information ::= SEQUENCE {
+	hSDSCH-Physical-Layer-Category			INTEGER (1..64,...),
+	iE-Extensions						ProtocolExtensionContainer { { UE-Capability-Information-ExtIEs } }			OPTIONAL,
+	...
+}
+
+UE-Capability-Information-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-CapacityCredit ::= INTEGER (0..65535)
+
+UL-DL-mode ::= ENUMERATED {
+	ul-only,
+	dl-only,
+	both-ul-and-dl
+}
+
+Uplink-Compressed-Mode-Method 	::= ENUMERATED {
+	sFdiv2,
+	higher-layer-scheduling,
+	...
+}
+
+UL-Timeslot-Information ::= SEQUENCE (SIZE (1..maxNrOfULTSs)) OF UL-Timeslot-InformationItem
+
+UL-Timeslot-InformationItem ::= SEQUENCE {
+	timeSlot								TimeSlot,
+	midambleShiftAndBurstType				MidambleShiftAndBurstType,
+	tFCI-Presence							TFCI-Presence,
+	uL-Code-InformationList					TDD-UL-Code-Information,
+	iE-Extensions							ProtocolExtensionContainer { { UL-Timeslot-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+UL-Timeslot-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-TimeslotLCR-Information ::= SEQUENCE (SIZE (1..maxNrOfULTSLCRs)) OF UL-TimeslotLCR-InformationItem
+
+UL-TimeslotLCR-InformationItem ::= SEQUENCE {
+	timeSlotLCR								TimeSlotLCR,
+	midambleShiftLCR						MidambleShiftLCR,
+	tFCI-Presence							TFCI-Presence,
+	uL-Code-InformationList					TDD-UL-Code-LCR-Information,
+	iE-Extensions							ProtocolExtensionContainer { { UL-TimeslotLCR-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+UL-TimeslotLCR-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-DPCCH-SlotFormat ::= INTEGER (0..5,...)
+
+UL-SIR ::= INTEGER (-82..173)
+-- According to mapping in [16]
+
+UL-FP-Mode ::= ENUMERATED {
+	normal,
+	silent,
+	...
+}
+
+UL-PhysCH-SF-Variation ::= ENUMERATED {
+	sf-variation-supported,
+	sf-variation-not-supported
+}
+
+UL-ScramblingCode ::= SEQUENCE {
+	uL-ScramblingCodeNumber			UL-ScramblingCodeNumber,
+	uL-ScramblingCodeLength			UL-ScramblingCodeLength,
+	iE-Extensions					ProtocolExtensionContainer { { UL-ScramblingCode-ExtIEs } }		OPTIONAL,
+	...
+}
+
+UL-ScramblingCode-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-ScramblingCodeNumber ::= INTEGER (0..16777215)
+
+UL-ScramblingCodeLength ::= ENUMERATED {
+	short,
+	long
+}
+
+UL-Synchronisation-Parameters-LCR ::= SEQUENCE {
+	uL-Synchronisation-StepSize			UL-Synchronisation-StepSize,
+	uL-Synchronisation-Frequency		UL-Synchronisation-Frequency,
+	iE-Extensions						ProtocolExtensionContainer { { UL-Synchronisation-Parameters-LCR-ExtIEs } }		OPTIONAL,
+	...
+}
+
+UL-Synchronisation-Parameters-LCR-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-Synchronisation-StepSize ::= INTEGER (1..8)
+
+UL-Synchronisation-Frequency ::= INTEGER (1..8)
+
+UL-TimeSlot-ISCP-Info ::= SEQUENCE (SIZE (1..maxNrOfULTSs)) OF	UL-TimeSlot-ISCP-InfoItem
+
+UL-TimeSlot-ISCP-InfoItem ::= SEQUENCE {
+ 	timeSlot						TimeSlot,
+	iSCP							UL-TimeslotISCP-Value,
+	iE-Extensions					ProtocolExtensionContainer { { UL-TimeSlot-ISCP-InfoItem-ExtIEs} }		OPTIONAL,
+	...
+ }
+
+UL-TimeSlot-ISCP-InfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-TimeSlot-ISCP-LCR-Info ::= SEQUENCE (SIZE (1..maxNrOfULTSLCRs)) OF	UL-TimeSlot-ISCP-LCR-InfoItem
+
+UL-TimeSlot-ISCP-LCR-InfoItem ::= SEQUENCE {
+ 	timeSlotLCR						TimeSlotLCR,
+	iSCP							UL-TimeslotISCP-Value,
+	iE-Extensions					ProtocolExtensionContainer { { UL-TimeSlot-ISCP-LCR-InfoItem-ExtIEs} }		OPTIONAL,
+	...
+ }
+
+UL-TimeSlot-ISCP-LCR-InfoItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+Unidirectional-DCH-Indicator	::= ENUMERATED {
+	downlink-DCH-only,
+	uplink-DCH-only
+}
+
+USCH-Information ::= SEQUENCE (SIZE (1..maxNrOfUSCHs)) OF USCH-InformationItem
+
+USCH-InformationItem ::= SEQUENCE {
+	uSCH-ID									USCH-ID,
+	cCTrCH-ID								CCTrCH-ID,			-- UL CCTrCH in which the USCH is mapped
+	transportFormatSet						TransportFormatSet,	-- For USCH
+	allocationRetentionPriority				AllocationRetentionPriority,
+	iE-Extensions							ProtocolExtensionContainer { { USCH-InformationItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+USCH-InformationItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	{ ID id-bindingID						CRITICALITY	ignore		EXTENSION 	BindingID			PRESENCE 	optional	}|
+	-- Shall be ignored if bearer establishment with ALCAP.
+	{ ID id-transportlayeraddress			CRITICALITY	ignore		EXTENSION 	TransportLayerAddress	PRESENCE 	optional	}|
+	-- Shall be ignored if bearer establishment with ALCAP.
+{ ID id-TnlQos							CRITICALITY ignore		EXTENSION	TnlQos	PRESENCE optional	},
+	...
+}
+
+USCH-InformationResponse ::= SEQUENCE (SIZE (1..maxNrOfUSCHs)) OF USCH-InformationResponseItem
+
+USCH-InformationResponseItem ::= SEQUENCE {
+	uSCH-ID										USCH-ID,
+	bindingID									BindingID				OPTIONAL,
+	transportLayerAddress						TransportLayerAddress	OPTIONAL,
+	iE-Extensions								ProtocolExtensionContainer { { USCH-InformationResponseItem-ExtIEs} }		OPTIONAL,
+	...
+}
+
+USCH-InformationResponseItem-ExtIEs NBAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+UL-TimeslotISCP-Value ::= INTEGER (0..127)
+-- According to mapping in [23]
+
+UL-TimeslotISCP-Value-IncrDecrThres ::= INTEGER (0..126)
+
+USCH-ID ::= INTEGER (0..255)
+
+-- ==========================================
+--	V
+-- ==========================================
+
+-- ==========================================
+--	W
+-- ==========================================
+
+-- ==========================================
+--	X
+-- ==========================================
+
+-- ==========================================
+--	Y
+-- ==========================================
+
+-- ==========================================
+--	Z
+-- ==========================================
+
+END

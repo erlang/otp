@@ -1,0 +1,357 @@
+PKIX1Implicit93  {iso(1) identified-organization(3) dod(6) internet(1)
+   security(5) mechanisms(5) pkix(7) id-mod(0) id-pkix1-implicit-93(4)}
+
+DEFINITIONS IMPLICIT TAGS::=
+
+BEGIN
+
+--EXPORTS ALL --
+
+IMPORTS
+        id-pe, id-qt, id-kp, id-ad, id-qt-unotice,
+                ORAddress, Name, RelativeDistinguishedName,
+                CertificateSerialNumber, CertificateList,
+                AlgorithmIdentifier, ub-name, DirectoryString,
+                Attribute, EXTENSION
+                FROM PKIX1Explicit93 {iso(1) identified-organization(3)
+                dod(6) internet(1) security(5) mechanisms(5) pkix(7)
+                id-mod(0) id-pkix1-explicit-93(3)};
+
+-- Key and policy information extensions --
+
+authorityKeyIdentifier EXTENSION ::= {
+        SYNTAX          AuthorityKeyIdentifier
+        IDENTIFIED BY   id-ce-authorityKeyIdentifier }
+
+AuthorityKeyIdentifier ::= SEQUENCE {
+    keyIdentifier               [0] KeyIdentifier            OPTIONAL,
+    authorityCertIssuer         [1] GeneralNames             OPTIONAL,
+    authorityCertSerialNumber   [2] CertificateSerialNumber  OPTIONAL }
+        ( WITH COMPONENTS       {..., authorityCertIssuer PRESENT,
+                                authorityCertSerialNumber PRESENT} |
+         WITH COMPONENTS        {..., authorityCertIssuer ABSENT,
+                                authorityCertSerialNumber ABSENT} )
+
+KeyIdentifier ::= OCTET STRING
+
+subjectKeyIdentifier EXTENSION ::= {
+        SYNTAX          SubjectKeyIdentifier
+        IDENTIFIED BY   id-ce-subjectKeyIdentifier }
+
+SubjectKeyIdentifier ::= KeyIdentifier
+
+keyUsage EXTENSION ::= {
+        SYNTAX  KeyUsage
+        IDENTIFIED BY id-ce-keyUsage }
+
+KeyUsage ::= BIT STRING {
+        digitalSignature     (0),
+        nonRepudiation       (1),
+        keyEncipherment      (2),
+        dataEncipherment     (3),
+        keyAgreement         (4),
+        keyCertSign          (5),
+        cRLSign              (6),
+      encipherOnly         (7),
+      decipherOnly         (8) }
+
+extendedKeyUsage EXTENSION ::= {
+        SYNTAX SEQUENCE SIZE (1..MAX) OF KeyPurposeId
+        IDENTIFIED BY id-ce-extKeyUsage }
+
+KeyPurposeId ::= OBJECT IDENTIFIER
+
+-- PKIX-defined extended key purpose OIDs
+id-kp-serverAuth      OBJECT IDENTIFIER ::= { id-kp 1 }
+id-kp-clientAuth      OBJECT IDENTIFIER ::= { id-kp 2 }
+id-kp-codeSigning     OBJECT IDENTIFIER ::= { id-kp 3 }
+id-kp-emailProtection OBJECT IDENTIFIER ::= { id-kp 4 }
+id-kp-ipsecEndSystem  OBJECT IDENTIFIER ::= { id-kp 5 }
+id-kp-ipsecTunnel     OBJECT IDENTIFIER ::= { id-kp 6 }
+id-kp-ipsecUser       OBJECT IDENTIFIER ::= { id-kp 7 }
+id-kp-timeStamping    OBJECT IDENTIFIER ::= { id-kp 8 }
+
+privateKeyUsagePeriod EXTENSION ::= {
+        SYNTAX  PrivateKeyUsagePeriod
+        IDENTIFIED BY { id-ce-privateKeyUsagePeriod } }
+
+PrivateKeyUsagePeriod ::= SEQUENCE {
+        notBefore       [0]     GeneralizedTime OPTIONAL,
+        notAfter        [1]     GeneralizedTime OPTIONAL }
+        ( WITH COMPONENTS       {..., notBefore PRESENT} |
+        WITH COMPONENTS         {..., notAfter PRESENT} )
+
+certificatePolicies EXTENSION ::= {
+        SYNTAX  CertificatePoliciesSyntax
+        IDENTIFIED BY id-ce-certificatePolicies }
+
+CertificatePoliciesSyntax ::=
+                SEQUENCE SIZE (1..MAX) OF PolicyInformation
+
+PolicyInformation ::= SEQUENCE {
+        policyIdentifier   CertPolicyId,
+        policyQualifiers   SEQUENCE SIZE (1..MAX) OF
+                PolicyQualifierInfo OPTIONAL }
+
+CertPolicyId ::= OBJECT IDENTIFIER
+
+PolicyQualifierInfo ::= SEQUENCE {
+        policyQualifierId       CERT-POLICY-QUALIFIER.&id
+                                    ({SupportedPolicyQualifiers}),
+        qualifier               CERT-POLICY-QUALIFIER.&Qualifier
+                                    ({SupportedPolicyQualifiers}
+                                    {@policyQualifierId})OPTIONAL }
+
+SupportedPolicyQualifiers CERT-POLICY-QUALIFIER ::= { noticeToUser |
+                                                      pointerToCPS }
+
+CERT-POLICY-QUALIFIER ::= CLASS {
+        &id             OBJECT IDENTIFIER UNIQUE,
+        &Qualifier      OPTIONAL }
+WITH SYNTAX {
+        POLICY-QUALIFIER-ID     &id
+        [QUALIFIER-TYPE &Qualifier] }
+
+policyMappings EXTENSION ::= {
+        SYNTAX  PolicyMappingsSyntax
+        IDENTIFIED BY id-ce-policyMappings }
+
+PolicyMappingsSyntax ::= SEQUENCE SIZE (1..MAX) OF SEQUENCE {
+        issuerDomainPolicy           CertPolicyId,
+        subjectDomainPolicy          CertPolicyId }
+
+-- Certificate subject and certificate issuer attributes extensions --
+
+subjectAltName EXTENSION ::= {
+        SYNTAX  GeneralNames
+        IDENTIFIED BY id-ce-subjectAltName }
+
+GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
+
+GeneralName ::= CHOICE {
+        otherName                   [0] INSTANCE OF OTHER-NAME,
+        rfc822Name                  [1] IA5String,
+        dNSName                     [2] IA5String,
+        x400Address                 [3] ORAddress,
+        directoryName               [4] Name,
+        ediPartyName                [5] EDIPartyName,
+        uniformResourceIdentifier   [6] IA5String,
+        iPAddress                   [7] OCTET STRING,
+        registeredID                [8] OBJECT IDENTIFIER }
+
+OTHER-NAME ::= TYPE-IDENTIFIER
+
+EDIPartyName ::= SEQUENCE {
+        nameAssigner        [0] DirectoryString {ub-name} OPTIONAL,
+        partyName           [1] DirectoryString {ub-name} }
+
+issuerAltName EXTENSION ::= {
+        SYNTAX  GeneralNames
+        IDENTIFIED BY id-ce-issuerAltName }
+
+subjectDirectoryAttributes EXTENSION ::= {
+        SYNTAX  AttributesSyntax
+        IDENTIFIED BY id-ce-subjectDirectoryAttributes }
+
+AttributesSyntax ::= SEQUENCE SIZE (1..MAX) OF Attribute
+
+-- Certification path constraints extensions --
+
+basicConstraints EXTENSION ::= {
+        SYNTAX  BasicConstraintsSyntax
+        IDENTIFIED BY id-ce-basicConstraints }
+
+BasicConstraintsSyntax ::= SEQUENCE {
+        cA                      BOOLEAN DEFAULT FALSE,
+        pathLenConstraint       INTEGER (0..MAX) OPTIONAL }
+
+nameConstraints EXTENSION ::= {
+        SYNTAX  NameConstraintsSyntax
+        IDENTIFIED BY id-ce-nameConstraints }
+
+NameConstraintsSyntax ::= SEQUENCE {
+        permittedSubtrees       [0]     GeneralSubtrees OPTIONAL,
+        excludedSubtrees        [1]     GeneralSubtrees OPTIONAL }
+
+GeneralSubtrees ::= SEQUENCE SIZE (1..MAX) OF GeneralSubtree
+
+GeneralSubtree ::= SEQUENCE {
+        base                    GeneralName,
+        minimum         [0]     BaseDistance DEFAULT 0,
+        maximum         [1]     BaseDistance OPTIONAL }
+
+BaseDistance ::= INTEGER (0..MAX)
+
+policyConstraints EXTENSION ::= {
+        SYNTAX  PolicyConstraintsSyntax
+        IDENTIFIED BY id-ce-policyConstraints }
+
+PolicyConstraintsSyntax ::= SEQUENCE {
+        requireExplicitPolicy   [0] SkipCerts OPTIONAL,
+        inhibitPolicyMapping    [1] SkipCerts OPTIONAL }
+
+SkipCerts ::= INTEGER (0..MAX)
+
+-- Basic CRL extensions --
+
+cRLNumber EXTENSION ::= {
+        SYNTAX  CRLNumber
+        IDENTIFIED BY id-ce-cRLNumber }
+
+CRLNumber ::= INTEGER (0..MAX)
+
+reasonCode EXTENSION ::= {
+        SYNTAX  CRLReason
+        IDENTIFIED BY id-ce-reasonCode }
+
+CRLReason ::= ENUMERATED {
+        unspecified             (0),
+        keyCompromise           (1),
+        cACompromise            (2),
+        affiliationChanged      (3),
+        superseded              (4),
+        cessationOfOperation    (5),
+        certificateHold         (6),
+        removeFromCRL           (8) }
+
+instructionCode EXTENSION ::= {
+        SYNTAX  HoldInstruction
+        IDENTIFIED BY id-ce-instructionCode }
+
+HoldInstruction ::= OBJECT IDENTIFIER
+
+-- holdinstructions described in this specification, from ANSI x9
+
+-- ANSI x9 arc holdinstruction arc
+holdInstruction OBJECT IDENTIFIER ::= {
+     joint-iso-ccitt(2) member-body(2) us(840) x9cm(10040) 2}
+
+-- ANSI X9 holdinstructions referenced by this standard
+id-holdinstruction-none OBJECT IDENTIFIER ::= {holdInstruction 1}
+id-holdinstruction-callissuer OBJECT IDENTIFIER ::= {holdInstruction 2}
+id-holdinstruction-reject OBJECT IDENTIFIER ::= {holdInstruction 3}
+
+invalidityDate EXTENSION ::= {
+        SYNTAX  GeneralizedTime
+        IDENTIFIED BY id-ce-invalidityDate }
+
+-- CRL distribution points and delta-CRL extensions --
+
+cRLDistributionPoints EXTENSION ::= {
+        SYNTAX  CRLDistPointsSyntax
+        IDENTIFIED BY id-ce-cRLDistributionPoints }
+
+CRLDistPointsSyntax ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
+
+DistributionPoint ::= SEQUENCE {
+        distributionPoint       [0]     DistributionPointName OPTIONAL,
+        reasons         [1]     ReasonFlags OPTIONAL,
+        cRLIssuer               [2]     GeneralNames OPTIONAL }
+
+DistributionPointName ::= CHOICE {
+        fullName                [0]     GeneralNames,
+        nameRelativeToCRLIssuer [1]     RelativeDistinguishedName }
+
+ReasonFlags ::= BIT STRING {
+        unused                  (0),
+        keyCompromise           (1),
+        caCompromise            (2),
+        affiliationChanged      (3),
+        superseded              (4),
+        cessationOfOperation    (5),
+        certificateHold         (6) }
+
+issuingDistributionPoint EXTENSION ::= {
+        SYNTAX  IssuingDistPointSyntax
+        IDENTIFIED BY id-ce-issuingDistributionPoint }
+
+IssuingDistPointSyntax ::= SEQUENCE {
+        distributionPoint       [0] DistributionPointName OPTIONAL,
+        onlyContainsUserCerts   [1] BOOLEAN DEFAULT FALSE,
+        onlyContainsCACerts     [2] BOOLEAN DEFAULT FALSE,
+        onlySomeReasons         [3] ReasonFlags OPTIONAL,
+        indirectCRL             [4] BOOLEAN DEFAULT FALSE }
+
+certificateIssuer EXTENSION ::= {
+        SYNTAX          GeneralNames
+        IDENTIFIED BY id-ce-certificateIssuer }
+
+deltaCRLIndicator EXTENSION ::= {
+        SYNTAX          BaseCRLNumber
+        IDENTIFIED BY id-ce-deltaCRLIndicator }
+
+BaseCRLNumber ::= CRLNumber
+
+-- Object identifier assignments for ISO certificate extensions --
+id-ce   OBJECT IDENTIFIER       ::=     {joint-iso-ccitt(2) ds(5) 29}
+
+id-ce-subjectDirectoryAttributes   OBJECT IDENTIFIER ::= {id-ce 9}
+
+id-ce-subjectKeyIdentifier         OBJECT IDENTIFIER ::= {id-ce 14}
+id-ce-keyUsage                     OBJECT IDENTIFIER ::= {id-ce 15}
+id-ce-privateKeyUsagePeriod        OBJECT IDENTIFIER ::= {id-ce 16}
+id-ce-subjectAltName               OBJECT IDENTIFIER ::= {id-ce 17}
+id-ce-issuerAltName                OBJECT IDENTIFIER ::= {id-ce 18}
+id-ce-basicConstraints             OBJECT IDENTIFIER ::= {id-ce 19}
+id-ce-cRLNumber                    OBJECT IDENTIFIER ::= {id-ce 20}
+id-ce-reasonCode                   OBJECT IDENTIFIER ::= {id-ce 21}
+id-ce-instructionCode              OBJECT IDENTIFIER ::= {id-ce 23}
+id-ce-invalidityDate               OBJECT IDENTIFIER ::= {id-ce 24}
+id-ce-deltaCRLIndicator            OBJECT IDENTIFIER ::= {id-ce 27}
+id-ce-issuingDistributionPoint     OBJECT IDENTIFIER ::= {id-ce 28}
+id-ce-certificateIssuer            OBJECT IDENTIFIER ::= {id-ce 29}
+id-ce-nameConstraints              OBJECT IDENTIFIER ::= {id-ce 30}
+id-ce-cRLDistributionPoints        OBJECT IDENTIFIER ::= {id-ce 31}
+id-ce-certificatePolicies          OBJECT IDENTIFIER ::= {id-ce 32}
+id-ce-policyMappings               OBJECT IDENTIFIER ::= {id-ce 33}
+id-ce-policyConstraints            OBJECT IDENTIFIER ::= {id-ce 36}
+id-ce-authorityKeyIdentifier       OBJECT IDENTIFIER ::= {id-ce 35}
+id-ce-extKeyUsage                  OBJECT IDENTIFIER ::= {id-ce 37}
+
+-- PKIX 1 extensions
+
+authorityInfoAccess EXTENSION ::= {
+        SYNTAX  AuthorityInfoAccessSyntax
+        IDENTIFIED BY id-pe-authorityInfoAccess }
+
+AuthorityInfoAccessSyntax  ::=
+        SEQUENCE SIZE (1..MAX) OF AccessDescription
+
+AccessDescription  ::=  SEQUENCE {
+        accessMethod          OBJECT IDENTIFIER,
+        accessLocation        GeneralName  }
+
+id-pe-authorityInfoAccess OBJECT IDENTIFIER ::= { id-pe 1 }
+
+id-ad-ocsp      OBJECT IDENTIFIER ::= { id-ad 1 }
+id-ad-caIssuers OBJECT IDENTIFIER ::= { id-ad 2 }
+
+-- PKIX policy qualifier definitions
+
+noticeToUser CERT-POLICY-QUALIFIER ::= {
+     POLICY-QUALIFIER-ID    id-qt-cps QUALIFIER-TYPE       CPSuri}
+
+pointerToCPS CERT-POLICY-QUALIFIER ::= {
+     POLICY-QUALIFIER-ID    id-qt-unotice QUALIFIER-TYPE   UserNotice}
+
+id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+
+id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+
+CPSuri ::= IA5String
+
+UserNotice ::= SEQUENCE {
+     noticeRef        NoticeReference OPTIONAL,
+     explicitText     DisplayText OPTIONAL}
+
+NoticeReference ::= SEQUENCE {
+     organization     DisplayText,
+     noticeNumbers    SEQUENCE OF INTEGER }
+
+DisplayText ::= CHOICE {
+     visibleString    VisibleString  (SIZE (1..200)),
+     bmpString        BMPString      (SIZE (1..200)),
+     utf8String       UTF8String     (SIZE (1..200)) }
+
+
+END

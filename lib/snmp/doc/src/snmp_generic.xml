@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_generic</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_generic.xml</file>
+  </header>
+  <module since="">snmp_generic</module>
+  <modulesummary>Generic Functions for Implementing SNMP Objects in a Database</modulesummary>
+  <description>
+    <marker id="description"></marker>
+    <p>The module <c>snmp_generic</c> contains generic functions for 
+    implementing tables (and variables) using the SNMP built-in database 
+    or Mnesia. These default functions are used if no instrumentation 
+    function is provided for a managed object in a MIB. Sometimes, 
+    it might be necessary to customize the behaviour of the default 
+    functions. For example, in some situations a trap should be sent 
+    if a row is deleted or modified, or some hardware is to be informed, 
+    when information is changed. </p>
+
+    <p>The overall structure is shown in the following figure:</p>
+    <pre>
+         +---------------+
+         |   SNMP Agent  |
+         +- - - - - - - -+
+         |      MIB      |
+         +---------------+
+                 |
+         Association file       (associates a MIB object with
+                 |               snmp_generic:table_funct
+                 |               snmp_generic:variable_func)
++--------------------------------------+
+|           snmp_generic               |  Support for get-next,
+|                                      |  RowStatus operations
++----------------------+---------------+
+|    snmpa_local_db    |    Mnesia     |  Database
++--------------+-------+---------------+
+|     dets     |  ets  | 
+| (persistent) |       | 
++--------------+-------+     </pre>
+    <p>Each function takes the argument <c>NameDb</c>, which is a
+      tuple <c>{Name, Db}</c>, to identify which database the
+      functions should use. <c>Name</c> is the symbolic name of the
+      managed object as defined in the MIB, and <c>Db</c> is either
+      <c>volatile</c>, <c>persistent</c>, or <c>mnesia</c>. If it is
+      <c>mnesia</c>, all variables are stored in the Mnesia table
+      <c>snmp_variables</c> which must be a table with two attributes
+      (not a Mnesia SNMP table). The SNMP tables are stored in Mnesia
+      tables with the same names as the SNMP tables.  All functions
+      assume that a Mnesia table exists with the correct name and
+      attributes. It is the programmer's responsibility to ensure
+      this. Specifically, if variables are stored in Mnesia, the table
+      <c>snmp_variables</c> must be created by the programmer.  The
+      record definition for this table is defined in the file
+      <c>snmp/include/snmp_types.hrl</c>.
+      </p>
+    <p>If an instrumentation function in the association file for a
+      variable <c>myVar</c> does not have a name when compiling an
+      MIB, the compiler generates an entry.
+      </p>
+    <pre>
+{myVar, {snmp_generic, variable_func, [{myVar, Db]}}.
+    </pre>
+    <p>And for a table:</p>
+    <pre>
+{myTable, {snmp_generic, table_func, [{myTable, Db]}}.
+    </pre>
+  </description>
+
+  <section>
+    <marker id="data_types"></marker>
+    <title>DATA TYPES</title>
+    <p>In the functions defined below, the following types are used:</p>
+    <code type="none">
+name_db() = {name(), db()} 
+name() = atom()
+db() = volatile | persistent | mnesia
+row_index() = [int()]
+columns() = [column()] | [{column(), value()}]
+column() = int()
+value() = term()
+    </code>
+    <taglist>
+      <tag><c>row_index()</c></tag>
+      <item>
+        <p>Denotes the last part of the OID which specifies the 
+          index of the row in the table (see RFC1212, 4.1.6 for 
+          more information about INDEX).  </p>
+      </item>
+      <tag><c>columns()</c></tag>
+      <item>
+        <p>Is a list of column numbers in the case of a <c>get</c> 
+          operation, and a list of column numbers and values in the 
+          case of a <c>set</c> operation. </p>
+      </item>
+    </taglist>
+
+    <marker id="get_status_col2"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">get_status_col(Name, Cols)</name>
+      <name since="">get_status_col(NameDb, Cols) -> {ok, StatusVal} | false</name>
+      <fsummary>Get the value of the status column from <c>Cols</c></fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>NameDb = name_db()</v>
+        <v>Cols = columns()</v>
+        <v>StatusVal = term()</v>
+      </type>
+      <desc>
+        <p>Gets the value of the status column from <c>Cols</c>.
+          </p>
+        <p>This function can be used in instrumentation functions for
+          <c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
+          status column of a table is modified.</p>
+	  
+	  <marker id="get_index_types"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_index_types(Name)</name>
+      <fsummary>Get the index types of <c>Name</c></fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Gets the index types of <c>Name</c></p>
+        <p>This function can be used in instrumentation functions to
+	retrieve the index types part of the table info.</p>
+	
+	<marker id="get_table_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">get_table_info(Name, Item) -> table_info_result()</name>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Item = table_item() | all</v>
+        <v>table_item() = nbr_of_cols | defvals | status_col | not_accessible | 
+	index_types | first_accessible | first_own_index</v>
+        <v>table_info_result() = Value | [{table_item(), Value}]</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Get a specific table info item or, if <c>Item</c> has the
+	value <c>all</c>, a two tuple list (property list) is instead 
+	returned with all the items and their respctive values of the 
+	given table. </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="table_func"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table_func(Op1, NameDb)</name>
+      <name since="">table_func(Op2, RowIndex, Cols, NameDb) -> Ret</name>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <type>
+        <v>Op1 = new | delete </v>
+        <v>Op2 = get | next | is_set_ok | set | undo</v>
+        <v>NameDb = name_db()</v>
+        <v>RowIndex = row_index()</v>
+        <v>Cols = columns()</v>
+        <v>Ret = term()</v>
+      </type>
+      <desc>
+        <p>This is the default instrumentation function for tables.
+          </p>
+        <list type="bulleted">
+          <item>The <c>new</c> function creates the table if it does
+           not exist, but only if the database is the SNMP internal db.</item>
+          <item>The <c>delete</c> function does not delete the table
+           from the database since unloading an MIB does not
+           necessarily mean that the table should be destroyed.</item>
+          <item>The <c>is_set_ok</c> function checks that a row which
+           is to be modified or deleted exists, and that a row which
+           is to be created does not exist.</item>
+          <item>The <c>undo</c> function does nothing.</item>
+          <item>The <c>set</c> function checks if it has enough
+           information to make the row change its status from
+          <c>notReady</c> to <c>notInService</c> (when a row has
+           been been set to <c>createAndWait</c>). If a row is set to
+          <c>createAndWait</c>, columns without a value are set to
+          <c>noinit</c>. If Mnesia is used, the set functionality is
+           handled within a transaction.</item>
+        </list>
+        <p>If it is possible for a manager to create or delete rows in
+          the table, there must be a <c>RowStatus</c> column for
+          <c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly.
+          </p>
+        <p>The function returns according to the specification of an
+          instrumentation function.
+          </p>
+	
+	<marker id="table_get_elements"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table_get_elements(NameDb, RowIndex, Cols) -> Values</name>
+      <fsummary>Get elements in a table row</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>RowIndex = row_index()</v>
+        <v>Cols = columns()</v>
+        <v>Values = [value() | noinit]</v>
+      </type>
+      <desc>
+        <p>Returns a list with values for all columns in <c>Cols</c>.
+          If a column is undefined, its value is <c>noinit</c>.</p>
+	
+	<marker id="table_next"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table_next(NameDb, RestOid) -> RowIndex | endOfTable</name>
+      <fsummary>Find the next row in the table</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>RestOid = [int()]</v>
+        <v>RowIndex = row_index()</v>
+      </type>
+      <desc>
+        <p>Finds the indices of the next row in the table.  <c>RestOid</c>
+          does not have to specify an existing row.</p>
+	
+	<marker id="table_row_exists"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table_row_exists(NameDb, RowIndex) -> bool()</name>
+      <fsummary>Check if a row in a table exists</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>RowIndex = row_index()</v>
+      </type>
+      <desc>
+        <p>Checks if a row in a table exists.</p>
+	
+	<marker id="table_set_elements"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table_set_elements(NameDb, RowIndex, Cols) -> bool()</name>
+      <fsummary>Set elements in a table row</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>RowIndex = row_index()</v>
+        <v>Cols = columns()</v>
+      </type>
+      <desc>
+        <p>Sets the elements in <c>Cols</c> to the row specified by
+          <c>RowIndex</c>.  No checks are performed on the new values.
+          </p>
+        <p>If the Mnesia database is used, this function calls
+          <c>mnesia:write</c> to store the values.  This means that
+          this function must be called from within a transaction
+          (<c>mnesia:transaction/1</c> or <c>mnesia:dirty/1</c>).</p>
+	
+	<marker id="variable_func"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">variable_func(Op1, NameDb)</name>
+      <name since="">variable_func(Op2, Val, NameDb) -> Ret</name>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <type>
+        <v>Op1 = new | delete | get</v>
+        <v>Op2 = is_set_ok | set | undo</v>
+        <v>NameDb = name_db()</v>
+        <v>Val = value()</v>
+        <v>Ret = term()</v>
+      </type>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+        <p>The <c>new</c> function creates a new variable in the
+          database with a default value as defined in the MIB, or a zero
+          value (depending on the type).  </p>
+        <p>The <c>delete</c> function does not delete the variable from 
+          the database. </p>
+        <p>The function returns according to the specification of an 
+          instrumentation function. </p>
+	
+	<marker id="variable_get"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">variable_get(NameDb) -> {value, Value} | undefined</name>
+      <fsummary>Get the value of a variable</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>Value = value()</v>
+      </type>
+      <desc>
+        <p>Gets the value of a variable.</p>
+	
+	<marker id="variable_set"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">variable_set(NameDb, NewVal) -> true | false</name>
+      <fsummary>Set a value for a variable</fsummary>
+      <type>
+        <v>NameDb = name_db()</v>
+        <v>NewVal = value()</v>
+      </type>
+      <desc>
+        <p>Sets a new value to a variable.  The variable is created if
+          it does not exist.  No checks are made on the type of the
+          new value.  </p>
+        <p>Returns <c>false</c> if the <c>NameDb</c> argument
+          is incorrectly specified, otherwise <c>true</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="example"></marker>
+    <title>Example</title>
+    <p>The following example shows an implementation of a table which is
+      stored in Mnesia, but with some checks performed at set-request
+      operations.
+      </p>
+    <pre>
+myTable_func(new, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(new, NameDb).
+
+myTable_func(delete, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(delete, NameDb).
+
+%% change row
+myTable_func(is_set_ok, RowIndex, Cols, NameDb) ->
+  case snmp_generic:table_func(is_set_ok, RowIndex,
+                               Cols, NameDb) of
+    {noError, 0} -> 
+      myApplication:is_set_ok(RowIndex, Cols);
+    Err ->
+      Err
+  end;
+
+myTable_func(set, RowIndex, Cols, NameDb) ->
+  case snmp_generic:table_func(set, RowIndex, Cols,
+                               NameDb),
+    {noError, 0} ->
+      % Now the row is updated, tell the application
+      myApplication:update(RowIndex, Cols);
+    Err ->
+      Err
+  end;
+
+myTable_func(Op, RowIndex, Cols, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(Op, RowIndex, Cols, NameDb).
+    </pre>
+    <p>The <c>.funcs</c> file would look like:
+      </p>
+    <pre>
+{myTable, {myModule, myTable_func, [{myTable, mnesia}]}}.
+    </pre>
+  </section>
+  
+</erlref>
+

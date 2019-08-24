@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:simpleType name="tPriority" final="list restriction">
+		<xs:restriction base="xs:int">
+			<xs:minInclusive value="0"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tProfilePartIndicator" final="list restriction">
+		<xs:restriction base="xs:unsignedByte">
+			<xs:maxInclusive value="1"/>
+			<xs:enumeration value="0">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">REGISTERED</label>
+						<definition xml:lang="en">iFC is part of the registered profile</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="1">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">UNREGISTERED</label>
+						<definition xml:lang="en">iFC is part of the unregistered profile</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="tGroupID" final="list restriction">
+		<xs:restriction base="xs:int">
+			<xs:minInclusive value="0"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tDefaultHandling" final="list restriction">
+		<xs:restriction base="xs:unsignedByte">
+			<xs:maxInclusive value="1"/>
+			<xs:enumeration value="0">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">SESSION_CONTINUED</label>
+						<definition xml:lang="en">Session Continued</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="1">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">SESSION_TERMINATED</label>
+						<definition xml:lang="en">Session Terminated</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tDirectionOfRequest" final="list restriction">
+		<xs:restriction base="xs:unsignedByte">
+			<xs:maxInclusive value="3"/>
+			<xs:enumeration value="0">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">ORIGINATING_SESSION</label>
+						<definition xml:lang="en">Originating Session</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="1">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">TERMINATING_REGISTERED</label>
+						<definition xml:lang="en">Terminating Session for registered user</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="2">
+				<xs:annotation>
+					<xs:documentation>
+						<label xml:lang="en">TERMINATING_UNREGISTERED</label>
+						<definition xml:lang="en">Terminating Session for unregistered user</definition>
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tPrivateID" final="list restriction">
+		<xs:restriction base="xs:anyURI"/>
+	</xs:simpleType>
+	<xs:simpleType name="tSIP_URL" final="list restriction">
+		<xs:restriction base="xs:anyURI"/>
+	</xs:simpleType>
+	<xs:simpleType name="tTEL_URL" final="list restriction">
+		<xs:restriction base="xs:anyURI"/>
+	</xs:simpleType>
+	<xs:simpleType name="tIdentity" final="list restriction">
+		<xs:union memberTypes="tSIP_URL tTEL_URL"/>
+	</xs:simpleType>
+	<xs:simpleType name="tServiceInfo" final="list restriction">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="0"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tString" final="list restriction">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="0"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tBool">
+		<xs:restriction base="xs:boolean"/>
+	</xs:simpleType>
+	<xs:simpleType name="tSubscribedMediaProfileId" final="list restriction">
+		<xs:restriction base="xs:int">
+			<xs:minInclusive value="0"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="tExtension">
+		<xs:sequence>
+			<xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tIMSSubscription">
+		<xs:sequence>
+			<xs:element name="PrivateID" type="tPrivateID"/>
+			<xs:element name="ServiceProfile" type="tServiceProfile" maxOccurs="unbounded"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tServiceProfile">
+		<xs:sequence>
+			<xs:element name="PublicIdentity" type="tPublicIdentity" maxOccurs="unbounded"/>
+			<xs:element name="CoreNetworkServicesAuthorization" type="tCoreNetworkServicesAuthorization" minOccurs="0"/>
+			<xs:element name="InitialFilterCriteria" type="tInitialFilterCriteria" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tCoreNetworkServicesAuthorization">
+		<xs:sequence>
+			<xs:element name="SubscribedMediaProfileId" type="tSubscribedMediaProfileId" minOccurs="0"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tInitialFilterCriteria">
+		<xs:sequence>
+			<xs:element name="Priority" type="tPriority"/>
+			<xs:element name="TriggerPoint" type="tTrigger" minOccurs="0"/>
+			<xs:element name="ApplicationServer" type="tApplicationServer"/>
+			<xs:element name="ProfilePartIndicator" type="tProfilePartIndicator" minOccurs="0"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tTrigger">
+		<xs:sequence>
+			<xs:element name="ConditionTypeCNF" type="tBool"/>
+			<xs:element name="SPT" type="tSePoTri" maxOccurs="unbounded"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tSePoTri">
+		<xs:sequence>
+			<xs:element name="ConditionNegated" type="tBool" default="0" minOccurs="0"/>
+			<xs:element name="Group" type="tGroupID" maxOccurs="unbounded"/>
+			<xs:choice>
+				<xs:element name="RequestURI" type="tString"/>
+				<xs:element name="Method" type="tString"/>
+				<xs:element name="SIPHeader" type="tHeader"/>
+				<xs:element name="SessionCase" type="tDirectionOfRequest"/>
+				<xs:element name="SessionDescription" type="tSessionDescription"/>
+			</xs:choice>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tHeader">
+		<xs:sequence>
+			<xs:element name="Header" type="tString"/>
+			<xs:element name="Content" type="tString" minOccurs="0"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tSessionDescription">
+		<xs:sequence>
+			<xs:element name="Line" type="tString"/>
+			<xs:element name="Content" type="tString" minOccurs="0"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tApplicationServer">
+		<xs:sequence>
+			<xs:element name="ServerName" type="tSIP_URL"/>
+			<xs:element name="DefaultHandling" type="tDefaultHandling" minOccurs="0"/> <!-- the DefaultHandling element should not be sent by a Rel-5 HSS -->
+			<xs:element name="ServiceInfo" type="tServiceInfo" minOccurs="0"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="tPublicIdentity">
+		<xs:sequence>
+			<xs:element name="BarringIndication" type="tBool" default="0" minOccurs="0"/>
+			<xs:element name="Identity" type="tIdentity"/>
+			<xs:element name="Extension" type="tExtension" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="IMSSubscription" type="tIMSSubscription"/>
+</xs:schema>

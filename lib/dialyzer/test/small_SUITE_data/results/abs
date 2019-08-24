@@ -1,0 +1,9 @@
+
+abs.erl:12: Function i1/0 has no local return
+abs.erl:16: The pattern 'true' can never match the type 'false'
+abs.erl:23: Function i2/0 has no local return
+abs.erl:27: The pattern 'true' can never match the type 'false'
+abs.erl:34: Function i3/0 has no local return
+abs.erl:37: The pattern 'true' can never match the type 'false'
+abs.erl:45: Function i4/0 has no local return
+abs.erl:49: The pattern 'true' can never match the type 'false'

@@ -1,0 +1,13 @@
+#!/usr/bin/env escript
+
+main([In]) ->
+    X = list_to_integer(In),
+    N = fac(X),
+    io:format("factorial ~w = ~w~n",[X, N]).
+
+fac(0) -> 1;
+fac(N) ->
+    N * fac(N-1).
+
+bar() ->
+    ok.

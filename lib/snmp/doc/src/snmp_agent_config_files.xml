@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Definition of Agent Configuration Files</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_agent_config_files.xml</file>
+  </header>
+  <p>All configuration data must be included in configuration files
+  that are located in the configuration directory. The name of this
+  directory is given in the <c>config_dir</c> configuration
+  parameter.  These files are read at start-up, and are used to
+  initialize the SNMPv2-MIB or STANDARD-MIB, SNMP-FRAMEWORK-MIB,
+  SNMP-MPD-MIB, SNMP-VIEW-BASED-ACM-MIB, SNMP-COMMUNITY-MIB,
+  SNMP-USER-BASED-SM-MIB, SNMP-TARGET-MIB and SNMP-NOTIFICATION-MIB
+  (refer to the 
+  <seealso marker="snmp_agent_funct_descr#management">Management of the Agent</seealso> 
+  for a description of the MIBs). </p>
+  <p>The files are: </p>
+  <list type="bulleted">
+    <item>
+      <p><c>agent.conf</c>: see 
+        <seealso marker="#agent_information">Agent Information</seealso></p>
+    </item>
+    <item>
+      <p><c>standard.conf</c>: see 
+        <seealso marker="#system_information">System Information</seealso></p>
+    </item>
+    <item>
+      <p><c>context.conf</c>: see 
+        <seealso marker="#context">Contexts</seealso></p>
+    </item>
+    <item>
+      <p><c>community.conf</c>: see 
+        <seealso marker="#community">Communities</seealso></p>
+    </item>
+    <item>
+      <p><c>target_addr.conf</c>: see 
+        <seealso marker="#target_addr">Target Address Definitions</seealso></p>
+    </item>
+    <item>
+      <p><c>target_params.conf</c>: see 
+        <seealso marker="#target_params">Target Parameters Definitions</seealso></p>
+    </item>
+    <item>
+      <p><c>vacm.conf</c>: see 
+        <seealso marker="#vacm">MIB Views for VACM</seealso></p>
+    </item>
+    <item>
+      <p><c>usm.conf</c>: see 
+        <seealso marker="#usm">Security data for USM</seealso></p>
+    </item>
+    <item>
+      <p><c>notify.conf</c>: see 
+        <seealso marker="#notify">Notify Definitions</seealso></p>
+    </item>
+  </list>
+  <p>The directory where the configuration files are found is given as
+  a parameter to the agent. </p>
+  <p>The entry format in all files are Erlang terms, separated by a
+  '<em>.</em>' and a <em>newline</em>. In the following sections, the
+  formats of these terms are described. Comments may be specified as
+  ordinary Erlang comments. </p>
+  <p>Syntax errors in these files are discovered and reported with the
+  function <c>config_err/2</c> of the error report module at start-up. </p>
+  
+  <marker id="agent_information"></marker>
+  
+  <section>
+    <title>Agent Information</title>
+    <p>The agent information should be stored in a file called
+    <c>agent.conf</c>. </p>
+    <p>Each entry is a tuple of size two:</p>
+    <p><c>{AgentVariable, Value}.</c></p>
+    <list type="bulleted">
+      <item>
+	<p><c>AgentVariable</c> is one of the variables is
+	SNMP-FRAMEWORK-MIB or one of the internal variables
+	<c>intAgentUDPPort</c>, which defines which UDP port the agent
+	listens to, or <c>intAgentTransports</c>, which defines the
+	transport domains and addresses of the agent. </p>
+      </item>
+      <item>
+	<p><c>Value</c> is the value for the variable.</p>
+      </item>
+    </list>
+    <p>The following example shows an <c>agent.conf</c> file: </p>
+    <pre>
+{intAgentUDPPort, 4000}.
+{intAgentTransports,
+ [{transportDomainUdpIpv4, {141,213,11,24}},
+  {transportDomainUdpIpv6, {0,0,0,0,0,0,0,1}}]}.
+{snmpEngineID, "mbj's engine"}.
+{snmpEngineMaxPacketSize, 484}.
+    </pre>
+    <p>The value of <c>intAgentTransports</c> is a list of
+    <c>{Domain, Addr}</c> tuples, where <c>Domain</c>
+    is either <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
+    and <c>Addr</c> is the address in the domain.
+    <c>Addr</c> can be specified either as an
+    <c>IpAddr</c> or as an <c>{IpAddr, IpPort}</c> tuple.
+    <c>IpAddr</c> is either a regular Erlang/OTP
+    <seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+    or a traditional SNMP integer list and <c>IpPort</c> is an integer.
+    </p>
+
+    <p>When the <c>Addr</c> value does not contain a port number,
+    the value of <c>intAgentUDPPort</c> is used.</p>
+
+    <p>The legacy and intermediate variables <c>intAgentIpAddress</c>
+    and <c>intAgentTransportDomain</c> are still supported so old
+    <c>agent.conf</c> files will work.
+    </p>
+
+    <p>The value of <c>snmpEngineID</c> is a string, which for a 
+    deployed agent should have a very specific structure. See
+    RFC 2271/2571 for details.</p>
+
+    <marker id="context"></marker>
+  </section>
+
+  <section>
+    <title>Contexts</title>
+    <p>The context information should be stored in a file called
+    <c>context.conf</c>.  The default context <c>""</c>
+    need not be present.</p>
+    <p>Each row defines a context in the agent.  This information is
+    used in the table <c>vacmContextTable</c> in the
+    SNMP-VIEW-BASED-ACM-MIB.</p>
+    <p>Each entry is a term:</p>
+    <p><c>ContextName.</c></p>
+    <list type="bulleted">
+      <item>
+	<p><c>ContextName</c> is a string.</p>
+      </item>
+    </list>
+
+    <marker id="system_information"></marker>
+  </section>
+
+  <section>
+    <title>System Information</title>
+    <p>The system information should be stored in a file called
+    <c>standard.conf</c>.</p>
+    <p>Each entry is a tuple of size two:</p>
+    <p><c>{SystemVariable, Value}.</c></p>
+    <list type="bulleted">
+      <item>
+	<p><c>SystemVariable</c> is one of the variables in the
+	system group, or <c>snmpEnableAuthenTraps</c>. </p>
+      </item>
+      <item>
+	<p><c>Value</c> is the value for the variable. </p>
+      </item>
+    </list>
+    <p>The following example shows a valid <c>standard.conf</c> file: </p>
+    <pre>
+{sysDescr, "Erlang SNMP agent"}.
+{sysObjectID, [1,2,3]}.
+{sysContact, "(mbj,eklas)@erlang.ericsson.se"}.
+{sysName, "test"}.
+{sysServices, 72}.
+{snmpEnableAuthenTraps, enabled}.
+    </pre>
+    <p>A value must be provided for all variables, which lack default
+    values in the MIB. </p>
+
+    <marker id="community"></marker>
+  </section>
+
+  <section>
+    <title>Communities</title>
+    <p>The community information should be stored in a file called
+    <c>community.conf</c>. It must be present if the agent is
+    configured for SNMPv1 or SNMPv2c. </p>
+    <p>An SNMP <em>community</em> is a relationship between an SNMP
+    agent and a set of SNMP managers that defines authentication, access 
+    control and proxy characteristics. </p>
+    <p>The corresponding table is <c>snmpCommunityTable</c> in the
+    SNMP-COMMUNITY-MIB. </p>
+    <p>Each entry is a term: </p>
+    <p><c>{CommunityIndex, CommunityName, SecurityName, ContextName, TransportTag}.</c> </p>
+    <list type="bulleted">
+      <item>
+	<p><c>CommunityIndex</c> is a non-empty string.</p>
+      </item>
+      <item>
+	<p><c>CommunityName</c> is a string.</p>
+      </item>
+      <item>
+	<p><c>SecurityName</c> is a string.</p>
+      </item>
+      <item>
+	<p><c>ContextName</c> is a string.</p>
+      </item>
+      <item>
+	<p><c>TransportTag</c> is a string.</p>
+      </item>
+    </list>
+
+    <marker id="vacm"></marker>
+  </section>
+
+  <section>
+    <title>MIB Views for VACM</title>
+    <p>The information about MIB Views for VACM should be stored in a 
+    file called <c>vacm.conf</c>.</p>
+    <p>The corresponding tables are <c>vacmSecurityToGroupTable</c>,
+    <c>vacmAccessTable</c> and <c>vacmViewTreeFamilyTable</c> in the
+    SNMP-VIEW-BASED-ACM-MIB.</p>
+    <p>Each entry is one of the terms, one entry corresponds to one
+    row in one of the tables.</p>
+    <p><c>{vacmSecurityToGroup, SecModel, SecName, GroupName}.</c></p>
+    <p><c>{vacmAccess, GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView}.</c></p>
+    <p><c>{vacmViewTreeFamily, ViewIndex, ViewSubtree, ViewStatus, ViewMask}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>SecModel</c> is <c>any</c>, <c>v1</c>, <c>v2c</c>, or
+	<c>usm</c>.</p>
+      </item>
+      <item>
+        <p><c>SecName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>GroupName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>Prefix</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>SecLevel</c> is <c>noAuthNoPriv</c>, <c>authNoPriv</c>,
+	or <c>authPriv</c></p>
+      </item>
+      <item>
+        <p><c>Match</c> is <c>prefix</c> or <c>exact</c>.</p>
+      </item>
+      <item>
+        <p><c>ReadView</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>WriteView</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>NotifyView</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>ViewIndex</c> is an integer.</p>
+      </item>
+      <item>
+        <p><c>ViewSubtree</c> is a list of integer.</p>
+      </item>
+      <item>
+        <p><c>ViewStatus</c> is either <c>included</c> or <c>excluded</c></p>
+      </item>
+      <item>
+        <p><c>ViewMask</c> is either <c>null</c> or a list of ones and
+	zeros. Ones nominate that an exact match is used for this
+	sub-identifier. Zeros are wild-cards which match any
+	sub-identifier. If the mask is shorter than the sub-tree, the
+	tail is regarded as all ones. <c>null</c> is shorthand for a
+	mask with all ones. </p>
+      </item>
+    </list>
+
+    <marker id="usm"></marker>
+  </section>
+
+  <section>
+    <title>Security data for USM</title>
+    <p>The information about Security data for USM should be stored in a 
+    file called <c>usm.conf</c>, which must be present if the agent is 
+    configured for SNMPv3. </p>
+    <p>The corresponding table is <c>usmUserTable</c> in the
+    SNMP-USER-BASED-SM-MIB.</p>
+    <p>Each entry is a term:</p>
+    <p><c>{EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>EngineID</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>UserName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>SecName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>Clone</c> is <c>zeroDotZero</c> or a list of integers.</p>
+      </item>
+      <item>
+        <p><c>AuthP</c> is a <c>usmNoAuthProtocol</c>,
+	<c>usmHMACMD5AuthProtocol</c>, or <c>usmHMACSHAAuthProtocol</c>.</p>
+      </item>
+      <item>
+        <p><c>AuthKeyC</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>OwnAuthKeyC</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>PrivP</c> is a <c>usmNoPrivProtocol</c>, 
+	<c>usmDESPrivProtocol</c> or <c>usmAesCfb128Protocol</c>.</p>
+      </item>
+      <item>
+        <p><c>PrivKeyC</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>OwnPrivKeyC</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>Public</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>AuthKey</c> is a list (of integer). This is the User's secret
+	localized authentication key. It is not visible in the MIB. The length
+	of this key needs to be 16 if <c>usmHMACMD5AuthProtocol</c> is used, 
+	and 20 if <c>usmHMACSHAAuthProtocol</c> is used.</p>
+      </item>
+      <item>
+        <p><c>PrivKey</c> is a list (of integer).  This is the User's secret
+	localized encryption key.  It is not visible in the MIB.  The length
+	of this key needs to be 16 if <c>usmDESPrivProtocol</c> or 
+	<c>usmAesCfb128Protocol</c> is used. </p>
+      </item>
+    </list>
+
+    <marker id="notify"></marker>
+  </section>
+
+  <section>
+    <title>Notify Definitions</title>
+    <p>The information about Notify Definitions should be stored in a
+    file called <c>notify.conf</c>. </p>
+    <p>The corresponding table is <c>snmpNotifyTable</c> in the
+    SNMP-NOTIFICATION-MIB.</p>
+    <p>Each entry is a term:</p>
+    <p><c>{NotifyName, Tag, Type}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>NotifyName</c> is a unique non-empty string.</p>
+      </item>
+      <item>
+        <p><c>Tag</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>Type</c> is <c>trap</c> or <c>inform</c>.</p>
+      </item>
+    </list>
+
+    <marker id="target_addr"></marker>
+  </section>
+
+  <section>
+    <title>Target Address Definitions</title>
+    <p>The information about Target Address Definitions should be 
+    stored in a file called <c>target_addr.conf</c>. </p>
+    <p>The corresponding tables are <c>snmpTargetAddrTable</c> in the
+    SNMP-TARGET-MIB and <c>snmpTargetAddrExtTable</c> in the 
+    SNMP-COMMUNITY-MIB. </p>
+    <p>Each entry is a term: </p>
+    <p><c>{TargetName, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId}.</c>
+    <br></br> or <br></br>
+    <c>{TargetName, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c> </p>
+    <list type="bulleted">
+      <item>
+        <p><c>TargetName</c> is a unique non-empty string. </p>
+      </item>
+      <item>
+        <p><c>Domain</c> is one of the atoms: 
+	<c>transportDomainUdpIpv4</c> | <c>transportDomainUdpIpv6</c>. </p>
+      </item>
+      <item>
+	<p><c>Addr</c> is either an <c>IpAddr</c> or
+	an <c>{IpAddr, IpPort}</c> tuple. <c>IpAddr</c> is either
+	a regular Erlang/OTP
+	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	or a traditional SNMP integer list, and <c>IpPort</c> is an integer.</p>
+	<p>If <c>IpPort</c> is omitted <c>162</c> is used.</p>
+      </item>
+
+      <item>
+        <p><c>Timeout</c> is an integer. </p>
+      </item>
+      <item>
+        <p><c>RetryCount</c> is an integer. </p>
+      </item>
+      <item>
+        <p><c>TagList</c> is a string. </p>
+      </item>
+      <item>
+        <p><c>ParamsName</c> is a string. </p>
+      </item>
+      <item>
+        <p><c>EngineId</c> is a string or the atom <c>discovery</c>. </p>
+      </item>
+      <item>
+	<p><c>TMask</c> is specified just as <c>Addr</c> or as <c>[]</c>.
+	Note in particular that using a list of 6 bytes	for IPv4
+	or 8 words plus 2 bytes for IPv6 are still valid address formats
+	so old configurations will work.</p>
+      </item>
+      <item>
+        <p><c>MaxMessageSize</c> is an integer (default: 2048). </p>
+      </item>
+    </list>
+    <p>The old tuple formats with <c>Ip</c> address and <c>Udp</c>
+    port number found in old configurations still work.</p>
+    <p>Note that if <c>EngineId</c> has the value <c>discovery</c>, 
+    the agent cannot send
+    <c>inform</c> messages to that manager until it has performed the
+    <em>discovery</em> process with that manager. </p>
+    
+    <marker id="target_params"></marker>
+  </section>
+
+  <section>
+    <title>Target Parameters Definitions</title>
+    <p>The information about Target Parameters Definitions should be
+    stored in a file called <c>target_params.conf</c>. </p>
+    <p>The corresponding table is <c>snmpTargetParamsTable</c> in the
+    SNMP-TARGET-MIB. </p>
+    <p>Each entry is a term: </p>
+    <p><c>{ParamsName, MPModel, SecurityModel, SecurityName, SecurityLevel}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>ParamsName</c> is a unique non-empty string. </p>
+      </item>
+      <item>
+        <p><c>MPModel</c> is <c>v1</c>, <c>v2c</c> or <c>v3</c></p>
+      </item>
+      <item>
+        <p><c>SecurityModel</c> is <c>v1</c>, <c>v2c</c>, or <c>usm</c>.</p>
+      </item>
+      <item>
+        <p><c>SecurityName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>SecurityLevel</c> is <c>noAuthNoPriv</c>, <c>authNoPriv</c>
+	or <c>authPriv</c>. </p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

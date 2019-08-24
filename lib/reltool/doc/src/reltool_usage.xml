@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Usage</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>reltool_usage.xml</file>
+  </header>
+
+  <section>
+    <title>Overview</title>
+    <p>This document focuses on the graphical parts of the tool. The
+    concepts are explained in the reference manual for the module
+    <c>reltool</c>.</p>
+  </section>
+
+  <section>
+    <title>System window</title>
+    <p>The system window is started with the function
+    <c>reltool:start/1</c>. At startup the tool will process all
+    <c>beam</c> files and <c>app</c> files in order to find out dependencies
+    between applications and their modules. Once all this information has been
+    derived, it will be possible to explore the tool.</p>
+
+    <p>The system window consists of four main pages (tabs):</p>
+
+    <list>
+      <item>Libraries
+      </item>
+      <item>System settings
+      </item>
+      <item>Applications
+      </item>
+      <item>Releases
+      </item>
+    </list>
+
+    <p>Click on a name tag to display its page.</p>
+    
+    <section>
+    <title>Libraries</title>
+        <p>On the library page it is possible to control which sources
+        the tool will use. The page is organized as a tree which
+        can be expanded and collapsed by clicking on the little symbol
+        in the beginning of the expandable/collapsible lines.</p>
+
+	<p>The <c>Root directory</c> can be edited by selecting the
+	line where the path of the root directory is displayed and
+	clicking the right mouse button. Choose edit in the menu
+	that pops up.</p>
+
+	<p>Library directories can be added, edited or deleted. This
+	is done by selecting the line where the path to a library
+	directory is displayed and clicking the right mouse
+	button. Choose add, edit or delete in the menu that pops
+	up. New library directories can also be added by selecting the
+	line <c>Library directories</c> and clicking the right
+	mouse button. Choose add in the menu that pops up.</p>
+
+	<p>Escript files can be added, edited or deleted. This is done
+	by selecting the line where the path to an escript file is
+	displayed and clicking the right mouse button. Choose
+	add, edit or delete in the menu that pops up. New escripts can
+	also be added by selecting the line <c>Escript files</c> and
+	clicking the right mouse button. Choose add in the menu
+	that pops up.</p>
+
+	<p>When libraries and escripts are expanded, the names of
+	their contained applications will be displayed. Double click
+	on an application name to launch an application window.</p>
+    </section>
+
+    <section>
+    <title>System settings</title>
+        <p>On the system settings page it is possible to control some
+        global settings that are used as defaults for all
+        applications. Set the <c>Application inclusion policy</c> to
+        <c>include</c> to include all applications that are not
+        explicitly excluded. See <c>incl_cond</c> (application
+        inclusion) and <c>mod_cond</c> (module inclusion) in the
+        reference manual for the module <c>reltool</c> for more
+        info.</p>
+	<p>The system settings page is rather incomplete.</p>
+    </section>
+
+    <section>
+    <title>Applications</title>
+	<p>There are four categories of applications on the
+	applications page. <c>Included</c> contains applications that
+	are explicitly included. <c>Excluded</c> contains applications
+	that are explicitly excluded. <c>Derived</c> contains
+	applications that either are used directly by explicitly
+	included applications or by other derived
+	applications. <c>Available</c> contains the remaining
+	applications.</p>
+
+	<p>Select one or more applications and click on a button
+	directly below the application column to change application
+	category. For example, select an available application and
+	click on its tick button to move the application to the
+	included category.  Clicking on the tick symbol for included
+	applications will move the application back to the available
+	category. The tick is undone.</p>
+
+	<p>The symbols in front of the application names are intended
+	to describe the status of the application. There are error
+	and warning symbols to signalize that there is
+	something which needs attention. The tick symbol means that the
+	application is included or derived and no problem has been
+	detected. The cross symbol means that the application is
+	excluded or available and no problem has been
+	detected. Applications with error symbols are listed first in
+  each category and are followed by the warnings and the
+  normal ones (ticks and crosses) at the end.</p>
+
+	<p>Double click on an application to launch its application
+	window.</p>
+    </section>
+
+    <section>
+      <title>Releases</title>
+      <p>The releases page is incomplete and very experimental.</p>
+    </section>
+
+    <section>
+    <title>File menu</title>
+
+      <list>
+	<item>
+	  <p><c>Display application dependency graph</c> - Launches an
+	  application force graph window. All included and derived
+	  applications and their dependencies will be shown in a
+	  graph.</p>
+	</item>
+	<item>
+	  <p><c>Display module dependency graph</c> - Launch a module
+	  force graph window. All included and derived modules and
+	  their dependencies will be shown in a graph.</p>
+	</item>
+	<item>
+	  <p><c>Reset configuration to default</c></p>
+	</item>
+	<item>
+	  <p><c>Undo configuration (toggle)</c></p>
+	</item>
+	<item>
+	  <p><c>Load configuration</c> - Loads a new configuration from file.</p>
+	</item>
+	<item>
+	  <p><c>Save configuration</c> - Saves the current
+	  configuration to file. Normally, only the explicit
+	  configuration parameters with values that differ from their
+	  defaults are saved. But the configuration with or without
+	  default values and with or without derived values may also
+	  be saved.</p>
+	</item>
+	<item>
+	  <p><c>Generate rel, script and boot files</c></p>
+	</item>
+	<item>
+	  <p><c>Generate target system</c></p>
+	</item>
+	<item>
+	  <p><c>Close</c> - Close the system window and all its subwindows.</p>
+	</item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Dependencies between applications or modules displayed as a graph</title>
+
+      <p>The dependency graph windows are launched from the file menu
+      in the system window. The graph depicts all included and derived
+      applications/modules and their dependencies.</p>
+
+      <p>It is possible to perform some limited manipulations of the
+      graph. Nodes can be moved, selected, locked or deleted. Move a
+      single node or the entire graph by moving the mouse while the
+      left mouse button is pressed. A node can be locked into a fix
+      position by holding down the shift button when the left mouse
+      button is released. Select several nodes by moving the mouse
+      while the control key and the left mouse button are
+      pressed. Selected nodes can be locked, unlocked or deleted by
+      clicking on a suitable button.</p>
+
+      <p>The algorithm that is used to draw a graph with as few
+      crossed links as possible is called force graph. A force graph
+      consists of nodes and directed links between nodes. Each node is
+      associated with a repulsive force that pushes nodes away from
+      each other. This force can be adjusted with the left slider or
+      with the mouse wheel. Each link is associated with an attractive
+      force that pulls the nodes nearer to each other. This force can be
+      adjusted with the right slider. If this force becomes too strong,
+      the graph will be unstable. The third parameter that can be
+      adjusted is the length of the links. It is adjusted with the
+      middle slider.</p>
+
+      <p>The <c>Freeze</c> button starts/stops the redrawing of the
+      graph. <c>Reset</c> moves the graph to the middle of the window
+      and resets all graph settings to default, with the exception of
+      deleted nodes.</p>
+      
+    </section>
+
+  </section>
+
+  <section>
+    <title>Application window</title>
+    <p>The application window is started by double clicking on an
+    application name. The application window consists of four
+    pages (tabs):</p>
+
+    <list>
+      <item>Application settings
+      </item>
+      <item>Modules
+      </item>
+      <item>Application dependencies
+      </item>
+      <item>Module dependencies
+      </item>
+    </list>
+    
+    <p>Click on a name tag to display its page.</p>
+
+    <section>
+    <title>Application settings</title>
+    <p>Select version of the application in the <c>Source selection
+    policy</c> part of the page. By default the latest version of the
+    application is selected, but it is possible to override this by
+    explicitly selecting another version.</p>
+
+    <p>Note that in order for reltool to sort application versions and
+    thereby be able to select the latest, it is required that the
+    version id for the application consits of integers and dots only,
+    for example <c>1</c>, <c>2.0</c> or <c>3.17.1</c>.</p>
+    
+    <p>By default the <c>Application inclusion policy</c> on system
+    level is used for all applications. Set the value to
+    <c>include</c> if you want to explicitly include one particular
+    application. Set it to <c>exclude</c> if you want to exclude the
+    application despite that it is used by another (explicitly or
+    implicitly) included application. <c>derived</c> means that the
+    application automatically will be included if some other
+    (explicitly or implicitly) included application uses it.</p>
+
+    <p>By default the <c>Module inclusion policy</c> on system level
+    is used for all applications. Set it to <c>derived</c> if you only
+    want actually used modules to be included. Set it to <c>app</c> if
+    you, besides derived modules, also want the modules listed in the
+    app file to be included. Set it to <c>ebin</c> if you, besides
+    derived modules, also want the modules that exist as beam files
+    in the ebin directory to be included. Set it to <c>all</c> if you
+    want all modules to be included, that is the union of modules
+    found in the ebin directory and listed in the app file.</p>
+
+    <p>The application settings page is rather incomplete.</p>
+    </section>
+
+    <section>
+    <title>Modules</title>
+    
+    <p>There are four categories of modules on the modules
+    page. <c>Included</c> contains modules that are explicitly
+    included. <c>Excluded</c> contains modules that are explicitly
+    excluded. <c>Derived</c> contains modules that either are used
+    directly by explicitly included modules or by other derived
+    modules. <c>Available</c> contains the remaining modules.</p>
+
+    <p>Select one or more modules and click on a button directly
+    below the module column to change module category. For
+    example, select an available module and click on its tick
+    button to move the module to the included category.  Clicking
+    on the tick symbol for included modules will move the
+    module back to the available category. The tick is
+    undone.</p>
+
+    <p>The symbols in front of the module names are intended to
+    describe the status of the module. There are error and
+    and warning symbols to signalize that there is something that needs
+    attention. The tick symbol means that the module is included
+    or derived and no problem has been detected. The cross symbol
+    means that the module is excluded or available and no problem
+    has been detected. Modules with error symbols are listed
+    first in each category and are followed by warnings and the
+    normal ones (ticks and crosses) at the end.</p>
+
+    <p>Double click on a module to launch its module window.</p>
+
+    </section>
+
+    <section>
+    <title>Application dependencies</title>
+    <p>There are four categories of applications on the <c>Application
+    dependencies</c> page. If the application is used by other
+    applications, these are listed under <c>Used by</c>. If the
+    application requires other applications be started before it can
+    be started, these are listed under <c>Required</c>. These
+    applications are listed in the <c>applications</c> part of the
+    <c>app</c> file. If the application includes other applications,
+    these are listed under <c>Included</c>. These applications are
+    listed in the <c>included_applications</c> part of the <c>app</c>
+    file.  If the application uses other applications, these
+    are listed under <c>Uses</c>.</p>
+
+    <p>Double click on an application name to launch an application window.</p>
+
+    </section>
+
+    <section>
+    <title>Module dependencies</title>
+
+    <p>There are two categories of modules on the <c>Module
+    dependencies</c> page. If the module is used by other modules,
+    these are listed under <c>Modules using this</c>. If the
+    module uses other modules, these are listed under <c>Used
+    modules</c>.</p>
+
+    <p>Double click on an module name to launch a module window.</p>
+
+    </section>
+
+  </section>
+
+  <section>
+    <title>Module window</title>
+
+ <p>The module window is started by double clicking on an module
+ name. The module window consists initially of two pages (tabs):</p>
+
+    <list>
+      <item>Dependencies
+      </item>
+      <item>Code
+      </item>
+    </list>
+    
+    <p>Click on a name tag to display its page.</p>
+
+    <section>
+    <title>Dependencies</title>
+
+    <p>There are two categories of modules on the <c>Dependencies</c>
+    page. If the module is used by other modules, these are listed
+    under <c>Modules using this</c>. If the module uses other
+    modules, these are listed under <c>Used modules</c>.</p>
+
+    <p>Double click on an module name to launch a module window.</p>
+
+    </section>
+
+    <section>
+    <title>Code</title>
+
+    <p>On the <c>Code</c> page the Erlang source code is displayed. It
+    is possible to search forwards and backwards for text in the
+    module. Enter a regular expression in the <c>Find</c> field and
+    press enter. It is also possible to go to a certain line in the
+    module. The <c>Back</c> button can be used to go back to the
+    previous position.</p>
+
+    <p>Put the marker on a function name and double click to go to the
+    definition of the function. If the function is defined in another
+    module, that module will be loaded and added to the page list.
+    </p>
+    </section>
+
+  </section>
+
+</chapter>

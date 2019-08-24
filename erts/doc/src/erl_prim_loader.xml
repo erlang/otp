@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>erl_prim_loader</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>erl_prim_loader.xml</file>
+  </header>
+  <module since="">erl_prim_loader</module>
+  <modulesummary>Low-level Erlang loader.</modulesummary>
+  <description>
+    <p>This module is used to load all Erlang modules into
+      the system. The start script is also fetched with this low-level
+      loader.</p>
+
+    <p><c>erl_prim_loader</c> knows about the environment and how to
+      fetch modules.</p>
+
+    <p>Command-line flag <c>-loader Loader</c> can be used to
+      choose the method used by <c>erl_prim_loader</c>. Two
+      <c>Loader</c> methods are supported by the Erlang runtime system:
+      <c>efile</c> and <c>inet</c>.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="get_file" arity="1" since=""/>
+      <fsummary>Get a file.</fsummary>
+      <desc>
+        <p>Fetches a file using the low-level loader.
+          <c><anno>Filename</anno></c> is either an absolute filename or only
+          the name of the file, for example, <c>"lists.beam"</c>. If an internal
+          path is set to the loader, this path is used to find the file.
+          <c><anno>FullName</anno></c> is the complete name of the fetched file.
+          <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
+        <p><c><anno>Filename</anno></c> can also be a file in an archive,
+          for example,
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
+          For information about archive files, see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_path" arity="0" since=""/>
+      <fsummary>Get the path set in the loader.</fsummary>
+      <desc>
+        <p>Gets the path set in the loader. The path is
+          set by the <seealso marker="init"><c>init(3)</c></seealso>
+          process according to information found in the start script.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="list_dir" arity="1" since=""/>
+      <fsummary>List files in a directory.</fsummary>
+      <desc>
+        <p>Lists all the files in a directory. Returns
+          <c>{ok, <anno>Filenames</anno>}</c> if successful, otherwise
+          <c>error</c>. <c><anno>Filenames</anno></c> is a list of
+          the names of all the files in the directory. The names are
+          not sorted.</p>
+        <p><c><anno>Dir</anno></c> can also be a directory in an archive,
+          for example,
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
+          For information about archive files, see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_file_info" arity="1" since=""/>
+      <fsummary>Get information about a file.</fsummary>
+      <desc>
+        <p>Retrieves information about a file. Returns
+          <c>{ok, <anno>FileInfo</anno>}</c> if successful, otherwise
+          <c>error</c>. <c><anno>FileInfo</anno></c> is a record
+          <c>file_info</c>, defined in the Kernel include file
+          <c>file.hrl</c>. Include the following directive in the module
+          from which the function is called:</p>
+        <code type="none">
+-include_lib("kernel/include/file.hrl").</code>
+        <p>For more information about the record <c>file_info</c>, see
+          <seealso marker="kernel:file"><c>file(3)</c></seealso>.</p>
+        <p><c><anno>Filename</anno></c> can also be a file in an archive,
+          for example,
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
+          For information about archive files, see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_link_info" arity="1" since="OTP 17.1.2"/>
+      <fsummary>Get information about a link or file.</fsummary>
+      <desc>
+        <p>Works like
+          <seealso marker="#read_file_info/1"><c>read_file_info/1</c></seealso>
+          except that if <c><anno>Filename</anno></c> is a symbolic link,
+          information about the link is returned in the <c>file_info</c>
+          record and the <c>type</c> field of the record is set to
+          <c>symlink</c>.</p>
+        <p>If <c><anno>Filename</anno></c> is not a symbolic link, this function
+          returns exactly the same result as <c>read_file_info/1</c>.
+          On platforms that do not support symbolic links, this function
+          is always equivalent to <c>read_file_info/1</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_path" arity="1" since=""/>
+      <fsummary>Set the path of the loader.</fsummary>
+      <desc>
+        <p>Sets the path of the loader if
+          <seealso marker="init"><c>init(3)</c></seealso>
+          interprets a <c>path</c> command in the start script.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Command-Line Flags</title>
+    <p>The <c>erl_prim_loader</c> module interprets the following
+      command-line flags:</p>
+
+    <taglist>
+      <tag><c>-loader Loader</c></tag>
+      <item>
+        <p>Specifies the name of the loader used by
+          <c>erl_prim_loader</c>. <c>Loader</c> can be <c>efile</c>
+          (use the local file system) or <c>inet</c> (load using
+          the <c>boot_server</c> on another Erlang node).</p>
+        <p>If flag <c>-loader</c> is omitted, it defaults to
+          <c>efile</c>.</p>
+      </item>
+      <tag><c>-loader_debug</c></tag>
+      <item>
+          <p>Makes the <c>efile</c> loader write some debug information,
+            such as the reason for failures, while it handles files.</p>
+      </item>
+      <tag><c>-hosts Hosts</c></tag>
+      <item>
+        <p>Specifies which other Erlang nodes the <c>inet</c> loader
+          can use. This flag is mandatory if flag <c>-loader inet</c>
+          is present. On each host, there must be on Erlang node
+          with the <seealso marker="kernel:erl_boot_server">
+          <c>erl_boot_server(3)</c></seealso>,
+          which handles the load requests.
+          <c>Hosts</c> is a list of IP addresses (hostnames
+          are not acceptable).</p>
+      </item>
+      <tag><c>-setcookie Cookie</c></tag>
+      <item>
+        <p>Specifies the cookie of the Erlang runtime system. This flag
+          is mandatory if flag <c>-loader inet</c> is present.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="init"><c>init(3)</c></seealso>,
+      <seealso marker="kernel:erl_boot_server">
+      <c>erl_boot_server(3)</c></seealso></p>
+  </section>
+</erlref>
+

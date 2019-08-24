@@ -1,0 +1,72 @@
+#!/usr/bin/env perl 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+
+# Create the file erl_version.h
+#
+# Usage:
+#    make_version [ -o outputfile ] version architecture
+#
+# Output goes to ./erl_version.h (or to "outputfile" if specified)
+#
+
+my $time_str   = localtime;
+my $outputfile = "erl_version.h";
+
+@ARGV or die "No arguments given to 'make_version'";
+
+if ($ARGV[0] eq '-o') {
+  shift;			# Remove -o
+  $outputfile = shift;
+  defined $outputfile or die "No output file specified";
+}
+
+my $release = shift;
+defined $release or die "No otp release specified";
+
+my $otp_version = shift;
+defined $otp_version or die "No otp version specified";
+
+my $version = shift;
+defined $version or die "No version name specified";
+
+my $architecture = shift;
+defined $architecture or die "No architecture specified";
+$architecture =~ s&^.*[/\\]&&;	# Remove directory part if any
+
+open(FILE, ">$outputfile") or die "Can't create $outputfile: $!";
+
+print FILE <<EOF;
+/* This file was created by 'make_version' -- don't modify. */
+#define ERLANG_OTP_RELEASE "$release"
+#define ERLANG_OTP_VERSION "$otp_version"
+#define ERLANG_VERSION "$version"
+#if ERTS_SAVED_COMPILE_TIME
+#  define ERLANG_COMPILE_DATE "$time_str"
+#else
+#  define ERLANG_COMPILE_DATE ""
+#endif
+#define ERLANG_ARCHITECTURE "$architecture"
+EOF
+
+close(FILE);
+
+exit(0);

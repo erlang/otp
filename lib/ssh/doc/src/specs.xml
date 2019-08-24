@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_ssh.xml"/>
+  <xi:include href="../specs/specs_ssh_client_channel.xml"/>
+  <xi:include href="../specs/specs_ssh_client_key_api.xml"/>
+  <xi:include href="../specs/specs_ssh_connection.xml"/>
+  <xi:include href="../specs/specs_ssh_server_channel.xml"/>
+  <xi:include href="../specs/specs_ssh_server_key_api.xml"/>
+  <xi:include href="../specs/specs_ssh_file.xml"/>
+  <xi:include href="../specs/specs_ssh_sftp.xml"/>
+  <xi:include href="../specs/specs_ssh_sftpd.xml"/>
+</specs>
+
+ 

@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>eldap</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2000-06-20</date>
+    <rev>B</rev>
+  </header>
+  <module since="OTP R15B01">eldap</module>
+  <modulesummary>LDAP Client</modulesummary>
+  <description>
+    <p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
+    </p>
+    <p>References:</p>
+    <list type="bulleted">
+      <item> <p>RFC 4510 - RFC 4519</p> </item>
+      <item> <p>RFC 2830</p> </item>
+    </list>
+    <p>The above publications can be found at <url href="http://www.ietf.org">IETF</url>.
+    </p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>Type definitions that are used more than once in this module:
+    </p>
+    <taglist>
+      <tag><c>handle()</c></tag>
+      <item><p>Connection handle</p></item>
+
+      <tag><c>attribute() =</c></tag>
+      <item><p><c>{Type = string(), Values=[string()]}</c></p></item>
+
+      <tag><c>modify_op()</c></tag>
+      <item><p>See 
+        <seealso marker="#mod_add/2">mod_add/2</seealso>, 
+        <seealso marker="#mod_delete/2">mod_delete/2</seealso>,
+        <seealso marker="#mod_replace/2">mod_replace/2</seealso>
+      </p></item>
+
+      <tag><c>scope()</c></tag>
+      <item><p>See 
+        <seealso marker="#baseObject/0">baseObject/0</seealso>, 
+        <seealso marker="#singleLevel/0">singleLevel/0</seealso>, 
+        <seealso marker="#wholeSubtree/0">wholeSubtree/0</seealso>
+      </p></item>
+
+      <tag><c>dereference()</c></tag>
+      <item><p>See 
+        <seealso marker="#neverDerefAliases/0">neverDerefAliases/0</seealso>, 
+        <seealso marker="#derefInSearching/0">derefInSearching/0</seealso>, 
+        <seealso marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seealso>, 
+        <seealso marker="#derefAlways/0">derefAlways/0</seealso>
+      </p></item>
+
+      <tag><c>filter()</c></tag>
+      <item><p>See 
+        <seealso marker="#present/1">present/1</seealso>, 
+        <seealso marker="#substrings/2">substrings/2</seealso>, 
+        <seealso marker="#equalityMatch/2">equalityMatch/2</seealso>, 
+        <seealso marker="#greaterOrEqual/2">greaterOrEqual/2</seealso>, 
+        <seealso marker="#lessOrEqual/2">lessOrEqual/2</seealso>, 
+        <seealso marker="#approxMatch/2">approxMatch/2</seealso>, 
+        <seealso marker="#extensibleMatch/2">extensibleMatch/2</seealso>, 
+        <seealso marker="#'and'/1">'and'/1</seealso>, 
+        <seealso marker="#'or'/1">'or'/1</seealso>, 
+        <seealso marker="#'not'/1">'not'/1</seealso>
+      </p></item>
+
+      <tag><c>return_value() = </c></tag>
+      <item><p><c>ok | {ok, {referral,referrals()}} | {error,Error}</c>
+      </p></item>
+
+      <tag><c>referrals() =</c></tag>
+      <item><p><c>[Address = string()]</c> The contents of <c>Address</c> is server dependent.
+      </p></item>
+
+    </taglist>
+  </section>
+
+
+  <funcs>
+    <func>
+      <name since="OTP R15B01">open([Host]) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a connection to an LDAP server.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+      </type>
+      <desc>
+        <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order. </p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a connection to an LDAP server.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()} | {tcpopts, list()}</v>
+      </type>
+      <desc>
+        <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order.</p>
+	<p>The log function takes three arguments, <c>fun(Level, FormatString, [FormatArg]) end</c>.</p>
+	<p>Timeout set the maximum time in milliseconds that each server request may take.</p>
+	<p>All TCP socket options are accepted except 
+	  <c>active</c>, <c>binary</c>, <c>deliver</c>, <c>list</c>, <c>mode</c> and <c>packet</c>
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">close(Handle) -> ok</name>
+      <fsummary>Shutdown the connection.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+      </type>
+      <desc>
+        <p>Shutdown the connection after sending an unbindRequest to the server. If the connection is tls the connection
+	will be closed with <c>ssl:close/1</c>, otherwise with <c>gen_tcp:close/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R16B03">start_tls(Handle, Options) -> return_value()</name>
+      <fsummary>Upgrade a connection to TLS.</fsummary>
+      <desc>
+        <p>Same as start_tls(Handle, Options, infinity)</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R16B03">start_tls(Handle, Options, Timeout) -> return_value()</name>
+      <fsummary>Upgrade a connection to TLS.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+	<v>Options = ssl:ssl_options()</v>
+	<v>Timeout = infinity | positive_integer()</v>
+      </type>
+      <desc>
+        <p>Upgrade the connection associated with <c>Handle</c> to a tls connection if possible.</p>
+	<p>The upgrade is done in two phases: first the server is asked for permission to upgrade. Second, if the request is acknowledged, the upgrade to tls is performed.</p>
+	<p>Error responses from phase one will not affect the current encryption state of the connection. Those responses are:</p>
+	<taglist>
+	  <tag><c>tls_already_started</c></tag>
+	  <item>The connection is already encrypted.  The connection is not affected.</item>
+	  <tag><c>{response,ResponseFromServer}</c></tag>
+	  <item>The upgrade was refused by the LDAP server.  The <c>ResponseFromServer</c> is an atom delivered byt the LDAP server explained in section 2.3 of rfc 2830. The connection is not affected, so it is still un-encrypted.</item>
+	</taglist>
+	<p>Errors in the second phase will however end the connection:</p>
+	<taglist>
+	  <tag><c>Error</c></tag>
+	  <item>Any error responded from ssl:connect/3</item>
+	</taglist>
+	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
+	<seealso marker="#open/2">eldap:open/2</seealso> is used for the initial negotiation about
+	upgrade (phase 1).
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">simple_bind(Handle, Dn, Password) -> return_value()</name>
+      <fsummary>Authenticate the connection.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+        <v>Dn = string()</v>
+        <v>Password = string()</v>
+      </type>
+      <desc>
+        <p>Authenticate the connection using simple authentication.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">add(Handle, Dn, [Attribute]) -> return_value()</name>
+      <fsummary>Add an entry.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+        <v>Dn = string()</v>
+	<v>Attribute = attribute()</v>
+      </type>
+      <desc>
+	<p> Add an entry. The entry must not exist.</p>
+	<code>
+  add(Handle,
+      "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+       [{"objectclass", ["person"]},
+        {"cn", ["Bill Valentine"]},
+        {"sn", ["Valentine"]},
+        {"telephoneNumber", ["545 555 00"]}]
+     )
+	</code>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">delete(Handle, Dn) -> return_value()</name>
+      <fsummary>Delete an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+      </type>
+      <desc>
+	<p> Delete an entry.</p>
+	<code>
+  delete(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com")
+	</code>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">mod_add(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create an add modification operation.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">mod_delete(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create a delete modification operation.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">mod_replace(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create a replace modification operation.</p> </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
+      <fsummary>Modify an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>ModifyOp = modify_op()</v>
+      </type>
+      <desc>
+	<p> Modify an entry.</p>
+	<code>
+  modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+         [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
+	  eldap:mod_add("description", ["LDAP Hacker"]) ])
+	</code>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <fsummary>Modify the password of a user.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewPasswd = string()</v>
+      </type>
+      <desc>
+	<p>Modify the password of a user. See <seealso marker="#modify_password/4">modify_password/4</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <fsummary>Modify the password of a user.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewPasswd = string()</v>
+        <v>OldPasswd = string()</v>
+        <v>GenPasswd = string()</v>
+      </type>
+      <desc>
+	<p>Modify the password of a user.</p>
+        <list type="bulleted">
+          <item>
+            <p><c>Dn</c>. The user to modify. Should be "" if the
+            modify request is for the user of the LDAP session.</p>
+          </item>
+          <item>
+            <p><c>NewPasswd</c>. The new password to set. Should be ""
+            if the server is to generate the password. In this case,
+            the result will be <c>{ok, GenPasswd}</c>.</p>
+          </item>
+          <item>
+            <p><c>OldPasswd</c>. Sometimes required by server policy
+            for a user to change their password. If not required, use
+            <seealso marker="#modify_password/3">modify_password/3</seealso>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
+      <fsummary>Modify the DN of an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewRDN = string()</v>
+        <v>DeleteOldRDN = boolean()</v>
+        <v>NewSupDN = string()</v>
+      </type>
+      <desc>
+	<p> Modify the DN of an entry. <c>DeleteOldRDN</c> indicates
+	whether the current RDN should be removed from the attribute list after the after operation.
+	<c>NewSupDN</c> is the new parent that the RDN shall be moved to.  If the old parent should
+	remain as parent, <c>NewSupDN</c> shall be "".</p>
+	<code>
+  modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
+            "cn=Bill Jr Valentine", true, "")
+	</code>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
+      <fsummary>Search the Directory</fsummary>
+      <type>
+        <v>SearchOptions = #eldap_search{} | [SearchOption]</v>
+        <v>SearchOption = {base, string()} | {filter, filter()} | {scope, scope()}
+	| {attributes, [string()]} | {deref, dereference()} |
+	| {types_only, boolean()} | {timeout, integer()}
+	</v>
+      </type>
+      <desc>
+	<p>Search the directory with the supplied the SearchOptions.
+	The base and filter options must be supplied.
+	Default values: scope is <c>wholeSubtree()</c>, deref is <c>derefAlways()</c>,
+	types_only is <c>false</c> and timeout is <c>0</c> (meaning infinity).
+	</p>
+	<code>
+  Filter = eldap:substrings("cn", [{any,"V"}]),
+  search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
+	</code>
+	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
+	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
+	individual request in the search operation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">baseObject() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search baseobject only.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">singleLevel() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search the specified level only, i.e. do not recurse.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">wholeSubtree() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search the entire subtree.</p> </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">neverDerefAliases() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Never derefrence aliases, treat aliases as entries.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">derefAlways() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Always derefrence aliases.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">derefInSearching() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Derefrence aliases only when searching.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">derefFindingBaseObj() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">present(Type) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+      </type>
+      <desc> <p>Create a filter which filters on attribute type presence.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">substrings(Type, [SubString]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>SubString = {StringPart, string()}</v>
+	<v>StringPart = initial | any | final</v>
+      </type>
+      <desc> <p>Create a filter which filters on substrings.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">equalityMatch(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a equality filter.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">greaterOrEqual(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a greater or equal filter.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">lessOrEqual(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a less or equal filter.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">approxMatch(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a approximation match filter.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP 17.4">extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>MatchValue = string()</v>
+	<v>OptionalAttrs = [Attr]</v>
+	<v>Attr = {matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}</v>
+      </type>
+      <desc> <p>Creates an extensible match filter. For example, </p>
+      <code>
+  eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
+      </code>
+      <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">'and'([Filter]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Creates a filter where all <c>Filter</c> must be true.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">'or'([Filter]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Create a filter where at least one of the <c>Filter</c> must be true.</p> </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">'not'(Filter) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Negate a filter.</p> </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

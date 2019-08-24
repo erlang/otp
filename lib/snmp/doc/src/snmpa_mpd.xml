@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>snmpa_mpd</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_mpd.xml</file>
+  </header>
+  <module since="">snmpa_mpd</module>
+  <modulesummary>Message Processing and Dispatch module for the SNMP agent</modulesummary>
+  <description>
+    <p>The module <c>snmpa_mpd</c> implements the version independent
+      Message Processing and Dispatch functionality in SNMP for the agent. 
+      It is supposed to be used from a Network Interface process 
+      (<seealso marker="snmp_agent_netif">Definition of Agent Net if</seealso>).
+      </p>
+
+    <marker id="init"></marker>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>See the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">init(Vsns) -> mpd_state()</name>
+      <fsummary>Initialize the MPD module</fsummary>
+      <type>
+        <v>Vsns = [Vsn]</v>
+        <v>Vsn = v1 | v2 | v3</v>
+      </type>
+      <desc>
+        <p>This function can be called from the net_if process at start-up.
+          The options list defines which versions to use.
+          </p>
+        <p>It also initializes some SNMP counters.
+          </p>
+
+        <marker id="process_packet"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.3">process_packet(Packet, From, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name since="OTP R14B">process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <fsummary>Process a packet received from the network</fsummary>
+      <type>
+        <v>Packet = binary()</v>
+	<v>From = {TDomain, TAddr}</v>
+        <v>TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+        <v>TAddr = {IpAddr, IpPort}</v>
+        <v>LocalEngineID = string()</v>
+        <v>IpAddr = <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso></v>
+        <v>IpPort = inet:port_number()</v>
+        <v>State = mpd_state()</v>
+        <v>NoteStore = pid()</v>
+        <v>Log = snmp_log()</v>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>Pdu = #pdu</v>
+        <v>PduMs = integer()</v>
+        <v>ACMData = acm_data()</v>
+        <v>Reason = term()</v>
+        <v>DiscoPacket = binary()</v>
+      </type>
+      <desc>
+        <p>Processes an incoming packet.  Performs authentication and 
+          decryption as necessary.  The return values should be passed to the
+          agent.</p>
+
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
+        <marker id="generate_response_msg"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -> {ok, Packet} | {discarded, Reason}</name>
+      <fsummary>Generate a response packet to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>RePdu = #pdu</v>
+        <v>Type = atom()</v>
+        <v>ACMData = acm_data()</v>
+        <v>LocalEngineID = string()</v>
+        <v>Packet = binary()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted response packet to be sent to the
+          network. <c>Type</c> is the <c>#pdu.type</c> of the original
+          request.</p>
+
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
+        <marker id="generate_msg"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <fsummary>Generate a request message to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>NoteStore = pid()</v>
+        <v>Pdu = #pdu</v>
+        <v>MsgData = msg_data()</v>
+        <v>LocalEngineID = string()</v>
+        <v>To = [dest_addrs()]</v>
+        <v>PacketsAndAddresses = [{TDomain, TAddress, Packet}]</v>
+        <v>TDomain = snmpUDPDomain</v>
+        <v>TAddress = {Ip, Udp}</v>
+        <v>Ip = {integer(), integer(), integer(), integer()}</v>
+        <v>Udp = integer()</v>
+        <v>Packet = binary()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted request packet to be sent to the
+          network.
+          </p>
+        <p><c>MsgData</c> is the message specific data used in
+          the SNMP message.  This value is received in a
+	  <seealso marker="snmp_agent_netif#im_send_pdu"><c>send_pdu</c></seealso>
+          or
+	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
+	  <c>send_pdu_req</c></seealso>
+	  message from the agent.  In SNMPv1 and
+          SNMPv2c, this message data is the community string.  In
+          SNMPv3, it is the context information.</p>
+	<p>
+          <c>To</c> is a list of destination addresses and
+          their corresponding security parameters.  This value is
+          received in the same message from the agent and then transformed
+	  trough <seealso marker="#process_taddrs"><c>process_taddrs</c></seealso>
+	  before passed to this function.</p>
+
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
+        <marker id="process_taddrs"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.3">process_taddrs(TDests) -> Dests</name>
+      <fsummary>Transform addresses from internal MIB format to a less internal
+      </fsummary>
+      <type>
+	<v>TDests = [TDest]</v>
+	<v>TDest = {{TDomain, TAddr}, SecData} | {TDomain, TAddr}</v>
+	<v>TDomain = term()  % Not at tuple</v>
+	<v>TAddr = term()</v>
+	<v>SecData = term()</v>
+	<v>Dests = [Dest]</v>
+	<v>Dest = {{Domain, Addr}, SecData} | {Domain, Addr}</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddress()  % Depends on Domain</v>
+      </type>
+      <desc>
+	<p>Transforms addresses from internal MIB format to one
+	more useful to <seealso marker="snmp_agent_netif">Agent Net if</seealso>.
+	</p>
+	<p>See also <seealso marker="#generate_msg"><c>generate_msg</c>.</seealso>
+	</p>
+
+        <marker id="discarded_pdu"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">discarded_pdu(Variable) -> void()</name>
+      <fsummary>Increment the variable associated with a discarded pdu</fsummary>
+      <type>
+        <v>Variable = atom()</v>
+      </type>
+      <desc>
+        <p>Increments the variable associated with a discarded pdu.
+          This function can be used when the net_if process receives a
+          <c>discarded_pdu</c> message from the agent.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

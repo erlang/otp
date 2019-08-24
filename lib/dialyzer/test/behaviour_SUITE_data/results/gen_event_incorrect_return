@@ -1,0 +1,2 @@
+
+gen_event_incorrect_return.erl:16: The inferred return type of init/1 ('error') has nothing in common with {'error',_} | {'ok',_} | {'ok',_,'hibernate'}, which is the expected return type for the callback of the gen_event behaviour

@@ -1,0 +1,82 @@
+module 'cover_v3_kernel_4' ['cover_v3_kernel_4'/0,
+			    'module_info'/0,
+			    'module_info'/1]
+    attributes []
+'cover_v3_kernel_4'/0 =
+    %% Line 4
+    fun () ->
+	%% Line 5
+	case apply 'turned_case'/1
+		 (20) of
+	  <'ok'> when 'true' ->
+	      %% Line 6
+	      case apply 'turned_case'/1
+		       (0) of
+		<'error'> when 'true' ->
+		    %% Line 7
+		    'ok'
+		( <_@c1> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_@c1})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <_@c0> when 'true' ->
+		primop 'match_fail'
+		    ({'badmatch',_@c0})
+	    -| ['compiler_generated'] )
+	end
+'turned_case'/1 =
+    %% Line 9
+    fun (_@c0) ->
+	let <True> =
+	    apply %% Line 10
+		  'id'/1
+		(%% Line 10
+		 'true')
+	in  %% Line 11
+	    case <> of
+	      %% Line 12
+	      <>
+		  when try
+			( let <_@c4> =
+			      case call 'erlang':'<'
+				       (_@c0, 10) of
+				( <( 'false'
+				     -| ['compiler_generated'] )> when 'true' ->
+				      True
+				  -| ['compiler_generated'] )
+				( <( 'true'
+				     -| ['compiler_generated'] )> when 'true' ->
+				      'false'
+				  -| ['compiler_generated'] )
+				( <_@c2> when 'true' ->
+				      _@c2
+				  -| ['compiler_generated'] )
+			      end
+			  in  ( call 'erlang':'=:='
+				    (( _@c4
+				       -| ['compiler_generated'] ), 'true')
+				-| ['compiler_generated'] )
+			  -| ['compiler_generated'] )
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  'ok'
+	      %% Line 13
+	      <> when 'true' ->
+		  'error'
+	    end
+'id'/1 =
+    %% Line 16
+    fun (_@c0) ->
+	_@c0
+'module_info'/0 =
+    fun () ->
+	call 'erlang':'get_module_info'
+	    ('cover_v3_kernel_4')
+'module_info'/1 =
+    fun (_@c0) ->
+	call 'erlang':'get_module_info'
+	    ('cover_v3_kernel_4', _@c0)
+end

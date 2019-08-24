@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Scheduled for Removal</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>scheduled_for_removal.xml</file>
+  </header>
+  <section>
+    <title>Introduction</title>
+    <p>This document list all functionality in Erlang/OTP that currently are
+    scheduled for removal. For more information regarding the strategy regarding
+    removal of functionality see the documentation of
+    <seealso marker="../system_principles/misc#removal">Support, Compatibility,
+    Deprecations, and Removal</seealso>.</p>
+  </section>
+  <section>
+    <marker id="OTP-23"/>
+    <title>OTP 23</title>
+    <section>
+      <title>VxWorks Support</title>
+      <p>Some parts of OTP has had limited VxWorks support, such as for
+      example <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>.
+      This support will be removed as of OTP 23. This limited support
+      was formally deprecated as of OTP 22</p>
+    </section>
+    <section>
+      <title>Legacy parts of erl_interface</title>
+      <p>The old legacy <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>
+      library (functions with prefix <c>erl_</c>) will be removed as of
+      OTP 23. These parts of <c>erl_interface</c> has been informally deprecated
+      for a very long time, and was formally deprecated in OTP 22. You typically
+      want to replace the usage of the <c>erl_interface</c> library with the use
+      of the <c>ei</c> library which also is part of the <c>erl_interface</c>
+      application.</p>
+    </section>
+  </section>
+</chapter>

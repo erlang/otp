@@ -1,0 +1,103 @@
+--
+-- %CopyrightBegin%
+-- 
+-- Copyright Ericsson AB 1997-2016. All Rights Reserved.
+-- 
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+-- 
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+-- 
+-- %CopyrightEnd%
+--
+
+OTP-REG DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, enterprises
+        FROM SNMPv2-SMI
+    ;
+
+otpRegModule MODULE-IDENTITY
+    LAST-UPDATED "200305090900Z"
+    ORGANIZATION "Ericsson"
+    CONTACT-INFO
+       "Contact:  Erlang Support see license agreement for Erlang/OTP."
+    DESCRIPTION
+       "The root MIB module for OTP."
+
+    REVISION     "200305090900Z"
+    DESCRIPTION
+        "Changed CONTACT-INFO as it was outdated, made it more generic
+	to avoid such changes in the future."
+  
+    REVISION     "199902020900Z"
+    DESCRIPTION
+       "Cleaned up OBJECT IDENTIFIER registration.  Changed the name
+       of the MODULE-IDENTITY of this module to non-conflicting name
+       otpRegModule."
+
+    REVISION     "199712010900Z"
+    DESCRIPTION
+       "The initial revision of MIB module OTP-REG."
+    ::= { otpModules 1 }
+
+ericsson       OBJECT IDENTIFIER ::= {enterprises 193}
+otp            OBJECT IDENTIFIER ::= {ericsson 19}
+
+-- sub-tree for registraions, including Modules
+otpReg	       OBJECT IDENTIFIER ::= {otp 1}
+otpModules     OBJECT IDENTIFIER ::= {otpReg 1}
+-- otpTcModule         2
+-- otpModule           3
+-- otpOsMonModule      4
+-- otpSnmpeaModule     5
+-- otpEvaModule        6
+-- otpLogModule        7
+-- otpEvaLogModule     8
+-- otpSnmpeaLogModule  9
+-- otpMeshModule      10
+
+
+-- sub-tree for OTP-wide objects and events
+otpGeneric     OBJECT IDENTIFIER ::= {otp 2}
+
+-- sub-tree for product specific objects and events
+otpApplications
+               OBJECT IDENTIFIER ::= {otp 3}
+-- otpMib           1
+-- otpOsMonMib      2
+-- otpSnmpeaMib     3
+-- otpEvaMib        4
+-- otpLogMib        5
+-- otpMeshMib       6
+
+
+-- sub-tree for agent implementation capabilites
+otpCaps	       OBJECT IDENTIFIER ::= {otp 4}
+-- otpMibImplV10        1 (vsn of mib implementation, e.g. otp_mib)
+-- otpOsMonMibImplV10   2
+-- otpSnmpeaMibImplV10  3
+-- otpEvaMibImplV10     4
+-- otpLogMibImplV10     5
+
+
+-- sub-tree for requirement specifications
+otpReqs	       OBJECT IDENTIFIER ::= {otp 5}
+
+-- sub-tree for experimental modules within OTP
+otpExpr        OBJECT IDENTIFIER ::= {otp 6}
+
+-- sub-tree for SSL within OTP
+-- Note that this subtree is not MIB related, but it
+-- is defined in this MIB file to avoid clashes.  
+ssl            OBJECT IDENTIFIER ::= {otp 10}
+
+END

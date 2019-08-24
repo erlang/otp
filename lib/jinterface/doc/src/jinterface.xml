@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>jinterface</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>jinterface</module>
+  <modulesummary>A Java communication tool to Erlang.</modulesummary>
+  <description>
+    <p>Jinterface Java package contains java classes, which help you
+      integrate programs written in Java with Erlang. The reference 
+      documentation is available only on the web in Javadoc format.</p>
+    <note>
+      <p>By default, the <c>jinterface</c> library is only guaranteed
+        to be compatible with other Erlang/OTP components from the same
+        release as the <c>jinterface</c> library itself. See the documentation
+        of the <c>OtpCompatRel</c> property in the Java API documentation.</p>
+    </note>
+  </description>
+
+  <section>
+    <title>See Also</title>
+    <p>Jinterface User's Guide</p>
+  </section>
+</erlref>
+

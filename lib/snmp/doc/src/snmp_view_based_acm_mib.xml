@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_view_based_acm_mib</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_view_based_acm_mib.xml</file>
+  </header>
+  <module since="">snmp_view_based_acm_mib</module>
+  <modulesummary>Instrumentation Functions for SNMP-VIEW-BASED-ACM-MIB</modulesummary>
+  <description>
+    <p>The module <c>snmp_view_based_acm_mib</c> implements the instrumentation functions for the
+      SNMP-VIEW-BASED-ACM-MIB, and functions for configuring the database.
+      </p>
+    <p>The configuration files are described in the SNMP User's Manual.</p>
+
+    <marker id="configure"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">configure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>This function is called from the supervisor at system
+	start-up. </p>
+        <p>Inserts all data in the configuration files into the
+	database and destroys all old rows with StorageType
+	<c>volatile</c>.  The rows created from the configuration file
+	will have StorageType <c>nonVolatile</c>. </p>
+        <p>All <c>snmp</c> counters are set to zero. </p>
+        <p>If an error is found in the configuration file, it is
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+	where the configuration files are found. </p>
+        <p>The configuration file read is: <c>vacm.conf</c>. </p>
+
+	<marker id="reconfigure"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">reconfigure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old data, including the rows with
+          StorageType <c>nonVolatile</c>.  The rows created from the
+          configuration file will have StorageType <c>nonVolatile</c>.
+          </p>
+        <p>Thus, the data in the SNMP-VIEW-BASED-ACM-MIB, after this
+          function has been called, is the data from the configuration
+          files.
+          </p>
+        <p>All <c>snmp</c> counters are set to zero.
+          </p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function 
+	  <seealso marker="snmpa_error#config_err">config_err/2</seealso> 
+	  of the error report module, and the function fails with the reason 
+          <c>configuration_error</c>.
+          </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found.
+          </p>
+        <p>The configuration file read is: <c>vacm.conf</c>. </p>
+
+	<marker id="add_sec2group"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add_sec2group(SecModel, SecName, GroupName) -> Ret</name>
+      <fsummary>Add one security to group definition</fsummary>
+      <type>
+        <v>SecModel = v1 | v2c | usm</v>
+        <v>SecName = string()</v>
+        <v>GroupName = string()</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a security to group definition to the agent config. 
+	Equivalent to one vacmSecurityToGroup-line in the 
+	<c>vacm.conf</c> file.</p>
+
+        <marker id="delete_sec2group"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delete_sec2group(Key) -> Ret</name>
+      <fsummary>Delete one security to group definition</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a security to group definition from the agent config.</p>
+
+        <marker id="add_access"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret</name>
+      <fsummary>Add one access definition</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>Prefix = string()</v>
+        <v>SecModel = v1 | v2c | usm</v>
+        <v>SecLevel = string()</v>
+        <v>Match = prefix | exact</v>
+        <v>RV = string()</v>
+        <v>WV = string()</v>
+        <v>NV = string()</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a access definition to the agent config. 
+	Equivalent to one vacmAccess-line in the <c>vacm.conf</c> file.</p>
+        
+	<marker id="delete_access"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delete_access(Key) -> Ret</name>
+      <fsummary>Delete one access definition</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>Delete a access definition from the agent config.</p>
+
+	<marker id="add_view_tree_fam"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret</name>
+      <fsummary>Add one view tree family definition</fsummary>
+      <type>
+        <v>ViewIndex = integer()</v>
+        <v>SubTree = oid()</v>
+        <v>Status = included | excluded</v>
+        <v>Mask = null | [integer()], where all values are either 0 or 1</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>Adds a view tree family definition to the agent config. 
+	Equivalent to one vacmViewTreeFamily-line in the 
+	<c>vacm.conf</c> file.</p>
+	  
+	  <marker id="delete_view_tree_fam"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delete_view_tree_fam(Key) -> Ret</name>
+      <fsummary>Delete one view tree family definition</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a view tree family definition from the agent config.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

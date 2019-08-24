@@ -1,0 +1,14 @@
+NullTest DEFINITIONS ::=
+BEGIN
+
+NullTestData ::= SEQUENCE {
+  body  NullBody,
+  tail  INTEGER
+}
+
+NullBody ::= CHOICE {
+  null    [0] NULL,
+  notNull [1] INTEGER
+}
+
+END

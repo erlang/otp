@@ -1,0 +1,97 @@
+
+guard_warnings.erl:100: Function test45/0 has no local return
+guard_warnings.erl:100: Guard test not('true') can never succeed
+guard_warnings.erl:102: Function test46/1 has no local return
+guard_warnings.erl:102: Guard test X::'true' =:= 'false' can never succeed
+guard_warnings.erl:104: Function test47/1 has no local return
+guard_warnings.erl:104: Guard test X::'true' == 'false' can never succeed
+guard_warnings.erl:106: Function test48/1 has no local return
+guard_warnings.erl:106: Guard test X::'true' =/= 'true' can never succeed
+guard_warnings.erl:114: Function test52_w/1 has no local return
+guard_warnings.erl:118: Function test54_w/1 has no local return
+guard_warnings.erl:12: Function test1/1 has no local return
+guard_warnings.erl:12: Guard test X::'true' =:= 'false' can never succeed
+guard_warnings.erl:14: Function test2/1 has no local return
+guard_warnings.erl:14: Guard test X::'false' =:= 'true' can never succeed
+guard_warnings.erl:16: Function test3/1 has no local return
+guard_warnings.erl:16: Guard test not(X::'true') can never succeed
+guard_warnings.erl:18: Function test4/1 has no local return
+guard_warnings.erl:18: Guard test and('true',X::none()) can never succeed
+guard_warnings.erl:20: Function test5/1 has no local return
+guard_warnings.erl:20: Guard test not(X::'true') can never succeed
+guard_warnings.erl:22: Function test6/1 has no local return
+guard_warnings.erl:22: Guard test and('true',X::none()) can never succeed
+guard_warnings.erl:24: Function test7_w/1 has no local return
+guard_warnings.erl:26: Function test8_w/1 has no local return
+guard_warnings.erl:28: Function test9/1 has no local return
+guard_warnings.erl:28: Guard test not(not(X::'false')) can never succeed
+guard_warnings.erl:30: Function test10/1 has no local return
+guard_warnings.erl:30: Guard test not(or('false',X::none())) can never succeed
+guard_warnings.erl:32: Function test11/1 has no local return
+guard_warnings.erl:32: Guard test not(not(X::'false')) can never succeed
+guard_warnings.erl:34: Function test12/1 has no local return
+guard_warnings.erl:34: Guard test not(or('false',X::none())) can never succeed
+guard_warnings.erl:36: Function test13/1 has no local return
+guard_warnings.erl:36: Guard test and('true','false') can never succeed
+guard_warnings.erl:38: Function test14/1 has no local return
+guard_warnings.erl:38: Guard test and('false',any()) can never succeed
+guard_warnings.erl:40: Function test15/1 has no local return
+guard_warnings.erl:40: Guard test and(X::'true','false') can never succeed
+guard_warnings.erl:42: Function test16/1 has no local return
+guard_warnings.erl:42: Guard test and('false',X::any()) can never succeed
+guard_warnings.erl:44: Function test17/1 has no local return
+guard_warnings.erl:44: Guard test and(X::'true','false') can never succeed
+guard_warnings.erl:46: Function test18/1 has no local return
+guard_warnings.erl:46: Guard test and('false',X::any()) can never succeed
+guard_warnings.erl:48: Function test19/1 has no local return
+guard_warnings.erl:48: Guard test not(or('true',any())) can never succeed
+guard_warnings.erl:50: Function test20/1 has no local return
+guard_warnings.erl:50: Guard test not(or('false','true')) can never succeed
+guard_warnings.erl:52: Function test21/1 has no local return
+guard_warnings.erl:52: Guard test not(or('true',X::any())) can never succeed
+guard_warnings.erl:54: Function test22/1 has no local return
+guard_warnings.erl:54: Guard test not(or(X::'false','true')) can never succeed
+guard_warnings.erl:56: Function test23/1 has no local return
+guard_warnings.erl:56: Guard test not(or('true',X::any())) can never succeed
+guard_warnings.erl:58: Function test24/1 has no local return
+guard_warnings.erl:58: Guard test not(or(X::'false','true')) can never succeed
+guard_warnings.erl:60: Function test25/1 has no local return
+guard_warnings.erl:60: Guard test and('false',any()) can never succeed
+guard_warnings.erl:62: Function test26/1 has no local return
+guard_warnings.erl:62: Guard test and('true','false') can never succeed
+guard_warnings.erl:64: Function test27/1 has no local return
+guard_warnings.erl:64: Guard test and('false',X::any()) can never succeed
+guard_warnings.erl:66: Function test28/1 has no local return
+guard_warnings.erl:66: Guard test and(X::'true','false') can never succeed
+guard_warnings.erl:68: Function test29/1 has no local return
+guard_warnings.erl:68: Guard test and('false',X::any()) can never succeed
+guard_warnings.erl:70: Function test30/1 has no local return
+guard_warnings.erl:70: Guard test and(X::'true','false') can never succeed
+guard_warnings.erl:72: Function test31/0 has no local return
+guard_warnings.erl:72: Guard test and('false','false') can never succeed
+guard_warnings.erl:74: Function test32/0 has no local return
+guard_warnings.erl:74: Guard test and('false','false') can never succeed
+guard_warnings.erl:76: Function test33/0 has no local return
+guard_warnings.erl:76: Guard test not(and('true','true')) can never succeed
+guard_warnings.erl:78: Function test34/0 has no local return
+guard_warnings.erl:78: Guard test and('false','false') can never succeed
+guard_warnings.erl:80: Function test35/0 has no local return
+guard_warnings.erl:80: Guard test not(and('true','true')) can never succeed
+guard_warnings.erl:82: Function test36/0 has no local return
+guard_warnings.erl:82: Guard test or('false','false') can never succeed
+guard_warnings.erl:84: Function test37/0 has no local return
+guard_warnings.erl:84: Guard test or('false','false') can never succeed
+guard_warnings.erl:86: Function test38/0 has no local return
+guard_warnings.erl:86: Guard test or('false','false') can never succeed
+guard_warnings.erl:88: Function test39/0 has no local return
+guard_warnings.erl:88: Guard test or('false','false') can never succeed
+guard_warnings.erl:90: Function test40/0 has no local return
+guard_warnings.erl:90: Guard test or('false','false') can never succeed
+guard_warnings.erl:92: Function test41/0 has no local return
+guard_warnings.erl:92: Guard test 'true' =:= 'false' can never succeed
+guard_warnings.erl:94: Function test42/0 has no local return
+guard_warnings.erl:94: Guard test 'true' == 'false' can never succeed
+guard_warnings.erl:96: Function test43/0 has no local return
+guard_warnings.erl:96: Guard test 'true' =:= 'false' can never succeed
+guard_warnings.erl:98: Function test44/0 has no local return
+guard_warnings.erl:98: Guard test not('true' == 'true') can never succeed

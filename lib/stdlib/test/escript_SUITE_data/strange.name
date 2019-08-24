@@ -1,0 +1,7 @@
+#! /usr/bin/env escript
+%% -*- erlang -*-
+
+-mode(compile).
+
+main(MainArgs) ->
+    io:format("main:~p\n",[MainArgs]).

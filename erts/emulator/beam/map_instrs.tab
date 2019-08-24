@@ -1,0 +1,179 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+ensure_map(Map) {
+    if (is_not_map($Map)) {
+        c_p->freason = BADMAP;
+        c_p->fvalue = $Map;
+        $FAIL_BODY();
+    }
+}
+
+new_map(Dst, Live, N) {
+    Eterm res;
+
+    HEAVY_SWAPOUT;
+    res = erts_gc_new_map(c_p, reg, $Live, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    $REFRESH_GEN_DEST();
+    $Dst = res;
+    $NEXT($NEXT_INSTRUCTION+$N);
+}
+
+i_new_small_map_lit(Dst, Live, Keys) {
+    Eterm res;
+    Uint n;
+    Eterm keys = $Keys;
+
+    HEAVY_SWAPOUT;
+    res = erts_gc_new_small_map_lit(c_p, reg, keys, $Live, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    $REFRESH_GEN_DEST();
+    $Dst = res;
+    n = arityval(*tuple_val(keys));
+    $NEXT($NEXT_INSTRUCTION+n);
+}
+
+i_get_map_element(Fail, Src, Key, Dst) {
+    Eterm res = get_map_element($Src, $Key);
+    if (is_non_value(res)) {
+        $FAIL($Fail);
+    }
+    $Dst = res;
+}
+
+i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
+     Eterm res = get_map_element_hash($Src, $Key, $Hx);
+     if (is_non_value(res)) {
+        $FAIL($Fail);
+     }
+     $Dst = res;
+}
+
+i_get_map_elements(Fail, Src, N) {
+    Eterm map;
+    BeamInstr *fs;
+    Uint sz, n;
+
+    map = $Src;
+
+    /* This instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    n  = (Uint)$N / 3;
+    fs = $NEXT_INSTRUCTION;
+
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Eterm *vs;
+
+	mp = (flatmap_t *)flatmap_val(map);
+	sz = flatmap_get_size(mp);
+
+	if (sz == 0) {
+            $FAIL($Fail);
+	}
+
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+
+	while(sz) {
+	    if (EQ((Eterm) fs[0], *ks)) {
+		PUT_TERM_REG(*vs, fs[1]);
+		n--;
+		fs += 3;
+		/* no more values to fetch, we are done */
+		if (n == 0) {
+                    $NEXT(fs);
+		}
+	    }
+	    ks++, sz--, vs++;
+	}
+        $FAIL($Fail);
+    } else {
+	const Eterm *v;
+	Uint32 hx;
+	ASSERT(is_hashmap(map));
+	while(n--) {
+	    hx = fs[2];
+	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
+		$FAIL($Fail);
+	    }
+	    PUT_TERM_REG(*v, fs[1]);
+	    fs += 3;
+	}
+        $NEXT(fs);
+    }
+}
+
+update_map_assoc := update_map_assoc.fetch.execute;
+
+update_map_assoc.head() {
+    Eterm map;
+}
+
+update_map_assoc.fetch(Src) {
+    map = $Src;
+}
+
+update_map_assoc.execute(Dst, Live, N) {
+    Eterm res;
+    Uint live = $Live;
+
+    reg[live] = map;
+    HEAVY_SWAPOUT;
+    res = erts_gc_update_map_assoc(c_p, reg, live, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    ASSERT(is_value(res));
+    $REFRESH_GEN_DEST();
+    $Dst = res;
+    $NEXT($NEXT_INSTRUCTION+$N);
+}
+
+update_map_exact := update_map_exact.fetch.execute;
+
+update_map_exact.head() {
+    Eterm map;
+}
+
+update_map_exact.fetch(Src) {
+    map = $Src;
+}
+
+update_map_exact.execute(Fail, Dst, Live, N) {
+    Eterm res;
+    Uint live = $Live;
+
+    reg[live] = map;
+    HEAVY_SWAPOUT;
+    res = erts_gc_update_map_exact(c_p, reg, live, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    if (is_value(res)) {
+        $REFRESH_GEN_DEST();
+        $Dst = res;
+        $NEXT($NEXT_INSTRUCTION+$N);
+    } else {
+        $FAIL_HEAD_OR_BODY($Fail);
+    }
+}

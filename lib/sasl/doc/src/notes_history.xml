@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>SASL Release Notes History</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+  </header>
+
+  <section>
+    <title>SASL 2.0</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When doing a code replacement in run-time, updating the
+            internal state of a gen_server, gen_event or gen_fsm, it
+            was stated in the documentation that the first argument
+            <c>OldVsn</c> to the callback function
+            <c>Module:code_change</c> was defined by the <c>vsn</c>
+            attribute in the old version of <c>Module</c>.</p>
+          <p>However, this was not true. For downgrades, <c>OldVsn</c>
+            was <c>{down,Vsn}</c>, where <c>Vsn</c> was fetched from
+            the <c>.app</c> file instead.</p>
+          <p>The version is now always fetched from the module using
+            <c>beam_lib:version/1</c> and the man pages for gen_*
+            have been updated accordingly.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-3699</p>
+        </item>
+        <item>
+          <p>The release handling instruction
+            <c>restart_application</c> was translated to the
+            low-level instruction <c>application_remove</c> and a set
+            of <c>load_module</c> instructions.</p>
+          <p>However, <c>application_remove</c> caused the modules
+            listed for the new, not the old, version of the
+            application to be unloaded. If the set of modules was
+            changed, this meant the release handler would try to
+            purge non-existent modules and/or forget to unload
+            modules no longer used.</p>
+          <p><c>restart_application</c> is now translated to a correct
+            set of <c>delete_module</c> and <c>add_module</c>
+            instructions instead, and the <c>application_remove</c>
+            instruction is deprecated.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4805</p>
+        </item>
+        <item>
+          <p><c>release_handler:check_install_release/1</c> returned
+            <c>{error,Reason}</c> if <c>sys.config</c> or
+            <c>relup</c> was missing. Since both these files are
+            optional, the behaviour has been changed to write
+            warnings to the terminal but return an <c>ok</c> tuple
+            instead.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4824</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added a clause to <c>systools:make_script/1</c> which
+            makes it possible to provide (atomic) options when
+            calling the function using <c>erl -s</c>.</p>
+          <p>Example: <c>erl -noinput +B -s systools make_script myrel no_module_tests -s erlang halt</c> is equal to calling
+            <c>systools:make_script("myrel", [no_module_tests])</c>.</p>
+          <p>Own Id: OTP-3384</p>
+        </item>
+        <item>
+          <p>Added simplified versions of the <c>update</c> and
+            <c>load_module</c> release handling instructions.</p>
+          <p>Own Id: OTP-4793</p>
+        </item>
+        <item>
+          <p>Added two new release handling instructions: <c>{update, Module, supervisor}</c> and <c>{delete_module, Module}</c>.</p>
+          <p>Own Id: OTP-4800</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 1.10.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The option <c>{abort_on_error,Bool}</c> has been added to
+            <c>rb:start/1</c> and <c>rb:rescan/1</c>. With it you can
+            choose whether or not rb should stop logging if it
+            encounters an unprintable report. When <c>abort_on_error</c>
+            is set to <c>false</c>, rb will resume logging after a bad
+            report has been handled. The error messages rb prints when
+            logging fails have been enhanced.</p>
+          <p>Own Id: OTP-5096 Aux Id: seq8930</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

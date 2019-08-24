@@ -1,0 +1,88 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Scott Lystig Fritchie and Andreas Schultz, 2011-2016. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+/*
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
+ *       Note that other variations of the virtual machine also have
+ *       different names, e.g. the debug build of the SMP-enabled VM
+ *       is "beam.debug.smp".
+ *
+ *       To use a different virtual machine, replace each instance of
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
+ */
+
+probe begin
+{
+    printf("\n");
+    printf("NOTE: message-queue message size 4294967295 means an external\n");
+    printf("      message that the code isn't smart enough to determine\n");
+    printf("      the actual size.\n");
+    printf("\n");
+}
+
+probe process("beam.smp").mark("message-send")
+{
+    if ($arg4 == 0 && $arg5 == 0 && $arg6 == 0) {
+        printf("send:   %s -> %s: %d words\n",
+	       user_string($arg1), user_string($arg2), $arg3);
+    } else {
+        printf("send:   %s label %d token {%d,%d} -> %s: %d words\n",
+	       user_string($arg1),
+               $arg4, $arg5, $arg6,
+	       user_string($arg2), $arg3);
+    }
+}
+
+probe process("beam.smp").mark("message-send-remote")
+{
+    if ($arg5 == 0 && $arg6 == 0 && $arg7 == 0) {
+        printf("send :  %s -> %s %s: %d words\n",
+               user_string($arg1), user_string($arg2), user_string($arg3), $arg4);
+    } else {
+        printf("send :  %s label %d token {%d,%d} -> %s %s: %d words\n",
+               user_string($arg1),
+               $arg5, $arg6, $arg7,
+               user_string($arg2), user_string($arg3), $arg4);
+    }
+}
+
+probe process("beam.smp").mark("message-queued")
+{
+    if ($arg4 == 0 && $arg5 == 0 && $arg6 == 0) {
+        printf("queued: %s: %d words, queue len %d\n", user_string($arg1), $arg2, $arg3);
+    } else {
+        printf("queued: %s label %d token {%d,%d}: %d words, queue len %d\n",
+               user_string($arg1), $arg4, $arg5, $arg6,
+               $arg2, $arg3);
+    }
+}
+
+probe process("beam.smp").mark("message-receive")
+{
+    if ($arg4 == 0 && $arg5 == 0 && $arg6 == 0) {
+        printf("receive: %s: %d words, queue len %d\n",
+               user_string($arg1), $arg2, $arg3);
+    } else {
+        printf("receive: %s label %d token {%d,%d}: %d words, queue len %d\n",
+               user_string($arg1), $arg4, $arg5, $arg6,
+               $arg2, $arg3);
+    }
+}

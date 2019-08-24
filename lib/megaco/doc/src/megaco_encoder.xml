@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_encoder</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_encoder.xml</file>
+  </header>
+  <module since="">megaco_encoder</module>
+  <modulesummary>Megaco encoder behaviour.</modulesummary>
+  <description>
+    <p>The following functions should be exported from a 
+      <c><![CDATA[megaco_encoder]]></c> callback module:</p>
+
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <note>
+      <p>Note that the actual definition of (some of) these records depend on
+      the megaco protocol version used. For instance, the
+      <c>'TransactionReply'</c> record
+      has two more fields in version 3, so a simple erlang type definition
+      cannot be made here. </p>
+    </note>
+    <code type="none"><![CDATA[
+protocol_version() = integer()
+segment_no()       = integer()
+megaco_message() = #'MegacoMessage{}'
+transaction() = {transactionRequest,     transaction_request()}      |
+                {transactionPending,     transaction_reply()}        |
+                {transactionReply,       transaction_pending()}      |
+                {transactionResponseAck, transaction_response_ack()} |
+                {segmentReply,           segment_reply()}
+transaction_request() = #'TransactionRequest'{}
+transaction_pending() = #'TransactionPending'{}
+transaction_reply() = #'TransactionReply'{}
+transaction_response_ack() = [transaction_ack()]
+transaction_ack() = #'TransactionAck'{}
+segment_reply() = #'SegmentReply'{}
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+command_request() = #'CommandRequest'{}
+error_desc()   = #'ErrorDescriptor'{}
+    ]]></code>
+
+    <marker id="encode_message"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">Module:encode_message(EncodingConfig, Version, Message) -> {ok, Bin} | Error</name>
+      <fsummary>Encode a megaco message.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer()</v>
+        <v>Message = megaco_message()</v>
+        <v>Bin = binary()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Encode a megaco message.</p>
+
+	<marker id="decode_message"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:decode_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
+      <fsummary>Decode a megaco message.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer() | dynamic</v>
+        <v>Message = megaco_message()</v>
+        <v>Bin = binary()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Decode a megaco message. </p>
+        <p>Note that if the Version argument is <c><![CDATA[dynamic]]></c>, the
+          decoder should try to figure out the actual version from the
+          message itself and then use the proper decoder, e.g. version 1.
+          <br></br>If on the other hand the Version argument is an integer, 
+          it means that this is the expected version of the message and 
+          the decoder for that version should be used.</p>
+
+	<marker id="decode_mini_message"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:decode_mini_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
+      <fsummary>Perform a minimal decode of a megaco message.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer() | dynamic</v>
+        <v>Message = megaco_message()</v>
+        <v>Bin = binary()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Perform a minimal decode of a megaco message. </p>
+        <p>The purpose of this function is to do a minimal decode of
+          Megaco message. A successfull result is a <c><![CDATA['MegacoMessage']]></c> 
+          in which only version and mid has been initiated. This function 
+          is used by the megaco_messenger module when the 
+          <c><![CDATA[decode_message/3]]></c> function fails to figure out the mid 
+          (the actual sender) of the message.</p>
+        <p>Note again that a successfull decode only returns a
+          partially initiated message.</p>
+
+	<marker id="encode_transaction"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:encode_transaction(EncodingConfig, Version, Transaction) -> OK | Error</name>
+      <fsummary>Encode a megaco transaction.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer()</v>
+        <v>Transaction = transaction()</v>
+        <v>OK = {ok, Bin}</v>
+        <v>Bin = binary()</v>
+        <v>Error = {error, Reason}</v>
+        <v>Reason = not_implemented | OtherReason</v>
+        <v>OtherReason = term()</v>
+      </type>
+      <desc>
+        <p>Encode a megaco transaction. If this, for whatever reason, 
+          is not supported, the function should return the error reason 
+          <c>not_implemented</c>. </p>
+
+        <p>This functionality is used both when the transaction sender is 
+          used and for segmentation. So, for either of those to work, this 
+          function <em>must</em> be fully supported! </p>
+
+	<marker id="encode_action_requests"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:encode_action_requests(EncodingConfig, Version, ARs) -> OK | Error</name>
+      <fsummary>Encode megaco action requests.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer()</v>
+        <v>ARs = action_requests()</v>
+        <v>action_requests() = [action_request()]</v>
+        <v>OK = {ok, Bin}</v>
+        <v>Bin = binary()</v>
+        <v>Error = {error, Reason}</v>
+        <v>Reason = not_implemented | OtherReason</v>
+        <v>OtherReason = term()</v>
+      </type>
+      <desc>
+        <p>Encode megaco action requests. This function is called when 
+          the user calls the function 
+          <seealso marker="megaco#encode_actions">encode_actions/3</seealso>.
+          If that function is never used or if the codec cannot support this
+          (the encoding of individual actions), then return with error reason 
+          <c>not_implemented</c>. </p>
+
+	<marker id="encode_action_reply"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:encode_action_reply(EncodingConfig, Version, AR) -> OK | Error</name>
+      <fsummary>Encode a megaco action reply.</fsummary>
+      <type>
+        <v>EncodingConfig = list()</v>
+        <v>Version = integer()</v>
+        <v>AR = action_reply()</v>
+        <v>OK = {ok, Bin}</v>
+        <v>Bin = binary()</v>
+        <v>Error = {error, Reason}</v>
+        <v>Reason = not_implemented | OtherReason</v>
+        <v>OtherReason = term()</v>
+      </type>
+      <desc>
+        <p>Encode a megaco action reply. If this, for whatever reason, 
+          is not supported, the function should return the error reason 
+          <c>not_implemented</c>. </p>
+
+        <p>This function is used when segmentation has been configured. 
+          So, for this to work, this function <em>must</em> be fully 
+          supported! </p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

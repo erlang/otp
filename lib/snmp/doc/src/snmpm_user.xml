@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpm_user</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpm_user.xml</file>
+  </header>
+  <module since="">snmpm_user</module>
+  <modulesummary>Behaviour module for the SNMP manager user.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the manager user. 
+      A <c>snmpm_user</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p>handle_error/3</p>
+      </item>
+      <item>
+        <p>handle_agent/4</p>
+      </item>
+      <item>
+        <p>handle_pdu/4</p>
+      </item>
+      <item>
+        <p>handle_trap/3</p>
+      </item>
+      <item>
+        <p>handle_inform/3</p>
+      </item>
+      <item>
+        <p>handle_report/3</p>
+      </item>
+      <item>
+        <p>handle_invalid_result/2</p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+    below. </p>
+    <p>Some of the function has no defined return value (<c>void()</c>), 
+    they can of course return anything. But the functions that do have
+    specified return value(s) <em>must</em> adhere to this. None of the 
+    functions can use exit of throw to return. </p>
+
+    <p>If the manager is not configured to use any particular
+    transport domain, the behaviour <c>handle_agent/4</c>
+    will for backwards copmpatibility reasons be called with the old
+    <c>IpAddr</c> and <c>PortNumber</c> arguments</p>
+
+    <marker id="types"></marker>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none"><![CDATA[
+snmp_gen_info() = {ErrorStatus :: atom(), 
+                   ErrorIndex  :: pos_integer(), 
+                   Varbinds    :: [snmp:varbind()]}
+snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+                        Generic   :: integer(), 
+                        Spec      :: integer(), 
+                        Timestamp :: integer(), 
+                        Varbinds  :: [snmp:varbind()]}
+    ]]></code>
+    <marker id="handle_error"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">handle_error(ReqId, Reason, UserData) -> void()</name>
+      <fsummary>Handle error</fsummary>
+      <type>
+        <v>ReqId = integer()</v>
+        <v>Reason = {unexpected_pdu, SnmpInfo} | {invalid_sec_info, SecInfo, SnmpInfo} | {empty_message, Addr, Port} | term()</v>
+        <v>SnmpInfo = snmp_gen_info()</v>
+        <v>SecInfo = term()</v>
+        <v>Addr = ip_address()</v>
+        <v>Port = integer()</v>
+        <v>UserData = term()</v>
+      </type>
+      <desc>
+        <p>This function is called when the manager needs to
+	communicate an "asynchronous" error to the user:
+	e.g. failure to send an asynchronous message (i.e. encoding
+	error), a received message was discarded due to security
+	error, the manager failed to generate a response message to
+	a received inform-request, or when receiving an unexpected
+	PDU from an agent (could be an expired async request). </p>
+	<p>If <c>ReqId</c> is less then 0, it means that this
+	information was not available to the manager (that info was
+	never retrieved before the message was discarded). </p>
+        <p>For <c>SnmpInfo</c> see handle_agent below.</p>
+
+        <marker id="handle_agent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -> Reply</name>
+      <fsummary>Handle agent</fsummary>
+      <type>
+        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+        <v>Type = pdu | trap | report | inform</v>
+        <v>SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo</v>
+        <v>SnmpPduInfo = snmp_gen_info()</v>
+        <v>SnmpTrapInfo = snmp_v1_trap_info()</v>
+        <v>SnmpReportInfo = snmp_gen_info()</v>
+        <v>SnmpInformInfo = snmp_gen_info()</v>
+        <v>UserData = term()</v>
+        <v>Reply = ignore | {register, UserId, TargetName, AgentConfig}</v>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>AgentConfig = [agent_config()]</v>
+      </type>
+      <desc>
+	<p>This function is called when a message is received from an 
+	unknown agent.</p>
+        <p>Note that this will always be the default user that is called.</p>
+        <p>For more info about the <c>agent_config()</c>, see 
+	<seealso marker="snmpm#register_agent">register_agent</seealso>.</p>
+
+        <p>The arguments <c>Type</c> and <c>SnmpInfo</c> relates in the 
+          following way: </p>
+
+	  <list type="bulleted">
+	    <item>
+	      <p><c>pdu</c> - <c>SnmpPduInfo</c> 
+                (see <seealso marker="#handle_pdu">handle_pdu</seealso>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><c>trap</c> - <c>SnmpTrapInfo</c> 
+                (see <seealso marker="#handle_trap">handle_trap</seealso>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><c>report</c> - <c>SnmpReportInfo</c> 
+                (see <seealso marker="#handle_report">handle_report</seealso>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><c>inform</c> - <c>SnmpInformInfo</c> 
+                (see <seealso marker="#handle_inform">handle_inform</seealso>
+                for more info).</p>
+	    </item>
+	  </list>
+
+        <p>The only user which would return 
+          <c>{register, UserId, TargetName, AgentConfig}</c> is the 
+          <em>default user</em>.</p>
+
+        <marker id="handle_pdu"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) -> void()</name>
+      <fsummary>Handle the reply to an asynchronous request</fsummary>
+      <type>
+        <v>TargetName = target_name()</v>
+        <v>ReqId = term()</v>
+        <v>SnmpPduInfo = snmp_gen_info()</v>
+        <v>UserData = term()</v>
+      </type>
+      <desc>
+        <p>Handle the reply to an asynchronous request, such as 
+          <seealso marker="snmpm#async_get">async_get</seealso>, 
+          <seealso marker="snmpm#async_get_next">async_get_next</seealso> or 
+          <seealso marker="snmpm#async_set">async_set</seealso>.</p>
+        <p>It could also be a late reply to a synchronous request.</p>
+        <p><c>ReqId</c> is returned by the asynchronous request function.</p>
+
+        <marker id="handle_trap"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">handle_trap(TargetName, SnmpTrapInfo, UserData) -> Reply</name>
+      <fsummary>Handle a trap/notification message</fsummary>
+      <type>
+        <v>TargetName = TargetName2 = target_name()</v>
+        <v>SnmpTrapInfo = snmp_v1_trap_info() | snmp_gen_info()</v>
+        <v>UserData = term()</v>
+        <v>Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</v>
+        <v>UserId = term()</v>
+        <v>AgentConfig = [agent_config()]</v>
+      </type>
+      <desc>
+        <p>Handle a trap/notification message from an agent.</p>
+        <p>For more info about the <c>agent_config()</c>, see 
+	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+        <p>The only user which would return 
+	<c>{register, UserId, TargetName2, agent_info()}</c> is the 
+	<em>default user</em>.</p>
+
+        <marker id="handle_inform"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">handle_inform(TargetName, SnmpInformInfo, UserData) -> Reply</name>
+      <fsummary>Handle a inform message</fsummary>
+      <type>
+        <v>TargetName = TargetName2 = target_name()</v>
+        <v>SnmpInformInfo = snmp_gen_info()</v>
+        <v>UserData = term()</v>
+        <v>Reply = ignore | no_reply | unregister | {register, UserId, TargetName2, AgentConfig}</v>
+        <v>UserId = term()</v>
+        <v>AgentConfig = [agent_config()]</v>
+      </type>
+      <desc>
+        <p>Handle a inform message.</p>
+        <p>For more info about the <c>agent_config()</c>, see 
+	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+        <p>The only user which would return 
+	<c>{register, UserId, TargetName2, AgentConfig}</c> is the 
+	<em>default user</em>.</p>
+	<p>If the 
+	<seealso marker="snmp_app">inform request behaviour</seealso> 
+	configuration option is set to <c>user</c> or 
+	<c>{user, integer()}</c>, the response (acknowledgment) to this 
+	inform-request will be sent when this function returns.</p>
+	
+        <marker id="handle_report"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">handle_report(TargetName, SnmpReportInfo, UserData) -> Reply</name>
+      <fsummary>Handle a report message</fsummary>
+      <type>
+        <v>TargetName = TargetName2 = target_name()</v>
+        <v>Addr = ip_address()</v>
+        <v>Port = integer()</v>
+        <v>SnmpReportInfo = snmp_gen_info()</v>
+        <v>UserData = term()</v>
+        <v>Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</v>
+        <v>UserId = term()</v>
+        <v>AgentConfig = [agent_config()]</v>
+      </type>
+      <desc>
+        <p>Handle a report message.</p>
+        <p>For more info about the <c>agent_config()</c>, see 
+	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+        <p>The only user which would return 
+	<c>{register, UserId, TargetName2, AgentConfig}</c> is the 
+	<em>default user</em>.</p>
+	
+        <marker id="handle_invalid_result"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B03">handle_invalid_result(IN, OUT) -> void()</name>
+      <fsummary>Handle a report message</fsummary>
+      <type>
+        <v>IN = {Func, Args}</v>
+        <v>Func = atom()</v>
+        <v>Args = list()</v>
+        <v>OUT = {crash, CrashInfo} | {result, InvalidResult}</v>
+        <v>CrashInfo = {ErrorType, Error, Stacktrace}</v>
+        <v>ErrorType = atom()</v>
+        <v>Error = term()</v>
+        <v>Stacktrace = list()</v>
+        <v>InvalidResult = term()</v>
+      </type>
+      <desc>
+        <p>If <em>any</em> of the <em>other</em> callback functions crashes 
+	(exit, throw or a plain crash) or return an invalid result (if a valid 
+	return has been specified), this function is called. 
+	The purpose is to allow the user handle this 
+	error (for instance to issue an error report).</p>
+	<p><c>IN</c> reprecents the function called (and its arguments). 
+	<c>OUT</c> represents the unexpected/invalid result. </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

@@ -1,0 +1,4 @@
+%% -*- erlang -*-
+{local_only,compiler,true}.
+{incl_app,compiler,details}.
+{excl_mods,compiler,[core_scan,core_parse]}.

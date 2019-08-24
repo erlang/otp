@@ -1,0 +1,29 @@
+PartialDecSeq2 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+B ::= CHOICE {
+  a  INTEGER,
+  b  SEQUENCE {aa  INTEGER, ba  INTEGER},
+  c  S
+}
+
+S ::= SEQUENCE {
+  a  BOOLEAN,
+  b  BOOLEAN
+}
+
+A ::= SEQUENCE {
+  a  INTEGER DEFAULT 15,
+  b  B DEFAULT b:{aa  13, ba  14},
+  c  CHOICE {a INTEGER,b SEQUENCE{a BOOLEAN, b BOOLEAN}} DEFAULT b:{a  TRUE, b  FALSE}
+}
+
+C ::= D
+
+D ::= SEQUENCE {
+  a  INTEGER,
+  b  BOOLEAN
+}
+
+END

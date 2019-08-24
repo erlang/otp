@@ -1,0 +1,4 @@
+
+failing_guard1.erl:12: Guard test float() =:= 2 can never succeed
+failing_guard1.erl:13: Guard test integer() =:= 2.0 can never succeed
+failing_guard1.erl:14: Guard test -2 | -1 | 0 | 1 | 2 =:= 2.0 can never succeed

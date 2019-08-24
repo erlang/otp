@@ -1,0 +1,20 @@
+EnumerationBadExtension  DEFINITIONS ::=
+BEGIN
+
+Enum1 ::= ENUMERATED {
+    first,
+    second}
+
+Enum2 ::= ENUMERATED {
+    first,
+    ...,
+    second}
+
+Enum3 ::= ENUMERATED {
+    first,
+    second,
+    ...}
+
+ENum3 ::= ENUMERATED {...,first,second}
+
+END

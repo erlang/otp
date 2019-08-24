@@ -1,0 +1,95 @@
+
+ %CopyrightBegin%
+ %CopyrightEnd%
+
+
+
+HiPE ARM ABI
+================
+This document describes aspects of HiPE's runtime system
+that are specific for the ARM architecture.
+
+Register Usage
+--------------
+r13 is reserved for the C runtime system.
+XXX: r10 should be reserved too if stack checking is enabled
+
+r9-r11 and r15 are fixed (unallocatable).
+r9 (HP) is the current process' heap pointer.
+r10 (NSP) is the current process' native stack pointer.
+r11 (P) is the current process' "Process" pointer.
+r15 (pc) is the program counter.
+
+r0-r8, r12, and r14 (lr) are caller-save. They are used as temporary
+scratch registers and for function call parameters and results.
+
+The runtime system uses temporaries in specific contexts:
+r8 (TEMP_LR) is used to preserve lr around BIF calls,
+and to pass the callee address in native-to-BEAM traps.
+r7 (TEMP_ARG0) is used to preserve the return value in nbif_stack_trap_ra,
+and lr in hipe_arm_inc_stack (the caller saved its lr in TEMP_LR).
+r1 (ARG0) is used for MBUF-after-BIF checks, for storing the
+arity if a BIF that throws an exception or does GC due to MBUF,
+and for checking P->flags for pending timeout.
+r0 is used to inspect the type of a thrown exception, return a
+result token from glue.S back to hipe_mode_switch(), and to pass
+the callee arity in native-to-BEAM traps.
+
+Calling Convention
+------------------
+The first NR_ARG_REGS parameters (a tunable parameter between 0 and 6,
+inclusive) are passed in r1-r6.
+
+r0 is not used for parameter passing. This allows the BIF wrappers to
+simply move P to r0 without shifting the remaining parameter registers.
+
+r12 is not used for parameter passing since it may be modified
+during function linkage.
+
+r14 contains the return address during function calls.
+
+The return value from a function is placed in r0.
+
+Notes:
+- We could pass more parameters in r7, r8, r0, and r12. However:
+  * distant call and trap-to-BEAM trampolines may need scratch registers
+  * using >6 argument registers complicates the mode-switch interface
+    (needs hacks and special-case optimisations)
+  * it is questionable whether using more than 6 improves performance;
+    it may be better to just cache more P state in registers
+
+Stack Frame Layout
+------------------
+[From top to bottom: formals in left-to-right order, incoming return
+address, fixed-size chunk for locals & spills, variable-size area
+for actuals, outgoing return address. NSP normally points at the
+bottom of the fixed-size chunk, except during a recursive call.
+The callee pops the actuals, so no NSP adjustment at return.]
+
+Stack Descriptors
+-----------------
+sdesc_fsize() is the frame size excluding the return address word.
+
+Standard Linux ARM Calling Conventions
+======================================
+
+Reg		Status		Role
+---		------		----
+r0-r3		calleR-save	Argument/result/scratch registers.
+r4-r8		calleE-save	Local variables.
+r9		calleE-save	PIC base if PIC and stack checking are both enabled.
+				Otherwise a local variable.
+r10		calleE-save	(sl) Stack limit (fixed) if stack checking is enabled.
+				PIC base if PIC is enabled and stack checking is not.
+				Otherwise a local variable.
+r11		calleE-save	(fp) Local variable or frame pointer.
+r12		calleR-save	(ip) Scratch register, may be modified during
+				function linkage.
+r13		calleE-save	(sp) Stack pointer (fixed). Must be 4-byte aligned
+				at all times. Must be 8-byte aligned during transfers
+				to/from functions.
+r14		calleR-save	(lr) Link register or scratch variable.
+r15		fixed		(pc) Program counter.
+
+The stack grows from high to low addresses.
+Excess parameters are stored on the stack, at SP+0 and up.

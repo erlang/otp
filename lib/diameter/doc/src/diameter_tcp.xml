@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY start '<seealso marker="#start-3">start/3</seealso>'>
+  <!ENTITY gen_tcp_connect3
+  '<seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect/3</seealso>'>
+  <!ENTITY gen_tcp_listen2
+  '<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>'>
+  <!ENTITY ip_address
+  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
+  <!ENTITY ssl_connect2
+  '<seealso marker="ssl:ssl#connect-2">ssl:connect/2</seealso>'>
+  <!ENTITY ssl_connect3
+  '<seealso marker="ssl:ssl#connect-3">ssl:connect/3</seealso>'>
+  <!ENTITY ssl_accept2
+  '<seealso marker="ssl:ssl#ssl_accept-2">ssl:ssl_accept/2</seealso>'>
+  <!ENTITY ssl_listen2
+  '<seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>'>
+  <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
+  <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>
+  <!ENTITY ssl '<seealso marker="ssl:ssl">ssl(3)</seealso>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<erlref>
+<header>
+<copyright>
+<year>2011</year>
+<year>2017</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>diameter_tcp(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_tcp.xml</file>
+</header>
+
+<module since="OTP R14B03">diameter_tcp</module>
+<modulesummary>Diameter transport over TCP.</modulesummary>
+
+<description>
+
+<p>
+This module implements diameter transport over TCP using &gen_tcp;.
+It can be specified as the value of a <c>transport_module</c> option to
+&mod_add_transport;
+and implements the behaviour documented in
+&man_transport;.
+TLS security is supported, either as an upgrade following
+capabilities exchange or at connection establishment.</p>
+
+<p>
+Note that the ssl application is required for TLS and must be started
+before configuring TLS capability on diameter transports.</p>
+
+<marker id="start"/>
+</description>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name since="OTP R14B03">start({Type, Ref}, Svc, [Opt])
+         -> {ok, Pid}
+          | {ok, Pid, [LAddr]}
+          | {error, Reason}</name>
+<fsummary>Start a transport process.</fsummary>
+<type>
+<v>Type = connect | accept</v>
+<v>Ref = &mod_transport_ref;</v>
+<v>Svc = #diameter_service{}</v>
+<v>Opt = OwnOpt | SslOpt | TcpOpt</v>
+<v>Pid = pid()</v>
+<v>LAddr = &ip_address;</v>
+<v>Reason = term()</v>
+<v>OwnOpt = {raddr, &ip_address;}
+          | {rport, integer()}
+          | {accept, Match}
+          | {port, integer()}
+          | {fragment_timer, infinity | 0..16#FFFFFFFF}
+          | {message_cb, &mod_eval;}
+          | {sender, boolean()}</v>
+<v>SslOpt = {ssl_options, true | list()}</v>
+<v>TcpOpt = term()</v>
+<v>Match = &ip_address; | string() | [Match]</v>
+</type>
+<desc>
+
+<p>
+The start function required by &man_transport;.</p>
+
+<p>
+Options <c>raddr</c> and <c>rport</c> specify the remote address
+and port for a connecting transport and are not valid for a listening
+transport.</p>
+
+<p>
+Option <c>accept</c> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the connection to be aborted.
+Multiple <c>accept</c> options can be specified.
+A string-valued <c>Match</c> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
+Option <c>ssl_options</c> must be specified for a transport
+that should support TLS: a value of <c>true</c> results in a
+TLS handshake immediately upon connection establishment while
+<c>list()</c> specifies options to be passed to &ssl_connect2; or
+&ssl_accept2;
+after capabilities exchange if TLS is negotiated.</p>
+
+<p>
+Option <c>fragment_timer</c> specifies the timeout, in milliseconds,
+of a timer used to flush messages from the incoming byte
+stream even if the number of bytes indicated in the Message Length
+field of its Diameter Header have not yet been accumulated:
+such a message is received over the transport interface after
+two successive timeouts without the reception of additional bytes.
+Defaults to 1000.</p>
+
+<marker id="sender"/>
+<p>
+Option <c>sender</c> specifies whether or not to use a dedicated
+process for sending outgoing messages, which avoids the possibility of
+send blocking reception.
+Defaults to <c>false</c>.
+If set to <c>true</c> then a <c>message_cb</c> that avoids the
+possibility of messages being queued in the sender process without
+bound should be configured.</p>
+
+<p>
+Option <c>message_cb</c> specifies a callback that is invoked on
+incoming and outgoing messages, that can be used to implement
+flow control.
+It is applied to two arguments: an atom indicating the
+reason for the callback (<c>send</c>, <c>recv</c>, or <c>ack</c> after
+a completed send), and the message in question (binary() on
+<c>recv</c>, binary() or diameter_packet record on <c>send</c> or
+<c>ack</c>, or <c>false</c> on <c>ack</c> when an incoming request has
+been discarded).
+It should return a list of actions and a new callback as
+tail; eg. <c>[fun cb/3, State]</c>.
+Valid actions are the atoms <c>send</c> or <c>recv</c>, to
+cause a following message-valued action to be sent/received,
+a message to send/receive (binary() or
+diameter_packet record), or a boolean() to enable/disable reading on
+the socket.
+More than one <c>send</c>/<c>recv</c>/message sequence can be
+returned from the same callback, and an initial
+<c>send</c>/<c>recv</c> can be omitted if the same as the value passed
+as the callback's first argument.
+Reading is initially enabled, and returning <c>false</c> does not
+imply there cannot be subsequent <c>recv</c> callbacks since
+messages may already have been read.
+An empty tail is equivalent to the prevailing callback.
+Defaults to a callback equivalent to <c>fun(ack, _) -> []; (_, Msg) ->
+[Msg] end</c>.</p>
+
+<p>
+Remaining options are any accepted by &ssl_connect3; or
+&gen_tcp_connect3; for
+a connecting transport, or &ssl_listen2; or &gen_tcp_listen2; for
+a listening transport, depending on whether or not <c>{ssl_options, true}</c>
+has been specified.
+Options <c>binary</c>,
+<c>packet</c> and <c>active</c> cannot be specified.
+Also, option <c>port</c> can be specified for a listening transport
+to specify the local listening port, the default being the standardized
+3868.
+Note that the option <c>ip</c> specifies the local address.</p>
+
+<p>
+An <c>ssl_options</c> list must be specified if and only if
+the transport in question has set <c>Inband-Security-Id</c> to
+1 (<c>TLS</c>), as
+specified to either &mod_start_service; or
+&mod_add_transport;,
+so that the transport process will receive notification of
+whether or not to commence with a TLS handshake following capabilities
+exchange.
+Failing to specify an options list on a TLS-capable transport
+for which TLS is negotiated will cause TLS handshake to fail.
+Failing to specify TLS capability when <c>ssl_options</c> has been
+specified will cause the transport process to wait for a notification
+that will not be forthcoming, which will eventually cause the RFC 3539
+watchdog to take down the connection.</p>
+
+<p>
+The first element of a non-empty <c>Host-IP-Address</c> list in
+<c>Svc</c> provides the local IP address if an <c>ip</c> option is not
+specified.
+The local address is either returned from&start; or passed in a
+<c>connected</c> message over the transport interface.</p>
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_main;, &man_transport;, &gen_tcp;, &inet;, &ssl;</p>
+
+</section>
+
+</erlref>

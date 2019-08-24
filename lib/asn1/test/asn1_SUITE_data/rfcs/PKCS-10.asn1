@@ -1,0 +1,56 @@
+  PKCS-10
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+        mechanisms(5) pkix(7) id-mod(0) id-mod-pkcs10-2009(69)}
+  DEFINITIONS IMPLICIT TAGS ::=
+  BEGIN
+  IMPORTS
+
+  AlgorithmIdentifier{}, DIGEST-ALGORITHM, SIGNATURE-ALGORITHM,
+      PUBLIC-KEY
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+
+  ATTRIBUTE, Name
+  FROM PKIX1Explicit-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-explicit-02(51)};
+
+  -- Certificate requests
+  CertificationRequestInfo ::= SEQUENCE {
+      version       INTEGER { v1(0) } (v1, ... ),
+      subject       Name,
+      subjectPKInfo SubjectPublicKeyInfo{{ PKInfoAlgorithms }},
+      attributes    [0] Attributes{{ CRIAttributes }}
+  }
+
+  SubjectPublicKeyInfo {PUBLIC-KEY: IOSet} ::= SEQUENCE {
+      algorithm        AlgorithmIdentifier {PUBLIC-KEY, {IOSet}},
+      subjectPublicKey BIT STRING
+  }
+
+  PKInfoAlgorithms PUBLIC-KEY ::= {
+      ... -- add any locally defined algorithms here -- }
+
+  Attributes { ATTRIBUTE:IOSet } ::= SET OF Attribute{{ IOSet }}
+
+  CRIAttributes  ATTRIBUTE  ::= {
+      ... -- add any locally defined attributes here -- }
+
+  Attribute { ATTRIBUTE:IOSet } ::= SEQUENCE {
+      type   ATTRIBUTE.&id({IOSet}),
+      values SET SIZE(1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
+  }
+
+  CertificationRequest ::= SEQUENCE {
+      certificationRequestInfo  CertificationRequestInfo,
+      signatureAlgorithm        AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                                    { SignatureAlgorithms }},
+      signature                 BIT STRING
+  }
+
+  SignatureAlgorithms SIGNATURE-ALGORITHM ::= {
+      ... -- add any locally defined algorithms here -- }
+
+  END

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_encoder</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_edist_compress.xml</file>
+  </header>
+  <module since="">megaco_edist_compress</module>
+  <modulesummary>Megaco erlang dist compress behaviour.</modulesummary>
+  <description>
+    <p>The following functions should be exported from a 
+      <c><![CDATA[megaco_edist_compress]]></c> callback module:</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">Module:encode(R, Version) -> T</name>
+      <fsummary>Encode (compress) a megaco component.</fsummary>
+      <type>
+	<v>R = megaco_encoder:megaco_message() | megaco_encoder:transaction() | megaco_encoder:action_reply() | megaco_encoder:action_request() | megaco_encoder:command_request()</v>
+        <v>Version = megaco_encoder:protocol_version()</v>
+        <v>T = term()</v>
+      </type>
+      <desc>
+        <p>Compress a megaco component. The erlang dist encoder makes no 
+          assumption on the how or even if the component is compressed. </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">Module:decode(T, Version) -> R</name>
+      <fsummary>Decode (decompress) a megaco component.</fsummary>
+      <type>
+        <v>T = term()</v>
+        <v>Version = megaco_encoder:protocol_version()</v>
+        <v>R = megaco_encoder:megaco_message() | megaco_encoder:transaction() | megaco_encoder:action_reply() | megaco_encoder:action_request() | megaco_encoder:command_request()</v>
+      </type>
+      <desc>
+        <p>Decompress a megaco component. </p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

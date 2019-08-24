@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2005</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ssh_sftpd</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2005-09-22</date>
+    <rev></rev>
+    <file>ssh_sftpd.sgml</file>
+  </header>
+  <module since="">ssh_sftpd</module>
+  <modulesummary>Specifies the channel process to handle an SFTP subsystem.</modulesummary>
+  <description>
+    <p>Specifies a channel process to handle an SFTP subsystem.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="subsystem_spec" arity="1" since=""/>
+      <fsummary>Returns the subsystem specification that allows an SSH daemon to handle the subsystem "sftp".</fsummary>
+      <desc>
+        <p>Is to be used together with <c>ssh:daemon/[1,2,3]</c></p>
+	<p>The <c>Name</c> is <c>"sftp"</c> and
+	<c>CbMod</c> is the name of the Erlang module implementing the subsystem using the
+	<seealso marker="ssh_server_channel">ssh_server_channel</seealso> (replaces ssh_daemon_channel) behaviour.
+	</p>
+        <p>Options:</p>
+        <taglist>
+          <tag><c>cwd</c></tag>
+          <item>
+            <p>Sets the initial current working directory for the server.</p>
+          </item>
+          <tag><c>file_handler</c></tag>
+          <item>
+	    <p>Determines which module to call for accessing
+	    the file server. The default value is <c>ssh_sftpd_file</c>, which uses the
+	    <seealso marker="kernel:file">file</seealso> and <seealso marker="stdlib:filelib">filelib</seealso>
+	    APIs to access the standard OTP file server. This option can be used to plug in
+	    other file servers.</p>
+	  </item>
+	  <tag><c>max_files</c></tag>
+	  <item>
+	    <p>The default value is <c>0</c>, which means that there is no upper limit.
+	    If supplied, the number of filenames returned to the SFTP client per <c>READDIR</c>
+	    request is limited to at most the given value.</p>
+	  </item>
+	  <tag><c>root</c></tag>
+	  <item>
+	    <p>Sets the SFTP root directory. Then the user cannot see any files
+	    above this root. If, for example, the root directory is set to <c>/tmp</c>,
+	    then the user sees this directory as <c>/</c>. If the user then writes
+	    <c>cd /etc</c>, the user moves to <c>/tmp/etc</c>.
+	    </p>
+	  </item>
+	  <tag><c>sftpd_vsn</c></tag>
+	  <item>
+	    <p>Sets the SFTP version to use. Defaults to 5. Version 6 is under
+	    development and limited.</p>
+	  </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>  
+</erlref>
+

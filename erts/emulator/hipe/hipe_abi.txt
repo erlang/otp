@@ -1,0 +1,72 @@
+
+ %CopyrightBegin%
+ %CopyrightEnd%
+
+
+
+HiPE ABI
+========
+This document describes aspects of HiPE's runtime system
+that are common for all supported architectures.
+
+Calling Convention
+------------------
+The first NR_ARG_REGS parameters (an architecture parameter)
+are passed in registers.
+Remaining parameters are pushed on the stack, in left-to-right order.
+Left-to-right order is used to cater for the BEAM interpreter's
+calling convention for closures.
+
+The callee deallocates the stacked actual parameters from the stack
+before returning. This is required for correct implementation of
+tailcalls.
+
+Stack Descriptors
+-----------------
+For each native code call site there is a stack descriptor which
+describes certain static properties of that call:
+- The call site's return address, used as key for lookups.
+- The caller's local exception handler code address, if present.
+- The caller's (fixed) frame size, in words.
+- The set of live and traceable words in the caller's frame.
+- The caller's arity. If f/N recursively calls g/M, then the
+  call site's arity is N, not M. (M is not a function of the
+  return address, due to the presence of tailcalls.)
+
+Exceptions
+----------
+A recursive call occurring within the scope of a local exception
+handler is indicated by having a stack descriptor with a non-NULL
+exception handler code address.
+
+If an exception is thrown, the runtime system will unwind the native
+stack one frame at a time, using the stack descriptors associated
+with each frame's return address.
+
+When a frame with an active exception handler is found, the stack
+pointer is reset to the low address of the fixed portion of that frame,
+and a branch is made to the handler.
+
+Garbage Collection Interface
+----------------------------
+[gc-points are call sites. each call site has a stack descriptor.
+the descriptor allows the gc to traverse the stack and to find
+all live Erlang terms.]
+
+BIFs
+----
+C BIFs are called on the C stack, not the current native stack.
+
+A C BIF returns a single tagged Erlang value. To indicate an
+exceptional condition, it puts an error code in p->freason
+and returns THE_NON_VALUE (zero, except in debug mode).
+
+If p->freason == TRAP, then the BIF redirects its call to some
+other function, given by p->i
+The BIF and the new callee may have different arities.
+
+The "hipe_${ARCH}_bifs.m4" macro files take care of these issues
+by automatically generating assembly code which performs the
+necessary stack switching, parameter copying, and checking for
+and handling of exceptional conditions. To compiled Erlang code,
+a call to a C BIF looks like an ordinary function call.

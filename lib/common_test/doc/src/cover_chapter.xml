@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Code Coverage Analysis</title>
+    <prepared>Peter Andersson</prepared>
+     <docno></docno>
+     <date></date>
+     <rev></rev>
+    <file>cover_chapter.xml</file>
+  </header>
+  
+  <section>
+    <marker id="cover"></marker>
+      <title>General</title>
+      <p>Although <c>Common Test</c> was created primarily for
+	black-box testing, nothing prevents it from working perfectly as
+	a white-box testing tool as well. This is especially true when
+	the application to test is written in Erlang. Then the test
+	ports are easily realized with Erlang function calls.</p>
+      
+      <p>When white-box testing an Erlang application, it is useful to
+	be able to measure the code coverage of the test. <c>Common Test</c>
+	provides simple access to the OTP Cover tool for this
+	purpose. <c>Common Test</c> handles all necessary communication with
+	the Cover tool (starting, compiling, analysing, and so on).
+	The <c>Common Test</c> user only needs to specify the extent of the
+	code coverage analysis.</p>
+  </section>
+  
+  <section>
+    <title>Use</title> 
+    <p>To specify the modules to be included in the code coverage test, 
+    provide a cover specification file. With this file you can point 
+    out specific modules or specify directories containing modules to be
+    included in the analysis. You can also specify modules to be excluded 
+    from the analysis.</p>
+    
+    <p>If you are testing a distributed Erlang application, it is
+      likely that code you want included in the code coverage analysis
+      gets executed on another Erlang node than the one <c>Common Test</c>
+      is running on. If so, you must specify these other nodes in the 
+      cover specification file or add them dynamically to the code coverage 
+      set of nodes. For details on the latter, see module 
+      <seealso marker="ct_cover"><c>ct_cover</c></seealso>.</p>
+
+    <p>In the cover specification file you can also specify your
+      required level of the code coverage analysis; <c>details</c> or
+      <c>overview</c>. In detailed mode, you get a coverage overview
+      page, showing per module and total coverage percentages.
+      You also get an HTML file printed for each module included in the
+      analysis showing exactly what parts of the code have been
+      executed during the test. In overview mode, only the code
+      coverage overview page is printed.</p>
+
+    <p>You can choose to export and import code coverage data between
+      tests. If you specify the name of an export file in the cover
+      specification file, <c>Common Test</c> exports collected coverage
+      data to this file at the end of the test. You can similarly
+      specify previously exported data to be imported and
+      included in the analysis for a test (multiple import files can be specified). 
+      This way, the total code coverage can be analyzed without necessarily 
+      running all tests at once.</p>
+
+    <p>To activate the code coverage support, specify the name of the cover 
+      specification file as you start <c>Common Test</c>.
+      Do this by using flag <c>-cover</c> with 
+      <seealso marker="ct_run"><c>ct_run</c></seealso>, 
+      for example:</p>
+      <pre>
+ $ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</pre>
+    
+    <p>You can also pass the cover specification file name in a
+      call to <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      by adding a <c>{cover,CoverSpec}</c> tuple to argument <c>Opts</c>.</p>
+      <p>You can also enable code coverage in your test specifications (see section 
+      <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+      in section Running Tests and Analyzing Results).</p>
+  </section>
+
+  <section>
+  <marker id="cover_stop"></marker>
+    <title>Stopping the Cover Tool When Tests Are Completed</title>
+    <p>By default, the Cover tool is automatically stopped when the
+      tests are completed. This causes the original (non-cover
+      compiled) modules to be loaded back into the test node. If a
+      process at this point still runs old code of any of the
+      modules that are cover compiled, meaning that it has not done
+      any fully qualified function call after the cover compilation,
+      the process is killed. To avoid this, set the value of option 
+      <c>cover_stop</c> to <c>false</c>. This means that the 
+      modules stay cover compiled. Therefore, this is only recommended 
+      if the Erlang nodes under test are terminated after the test is 
+      completed, or if cover can be manually stopped.</p>
+
+    <p>The option can be set by using flag <c>-cover_stop</c> with
+      <c>ct_run</c>, by adding <c>{cover_stop,true|false}</c> to argument
+      <c>Opts</c> to 
+      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      or by adding a <c>cover_stop</c> term in the test specification (see section
+      <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+      in section Running Tests and Analyzing Results).</p>
+
+  </section>
+
+  <section>
+    <title>The Cover Specification File</title>
+    <p>The following terms are allowed in a cover specification file:</p>
+
+    <pre>
+ %% List of Nodes on which cover will be active during test.
+ %% Nodes = [atom()]
+ {nodes, Nodes}.       
+
+ %% Files with previously exported cover data to include in analysis.
+ %% CoverDataFiles = [string()]
+ {import, CoverDataFiles}.
+
+ %% Cover data file to export from this session.
+ %% CoverDataFile = string()
+ {export, CoverDataFile}.
+
+ %% Cover analysis level.
+ %% Level = details | overview
+ {level, Level}.       
+
+ %% Directories to include in cover.
+ %% Dirs = [string()]
+ {incl_dirs, Dirs}.
+
+ %% Directories, including subdirectories, to include.
+ {incl_dirs_r, Dirs}.
+
+ %% Specific modules to include in cover.
+ %% Mods = [atom()]
+ {incl_mods, Mods}.
+
+ %% Directories to exclude in cover.
+ {excl_dirs, Dirs}.
+
+ %% Directories, including subdirectories, to exclude.
+ {excl_dirs_r, Dirs}.
+
+ %% Specific modules to exclude in cover.
+ {excl_mods, Mods}.
+
+ %% Cross cover compilation
+ %% Tag = atom(), an identifier for a test run
+ %% Mod = [atom()], modules to compile for accumulated analysis
+ {cross,[{Tag,Mods}]}.</pre>
+
+    <p>The terms <c>incl_dirs_r</c> and <c>excl_dirs_r</c> tell <c>Common
+      Test</c> to search the specified directories recursively and include 
+      or exclude any module found during the search. The terms
+      <c>incl_dirs</c> and <c>excl_dirs</c> result in a
+      non-recursive search for modules (that is, only modules found in 
+      the specified directories are included or excluded).</p>
+    <note><p>Directories containing Erlang modules to be included in a code 
+      coverage test must exist in the code server path. Otherwise, 
+      the Cover tool fails to recompile the modules. It is not sufficient to 
+      specify these directories in the cover specification file for 
+      <c>Common Test</c>.</p></note>
+  </section>
+
+  <section>
+  <marker id="cross_cover"/>
+    <title>Cross Cover Analysis</title>
+    <p>The cross cover mechanism allows cover analysis of modules
+    across multiple tests. It is useful if some code, for example, a 
+    library module, is used by many different tests and the accumulated 
+    cover result is desirable.</p>
+
+    <p>This can also be achieved in a more customized way by
+    using parameter <c>export</c> in the cover specification and
+    analysing the result off line. However, the cross cover mechanism is a
+    built-in solution that also provides logging.</p>
+
+    <p>The mechanism is easiest explained by an example:</p>
+
+    <p>Assume that there are two systems, <c>s1</c> and <c>s2</c>,
+    that are tested in separate test runs. System <c>s1</c> contains
+    a library module <c>m1</c> tested by test run <c>s1</c> and 
+    is included in the cover specification of <c>s1</c> as follows:</p>
+
+<code type="none">
+ s1.cover:
+   {incl_mods,[m1]}.</code>
+
+    <p>When analysing code coverage, the result for <c>m1</c> can be
+    seen in the cover log in the <c>s1</c> test result.</p>
+
+    <p>Now, imagine that as <c>m1</c> is a library module, it
+    is also often used by system <c>s2</c>. Test run <c>s2</c>
+    does not specifically test <c>m1</c>, but it can still be
+    interesting to see which parts of <c>m1</c> that are covered 
+    by the <c>s2</c> tests. To do this, <c>m1</c> can be included also
+    in the cover specification of <c>s2</c> as follows:</p>
+
+<code type="none">
+ s2.cover:
+   {incl_mods,[m1]}.</code>
+
+    <p>This gives an entry for <c>m1</c> also in the cover log
+    for test run <c>s2</c>. The problem is that this only
+    reflects the coverage by <c>s2</c> tests, not the accumulated
+    result over <c>s1</c> and <c>s2</c>. This is where the cross
+    cover mechanism comes in handy.</p>
+
+    <p>If instead the cover specification for <c>s2</c> is like
+    the following:</p>
+
+<code type="none">
+ s2.cover:
+   {cross,[{s1,[m1]}]}.</code>
+
+    <p>Then <c>m1</c> is cover compiled in test run <c>s2</c>,
+    but not shown in the coverage log. Instead, if
+    <seealso marker="ct_cover#cross_cover_analyse-2"><c>ct_cover:cross_cover_analyse/2</c></seealso> 
+    is called after both <c>s1</c> and <c>s2</c> test runs are completed, 
+    the accumulated result for <c>m1</c> is available in the cross cover 
+    log for test run <c>s1</c>.</p>
+
+    <p>The call to the analyze function must be as follows:</p>
+
+<code type="none">
+ ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).</code>
+
+    <p>Here, <c>S1LogDir</c> and <c>S2LogDir</c> are the directories
+    named <c>&lt;TestName&gt;.logs</c> for each test respectively.</p>
+
+    <p>Notice the tags <c>s1</c> and <c>s2</c>, which are used in the
+    cover specification file and in the call to
+    <c>ct_cover:cross_cover_analyse/2</c>. The purpose of these is only
+    to map the modules specified in the cover specification to the log
+    directory specified in the call to the analyze function. The tag name
+    has no meaning beyond this.</p>
+
+  </section>
+
+  <section>
+    <title>Logging</title>
+    <p>To view the result of a code coverage test, click the button
+      labeled "COVER LOG" in the top-level index page for the test run.</p>
+
+    <p>Before Erlang/OTP 17.1, if your test run consisted of
+      multiple tests, cover would be started and stopped for each test
+      within the test run. Separate logs would be available through the
+      "Coverage log" link on the test suite result pages. These links
+      are still available, but now they all point to the same page as
+      the button on the top-level index page. The log contains the
+      accumulated results for the complete test run. For details about 
+      this change, see the release notes.</p>
+
+    <p>The button takes you to the code coverage overview page. If you
+      have successfully performed a detailed coverage analysis,
+      links to each individual module coverage page are found here.</p>
+
+    <p>If cross cover analysis is performed, and there are
+      accumulated coverage results for the current test, the link
+      "Coverdata collected over all tests" takes you to these
+      results.</p>
+  </section>
+
+</chapter>
+
+

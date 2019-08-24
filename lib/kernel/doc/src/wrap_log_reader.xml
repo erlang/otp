@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>wrap_log_reader</title>
+    <prepared>Esko Vierum&auml;ki</prepared>
+    <responsible>Esko Vierum&auml;ki</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1998-09-21</date>
+    <rev>A</rev>
+    <file>wrap_log_reader.sgml</file>
+  </header>
+  <module since="">wrap_log_reader</module>
+  <modulesummary>A service to read internally formatted wrap disk logs.
+  </modulesummary>
+  <description>
+    <p>This module makes it possible to read internally formatted
+      wrap disk logs, see
+      <seealso marker="disk_log"><c>disk_log(3)</c></seealso>.
+      <c>wrap_log_reader</c> does not
+      interfere with <c>disk_log</c> activities; there is however a bug in this
+      version of the <c>wrap_log_reader</c>, see section
+      <seealso marker="#bugs">Known Limitations</seealso>.</p>
+    <p>A wrap disk log file consists of many files, called index files. A log
+      file can be opened and closed. Also, a single index file can be opened
+      separately. If a non-existent or non-internally formatted file is opened,
+      an error message is returned. If the file is corrupt, no attempt is made
+      to repair it, but an error message is returned.</p>
+    <p>If a log is configured to be distributed, it is possible that all items
+      are not logged on all nodes. <c>wrap_log_reader</c> only reads the log on
+      the called node; it is up to the user to be sure that all items
+      are read.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="continuation"/>
+      <desc>
+        <p>Continuation returned by <c>open/1,2</c> or <c>chunk/1,2</c>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="chunk" arity="1" since=""/>
+      <name name="chunk" arity="2" since=""/>
+      <fsummary>Read a chunk of objects written to a wrap log.</fsummary>
+      <type name="chunk_ret"/>
+      <desc>
+        <p>Enables to efficiently read the
+          terms that are appended to a log. Minimises disk
+          I/O by reading 64 kilobyte chunks from the file.</p>
+        <p>The first time <c>chunk()</c> is called, an initial
+          continuation returned from <c>open/1</c> or <c>open/2</c> must be
+          provided.</p>
+        <p>When <c>chunk/3</c> is called, <c><anno>N</anno></c> controls the
+          maximum number of terms that are read from the log in each
+          chunk. Defaults to <c>infinity</c>, which means that all the
+          terms contained in the 8K chunk are read. If less than
+          <c><anno>N</anno></c> terms are returned, this does not necessarily
+          mean that end of file is reached.</p>
+        <p>Returns a tuple <c>{<anno>Continuation2</anno>,
+          <anno>Terms</anno>}</c>, where <c><anno>Terms</anno></c> is a list
+          of terms found in the log. <c><anno>Continuation2</anno></c> is yet
+          another continuation that  must be passed on to any
+          subsequent calls to <c>chunk()</c>. With a series of calls to
+          <c>chunk()</c>, it is then possible to extract all terms from a log.</p>
+        <p>Returns a tuple <c>{<anno>Continuation2</anno>,
+          <anno>Terms</anno>, <anno>Badbytes</anno>}</c> if the log is opened
+          in read only mode and the read chunk is corrupt.
+          <c><anno>Badbytes</anno></c>
+          indicates the number of non-Erlang terms found in the chunk.
+          Notice that the log is not repaired.</p>
+        <p>Returns <c>{<anno>Continuation2</anno>, eof}</c> when
+          the end of the log is reached, and <c>{error, <anno>Reason</anno>}</c>
+          if an error occurs.</p>
+        <p>The returned continuation either is or is not valid in the next call
+          to this function. This is because the log can wrap and delete
+          the file into which the continuation points. To ensure
+          this does not occur, the log can be blocked during the search.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="close" arity="1" since=""/>
+      <fsummary>Close a log.</fsummary>
+      <desc>
+        <p>Closes a log file properly.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="1" since=""/>
+      <name name="open" arity="2" since=""/>
+      <fsummary>Open a log file.</fsummary>
+      <type name="open_ret"/>
+      <desc>
+        <p><c><anno>Filename</anno></c> specifies the name of the file to be
+          read.</p>
+        <p><c><anno>N</anno></c> specifies the index of the file to be read.
+          If <c><anno>N</anno></c> is omitted, the whole wrap log file is read;
+          if it is specified, only the specified index file is read.</p>
+        <p>Returns <c>{ok, <anno>Continuation</anno>}</c> if the
+          log/index file is opened successfully.
+          <c><anno>Continuation</anno></c>
+          is to be used when chunking or closing the file.</p>
+        <p>Returns <c>{error, <anno>Reason</anno>}</c> for all errors.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Known Limitations</title>
+    <marker id="bugs"/>
+    <p>This version of <c>wrap_log_reader</c> does not detect if
+      <c>disk_log</c> wraps to a new index file between a call to
+      <c>wrap_log_reader:open()</c> and the first call to
+      <c>wrap_log_reader:chunk()</c>.
+      If this occurs, the call to <c>chunk()</c> reads the last logged
+      items in the log file, as the opened index file was truncated by
+      <c>disk_log</c>.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="disk_log"><c>disk_log(3)</c></seealso></p>
+  </section>
+</erlref>
+

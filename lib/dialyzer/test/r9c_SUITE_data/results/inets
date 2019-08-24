@@ -1,0 +1,55 @@
+
+ftp.erl:1243: The pattern {'ok', {N, Bytes}} can never match the type 'eof' | {'error',atom() | {'no_translation','unicode','latin1'}} | {'ok',binary() | string()}
+ftp.erl:640: The pattern {'closed', _Why} can never match the type 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'trans_neg_compl' | 'trans_no_space' | {'error' | 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'pos_prel' | 'trans_neg_compl' | 'trans_no_space',atom() | [any()] | {'invalid_server_response',[any(),...]}}
+http.erl:117: The pattern {'error', Reason} can never match the type #req_headers{connection::[45 | 97 | 101 | 105 | 107 | 108 | 112 | 118,...],content_length::[48,...],other::[{_,_}]}
+http.erl:138: Function close_session/2 will never be called
+http_lib.erl:286: The call http_lib:close('ip_comm' | {'ssl',_},any()) will never return since it differs in the 1st argument from the success typing arguments: ('http' | 'https',any())
+http_lib.erl:424: The variable _ can never match since previous clauses completely covered the type any()
+http_lib.erl:438: The variable _ can never match since previous clauses completely covered the type any()
+http_lib.erl:99: Function getHeaderValue/2 will never be called
+httpc_handler.erl:660: Function exit_session_ok/2 has no local return
+httpc_handler.erl:676: Function format_time/0 will never be called
+httpc_manager.erl:145: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
+httpc_manager.erl:160: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
+httpc_manager.erl:478: The pattern {'error', Reason} can never match the type 'ok' | {number(),#session{clientclose::boolean(),pipeline::[],quelength::1}}
+httpc_manager.erl:490: The pattern {'error', Reason} can never match the type 'ok' | {number(),#session{clientclose::boolean(),pipeline::[],quelength::1}}
+httpd_acceptor.erl:105: The pattern {'error', Reason} can never match the type {'ok',pid()}
+httpd_acceptor.erl:110: Function handle_connection_err/4 will never be called
+httpd_acceptor.erl:168: Function report_error/2 will never be called
+httpd_acceptor.erl:91: The call httpd_acceptor:handle_error({'EXIT',_},ConfigDb::any(),SocketType::any()) will never return since it differs in the 1st argument from the success typing arguments: ('econnaborted' | 'emfile' | 'esslaccept' | 'timeout' | {'enfile',_},any(),any())
+httpd_manager.erl:885: The pattern {'EXIT', Reason} can never match since previous clauses completely covered the type any()
+httpd_manager.erl:919: Function auth_status/1 will never be called
+httpd_manager.erl:926: Function sec_status/1 will never be called
+httpd_manager.erl:933: Function acceptor_status/1 will never be called
+httpd_request_handler.erl:374: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Body to big") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:378: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:401: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:649: Guard test [{_,_}] =:= Trailers::nonempty_string() can never succeed
+httpd_sup.erl:63: The variable Else can never match since previous clauses completely covered the type {'error',_} | {'ok',[any()],_,_}
+httpd_sup.erl:88: The pattern {'error', Reason} can never match the type {'ok',_,_}
+httpd_sup.erl:92: The variable Else can never match since previous clauses completely covered the type {'ok',_,_}
+mod_auth.erl:559: The pattern {'error', Reason} can never match the type {_,integer(),maybe_improper_list(),_}
+mod_auth_dets.erl:120: The call lists:foreach(fun((_) -> 'true' | {'error','no_such_group' | 'no_such_group_member'}),{'ok',[any()]}) will never return since it differs in the 2nd argument from the success typing arguments: (fun((_) -> any()),[any()])
+mod_auth_plain.erl:100: The variable _ can never match since previous clauses completely covered the type {'ok',[any()]}
+mod_auth_plain.erl:159: The variable _ can never match since previous clauses completely covered the type [[any()]]
+mod_auth_plain.erl:83: The variable O can never match since previous clauses completely covered the type [[any()]]
+mod_cgi.erl:372: The pattern {'http_response', NewAccResponse} can never match the type 'ok'
+mod_dir.erl:101: The call lists:flatten(nonempty_improper_list(atom() | [any()] | char(),atom() | {'no_translation',binary()})) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
+mod_dir.erl:72: The pattern {'error', Reason} can never match the type {'ok',[[[any()] | char()],...]}
+mod_get.erl:135: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
+mod_head.erl:80: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
+mod_htaccess.erl:460: The pattern {'error', BadData} can never match the type {'ok',_}
+mod_include.erl:193: The pattern {_, Name, {[], []}} can never match the type {[any()],[any()],maybe_improper_list()}
+mod_include.erl:195: The pattern {_, Name, {PathInfo, []}} can never match the type {[any()],[any()],maybe_improper_list()}
+mod_include.erl:197: The pattern {_, Name, {PathInfo, QueryString}} can never match the type {[any()],[any()],maybe_improper_list()}
+mod_include.erl:201: The variable Gurka can never match since previous clauses completely covered the type {[any()],[any()],maybe_improper_list()}
+mod_include.erl:692: The pattern <{'read', Reason}, Info, Path> can never match the type <{'open',atom()},#mod{},atom() | binary() | [atom() | [any()] | char()]>
+mod_include.erl:706: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
+mod_include.erl:716: Function read_error/3 will never be called
+mod_include.erl:719: Function read_error/4 will never be called
+mod_security_server.erl:386: The variable O can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:433: The variable Other can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:585: The variable _ can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:608: The variable _ can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:641: The variable _ can never match since previous clauses completely covered the type [tuple()]
+uri.erl:146: The pattern {'error', Error} can never match since previous clauses completely covered the type {_,{[],[]}}

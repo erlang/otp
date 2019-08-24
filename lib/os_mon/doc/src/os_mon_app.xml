@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>os_mon</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <app>os_mon</app>
+  <appsummary>OS Monitoring Application</appsummary>
+  <description>
+    <p>The operating system monitor, OS_Mon, provides the following
+      services:</p>
+    <list type="bulleted">
+      <item><seealso marker="cpu_sup">cpu_sup</seealso>
+       CPU load and utilization supervision (Unix)</item>
+      <item><seealso marker="disksup">disksup</seealso>
+       Disk supervision(Unix, Windows)</item>
+      <item><seealso marker="memsup">memsup</seealso>
+       Memory supervision (Unix, Windows, VxWorks)</item>
+      <item><seealso marker="os_sup">os_sup</seealso>
+       Interface to OS system messages (Solaris, Windows)</item>
+    </list>
+    <p>To simplify usage of OS_Mon on distributed Erlang systems, it is
+      not considered an error trying to use a service at a node where it
+      is not available (either because OS_Mon is not running, or because
+      the service is not available for that OS, or because the service
+      is not started). Instead, a warning message is issued via
+      <c>error_logger</c> and a dummy value is returned, which one is
+      specified in the man pages for the respective services.</p>
+  </description>
+
+  <section>
+    <title>Configuration</title>
+    <p>When OS_Mon is started, by default all services available for
+      the OS, except <c>os_sup</c>, are automatically started. This
+      configuration can be changed using the following application
+      configuration parameters:</p>
+    <taglist>
+      <tag><c>start_cpu_sup = bool()</c></tag>
+      <item>
+        <p>Specifies if <c>cpu_sup</c> should be started. Defaults to
+          <c>true</c>.</p>
+      </item>
+      <tag><c>start_disksup = bool()</c></tag>
+      <item>
+        <p>Specifies if <c>disksup</c> should be started. Defaults to
+          <c>true</c>.</p>
+      </item>
+      <tag><c>start_memsup = bool()</c></tag>
+      <item>
+        <p>Specifies if <c>memsup</c> should be started. Defaults to
+          <c>true</c>.</p>
+      </item>
+      <tag><c>start_os_sup = bool()</c></tag>
+      <item>
+        <p>Specifies if <c>os_sup</c> should be started. Defaults to
+          <c>false</c>.</p>
+      </item>
+    </taglist>
+    <p>Configuration parameters effecting the different OS_Mon services
+      are described in the respective man pages.</p>
+    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+      information about how to change the value of configuration
+      parameters.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="cpu_sup">cpu_sup(3)</seealso>,
+      <seealso marker="disksup">disksup(3)</seealso>,
+      <seealso marker="memsup">memsup(3)</seealso>,
+      <seealso marker="os_sup">os_sup(3)</seealso>,
+      <seealso marker="nteventlog">nteventlog(3)</seealso>,
+      <seealso marker="snmp:snmp">snmp(3)</seealso>.</p>
+  </section>
+</appref>
+

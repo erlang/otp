@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Manager Implementation Example</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_impl_example_manager.xml</file>
+  </header>
+  <p>This <em>Implementation Example</em> section describes 
+    how a simple manager can be implemented with the 
+    SNMP Development Toolkit. </p>
+  <p>The example shown, <em>ex2</em>, can be found in the toolkit 
+    distribution. </p>
+  <p>This example has two functions: </p>
+  <list type="bulleted">
+    <item>
+      <p>A simple example of how to use the manager component of 
+        the SNMP Development Toolkit.</p>
+    </item>
+    <item>
+      <p>A simple example of how to write agent test cases, using the new
+        manager.</p>
+    </item>
+  </list>
+
+  <section>
+    <title>The example manager</title>
+    <p>The example manager, <c>snmp_ex2_manager</c>, is a simple example of 
+      how to implement an snmp manager using the manager component of the
+      SNMP Development Toolkit.</p>
+    <p>The module exports the following functions:</p>
+    <list type="bulleted">
+      <item>
+        <p>start_link/0, start_link/1</p>
+      </item>
+      <item>
+        <p>stop/0</p>
+      </item>
+      <item>
+        <p>agent/2, agent/3</p>
+      </item>
+      <item>
+        <p>sync_get/2, sync_get/3</p>
+      </item>
+      <item>
+        <p>sync_get_next/2, sync_get_next/3</p>
+      </item>
+      <item>
+        <p>sync_get_bulk/4, sync_get_bulk/5</p>
+      </item>
+      <item>
+        <p>sync_set/2, sync_set/3</p>
+      </item>
+      <item>
+        <p>oid_to_name/1</p>
+      </item>
+    </list>
+    <p>This module is also used by the test module described in the 
+      next section.</p>
+  </section>
+
+  <section>
+    <title>A simple standard test</title>
+    <p>This simple standard test, <c>snmp_ex2_simple_standard_test</c>,
+      a module which, using the <c>snmp_ex2_manager</c> described in the
+      previous section, implements a simple agent test utility. </p>
+  </section>
+</chapter>
+

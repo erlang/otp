@@ -1,0 +1,253 @@
+-- Module ACSE-1 (X.237:04/1995)
+ACSE-1 {joint-iso-itu-t association-control(2) modules(0) apdus(0) version1(1)}
+--  ACSE-1 refers to ACSE version 1
+DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  acse-as-id, ACSE-apdu, aCSE-id, Application-context-name, AP-title,
+    AE-qualifier, AE-title, AP-invocation-identifier, AE-invocation-identifier,
+    Mechanism-name, Authentication-value, ACSE-requirements, ObjectSet;
+
+IMPORTS
+  Name, RelativeDistinguishedName
+    FROM InformationFramework {joint-iso-itu-t ds(5) module(1)
+      informationFramework(1) 3};
+
+--  The data types Name and RelativeDistinguishedName are imported from ISO/IEC 9594-2.
+--  object identifier assignments
+acse-as-id OBJECT IDENTIFIER ::=
+  {joint-iso-itu-t association-control(2) abstract-syntax(1) apdus(0)
+   version1(1)}
+
+--  may be used to reference the abstract syntax of the ACSE APDUs
+aCSE-id OBJECT IDENTIFIER ::=
+  {joint-iso-itu-t association-control(2) ase-id(3) acse-ase(1) version(1)}
+
+--  may be used to identify the Association Control ASE.
+--  top level CHOICE
+ACSE-apdu ::= CHOICE {
+  aarq  AARQ-apdu,
+  aare  AARE-apdu,
+  rlrq  RLRQ-apdu,
+  rlre  RLRE-apdu,
+  abrt  ABRT-apdu,
+  ...
+}
+
+AARQ-apdu ::= [APPLICATION 0] IMPLICIT SEQUENCE {
+  protocol-version
+    [0] IMPLICIT BIT STRING {version1(0)} DEFAULT {version1},
+  application-context-name          [1]  Application-context-name,
+  called-AP-title                   [2]  AP-title OPTIONAL,
+  called-AE-qualifier               [3]  AE-qualifier OPTIONAL,
+  called-AP-invocation-identifier   [4]  AP-invocation-identifier OPTIONAL,
+  called-AE-invocation-identifier   [5]  AE-invocation-identifier OPTIONAL,
+  calling-AP-title                  [6]  AP-title OPTIONAL,
+  calling-AE-qualifier              [7]  AE-qualifier OPTIONAL,
+  calling-AP-invocation-identifier  [8]  AP-invocation-identifier OPTIONAL,
+  calling-AE-invocation-identifier  [9]  AE-invocation-identifier OPTIONAL,
+  --  The following field shall not be present if only the Kernel is used.
+  sender-acse-requirements          [10] IMPLICIT ACSE-requirements OPTIONAL,
+  --  The following field shall only be present if the Authentication functional unit is selected.
+  mechanism-name                    [11] IMPLICIT Mechanism-name OPTIONAL,
+  --  The following field shall only be present if the Authentication functional unit is selected.
+  calling-authentication-value      [12] EXPLICIT Authentication-value OPTIONAL,
+  application-context-name-list
+    [13] IMPLICIT Application-context-name-list OPTIONAL,
+  --  The above field shall only be present if the Application Context Negotiation functional unit is selected
+  implementation-information        [29] IMPLICIT Implementation-data OPTIONAL,
+  ...,
+  ...,
+  user-information
+    [30] IMPLICIT Association-information OPTIONAL
+}
+
+AARE-apdu ::= [APPLICATION 1] IMPLICIT SEQUENCE {
+  protocol-version
+    [0] IMPLICIT BIT STRING {version1(0)} DEFAULT {version1},
+  application-context-name             [1]  Application-context-name,
+  result                               [2]  Associate-result,
+  result-source-diagnostic             [3]  Associate-source-diagnostic,
+  responding-AP-title                  [4]  AP-title OPTIONAL,
+  responding-AE-qualifier              [5]  AE-qualifier OPTIONAL,
+  responding-AP-invocation-identifier  [6]  AP-invocation-identifier OPTIONAL,
+  responding-AE-invocation-identifier  [7]  AE-invocation-identifier OPTIONAL,
+  --  The following field shall not be present if only the Kernel is used.
+  responder-acse-requirements          [8] IMPLICIT ACSE-requirements OPTIONAL,
+  --  The following field shall only be present if the Authentication functional unit is selected.
+  mechanism-name                       [9] IMPLICIT Mechanism-name OPTIONAL,
+  --  This following field shall only be present if the Authentication functional unit is selected.
+  responding-authentication-value
+    [10] EXPLICIT Authentication-value OPTIONAL,
+  application-context-name-list
+    [11] IMPLICIT Application-context-name-list OPTIONAL,
+  --  The above field shall only be present if the Application Context Negotiation functional unit is selected
+  implementation-information
+    [29] IMPLICIT Implementation-data OPTIONAL,
+  ...,
+  ...,
+  user-information
+    [30] IMPLICIT Association-information OPTIONAL
+}
+
+RLRQ-apdu ::= [APPLICATION 2] IMPLICIT SEQUENCE {
+  reason            [0] IMPLICIT Release-request-reason OPTIONAL,
+  ...,
+  ...,
+  user-information  [30] IMPLICIT Association-information OPTIONAL
+}
+
+RLRE-apdu ::= [APPLICATION 3] IMPLICIT SEQUENCE {
+  reason            [0] IMPLICIT Release-response-reason OPTIONAL,
+  ...,
+  ...,
+  user-information  [30] IMPLICIT Association-information OPTIONAL
+}
+
+ABRT-apdu ::= [APPLICATION 4] IMPLICIT SEQUENCE {
+  abort-source      [0] IMPLICIT ABRT-source,
+  abort-diagnostic  [1] IMPLICIT ABRT-diagnostic OPTIONAL,
+  --  This field shall not be present if only the Kernel is used.
+  ...,
+  ...,
+  user-information  [30] IMPLICIT Association-information OPTIONAL
+}
+
+ABRT-diagnostic ::= ENUMERATED {
+  no-reason-given(1), protocol-error(2),
+  authentication-mechanism-name-not-recognized(3),
+  authentication-mechanism-name-required(4), authentication-failure(5),
+  authentication-required(6), ...
+  }
+
+ABRT-source ::= INTEGER {acse-service-user(0), acse-service-provider(1)
+}(0..1, ...)
+
+ACSE-requirements ::= BIT STRING {
+  authentication(0), application-context-negotiation(1)}
+
+Application-context-name-list ::= SEQUENCE OF Application-context-name
+
+Application-context-name ::= OBJECT IDENTIFIER
+
+--  Application-entity title productions follow (not in alphabetical order)
+AP-title ::= CHOICE {
+  ap-title-form1  AP-title-form1,
+  ap-title-form2  AP-title-form2,
+  ...
+}
+
+AE-qualifier ::= CHOICE {
+  ae-qualifier-form1  AE-qualifier-form1,
+  ae-qualifier-form2  AE-qualifier-form2,
+  ...
+}
+
+--  When both AP-title and AE-qualifier data values are present in an AARQ or AARE APDU, both must
+--  have the same form to allow the construction of an AE-title as discussed in CCITT Rec. X.665 |
+--  ISO/IEC 9834-6.
+AP-title-form1 ::=
+  Name
+
+--  The value assigned to AP-title-form1 is The Directory Name of an application-process title.
+AE-qualifier-form1 ::=
+  RelativeDistinguishedName
+
+--  The value assigned to AE-qualifier-form1 is the relative distinguished name of a particular
+--  application-entity of the application-process identified by AP-title-form1.
+AP-title-form2 ::= OBJECT IDENTIFIER
+
+AE-qualifier-form2 ::= INTEGER
+
+AE-title ::= CHOICE {
+  ae-title-form1  AE-title-form1,
+  ae-title-form2  AE-title-form2,
+  ...
+}
+
+--  As defined in CCITT Rec. X.650 | ISO 7498-3, an application-entity title is composed of an application-
+--  process title and an application-entity qualifier.  The ACSE protocol provides for the transfer of an
+--  application-entity title value by the transfer of its component values.  However, the following data type
+--  is provided for International Standards that reference a single syntactic structure for AE titles.
+AE-title-form1 ::=
+  Name
+
+--  For access to The Directory (ITU-T Rec. X.500-Series | ISO/IEC 9594), an AE title has AE-title-form1.
+--  This value can be constructed from AP-title-form1 and AE-qualifier-form1 values contained in an
+--  AARQ or AARE APDU. A discussion of forming an AE-title-form1 from AP-title-form1 and AE-qualifier-
+--  form1 may be found in CCITT Rec. X.665 | ISO/IEC 9834-6.
+AE-title-form2 ::= OBJECT IDENTIFIER
+
+--  A discussion of forming an AE-title-form2 from AP-title-form2 and AE-qualifier-form2 may be
+--  found in CCITT Rec. X.665 | ISO/IEC 9834-6.
+AE-invocation-identifier ::= INTEGER
+
+AP-invocation-identifier ::= INTEGER
+
+--  End of Application-entity title productions
+Associate-result ::= INTEGER {
+  accepted(0), rejected-permanent(1), rejected-transient(2)}(0..2, ...)
+
+Associate-source-diagnostic ::= CHOICE {
+  acse-service-user
+    [1]  INTEGER {null(0), no-reason-given(1),
+                  application-context-name-not-supported(2),
+                  calling-AP-title-not-recognized(3),
+                  calling-AP-invocation-identifier-not-recognized(4),
+                  calling-AE-qualifier-not-recognized(5),
+                  calling-AE-invocation-identifier-not-recognized(6),
+                  called-AP-title-not-recognized(7),
+                  called-AP-invocation-identifier-not-recognized(8),
+                  called-AE-qualifier-not-recognized(9),
+                  called-AE-invocation-identifier-not-recognized(10),
+                  authentication-mechanism-name-not-recognized(11),
+                  authentication-mechanism-name-required(12),
+                  authentication-failure(13), authentication-required(14)}
+                                                                    (0..14, ...),
+  acse-service-provider
+    [2]  INTEGER {null(0), no-reason-given(1), no-common-acse-version(2)}
+                                                                    (0..2, ...)
+}
+
+Association-information ::= SEQUENCE SIZE (1, ..., 0 | 2..MAX) OF EXTERNAL
+
+Authentication-value ::= CHOICE {
+  charstring  [0] IMPLICIT GraphicString,
+  bitstring   [1] IMPLICIT BIT STRING,
+  external    [2] IMPLICIT EXTERNAL,
+  other
+    [3] IMPLICIT SEQUENCE {other-mechanism-name
+                             MECHANISM-NAME.&id({ObjectSet}),
+                           other-mechanism-value
+                             MECHANISM-NAME.&Type
+                               ({ObjectSet}{@.other-mechanism-name})}
+}
+
+--  The abstract syntax of (calling/responding) authentication-value is determined by the authentication
+--  mechanism used during association establishment.  The authentication mechanism is either explicitly
+--  denoted by the &id field (of type OBJECT IDENTIFIER) for a mechanism belonging to the class 
+--  MECHANISM-NAME, or it is known implicitly by
+--  prior agreement between the communicating partners.  If the "other" component is chosen, then 
+--  the "mechanism-name" component must be present in accordance with
+--  ITU-T Rec. X.680 | ISO/IEC 8824. If the value "mechanism-name" occurs in the AARQ-apdu or the
+--  AARE-apdu, then that value must be the same as the value for "other-mechanism-name"
+Implementation-data ::= GraphicString
+
+Mechanism-name ::= OBJECT IDENTIFIER
+
+MECHANISM-NAME ::= TYPE-IDENTIFIER
+
+ObjectSet MECHANISM-NAME ::=
+  {...}
+
+Release-request-reason ::= INTEGER {normal(0), urgent(1), user-defined(30)
+}(0 | 1 | 30, ...)
+
+Release-response-reason ::= INTEGER {
+  normal(0), not-finished(1), user-defined(30)}(0 | 1 | 30, ...)
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

@@ -1,0 +1,2288 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+-mode(compile).
+
+%%%-------------------------------------------------------------------
+%%% @author Rickard Green <rickard@erlang.org>
+%%% @copyright (C) 2011, Rickard Green
+%%% @doc
+%%%   Generation of the ethread atomic API
+%%% @end
+%%% Created : 17 Jan 2011 by Rickard Green <rickard@erlang.org>
+%%%-------------------------------------------------------------------
+
+-define(H_FILE, "erts/include/internal/ethr_atomics.h").
+-define(C_FILE, "erts/lib_src/common/ethr_atomics.c").
+
+%% These order constraints are important:
+%% - 'cmpxchg' needs to appear before 'read'
+%% - 'xchg' needs to apper before 'set'
+%% - 'set' needs to apper before 'init'
+%% - 'add_read' needs to apper before 'add', 'inc_read', and 'dec_read'
+%% - 'inc_read' needs to apper before and 'inc'
+%% - 'dec_read' needs to apper before and 'dec'
+-define(ATOMIC_OPS, [cmpxchg, xchg, set, init, add_read,
+		     read, inc_read, dec_read, add, inc,
+		     dec, read_band, read_bor]).
+
+-define(DW_ATOMIC_OPS, [cmpxchg, set, read, init]).
+-define(DW_FUNC_MACRO, "ETHR_DW_ATOMIC_FUNC__").
+-define(DW_RTCHK_MACRO, "ETHR_RTCHK_USE_NATIVE_DW_ATOMIC_IMPL__").
+
+%% Barrier versions we implement
+-define(BARRIERS, [none, ddrb, rb, wb, acqb, relb, mb]).
+-define(NON_NATIVE_BARRIERS, [ddrb]).
+-define(NATIVE_BARRIERS, (?BARRIERS -- ?NON_NATIVE_BARRIERS)).
+
+-define(ATOMIC_SIZES, ["dword", "word", "32"]).
+
+-define(HAVE_NATIVE_ATOMIC, "ETHR_HAVE_ETHR_NATIVE_ATOMIC").
+
+-define(SU_DW_SINT_FIELD, "dw_sint").
+-define(DW_SINT_FIELD, "sint").
+
+%% Fallback
+-define(ETHR_ATMC_FLLBK_ADDR_BITS, "10").
+-define(ETHR_ATMC_FLLBK_ADDR_SHIFT, "6").
+
+-record(atomic_context, {dw,
+			 amc_fallback,
+			 ret_type,
+			 ret_var,
+			 arg1,
+			 arg2,
+			 arg3,
+			 have_native_atomic_ops,
+			 atomic,
+			 atomic_t,
+			 addr_aint_t,
+			 aint_t,
+			 naint_t,
+			 'NATMC',
+			 'ATMC',
+			 unusual_val}).
+
+atomic_context("dword") ->
+    #atomic_context{dw = true,
+		    amc_fallback = true,
+		    ret_type = "int",
+		    ret_var = "res",
+		    arg1 = "var",
+		    arg2 = "val",
+		    arg3 = "old_val",
+		    have_native_atomic_ops = "ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS",
+		    atomic = "ethr_dw_atomic",
+		    atomic_t = "ethr_dw_atomic_t",
+		    addr_aint_t = "ethr_sint_t",
+		    aint_t = "ethr_dw_sint_t",
+		    naint_t = "ETHR_SU_DW_NAINT_T__",
+		    'NATMC' = "DW_NATMC",
+		    'ATMC' = "DW_ATMC",
+		    unusual_val = "ETHR_UNUSUAL_SINT_VAL__"};    
+atomic_context(Size) ->
+    {SizeSuffix, HaveSize, AMC} = case Size of
+				      "word" -> {"", "WORD_SZ", true};
+				      _ -> {Size, Size++"BIT", false}
+				  end,
+    AintT = ["ethr_sint", SizeSuffix, "_t"],
+    #atomic_context{dw = false,
+		    amc_fallback = AMC,
+		    ret_type = AintT,
+		    ret_var = "res",
+		    arg1 = "var",
+		    arg2 = "val",
+		    arg3 = "old_val",
+		    have_native_atomic_ops = ["ETHR_HAVE_", HaveSize, "_NATIVE_ATOMIC_OPS"],
+		    atomic = ["ethr_atomic", SizeSuffix],
+		    atomic_t = ["ethr_atomic", SizeSuffix, "_t"],
+		    addr_aint_t = AintT,
+		    aint_t = AintT,
+		    naint_t = ["ETHR_NAINT", SizeSuffix, "_T__"],
+		    'NATMC' = ["NATMC", SizeSuffix],
+		    'ATMC' = ["ATMC", SizeSuffix],
+		    unusual_val = ["ETHR_UNUSUAL_SINT", SizeSuffix, "_VAL__"]}.
+
+-record(op_context, {ret, var, val1, val2}).
+
+-define(POTENTIAL_NBITS, ["64", "32"]).
+
+is_return_op(#atomic_context{dw = false}, add) -> false;
+is_return_op(#atomic_context{dw = false}, inc) -> false;
+is_return_op(#atomic_context{dw = false}, dec) -> false;
+is_return_op(#atomic_context{dw = true}, read) -> false;
+is_return_op(_AC, init) -> false;
+is_return_op(_AC, set) -> false;
+is_return_op(_AC, _OP) -> true.
+
+native(add_read) -> add_return;
+native(inc_read) -> inc_return;
+native(dec_read) -> dec_return;
+native(read_band) -> and_retold;
+native(read_bor) -> or_retold;
+native(Op) -> Op.
+
+op(Op, #op_context{var = Var, val1 = Val1}) when Op == init; Op == set ->
+    [Var, " = ", Val1];
+op(read, #op_context{ret = Ret, var = Var}) ->
+    [Ret, " = ", Var];
+op(add_read, OpC) ->
+    [op(add, OpC), "; ", op(read, OpC)];
+op(add, #op_context{var = Var, val1 = Val1}) ->
+    [Var, " += ", Val1];
+op(inc, #op_context{var = Var}) ->
+    ["++(", Var, ")"];
+op(dec, #op_context{var = Var}) ->
+    ["--(", Var, ")"];
+op(inc_read, #op_context{ret = Ret, var = Var}) ->
+    [Ret, " = ++(", Var, ")"];
+op(dec_read, #op_context{ret = Ret, var = Var}) ->
+    [Ret, " = --(", Var, ")"];
+op(read_band, #op_context{var = Var, val1 = Val1} = OpC) ->
+    [op(read, OpC), "; ", Var, " &= ", Val1];
+op(read_bor, #op_context{var = Var, val1 = Val1} = OpC) ->
+    [op(read, OpC), "; ", Var, " |= ", Val1];
+op(xchg, OpC) ->
+    [op(read, OpC), "; ", op(set, OpC)];
+op(cmpxchg, #op_context{ret = Ret, var = Var, val1 = Val1, val2 = Val2}) ->
+    [Ret, " = (", Var, " == ", Val2, " ? (", Var, " = ", Val1, ", ", Val2, ") : ", Var, ")"].
+
+dw_op(Op, #op_context{var = Var, val1 = Val1}) when Op == init; Op == set ->
+    [Var, "[0] = ", Val1, "[0]; ", Var, "[1] = ", Val1, "[1]"];
+dw_op(read, #op_context{var = Var, val1 = Val1}) ->
+    [Val1, "[0] = ", Var, "[0]; ", Val1, "[1] = ", Var, "[1]"];
+dw_op(cmpxchg, #op_context{ret = Ret, var = Var, val1 = Val1, val2 = Val2}) ->
+    ["
+	{
+	    ", Ret, " = (", Var, "[0] == ", Val2, "[0] && ", Var, "[1] == ", Val2, "[1]);
+	    if (", Ret, ") {
+		", Var, "[0] = ", Val1, "[0];
+		", Var, "[1] = ", Val1, "[1];
+	    }
+	    else {
+		", Val2, "[0] = ", Var, "[0];
+		", Val2, "[1] = ", Var, "[1];
+	    }
+	}"].
+
+op_head_tail(init) -> {undef, undef};
+op_head_tail(set) -> {store, store};
+op_head_tail(read) -> {load, load};
+op_head_tail(_) -> {load, undef}.
+
+op_barrier_ext(none) -> "";
+op_barrier_ext(Barrier) -> [$_, a2l(Barrier)].
+
+op_call(addr, _DW, Ret, Func, Arg1, _Arg2, _Arg3, _TypeCast) ->
+    [Ret, " ", Func, "(", Arg1, ");"];
+op_call(Op, false, Ret, Func, Arg1, _Arg2, _Arg3, _TypeCast) when Op == read;
+								  Op == inc_read;
+								  Op == inc_return;
+								  Op == dec_read;
+								  Op == dec_return ->
+    [Ret, " ", Func, "(", Arg1, ");"];
+op_call(Op, false, _Ret, Func, Arg1, _Arg2, _Arg3, _TypeCast) when Op == inc;
+								   Op == dec ->
+    [Func, "(", Arg1, ");"];
+op_call(Op, false, Ret, Func, Arg1, Arg2, _Arg3, TypeCast) when Op == add_return;
+								Op == add_read;
+								Op == read_band;
+								Op == and_retold;
+								Op == read_bor;
+								Op == or_retold;
+								Op == xchg ->
+    [Ret, " ", Func, "(", Arg1, ",", TypeCast, " ", Arg2, ");"];
+op_call(cmpxchg, _DW, Ret, Func, Arg1, Arg2, Arg3, TypeCast) ->
+    [Ret, " ", Func, "(", Arg1, ",", TypeCast, " ", Arg2, ",", TypeCast, " ", Arg3, ");"];
+op_call(_Op, _DW, _Ret, Func, Arg1, Arg2, _Arg3, TypeCast) ->
+    [Func, "(", Arg1, ",", TypeCast, " ", Arg2, ");"]. % set, init, add (!= dw), read (== dw)
+
+native_op_call(#atomic_context{dw = DW,
+			       ret_var = RetVar,
+			       arg1 = Arg1,
+			       arg2 = Arg2,
+			       arg3 = Arg3,
+			       aint_t = AintT,
+			       'NATMC' = NATMC,
+			       naint_t = NAintT},
+	       Op, B, TypeCasts) ->
+    op_call(Op,
+	    DW,
+	    [RetVar, " =",
+	     case TypeCasts of
+		 true -> [" (", AintT, ")"];
+		 false -> ""
+	     end],
+	    ["ETHR_", NATMC, "_FUNC__(", opstr(native(Op)), op_barrier_ext(B), ")"],
+	    Arg1,
+	    Arg2,
+	    Arg3,
+	    case TypeCasts of
+		true -> [" (", NAintT, ")"];
+		false -> ""
+	    end).
+
+simple_fallback(#atomic_context{arg1 = Arg1,
+				arg2 = Arg2,
+				'ATMC' = ATMC},
+		init, B) -> %% Also double word
+    ["    ETHR_", ATMC, "_FUNC__(set", op_barrier_ext(B),")(", Arg1, ", ", Arg2, ");\n"];
+simple_fallback(#atomic_context{dw = false,
+				arg1 = Arg1,
+				arg2 = Arg2,
+				'ATMC' = ATMC},
+		set, B) ->
+    ["    (void) ETHR_", ATMC, "_FUNC__(xchg", op_barrier_ext(B),")(", Arg1, ", ", Arg2, ");\n"];
+simple_fallback(#atomic_context{dw = false,
+				arg1 = Arg1,
+				arg2 = Arg2,
+				'ATMC' = ATMC},
+		add, B) ->
+    ["    (void) ETHR_", ATMC, "_FUNC__(add_read", op_barrier_ext(B), ")(", Arg1, ", ", Arg2, ");\n"];
+simple_fallback(#atomic_context{dw = false,
+				ret_var = RetVar,
+				arg1 = Arg1,
+				aint_t = AintT,
+				'ATMC' = ATMC},
+		inc_read, B) ->
+    ["    ", RetVar, " = ETHR_", ATMC, "_FUNC__(add_read", op_barrier_ext(B), ")(", Arg1, ", (", AintT,") 1);\n"];
+simple_fallback(#atomic_context{dw = false,
+				ret_var = RetVar,
+				arg1 = Arg1,
+				aint_t = AintT,
+				'ATMC' = ATMC},
+		dec_read, B) ->
+    ["    ", RetVar, " = ETHR_", ATMC, "_FUNC__(add_read", op_barrier_ext(B), ")(", Arg1, ", (", AintT,") -1);\n"];
+simple_fallback(#atomic_context{dw = false,
+				arg1 = Arg1,
+				'ATMC' = ATMC},
+		inc, B) ->
+    ["    (void) ETHR_", ATMC, "_FUNC__(inc_read", op_barrier_ext(B), ")(", Arg1, ");\n"];
+simple_fallback(#atomic_context{dw = false,
+				arg1 = Arg1,
+				'ATMC' = ATMC},
+		dec, B) ->
+    ["    (void) ETHR_", ATMC, "_FUNC__(dec_read", op_barrier_ext(B), ")(", Arg1, ");\n"];
+simple_fallback(#atomic_context{dw = false,
+				unusual_val = UnusualVal,
+				ret_var = RetVar,
+				arg1 = Arg1,
+				aint_t = AintT,
+				'ATMC' = ATMC},
+		read, B) ->
+    ["    ", RetVar, " = ETHR_", ATMC, "_FUNC__(cmpxchg", op_barrier_ext(B), ")(", Arg1, ", (", AintT, ") ", UnusualVal, ", (", AintT,") ", UnusualVal, ");\n"];
+simple_fallback(#atomic_context{dw = true,
+				unusual_val = UnusualVal,
+				arg1 = Arg1,
+				arg2 = Arg2,
+				aint_t = AintT,
+				'ATMC' = ATMC},
+		read, B) ->
+    ["    ", AintT, " tmp;
+    tmp.", ?DW_SINT_FIELD, "[0] = ", UnusualVal, ";
+    tmp.", ?DW_SINT_FIELD, "[1] = ", UnusualVal, ";
+    ", Arg2, "->", ?DW_SINT_FIELD, "[0] = ", UnusualVal, ";
+    ", Arg2, "->", ?DW_SINT_FIELD, "[1] = ", UnusualVal, ";
+    (void) ETHR_", ATMC, "_FUNC__(cmpxchg", op_barrier_ext(B), ")(", Arg1, ", &tmp, ", Arg2, ");
+"
+    ];
+simple_fallback(_AC, _Op, _B) ->
+    [].
+
+func_header(AC, prototype, MacroName, Op, B) ->
+    [func_header(AC, implementation, MacroName, Op, B), ";"];
+func_header(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, _MacroName, Op, B) ->
+    do_func_header(AC, Op, "static ETHR_INLINE ",
+		   ["ETHR_", ATMC, "_FUNC__(", opstr(Op), op_barrier_ext(B), ")"]);
+func_header(#atomic_context{atomic = Atomic} = AC, implementation, false, Op, B) ->
+    do_func_header(AC, Op, "", [Atomic, "_", opstr(Op), op_barrier_ext(B)]);
+func_header(AC, implementation, MacroName, Op, B) ->
+    do_func_header(AC, Op, "", [MacroName, "(", opstr(Op), op_barrier_ext(B), ")"]).
+
+
+do_func_header(#atomic_context{atomic_t = AtomicT,
+			       addr_aint_t = AddrAintT,
+			       arg1 = Arg1},
+	       addr, Inline, Func) ->
+    [Inline, AddrAintT, " *", Func, "(", AtomicT, " *", Arg1, ")"];
+do_func_header(#atomic_context{dw = false,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1,
+			       arg2 = Arg2},
+	       Op, Inline, Func) when Op == init;
+				      Op == set;
+				      Op == add ->
+    [Inline, "void ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " ", Arg2, ")"];
+do_func_header(#atomic_context{dw = false,
+			       atomic_t = AtomicT,
+			       arg1 = Arg1},
+	       Op, Inline, Func) when Op == inc;
+				      Op == dec ->
+    [Inline, "void ", Func, "(", AtomicT, " *", Arg1, ")"];
+do_func_header(#atomic_context{dw = false,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1},
+	       Op, Inline, Func) when Op == read;
+				      Op == inc_read;
+				      Op == dec_read ->
+    [Inline, AintT, " ", Func, "(", AtomicT, " *", Arg1, ")"];
+do_func_header(#atomic_context{dw = false,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1,
+			       arg2 = Arg2},
+	       Op, Inline, Func) when Op == add_read;
+				      Op == read_band;
+				      Op == read_bor;
+				      Op == xchg ->
+    [Inline, AintT, " ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " ", Arg2, ")"];
+do_func_header(#atomic_context{dw = false,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1,
+			       arg2 = Arg2,
+			       arg3 = Arg3},
+	       cmpxchg, Inline, Func) ->
+    [Inline, AintT, " ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " ", Arg2, ", ", AintT, " ", Arg3, ")"];
+do_func_header(#atomic_context{dw = true,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1,
+			       arg2 = Arg2},
+	       Op, Inline, Func) when Op == init;
+				      Op == set;
+				      Op == read ->
+    [Inline, "void ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " *", Arg2, ")"];
+do_func_header(#atomic_context{dw = true,
+			       atomic_t = AtomicT,
+			       aint_t = AintT,
+			       arg1 = Arg1,
+			       arg2 = Arg2,
+			       arg3 = Arg3},
+	       cmpxchg, Inline, Func) ->
+    [Inline, "int ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " *", Arg2, ", ", AintT, " *", Arg3, ")"].
+
+xbarriers(_Op, none, _NB) ->
+    {"", ""};
+
+xbarriers(_Op, acqb, NB) when NB == acqb; NB == mb ->
+    {"", ""};
+xbarriers(Op, acqb, NB) ->
+    case {op_head_tail(Op), NB} of
+	{{_, load}, rb} -> {"", "ETHR_MEMBAR(ETHR_LoadStore);"};
+	{{_, load}, _} -> {"", "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);"};
+	{{_, store}, _} -> {"", "ETHR_MEMBAR(ETHR_StoreLoad|ETHR_StoreStore);"};
+	{_, rb} -> {"", "ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore);"};
+	_ -> {"", "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore);"}
+    end;
+
+xbarriers(_Op, relb, NB) when NB == relb; NB == mb ->
+    {"", ""};
+xbarriers(Op, relb, NB) ->
+    case {op_head_tail(Op), NB} of
+	{{store, _}, wb} -> {"ETHR_MEMBAR(ETHR_LoadStore);", ""};
+	{{store, _}, _} -> {"ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);", ""};
+	{{load, _}, _} -> {"ETHR_MEMBAR(ETHR_LoadLoad|ETHR_StoreLoad);", ""};
+	{_, wb} -> {"ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad);", ""};
+	_ -> {"ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore);", ""}
+    end;
+
+xbarriers(_Op, wb, NB) when NB == wb; NB == mb ->
+    {"", ""};
+xbarriers(_Op, wb, _NB) ->
+    {"ETHR_MEMBAR(ETHR_StoreStore);", ""};
+
+xbarriers(_Op, rb, NB) when NB == rb; NB == mb ->
+    {"", ""};
+xbarriers(_Op, rb, _NB) ->
+    {"", "ETHR_MEMBAR(ETHR_LoadLoad);"};
+
+xbarriers(_Op, mb, mb) ->
+    {"", ""};
+xbarriers(Op, mb, NB) ->
+    MB = "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore);",
+    {Head, Tail} = op_head_tail(Op),
+    PreOp = case {Head, NB} of
+		{_, relb} -> "";
+		{store, wb} -> "ETHR_MEMBAR(ETHR_LoadStore);";
+		{store, _} ->  "ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);";
+		{load, _} -> "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_StoreLoad);";
+		{_, wb} -> "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad);";
+		_ -> MB
+	    end,
+    PostOp = case {Tail, NB} of
+		 {_, acqb} -> "";
+		 {load, rb} -> "ETHR_MEMBAR(ETHR_LoadStore);";
+		 {load, _} ->  "ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);";
+		 {store, _} ->  "ETHR_MEMBAR(ETHR_StoreLoad|ETHR_StoreStore);";
+		 {_, rb} -> "ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore);";
+		 _ -> MB
+	     end,
+    {PreOp, PostOp}.
+
+try_barrier_order_first(none) ->
+    [none, rb, wb, acqb, relb];
+try_barrier_order_first(acqb) ->
+    [acqb, rb, none, mb];
+try_barrier_order_first(relb) ->
+    [relb, wb, none, mb];
+try_barrier_order_first(rb) ->
+    [rb, none, mb];
+try_barrier_order_first(wb) ->
+    [wb, none, mb];
+try_barrier_order_first(mb) ->
+    [mb, relb, acqb, wb, rb, none].
+
+try_barrier_order(B) ->
+    First = try_barrier_order_first(B),
+    First ++ (?NATIVE_BARRIERS -- First).
+
+native_barrier_op(#atomic_context{'NATMC' = NATMC} = AC, If, ExtraDecl, Op, B, NB, TypeCasts) ->
+    NOpStr = opstr(native(Op)),
+    CapNOpStr = to_upper(NOpStr),
+    NBExt = op_barrier_ext(NB),
+    CapNBExt = to_upper(NBExt),
+    {PreB, PostB} = xbarriers(Op, B, NB),
+    [If, " defined(ETHR_HAVE_", NATMC, "_", CapNOpStr, CapNBExt, ")\n",
+     ExtraDecl,
+     case PreB of
+	 "" -> "";
+	 _ -> ["    ", PreB, "\n"]
+     end,
+     "    ", native_op_call(AC, Op, NB, TypeCasts), "\n",
+     case PostB of
+	 "" -> "";
+	 _ -> ["    ", PostB, "\n"]
+     end].
+
+dw_native_barrier_op(#atomic_context{arg1 = Arg1, arg2 = Arg2, arg3 = Arg3} = AC, If, ExtraDecl, Op, B, NB) ->
+    native_barrier_op(AC#atomic_context{arg1 = ["&", Arg1, "->native"],
+					arg2 = [Arg2, "->", ?DW_SINT_FIELD],
+					arg3 = [Arg3, "->", ?DW_SINT_FIELD]},
+		      If, ExtraDecl, Op, B, NB, false).
+
+su_dw_native_barrier_op(#atomic_context{dw = true,
+					naint_t = NAintT,
+					ret_var = RetVar,
+					arg1 = Arg1,
+					arg2 = Arg2,
+					arg3 = Arg3,
+					'NATMC' = NATMC} = AC, If, cmpxchg, B, NB) ->
+    SU = ["->", ?SU_DW_SINT_FIELD],
+    TmpVar = "act",
+    SUArg1 = ["&", Arg1, "->native"],
+    SUArg2 = [Arg2, SU],
+    SUArg3 = [Arg3, SU],
+    ExtraDecl = ["    ", NAintT, " ", TmpVar, ";\n"],
+    [native_barrier_op(AC#atomic_context{dw = false,
+					 ret_var = TmpVar,
+					 arg1 = SUArg1,
+					 arg2 = SUArg2,
+					 arg3 = SUArg3,
+					 'NATMC' = ["SU_", NATMC]},
+		       If, ExtraDecl, cmpxchg, B, NB, false),
+     "    ", RetVar, " = (", TmpVar, " == ", SUArg3, ");
+    ", SUArg3, " = ", TmpVar, ";
+"
+     ];
+su_dw_native_barrier_op(#atomic_context{dw = true,
+					arg1 = Arg1,
+					arg2 = Arg2,
+					 'NATMC' = NATMC} = AC, If, Op, B, NB) ->
+    SUArg1 = ["&", Arg1, "->native"],
+    SUArg2 = [Arg2, "->", ?SU_DW_SINT_FIELD],
+    native_barrier_op(AC#atomic_context{dw = false,
+					ret_var = SUArg2,
+					arg1 = SUArg1,
+					arg2 = SUArg2,
+					arg3 = not_used,
+					'NATMC' = ["SU_", NATMC]}, If, "", Op, B, NB, false).
+
+cmpxchg_fallback_define(#atomic_context{dw = false, aint_t = AintT} = AC) ->
+    do_cmpxchg_fallback_define(AC, true, AintT);
+cmpxchg_fallback_define(#atomic_context{dw = true,
+					'NATMC' = NATMC,
+					naint_t = NAintT} = AC) ->
+    ["\n\n#if defined(ETHR_HAVE_NATIVE_DW_ATOMIC)\n",
+     do_cmpxchg_fallback_define(AC, false, not_used),
+     "\n\n#elif defined(ETHR_HAVE_NATIVE_SU_DW_ATOMIC)\n",
+     do_cmpxchg_fallback_define(AC#atomic_context{'NATMC' = ["SU_", NATMC],
+						  naint_t = NAintT},
+				true,
+				NAintT),
+     "
+
+#else
+#  error \"?!?\"
+#endif
+"].
+     
+do_cmpxchg_fallback_define(#atomic_context{'NATMC' = NATMC,
+					   aint_t = AintT,
+					   naint_t = NAintT},
+			  SU, SUType) ->
+
+    ReadFunc = fun (IF) ->
+		       fun (B) ->
+			       BExt = op_barrier_ext(B),
+			       CapBExt = to_upper(BExt),
+			       [IF, " defined(ETHR_HAVE_", NATMC, "_READ", CapBExt, ")",
+				case SU of
+				    true -> ["
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR) \\
+  ETHR_", NATMC, "_FUNC__(read", BExt, ")(VAR)
+"
+					    ];
+				    false -> ["
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR, VAL) \\
+  ETHR_", NATMC, "_FUNC__(read", BExt, ")(VAR, VAL)
+#elif defined(ETHR_HAVE_SU_", NATMC, "_READ", CapBExt, ")
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR, VAL) \\
+  VAL.", ?SU_DW_SINT_FIELD, " = ETHR_SU_", NATMC, "_FUNC__(read", BExt, ")(VAR)
+"
+					     ]
+				end]
+		       end
+	       end,
+    NotDefCMPXCHG = fun (B) ->
+		       CapBExt = to_upper(op_barrier_ext(B)),
+		       ["!defined(ETHR_HAVE_", NATMC, "_CMPXCHG", CapBExt, ")"]
+	       end,
+    NoneTryBarrierOrder = try_barrier_order(none),
+    %% First a sanity check
+    ["
+#if (", NotDefCMPXCHG(hd(?NATIVE_BARRIERS)) ,
+     lists:map(fun (B) ->
+		       [" \\
+     && ", NotDefCMPXCHG(B)]
+	       end,
+	       tl(?NATIVE_BARRIERS)), ")
+#  error \"No native cmpxchg() op available\"
+#endif
+
+
+/*
+ * Read op used together with cmpxchg() fallback when no native op present.
+ */
+",
+
+     %% Read op to use with cmpxchg fallback
+     (ReadFunc("#if"))(hd(NoneTryBarrierOrder)),
+     lists:map(ReadFunc("#elif"), tl(NoneTryBarrierOrder)),
+"#else
+/*
+ * We have no native read() op; guess zero and then use the
+ * the atomics actual value returned from cmpxchg().
+ */",
+     case SU of
+	 true -> ["
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR) \\
+  ((", NAintT, ") 0)"];
+	 false -> ["
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR, VAL) \\
+do { \\
+  VAL.", ?DW_SINT_FIELD, "[0] = (ethr_sint_t) 0; \\
+  VAL.", ?DW_SINT_FIELD, "[1] = (ethr_sint_t) 0; \\
+} while (0)"]
+     end, "
+#endif
+",
+
+     %% The fallback
+     "
+/*
+ * Native cmpxchg() fallback used when no native op present.
+ */
+#define ETHR_", NATMC, "_CMPXCHG_FALLBACK__(CMPXCHG, VAR, AVAL, OPS) \\
+do { \\",
+     case SU of
+	 true -> ["
+    ", SUType, " AVAL; \\
+    ", NAintT, " new__, act__, exp__; \\
+    act__ = ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR); \\
+    do { \\
+	exp__ = act__; \\
+	AVAL = (", SUType, ") act__; \\
+	{ OPS; } \\
+	new__ = (", NAintT, ") AVAL; \\
+	act__ = CMPXCHG(VAR, new__, exp__); \\
+    } while (__builtin_expect(act__ != exp__, 0)); \\"];
+	 false -> ["
+    int res__; \\
+    ", AintT, " AVAL, exp_act__; \\
+    ETHR_", NATMC, "_CMPXCHG_FALLBACK_READ__(VAR, exp_act__); \\
+    do { \\
+	AVAL.", ?DW_SINT_FIELD, "[0] = exp_act__.", ?DW_SINT_FIELD, "[0]; \\
+	AVAL.", ?DW_SINT_FIELD, "[1] = exp_act__.", ?DW_SINT_FIELD, "[1]; \\
+	{ OPS; } \\
+	res__ = CMPXCHG(VAR, AVAL.", ?DW_SINT_FIELD, ", exp_act__.", ?DW_SINT_FIELD, "); \\
+    } while (__builtin_expect(res__ == 0, 0)); \\"]
+     end, "
+} while (0)
+"
+    ].
+
+cmpxchg_fallbacks(#atomic_context{}, _SUDW, cmpxchg, _B) ->
+    ""; %% No need for a fallback
+cmpxchg_fallbacks(#atomic_context{dw = DW,
+				  ret_var = RetVar,
+				  arg1 = Arg1,
+				  arg2 = Arg2,
+				  arg3 = Arg3,
+				  'NATMC' = NATMC},
+		  SUDW, Op, B) ->
+    Operation = case DW of
+		    false ->
+			op(Op, #op_context{ret = RetVar,
+					   var = "aval",
+					   val1 = Arg2,
+					   val2 = Arg3});
+		    true ->
+			case SUDW of
+			    true ->
+				op(Op, #op_context{ret = [Arg2, "->", ?SU_DW_SINT_FIELD],
+						   var = "aval",
+						   val1 = [Arg2, "->", ?SU_DW_SINT_FIELD]});
+			    false ->
+				dw_op(Op, #op_context{ret = RetVar,
+						      var = ["aval.", ?DW_SINT_FIELD],
+						      val1 = [Arg2, "->", ?DW_SINT_FIELD]})
+			end
+		end,
+    [lists:map(fun (NB) ->
+		       NativeVar = case DW of
+				       true -> ["&", Arg1, "->native"];
+				       false -> Arg1
+				   end,
+		       NBExt = op_barrier_ext(NB),
+		       CapNBExt = to_upper(NBExt),
+		       {PreB, PostB} = xbarriers(cmpxchg, B, NB),
+		       ["#elif defined(ETHR_HAVE_", NATMC, "_CMPXCHG", CapNBExt, ")\n",
+			case PreB of
+			    "" -> "";
+			    _ -> ["    ", PreB, "\n"]
+			end,
+			"    ETHR_", NATMC, "_CMPXCHG_FALLBACK__(ETHR_", NATMC, "_FUNC__(cmpxchg", NBExt, "), ", NativeVar, ", aval, ", Operation, ");\n",
+			case PostB of
+			    "" -> "";
+			    _ -> ["    ", PostB, "\n"]
+			end]
+	       end,
+	       try_barrier_order(B))].
+
+translate_have_defs(#atomic_context{dw = DW, 'NATMC' = NATMC}) ->
+    ["
+#if !defined(ETHR_", NATMC, "_BITS__)
+#  error \"Missing native atomic implementation\"",
+     lists:map(fun (NBits) ->
+		       {HaveInPrefix,
+			HaveOutPrefix,
+			HaveInPrefixExtra,
+			HaveOutPrefixExtra,
+			NativeTypeCheck} = case NBits of
+					  "dw" ->
+						   {"ETHR_HAVE_ETHR_NATIVE_DW_ATOMIC",
+						    ["ETHR_HAVE_", NATMC],
+						    "ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC",
+						    ["ETHR_HAVE_SU_", NATMC],
+						    "\n#elif defined(ETHR_HAVE_NATIVE_DW_ATOMIC)  || defined(ETHR_HAVE_NATIVE_SU_DW_ATOMIC)"};
+					  _ ->
+						   {[?HAVE_NATIVE_ATOMIC, NBits],
+						    case DW of
+							true -> ["ETHR_HAVE_SU_", NATMC];
+							false -> ["ETHR_HAVE_", NATMC]
+						    end,
+						    false,
+						    ["ETHR_HAVE_", NATMC],
+						    ["\n#elif ETHR_", NATMC, "_BITS__ == ", NBits]}
+				      end,
+		       [NativeTypeCheck,
+			lists:map(fun (Op) ->
+					  NOpStr = opstr(native(Op)),
+					  CapNOpStr = to_upper(NOpStr),
+					  lists:map(fun (B) ->
+							    NBExt = op_barrier_ext(B),
+							    CapNBExt = to_upper(NBExt),
+							    HaveOutDef = [HaveOutPrefix, "_", CapNOpStr, CapNBExt],
+							    HaveOutDefExtra = [HaveOutPrefixExtra, "_", CapNOpStr, CapNBExt],
+							    [case DW of
+								 true ->
+								     ["\n#  undef ", HaveOutDefExtra];
+								 false ->
+								     ""
+							     end, "
+#  undef ", HaveOutDef,"
+#  ifdef ", HaveInPrefix, "_", CapNOpStr, CapNBExt, "
+#    define ", HaveOutDef, " 1
+#  endif",
+							     case HaveInPrefixExtra of
+								 false -> "";
+								 _ -> ["
+#  ifdef ", HaveInPrefixExtra, "_", CapNOpStr, CapNBExt, "
+#    define ", HaveOutDefExtra, " 1
+#  endif"
+								      ]
+							     end]
+						    end,
+						    ?NATIVE_BARRIERS)
+				  end,
+				  case DW of
+				      true -> ?DW_ATOMIC_OPS;
+				      false -> ?ATOMIC_OPS
+				  end)]
+	       end,
+	       case DW of
+		   true -> ["dw", "64"];
+		   false -> ?POTENTIAL_NBITS
+	       end),
+     "
+#else
+#  error \"Invalid native atomic size\"
+#endif
+"].
+
+
+
+make_prototypes(#atomic_context{dw = DW, 'ATMC' = ATMC} = AC) ->
+    MkProt = fun (MacroName) ->
+		     %% addr() is special
+		     [func_header(AC, prototype, MacroName, addr, none), "\n",
+		      lists:map(fun (Op) ->
+					lists:map(fun (B) ->
+							  [func_header(AC, prototype, MacroName, Op, B), "\n"]
+						  end,
+						  ?BARRIERS)
+				end,
+				case DW of
+				    true -> ?DW_ATOMIC_OPS;
+				    false -> ?ATOMIC_OPS
+				end)]
+	     end,
+    ["
+#ifdef ETHR_NEED_", ATMC, "_PROTOTYPES__
+",
+     MkProt(false),
+     case DW of
+	 true -> ["#if defined(", ?DW_RTCHK_MACRO, ")\n",
+		  MkProt(?DW_FUNC_MACRO),
+		 "#endif\n"];
+	 false -> ""
+     end,
+     "#endif /* ETHR_NEED_", ATMC, "_PROTOTYPES__ */\n"].
+
+rtchk_fallback_call(Return, #atomic_context{dw = DW,
+					    ret_var = RetVar,
+					    arg1 = Arg1,
+					    arg2 = Arg2,
+					    arg3 = Arg3},
+		    Op, B) ->
+    op_call(Op, DW, case Return of
+			true -> "return";
+			false -> [RetVar, " ="]
+		    end, [?DW_FUNC_MACRO, "(", opstr(Op), op_barrier_ext(B), ")"], Arg1, Arg2, Arg3, "").
+
+non_native_barrier(B) ->
+    lists:member(B, ?NON_NATIVE_BARRIERS).
+
+non_native_barrier_impl(AC, inline_implementation = Type, Op, B) ->
+    ["
+", func_header(AC, Type, false, Op, B), "
+{",
+     case B of
+	 ddrb ->
+	     ["
+#ifdef ETHR_ORDERED_READ_DEPEND
+    ", func_call(AC, Type, Op, none, true), "
+#else
+    ", func_call(AC, Type, Op, rb, true), "
+#endif
+"
+	     ]
+     end,
+     "}
+"
+    ];
+non_native_barrier_impl(#atomic_context{have_native_atomic_ops = HaveNative} = AC,
+			implementation = Type,
+			Op,
+			B) ->
+    ["
+", func_header(AC, Type, false, Op, B), "
+{",
+     case B of
+	 ddrb ->
+	     ["
+#if defined(", HaveNative, ")
+    ", func_call(AC, Type, Op, B, true), "
+#elif defined(ETHR_ORDERED_READ_DEPEND)
+    ", func_call(AC, symbol_implementation, Op, none, true), "
+#else
+    ", func_call(AC, symbol_implementation, Op, rb, true), "
+#endif
+"
+	     ]
+     end,
+     "}
+"
+    ].
+
+func_call(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, Op, B, RetStatement) ->
+    func_call(AC, Op, ["ETHR_", ATMC, "_FUNC__(", opstr(Op), op_barrier_ext(B), ")"], RetStatement);
+func_call(#atomic_context{atomic = Atomic} = AC, implementation, Op, B, RetStatement) ->
+    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B), "__"], RetStatement);
+func_call(#atomic_context{atomic = Atomic} = AC, symbol_implementation, Op, B, RetStatement) ->
+    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B)], RetStatement).
+
+func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3} = AC, Op, Func, true) ->
+    op_call(Op, DW, case is_return_op(AC, Op) of
+			true -> "return";
+			false -> ""
+		    end, Func, Arg1, Arg2, Arg3, "");
+func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3, ret_var = RetVar} = AC, Op, Func, false) ->
+    op_call(Op, DW, case is_return_op(AC, Op) of
+			true -> [RetVar, " = "];
+			false -> ""
+		    end, Func, Arg1, Arg2, Arg3, "").
+
+make_implementations(#atomic_context{dw = DW,
+				     ret_type = RetType,
+				     ret_var = RetVar,
+				     arg1 = Arg1,
+				     addr_aint_t = AddrAintT,
+				     atomic = Atomic,
+				     have_native_atomic_ops = HaveNativeAtomicOps,
+				     'ATMC' = ATMC,
+				     'NATMC' = NATMC} = AC) ->
+    NativeVar = case DW of
+		    true -> ["(&", Arg1, "->native)"];
+		    false -> Arg1
+		end,
+    RtchkBegin = ["
+#if defined(", ?DW_RTCHK_MACRO, ")
+    if (", ?DW_RTCHK_MACRO, ") {
+#endif
+"],
+    RtchkEnd = fun (Return, Operation, Barrier) ->
+		       ["
+#if defined(", ?DW_RTCHK_MACRO, ")
+    } else { ", rtchk_fallback_call(Return, AC, Operation, Barrier), " }
+#endif\n"
+			]
+	       end,
+    ["
+#if (defined(", HaveNativeAtomicOps, ") \\
+     && (defined(ETHR_", ATMC, "_INLINE__) || defined(ETHR_ATOMIC_IMPL__)))
+",
+     translate_have_defs(AC),
+     cmpxchg_fallback_define(AC),
+     %% addr() is special
+     "
+
+
+/* --- addr() --- */
+
+", func_header(AC, inline_implementation, false, addr, none), "
+{", case DW of
+	true -> RtchkBegin;
+	false -> ""
+    end, "
+    return (", AddrAintT, " *) ETHR_", NATMC, "_ADDR_FUNC__(", NativeVar, ");
+",case DW of
+      true -> RtchkEnd(true, addr, none);
+      false -> ""
+  end, "
+}
+",
+     lists:map(fun (Op) ->
+		       OpStr = opstr(Op),
+		       ["
+
+/* --- ", OpStr, "() --- */
+
+",
+			lists:map(fun (B) ->
+					  case non_native_barrier(B) of
+					      true ->
+						  non_native_barrier_impl(AC, inline_implementation, Op, B);
+					      false ->
+						  TryBarriers = try_barrier_order(B),
+						  ["
+", func_header(AC, inline_implementation, false, Op, B), "
+{
+",
+						   case is_return_op(AC, Op) of
+						       true ->
+							   ["    ", RetType, " ", RetVar, ";\n"];
+						       _ -> ""
+						   end,
+						   case DW of
+						       true ->
+							   [RtchkBegin,
+							    "\n",
+							    su_dw_native_barrier_op(AC, "#if", Op, B, hd(TryBarriers)),
+							    lists:map(fun (NB) ->
+									      su_dw_native_barrier_op(AC, "#elif", Op, B, NB)
+								      end,
+								      tl(TryBarriers)),
+							    lists:map(fun (NB) ->
+									      dw_native_barrier_op(AC, "#elif", "", Op, B, NB)
+								      end,
+								      TryBarriers),
+							    case simple_fallback(AC, Op, B) of
+								"" ->
+								    %% No simple fallback available;
+								    %% use cmpxchg() fallbacks...
+								    [cmpxchg_fallbacks(AC#atomic_context{'NATMC' = ["SU_", NATMC]}, true, Op, B),
+								     cmpxchg_fallbacks(AC, false, Op, B),
+								     "#else
+#error \"Missing implementation of ", Atomic, "_", opstr(Op), op_barrier_ext(B), "()!\"
+#endif
+"
+								    ];
+								SimpleFallback ->
+								    ["#else\n", SimpleFallback, "#endif\n"]
+							    end,
+							    RtchkEnd(false, Op, B), "\n"];
+						       false ->
+							   [native_barrier_op(AC, "#if", "", Op, B, hd(TryBarriers), true),
+							    lists:map(fun (NB) ->
+									      native_barrier_op(AC, "#elif", "", Op, B, NB, true)
+								      end,
+								      tl(TryBarriers)),
+							    case simple_fallback(AC, Op, B) of
+								"" ->
+								    %% No simple fallback available;
+								    %% use cmpxchg() fallbacks...
+								    [cmpxchg_fallbacks(AC, false, Op, B),
+								     "#else
+#error \"Missing implementation of ", Atomic, "_", opstr(Op), op_barrier_ext(B), "()!\"
+#endif
+"
+								    ];
+								SimpleFallback ->
+								    ["#else\n", SimpleFallback, "#endif\n"]
+							    end]
+						   end,
+						   case is_return_op(AC, Op) of
+						       true ->
+							   ["    return ", RetVar, ";\n"];
+						       false ->
+							   ""
+						   end,
+						   "}\n"]
+					  end
+				  end,
+				  ?NATIVE_BARRIERS ++ ?NON_NATIVE_BARRIERS)] %% non-native needs to be after native...
+	       end,
+	       case DW of
+		   true -> ?DW_ATOMIC_OPS;
+		   false -> ?ATOMIC_OPS
+	       end),
+     "
+#endif /* ETHR_", ATMC, "_INLINE__ */
+"
+    ].
+
+atomic_implementation_comment(AtomicSize) ->
+    CSz = case AtomicSize of
+	      "dword" -> "Double word size";
+	      "word" -> "Word size";
+	      _ -> AtomicSize ++ "-bit"
+	  end,
+    ["
+
+/* ---------- ", CSz, " atomic implementation ---------- */
+
+"
+    ].
+
+write_h_file(FileName) ->
+    {ok, FD} = file:open(FileName, [write, latin1]),
+    ok = file:write(FD, comments()),
+    ok = file:write(FD, "
+#ifndef ETHR_ATOMICS_H__
+#define ETHR_ATOMICS_H__
+"
+		   ),
+    ok = file:write(FD, h_top()),
+    ok = lists:foreach(fun (AtomicSize) ->
+			       AC = atomic_context(AtomicSize),
+			       ok = file:write(FD,
+					       [atomic_implementation_comment(AtomicSize),
+						make_prototypes(AC),
+						make_implementations(AC)])
+		       end,
+		       ?ATOMIC_SIZES),
+    ok = file:write(FD, "
+#endif /* ETHR_ATOMICS_H__ */
+"
+		   ),
+    ok = file:close(FD).
+
+
+make_native_impl_op(#atomic_context{dw = DW,
+				    atomic = Atomic,
+				    have_native_atomic_ops = HaveNativeAtomicOps,
+				    ret_var = RetVar,
+				    arg1 = Arg1,
+				    arg2 = Arg2,
+				    arg3 = Arg3}, Op, B) ->
+    ["#if defined(", HaveNativeAtomicOps, ")",
+     case DW of
+	 true -> [" && !defined(", ?DW_RTCHK_MACRO, ")"];
+	 false -> ""
+     end,
+     "\n",
+     "    ", op_call(Op, DW, [RetVar, " = "], [Atomic, "_", opstr(Op), op_barrier_ext(B), "__"], Arg1, Arg2, Arg3, ""),
+     "\n"].
+
+amc_op_dw_arg(#atomic_context{dw = false}) ->
+    "0";
+amc_op_dw_arg(#atomic_context{dw = true}) ->
+    "1".
+
+amc_op_arg_prefix(#atomic_context{dw = false}) ->
+    "&";
+amc_op_arg_prefix(#atomic_context{dw = true}) ->
+    "".
+
+amc_sint_arg(#atomic_context{dw = DW, arg2 = Arg}, arg2) ->
+    amc_sint_arg(DW, Arg);
+amc_sint_arg(#atomic_context{dw = DW, arg3 = Arg}, arg3) ->
+    amc_sint_arg(DW, Arg);
+amc_sint_arg(#atomic_context{dw = DW, ret_var = Arg}, ret_var) ->
+    amc_sint_arg(DW, Arg);
+amc_sint_arg(true, Arg) ->
+    [Arg, "->" ?DW_SINT_FIELD];
+amc_sint_arg(false, Arg) ->
+    ["&", Arg].
+
+amc_op_call(#atomic_context{arg1 = Arg1} = AC, init) ->
+    ["    amc_init(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, arg2), ");\n"]; 
+amc_op_call(#atomic_context{arg1 = Arg1} = AC, set) ->
+    ["    amc_set(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, arg2), ");\n"]; 
+amc_op_call(#atomic_context{dw = false, arg1 = Arg1} = AC, read) ->
+    ["    amc_read(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, ret_var), ");\n"]; 
+amc_op_call(#atomic_context{dw = true, arg1 = Arg1} = AC, read) ->
+    ["    amc_read(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, arg2), ");\n"]; 
+amc_op_call(#atomic_context{dw = false, arg1 = Arg1, arg3 = Arg3, ret_var = RetVar} = AC, cmpxchg) ->
+    ["    ", RetVar, " = ", Arg3, ";
+    (void) amc_cmpxchg(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, arg2), ", ", amc_sint_arg(AC, ret_var), ");\n"];
+amc_op_call(#atomic_context{dw = true, arg1 = Arg1, ret_var = RetVar} = AC, cmpxchg) ->
+    ["    ", RetVar, " = amc_cmpxchg(&", Arg1, "->amc, ", amc_op_dw_arg(AC), ", ", amc_op_arg_prefix(AC), Arg1, "->sint, ", amc_sint_arg(AC, arg2), ", ", amc_sint_arg(AC, arg3), ");\n"];
+amc_op_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3, ret_var = RetVar}, Op) ->
+    OpCtxt = #op_context{ret = RetVar, var = [Arg1,"->sint"], val1 = Arg2, val2 = Arg3},
+    OpStr = case DW of
+		true -> dw_op(Op, OpCtxt);
+		false -> op(Op, OpCtxt)
+	    end,
+    ["    ETHR_AMC_MODIFICATION_OPS__(&", Arg1, "->amc, ", OpStr, ");\n"].
+
+make_amc_fallback_op(#atomic_context{amc_fallback = false}, _Op, _B) ->
+    "";
+make_amc_fallback_op(#atomic_context{amc_fallback = true} = AC, Op, B) ->
+    NB = case Op of
+	     read -> rb;
+	     _ -> none
+	 end,
+    {PreB, PostB} = xbarriers(Op, B, NB),
+    ["#elif defined(ETHR_AMC_FALLBACK__)\n",
+     case PreB of
+	 "" -> "";
+	 _ -> ["    ", PreB, "\n"]
+     end,
+     amc_op_call(AC, Op),
+     case PostB of
+	 "" -> "";
+	 _ -> ["    ", PostB, "\n"]
+     end].
+
+make_locked_fallback_op(#atomic_context{dw = DW,
+					ret_var = RetVar,
+					arg1 = Arg1,
+					arg2 = Arg2,
+					arg3 = Arg3}, Op, B) ->
+    OpStr = case DW of
+		true ->
+		    dw_op(Op, #op_context{ret = RetVar,
+					  var = [Arg1, "->" ?DW_SINT_FIELD],
+					  val1 = [Arg2, "->" ?DW_SINT_FIELD],
+					  val2 = [Arg3, "->" ?DW_SINT_FIELD]});
+		false ->
+		    op(Op, #op_context{ret = RetVar,
+				       var = ["*", Arg1],
+				       val1 = Arg2,
+				       val2 = Arg3})
+	    end,
+    {PreB, PostB} = xbarriers(Op, B, none),
+    ["#else\n",
+     case PreB of
+	 "" -> "";
+	 _ -> ["    ", PreB, "\n"]
+     end,
+     ["    ETHR_ATOMIC_OP_FALLBACK_IMPL__(", Arg1, ", ", OpStr, ");\n"],
+     case PostB of
+	 "" -> "";
+	 _ -> ["    ", PostB, "\n"]
+     end,
+     "#endif\n"].
+
+make_symbol_to_fallback_impl(#atomic_context{dw = true,
+					     atomic = Atomic,
+					     arg1 = Arg1,
+					     arg2 = Arg2,
+					     arg3 = Arg3} = AC,
+			     Op, B) ->
+    ["
+#ifdef ", ?DW_RTCHK_MACRO, "
+", func_header(AC, implementation, false, Op, B), "
+{",
+     case Op of
+	 init -> "";
+	 _ -> ["\n    ETHR_ASSERT(!ethr_not_inited__);"]
+     end, "
+    ETHR_ASSERT(", Arg1, ");
+    ", op_call(Op, true, "return", [Atomic, "_", opstr(Op), op_barrier_ext(B), "__"], Arg1, Arg2, Arg3, ""), "
+}
+#endif
+"
+    ];
+make_symbol_to_fallback_impl(_, _, _) ->
+    "".
+
+make_symbol_implementations(#atomic_context{dw = DW,
+					    amc_fallback = AMC,
+					    ret_type = RetType,
+					    addr_aint_t = AddrAintT,
+					    ret_var = RetVar,
+					    arg1 = Arg1} = AC) ->
+    FallbackVar = case DW of
+			true -> ["(&", Arg1, "->fallback)"];
+			false -> Arg1
+		  end,
+    ["
+",
+     case DW of
+	 true -> ["
+/*
+ * Double word atomics need runtime test.
+ */
+
+int ethr_have_native_dw_atomic(void)
+{
+    return ethr_have_native_dw_atomic__();
+}
+     "];
+	 false -> ""
+     end, "
+
+/* --- addr() --- */
+
+", func_header(AC, implementation,
+	       case DW of
+		   true -> ?DW_FUNC_MACRO;
+		   false -> false
+	       end, addr, none), "
+{
+    ", AddrAintT, " *", RetVar, ";
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(", Arg1, ");
+", make_native_impl_op(AC, addr, none),
+     case AMC of
+	 true -> ["#elif defined(ETHR_AMC_FALLBACK__)
+    ", RetVar ," = (", AddrAintT, " *) (", FallbackVar, ")->sint;"];
+	 false -> ""
+     end, "
+#else
+    ", RetVar, " = (", AddrAintT, " *) ", FallbackVar, ";
+#endif
+    return ", RetVar, ";
+}
+",
+     make_symbol_to_fallback_impl(AC, addr, none),
+     lists:map(fun (Op) ->
+		       ["
+
+/* -- ", opstr(Op), "() -- */
+
+",
+			lists:map(fun (B) ->
+					Macro = case DW of
+						   true -> ?DW_FUNC_MACRO;
+						   false -> false
+						end,
+					case non_native_barrier(B) of
+					    true ->
+						non_native_barrier_impl(AC, implementation, Op, B);
+					    false ->
+						["\n",
+					   	func_header(AC, implementation, Macro,  Op, B),
+						   "\n{\n",
+						   case is_return_op(AC, Op) of
+						       true -> ["    ", RetType, " ", RetVar, ";\n"];
+						       false -> ""
+						   end,
+						   case Op of
+						       init -> "";
+						       _ -> ["    ETHR_ASSERT(!ethr_not_inited__);\n"]
+						   end,
+						   ["    ETHR_ASSERT(", Arg1, ");\n"],
+						   make_native_impl_op(AC, Op, B),
+						   make_amc_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B), 
+						   make_locked_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B),
+						   case is_return_op(AC, Op) of
+						       true -> ["    return ", RetVar, ";"
+							       ];
+						       false ->
+							   ""
+						   end,
+						   "\n}\n",
+						   make_symbol_to_fallback_impl(AC, Op, B)]
+					  end
+				  end,
+				  ?BARRIERS)]
+	       end,
+	       case DW of
+		   true -> ?DW_ATOMIC_OPS;
+		   false -> ?ATOMIC_OPS
+	       end)].
+
+make_info_functions() ->
+    ["
+
+
+/* --------- Info functions --------- */
+
+#if defined(", ?DW_RTCHK_MACRO, ")
+char *zero_ops[] = {NULL};
+#endif
+",
+     [lists:map(fun (NBits) ->
+			{DW, Bits} = case NBits of
+					 "su_dw" -> {"su_dw_", ""};
+					 "dw" -> {"dw_", ""};
+					 _ -> {"", NBits}
+				     end,
+			["
+
+static char *native_", DW, "atomic", Bits, "_ops[] = {",
+			 lists:map(fun (Op) ->
+					   NOpStr = opstr(native(Op)),
+					   CapNOpStr = to_upper(NOpStr),
+					   lists:map(fun (B) ->
+							     HaveNative = case NBits of
+									      "dw" ->
+										  "ETHR_HAVE_ETHR_NATIVE_DW_ATOMIC";
+									      "su_dw" ->
+										  "ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC";
+									      _ ->
+										  [?HAVE_NATIVE_ATOMIC, NBits]
+									  end,
+							     NBExt = op_barrier_ext(B),
+							     CapNBExt = to_upper(NBExt),
+							     ["
+#ifdef ", HaveNative, "_", CapNOpStr, CapNBExt, "
+    \"", NOpStr, NBExt, "\",
+#endif"
+							     ]
+						     end,
+						     ?NATIVE_BARRIERS)
+				   end,
+				   case NBits of
+				       "dw" -> ?DW_ATOMIC_OPS;
+				       "su_dw" -> ?DW_ATOMIC_OPS;
+				       _ -> ?ATOMIC_OPS
+				   end), "
+    NULL
+};
+
+char **
+ethr_native_", DW, "atomic", Bits, "_ops(void)
+{
+",
+     case DW of
+	 "" -> "";
+	 _ -> ["
+#if defined(", ?DW_RTCHK_MACRO, ")
+    if (!", ?DW_RTCHK_MACRO, ")
+	return &zero_ops[0];
+#endif"
+	     ]
+   end, "
+    return &native_", DW, "atomic", Bits, "_ops[0];
+}
+"
+    ]
+	       end, ["su_dw", "dw" | ?POTENTIAL_NBITS])]].
+
+write_c_file(FileName) ->
+    {ok, FD} = file:open(FileName, [write, latin1]),
+    ok = file:write(FD, comments()),
+    ok = file:write(FD, c_top()),
+    lists:foreach(fun (AtomicSize) ->
+			  ok = file:write(FD,
+					  [atomic_implementation_comment(AtomicSize),
+					   make_symbol_implementations(atomic_context(AtomicSize))])
+		  end,
+		  ?ATOMIC_SIZES),
+    ok = file:write(FD, make_info_functions()).
+			      
+
+main([]) ->
+    case os:getenv("ERL_TOP") of
+	false ->
+	    io:format("$ERL_TOP not set!~n", []),
+	    halt(1);
+	ErlTop ->
+	    HFile = filename:join(ErlTop, ?H_FILE),
+	    WHFile = fun () ->
+			     write_h_file(HFile)
+		     end,
+	    CFile = filename:join(ErlTop, ?C_FILE),
+	    WCFile = fun () ->
+			     write_c_file(CFile)
+		     end,
+	    case erlang:system_info(schedulers_online) of
+		1 ->
+		    WHFile(),
+		    WCFile();
+		_ ->
+		    {HPid, HMon} = spawn_monitor(WHFile),
+		    {CPid, CMon} = spawn_monitor(WCFile),
+		    receive
+			{'DOWN', HMon, process, HPid, HReason} ->
+			    normal = HReason
+		    end,
+		    receive
+			{'DOWN', CMon, process, CPid, CReason} ->
+			    normal = CReason
+		    end
+	    end,
+	    io:format("Wrote: ~s~n", [HFile]),
+	    io:format("Wrote: ~s~n", [CFile]),
+	    init:stop()
+    end.
+
+a2l(A) ->
+    atom_to_list(A).
+
+opstr(A) ->
+    a2l(A).
+
+to_upper([]) ->
+    [];
+to_upper([C|Cs]) when is_list(C) ->
+    [to_upper(C)|to_upper(Cs)];
+to_upper([C|Cs]) when is_integer(C), 97 =< C, C =< 122 ->
+    [C-32|to_upper(Cs)];
+to_upper([C|Cs]) ->
+    [C|to_upper(Cs)].
+
+
+comments() ->
+    Years = case erlang:date() of
+		{2011, _, _} -> "2011";
+		{Y, _, _} -> "2011-"++integer_to_list(Y)
+	    end,
+    ["/*
+ * --------------- DO NOT EDIT THIS FILE! ---------------
+ * This file was automatically generated by the
+ * \$ERL_TOP/erts/lib_src/utils/make_atomics_api script.
+ * If you need to make changes, edit the script and
+ * regenerate this file.
+ * --------------- DO NOT EDIT THIS FILE! ---------------
+ */
+
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB ", Years, ". All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+
+/*
+ * Description: The ethread atomics API
+ * Author: Rickard Green
+ */
+
+/*
+ * This file maps native atomic implementations to ethread
+ * API atomics. If no native atomic implementation
+ * is available, a less efficient fallback is used instead.
+ * The API consists of 32-bit size, word size (pointer size),
+ * and double word size atomics.
+ *
+ * The following atomic operations are implemented for
+ * 32-bit size, and word size atomics:
+",
+     lists:map(fun (Op) ->
+		       [" * - ", opstr(Op), "\n"]
+	       end,
+	       ?ATOMIC_OPS),
+     " *
+ * The following atomic operations are implemented for
+ * double word size atomics:
+",
+     lists:map(fun (Op) ->
+		       [" * - ", opstr(Op), "\n"]
+	       end,
+	       ?DW_ATOMIC_OPS),
+     " *
+ * Appart from a function implementing the atomic operation
+ * with unspecified memory barrier semantics, there are
+ * functions implementing each operation with the following
+ * implied memory barrier semantics:",
+     lists:map(fun (none) ->
+		       "";
+		   (mb) ->
+		       ["
+ * - mb   - Full memory barrier. Orders both loads, and
+ *          stores before, and after the atomic operation.
+ *          No load or store is allowed to be reordered
+ *          over the atomic operation."];
+		   (acqb) ->
+		       ["
+ * - acqb - Acquire barrier. Orders both loads, and stores
+ *          appearing *after* the atomic operation. These
+ *          are not allowed to be reordered over the
+ *          atomic operation."];
+		   (relb) ->
+		       ["
+ * - relb - Release barrier. Orders both loads, and
+ *          stores appearing *before* the atomic
+ *          operation. These are not allowed to be
+ *          reordered over the atomic operation."];
+		   (rb) ->
+		       ["
+ * - rb   - Read barrier. Orders *only* loads. These are
+ *          not allowed to be reordered over the barrier.
+ *          Load in atomic operation is ordered *before*
+ *          the barrier. "];
+		   (ddrb) ->
+		       ["
+ * - ddrb - Data dependency read barrier. Orders *only*
+ *          loads according to data dependency across the
+ *          barrier. Load in atomic operation is ordered
+ *          before the barrier."];
+		   (wb) ->
+		       ["
+ * - wb   - Write barrier. Orders *only* stores. These are
+ *          not allowed to be reordered over the barrier.
+ *          Store in atomic operation is ordered *after*
+ *          the barrier."];
+		   (B) ->
+		       [" * - ", a2l(B), "\n"]
+	       end,
+	       lists:reverse(?BARRIERS)),
+     "
+ *
+ * We implement all of these operation/barrier
+ * combinations, regardless of whether they are useful
+ * or not (some of them are useless).
+ *
+ * Double word size atomic functions are on the followning
+ * form:
+ *   ethr_dw_atomic_<OP>[_<BARRIER>]
+ *
+ * Word size atomic functions are on the followning
+ * form:
+ *   ethr_atomic_<OP>[_<BARRIER>]
+ *
+ * 32-bit size atomic functions are on the followning
+ * form:
+ *   ethr_atomic32_<OP>[_<BARRIER>]
+ *
+ * Apart from the operation/barrier functions
+ * described above also 'addr' functions are implemented
+ * which return the actual memory address used of the
+ * atomic variable. The 'addr' functions have no barrier
+ * versions.
+ *
+ * The native atomic implementation does not need to
+ * implement all operation/barrier combinations.
+ * Functions that have no native implementation will be
+ * constructed from existing native functionality. These
+ * functions will perform the wanted operation and will
+ * produce sufficient memory barriers, but may
+ * in some cases be less efficient than pure native
+ * versions.
+ *
+ * When we create ethread API operation/barrier functions by
+ * adding barriers before and after native operations it is
+ * assumed that:
+ * - A native read operation begins, and ends with a load.
+ * - A native set operation begins, and ends with a store.
+ * - An init operation begins with either a load, or a store,
+ *   and ends with either a load, or a store.
+ * - All other operations begins with a load, and ends with
+ *   either a load, or a store.
+ *
+ * This is the minimum functionality that a native
+ * implementation needs to provide:
+ *
+ * - Functions that need to be implemented:
+ *
+ *   - ethr_native_[dw_|su_dw_]atomic[BITS]_addr
+ *   - ethr_native_[dw_|su_dw_]atomic[BITS]_cmpxchg[_<BARRIER>]
+ *     (at least one cmpxchg of optional barrier)
+ *
+ * - Macros that needs to be defined:
+ *
+ *   A macro informing about the presence of the native
+ *   implementation:
+ *
+ *   - ETHR_HAVE_NATIVE_[DW_|SU_DW_]ATOMIC[BITS]
+ *
+ *   A macro naming (a string constant) the implementation:
+ *
+ *   - ETHR_NATIVE_[DW_]ATOMIC[BITS]_IMPL
+ *
+ *   Each implemented native atomic function has to
+ *   be accompanied by a defined macro on the following
+ *   form informing about its presence:
+ *
+ *   - ETHR_HAVE_ETHR_NATIVE_[DW_|SU_DW_]ATOMIC[BITS]_<OP>[_<BARRIER>]
+ *
+ *   A (sparc-v9 style) membar macro:
+ *
+ *   - ETHR_MEMBAR(B)
+ *
+ *     Which takes a combination of the following macros
+ *     or:ed (using |) together:
+ *
+ *     - ETHR_LoadLoad
+ *     - ETHR_LoadStore
+ *     - ETHR_StoreLoad
+ *     - ETHR_StoreStore
+ *
+ */
+"
+    ].
+
+h_top() ->
+    ["
+#undef ETHR_AMC_FALLBACK__
+#undef ETHR_AMC_NO_ATMCS__
+#undef ETHR_AMC_ATMC_T__
+#undef ETHR_AMC_ATMC_FUNC__
+
+/* -- 32-bit atomics -- */
+
+#undef ETHR_NAINT32_T__
+#undef ETHR_NATMC32_FUNC__
+#undef ETHR_NATMC32_ADDR_FUNC__
+#undef ETHR_NATMC32_BITS__
+#if defined(ETHR_HAVE_NATIVE_ATOMIC32)
+#    define ETHR_NEED_NATMC32_ADDR
+#  define ETHR_NATMC32_ADDR_FUNC__ ethr_native_atomic32_addr
+typedef ethr_native_atomic32_t ethr_atomic32_t;
+#  define ETHR_NAINT32_T__ ethr_sint32_t
+#  define ETHR_NATMC32_FUNC__(X) ethr_native_atomic32_ ## X
+#  define ETHR_NATMC32_BITS__ 32
+#elif defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#  define ETHR_NEED_NATMC64_ADDR
+#ifdef ETHR_BIGENDIAN
+#  define ETHR_NATMC32_ADDR_FUNC__(VAR) \\
+  (((ethr_sint32_t *) ethr_native_atomic64_addr((VAR))) + 1)
+#else
+#  define ETHR_NATMC32_ADDR_FUNC__(VAR) \\
+  ((ethr_sint32_t *) ethr_native_atomic64_addr((VAR)))
+#endif
+typedef ethr_native_atomic64_t ethr_atomic32_t;
+#  define ETHR_NAINT32_T__ ethr_sint64_t
+#  define ETHR_NATMC32_FUNC__(X) ethr_native_atomic64_ ## X
+#  define ETHR_NATMC32_BITS__ 64
+#else
+/*
+ * No native atomics usable for 32-bits atomics :(
+ * Use fallback...
+ */
+typedef ethr_sint32_t ethr_atomic32_t;
+#endif
+
+#undef ETHR_ATMC32_INLINE__
+#ifdef ETHR_NATMC32_BITS__
+#  ifdef ETHR_TRY_INLINE_FUNCS
+#    define ETHR_ATMC32_INLINE__
+#  endif
+#  define ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS
+#endif
+
+#if !defined(ETHR_ATMC32_INLINE__) || defined(ETHR_ATOMIC_IMPL__)
+#  define ETHR_NEED_ATMC32_PROTOTYPES__
+#endif
+
+#ifndef ETHR_INLINE_ATMC32_FUNC_NAME_
+#  define ETHR_INLINE_ATMC32_FUNC_NAME_(X) X
+#endif
+
+#undef ETHR_ATMC32_FUNC__
+#define ETHR_ATMC32_FUNC__(X) ETHR_INLINE_ATMC32_FUNC_NAME_(ethr_atomic32_ ## X)
+
+
+/* -- Word size atomics -- */
+
+#undef ETHR_NEED_NATMC32_ADDR
+#undef ETHR_NEED_NATMC64_ADDR
+
+#undef ETHR_NAINT_T__
+#undef ETHR_NATMC_FUNC__
+#undef ETHR_NATMC_ADDR_FUNC__
+#undef ETHR_NATMC_BITS__
+#if ETHR_SIZEOF_PTR == 8 && defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#  ifndef ETHR_NEED_NATMC64_ADDR
+#    define ETHR_NEED_NATMC64_ADDR
+#  endif
+#  define ETHR_NATMC_ADDR_FUNC__ ethr_native_atomic64_addr
+typedef ethr_native_atomic64_t ethr_atomic_t;
+#  define ETHR_NAINT_T__ ethr_sint64_t
+#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
+#  define ETHR_NATMC_BITS__ 64
+#elif ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC32)
+#  ifndef ETHR_NEED_NATMC64_ADDR
+#    define ETHR_NEED_NATMC32_ADDR
+#  endif
+#  define ETHR_NATMC_ADDR_FUNC__ ethr_native_atomic32_addr
+typedef ethr_native_atomic32_t ethr_atomic_t;
+#  define ETHR_NAINT_T__ ethr_sint32_t
+#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
+#  define ETHR_NATMC_BITS__ 32
+#elif ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#  ifndef ETHR_NEED_NATMC64_ADDR
+#    define ETHR_NEED_NATMC64_ADDR
+#  endif
+#ifdef ETHR_BIGENDIAN
+#  define ETHR_NATMC_ADDR_FUNC__(VAR) \\
+  (((ethr_sint32_t *) ethr_native_atomic64_addr((VAR))) + 1)
+#else
+#  define ETHR_NATMC_ADDR_FUNC__(VAR) \\
+  ((ethr_sint32_t *) ethr_native_atomic64_addr((VAR)))
+#endif
+typedef ethr_native_atomic64_t ethr_atomic_t;
+#  define ETHR_NATMC_T__ ethr_native_atomic64_t
+#  define ETHR_NAINT_T__ ethr_sint64_t
+#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
+#  define ETHR_NATMC_BITS__ 64
+#else
+/*
+ * No native atomics usable for pointer size atomics :(
+ * Use fallback...
+ */
+
+#  if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+#    define ETHR_AMC_FALLBACK__
+#    define ETHR_AMC_NO_ATMCS__ 2
+#    define ETHR_AMC_SINT_T__ ethr_sint32_t
+#    define ETHR_AMC_ATMC_T__ ethr_atomic32_t
+#    define ETHR_AMC_ATMC_FUNC__(X) ETHR_INLINE_ATMC32_FUNC_NAME_(ethr_atomic32_ ## X)
+typedef struct {
+    ETHR_AMC_ATMC_T__ atomic[ETHR_AMC_NO_ATMCS__];
+} ethr_amc_t;
+typedef struct {
+    ethr_amc_t amc;
+    ethr_sint_t sint;
+} ethr_atomic_t;
+#  else /* locked fallback */
+typedef ethr_sint_t ethr_atomic_t;
+#  endif
+#endif
+
+#undef ETHR_ATMC_INLINE__
+#ifdef ETHR_NATMC_BITS__
+#  ifdef ETHR_TRY_INLINE_FUNCS
+#    define ETHR_ATMC_INLINE__
+#  endif
+#  define ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS
+#endif
+
+#if !defined(ETHR_ATMC_INLINE__) || defined(ETHR_ATOMIC_IMPL__)
+#  define ETHR_NEED_ATMC_PROTOTYPES__
+#endif
+
+#ifndef ETHR_INLINE_ATMC_FUNC_NAME_
+#  define ETHR_INLINE_ATMC_FUNC_NAME_(X) X
+#endif
+
+#undef ETHR_ATMC_FUNC__
+#define ETHR_ATMC_FUNC__(X) ETHR_INLINE_ATMC_FUNC_NAME_(ethr_atomic_ ## X)
+
+/* -- Double word atomics -- */
+
+#undef ETHR_SU_DW_NAINT_T__
+#undef ETHR_SU_DW_NATMC_FUNC__
+#undef ETHR_SU_DW_NATMC_ADDR_FUNC__
+#undef ETHR_DW_NATMC_FUNC__
+#undef ETHR_DW_NATMC_ADDR_FUNC__
+#undef ETHR_DW_NATMC_BITS__
+#if defined(ETHR_HAVE_NATIVE_DW_ATOMIC) || defined(ETHR_HAVE_NATIVE_SU_DW_ATOMIC)
+#  define ETHR_NEED_DW_NATMC_ADDR
+#  define ETHR_DW_NATMC_ADDR_FUNC__ ethr_native_dw_atomic_addr
+#  define ETHR_NATIVE_DW_ATOMIC_T__ ethr_native_dw_atomic_t
+#  define ETHR_DW_NATMC_FUNC__(X) ethr_native_dw_atomic_ ## X
+#  define ETHR_SU_DW_NATMC_FUNC__(X) ethr_native_su_dw_atomic_ ## X
+#  if ETHR_SIZEOF_PTR == 8
+#    define ETHR_DW_NATMC_BITS__ 128
+#  elif ETHR_SIZEOF_PTR == 4
+#    define ETHR_DW_NATMC_BITS__ 64
+#  else
+#    error \"Word size not supported\"
+#  endif
+#  ifdef ETHR_NATIVE_SU_DW_SINT_T
+#    define ETHR_SU_DW_NAINT_T__ ETHR_NATIVE_SU_DW_SINT_T
+#  endif
+#elif ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#  define ETHR_HAVE_NATIVE_SU_DW_ATOMIC
+#  ifndef ETHR_NEED_NATMC64_ADDR
+#    define ETHR_NEED_NATMC64_ADDR
+#  endif
+#  define ETHR_DW_NATMC_ADDR_FUNC__(VAR) \\
+  ((ethr_dw_sint_t *) ethr_native_atomic64_addr((VAR)))
+#  define ETHR_NATIVE_DW_ATOMIC_T__ ethr_native_atomic64_t
+#  define ETHR_SU_DW_NAINT_T__ ethr_sint64_t
+#  define ETHR_SU_DW_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
+#  define ETHR_DW_NATMC_BITS__ 64
+#endif
+
+#if defined(", ?DW_RTCHK_MACRO, ")
+#define ", ?DW_FUNC_MACRO, "(X) ethr_dw_atomic_ ## X ## _fallback__
+#else
+#define ", ?DW_FUNC_MACRO, "(X) ethr_dw_atomic_ ## X
+#endif
+
+#if !defined(ETHR_DW_NATMC_BITS__) || defined(", ?DW_RTCHK_MACRO, ")
+#  define ETHR_NEED_DW_FALLBACK__
+#endif
+
+#if defined(ETHR_NEED_DW_FALLBACK__)
+/*
+ * No native atomics usable for double word atomics :(
+ * Use fallback...
+ */
+
+#  ifndef ETHR_AMC_FALLBACK__
+#    if ETHR_SIZEOF_PTR == 8 && defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+#      define ETHR_AMC_FALLBACK__
+#      define ETHR_AMC_NO_ATMCS__ 1
+#      define ETHR_AMC_SINT_T__ ethr_sint_t
+#      define ETHR_AMC_ATMC_T__ ethr_atomic_t
+#      define ETHR_AMC_ATMC_FUNC__(X) ETHR_INLINE_ATMC_FUNC_NAME_(ethr_atomic_ ## X)
+#    elif defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+#      define ETHR_AMC_FALLBACK__
+#      define ETHR_AMC_NO_ATMCS__ 2
+#      define ETHR_AMC_SINT_T__ ethr_sint32_t
+#      define ETHR_AMC_ATMC_T__ ethr_atomic32_t
+#      define ETHR_AMC_ATMC_FUNC__(X) ETHR_INLINE_ATMC32_FUNC_NAME_(ethr_atomic32_ ## X)
+#    endif
+#    ifdef ETHR_AMC_FALLBACK__
+typedef struct {
+    ETHR_AMC_ATMC_T__ atomic[ETHR_AMC_NO_ATMCS__];
+} ethr_amc_t;
+#    endif
+#  endif
+
+typedef struct {
+#ifdef ETHR_AMC_FALLBACK__
+    ethr_amc_t amc;
+#endif
+    ethr_sint_t sint[2];
+} ethr_dw_atomic_fallback_t;
+
+#endif
+
+typedef union {
+#ifdef ETHR_NATIVE_DW_ATOMIC_T__
+    ETHR_NATIVE_DW_ATOMIC_T__ native;
+#endif
+#ifdef ETHR_NEED_DW_FALLBACK__
+    ethr_dw_atomic_fallback_t fallback;
+#endif
+    ethr_sint_t sint[2];
+} ethr_dw_atomic_t;
+
+typedef union {
+#ifdef ETHR_SU_DW_NAINT_T__
+    ETHR_SU_DW_NAINT_T__ ", ?SU_DW_SINT_FIELD, ";
+#endif
+    ethr_sint_t ", ?DW_SINT_FIELD, "[2];
+} ethr_dw_sint_t;
+
+#ifdef ETHR_BIGENDIAN
+#  define ETHR_DW_SINT_LOW_WORD 1
+#  define ETHR_DW_SINT_HIGH_WORD 0
+#else
+#  define ETHR_DW_SINT_LOW_WORD 0
+#  define ETHR_DW_SINT_HIGH_WORD 1
+#endif
+
+#undef ETHR_DW_ATMC_INLINE__
+#ifdef ETHR_DW_NATMC_BITS__
+#  ifdef ETHR_TRY_INLINE_FUNCS
+#    define ETHR_ATMC32_INLINE__
+#  endif
+#  define ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS
+#endif
+
+#if !defined(ETHR_DW_ATMC_INLINE__) || defined(ETHR_ATOMIC_IMPL__)
+#  define ETHR_NEED_DW_ATMC_PROTOTYPES__
+#endif
+
+#ifndef ETHR_INLINE_DW_ATMC_FUNC_NAME_
+#  define ETHR_INLINE_DW_ATMC_FUNC_NAME_(X) X
+#endif
+
+#undef ETHR_DW_ATMC_FUNC__
+#define ETHR_DW_ATMC_FUNC__(X) ETHR_INLINE_DW_ATMC_FUNC_NAME_(ethr_dw_atomic_ ## X)
+
+#if defined(ETHR_NEED_DW_ATMC_PROTOTYPES__)
+int ethr_have_native_dw_atomic(void);
+#endif
+#if defined(ETHR_DW_ATMC_INLINE__) || defined(ETHR_ATOMIC_IMPL__)
+static ETHR_INLINE int
+ETHR_INLINE_DW_ATMC_FUNC_NAME_(ethr_have_native_dw_atomic)(void)
+{
+#if defined(", ?DW_RTCHK_MACRO, ")
+    return ", ?DW_RTCHK_MACRO, ";
+#elif defined(ETHR_DW_NATMC_BITS__)
+    return 1;
+#else
+    return 0;
+#endif
+}
+#endif
+
+/* -- Misc -- */
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
+/*
+ * Unusual values are used by read() fallbacks implemented via cmpxchg().
+ * We want to use an unusual value in hope that it is more efficient
+ * not to match the value in memory.
+ *
+ * - Negative integer values are probably more unusual.
+ * - Very large absolute integer values are probably more unusual.
+ * - Odd pointers are probably more unusual (only char pointers can be odd).
+ */
+#  define ETHR_UNUSUAL_SINT32_VAL__ ((ethr_sint32_t) 0x81818181)
+#  if ETHR_SIZEOF_PTR == 4
+#    define ETHR_UNUSUAL_SINT_VAL__ ((ethr_sint_t) ETHR_UNUSUAL_SINT32_VAL__)
+#  elif ETHR_SIZEOF_PTR == 8
+#    define ETHR_UNUSUAL_SINT_VAL__ ((ethr_sint_t) 0x8181818181818181L)
+#  else
+#    error \"Word size not supported\"
+#  endif
+#  if defined(ETHR_NEED_DW_NATMC_ADDR) && !defined(ETHR_HAVE_ETHR_NATIVE_DW_ATOMIC_ADDR)
+#    error \"No ethr_native_dw_atomic_addr() available\"
+#  endif
+#  if defined(ETHR_NEED_NATMC32_ADDR) && !defined(ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADDR)
+#    error \"No ethr_native_atomic32_addr() available\"
+#  endif
+#  if defined(ETHR_NEED_NATMC64_ADDR) && !defined(ETHR_HAVE_ETHR_NATIVE_ATOMIC64_ADDR)
+#    error \"No ethr_native_atomic64_addr() available\"
+#  endif
+#endif
+
+#if defined(__GNUC__)
+#  ifndef ETHR_COMPILER_BARRIER
+#    define ETHR_COMPILER_BARRIER __asm__ __volatile__(\"\" : : : \"memory\")
+#  endif
+#elif defined(ETHR_WIN32_THREADS)
+#  ifndef ETHR_COMPILER_BARRIER
+#    include <intrin.h>
+#    pragma intrinsic(_ReadWriteBarrier)
+#    define ETHR_COMPILER_BARRIER _ReadWriteBarrier()
+#  endif
+#endif
+
+void ethr_compiler_barrier_fallback(void);
+#ifndef ETHR_COMPILER_BARRIER
+#  define ETHR_COMPILER_BARRIER ethr_compiler_barrier_fallback()
+#endif
+
+int ethr_init_atomics(void);
+
+/* info */
+char **ethr_native_atomic32_ops(void);
+char **ethr_native_atomic64_ops(void);
+char **ethr_native_dw_atomic_ops(void);
+char **ethr_native_su_dw_atomic_ops(void);
+
+#if !defined(ETHR_DW_NATMC_BITS__) && !defined(ETHR_NATMC_BITS__) && !defined(ETHR_NATMC32_BITS__)
+/*
+ * ETHR_*MEMORY_BARRIER orders between locked and atomic accesses only,
+ * i.e. when no native atomic implementation exist and only our lock
+ * based atomic fallback is used, a noop is sufficient.
+ */
+#  undef ETHR_MEMORY_BARRIER
+#  undef ETHR_WRITE_MEMORY_BARRIER
+#  undef ETHR_READ_MEMORY_BARRIER
+#  undef ETHR_READ_DEPEND_MEMORY_BARRIER
+#  undef ETHR_MEMBAR
+#  define ETHR_MEMBAR(B) do { } while (0)
+#endif
+
+#ifndef ETHR_MEMBAR
+#  error \"No ETHR_MEMBAR defined\"
+#endif
+
+#define ETHR_MEMORY_BARRIER ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreLoad|ETHR_StoreStore)
+#define ETHR_WRITE_MEMORY_BARRIER ETHR_MEMBAR(ETHR_StoreStore)
+#define ETHR_READ_MEMORY_BARRIER ETHR_MEMBAR(ETHR_LoadLoad)
+#ifdef ETHR_READ_DEPEND_MEMORY_BARRIER
+#  undef ETHR_ORDERED_READ_DEPEND
+#else
+#  define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_COMPILER_BARRIER
+#  define ETHR_ORDERED_READ_DEPEND
+#endif
+"].
+
+c_top() ->
+    ["
+
+#ifdef HAVE_CONFIG_H
+#include \"config.h\"
+#endif
+
+#define ETHR_TRY_INLINE_FUNCS
+#define ETHR_INLINE_DW_ATMC_FUNC_NAME_(X) X ## __
+#define ETHR_INLINE_ATMC_FUNC_NAME_(X) X ## __
+#define ETHR_INLINE_ATMC32_FUNC_NAME_(X) X ## __
+#define ETHR_ATOMIC_IMPL__
+
+#include \"ethread.h\"
+#include \"ethr_internal.h\"
+
+#if (!defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS) \\
+     || !defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS))
+/*
+ * Spinlock based fallback for atomics used in absence of a native
+ * implementation.
+ */
+
+#define ETHR_ATMC_FLLBK_ADDR_BITS ", ?ETHR_ATMC_FLLBK_ADDR_BITS, "
+#define ETHR_ATMC_FLLBK_ADDR_SHIFT ", ?ETHR_ATMC_FLLBK_ADDR_SHIFT, "
+
+typedef struct {
+    union {
+	ethr_spinlock_t lck;
+	char buf[ETHR_CACHE_LINE_ALIGN_SIZE(sizeof(ethr_spinlock_t))];
+    } u;
+} ethr_atomic_protection_t;
+
+extern ethr_atomic_protection_t ethr_atomic_protection__[1 << ETHR_ATMC_FLLBK_ADDR_BITS];
+
+#define ETHR_ATOMIC_PTR2LCK__(PTR) \\
+(&ethr_atomic_protection__[((((ethr_uint_t) (PTR)) >> ETHR_ATMC_FLLBK_ADDR_SHIFT) \\
+			   & ((1 << ETHR_ATMC_FLLBK_ADDR_BITS) - 1))].u.lck)
+
+
+#define ETHR_ATOMIC_OP_FALLBACK_IMPL__(AP, EXPS)			\\
+do {									\\
+    ethr_spinlock_t *slp__ = ETHR_ATOMIC_PTR2LCK__((AP));		\\
+    ethr_spin_lock(slp__);						\\
+    { EXPS; }								\\
+    ethr_spin_unlock(slp__);						\\
+} while (0)
+
+ethr_atomic_protection_t ethr_atomic_protection__[1 << ETHR_ATMC_FLLBK_ADDR_BITS];
+
+#endif
+
+", make_amc_fallback(), "
+
+int
+ethr_init_atomics(void)
+{
+#if (!defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS) \\
+     || !defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS))
+    int i;
+    for (i = 0; i < (1 << ETHR_ATMC_FLLBK_ADDR_BITS); i++) {
+	int res = ethr_spinlock_init(&ethr_atomic_protection__[i].u.lck);
+	if (res != 0)
+	    return res;
+    }
+#endif
+    return 0;
+}
+"].
+
+make_amc_fallback() ->
+    ["
+#if defined(ETHR_AMC_FALLBACK__)
+
+/*
+ * Fallback for large sized (word and/or double word size) atomics using
+ * an \"Atomic Modification Counter\" based on smaller sized native atomics.
+ *
+ * We use a 63-bit modification counter and a one bit exclusive flag.
+ * If 32-bit native atomics are used, we need two 32-bit native atomics.
+ * The exclusive flag is the least significant bit, or if multiple atomics
+ * are used, the least significant bit of the least significant atomic.
+ *
+ * When using the AMC fallback the following is true:
+ * - Reads of the same atomic variable can be done in parallel.
+ * - Uncontended reads doesn't cause any cache line invalidations,
+ *   since no modifications are done.
+ * - Assuming that the AMC atomic(s) and the integer(s) containing the
+ *   value of the implemented atomic resides in the same cache line,
+ *   modifications will only cause invalidations of one cache line.
+ *
+ * When using the spinlock based fallback none of the above is true,
+ * however, the spinlock based fallback consumes less memory.
+ */
+
+#  if ETHR_AMC_NO_ATMCS__ != 1  && ETHR_AMC_NO_ATMCS__ != 2
+#    error \"Not supported\"
+#  endif
+#  define ETHR_AMC_MAX_TRY_READ__ 10
+#  ifdef ETHR_DEBUG
+#    define ETHR_DBG_CHK_EXCL_STATE(ASP, S) \\
+do { \\
+    ETHR_AMC_SINT_T__ act = ETHR_AMC_ATMC_FUNC__(read)(&(ASP)->atomic[0]); \\
+    ETHR_ASSERT(act == (S) + 1); \\
+    ETHR_ASSERT(act & 1); \\
+} while (0)
+#  else
+#    define ETHR_DBG_CHK_EXCL_STATE(ASP, S)
+#  endif
+
+static ETHR_INLINE void
+amc_init(ethr_amc_t *amc, int dw, ethr_sint_t *avar, ethr_sint_t *val)
+{
+    avar[0] = val[0];
+    if (dw)
+	avar[1] = val[1];
+#if ETHR_AMC_NO_ATMCS__ == 2
+    ETHR_AMC_ATMC_FUNC__(init)(&amc->atomic[1], 0);
+#endif
+    ETHR_AMC_ATMC_FUNC__(init_wb)(&amc->atomic[0], 0);
+}
+
+static ETHR_INLINE ETHR_AMC_SINT_T__
+amc_set_excl(ethr_amc_t *amc, ETHR_AMC_SINT_T__ prev_state0)
+{
+    ETHR_AMC_SINT_T__ state0 = prev_state0;
+    /* Set exclusive flag. */
+    while (1) {
+	ETHR_AMC_SINT_T__ act_state0, new_state0;
+	while (state0 & 1) { /* Wait until exclusive bit has been cleared */
+	    ETHR_SPIN_BODY;
+	    state0 = ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[0]);
+	}
+	/* Try to set exclusive bit */
+	new_state0 = state0 + 1;
+	act_state0 = ETHR_AMC_ATMC_FUNC__(cmpxchg_acqb)(&amc->atomic[0],
+							new_state0,
+							state0);
+	if (state0 == act_state0)
+	    return state0; /* old state0 */
+	state0 = act_state0;
+    }
+}
+
+static ETHR_INLINE void
+amc_inc_mc_unset_excl(ethr_amc_t *amc, ETHR_AMC_SINT_T__ old_state0)
+{
+    ETHR_AMC_SINT_T__ state0 = old_state0;
+
+    /* Increment modification counter and reset exclusive flag. */
+
+    ETHR_DBG_CHK_EXCL_STATE(amc, state0);
+
+    state0 += 2;
+
+    ETHR_ASSERT((state0 & 1) == 0);
+
+#if ETHR_AMC_NO_ATMCS__ == 2
+    if (state0 == 0) {
+	/*
+	 * state0 wrapped, so we need to increment state1. There is no need
+	 * for atomic inc op, since this is always done while having exclusive
+	 * flag.
+	 */
+	ETHR_AMC_SINT_T__ state1 = ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[1]);
+	state1++;
+	ETHR_AMC_ATMC_FUNC__(set)(&amc->atomic[1], state1);
+    }
+#endif
+    ETHR_AMC_ATMC_FUNC__(set_relb)(&amc->atomic[0], state0);
+}
+
+static ETHR_INLINE void
+amc_unset_excl(ethr_amc_t *amc, ETHR_AMC_SINT_T__ old_state0)
+{
+    ETHR_DBG_CHK_EXCL_STATE(amc, old_state0);
+    /*
+     * Reset exclusive flag, but leave modification counter unchanged,
+     * i.e., restore state to what it was before setting exclusive
+     * flag.
+     */
+    ETHR_AMC_ATMC_FUNC__(set_relb)(&amc->atomic[0], old_state0);
+}
+
+static ETHR_INLINE void
+amc_set(ethr_amc_t *amc, int dw, ethr_sint_t *avar, ethr_sint_t *val)
+{
+    ETHR_AMC_SINT_T__ state0 = ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[0]);
+
+    state0 = amc_set_excl(amc, state0);
+
+    avar[0] = val[0];
+    if (dw)
+	avar[1] = val[1];
+
+    amc_inc_mc_unset_excl(amc, state0);
+}
+
+static ETHR_INLINE int
+amc_try_read(ethr_amc_t *amc, int dw, ethr_sint_t *avar,
+	     ethr_sint_t *val, ETHR_AMC_SINT_T__ *state0p)
+{
+    /* *state0p should contain last read value if aborting */
+    ETHR_AMC_SINT_T__ old_state0;
+#if ETHR_AMC_NO_ATMCS__ == 2
+    ETHR_AMC_SINT_T__ state1;
+    int abrt;
+#endif
+
+    *state0p = ETHR_AMC_ATMC_FUNC__(read_rb)(&amc->atomic[0]);
+    if ((*state0p) & 1) 
+	return 0; /* exclusive flag set; abort */
+#if ETHR_AMC_NO_ATMCS__ == 2
+    state1 = ETHR_AMC_ATMC_FUNC__(read_rb)(&amc->atomic[1]);
+#else
+    ETHR_COMPILER_BARRIER;
+#endif
+
+    val[0] = avar[0];
+    if (dw)
+	val[1] = avar[1];
+
+    ETHR_READ_MEMORY_BARRIER;
+
+    /*
+     * Abort if state has changed (i.e, either the exclusive
+     * flag is set, or modification counter changed).
+     */
+    old_state0 = *state0p;
+#if ETHR_AMC_NO_ATMCS__ == 2
+    *state0p = ETHR_AMC_ATMC_FUNC__(read_rb)(&amc->atomic[0]);
+    abrt = (old_state0 != *state0p);
+    abrt |= (state1 != ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[1]));
+    return abrt == 0;
+#else
+    *state0p = ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[0]);
+    return old_state0 == *state0p;
+#endif
+}
+
+static ETHR_INLINE void
+amc_read(ethr_amc_t *amc, int dw, ethr_sint_t *avar, ethr_sint_t *val)
+{
+    ETHR_AMC_SINT_T__ state0;
+    int i;
+
+#if ETHR_AMC_MAX_TRY_READ__ == 0
+    state0 = ETHR_AMC_ATMC_FUNC__(read)(&amc->atomic[0]);
+#else
+    for (i = 0; i < ETHR_AMC_MAX_TRY_READ__; i++) {
+	if (amc_try_read(amc, dw, avar, val, &state0))
+	    return; /* read success */
+	ETHR_SPIN_BODY;
+    }
+#endif
+
+    state0 = amc_set_excl(amc, state0);
+
+    val[0] = avar[0];
+    if (dw)
+	val[1] = avar[1];
+
+    amc_unset_excl(amc, state0);
+}
+
+static ETHR_INLINE int
+amc_cmpxchg(ethr_amc_t *amc, int dw, ethr_sint_t *avar,
+	    ethr_sint_t *new, ethr_sint_t *xchg)
+{
+    ethr_sint_t val[2];
+    ETHR_AMC_SINT_T__ state0;
+
+    if (amc_try_read(amc, dw, avar, val, &state0)) {
+	if (val[0] != xchg[0] || (dw && val[1] != xchg[1])) {
+	    xchg[0] = val[0];
+	    if (dw)
+		xchg[1] = val[1];
+	    return 0; /* failed */
+	}
+	/* Operation will succeed if not interrupted */
+    }
+
+    state0 = amc_set_excl(amc, state0);
+
+    if (xchg[0] != avar[0] || (dw && xchg[1] != avar[1])) {
+	xchg[0] = avar[0];
+	if (dw)
+	    xchg[1] = avar[1];
+
+	ETHR_DBG_CHK_EXCL_STATE(amc, state0);
+
+	amc_unset_excl(amc, state0);
+	return 0; /* failed */
+    }
+
+    avar[0] = new[0];
+    if (dw)
+	avar[1] = new[1];
+
+    amc_inc_mc_unset_excl(amc, state0);
+    return 1;
+}
+
+
+#define ETHR_AMC_MODIFICATION_OPS__(AMC, OPS)			\\
+do {								\\
+    ETHR_AMC_SINT_T__ state0__;					\\
+    state0__ = ETHR_AMC_ATMC_FUNC__(read)(&(AMC)->atomic[0]);	\\
+    state0__ = amc_set_excl((AMC), state0__);			\\
+    { OPS; }							\\
+    amc_inc_mc_unset_excl((AMC), state0__);			\\
+} while (0)
+
+#endif /* amc fallback */
+"].
+

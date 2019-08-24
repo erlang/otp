@@ -1,0 +1,704 @@
+SSL-PKIX {iso(1) identified-organization(3) dod(6) internet(1)
+	private(4) enterprices(1) ericsson(193) otp(19) ssl(10)
+	pkix1(1)}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS ALL
+
+IMPORTS
+	-- Certificate (parts of)
+	Version, 
+	CertificateSerialNumber,
+	--AlgorithmIdentifier,
+	Validity,
+	UniqueIdentifier,
+
+	-- AttribyteTypeAndValue
+	Name, 
+	AttributeType, 	
+	id-at-name,
+	id-at-surname,
+	id-at-givenName,
+	id-at-initials,
+	id-at-generationQualifier, X520name,
+ 	id-at-commonName, X520CommonName,
+	id-at-localityName, X520LocalityName,
+	id-at-stateOrProvinceName, X520StateOrProvinceName,
+	id-at-organizationName, X520OrganizationName,
+	id-at-organizationalUnitName, X520OrganizationalUnitName,
+	id-at-title, X520Title,
+	id-at-dnQualifier, X520dnQualifier,
+	id-at-countryName, X520countryName,
+	id-at-serialNumber, X520SerialNumber,
+	id-at-pseudonym, X520Pseudonym,
+	id-domainComponent, DomainComponent,
+	id-emailAddress, EmailAddress,
+
+	-- Extension Attributes
+       common-name, CommonName,
+       teletex-common-name, TeletexCommonName,
+       teletex-personal-name, TeletexPersonalName,
+       pds-name, PDSName,
+       physical-delivery-country-name, PhysicalDeliveryCountryName,
+       postal-code, PostalCode,
+       physical-delivery-office-name, PhysicalDeliveryOfficeName,
+       physical-delivery-office-number, PhysicalDeliveryOfficeNumber,
+       extension-OR-address-components, ExtensionORAddressComponents,
+       physical-delivery-personal-name, PhysicalDeliveryPersonalName,
+       physical-delivery-organization-name, PhysicalDeliveryOrganizationName,
+       extension-physical-delivery-address-components, 
+              ExtensionPhysicalDeliveryAddressComponents,
+       unformatted-postal-address, UnformattedPostalAddress,
+       street-address, StreetAddress,
+       post-office-box-address, PostOfficeBoxAddress,
+       poste-restante-address,  PosteRestanteAddress,
+       unique-postal-name, UniquePostalName,
+       local-postal-attributes, LocalPostalAttributes,
+       extended-network-address, ExtendedNetworkAddress,
+       terminal-type, TerminalType,
+       teletex-domain-defined-attributes, TeletexDomainDefinedAttributes
+
+	FROM PKIX1Explicit88 { iso(1) identified-organization(3) dod(6) 
+	     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0) 
+	     id-pkix1-explicit(18) }
+
+       -- Extensions
+       id-ce-authorityKeyIdentifier, AuthorityKeyIdentifier,
+       id-ce-subjectKeyIdentifier, SubjectKeyIdentifier,
+       id-ce-keyUsage, KeyUsage,
+       id-ce-privateKeyUsagePeriod, PrivateKeyUsagePeriod,
+       id-ce-certificatePolicies, CertificatePolicies,
+       id-ce-policyMappings, PolicyMappings,
+       id-ce-subjectAltName, SubjectAltName,
+       id-ce-issuerAltName, IssuerAltName,
+       id-ce-subjectDirectoryAttributes, SubjectDirectoryAttributes,
+       id-ce-basicConstraints, BasicConstraints,
+       id-ce-nameConstraints, NameConstraints,
+       id-ce-policyConstraints, PolicyConstraints,
+       id-ce-cRLDistributionPoints, CRLDistributionPoints,
+       id-ce-extKeyUsage, ExtKeyUsageSyntax,
+       id-ce-inhibitAnyPolicy, InhibitAnyPolicy,
+       id-ce-freshestCRL, FreshestCRL,
+       id-pe-authorityInfoAccess, AuthorityInfoAccessSyntax,
+       id-pe-subjectInfoAccess, SubjectInfoAccessSyntax,
+       id-ce-cRLNumber, CRLNumber,
+       id-ce-issuingDistributionPoint, IssuingDistributionPoint,
+       id-ce-deltaCRLIndicator, BaseCRLNumber,
+       id-ce-cRLReasons, CRLReason,
+       id-ce-certificateIssuer, CertificateIssuer,
+       id-ce-holdInstructionCode, HoldInstructionCode,
+       id-ce-invalidityDate, InvalidityDate
+
+       FROM PKIX1Implicit88 { iso(1) identified-organization(3) dod(6) 
+       internet(1) security(5) mechanisms(5) pkix(7) id-mod(0) 
+       id-pkix1-implicit(19) }
+
+	--Keys and Signatures
+	id-dsa, Dss-Parms, DSAPublicKey, 
+	id-dsa-with-sha1,
+	md2WithRSAEncryption,
+	md5WithRSAEncryption,
+	sha1WithRSAEncryption,
+	rsaEncryption, RSAPublicKey,
+	dhpublicnumber, DomainParameters, DHPublicKey,
+	id-keyExchangeAlgorithm, KEA-Parms-Id, --KEA-PublicKey,
+	ecdsa-with-SHA1, 
+	prime-field, Prime-p, 
+	characteristic-two-field, --Characteristic-two, 
+	gnBasis, 
+	tpBasis, Trinomial,
+	ppBasis, Pentanomial,
+	id-ecPublicKey, EcpkParameters, ECPoint
+	FROM PKIX1Algorithms88 { iso(1) identified-organization(3) dod(6)
+	     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+	     id-mod-pkix1-algorithms(17) };
+
+--
+-- Certificate
+--
+
+Certificate  ::=  SEQUENCE  {
+     tbsCertificate       TBSCertificate,
+     signatureAlgorithm   SignatureAlgorithm,
+     signature            BIT STRING  }
+
+TBSCertificate  ::=  SEQUENCE  {
+     version         [0]  Version DEFAULT v1,
+     serialNumber         CertificateSerialNumber,
+     signature            SignatureAlgorithm,
+     issuer               Name,
+     validity             Validity,
+     subject              Name,
+     subjectPublicKeyInfo SubjectPublicKeyInfo,
+     issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     extensions      [3]  Extensions OPTIONAL
+                          -- If present, version MUST be v3 --  }
+
+
+-- Attribute type and values
+--
+
+ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= CLASS {
+	&id AttributeType UNIQUE,
+	&Type }
+   WITH SYNTAX {
+	ID &id
+	TYPE &Type }
+	
+AttributeTypeAndValue ::=  SEQUENCE {
+        type    ATTRIBUTE-TYPE-AND-VALUE-CLASS.&id
+		({SupportedAttributeTypeAndValues}),
+        value   ATTRIBUTE-TYPE-AND-VALUE-CLASS.&Type
+		({SupportedAttributeTypeAndValues}{@type}) }
+
+SupportedAttributeTypeAndValues ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= 
+	{ name | surname | givenName | initials | generationQualifier |
+	  commonName | localityName | stateOrProvinceName | organizationName |
+	  organizationalUnitName | title | dnQualifier | countryName |
+	  serialNumber | pseudonym | domainComponent | emailAddress }
+
+name ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-name
+	TYPE X520name }
+
+surname ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-surname
+	TYPE X520name }
+
+givenName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-givenName
+	TYPE X520name }
+
+initials ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-initials
+	TYPE X520name }
+
+generationQualifier ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-generationQualifier
+	TYPE X520name }
+
+commonName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-commonName
+	TYPE X520CommonName }
+
+localityName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-localityName
+	TYPE X520LocalityName }
+
+stateOrProvinceName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-stateOrProvinceName
+	TYPE X520StateOrProvinceName }
+
+organizationName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-organizationName
+	TYPE X520OrganizationName }
+
+organizationalUnitName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-organizationalUnitName
+	TYPE X520OrganizationalUnitName }
+
+title ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-title
+	TYPE X520Title }
+
+dnQualifier ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-dnQualifier
+	TYPE X520dnQualifier }
+
+countryName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-countryName
+	TYPE X520countryName }
+
+serialNumber ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-serialNumber
+	TYPE X520SerialNumber }
+
+pseudonym ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-at-pseudonym
+	TYPE X520Pseudonym }
+
+domainComponent ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-domainComponent
+	TYPE DomainComponent }
+
+emailAddress ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
+	ID id-emailAddress
+	TYPE EmailAddress }
+
+--
+-- Signature and Public Key Algorithms
+--
+
+SubjectPublicKeyInfo ::=  SEQUENCE  {
+     algorithm SEQUENCE {
+               algo     PUBLIC-KEY-ALGORITHM-CLASS.&id
+			     ({SupportedPublicKeyAlgorithms}), 
+	       parameters    PUBLIC-KEY-ALGORITHM-CLASS.&Type
+			     ({SupportedPublicKeyAlgorithms}{@.algo}) 
+			     OPTIONAL
+               }, 
+     subjectPublicKey  PUBLIC-KEY-ALGORITHM-CLASS.&PublicKeyType
+		       ({SupportedPublicKeyAlgorithms}{@algorithm.algo}) }
+
+-- The following is needed for conversion of SubjectPublicKeyInfo.
+
+SubjectPublicKeyInfo-Any  ::=  SEQUENCE  {
+     algorithm            PublicKeyAlgorithm,
+     subjectPublicKey     ANY }
+
+
+SIGNATURE-ALGORITHM-CLASS ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type OPTIONAL }
+   WITH SYNTAX {
+	ID &id
+	[TYPE &Type] }
+
+PUBLIC-KEY-ALGORITHM-CLASS ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type OPTIONAL,
+	&PublicKeyType OPTIONAL }
+   WITH SYNTAX {
+	ID &id
+	[TYPE &Type] 
+	[PUBLIC-KEY-TYPE &PublicKeyType] }
+	
+SignatureAlgorithm ::=  SEQUENCE  {
+     algorithm     SIGNATURE-ALGORITHM-CLASS.&id
+				({SupportedSignatureAlgorithms}), 
+     parameters    SIGNATURE-ALGORITHM-CLASS.&Type
+				({SupportedSignatureAlgorithms}{@algorithm}) 
+		   OPTIONAL } 
+
+SignatureAlgorithm-Any ::=  SEQUENCE  {
+     algorithm     OBJECT IDENTIFIER, 
+     parameters    ANY OPTIONAL } 
+
+PublicKeyAlgorithm ::=  SEQUENCE  {
+     algorithm     PUBLIC-KEY-ALGORITHM-CLASS.&id
+			({SupportedPublicKeyAlgorithms}), 
+     parameters    PUBLIC-KEY-ALGORITHM-CLASS.&Type
+			({SupportedPublicKeyAlgorithms}{@algorithm}) 
+		   OPTIONAL } 
+
+SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= { 
+		    dsa-with-sha1 | md2-with-rsa-encryption |
+		    md5-with-rsa-encryption | sha1-with-rsa-encryption |
+		    ecdsa-with-sha1 } 
+
+SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= { 
+		    dsa | rsa-encryption | dh | kea | ec-public-key }
+
+   --   DSA Keys and Signatures
+
+   -- SubjectPublicKeyInfo:
+
+   dsa PUBLIC-KEY-ALGORITHM-CLASS ::= {
+       ID id-dsa
+       TYPE Dss-Parms -- XXX Must be OPTIONAL
+       PUBLIC-KEY-TYPE DSAPublicKey }
+
+   -- Certificate.signatureAlgorithm
+
+   dsa-with-sha1 SIGNATURE-ALGORITHM-CLASS ::= {
+		 ID id-dsa-with-sha1 
+		 TYPE NULL } -- XXX Must be empty and not NULL
+
+				  --
+   --   RSA Keys and Signatures
+   --
+
+   -- Certificate.signatureAlgorithm
+
+   md2-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			   ID md2WithRSAEncryption 
+			   TYPE NULL }
+
+   md5-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			   ID md5WithRSAEncryption 
+			   TYPE NULL }
+
+   sha1-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			    ID sha1WithRSAEncryption 
+			    TYPE NULL }
+
+   -- Certificate.signature
+   -- See PKCS #1 (RFC 2313). XXX
+
+   -- SubjectPublicKeyInfo:
+
+   rsa-encryption PUBLIC-KEY-ALGORITHM-CLASS ::= {
+		  ID rsaEncryption
+		  TYPE NULL
+		  PUBLIC-KEY-TYPE RSAPublicKey }
+
+   --
+   --   Diffie-Hellman Keys
+   --
+
+   -- SubjectPublicKeyInfo:
+
+   dh PUBLIC-KEY-ALGORITHM-CLASS ::= {
+      ID dhpublicnumber
+      TYPE DomainParameters
+      PUBLIC-KEY-TYPE DHPublicKey }
+
+   -- There are no Diffie-Hellman signature algorithms
+
+   --
+   --   KEA Keys
+   --
+
+   -- SubjectPublicKeyInfo:
+
+   KEA-PublicKey ::= INTEGER
+
+   kea PUBLIC-KEY-ALGORITHM-CLASS ::= {
+       ID id-keyExchangeAlgorithm
+       TYPE KEA-Parms-Id
+       PUBLIC-KEY-TYPE KEA-PublicKey }
+
+   -- There are no KEA signature algorithms
+
+   --
+   --   Elliptic Curve Keys, Signatures, and Curves
+   --
+
+   -- Certificate.signatureAlgorithm
+
+   ecdsa-with-sha1 SIGNATURE-ALGORITHM-CLASS ::= {
+       ID ecdsa-with-SHA1
+       TYPE NULL }  -- XXX Must be empty and not NULL
+
+   FIELD-ID-CLASS ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type }
+   WITH SYNTAX {
+	ID &id
+	TYPE &Type }
+
+   FieldID ::= SEQUENCE {                    -- Finite field
+      fieldType   FIELD-ID-CLASS.&id({SupportedFieldIds}),
+      parameters  FIELD-ID-CLASS.&Type({SupportedFieldIds}{@fieldType}) }
+
+   SupportedFieldIds FIELD-ID-CLASS ::= {
+		     field-prime-field | field-characteristic-two }
+
+   field-prime-field FIELD-ID-CLASS ::= {
+		     ID prime-field
+		     TYPE Prime-p }
+
+   CHARACTERISTIC-TWO-CLASS ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type }
+   WITH SYNTAX {
+	ID &id
+	TYPE &Type }
+
+   Characteristic-two ::= SEQUENCE {                    -- Finite field
+      m           INTEGER,                   -- Field size 2^m
+      basis       CHARACTERISTIC-TWO-CLASS.&id({SupportedCharacteristicTwos}),
+      parameters  CHARACTERISTIC-TWO-CLASS.&Type
+		  ({SupportedCharacteristicTwos}{@basis}) }
+
+   SupportedCharacteristicTwos CHARACTERISTIC-TWO-CLASS ::= {
+			       gn-basis | tp-basis | pp-basis }
+
+   field-characteristic-two FIELD-ID-CLASS ::= {
+		     ID characteristic-two-field
+		     TYPE Characteristic-two }
+
+   gn-basis CHARACTERISTIC-TWO-CLASS ::= {
+	    ID gnBasis
+	    TYPE NULL }
+
+   tp-basis CHARACTERISTIC-TWO-CLASS ::= {
+	    ID tpBasis
+	    TYPE Trinomial }
+
+   pp-basis CHARACTERISTIC-TWO-CLASS ::= {
+	    ID ppBasis
+	    TYPE Pentanomial }
+
+   -- SubjectPublicKeyInfo.algorithm
+
+   ec-public-key PUBLIC-KEY-ALGORITHM-CLASS ::= {
+      ID id-ecPublicKey
+      TYPE EcpkParameters
+      PUBLIC-KEY-TYPE ECPoint }
+
+--
+-- Extension Attributes
+--
+
+EXTENSION-ATTRIBUTE-CLASS ::= CLASS {
+	&id INTEGER UNIQUE, 
+	&Type }
+   WITH SYNTAX {
+	ID &id
+	TYPE &Type }
+	
+ExtensionAttributes ::= SET SIZE (1..MAX) OF ExtensionAttribute
+
+-- XXX Below we should have extension-attribute-type and extension-
+-- attribute-value but Erlang ASN1 does not like it. 
+ExtensionAttribute ::=  SEQUENCE {
+   extensionAttributeType [0] IMPLICIT EXTENSION-ATTRIBUTE-CLASS.&id
+		({SupportedExtensionAttributes}),
+   extensionAttributeValue [1] EXTENSION-ATTRIBUTE-CLASS.&Type
+		({SupportedExtensionAttributes}{@extensionAttributeType}) } 
+
+SupportedExtensionAttributes EXTENSION-ATTRIBUTE-CLASS ::= {
+	     x400-common-name |
+	     x400-teletex-common-name |
+	     x400-teletex-personal-name |
+	     x400-pds-name |
+	     x400-physical-delivery-country-name |
+	     x400-postal-code |
+	     x400-physical-delivery-office-name |
+	     x400-physical-delivery-office-number |
+	     x400-extension-OR-address-components |
+	     x400-physical-delivery-personal-name |
+	     x400-physical-delivery-organization-name |
+	     x400-extension-physical-delivery-address-components |
+	     x400-unformatted-postal-address |
+	     x400-street-address |
+	     x400-post-office-box-address |
+	     x400-poste-restante-address |
+	     x400-unique-postal-name |
+	     x400-local-postal-attributes |
+	     x400-extended-network-address |
+	     x400-terminal-type |
+	     x400-teletex-domain-defined-attributes }
+
+-- Extension types and attribute values
+
+x400-common-name  EXTENSION-ATTRIBUTE-CLASS ::= {
+       ID common-name
+       TYPE CommonName }
+
+x400-teletex-common-name  EXTENSION-ATTRIBUTE-CLASS ::= {
+			  ID teletex-common-name
+			  TYPE TeletexCommonName }
+
+x400-teletex-personal-name  EXTENSION-ATTRIBUTE-CLASS ::= {
+			    ID teletex-personal-name
+			    TYPE TeletexPersonalName }
+
+x400-pds-name  EXTENSION-ATTRIBUTE-CLASS ::= {
+	       ID pds-name
+	       TYPE PDSName }
+
+x400-physical-delivery-country-name EXTENSION-ATTRIBUTE-CLASS ::= {
+				    ID physical-delivery-country-name
+				    TYPE PhysicalDeliveryCountryName }
+
+x400-postal-code  EXTENSION-ATTRIBUTE-CLASS ::= {
+		  ID postal-code
+		  TYPE PostalCode }
+
+x400-physical-delivery-office-name EXTENSION-ATTRIBUTE-CLASS ::= { 
+				   ID physical-delivery-office-name 
+				   TYPE PhysicalDeliveryOfficeName }
+
+x400-physical-delivery-office-number EXTENSION-ATTRIBUTE-CLASS ::= {
+				     ID physical-delivery-office-number
+				     TYPE PhysicalDeliveryOfficeNumber }
+
+x400-extension-OR-address-components EXTENSION-ATTRIBUTE-CLASS ::= {
+				     ID extension-OR-address-components
+				     TYPE ExtensionORAddressComponents }
+
+x400-physical-delivery-personal-name EXTENSION-ATTRIBUTE-CLASS ::= {
+				     ID physical-delivery-personal-name
+				     TYPE PhysicalDeliveryPersonalName }
+
+x400-physical-delivery-organization-name  EXTENSION-ATTRIBUTE-CLASS ::= {
+       ID physical-delivery-organization-name
+       TYPE PhysicalDeliveryOrganizationName }
+
+x400-extension-physical-delivery-address-components 
+    EXTENSION-ATTRIBUTE-CLASS ::= {
+       ID extension-physical-delivery-address-components
+       TYPE ExtensionPhysicalDeliveryAddressComponents }
+
+x400-unformatted-postal-address  EXTENSION-ATTRIBUTE-CLASS ::= {
+				 ID unformatted-postal-address
+				 TYPE UnformattedPostalAddress }
+
+x400-street-address  EXTENSION-ATTRIBUTE-CLASS ::= {
+		     ID street-address
+		     TYPE StreetAddress }
+
+x400-post-office-box-address  EXTENSION-ATTRIBUTE-CLASS ::= {
+			      ID post-office-box-address
+			      TYPE PostOfficeBoxAddress }
+
+x400-poste-restante-address EXTENSION-ATTRIBUTE-CLASS ::= {
+			    ID poste-restante-address
+			    TYPE PosteRestanteAddress }
+
+x400-unique-postal-name EXTENSION-ATTRIBUTE-CLASS ::= {
+			ID unique-postal-name
+			TYPE UniquePostalName }
+
+x400-local-postal-attributes EXTENSION-ATTRIBUTE-CLASS ::= {
+			      ID local-postal-attributes
+			      TYPE LocalPostalAttributes }
+
+x400-extended-network-address EXTENSION-ATTRIBUTE-CLASS ::= {
+       ID extended-network-address
+       TYPE ExtendedNetworkAddress }
+
+x400-terminal-type  EXTENSION-ATTRIBUTE-CLASS ::= {
+		    ID terminal-type
+		    TYPE TerminalType }
+
+x400-teletex-domain-defined-attributes  EXTENSION-ATTRIBUTE-CLASS ::= {
+       ID teletex-domain-defined-attributes
+       TYPE TeletexDomainDefinedAttributes }
+
+-- Extensions
+
+Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+
+EXTENSION-CLASS ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type OPTIONAL}
+   WITH SYNTAX {
+	ID &id
+	[TYPE &Type] }
+
+Extension ::=  SEQUENCE {
+        extnID	  EXTENSION-CLASS.&id({SupportedExtensions}),
+	critical  BOOLEAN DEFAULT FALSE,
+        extnValue EXTENSION-CLASS.&Type({SupportedExtensions}{@extnID}) }
+
+-- The following is needed for conversion between Extension and Extension-Cd
+
+ObjId ::= OBJECT IDENTIFIER
+Boolean ::= BOOLEAN
+Any ::= ANY
+
+Extension-Any  ::=  SEQUENCE  {
+     extnID      OBJECT IDENTIFIER,
+     critical    BOOLEAN DEFAULT FALSE,
+     extnValue   ANY }
+
+SupportedExtensions EXTENSION-CLASS ::= { authorityKeyIdentifier |
+	subjectKeyIdentifier | keyUsage | privateKeyUsagePeriod |
+	certificatePolicies | policyMappings | subjectAltName | 
+	issuerAltName | subjectDirectoryAttributes | basicConstraints |
+	nameConstraints | policyConstraints | cRLDistributionPoints | 
+	extKeyUsage | inhibitAnyPolicy | freshestCRL | authorityInfoAccess |
+	subjectInfoAccess | cRLNumber | issuingDistributionPoint |
+	deltaCRLIndicator | cRLReasons | certificateIssuer |
+	holdInstructionCode | invalidityDate }
+
+authorityKeyIdentifier EXTENSION-CLASS ::= {
+		ID id-ce-authorityKeyIdentifier
+		TYPE AuthorityKeyIdentifier }
+
+subjectKeyIdentifier EXTENSION-CLASS ::= {
+	ID id-ce-subjectKeyIdentifier
+	TYPE SubjectKeyIdentifier }
+
+keyUsage EXTENSION-CLASS ::= {
+	ID id-ce-keyUsage 
+	TYPE KeyUsage }
+
+privateKeyUsagePeriod EXTENSION-CLASS ::= {
+	ID id-ce-privateKeyUsagePeriod
+	TYPE PrivateKeyUsagePeriod }
+
+certificatePolicies EXTENSION-CLASS ::= {
+	ID id-ce-certificatePolicies
+	TYPE CertificatePolicies }
+
+policyMappings EXTENSION-CLASS ::= {
+	ID id-ce-policyMappings
+	TYPE PolicyMappings }
+
+subjectAltName EXTENSION-CLASS ::= {
+	ID id-ce-subjectAltName 
+	TYPE SubjectAltName }
+
+issuerAltName EXTENSION-CLASS ::= {
+	ID id-ce-issuerAltName
+	TYPE IssuerAltName }
+
+subjectDirectoryAttributes EXTENSION-CLASS ::= {
+	ID id-ce-subjectDirectoryAttributes
+	TYPE SubjectDirectoryAttributes }
+
+basicConstraints EXTENSION-CLASS ::= {
+	ID id-ce-basicConstraints
+	TYPE BasicConstraints }
+
+nameConstraints EXTENSION-CLASS ::= {
+	ID id-ce-nameConstraints
+	TYPE NameConstraints }
+
+policyConstraints EXTENSION-CLASS ::= {
+	ID id-ce-policyConstraints 
+	TYPE PolicyConstraints  }
+
+cRLDistributionPoints EXTENSION-CLASS ::= {
+	ID id-ce-cRLDistributionPoints
+	TYPE CRLDistributionPoints }
+
+extKeyUsage EXTENSION-CLASS ::= {
+	ID id-ce-extKeyUsage
+	TYPE ExtKeyUsageSyntax }
+
+inhibitAnyPolicy EXTENSION-CLASS ::= {
+	ID id-ce-inhibitAnyPolicy 
+	TYPE InhibitAnyPolicy }
+
+freshestCRL EXTENSION-CLASS ::= {
+	ID id-ce-freshestCRL
+	TYPE FreshestCRL }
+
+authorityInfoAccess EXTENSION-CLASS ::= {
+	ID id-pe-authorityInfoAccess
+	TYPE AuthorityInfoAccessSyntax }
+
+subjectInfoAccess EXTENSION-CLASS ::= {
+	ID id-pe-subjectInfoAccess 
+	TYPE SubjectInfoAccessSyntax }
+
+cRLNumber EXTENSION-CLASS ::= {
+	ID id-ce-cRLNumber 
+	TYPE CRLNumber }
+
+issuingDistributionPoint EXTENSION-CLASS ::= {
+	ID id-ce-issuingDistributionPoint
+	TYPE IssuingDistributionPoint }
+
+deltaCRLIndicator EXTENSION-CLASS ::= {
+	ID id-ce-deltaCRLIndicator
+	TYPE BaseCRLNumber }
+
+cRLReasons EXTENSION-CLASS ::= {
+	ID id-ce-cRLReasons
+	TYPE CRLReason }
+
+certificateIssuer EXTENSION-CLASS ::= {
+	ID id-ce-certificateIssuer
+	TYPE CertificateIssuer }
+
+holdInstructionCode EXTENSION-CLASS ::= {
+	ID id-ce-holdInstructionCode
+	TYPE HoldInstructionCode }
+
+invalidityDate EXTENSION-CLASS ::= {
+	ID id-ce-invalidityDate 
+	TYPE InvalidityDate }
+
+END

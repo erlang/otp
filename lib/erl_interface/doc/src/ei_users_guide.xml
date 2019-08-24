@@ -1,0 +1,826 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Erl_Interface User's Guide</title>
+    <prepared>Kent Boortz</prepared>
+    <responsible>Kent Boortz</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>ei_users_guide.xml</file>
+  </header>
+
+  <section>
+    <title>Deprecation and Removal</title>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
+  </section>
+
+  <section>
+    <title>Introduction</title>
+    <p>The <c>Erl_Interface</c> library contains functions that help you
+      integrate programs written in C and Erlang. The functions in
+      <c>Erl_Interface</c> support the following:</p>
+    <list type="bulleted">
+      <item>Manipulation of data represented as Erlang data types</item>
+      <item>Conversion of data between C and Erlang formats</item>
+      <item>Encoding and decoding of Erlang data types for transmission or
+        storage</item>
+      <item>Communication between C nodes and Erlang processes</item>
+      <item>Backup and restore of C node state to and from
+        <seealso marker="mnesia:mnesia">Mnesia</seealso></item>
+    </list>
+    <note>
+      <p>By default, the <c>Erl_Interface</c> libraries are only guaranteed
+        to be compatible with other Erlang/OTP components from the same
+        release as the libraries themselves. For information about how to
+        communicate with Erlang/OTP components from earlier releases, see
+        function <seealso marker="ei#ei_set_compat_rel">
+        <c>ei:ei_set_compat_rel</c></seealso> and
+        <seealso marker="erl_eterm#erl_set_compat_rel">
+        <c>erl_eterm:erl_set_compat_rel</c></seealso>.</p>
+    </note>
+
+    <section>
+      <title>Scope</title>
+      <p>In the following sections, these topics are described:</p>
+      <list type="bulleted">
+        <item>Compiling your code for use with <c>Erl_Interface</c></item>
+        <item>Initializing <c>Erl_Interface</c></item>
+        <item>Encoding, decoding, and sending Erlang terms</item>
+        <item>Building terms and patterns</item>
+        <item>Pattern matching</item>
+        <item>Connecting to a distributed Erlang node</item>
+        <item>Using the Erlang Port Mapper Daemon (EPMD)</item>
+        <item>Sending and receiving Erlang messages</item>
+        <item>Remote procedure calls</item>
+        <item>Using global names</item>
+        <item>Using the registry</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>It is assumed that the reader is familiar with the Erlang programming
+        language.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiling and Linking Your Code</title>
+    <p>To use any of the <c>Erl_Interface</c> functions, include the
+      following lines in your code:</p>
+
+    <code type="none"><![CDATA[
+#include "erl_interface.h"
+#include "ei.h"    ]]></code>
+
+    <p>Determine where the top directory of your OTP installation is.
+      To find this, start Erlang and enter the following
+      command at the Eshell prompt:</p>
+
+    <code type="none"><![CDATA[
+Eshell V4.7.4  (abort with ^G)
+1> code:root_dir().
+/usr/local/otp    ]]></code>
+
+    <p>To compile your code, ensure that your C compiler knows where
+      to find <c>erl_interface.h</c> by specifying an appropriate
+      <c>-I</c> argument on the command line, or add it to
+      the <c>CFLAGS</c> definition in your
+      <c>Makefile</c>. The correct value for this path is
+      <c>$OTPROOT/lib/erl_interface-$EIVSN/include</c>,
+      where:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>$OTPROOT</c> is the path reported by
+          <c>code:root_dir/0</c> in the example above.</p>
+      </item>
+      <item>
+        <p><c>$EIVSN</c> is the version of the <c>Erl_Interface</c> application,
+          for example, <c>erl_interface-3.2.3</c>.</p>
+      </item>
+    </list>
+
+    <p>Compiling the code:</p>
+
+    <code type="none"><![CDATA[
+$ cc -c -I/usr/local/otp/lib/erl_interface-3.2.3/include myprog.c    ]]></code>
+
+    <p>When linking:</p>
+
+    <list type="bulleted">
+      <item>Specify the path to <c>liberl_interface.a</c> and
+        <c>libei.a</c> with
+        <c>-L$OTPROOT/lib/erl_interface-3.2.3/lib</c>.</item>
+      <item>Specify the name of the libraries with
+        <c>-lerl_interface -lei</c>.</item>
+    </list>
+
+    <p>Do this on the command line or add the flags to the
+      <c>LDFLAGS</c> definition in your
+      <c>Makefile</c>.</p>
+
+    <p>Linking the code:</p>
+
+    <code type="none"><![CDATA[
+$ ld -L/usr/local/otp/lib/erl_interface-3.2.3/
+                            lib myprog.o -lerl_interface -lei -o myprog    ]]></code>
+
+    <p>On some systems it can be necessary to link with some more
+      libraries (for example, <c>libnsl.a</c> and
+      <c>libsocket.a</c> on Solaris, or
+      <c>wsock32.lib</c> on Windows) to use the
+      communication facilities of <c>Erl_Interface</c>.</p>
+
+    <p>If you use the <c>Erl_Interface</c> functions in a threaded
+      application based on POSIX threads or Solaris threads, then
+      <c>Erl_Interface</c> needs access to some of the synchronization
+      facilities in your threads package. You must specify extra
+      compiler flags to indicate which of the packages you use. Define
+      <c>_REENTRANT</c> and either <c>STHREADS</c> or
+      <c>PTHREADS</c>. The default is to use POSIX threads if
+      <c>_REENTRANT</c> is specified.</p>
+  </section>
+
+  <section>
+    <title>Initializing the Libraries</title>
+    <p>
+      Before calling any of the other functions in the <c>erl_interface</c>
+      and <c>ei</c> libraries, call <c>erl_init()</c> exactly once to initialize
+      both libraries.
+      <c>erl_init()</c> takes two arguments. However, the arguments
+      are no longer used by <c>erl_interface</c> and are therefore to be
+      specified as <c>erl_init(NULL,0)</c>.
+    </p>
+    <p>
+      If you only use the <c>ei</c> library, instead initialize it by calling
+      <c>ei_init()</c> exactly once before calling any other functions in
+      the <c>ei</c> library.
+    </p>
+  </section>
+
+  <section>
+    <title>Encoding, Decoding, and Sending Erlang Terms</title>
+    <p>Data sent between distributed Erlang nodes is encoded in the
+      Erlang external format. You must therefore encode and decode
+      Erlang terms into byte streams if you want to use the distribution
+      protocol to communicate between a C program and Erlang.</p>
+
+    <p>The <c>Erl_Interface</c> library supports this activity. It has
+      several C functions that create and manipulate Erlang data
+      structures. The library also contains an encode and a decode function.
+      The following example shows how to create and encode an Erlang tuple
+      <c>{tobbe,3928}</c>:</p>
+
+    <code type="none"><![CDATA[
+ETERM *arr[2], *tuple;
+char buf[BUFSIZ];
+int i;
+  
+arr[0] = erl_mk_atom("tobbe");
+arr[1] = erl_mk_integer(3928);
+tuple  = erl_mk_tuple(arr, 2);
+i = erl_encode(tuple, buf);    ]]></code>
+
+    <p>Alternatively, you can use <c>erl_send()</c> and
+      <c>erl_receive_msg</c>, which handle the encoding and
+      decoding of messages transparently.</p>
+
+    <p>For a complete description, see the following modules:</p>
+    <list type="bulleted">
+      <item><seealso marker="erl_eterm"><c>erl_eterm</c></seealso>
+        for creating Erlang terms</item>
+      <item><seealso marker="erl_marshal"><c>erl_marshal</c></seealso>
+        for encoding and decoding routines</item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="building_terms_and_patterns"/>
+    <title>Building Terms and Patterns</title>
+    <p>The previous example can be simplified by using the
+      <seealso marker="erl_format"><c>erl_format</c></seealso> module
+      to create an Erlang term:</p>
+
+    <code type="none"><![CDATA[
+ETERM *ep;
+ep = erl_format("{~a,~i}", "tobbe", 3928);    ]]></code>
+
+    <p>For a complete description of the different format directives, see
+      the <seealso marker="erl_format"><c>erl_format</c></seealso> module.</p>
+
+    <p>The following example is more complex:</p>
+
+    <code type="none"><![CDATA[
+ETERM *ep;
+ep = erl_format("[{name,~a},{age,~i},{data,~w}]",
+                 "madonna", 
+                 21, 
+                 erl_format("[{adr,~s,~i}]", "E-street", 42));
+erl_free_compound(ep);      ]]></code>
+
+    <p>As in the previous examples, it is your responsibility to free the
+      memory allocated for Erlang terms. In this example,
+      <c>erl_free_compound()</c> ensures that the complete term
+      pointed to by <c>ep</c> is released. This is necessary
+      because the pointer from the second call to <c>erl_format</c> is lost.</p>
+
+    <p>The following example shows a slightly different solution:</p>
+
+    <code type="none"><![CDATA[
+ETERM *ep,*ep2;
+ep2 = erl_format("[{adr,~s,~i}]","E-street",42);
+ep  = erl_format("[{name,~a},{age,~i},{data,~w}]",
+                 "madonna", 21, ep2);
+erl_free_term(ep);  
+erl_free_term(ep2);      ]]></code>
+
+    <p>In this case, you free the two terms independently. The order in
+      which you free the terms <c>ep</c> and <c>ep2</c>
+      is not important,
+      because the <c>Erl_Interface</c> library uses reference counting to
+      determine when it is safe to remove objects.</p>
+
+    <p>If you are unsure whether you have freed the terms properly, you
+      can use the following function to see the status of the fixed term
+      allocator:</p>
+
+    <code type="none"><![CDATA[
+long allocated, freed;
+
+erl_eterm_statistics(&allocated,&freed);
+printf("currently allocated blocks: %ld\n",allocated);
+printf("length of freelist: %ld\n",freed);
+
+/* really free the freelist */
+erl_eterm_release();
+    ]]></code>
+
+    <p>For more information, see the
+      <seealso marker="erl_malloc"><c>erl_malloc</c></seealso> module.</p>
+  </section>
+
+  <section>
+    <title>Pattern Matching</title>
+    <p>An Erlang pattern is a term that can contain unbound variables or
+      <c>"do not care"</c> symbols. Such a pattern can be matched
+      against a
+      term and, if the match is successful, any unbound variables in the
+      pattern will be bound as a side effect. The content of a bound
+      variable can then be retrieved:</p>
+
+    <code type="none"><![CDATA[
+ETERM *pattern;
+pattern = erl_format("{madonna,Age,_}");    ]]></code>
+
+    <p>The <seealso marker="erl_format#erl_match">
+      <c>erl_format:erl_match</c></seealso> function
+      performs pattern matching. It takes a
+      pattern and a term and tries to match them. As a side effect any unbound
+      variables in the pattern will be bound. In the following example, a
+      pattern is created with a variable <c>Age</c>, which is included at two
+      positions in the tuple. The pattern match is performed as follows:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>erl_match</c> binds the contents of <c>Age</c> to <c>21</c>
+          the first time it reaches the variable.</p>
+      </item>
+      <item>
+        <p>The second occurrence of <c>Age</c> causes a test for
+          equality between the terms, as <c>Age</c> is already bound to
+          <c>21</c>. As <c>Age</c> is bound to <c>21</c>, the equality test
+          succeeds and the match continues until the end of the pattern.</p>
+      </item>
+      <item>
+        <p>If the end of the pattern is reached, the match succeeds and you
+          can retrieve the contents of the variable.</p>
+      </item>
+    </list>
+
+    <code type="none"><![CDATA[
+ETERM *pattern,*term;
+pattern = erl_format("{madonna,Age,Age}");
+term    = erl_format("{madonna,21,21}");
+if (erl_match(pattern, term)) {
+  fprintf(stderr, "Yes, they matched: Age = ");
+  ep = erl_var_content(pattern, "Age"); 
+  erl_print_term(stderr, ep);
+  fprintf(stderr,"\n");
+  erl_free_term(ep);
+}
+erl_free_term(pattern);
+erl_free_term(term);    ]]></code>
+
+    <p>For more information, see the
+      <seealso marker="erl_format#erl_match">
+      <c>erl_format:erl_match</c></seealso> function.</p>
+  </section>
+
+  <section>
+    <title>Connecting to a Distributed Erlang Node</title>
+    <p>To connect to a distributed Erlang node, you must first
+      initialize the connection routine with
+      <seealso marker="erl_connect#erl_connect_init">
+      <c>erl_connect:erl_connect_init</c></seealso>,
+      which stores information, such as the hostname, node name, and IP
+      address for later use:</p>
+
+    <code type="none"><![CDATA[
+int identification_number = 99;
+int creation=1;
+char *cookie="a secret cookie string"; /* An example */
+erl_connect_init(identification_number, cookie, creation);    ]]></code>
+
+    <p>For more information, see the
+      <seealso marker="erl_connect"><c>erl_connect</c></seealso> module.</p>
+
+    <p>After initialization, you set up the connection to the Erlang node.
+      To specify the Erlang node you want to connect to, use
+      <c>erl_connect()</c>. The following example sets up the
+      connection and is to result in a valid socket file descriptor:</p>
+
+    <code type="none"><![CDATA[
+int sockfd;
+char *nodename="xyz@chivas.du.etx.ericsson.se"; /* An example */
+if ((sockfd = erl_connect(nodename)) < 0)
+  erl_err_quit("ERROR: erl_connect failed");    ]]></code>
+
+    <p><c>erl_err_quit()</c> prints the specified string and
+      terminates the program. For more information, see the
+      <seealso marker="erl_error"><c>erl_error</c></seealso> module.</p>
+  </section>
+
+  <section>
+    <title>Using EPMD</title>
+    <p><seealso marker="erts:epmd"><c>erts:epmd</c></seealso>
+      is the Erlang Port Mapper Daemon. Distributed
+      Erlang nodes register with <c>epmd</c> on the local host to
+      indicate to other nodes that they exist and can accept connections.
+      <c>epmd</c> maintains a register of
+      node and port number information, and when a node wishes to connect to
+      another node, it first contacts <c>epmd</c> to find the
+      correct port number to connect to.</p>
+
+    <p>When you use
+      <seealso marker="erl_connect"><c>erl_connect</c></seealso>
+      to connect to an Erlang node, a connection is first made to
+      <c>epmd</c> and, if the node is known, a
+      connection is then made to the Erlang node.</p>
+
+    <p>C nodes can also register themselves with <c>epmd</c>
+      if they want other
+      nodes in the system to be able to find and connect to them.</p>
+
+    <p>Before registering with <c>epmd</c>, you must first
+      create a listen socket and bind it to a port. Then:</p>
+
+    <code type="none"><![CDATA[
+int pub;
+
+pub = erl_publish(port);    ]]></code>
+
+    <p><c>pub</c> is a file descriptor now connected to
+      <c>epmd</c>. <c>epmd</c>
+      monitors the other end of the connection. If it detects that the
+      connection has been closed, the node becomes unregistered. So, if you
+      explicitly close the descriptor or if your node fails, it becomes
+      unregistered from <c>epmd</c>.</p>
+
+    <p>Notice that on some systems (such as VxWorks), a failed node is
+      not detected by this mechanism, as the operating system does not
+      automatically close descriptors that were left open when the node
+      failed. If a node has failed in this way, <c>epmd</c>
+      prevents you from
+      registering a new node with the old name, as it thinks that the old
+      name is still in use. In this case, you must unregister the name
+      explicitly:</p>
+
+    <code type="none"><![CDATA[
+erl_unpublish(node);    ]]></code>
+
+    <p>This causes <c>epmd</c> to close the connection from the
+      far end. Notice
+      that if the name was in fact still in use by a node, the results of
+      this operation are unpredictable. Also, doing this does not cause the
+      local end of the connection to close, so resources can be consumed.</p>
+  </section>
+
+  <section>
+    <title>Sending and Receiving Erlang Messages</title>
+    <p>Use one of the following two functions to send messages:</p>
+
+    <list type="bulleted">
+      <item><seealso marker="erl_connect#erl_send">
+        <c>erl_connect:erl_send</c></seealso></item>
+      <item><seealso marker="erl_connect#erl_reg_send">
+        <c>erl_connect:erl_reg_send</c></seealso></item>
+    </list>
+
+    <p>As in Erlang, messages can be sent to a
+      pid or to a registered name. It is easier to send a
+      message to a registered name, as it avoids the problem of finding
+      a suitable pid.</p>
+
+    <p>Use one of the following two functions to receive messages:</p>
+
+    <list type="bulleted">
+      <item><seealso marker="erl_connect#erl_receive">
+        <c>erl_connect:erl_receive</c></seealso></item>
+      <item><seealso marker="erl_connect#erl_receive_msg">
+        <c>erl_connect:erl_receive_msg</c></seealso></item>
+    </list>
+
+    <p><c>erl_receive()</c> receives the message into a buffer,
+      while <c>erl_receive_msg()</c> decodes the message into an
+      Erlang term.</p>
+
+    <section>
+      <title>Example of Sending Messages</title>
+      <p>In the following example, <c>{Pid, hello_world}</c> is
+        sent to a registered process <c>my_server</c>. The message
+        is encoded by <c>erl_send()</c>:</p>
+
+      <code type="none"><![CDATA[
+extern const char *erl_thisnodename(void);
+extern short erl_thiscreation(void);
+#define SELF(fd) erl_mk_pid(erl_thisnodename(),fd,0,erl_thiscreation())
+ETERM *arr[2], *emsg;
+int sockfd, creation=1;
+  
+arr[0] = SELF(sockfd);
+arr[1] = erl_mk_atom("Hello world");
+emsg   = erl_mk_tuple(arr, 2);
+  
+erl_reg_send(sockfd, "my_server", emsg);
+erl_free_term(emsg);      ]]></code>
+
+      <p>The first element of the tuple that is sent is your own
+        pid. This enables <c>my_server</c> to reply.
+        For more information about the primitives, see the
+        <seealso marker="erl_connect"><c>erl_connect</c></seealso> module.</p>
+    </section>
+
+    <section>
+      <title>Example of Receiving Messages</title>
+      <p>In this example, <c>{Pid, Something}</c> is received. The
+        received pid is then used to return
+        <c>{goodbye,Pid}</c>.</p>
+
+      <code type="none"><![CDATA[
+ETERM *arr[2], *answer;
+int sockfd,rc;
+char buf[BUFSIZE];
+ErlMessage emsg;
+  
+if ((rc = erl_receive_msg(sockfd , buf, BUFSIZE, &emsg)) == ERL_MSG) {
+   arr[0] = erl_mk_atom("goodbye");
+   arr[1] = erl_element(1, emsg.msg); 
+   answer = erl_mk_tuple(arr, 2);
+   erl_send(sockfd, arr[1], answer);
+   erl_free_term(answer);
+   erl_free_term(emsg.msg);
+   erl_free_term(emsg.to);
+}      ]]></code>
+
+      <p>To provide robustness, a distributed Erlang node
+        occasionally polls all its connected neighbors in an attempt to
+        detect failed nodes or communication links. A node that receives such
+        a message is expected to respond immediately with an
+        <c>ERL_TICK</c> message. This is done automatically by
+        <c>erl_receive()</c>. However, when this has occurred,
+        <c>erl_receive</c> returns <c>ERL_TICK</c> to
+        the caller without storing a message into the
+        <c>ErlMessage</c> structure.</p>
+
+      <p>When a message has been received, it is the caller's responsibility
+        to free the received message <c>emsg.msg</c> and
+        <c>emsg.to</c> or <c>emsg.from</c>,
+        depending on the type of message received.</p>
+
+      <p>For more information, see the
+        <seealso marker="erl_connect"><c>erl_connect</c></seealso> and
+        <seealso marker="erl_eterm"><c>erl_eterm</c></seealso> modules.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Remote Procedure Calls</title>
+    <p>An Erlang node acting as a client to another Erlang node
+      typically sends a request and waits for a reply. Such a request is
+      included in a function call at a remote node and is called a remote
+      procedure call.</p>
+
+    <p>The following example shows how the
+      <c>Erl_Interface</c> library supports remote procedure calls:</p>
+
+    <code type="none"><![CDATA[
+char modname[]=THE_MODNAME;
+ETERM *reply,*ep;
+ep = erl_format("[~a,[]]", modname);
+if (!(reply = erl_rpc(fd, "c", "c", ep)))
+  erl_err_msg("<ERROR> when compiling file: %s.erl !\n", modname);
+erl_free_term(ep);
+ep = erl_format("{ok,_}");
+if (!erl_match(ep, reply))
+  erl_err_msg("<ERROR> compiler errors !\n");
+erl_free_term(ep);
+erl_free_term(reply);    ]]></code>
+
+    <p><c>c:c/1</c> is called to compile the specified module on
+      the remote node. <c>erl_match()</c> checks that the
+      compilation was
+      successful by testing for the expected <c>ok</c>.</p>
+
+    <p>For more information about <c>erl_rpc()</c> and its
+      companions <c>erl_rpc_to()</c> and
+      <c>erl_rpc_from()</c>, see the
+      <seealso marker="erl_connect"><c>erl_connect</c></seealso> module.</p>
+  </section>
+
+  <section>
+    <title>Using Global Names</title>
+    <p>A C node has access to names registered through the
+      <seealso marker="kernel:global"><c>global</c></seealso>
+      module in Kernel. Names can be looked up, allowing the C node to send messages
+      to named Erlang services. C nodes can also register global names,
+      allowing them to provide named services to Erlang processes or other C
+      nodes.</p>
+
+    <p><c>Erl_Interface</c> does not provide a native implementation of the
+      global service. Instead it uses the global services provided by a "nearby"
+      Erlang node. To use the services described in this section,
+      it is necessary to first open a connection to an Erlang node.</p>
+
+    <p>To see what names there are:</p>
+
+    <code type="none"><![CDATA[
+char **names;
+int count;
+int i;
+
+names = erl_global_names(fd,&count);
+
+if (names) 
+  for (i=0; i<count; i++) 
+    printf("%s\n",names[i]);
+
+free(names);    ]]></code>
+
+    <p><seealso marker="erl_global#erl_global_names">
+      <c>erl_global:erl_global_names</c></seealso>
+      allocates and returns a buffer containing
+      all the names known to the <c>global</c> module in <c>Kernel</c>.
+      <c>count</c> is initialized to
+      indicate the number of names in the array. The array of strings in names
+      is terminated by a <c>NULL</c> pointer, so it is not necessary to use
+      <c>count</c> to determine when the last name is reached.</p>
+
+    <p>It is the caller's responsibility to free the array.
+      <c>erl_global_names</c> allocates the array and all the strings
+      using a single call to <c>malloc()</c>, so
+      <c>free(names)</c> is all that is necessary.</p>
+
+    <p>To look up one of the names:</p>
+
+    <code type="none"><![CDATA[
+ETERM *pid;
+char node[256];
+
+pid = erl_global_whereis(fd,"schedule",node);    ]]></code>
+
+    <p>If <c>"schedule"</c> is known to the
+      <c>global</c> module in <c>Kernel</c>, an Erlang pid is
+      returned that can be used to send messages to the schedule service.
+      Also, <c>node</c> is initialized to contain the name of
+      the node where the service is registered, so that you can make a
+      connection to it by simply passing the variable to
+      <seealso marker="erl_connect"><c>erl_connect</c></seealso>.</p>
+
+    <p>Before registering a name, you should already have registered your
+      port number with <c>epmd</c>. This is not strictly necessary,
+      but if you
+      neglect to do so, then other nodes wishing to communicate with your
+      service cannot find or connect to your process.</p>
+
+    <p>Create a pid that Erlang processes can use to communicate with your
+      service:</p>
+
+    <code type="none"><![CDATA[
+ETERM *pid;
+
+pid = erl_mk_pid(thisnode,14,0,0);
+erl_global_register(fd,servicename,pid);    ]]></code>
+
+    <p>After registering the name, use
+        <seealso marker="erl_connect#erl_accept">
+        <c>erl_connect:erl_accept</c></seealso>
+        to wait for incoming connections.</p>
+
+    <note>
+      <p>Remember to free <c>pid</c> later with
+        <seealso marker="erl_malloc#erl_free_term">
+        <c>erl_malloc:erl_free_term</c></seealso>.</p>
+    </note>
+
+    <p>To unregister a name:</p>
+
+    <code type="none"><![CDATA[
+erl_global_unregister(fd,servicename);    ]]></code>
+  </section>
+
+  <section>
+    <title>Using the Registry</title>
+    <p>This section describes the use of the registry, a simple mechanism
+      for storing key-value pairs in a C-node, as well as backing them up or
+      restoring them from an <c>Mnesia</c> table on an Erlang node. For more
+      detailed information about the individual API functions, see the
+      <seealso marker="registry"><c>registry</c></seealso> module.</p>
+
+   <p>Keys are strings, that is, <c>NULL</c>-terminated arrays of characters, and
+      values are arbitrary objects. Although integers and floating point numbers
+      are treated specially by the registry, you can store strings or binary
+      objects of any type as pointers.</p>
+
+    <p>To start, open a registry:</p>
+
+    <code type="none"><![CDATA[
+ei_reg *reg;
+
+reg = ei_reg_open(45);    ]]></code>
+
+    <p>The number <c>45</c> in the example indicates the approximate number of
+      objects that you expect to store in the registry. Internally the
+      registry uses hash tables with collision chaining, so there is no
+      absolute upper limit on the number of objects that the registry can
+      contain, but if performance or memory usage is important, then you
+      are to choose a number accordingly. The registry can be resized later.</p>
+
+    <p>You can open as many registries as you like (if memory permits).</p>
+
+    <p>Objects are stored and retrieved through set and get functions.
+      The following example shows how to store integers, floats, strings,
+      and arbitrary binary objects:</p>
+
+    <code type="none"><![CDATA[
+struct bonk *b = malloc(sizeof(*b));
+char *name = malloc(7);
+
+ei_reg_setival(reg,"age",29); 
+ei_reg_setfval(reg,"height",1.85);
+
+strcpy(name,"Martin");
+ei_reg_setsval(reg,"name",name); 
+
+b->l = 42;
+b->m = 12;
+ei_reg_setpval(reg,"jox",b,sizeof(*b));    ]]></code>
+
+    <p>If you try to store an object in the registry and there is an
+      existing object with the same key, the new value replaces the old
+      one. This is done regardless of whether the new object and the old one
+      have the same type, so you can, for example, replace a string with an
+      integer. If the existing value is a string or binary, it is freed
+      before the new value is assigned.</p>
+
+    <p>Stored values are retrieved from the registry as follows:</p>
+
+    <code type="none"><![CDATA[
+long i;
+double f;
+char *s;
+struct bonk *b;
+int size;
+
+i = ei_reg_getival(reg,"age");
+f = ei_reg_getfval(reg,"height");
+s = ei_reg_getsval(reg,"name");
+b = ei_reg_getpval(reg,"jox",&size);    ]]></code>
+
+    <p>In all the above examples, the object must exist and it must be of
+      the right type for the specified operation. If you do not know the
+      type of an object, you can ask:</p>
+
+    <code type="none"><![CDATA[
+struct ei_reg_stat buf;
+
+ei_reg_stat(reg,"name",&buf);    ]]></code>
+
+    <p>Buf is initialized to contain object attributes.</p>
+
+    <p>Objects can be removed from the registry:</p>
+
+    <code type="none"><![CDATA[
+ei_reg_delete(reg,"name");    ]]></code>
+
+    <p>When you are finished with a registry, close it to remove all the
+      objects and free the memory back to the system:</p>
+
+    <code type="none"><![CDATA[
+ei_reg_close(reg);    ]]></code>
+
+    <section>
+      <title>Backing Up the Registry to Mnesia</title>
+      <p>The contents of a registry can be backed up to
+        <seealso marker="mnesia:mnesia"><c>Mnesia</c></seealso> on a "nearby" Erlang
+        node. You must provide an open connection to the Erlang node
+        (see <seealso marker="erl_connect"><c>erl_connect</c></seealso>).
+        Also, <c>Mnesia</c> 3.0 or later must be running
+        on the Erlang node before the backup is initiated:</p>
+
+      <code type="none"><![CDATA[
+ei_reg_dump(fd, reg, "mtab", dumpflags);      ]]></code>
+
+      <p>This example back up the contents of the registry to the
+        specified <c>Mnesia</c> table <c>"mtab"</c>.
+        Once a registry has been backed
+        up to <c>Mnesia</c> like this, more backups only affect
+        objects that have been modified since the most recent backup, that is,
+        objects that have been created, changed, or deleted. The backup
+        operation is done as a single atomic transaction, so that either the
+        entire backup is performed or none of it.</p>
+
+      <p>Likewise, a registry can be restored from a <c>Mnesia</c> table:</p>
+
+      <code type="none"><![CDATA[
+ei_reg_restore(fd, reg, "mtab");      ]]></code>
+
+      <p>This reads the entire contents of <c>"mtab"</c> into the
+        specified registry. After the restore, all the objects in the registry
+        are marked as unmodified, so a later backup only affects
+        objects that you have modified since the restore.</p>
+
+      <p>Notice that if you restore to a non-empty registry, objects in the
+        table overwrite objects in the registry with the same keys. Also,
+        the <em>entire</em> contents of the registry is marked as unmodified
+        after the restore, including any modified objects that were not
+        overwritten by the restore operation. This may not be your
+        intention.</p>
+    </section>
+
+    <section>
+      <title>Storing Strings and Binaries</title>
+      <p>When string or binary objects are stored in the registry it is
+        important that some simple guidelines are followed.</p>
+
+      <p>Most importantly, the object must have been created with a single call
+        to <c>malloc()</c> (or similar), so that it can later be
+        removed by a single call to <c>free()</c>.
+        Objects are freed by the registry
+        when it is closed, or when you assign a new value to an object that
+        previously contained a string or binary.</p>
+
+      <p>Notice that if you store binary objects that are context-dependent
+        (for example, containing pointers or open file descriptors),
+        they lose their meaning if they are backed up to a <c>Mnesia</c> table
+        and later restored in a different context.</p>
+
+      <p>When you retrieve a stored string or binary value from the registry,
+        the registry maintains a pointer to the object and you are passed a
+        copy of that pointer. You should never free an object retrieved in
+        this manner because when the registry later attempts to free it, a
+        runtime error occurs that likely causes the C-node to crash.</p>
+
+      <p>You are free to modify the contents of an object retrieved this way.
+        However, when you do so, the registry is not aware of your changes,
+        possibly causing it to be missed the next time you make an
+        <c>Mnesia</c> backup of the registry contents. This can be avoided if
+        you mark the object as dirty after any such changes with
+        <seealso marker="registry#ei_reg_markdirty">
+        <c>registry:ei_reg_markdirty</c></seealso>, or pass appropriate flags to
+        <seealso marker="registry#ei_reg_dump">
+        <c>registry:ei_reg_dump</c></seealso>.</p>
+    </section>
+  </section>
+</chapter>

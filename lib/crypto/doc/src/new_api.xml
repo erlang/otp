@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>New and Old API</title>
+    <prepared>Hans Nilsson</prepared>
+    <docno></docno>
+    <date>2019-08-22</date>
+    <rev>A</rev>
+    <file>new_api.xml</file>
+  </header>
+  <p>
+    This chapter describes the new api to encryption and decryption.
+  </p>
+
+  <section>
+    <title>Background</title>
+    <p>The CRYPTO app has evolved during its lifetime. Since also the OpenSSL cryptolib has changed the
+    API several times, there are parts of the CRYPTO app that uses a very old one internally and
+    other parts that uses the latest one. The internal definitions of e.g cipher names was a bit hard
+    to maintain.
+    </p>
+    <p>It turned out that using the old api in the new way (more about that later), and still keep it
+    backwards compatible, was not possible. Specially as more precision in the error messages is desired
+    it could not be combined with the old standard.
+    </p>
+    <p>Therefore the old api (see next section) is kept for now but internally implemented with new primitives.
+    </p>
+  </section>
+
+  <section>
+    <title>The old API</title>
+    <p>The old functions - not recommended for new programs - are for chipers:</p>
+    <list>
+      <item><seealso marker="crypto#block_encrypt-3">block_encrypt/3</seealso></item>
+      <item><seealso marker="crypto#block_encrypt-4">block_encrypt/4</seealso></item>
+      <item><seealso marker="crypto#block_decrypt-3">block_decrypt/3</seealso></item>
+      <item><seealso marker="crypto#block_decrypt-4">block_decrypt/4</seealso></item>
+      <item><seealso marker="crypto#stream_init-2">stream_init/2</seealso></item>
+      <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
+      <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
+      <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
+    </list>
+    <p>for lists of supported algorithms:</p>
+    <list>
+      <item><seealso marker="crypto#supports-0">supports/0</seealso></item>
+    </list>
+    <p>and for MACs (Message Authentication Codes):</p>
+    <list>
+      <item><seealso marker="crypto#cmac-3">cmac/3</seealso></item>
+      <item><seealso marker="crypto#cmac-4">cmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac-3">hmac/3</seealso></item>
+      <item><seealso marker="crypto#hmac-4">hmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac_init-2">hmac_init/2</seealso></item>
+      <item><seealso marker="crypto#hmac_update-2">hmac_update/2</seealso></item>
+      <item><seealso marker="crypto#hmac_final-1">hmac_final/1</seealso></item>
+      <item><seealso marker="crypto#hmac_final_n-2">hmac_final_n/2</seealso></item>
+      <item><seealso marker="crypto#poly1305-2">poly1305/2</seealso></item>
+    </list>
+    <p>They are not deprecated for now, but may be in a future release.
+    </p>
+  </section>
+
+  <section>
+    <title>The new API</title>
+    <section>
+      <title>Encryption and decryption</title>
+      <p>The new functions for encrypting or decrypting one single binary are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
+      </list>
+      <p>In those functions the internal crypto state is first created and initialized
+      with the cipher type, the key and possibly other data. Then the single binary is encrypted
+      or decrypted,
+      the crypto state is de-allocated and the result of the crypto operation is returned.
+      </p>
+      <p>The <c>crypto_one_time_aead</c> functions are for the ciphers of mode <c>ccm</c> or
+      <c>gcm</c>, and for the cipher <c>chacha20-poly1305</c>.
+      </p>
+      <p>For repeated encryption or decryption of a text divided in parts, where the internal
+      crypto state is initialized once, and then many binaries are encrypted or decrypted with
+      the same state, the functions are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
+	<item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
+	<item><seealso marker="crypto#crypto_update/2">crypto_update/2</seealso></item>
+      </list>
+      <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
+      <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
+      can't be handled this way due to their nature.
+      </p>
+      <p>For repeated encryption or decryption of a text divided in parts where the
+      same cipher and same key is used, but a new initialization vector (nounce) should be applied
+      for each part, the functions are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
+	<item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
+      </list>
+      <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
+      <p>For information about available algorithms, use:
+      </p>
+      <list>
+	<item><seealso marker="crypto#supports-1">supports/1</seealso></item>
+	<item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
+	<item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
+      </list>
+    </section>
+
+    <section>
+      <title>MACs (Message Authentication Codes)</title>
+      <p>The new functions for calculating a MAC of a single piece of text are:</p>
+      <list>
+        <item><seealso marker="crypto#mac-3">mac/3</seealso></item>
+        <item><seealso marker="crypto#mac-4">mac/4</seealso></item>
+        <item><seealso marker="crypto#macN-4">macN/4</seealso></item>
+        <item><seealso marker="crypto#macN-5">macN/5</seealso></item>
+      </list>
+      <p>For calculating a MAC of a text divided in parts use:</p>
+      <list>
+        <item><seealso marker="crypto#mac_init-2">mac_init/2</seealso></item>
+        <item><seealso marker="crypto#mac_init-3">mac_init/3</seealso></item>
+        <item><seealso marker="crypto#mac_update-2">mac_update/2</seealso></item>
+        <item><seealso marker="crypto#mac_final-1">mac_final/1</seealso></item>
+        <item><seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso></item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Examples of the new api</title>
+    <section>
+      <title>Examples of crypto_init/4 and crypto_update/2</title>
+      <p>The functions <seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>
+      and <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso> are intended
+      to be used for encrypting or decrypting a sequence of blocks. First one call of
+      <c>crypto_init/4</c> initialises the crypto context. One or more calls <c>crypto_update/2</c>
+      does the actual encryption or decryption for each block.
+      </p>
+      <p>This example shows first the encryption of two blocks and then decryptions of the cipher
+      text, but divided into three blocks just to show that it is possible to divide the plain text and
+      cipher text differently for some ciphers:</p>
+      <code type="erl">
+	1> crypto:start().
+	ok
+	2> Key = &lt;&lt;1:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	3> IV = &lt;&lt;0:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	4> StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -> true
+	#Ref&lt;0.3768901617.1128660993.124047>
+	5> crypto:crypto_update(StateEnc, &lt;&lt;"First bytes">>).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162>>
+	6> crypto:crypto_update(StateEnc, &lt;&lt;"Second bytes">>).
+	&lt;&lt;16,79,94,115,234,197,94,253,16,144,151,41>>
+	7>
+	7> StateDec = crypto:crypto_init(aes_128_ctr, Key, IV, false). % decrypt -> false
+	#Ref&lt;0.3768901617.1128660994.124255>
+	8> crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203>>).
+	&lt;&lt;"First b">>
+	9> crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
+        94,253,16,144,151>>).
+	&lt;&lt;"ytesSecond byte">>
+	10> crypto:crypto_update(StateDec, &lt;&lt;41>>).
+	&lt;&lt;"s">>
+	11>
+      </code>
+      <p>Note that the internal data that the <c>StateEnc</c> and <c>StateDec</c> references are
+      destructivly updated by the calls to <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
+      This is to gain time in the calls of the nifs interfacing the cryptolib. In a loop where the
+      state is saved in the loop's state, it also saves one update of the loop state per crypto operation.
+      </p>
+      <p>For example, a simple server receiving text parts to encrypt and send the result back to the
+      one who sent them (the <c>Requester</c>):
+      </p>
+      <code type="erl">
+	encode(Crypto, Key, IV) ->
+	crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
+
+	crypto_loop(State) ->
+	receive
+        {Text, Requester} ->
+        Requester ! crypto:crypto_update(State, Text),
+	loop(State)
+	end.
+      </code>
+    </section>
+
+    <section>
+      <title>Example of crypto_one_time/5</title>
+      <p>The same example as in the
+      <seealso marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seealso>,
+      but now with one call to <seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso>:
+      </p>
+      <code>
+	1> Key = &lt;&lt;1:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	2> IV = &lt;&lt;0:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	3> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>].
+	[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]
+	4> crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162,16,79,94,115,234,
+	197,94,253,16,144,151,41>>
+	5>
+      </code>
+      <p>The <c>[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]</c> could of course have been one
+      single binary: <c>&lt;&lt;"First bytesSecond bytes">></c>.
+      </p>
+    </section>
+
+    <section>
+      <title>Example of crypto_one_time_aead/6</title>
+      <p>The same example as in the
+      <seealso marker="#example-of-crypto_one_time-5">previous section</seealso>,
+      but now with one call to <seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso>:
+      </p>
+      <code>
+	1> Key = &lt;&lt;1:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	2> IV = &lt;&lt;0:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	3> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>].
+	[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]
+	4> AAD = &lt;&lt;"Some bytes">>.
+	&lt;&lt;"Some bytes">>
+	5> crypto:crypto_one_time_aead(aes_128_gcm, Key, IV, Txt, AAD, true).
+	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
+	192,103,176,90,104,15,71,158>>,
+	&lt;&lt;131,47,45,91,142,85,9,244,21,141,214,71,31,135,2,155>>}
+	9>
+      </code>
+      <p>The <c>[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]</c> could of course have been one
+      single binary: <c>&lt;&lt;"First bytesSecond bytes">></c>.
+      </p>
+    </section>
+
+    <section>
+      <title>Example of mac_init mac_update and mac_final</title>
+      <code>
+	1> Key = &lt;&lt;1:128>>.           
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	2> StateMac = crypto:mac_init(cmac, aes_128_cbc, Key).                   
+	#Ref&lt;0.2424664121.2781478916.232610>
+	3> crypto:mac_update(StateMac, &lt;&lt;"First bytes">>).
+	#Ref&lt;0.2424664121.2781478916.232610>
+	4> crypto:mac_update(StateMac, " ").              
+	#Ref&lt;0.2424664121.2781478916.232610>
+	5> crypto:mac_update(StateMac, &lt;&lt;"last bytes">>). 
+	#Ref&lt;0.2424664121.2781478916.232610>
+	6> crypto:mac_final(StateMac).
+	&lt;&lt;68,191,219,128,84,77,11,193,197,238,107,6,214,141,160,
+	249>>
+	7>
+      </code>
+      <p>and compare the result with a single calculation just for this example:</p>
+      <code>
+	7> crypto:mac(cmac, aes_128_cbc, Key, "First bytes last bytes").
+	&lt;&lt;68,191,219,128,84,77,11,193,197,238,107,6,214,141,160,
+	249>>
+	8> v(7) == v(6).
+	true
+	9> 
+      </code>
+    </section>
+
+  </section>
+
+  <section>
+    <title>Retired cipher names</title>
+    <p>This table lists the retired cipher names in the first column and suggests names to replace them with
+    in the second column.
+    </p>
+    <p>The new names follows the OpenSSL libcrypto names. The format is ALGORITM_KEYSIZE_MODE.
+    </p>
+    <p>Examples of algorithms are aes, chacha20 and des.  The keysize is the number of bits
+    and examples of the mode are cbc, ctr and gcm. The mode may be followed by a number depending
+    on the mode. An example is the ccm mode which has a variant called ccm8 where the so called tag
+    has a length of eight bits.
+    </p>
+    <p>The old names had by time lost any common naming convention which the new names now introduces. The new names include
+    the key length which improves the error checking in the lower levels of the crypto application.
+    </p>
+
+    <table>
+      <row><cell><strong>Instead of:</strong></cell> <cell><strong>Use:</strong> </cell></row>
+
+      <row><cell><c>aes_cbc128</c>   </cell> <cell> <c>aes_128_cbc</c> </cell></row>
+      <row><cell><c>aes_cbc256</c>   </cell> <cell> <c>aes_256_cbc</c> </cell></row>
+      <row><cell><c>aes_cbc</c>      </cell> <cell> <c>aes_128_cbc, aes_192_cbc, aes_256_cbc</c></cell></row>
+      <row><cell><c>aes_ccm</c>      </cell> <cell> <c>aes_128_ccm, aes_192_ccm, aes_256_ccm</c></cell></row>
+      <row><cell><c>aes_cfb128</c>   </cell> <cell> <c>aes_128_cfb128, aes_192_cfb128, aes_256_cfb128</c></cell></row>
+      <row><cell><c>aes_cfb8</c>     </cell> <cell> <c>aes_128_cfb8, aes_192_cfb8, aes_256_cfb8</c></cell></row>
+      <row><cell><c>aes_ctr</c>      </cell> <cell> <c>aes_128_ctr, aes_192_ctr, aes_256_ctr</c></cell></row>
+      <row><cell><c>aes_gcm</c>      </cell> <cell> <c>aes_128_gcm, aes_192_gcm, aes_256_gcm</c></cell></row>
+      <row><cell><c>des3_cbc</c>     </cell> <cell> <c>des_ede3_cbc</c></cell></row>
+      <row><cell><c>des3_cbf</c>     </cell> <cell> <c>des_ede3_cfb</c></cell></row>
+      <row><cell><c>des3_cfb</c>     </cell> <cell> <c>des_ede3_cfb</c></cell></row>
+      <row><cell><c>des_ede3</c>     </cell> <cell> <c>des_ede3_cbc</c></cell></row>
+      <row><cell><c>des_ede3_cbf</c> </cell> <cell> <c>des_ede3_cfb</c></cell></row>
+      <tcaption></tcaption>
+    </table>
+  </section>
+
+</chapter>

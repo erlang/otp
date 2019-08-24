@@ -1,0 +1,53 @@
+# 
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+# 
+# Author: Patrik Winroth
+#
+# This sed program file is intended to be used when creating Makefiles for vxworks
+# from the generic Makefile.in that is found in a number of directories (see configure.vxworks)
+#
+#
+#
+s|@host@|vxworks_ppc603|
+s|@system_type@|vxworks_ppc603|
+s|@ARCH@|ppc603|
+s|@CC@|@TTPREFIX@ccppc|
+s|@HCC@|gcc|
+s|@GCC@|yes|
+s|@LD@|@TTPREFIX@ldppc|
+s|@STRIP@|@TTPREFIX@stripppc|
+s|@SYMPREFIX@||
+s|@LIBS@||
+s|@GCCLIBFLAGS@|-L@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/powerpc-wrs-vxworks/cygnus-2.7.2-960126 -lgcc|
+s|@DED_LD@|@TTPREFIX@ldppc|
+s|@DED_CFLAGS@|@CFLAGS@|
+# generate dwarf debug code on PPC ..
+s|@DEBUG_FLAGS@|-gdwarf|
+# remove -g option
+s|TYPE_FLAGS = -g |TYPE_FLAGS = |
+s|@GCCLIB_PATH@|@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/powerpc-wrs-vxworks/cygnus-2.7.2-960126/libgcc.a|
+s|@RANLIB@|@TTPREFIX@ranlibppc|
+s|@AR@|@TTPREFIX@arppc|
+# -Dasm(X)= is for beam
+
+s|@LIB_CFLAGS@|@CFLAGS@|
+
+s|@CFLAGS@|@GENERAL_CFLAGS@ -DCPU=PPC603 -DWANT_NONBLOCKING -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/target/h -mstrict-align -fvolatile -fno-builtin -fno-for-scope -D_GNU_TOOL|
+#s|@LIB_CFLAGS@|@GENERAL_CFLAGS@ -DCPU=PPC603 -DWANT_NONBLOCKING -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/target/h -mstrict-align -fvolatile -fno-builtin -fno-for-scope -D_GNU_TOOL|
+

@@ -1,0 +1,4 @@
+EXPORTS
+	erl_start
+	sys_get_key
+	sys_primitive_init

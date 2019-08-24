@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# This program invokes the erlang emulator by calling run_erl.
+# It should only be used at an embedded target system.
+# It should be modified to give the correct flags to erl (via start_erl),
+# e.g -mode embedded -sname XXX
+#
+# Usage: start [Data]
+#
+ROOTDIR=%ROOT%
+
+if [ "x${NODENAME}" = "x" ]
+then
+    echo "ERROR: Variable \$NODENAME is not set!!"
+    exit 1
+fi
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+HEART_COMMAND=$ROOTDIR/bin/start
+export HEART_COMMAND
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname $NODENAME -mode embedded" > $ROOTDIR/log/run_erl.out 2>&1  &

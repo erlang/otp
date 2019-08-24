@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Processes</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2007-11-21</date>
+    <rev></rev>
+    <file>processes.xml</file>
+  </header>
+
+  <section>
+    <title>Creating an Erlang Process</title>
+
+    <p>An Erlang process is lightweight compared to threads and
+    processes in operating systems.</p>
+
+    <p>A newly spawned Erlang process uses 309 words of memory
+    in the non-SMP emulator without HiPE support. (SMP support
+    and HiPE support both add to this size.) The size can
+    be found as follows:</p>
+
+    <pre>
+Erlang (BEAM) emulator version 5.6 [async-threads:0] [kernel-poll:false]
+
+Eshell V5.6  (abort with ^G)
+1> <input>Fun = fun() -> receive after infinity -> ok end end.</input>
+#Fun&lt;...>
+2> <input>{_,Bytes} = process_info(spawn(Fun), memory).</input>
+{memory,1232}
+3> <input>Bytes div erlang:system_info(wordsize).</input>
+309</pre>
+    
+    <p>The size includes 233 words for the heap area (which includes the
+    stack). The garbage collector increases the heap as needed.</p>
+
+    <p>The main (outer) loop for a process <em>must</em> be tail-recursive.
+    Otherwise, the stack grows until the process terminates.</p>
+
+    <p><em>DO NOT</em></p>
+    <code type="erl">
+loop() -> 
+  receive
+     {sys, Msg} ->
+         handle_sys_msg(Msg),
+         loop();
+     {From, Msg} ->
+          Reply = handle_msg(Msg),
+          From ! Reply,
+          loop()
+  end,
+  io:format("Message is processed~n", []).</code>
+
+    <p>The call to <c>io:format/2</c> will never be executed, but a
+    return address will still be pushed to the stack each time
+    <c>loop/0</c> is called recursively. The correct tail-recursive
+    version of the function looks as follows:</p>
+
+    <p><em>DO</em></p>
+<code type="erl">
+   loop() -> 
+      receive
+         {sys, Msg} ->
+            handle_sys_msg(Msg),
+            loop();
+         {From, Msg} ->
+            Reply = handle_msg(Msg),
+            From ! Reply,
+            loop()
+    end.</code>
+
+    <section>
+      <title>Initial Heap Size</title>
+
+      <p>The default initial heap size of 233 words is quite conservative
+      to support Erlang systems with hundreds of thousands or
+      even millions of processes. The garbage collector grows and
+      shrinks the heap as needed.</p>
+
+      <p>In a system that use comparatively few processes, performance
+      <em>might</em> be improved by increasing the minimum heap size
+      using either the <c>+h</c> option for
+      <seealso marker="erts:erl">erl</seealso> or on a process-per-process
+      basis using the <c>min_heap_size</c> option for
+      <seealso marker="erts:erlang#spawn_opt/4">spawn_opt/4</seealso>.</p>
+
+      <p>The gain is twofold:</p>
+      <list type="bulleted">
+	<item>Although the garbage collector grows the heap, it grows it
+	step-by-step, which is more costly than directly establishing a
+	larger heap when the process is spawned.</item>
+	<item>The garbage collector can also shrink the heap if it is
+	much larger than the amount of data stored on it;
+	setting the minimum heap size prevents that.</item>
+      </list>
+
+      <warning><p>The emulator probably uses more memory, and because garbage
+      collections occur less frequently, huge binaries can be
+      kept much longer.</p></warning>
+
+      <p>In systems with many processes, computation tasks that run
+      for a short time can be spawned off into a new process with
+      a higher minimum heap size. When the process is done, it sends
+      the result of the computation to another process and terminates.
+      If the minimum heap size is calculated properly, the process might
+      not have to do any garbage collections at all.
+      <em>This optimization is not to be attempted
+      without proper measurements.</em></p>
+    </section>
+  </section>
+
+  <section>
+    <title>Process Messages</title>
+
+    <p>All data in messages between Erlang processes is copied,
+      except for
+      <seealso marker="binaryhandling#refc_binary">refc binaries</seealso>
+      on the same Erlang node.</p>
+
+    <p>When a message is sent to a process on another Erlang node,
+      it is first encoded to the Erlang External Format before
+      being sent through a TCP/IP socket. The receiving Erlang node decodes
+      the message and distributes it to the correct process.</p>
+
+    <section>
+      <title>Constant Pool</title>
+
+      <p>Constant Erlang terms (also called <em>literals</em>) are
+      kept in constant pools; each loaded module has its own pool.
+      The following function does not build the tuple every time
+      it is called (only to have it discarded the next time the garbage
+      collector was run), but the tuple is located in the module's
+      constant pool:</p>
+
+    <p><em>DO</em></p>
+      <code type="erl">
+days_in_month(M) ->
+    element(M, {31,28,31,30,31,30,31,31,30,31,30,31}).</code>
+
+      <p>But if a constant is sent to another process (or stored in
+      an Ets table), it is <em>copied</em>.
+      The reason is that the runtime system must be able
+      to keep track of all references to constants to unload code
+      containing constants properly. (When the code is unloaded,
+      the constants are copied to the heap of the processes that refer
+      to them.) The copying of constants might be eliminated in a future
+      Erlang/OTP release.</p>
+    </section>
+
+    <section>
+      <title>Loss of Sharing</title>
+
+      <p>Shared subterms are <em>not</em> preserved in the following
+      cases:</p>
+      <list type="bulleted">
+	<item>When a term is sent to another process</item>
+	<item>When a term is passed as the initial process arguments in
+	the <c>spawn</c> call</item>
+	<item>When a term is stored in an Ets table</item>
+      </list>
+      <p>That is an optimization. Most applications do not send messages
+      with shared subterms.</p>
+
+      <p>The following example shows how a shared subterm can be created:</p>
+
+      <code type="erl">
+kilo_byte() ->
+    kilo_byte(10, [42]).
+
+kilo_byte(0, Acc) ->
+    Acc;
+kilo_byte(N, Acc) ->
+    kilo_byte(N-1, [Acc|Acc]).</code>
+
+       <p><c>kilo_byte/1</c> creates a deep list.
+       If <c>list_to_binary/1</c> is called, the deep list can be
+       converted to a binary of 1024 bytes:</p>
+
+      <pre>
+1> <input>byte_size(list_to_binary(efficiency_guide:kilo_byte())).</input>
+1024</pre>
+
+       <p>Using the <c>erts_debug:size/1</c> BIF, it can be seen that the
+       deep list only requires 22 words of heap space:</p>
+
+      <pre>
+2> <input>erts_debug:size(efficiency_guide:kilo_byte()).</input>
+22</pre>
+
+       <p>Using the <c>erts_debug:flat_size/1</c> BIF, the size of the
+       deep list can be calculated if sharing is ignored. It becomes
+       the size of the list when it has been sent to another process
+       or stored in an Ets table:</p>
+
+      <pre>
+3> <input>erts_debug:flat_size(efficiency_guide:kilo_byte()).</input>
+4094</pre>
+
+      <p>It can be verified that sharing will be lost if the data is
+      inserted into an Ets table:</p>
+
+      <pre>
+4> <input>T = ets:new(tab, []).</input>
+#Ref&lt;0.1662103692.2407923716.214181>
+5> <input>ets:insert(T, {key,efficiency_guide:kilo_byte()}).</input>
+true
+6> <input>erts_debug:size(element(2, hd(ets:lookup(T, key)))).</input>
+4094
+7> <input>erts_debug:flat_size(element(2, hd(ets:lookup(T, key)))).</input>
+4094</pre>
+
+      <p>When the data has passed through an Ets table,
+      <c>erts_debug:size/1</c> and <c>erts_debug:flat_size/1</c>
+      return the same value. Sharing has been lost.</p>
+
+      <p>In a future Erlang/OTP release, it might be implemented a
+      way to (optionally) preserve sharing.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>SMP Emulator</title>
+
+    <p>The SMP emulator (introduced in R11B) takes advantage of a
+    multi-core or multi-CPU computer by running several Erlang scheduler
+    threads (typically, the same as the number of cores). Each scheduler
+    thread schedules Erlang processes in the same way as the Erlang scheduler
+    in the non-SMP emulator.</p>
+
+    <p>To gain performance by using the SMP emulator, your application
+    <em>must have more than one runnable Erlang process</em> most of the time.
+    Otherwise, the Erlang emulator can still only run one Erlang process
+    at the time, but you must still pay the overhead for locking. Although
+    Erlang/OTP tries to reduce the locking overhead as much as possible,
+    it will never become exactly zero.</p>
+
+    <p>Benchmarks that appear to be concurrent are often sequential.
+    The estone benchmark, for example, is entirely sequential. So is
+    the most common implementation of the "ring benchmark"; usually one process
+    is active, while the others wait in a <c>receive</c> statement.</p>
+  </section>
+</chapter>
+

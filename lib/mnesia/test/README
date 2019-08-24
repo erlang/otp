@@ -1,0 +1,107 @@
+This directory contains the test suite of Mnesia.
+Compile it with "erl -make".
+
+Test cases are identified with a {Mod, Fun} tuple that maps
+to a function Mod:Fun(Config), where the test case hopefully
+is implemented. The test suite is organized in a hierarchy
+with {mnesia_SUITE, all} as the top.
+
+The module called mt, implements various convenience functions
+to ease up the execution of test cases. It does also provide
+aliases for some test cases. For example the atom Mod is an
+alias for {Mod, all}, the atom all for {mnesia_SUITE, all},
+evil for mnesia_evil_coverage_test etc.
+
+   mt:struct(TestCase)
+
+      Displays the test case structure from TestCase
+      and downwards the hierarchy. E.g. mt:struct(all)
+      will display the entire test suite.
+
+   mt:t(TestCase), mt:t(TestCase, Config)
+
+      Runs a single test case or a hierarchy of test cases.
+      mt:t(silly) is be a good starter, but you may also
+      try mt:t(all) directly if you feel lucky.
+
+      The identity of the last run test case and the outcome of
+      it is stored on file. mt:t() will re-run the last test case.
+
+      The Config argument contains various configuration
+      parameters for the test cases, such as which nodes that
+      are available for running the test suite. The default
+      settings should be enough for the most. Use mt:read_config()
+      to get the current default setting and change it with
+      mt:write_config(Config).
+
+   mt:doc(TestCase)
+
+      Generates html documentation for the test suite.
+
+In order to be able to run the test suite, the Erlang node must
+be started with the distribution enabled and the code path must
+be set to the mnesia/ebin, mnesia/examples, and mnesia/test
+directories. E.g. the following would do:
+
+    erl -sname a -pa $top/examples -pa $top/src -pa $top/ebin
+
+where $top is the path to the Mnesia installation. Many test
+cases needs 2 or 3 nodes. The node names may explicitly be
+stated as test suite configuration parameters, but by default
+the extra node names are generated. In this example the names
+will be: a, a1 and a2. It is enough to start the first node
+manually, the extra nodes will automatically be started if
+necessary.
+
+The attached UNIX shell script mt, does not work on all
+platforms, but it may be used as a source for inspiration. It
+starts three Erlang nodes in one xterm's each. The main xterm
+(a@localhost) logs all output in the Erlang shell to a
+file. The file is piped thru grep to easily find successful
+test cases (i.e. test cases that encountered an error).
+
+During development we want to be able to run the test cases
+in the debugger. This demands a little bit of preparations:
+
+  - Start the necessary number of nodes (normally 3).
+    This may either be done by running the mt script or
+    by starting the main node and then invoke mt:start_nodes()
+    to start the extra nodes with slave.
+
+  - Ensure that the nodes are connected. The easiest way to do
+    this is by invoking mt:ping().
+
+  - Load all files that needs to be interpreted. This is typically
+    all Mnesia files plus the test case. By invoking mnesia:ni()
+    and mnesia:ni([TestModule]) the necessary modules will be
+    loaded on all CONNECTED nodes.
+
+The test case execution is supervised in order to ensure that no test
+case exceeds its maximum time limit, which by default is 5 minutes.
+When the limit is reached, the running test case gets aborted and the
+test server runs the next test case in line. This behaviour is useful
+when running the entire test suite during the night, but it is really
+annoying during debugging.
+
+   Use the "erl -mnesia_test_timeout" flag to disable the test case
+   time limit mechanism.
+
+Some mechanisms in Mnesia are almost impossible to test with a
+white box technique. In order to be able to write predictable
+test cases which tests the same thing every time it is run,
+Mnesia has been instrumented with debug functions. These may be
+controlled from a test program. For example to verify that the
+commit protocols work it is essential that it is possible to
+ensure that we are able to kill Mnesia in the most critical
+situations. Normally Mnesia is compiled with the debug
+functions disabled and this means that test cases which
+requires this functionality will be skipped. The mnesia:ni(),
+mentioned above, functions ensures that the interpreted code is
+instrumented with Mnesia's debug functionality. The mnesia:nc()
+functions compiles Mnesia with the debug setting enabled.
+
+Happy bug hunting!
+
+        Hakan Mattsson <hakan@erix.ericsson.se>
+
+

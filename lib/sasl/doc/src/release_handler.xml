@@ -1,0 +1,822 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>release_handler</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">release_handler</module>
+  <modulesummary>Unpacking and Installation of Release Packages</modulesummary>
+  <description>
+    <p>The <em>release handler</em> process belongs to the SASL
+      application, which is responsible for <em>release handling</em>,
+      that is, unpacking, installation, and removal of release packages.</p>
+    <p>An introduction to release handling and an example is provided in
+      <seealso marker="doc/design_principles:release_handling">OTP Design
+      Principles</seealso> in <em>System Documentation</em>.</p>
+    <p>A <em>release package</em> is a compressed tar file containing
+      code for a certain version of a release, created by calling
+      <seealso marker="systools#make_tar/1"><c>systools:make_tar/1,2</c></seealso>.
+      The release package is to be located in the <c>$ROOT/releases</c>
+      directory of the previous version of the release, where
+      <c>$ROOT</c> is the installation root directory,
+      <seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso>.
+      Another <c>releases</c> directory can be specified using the SASL
+      configuration parameter <c>releases_dir</c> or the OS environment
+      variable <c>RELDIR</c>. The release handler must have write access
+      to this directory to install the new release.
+      The persistent state of the release handler is stored there in a
+      file called <c>RELEASES</c>.</p>
+    <p>A release package is always to contain:</p>
+    <list type="bulleted">
+      <item>A release resource file, <c>Name.rel</c></item>
+      <item>A boot script, <c>Name.boot</c></item>
+    </list>
+    <p>The <c>.rel</c> file contains information about the release: its name,
+      version, and which ERTS and application versions it uses.</p>
+    <p>A release package can also contain:</p>
+    <list type="bulleted">
+      <item>A release upgrade file, <c>relup</c></item>
+      <item>A system configuration file, <c>sys.config</c></item>
+      <item>A system configuration source file, <c>sys.config.src</c></item>
+    </list>
+    <p>The <c>relup</c> file contains instructions for how to upgrade
+      to, or downgrade from, this version of the release.</p>
+    <p>The release package can be <em>unpacked</em>, which extracts
+      the files. An unpacked release can be <em>installed</em>.
+      The currently used version of the release is then upgraded or
+      downgraded to the specified version by evaluating the instructions
+      in the <c>relup</c> file. An installed release can be made
+      <em>permanent</em>. Only one permanent release can exist in
+      the system, and this release is used if the system
+      is restarted. An installed release, except the permanent one,
+      can be <em>removed</em>. When a release is removed, all files
+      belonging to that release only are deleted.</p>
+    <p>Each release version has a status, which can be
+      <c>unpacked</c>, <c>current</c>, <c>permanent</c>, or <c>old</c>.
+      There is always one latest release, which either has status
+      <c>permanent</c> (normal case) or <c>current</c> (installed, but
+      not yet made permanent). The meaning of the status values are
+      illustrated in the following table:</p>
+    <pre>
+        Status     Action                NextStatus
+        -------------------------------------------
+        -          unpack                unpacked
+        unpacked   install               current
+                   remove                -
+        current    make_permanent        permanent
+                   install other         old
+                   remove                -
+        permanent  make other permanent  old
+                   install               permanent
+        old        reboot_old            permanent
+                   install               current
+                   remove                -</pre>
+    <p>The release handler process is a locally registered process on
+      each node. When a release is installed in a distributed system,
+      the release handler on each node must be called. The release
+      installation can be synchronized between nodes. From an operator
+      view, it can be unsatisfactory to specify each node. The aim is
+      to install one release package in the system, no matter how many
+      nodes there are. It is recommended that
+      software management functions are written that take care of
+      this problem. Such a function can have knowledge of the system
+      architecture, so it can contact each individual release handler
+      to install the package.</p>
+    <p>For release handling to work properly, the runtime system must
+      know which release it is running. It
+      must also be able to change (in runtime) which boot script and
+      system configuration file are to be used if the system is
+      restarted. This is taken care of automatically if Erlang is
+      started as an embedded system. Read about this in
+      <seealso marker="doc/embedded:users_guide">Embedded System</seealso> in
+      <em>System Documentation</em>. In this case, the system
+      configuration file <c>sys.config</c> is mandatory.</p>
+    <p>The installation of a new release can restart the system. Which
+      program to use is specified by the SASL configuration
+      parameter <c>start_prg</c>, which defaults
+      to <c>$ROOT/bin/start</c>.</p>
+    <p>The emulator restart on Windows NT expects that the system is
+      started using the <c>erlsrv</c> program (as a service).
+      Furthermore, the release handler expects that the service is named
+      <c>NodeName</c>_<c>Release</c>, where <c>NodeName</c> is
+      the first part of the Erlang node name (up to, but not including
+      the "@") and <c>Release</c> is the current release version.
+      The release handler furthermore expects that a
+      program like <c>start_erl.exe</c> is specified as "machine" to
+      <c>erlsrv</c>. During upgrading with restart, a new service
+      is registered and started. The new service is set to
+      automatic and the old service is removed when the new release
+      is made permanent.</p>
+    <p>The release handler at a node running on a diskless machine,
+      or with a read-only file system, must be configured accordingly
+      using the following SASL configuration parameters (for
+      details, see <seealso marker="sasl_app">sasl(6)</seealso>):</p>
+    <taglist>
+      <tag><c>masters</c></tag>
+      <item>
+        <p>This node uses some master nodes to store
+          and fetch release information. All master nodes must be
+          operational whenever release information is written by this
+          node.</p>
+      </item>
+      <tag><c>client_directory</c></tag>
+      <item>
+        <p>The <c>client_directory</c> in the directory structure of
+          the master nodes must be specified.</p>
+      </item>
+      <tag><c>static_emulator</c></tag>
+      <item>
+        <p>This parameter specifies if the Erlang emulator is
+          statically installed at the client node. A node with a static
+          emulator cannot dynamically switch to a new emulator, as
+          the executable files are statically written into memory.</p>
+      </item>
+    </taglist>
+    <p>The release handler can also be used to unpack and
+      install release packages when not running Erlang as an embedded
+      system. However, in this case the user must somehow ensure that
+      correct boot scripts and configuration files are used if
+      the system must be restarted.</p>
+    <p>Functions are provided for using another file structure
+      than the structure defined in OTP. These functions can be used
+      to test a release upgrade locally.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="OTP R14B04">check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <fsummary>Checks installation of a release in the system.</fsummary>
+      <type>
+        <v>Vsn = OtherVsn = string()</v>
+	<v>Opts = [Opt]</v>
+	<v>Opt = purge</v>
+        <v>Descr = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Checks if the specified version <c>Vsn</c> of the release
+          can be installed. The release must not have status
+          <c>current</c>. Issues warnings if <c>relup</c> file or
+          <c>sys.config</c> is not present. If <c>relup</c> file is present,
+          its contents are checked and <c>{error,Reason}</c> is
+          returned if an error is found. Also checks that all required
+          applications are present and that all new code can be loaded;
+          <c>{error,Reason}</c> is returned if an error is found.</p>
+        <p>Evaluates all instructions that occur before
+          the <c>point_of_no_return</c> instruction in the release
+          upgrade script.</p>
+        <p>Returns the same as 
+	<seealso marker="#install_release/1"><c>install_release/1</c></seealso>.
+	<c>Descr</c> defaults to "" if no <c>relup</c> file is found.</p>
+        <p>If option <c>purge</c> is specified, all old code that can
+          be soft-purged is purged after all other checks are
+          successfully completed. This can be useful to
+          reduce the time needed by <seealso
+          marker="#install_release/1"><c>install_release/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
+      <fsummary>Creates an initial <c>RELEASES</c> file.</fsummary>
+      <type>
+        <v>Root = RelDir = RelFile = string()</v>
+        <v>AppDirs = [{App, Vsn, Dir}]</v>
+        <v>&nbsp;App = atom()</v>
+        <v>&nbsp;Vsn = Dir = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates an initial <c>RELEASES</c> file to be used by the
+          release handler. This file must exist to install new
+          releases.</p>
+        <p><c>Root</c> is the root of the installation (<c>$ROOT</c>) as
+          described earlier. <c>RelDir</c> is the directory where
+          the <c>RELEASES</c> file is to be created (normally
+          <c>$ROOT/releases</c>). <c>RelFile</c> is the name
+          of the <c>.rel</c> file that describes the initial release,
+          including the extension <c>.rel</c>.</p>
+        <p><c>AppDirs</c> can be used to specify from where the modules
+          for the specified applications are to be loaded. <c>App</c> is
+          the name of an application, <c>Vsn</c> is the version, and
+          <c>Dir</c> is the name of the directory where <c>App-Vsn</c>
+          is located. The corresponding modules are to be located under
+          <c>Dir/App-Vsn/ebin</c>. The directories for applications not
+          specified in <c>AppDirs</c> are assumed to be located in
+          <c>$ROOT/lib</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">install_file(Vsn, File) -> ok | {error, Reason}</name>
+      <fsummary>Installs a release file in the release structure.</fsummary>
+      <type>
+        <v>Vsn = File = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Installs a release-dependent file in the release structure.
+          The release-dependent file must be in
+          the release structure when a new release is installed:
+          <c>start.boot</c>, <c>relup</c>, and <c>sys.config</c>.</p>
+        <p>The function can be called, for example, when these files
+          are generated at the target. The function is to be called after
+          <seealso marker="#set_unpacked/2"><c>set_unpacked/2</c></seealso> 
+	has been called.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="">install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</name>
+      <fsummary>Installs a release in the system.</fsummary>
+      <type>
+        <v>Vsn = OtherVsn = string()</v>
+        <v>Opt = {error_action, Action} | {code_change_timeout, Timeout}</v>
+        <v>&nbsp;&nbsp;&nbsp;| {suspend_timeout, Timeout} | {update_paths, Bool}</v>
+        <v>&nbsp;Action = restart | reboot</v>
+        <v>&nbsp;Timeout = default | infinity | pos_integer()</v>
+        <v>&nbsp;Bool = boolean()</v>
+        <v>Descr = term()</v>
+        <v>Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | {missing_base_app, OtherVsn, App} | {could_not_create_hybrid_boot, term()} | term()</v>
+	<v>App = atom()</v>
+      </type>
+      <desc>
+        <p>Installs the specified version <c>Vsn</c> of the release.
+          Looks first for a <c>relup</c> file for <c>Vsn</c> and a
+          script <c>{UpFromVsn,Descr1,Instructions1}</c> in this file
+          for upgrading from the current version. If not found,
+          the function looks for a <c>relup</c> file for the current
+          version and a script <c>{Vsn,Descr2,Instructions2}</c> in this
+          file for downgrading to <c>Vsn</c>.</p>
+        <p>If a script is found, the first thing that happens is that
+          the application specifications are updated according to
+          the <c>.app</c> files and <c>sys.config</c> belonging to
+          the release version <c>Vsn</c>.</p>
+        <p>After the application specifications have been updated,
+          the instructions in the script are evaluated and the function
+          returns <c>{ok,OtherVsn,Descr}</c> if successful.
+          <c>OtherVsn</c> and <c>Descr</c> are the version
+          (<c>UpFromVsn</c> or <c>Vsn</c>) and description
+          (<c>Descr1</c> or <c>Descr2</c>) as specified in the script.</p>
+	<p>If <c>{continue_after_restart,OtherVsn,Descr}</c> is
+	  returned, the emulator is restarted
+	  before the upgrade instructions are executed. This
+	  occurs if the emulator or any of the applications
+          Kernel, STDLIB, or SASL
+	  are updated. The new emulator version
+	  and these core applications execute after the restart.
+	  For all other applications the old versions are
+	  started and the upgrade is performed as normal by
+	  executing the upgrade instructions.</p>
+        <p>If a recoverable error occurs, the function returns
+          <c>{error,Reason}</c> and the original application
+          specifications are restored. If a non-recoverable error
+          occurs, the system is restarted.</p>
+        <p><em>Options</em>:</p>
+        <taglist>
+          <tag><c>error_action</c></tag>
+            <item><p>Defines if the node is to be
+            restarted 
+	    (<seealso marker="erts:init#restart/0"><c>init:restart()</c></seealso>) 
+	    or rebooted
+            (<seealso marker="erts:init#reboot/0"><c>init:reboot()</c></seealso>) 
+	    if there is an error during
+            the installation. Default is <c>restart</c>.</p></item>
+          <tag><c>code_change_timeout</c></tag>
+            <item><p>Defines the time-out
+            for all calls to 
+	    <seealso marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seealso>.
+	    If no value is specified or <c>default</c> is specified, the 
+	    default value defined in <c>sys</c> is used.</p></item>
+          <tag><c>suspend_timeout</c></tag>
+            <item><p>Defines the time-out for 
+            all calls to 
+	    <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso>.
+	    If no value is specified, the values defined by the <c>Timeout</c> 
+	    parameter of the <c>upgrade</c> or <c>suspend</c> instructions are used.
+            If <c>default</c> is specified, the default value defined in
+            <c>sys</c> is used.</p></item>
+          <tag><c>{update_paths,Bool}</c></tag>
+            <item><p>Indicates if all
+            application code paths are to be updated (<c>Bool==true</c>)
+            or if only code paths for modified applications are to be
+            updated (<c>Bool==false</c>, default). This option has only
+            effect for other application directories than the default
+            <c>$ROOT/lib/App-Vsn</c>, that is, application directories
+            specified in argument <c>AppDirs</c> in a call to
+            <seealso marker="#create_RELEASES/4"><c>create_RELEASES/4</c></seealso> or 
+	    <seealso marker="#set_unpacked/2"><c>set_unpacked/2</c></seealso>.</p>
+            <p><em>Example:</em></p>
+            <p>In the current version <c>CurVsn</c> of a release, the
+              application directory of <c>myapp</c> is
+              <c>$ROOT/lib/myapp-1.0</c>. A new version <c>NewVsn</c> is
+              unpacked outside the release handler and the release
+              handler is informed about this with a call as follows:</p>
+            <code type="none">
+release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
+=> {ok,NewVsn}</code>
+            <p>If <c>NewVsn</c> is installed with option
+              <c>{update_paths,true}</c>, then
+              <seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(myapp)</c></seealso>
+	      returns <c>/home/user/myapp-1.0</c>.</p></item>
+        </taglist>
+	<note>
+	  <p>Installing a new release can be time consuming if
+	  there are many processes in the system. The reason is that
+	  each process must be checked for references to old code
+	  before a module can be purged. This check can lead to
+	  garbage collections and copying of data.</p>
+	  <p>To speed up the execution of
+	  <seealso marker="#install_release/1"><c>install_release</c></seealso>, 
+	  first call <seealso
+	  marker="#check_install_release/1"><c>check_install_release</c></seealso>,
+	  using option <c>purge</c>. This does the same
+	  check for old code. Then purges all modules that can be
+	  soft-purged. The purged modules do then no longer have any
+	  old code, and 
+	  <seealso marker="#install_release/1"><c>install_release</c></seealso>
+	  does not need to do the
+	  checks.</p>
+	  <p>This does not reduce the overall time for the
+	  upgrade, but it allows checks and purge to be executed
+	  in the background before the real upgrade is started.</p>
+	</note>
+	<note>
+	  <p>When upgrading the emulator from a version older than OTP
+	  R15, an attempt is made to load new application beam
+	  code into the old emulator. Sometimes the new beam
+	  format cannot be read by the old emulator, so the code
+	  loading fails and the complete upgrade is terminated. To
+	  overcome this problem, the new application code is to be
+	  compiled with the old emulator. For more information about
+          emulator upgrade from pre OTP R15 versions, see
+          <seealso marker="doc/design_principles:appup_cookbook">Design
+          Principles</seealso> in <em>System Documentation</em>.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">make_permanent(Vsn) -> ok | {error, Reason}</name>
+      <fsummary>Makes the specified release version permanent.</fsummary>
+      <type>
+        <v>Vsn = string()</v>
+        <v>Reason = {bad_status, Status} | term()</v>
+      </type>
+      <desc>
+        <p>Makes the specified release version <c>Vsn</c>
+          permanent.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">remove_release(Vsn) -> ok | {error, Reason}</name>
+      <fsummary>Removes a release from the system.</fsummary>
+      <type>
+        <v>Vsn = string()</v>
+        <v>Reason = {permanent, Vsn} | client_node | term()</v>
+      </type>
+      <desc>
+        <p>Removes a release and its files from the system.
+          The release must not be the permanent release. Removes only
+          the files and directories not in use by another release.</p>
+      </desc>
+
+    </func>
+    <func>
+      <name since="">reboot_old_release(Vsn) -> ok | {error, Reason}</name>
+      <fsummary>Reboots the system from an old release.</fsummary>
+      <type>
+        <v>Vsn = string()</v>
+        <v>Reason = {bad_status, Status} | term()</v>
+      </type>
+      <desc>
+        <p>Reboots the system by making the old release permanent, and
+          calls 
+	  <seealso marker="erts:init#reboot/0"><c>init:reboot()</c></seealso> 
+	  directly. The release must have status <c>old</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_removed(Vsn) -> ok | {error, Reason}</name>
+      <fsummary>Marks a release as removed.</fsummary>
+      <type>
+        <v>Vsn = string()</v>
+        <v>Reason = {permanent, Vsn} | term()</v>
+      </type>
+      <desc>
+        <p>Makes it possible to handle removal of releases outside
+          the release handler. Tells the release handler that
+          the release is removed from the system. This function does
+          not delete any files.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_unpacked(RelFile, AppDirs) -> {ok, Vsn} | {error, Reason}</name>
+      <fsummary>Marks a release as unpacked.</fsummary>
+      <type>
+        <v>RelFile = string()</v>
+        <v>AppDirs = [{App, Vsn, Dir}]</v>
+        <v>&nbsp;App = atom()</v>
+        <v>&nbsp;Vsn = Dir = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Makes it possible to handle unpacking of releases outside
+          the release handler. Tells the release handler that
+          the release is unpacked. <c>Vsn</c> is extracted from
+          the release resource file <c>RelFile</c>.</p>
+        <p><c>AppDirs</c> can be used to specify from where the modules
+          for the specified applications are to be loaded. <c>App</c> is
+          the name of an application, <c>Vsn</c> is the version, and
+          <c>Dir</c> is the name of the directory where <c>App-Vsn</c>
+          is located. The corresponding modules are to be located under
+          <c>Dir/App-Vsn/ebin</c>. The directories for applications not
+          specified in <c>AppDirs</c> are assumed to be located in
+          <c>$ROOT/lib</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unpack_release(Name) -> {ok, Vsn} | {error, Reason}</name>
+      <fsummary>Unpacks a release package.</fsummary>
+      <type>
+        <v>Name = Vsn = string()</v>
+        <v>Reason = client_node | term()</v>
+      </type>
+      <desc>
+        <p>Unpacks a release package <c>Name.tar.gz</c> located in
+          the <c>releases</c> directory.</p>
+        <p>Performs some checks on the package, for example, checks
+          that all mandatory files are present, and extracts its
+          contents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_releases() -> [{Name, Vsn, Apps, Status}]</name>
+      <fsummary>Returns all known releases.</fsummary>
+      <type>
+        <v>Name = Vsn = string()</v>
+        <v>Apps = ["App-Vsn"]</v>
+        <v>Status = unpacked | current | permanent | old</v>
+      </type>
+      <desc>
+        <p>Returns all releases known to the release handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
+      <fsummary>Returns all known releases of a specific status.</fsummary>
+      <type>
+        <v>Name = Vsn = string()</v>
+        <v>Apps = ["App-Vsn"]</v>
+        <v>Status = unpacked | current | permanent | old</v>
+      </type>
+      <desc>
+        <p>Returns all releases, known to the release handler, of a
+          specific status.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Application Upgrade/Downgrade</title>
+    <p>The following functions can be used to test upgrade and downgrade
+      of single applications (instead of upgrading/downgrading an entire
+      release). A script corresponding to the instructions in the
+      <c>relup</c> file is created
+      on-the-fly, based on the <c>.appup</c> file for the application,
+      and evaluated exactly in the same way as <c>release_handler</c>
+      does.</p>
+    <warning>
+      <p>These functions are primarily intended for simplified testing
+        of <c>.appup</c> files. They are not run within the context of
+        the <c>release_handler</c> process. They must therefore
+        <em>not</em> be used together with calls to
+        <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>, 
+	as this causes the
+        <c>release_handler</c> to end up in an inconsistent state.</p>
+      <p>No persistent information is updated, so these functions can
+        be used on any Erlang node, embedded or not. Also, using these
+        functions does not affect which code is loaded if there is
+        a reboot.</p>
+      <p>If the upgrade or downgrade fails, the application can end up
+        in an inconsistent state.</p>
+    </warning>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <fsummary>Upgrades to a new application version.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Dir = string()</v>
+        <v>Unpurged = [Module]</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Upgrades an application <c>App</c> from the current
+          version to a new version located in <c>Dir</c> according to
+          the <c>.appup</c> file.</p>
+        <p><c>App</c> is the name of the application, which must be
+          started. <c>Dir</c> is the new library directory of
+          <c>App</c>. The corresponding modules as well as
+          the <c>.app</c> and <c>.appup</c> files are to be located
+          under <c>Dir/ebin</c>.</p>
+        <p>The function looks in the <c>.appup</c> file and tries to
+          find an upgrade script from the current version of
+          the application using
+          <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso>.
+          This script is evaluated using
+          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>,
+          exactly in the same way as
+          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          does.</p>
+        <p>Returns one of the following:</p>
+        <list type="bulleted">
+          <item><c>{ok, Unpurged}</c> if evaluating the script is
+            successful, where <c>Unpurged</c> is a list of unpurged
+            modules</item>
+          <item><c>restart_emulator</c> if this instruction is
+            encountered in the script</item>
+          <item><c>{error, Reason}</c> if an error occurred when
+            finding or evaluating the script</item>
+        </list>
+	<p>If the <c>restart_new_emulator</c> instruction is found in
+          the script, 
+	  <seealso marker="#upgrade_app/2"><c>upgrade_app/2</c></seealso> 
+	  returns <c>{error,restart_new_emulator}</c>. This because
+          <c>restart_new_emulator</c> requires a new version of the
+          emulator to be started before the rest of the upgrade
+          instructions can be executed, and this can only be done by
+          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">downgrade_app(App, Dir) -></name>
+      <name since="">downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <fsummary>Downgrades to a previous application version.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Dir = OldVsn = string()</v>
+        <v>Unpurged = [Module]</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Downgrades an application <c>App</c> from the current
+          version to a previous version <c>OldVsn</c> located in
+          <c>Dir</c> according to the <c>.appup</c> file.</p>
+        <p><c>App</c> is the name of the application, which must be
+          started. <c>OldVsn</c> is the previous application version
+          and can be omitted if <c>Dir</c> is of
+          the format <c>"App-OldVsn"</c>. <c>Dir</c> is the library
+          directory of the previous version of <c>App</c>.
+          The corresponding modules and the old <c>.app</c> file
+          are to be located under <c>Dir/ebin</c>. The <c>.appup</c>
+          file is to be located in the <c>ebin</c> directory of
+          the <em>current</em> library directory of the application
+          (<seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c></seealso>).</p>
+        <p>The function looks in the <c>.appup</c> file and tries to
+          find a downgrade script to the previous version of
+          the application using
+          <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso>.
+          This script is evaluated using
+          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>,
+          exactly in the same way as
+          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          does.</p>
+        <p>Returns one of the following:</p>
+        <list type="bulleted">
+          <item><c>{ok, Unpurged}</c> if evaluating the script is
+            successful, where <c>Unpurged</c> is a list of unpurged
+            modules</item>
+          <item><c>restart_emulator</c> if this instruction is
+            encountered in the script</item>
+          <item><c>{error, Reason}</c> if an error occurred when
+            finding or evaluating the script</item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">upgrade_script(App, Dir) -> {ok, NewVsn, Script}</name>
+      <fsummary>Finds an application upgrade script.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Dir = string()</v>
+        <v>NewVsn = string()</v>
+        <v>Script = Instructions</v>
+      </type>
+      <desc>
+        <p>Tries to find an application upgrade script for <c>App</c>
+          from the current version to a new version located in
+          <c>Dir</c>.</p>
+        <p>The upgrade script can then be evaluated using
+          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>.
+          It is recommended to use
+          <seealso marker="#upgrade_app/2"><c>upgrade_app/2</c></seealso>
+          instead, but this function (<c>upgrade_script</c>) is useful
+          to inspect the contents of the script.</p>
+        <p><c>App</c> is the name of the application, which must be
+          started. <c>Dir</c> is the new library directory of
+          <c>App</c>. The corresponding modules as well as
+          the <c>.app</c> and <c>.appup</c> files are to be located
+          under <c>Dir/ebin</c>.</p>
+        <p>The function looks in the <c>.appup</c> file and tries to
+          find an upgrade script from the current application version.
+          High-level instructions are translated to
+          low-level instructions. The instructions are sorted in
+          the same manner as when generating a <c>relup</c> file.</p>
+        <p>Returns <c>{ok, NewVsn, Script}</c> if successful, where
+          <c>NewVsn</c> is the new application version.
+	For details about <c>Script</c>, see 
+	<seealso marker="appup"><c>appup(4)</c></seealso>.</p>
+        <p>Failure: If a script cannot be found, the function fails
+          with an appropriate error reason.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">downgrade_script(App, OldVsn, Dir) -> {ok, Script}</name>
+      <fsummary>Finds an application downgrade script.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>OldVsn = Dir = string()</v>
+        <v>Script = Instructions</v>
+      </type>
+      <desc>
+        <p>Tries to find an application downgrade script for <c>App</c>
+          from the current version to a previous version <c>OldVsn</c>
+          located in <c>Dir</c>.</p>
+        <p>The downgrade script can then be evaluated using
+          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>.
+          It is recommended to use
+          <seealso marker="#downgrade_app/2"><c>downgrade_app/2,3</c></seealso>
+          instead, but this function (<c>downgrade_script</c>) is useful
+          to inspect the contents of the script.</p>
+        <p><c>App</c> is the name of the application, which must be
+          started. <c>Dir</c> is the previous library directory of
+          <c>App</c>. The corresponding modules and
+          the old <c>.app</c> file are to be located under
+          <c>Dir/ebin</c>. The <c>.appup</c> file is to be located in
+          the <c>ebin</c> directory of the <em>current</em> library
+          directory of the application 
+	(<seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c>)</seealso>.</p>
+        <p>The function looks in the <c>.appup</c> file and tries to
+          find a downgrade script from the current application version.
+          High-level instructions are translated to
+          low-level instructions. The instructions are sorted in
+          the same manner as when generating a <c>relup</c> file.</p>
+        <p>Returns <c>{ok, Script}</c> if successful. 
+	For details about <c>Script</c>, see 
+	<seealso marker="appup"><c>appup(4)</c></seealso>.</p>
+        <p>Failure: If a script cannot be found, the function fails
+          with an appropriate error reason.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <fsummary>Evaluates an application upgrade or downgrade script.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>ToVsn = ToDir = string()</v>
+        <v>Script</v>
+	<d>See <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso>, <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso></d>
+        <v>Unpurged = [Module]</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Evaluates an application upgrade or downgrade script
+          <c>Script</c>, the result from calling
+          <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso> or
+          <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso>,
+          exactly in the same way as
+          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          does.</p>
+        <p><c>App</c> is the name of the application, which must be
+          started. <c>ToVsn</c> is the version to be upgraded/downgraded
+          to, and <c>ToDir</c> is the library directory of this version.
+          The corresponding modules as well as the <c>.app</c> and
+          <c>.appup</c> files are to be located under <c>Dir/ebin</c>.</p>
+        <p>Returns one of the following:</p>
+        <list type="bulleted">
+          <item><c>{ok, Unpurged}</c> if evaluating the script is
+            successful, where <c>Unpurged</c> is a list of unpurged
+            modules</item>
+          <item><c>restart_emulator</c> if this instruction is
+            encountered in the script</item>
+          <item><c>{error, Reason}</c> if an error occurred when
+            finding or evaluating the script</item>
+        </list>
+        <p>If the <c>restart_new_emulator</c> instruction is found in
+          the script, 
+	  <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>
+	  returns <c>{error,restart_new_emulator}</c>. This because
+          <c>restart_new_emulator</c> requires a new version of the
+          emulator to be started before the rest of the upgrade
+          instructions can be executed, and this can only be done by
+          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Typical Error Reasons</title>
+    <taglist>
+      <tag><c>{bad_masters, Masters}</c></tag>
+        <item><p>The master nodes <c>Masters</c> are not alive.</p></item>
+      <tag><c>{bad_rel_file, File}</c></tag>
+        <item><p>Specified <c>.rel</c> file <c>File</c> cannot be read or
+          does not contain a single term.</p></item>
+      <tag><c>{bad_rel_data, Data}</c></tag>
+        <item><p>Specified <c>.rel</c> file does not contain a recognized
+          release specification, but another term <c>Data</c>.</p></item>
+      <tag><c>{bad_relup_file, File}</c></tag>
+        <item><p>Specified <c>relup</c> file <c>Relup</c> contains bad
+          data.</p></item>
+      <tag><c>{cannot_extract_file, Name, Reason}</c></tag>
+        <item><p>Problems when extracting from a tar file,
+          <seealso marker="stdlib:erl_tar#extract/2"><c>erl_tar:extract/2</c></seealso>
+	  returned <c>{error, {Name, Reason}}</c>.</p></item>
+      <tag><c>{existing_release, Vsn}</c></tag>
+        <item><p>Specified release version <c>Vsn</c> is already
+          in use.</p></item>
+      <tag><c>{Master, Reason, When}</c></tag>
+        <item><p>Some operation, indicated by the term <c>When</c>, failed
+          on the master node <c>Master</c> with the specified error
+          reason <c>Reason</c>.</p></item>
+      <tag><c>{no_matching_relup, Vsn, CurrentVsn}</c></tag>
+        <item><p>Cannot find a script for upgrading/downgrading between
+          <c>CurrentVsn</c> and <c>Vsn</c>.</p></item>
+      <tag><c>{no_such_directory, Path}</c></tag>
+        <item><p>The directory <c>Path</c>does not exist.</p></item>
+      <tag><c>{no_such_file, Path}</c></tag>
+        <item><p>The path <c>Path</c> (file or directory) does not
+          exist.</p></item>
+      <tag><c>{no_such_file, {Master, Path}}</c></tag>
+        <item><p>The path <c>Path</c> (file or directory) does not exist at
+          the master node <c>Master</c>.</p></item>
+      <tag><c>{no_such_release, Vsn}</c></tag>
+        <item><p>The specified release version <c>Vsn</c> does not
+          exist.</p></item>
+      <tag><c>{not_a_directory, Path}</c></tag>
+        <item><p><c>Path</c> exists but is not a directory.</p></item>
+      <tag><c>{Posix, File}</c></tag>
+        <item><p>Some file operation failed for <c>File</c>. <c>Posix</c>
+          is an atom named from the Posix error codes, such as
+          <c>enoent</c>, <c>eacces</c>, or <c>eisdir</c>. See
+          <seealso marker="kernel:file"><c>file(3)</c></seealso>
+          in Kernel.</p></item>
+      <tag><c>Posix</c></tag>
+        <item><p>Some file operation failed, as for the previous item in
+          the list.</p></item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="doc/design_principles:users_guide">OTP Design Principles</seealso>,
+      <seealso marker="kernel:config"><c>config(4)</c></seealso>,
+      <seealso marker="rel"><c>rel(4)</c></seealso>,
+      <seealso marker="relup"><c>relup(4)</c></seealso>,
+      <seealso marker="script"><c>script(4)</c></seealso>,
+      <seealso marker="stdlib:sys"><c>sys(3)</c></seealso>,
+      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+  </section>
+</erlref>

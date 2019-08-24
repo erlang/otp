@@ -1,0 +1,916 @@
+-- **************************************************************
+--
+-- Elementary Procedure definitions
+--
+-- **************************************************************
+
+NBAP-PDU-Descriptions {
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) nbap (2) version1 (1) nbap-PDU-Descriptions (0) }
+
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- **************************************************************
+--
+-- IE parameter types from other modules.
+--
+-- **************************************************************
+
+IMPORTS
+	Criticality,
+	ProcedureID,
+	MessageDiscriminator,
+	TransactionID
+FROM NBAP-CommonDataTypes
+
+	CommonTransportChannelSetupRequestFDD,
+	CommonTransportChannelSetupRequestTDD,
+	CommonTransportChannelSetupResponse,
+	CommonTransportChannelSetupFailure,
+	CommonTransportChannelReconfigurationRequestFDD,
+	CommonTransportChannelReconfigurationRequestTDD,
+	CommonTransportChannelReconfigurationResponse,
+	CommonTransportChannelReconfigurationFailure,
+	CommonTransportChannelDeletionRequest,
+	CommonTransportChannelDeletionResponse,
+	BlockResourceRequest,
+	BlockResourceResponse,
+	BlockResourceFailure,
+	UnblockResourceIndication,
+	AuditFailure,
+	AuditRequiredIndication,
+	AuditRequest,
+	AuditResponse,
+	CommonMeasurementInitiationRequest,
+	CommonMeasurementInitiationResponse,
+	CommonMeasurementInitiationFailure,
+	CommonMeasurementReport,
+	CommonMeasurementTerminationRequest,
+	CommonMeasurementFailureIndication,
+	CellSetupRequestFDD,
+	CellSetupRequestTDD,
+	CellSetupResponse,
+	CellSetupFailure,
+	CellReconfigurationRequestFDD,
+	CellReconfigurationRequestTDD,
+	CellReconfigurationResponse,
+	CellReconfigurationFailure,
+	CellDeletionRequest,
+	CellDeletionResponse,
+	InformationExchangeInitiationRequest,
+	InformationExchangeInitiationResponse,
+	InformationExchangeInitiationFailure,
+	InformationReport,
+	InformationExchangeTerminationRequest,
+	InformationExchangeFailureIndication,
+	BearerRearrangementIndication,
+	ResourceStatusIndication,
+	SystemInformationUpdateRequest,
+	SystemInformationUpdateResponse,
+	SystemInformationUpdateFailure,
+	ResetRequest,
+	ResetResponse,
+	RadioLinkActivationCommandFDD,
+	RadioLinkActivationCommandTDD,
+	RadioLinkPreemptionRequiredIndication,
+	RadioLinkSetupRequestFDD,
+	RadioLinkSetupRequestTDD,
+	RadioLinkSetupResponseFDD,
+	RadioLinkSetupResponseTDD,
+	RadioLinkSetupFailureFDD,
+	RadioLinkSetupFailureTDD,
+	RadioLinkAdditionRequestFDD,
+	RadioLinkAdditionRequestTDD,
+	RadioLinkAdditionResponseFDD,
+	RadioLinkAdditionResponseTDD,
+	RadioLinkAdditionFailureFDD,
+	RadioLinkAdditionFailureTDD,
+	RadioLinkParameterUpdateIndicationFDD,
+	RadioLinkParameterUpdateIndicationTDD,
+	RadioLinkReconfigurationPrepareFDD,
+	RadioLinkReconfigurationPrepareTDD,
+	RadioLinkReconfigurationReady,
+	RadioLinkReconfigurationFailure,
+	RadioLinkReconfigurationCommit,
+	RadioLinkReconfigurationCancel,
+	RadioLinkReconfigurationRequestFDD,
+	RadioLinkReconfigurationRequestTDD,
+	RadioLinkReconfigurationResponse,
+	RadioLinkDeletionRequest,
+	RadioLinkDeletionResponse,
+	DL-PowerControlRequest,
+	DL-PowerTimeslotControlRequest,
+	DedicatedMeasurementInitiationRequest,
+	DedicatedMeasurementInitiationResponse,
+	DedicatedMeasurementInitiationFailure,
+	DedicatedMeasurementReport,
+	DedicatedMeasurementTerminationRequest,
+	DedicatedMeasurementFailureIndication,
+	RadioLinkFailureIndication,
+	RadioLinkRestoreIndication,
+	CompressedModeCommand,
+	ErrorIndication,
+	PrivateMessage,
+	PhysicalSharedChannelReconfigurationRequestTDD,
+	PhysicalSharedChannelReconfigurationRequestFDD,
+	PhysicalSharedChannelReconfigurationResponse,
+	PhysicalSharedChannelReconfigurationFailure,
+	CellSynchronisationInitiationRequestTDD,
+	CellSynchronisationInitiationResponseTDD,
+	CellSynchronisationInitiationFailureTDD,
+	CellSynchronisationReconfigurationRequestTDD,
+	CellSynchronisationReconfigurationResponseTDD,
+	CellSynchronisationReconfigurationFailureTDD,
+	CellSynchronisationAdjustmentRequestTDD,
+	CellSynchronisationAdjustmentResponseTDD,
+	CellSynchronisationAdjustmentFailureTDD,
+	CellSynchronisationReportTDD,
+	CellSynchronisationTerminationRequestTDD,
+	CellSynchronisationFailureIndicationTDD
+FROM NBAP-PDU-Contents
+
+	id-audit,
+	id-auditRequired,
+	id-blockResource,
+	id-cellDeletion,
+	id-cellReconfiguration,
+	id-cellSetup,
+	id-cellSynchronisationInitiation,
+	id-cellSynchronisationReconfiguration,
+	id-cellSynchronisationReporting,
+	id-cellSynchronisationTermination,
+	id-cellSynchronisationFailure,
+	id-commonMeasurementFailure,
+	id-commonMeasurementInitiation,
+	id-commonMeasurementReport,
+	id-commonMeasurementTermination,
+	id-commonTransportChannelDelete,
+	id-commonTransportChannelReconfigure,
+	id-commonTransportChannelSetup,
+	id-compressedModeCommand,
+	id-dedicatedMeasurementFailure,
+	id-dedicatedMeasurementInitiation,
+	id-dedicatedMeasurementReport,
+	id-dedicatedMeasurementTermination,
+	id-downlinkPowerControl,
+	id-downlinkPowerTimeslotControl,
+	id-errorIndicationForDedicated,
+	id-errorIndicationForCommon,
+	id-informationExchangeFailure,
+    id-informationExchangeInitiation,
+    id-informationReporting,
+    id-informationExchangeTermination,
+	id-BearerRearrangement,
+	id-physicalSharedChannelReconfiguration,
+	id-privateMessageForDedicated,
+	id-privateMessageForCommon,
+	id-radioLinkActivation,
+	id-radioLinkAddition,
+	id-radioLinkDeletion,
+	id-radioLinkFailure,
+	id-radioLinkParameterUpdate,
+	id-radioLinkPreemption,
+	id-radioLinkRestoration,
+	id-radioLinkSetup,
+	id-reset,
+	id-resourceStatusIndication,
+	id-cellSynchronisationAdjustment,
+	id-synchronisedRadioLinkReconfigurationCancellation,
+	id-synchronisedRadioLinkReconfigurationCommit,
+	id-synchronisedRadioLinkReconfigurationPreparation,
+	id-systemInformationUpdate,
+	id-unblockResource,
+	id-unSynchronisedRadioLinkReconfiguration
+FROM NBAP-Constants;
+
+-- **************************************************************
+--
+-- Interface Elementary Procedure Class
+--
+-- **************************************************************
+
+NBAP-ELEMENTARY-PROCEDURE ::= CLASS {
+	&InitiatingMessage					,
+	&SuccessfulOutcome					OPTIONAL,
+	&UnsuccessfulOutcome				OPTIONAL,
+	&Outcome							OPTIONAL,
+	&messageDiscriminator				MessageDiscriminator,
+	&procedureID						ProcedureID 	UNIQUE,
+	&criticality						Criticality 	DEFAULT ignore
+}
+
+WITH SYNTAX {
+	INITIATING MESSAGE					&InitiatingMessage
+	[SUCCESSFUL OUTCOME					&SuccessfulOutcome]
+	[UNSUCCESSFUL OUTCOME				&UnsuccessfulOutcome]
+	[OUTCOME							&Outcome]
+	MESSAGE DISCRIMINATOR				&messageDiscriminator
+	PROCEDURE ID						&procedureID
+	[CRITICALITY						&criticality]
+}
+
+-- **************************************************************
+--
+-- Interface PDU Definition
+--
+-- **************************************************************
+
+NBAP-PDU ::= CHOICE {
+	initiatingMessage		InitiatingMessage,
+	succesfulOutcome		SuccessfulOutcome,
+	unsuccesfulOutcome		UnsuccessfulOutcome,
+	outcome					Outcome,
+	...
+}
+
+InitiatingMessage ::= SEQUENCE {
+	procedureID				NBAP-ELEMENTARY-PROCEDURE.&procedureID	({NBAP-ELEMENTARY-PROCEDURES}),
+	criticality				NBAP-ELEMENTARY-PROCEDURE.&criticality	({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	messageDiscriminator	NBAP-ELEMENTARY-PROCEDURE.&messageDiscriminator({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	transactionID 			TransactionID,
+	value					NBAP-ELEMENTARY-PROCEDURE.&InitiatingMessage({NBAP-ELEMENTARY-PROCEDURES}{@procedureID})
+}
+
+SuccessfulOutcome ::= SEQUENCE {
+	procedureID				NBAP-ELEMENTARY-PROCEDURE.&procedureID	({NBAP-ELEMENTARY-PROCEDURES}),
+	criticality				NBAP-ELEMENTARY-PROCEDURE.&criticality	({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	messageDiscriminator	NBAP-ELEMENTARY-PROCEDURE.&messageDiscriminator({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+ 	transactionID 			TransactionID,
+	value					NBAP-ELEMENTARY-PROCEDURE.&SuccessfulOutcome({NBAP-ELEMENTARY-PROCEDURES}{@procedureID})
+}
+
+UnsuccessfulOutcome ::= SEQUENCE {
+	procedureID				NBAP-ELEMENTARY-PROCEDURE.&procedureID	({NBAP-ELEMENTARY-PROCEDURES}),
+	criticality				NBAP-ELEMENTARY-PROCEDURE.&criticality	({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	messageDiscriminator	NBAP-ELEMENTARY-PROCEDURE.&messageDiscriminator({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	transactionID 			TransactionID,
+	value					NBAP-ELEMENTARY-PROCEDURE.&UnsuccessfulOutcome({NBAP-ELEMENTARY-PROCEDURES}{@procedureID})
+}
+
+Outcome ::= SEQUENCE {
+	procedureID				NBAP-ELEMENTARY-PROCEDURE.&procedureID	({NBAP-ELEMENTARY-PROCEDURES}),
+	criticality				NBAP-ELEMENTARY-PROCEDURE.&criticality	({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	messageDiscriminator	NBAP-ELEMENTARY-PROCEDURE.&messageDiscriminator({NBAP-ELEMENTARY-PROCEDURES}{@procedureID}),
+	transactionID 			TransactionID,
+	value					NBAP-ELEMENTARY-PROCEDURE.&Outcome	({NBAP-ELEMENTARY-PROCEDURES}{@procedureID})
+}
+
+-- **************************************************************
+--
+-- Interface Elementary Procedure List
+--
+-- **************************************************************
+
+NBAP-ELEMENTARY-PROCEDURES NBAP-ELEMENTARY-PROCEDURE ::= {
+	NBAP-ELEMENTARY-PROCEDURES-CLASS-1			|
+	NBAP-ELEMENTARY-PROCEDURES-CLASS-2			,
+	...
+}
+
+NBAP-ELEMENTARY-PROCEDURES-CLASS-1 NBAP-ELEMENTARY-PROCEDURE ::= {
+	cellSetupFDD										|
+	cellSetupTDD										|
+	cellReconfigurationFDD								|
+	cellReconfigurationTDD								|
+	cellDeletion										|
+	commonTransportChannelSetupFDD						|
+	commonTransportChannelSetupTDD						|
+	commonTransportChannelReconfigureFDD				|
+	commonTransportChannelReconfigureTDD				|
+	commonTransportChannelDelete						|
+	audit												|
+	blockResource										|
+	radioLinkSetupFDD									|
+	radioLinkSetupTDD									|
+	systemInformationUpdate								|
+	commonMeasurementInitiation							|
+	radioLinkAdditionFDD								|
+	radioLinkAdditionTDD								|
+	radioLinkDeletion									|
+	reset												|
+	synchronisedRadioLinkReconfigurationPreparationFDD	|
+	synchronisedRadioLinkReconfigurationPreparationTDD	|
+	unSynchronisedRadioLinkReconfigurationFDD			|
+	unSynchronisedRadioLinkReconfigurationTDD			|
+	dedicatedMeasurementInitiation						|
+	physicalSharedChannelReconfigurationTDD				,
+	...,
+	informationExchangeInitiation						|
+	cellSynchronisationInitiationTDD					|
+	cellSynchronisationReconfigurationTDD				|
+	cellSynchronisationAdjustmentTDD					|
+	physicalSharedChannelReconfigurationFDD
+}
+
+NBAP-ELEMENTARY-PROCEDURES-CLASS-2 NBAP-ELEMENTARY-PROCEDURE ::= {
+	resourceStatusIndication							|
+	auditRequired										|
+	commonMeasurementReport								|
+	commonMeasurementTermination						|
+	commonMeasurementFailure							|
+	synchronisedRadioLinkReconfigurationCommit			|
+	synchronisedRadioLinkReconfigurationCancellation	|
+	radioLinkFailure									|
+	radioLinkPreemption									|
+	radioLinkRestoration								|
+	dedicatedMeasurementReport							|
+	dedicatedMeasurementTermination						|
+	dedicatedMeasurementFailure							|
+	downlinkPowerControlFDD								|
+	downlinkPowerTimeslotControl						|
+	compressedModeCommand								|
+	unblockResource										|
+	errorIndicationForDedicated							|
+	errorIndicationForCommon							|
+	privateMessageForDedicated							|
+	privateMessageForCommon								,
+	...,
+	informationReporting								|
+	informationExchangeTermination						|
+	informationExchangeFailure							|
+	cellSynchronisationReportingTDD						|
+	cellSynchronisationTerminationTDD					|
+	cellSynchronisationFailureTDD						|
+	bearerRearrangement									|
+	radioLinkActivationFDD								|
+	radioLinkActivationTDD								|
+	radioLinkParameterUpdateFDD							|
+	radioLinkParameterUpdateTDD
+}
+
+-- **************************************************************
+--
+-- Interface Elementary Procedures
+--
+-- **************************************************************
+
+-- Class 1
+
+-- *** CellSetup (FDD) ***
+cellSetupFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellSetupRequestFDD
+	SUCCESSFUL OUTCOME		CellSetupResponse
+	UNSUCCESSFUL OUTCOME	CellSetupFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-cellSetup, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CellSetup (TDD) ***
+cellSetupTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellSetupRequestTDD
+	SUCCESSFUL OUTCOME		CellSetupResponse
+	UNSUCCESSFUL OUTCOME	CellSetupFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-cellSetup, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CellReconfiguration(FDD) ***
+cellReconfigurationFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellReconfigurationRequestFDD
+	SUCCESSFUL OUTCOME		CellReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	CellReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-cellReconfiguration, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CellReconfiguration(TDD) ***
+cellReconfigurationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellReconfigurationRequestTDD
+	SUCCESSFUL OUTCOME		CellReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	CellReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-cellReconfiguration,	ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CellDeletion ***
+cellDeletion NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellDeletionRequest
+	SUCCESSFUL OUTCOME		CellDeletionResponse
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-cellDeletion, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonTransportChannelSetup (FDD) ***
+commonTransportChannelSetupFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonTransportChannelSetupRequestFDD
+	SUCCESSFUL OUTCOME		CommonTransportChannelSetupResponse
+	UNSUCCESSFUL OUTCOME	CommonTransportChannelSetupFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonTransportChannelSetup, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonTransportChannelSetup (TDD) ***
+commonTransportChannelSetupTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonTransportChannelSetupRequestTDD
+	SUCCESSFUL OUTCOME		CommonTransportChannelSetupResponse
+	UNSUCCESSFUL OUTCOME	CommonTransportChannelSetupFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonTransportChannelSetup, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonTransportChannelReconfigure (FDD) ***
+commonTransportChannelReconfigureFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonTransportChannelReconfigurationRequestFDD
+	SUCCESSFUL OUTCOME		CommonTransportChannelReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	CommonTransportChannelReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonTransportChannelReconfigure, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonTransportChannelReconfigure (TDD) ***
+commonTransportChannelReconfigureTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonTransportChannelReconfigurationRequestTDD
+	SUCCESSFUL OUTCOME		CommonTransportChannelReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	CommonTransportChannelReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonTransportChannelReconfigure, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonTransportChannelDelete ***
+commonTransportChannelDelete NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonTransportChannelDeletionRequest
+	SUCCESSFUL OUTCOME		CommonTransportChannelDeletionResponse
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonTransportChannelDelete, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** Audit ***
+audit NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		AuditRequest
+	SUCCESSFUL OUTCOME		AuditResponse
+	UNSUCCESSFUL OUTCOME	AuditFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-audit, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** BlockResourceRequest ***
+blockResource NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		BlockResourceRequest
+	SUCCESSFUL OUTCOME		BlockResourceResponse
+	UNSUCCESSFUL OUTCOME	BlockResourceFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-blockResource, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** RadioLinkSetup (FDD) ***
+radioLinkSetupFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkSetupRequestFDD
+	SUCCESSFUL OUTCOME		RadioLinkSetupResponseFDD
+	UNSUCCESSFUL OUTCOME	RadioLinkSetupFailureFDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-radioLinkSetup, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** RadioLinkSetup (TDD) ***
+radioLinkSetupTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkSetupRequestTDD
+	SUCCESSFUL OUTCOME		RadioLinkSetupResponseTDD
+	UNSUCCESSFUL OUTCOME	RadioLinkSetupFailureTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-radioLinkSetup, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** SystemInformationUpdate ***
+systemInformationUpdate NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		SystemInformationUpdateRequest
+	SUCCESSFUL OUTCOME		SystemInformationUpdateResponse
+	UNSUCCESSFUL OUTCOME	SystemInformationUpdateFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-systemInformationUpdate, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** Reset ***
+reset NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		ResetRequest
+	SUCCESSFUL OUTCOME		ResetResponse
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-reset, ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** CommonMeasurementInitiation ***
+commonMeasurementInitiation NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonMeasurementInitiationRequest
+	SUCCESSFUL OUTCOME		CommonMeasurementInitiationResponse
+	UNSUCCESSFUL OUTCOME	CommonMeasurementInitiationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonMeasurementInitiation,	ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** RadioLinkAddition (FDD) ***
+radioLinkAdditionFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkAdditionRequestFDD
+	SUCCESSFUL OUTCOME		RadioLinkAdditionResponseFDD
+	UNSUCCESSFUL OUTCOME	RadioLinkAdditionFailureFDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkAddition, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** RadioLinkAddition (TDD) ***
+radioLinkAdditionTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkAdditionRequestTDD
+	SUCCESSFUL OUTCOME		RadioLinkAdditionResponseTDD
+	UNSUCCESSFUL OUTCOME	RadioLinkAdditionFailureTDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkAddition, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** RadioLinkDeletion	***
+radioLinkDeletion NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkDeletionRequest
+	SUCCESSFUL OUTCOME		RadioLinkDeletionResponse
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkDeletion, ddMode common }
+	CRITICALITY 			reject
+}
+
+-- *** SynchronisedRadioLinkReconfigurationPreparation (FDD) ***
+synchronisedRadioLinkReconfigurationPreparationFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationPrepareFDD
+	SUCCESSFUL OUTCOME		RadioLinkReconfigurationReady
+	UNSUCCESSFUL OUTCOME	RadioLinkReconfigurationFailure
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-synchronisedRadioLinkReconfigurationPreparation, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** SynchronisedRadioLinkReconfigurationPreparation (TDD) ***
+synchronisedRadioLinkReconfigurationPreparationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationPrepareTDD
+	SUCCESSFUL OUTCOME		RadioLinkReconfigurationReady
+	UNSUCCESSFUL OUTCOME	RadioLinkReconfigurationFailure
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-synchronisedRadioLinkReconfigurationPreparation, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** UnSynchronisedRadioLinkReconfiguration (FDD) ***
+unSynchronisedRadioLinkReconfigurationFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationRequestFDD
+	SUCCESSFUL OUTCOME		RadioLinkReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	RadioLinkReconfigurationFailure
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-unSynchronisedRadioLinkReconfiguration, ddMode fdd } 
+	CRITICALITY 			reject
+}
+
+-- *** UnSynchronisedRadioLinkReconfiguration (TDD) ***
+unSynchronisedRadioLinkReconfigurationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationRequestTDD
+	SUCCESSFUL OUTCOME		RadioLinkReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	RadioLinkReconfigurationFailure
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-unSynchronisedRadioLinkReconfiguration, ddMode tdd } 
+	CRITICALITY 			reject
+}
+
+-- *** DedicatedMeasurementInitiation  ***
+dedicatedMeasurementInitiation NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DedicatedMeasurementInitiationRequest
+	SUCCESSFUL OUTCOME		DedicatedMeasurementInitiationResponse
+	UNSUCCESSFUL OUTCOME	DedicatedMeasurementInitiationFailure
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-dedicatedMeasurementInitiation, ddMode common }
+	CRITICALITY 			reject
+}
+
+-- *** PhysicalSharedChannelReconfiguration (FDD) ***
+physicalSharedChannelReconfigurationFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	PhysicalSharedChannelReconfigurationRequestFDD
+	SUCCESSFUL OUTCOME	PhysicalSharedChannelReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	PhysicalSharedChannelReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 		{ procedureCode id-physicalSharedChannelReconfiguration, ddMode fdd } 
+	CRITICALITY 		reject
+}
+
+-- *** PhysicalSharedChannelReconfiguration (TDD) ***
+physicalSharedChannelReconfigurationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	PhysicalSharedChannelReconfigurationRequestTDD
+	SUCCESSFUL OUTCOME	PhysicalSharedChannelReconfigurationResponse
+	UNSUCCESSFUL OUTCOME	PhysicalSharedChannelReconfigurationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 		{ procedureCode id-physicalSharedChannelReconfiguration, ddMode tdd } 
+	CRITICALITY 		reject
+}
+
+-- *** InformationExchangeInitiation ***
+informationExchangeInitiation NBAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE		InformationExchangeInitiationRequest
+	SUCCESSFUL OUTCOME		InformationExchangeInitiationResponse
+	UNSUCCESSFUL OUTCOME	InformationExchangeInitiationFailure
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-informationExchangeInitiation,	ddMode common } 
+	CRITICALITY 			reject
+}
+
+-- *** CellSynchronisationInitiation (TDD only) ***
+cellSynchronisationInitiationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CellSynchronisationInitiationRequestTDD
+	SUCCESSFUL OUTCOME	CellSynchronisationInitiationResponseTDD
+	UNSUCCESSFUL OUTCOME	CellSynchronisationInitiationFailureTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 		{ procedureCode id-cellSynchronisationInitiation, ddMode tdd } 
+	CRITICALITY 		reject
+}
+
+-- *** CellSynchronisationReconfiguration (TDD only) ***
+cellSynchronisationReconfigurationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CellSynchronisationReconfigurationRequestTDD
+	SUCCESSFUL OUTCOME	CellSynchronisationReconfigurationResponseTDD
+	UNSUCCESSFUL OUTCOME	CellSynchronisationReconfigurationFailureTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 		{ procedureCode id-cellSynchronisationReconfiguration, ddMode tdd } 
+	CRITICALITY 		reject
+}
+
+-- *** CellSynchronisationAdjustment (TDD only) ***
+cellSynchronisationAdjustmentTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CellSynchronisationAdjustmentRequestTDD
+	SUCCESSFUL OUTCOME	CellSynchronisationAdjustmentResponseTDD
+	UNSUCCESSFUL OUTCOME	CellSynchronisationAdjustmentFailureTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 		{ procedureCode id-cellSynchronisationAdjustment, ddMode tdd } 
+	CRITICALITY 		reject
+}
+
+-- Class 2
+
+-- *** ResourceStatusIndication ***
+resourceStatusIndication NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		ResourceStatusIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-resourceStatusIndication, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** AuditRequired ***
+auditRequired NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		AuditRequiredIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-auditRequired, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** CommonMeasurementReport ***
+commonMeasurementReport NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonMeasurementReport
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonMeasurementReport, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** CommonMeasurementTermination ***
+commonMeasurementTermination NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonMeasurementTerminationRequest
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonMeasurementTermination, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** CommonMeasurementFailure ***
+commonMeasurementFailure NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CommonMeasurementFailureIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-commonMeasurementFailure, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** SynchronisedRadioLinkReconfigurationCommit ***
+synchronisedRadioLinkReconfigurationCommit NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationCommit
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-synchronisedRadioLinkReconfigurationCommit, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** SynchronisedRadioReconfigurationCancellation ***
+synchronisedRadioLinkReconfigurationCancellation NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkReconfigurationCancel
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-synchronisedRadioLinkReconfigurationCancellation, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** RadioLinkFailure ***
+radioLinkFailure NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkFailureIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkFailure, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** RadioLinkPreemption ***
+radioLinkPreemption NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RadioLinkPreemptionRequiredIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID		{ procedureCode id-radioLinkPreemption, ddMode common }
+	CRITICALITY		ignore
+}
+
+-- *** RadioLinkRestoration ***
+radioLinkRestoration NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkRestoreIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkRestoration, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** DedicatedMeasurementReport ***
+dedicatedMeasurementReport NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DedicatedMeasurementReport
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-dedicatedMeasurementReport, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** DedicatedMeasurementTermination  ***
+dedicatedMeasurementTermination NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DedicatedMeasurementTerminationRequest
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-dedicatedMeasurementTermination, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** DedicatedMeasurementFailure ***
+dedicatedMeasurementFailure NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DedicatedMeasurementFailureIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-dedicatedMeasurementFailure, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** DLPowerControl (FDD only) ***
+downlinkPowerControlFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DL-PowerControlRequest
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-downlinkPowerControl, ddMode fdd }
+	CRITICALITY 			ignore
+}
+
+-- *** DLPowerTimeslotControl (TDD only) ***
+downlinkPowerTimeslotControl NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DL-PowerTimeslotControlRequest
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-downlinkPowerTimeslotControl, ddMode tdd }
+	CRITICALITY 			ignore
+}
+
+-- *** CompressedModeCommand (FDD only) ***
+compressedModeCommand NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CompressedModeCommand
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-compressedModeCommand, ddMode fdd }
+	CRITICALITY 			ignore
+}
+
+-- *** UnblockResourceIndication ***
+unblockResource NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		UnblockResourceIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-unblockResource, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** ErrorIndication for Dedicated procedures ***
+errorIndicationForDedicated NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		ErrorIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode	id-errorIndicationForDedicated, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** ErrorIndication for Common procedures ***
+errorIndicationForCommon NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		ErrorIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode	id-errorIndicationForCommon, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** CellSynchronisationReporting (TDD only) ***
+cellSynchronisationReportingTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellSynchronisationReportTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode	id-cellSynchronisationReporting, ddMode tdd }
+	CRITICALITY 			ignore
+}
+
+-- *** CellSynchronisationTermination (TDD only) ***
+cellSynchronisationTerminationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellSynchronisationTerminationRequestTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode	id-cellSynchronisationTermination, ddMode tdd }
+	CRITICALITY 			ignore
+}
+
+-- *** CellSynchronisationFailure (TDD only) ***
+cellSynchronisationFailureTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		CellSynchronisationFailureIndicationTDD
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode	id-cellSynchronisationFailure, ddMode tdd }
+	CRITICALITY 			ignore
+}
+
+-- *** PrivateMessage for Dedicated procedures ***
+privateMessageForDedicated NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		PrivateMessage
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID			{ procedureCode	id-privateMessageForDedicated, ddMode common }
+	CRITICALITY				ignore
+}
+
+-- *** PrivateMessage for Common procedures ***
+privateMessageForCommon NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		PrivateMessage
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID			{ procedureCode	id-privateMessageForCommon, ddMode common }
+	CRITICALITY				ignore
+}
+
+-- *** InformationReporting ***
+informationReporting NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		InformationReport
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-informationReporting, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** InformationExchangeTermination ***
+informationExchangeTermination NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		InformationExchangeTerminationRequest
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-informationExchangeTermination, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** InformationExchangeFailure ***
+informationExchangeFailure NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		InformationExchangeFailureIndication
+	MESSAGE DISCRIMINATOR	common
+	PROCEDURE ID 			{ procedureCode id-informationExchangeFailure, ddMode common } 
+	CRITICALITY 			ignore
+}
+
+-- *** BearerRearrangement ***
+bearerRearrangement NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		BearerRearrangementIndication
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-BearerRearrangement, ddMode common }
+	CRITICALITY 			ignore
+}
+
+-- *** RadioLinkActivation (FDD) ***
+radioLinkActivationFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkActivationCommandFDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID			{ procedureCode id-radioLinkActivation, ddMode fdd }
+	CRITICALITY				ignore
+}
+
+-- *** RadioLinkActivation (TDD) ***
+radioLinkActivationTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkActivationCommandTDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID			{ procedureCode id-radioLinkActivation, ddMode tdd }
+	CRITICALITY				ignore
+}
+
+-- *** RadioLinkParameterUpdate (FDD) ***
+radioLinkParameterUpdateFDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkParameterUpdateIndicationFDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkParameterUpdate, ddMode fdd }
+	CRITICALITY 			ignore
+}
+
+-- *** RadioLinkParameterUpdate (TDD) ***
+radioLinkParameterUpdateTDD NBAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RadioLinkParameterUpdateIndicationTDD
+	MESSAGE DISCRIMINATOR	dedicated
+	PROCEDURE ID 			{ procedureCode id-radioLinkParameterUpdate, ddMode tdd }
+	CRITICALITY 			ignore
+}
+
+END
+

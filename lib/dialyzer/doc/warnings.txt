@@ -1,0 +1,112 @@
+##----------------------------------------------------------------------------
+## File:      doc/warnings.txt
+## Author(s): Tobias Lindahl <tobiasl@it.uu.se>
+##            Kostis Sagonas <kostis@it.uu.se>
+##----------------------------------------------------------------------------
+
+
+The discrepancies currently identified by Dialyzer can be classified
+in the following categories:
+
+TYPE ERRORS
+===========
+
+* Match failure
+   - Warnings:
+       "The clause matching on X will never match; argument is of type T"
+       "The clause matching on tuple with arity N will never match; "
+	    " argument is of type T!"
+   - Description:
+       The function or case clause will never match since the calling
+       argument has a different type than the expected one.
+       Note that due to pattern-matching compilation the X above may be
+       an argument enclosed in some structured term (tuple or list).
+
+* Function call with wrong arguments
+   - Warning:
+       "Call to function X with signature S will fail since the arguments are of type T!"
+   - Description:
+       The arguments which the function is called with are
+       not what the function implicitly expects.
+
+* Closure of wrong type
+   - Warnings:
+       "Fun application using type T instead of a fun!"
+       "Trying to use fun with type T with arguments AT"
+   - Description:
+       The variable that is used in the fun application is either not 
+       a closure (fun entry) or a closure with the wrong domain.
+
+* Improper list construction
+   - Warnings:
+       "Cons will produce a non-proper list since its 2nd arg is of type T!"
+       "Call to '++'/2 will produce a non-proper list since its 2nd arg is of type T!"
+   - Description:
+       This is a place where an improper list (i.e., a list whose last
+       element is not the empty list []) is constructed. Strictly, these
+       are not discrepancies in Erlang, but we strongly recommend that
+       you fix these; there is ABSOLUTELY NO reason to create improper lists.
+
+* Function of no return
+   - Warning:
+       "Function will never return a proper value!"
+   - Description:
+       This is a function that never returns. Strictly speaking, this
+       is not a function and the code is OK only if this is used as a
+       point where an exception is thrown when handling an error.
+
+REDUNDANT OR UNREACHABLE CODE
+=============================
+
+* Unreachable case clause
+   - Warning:
+       "Type guard X will always fail since variable is of type T!"
+   - Description:
+       The case clause is redundant since the input argument is of a
+       different type.
+
+* Unreachable function clause
+   - Warning:
+       "The guard X will always fail since the arguments are of type T!"
+   - Description:
+       The clause is made redundant due to one of its guards always failing.
+
+* Term comparison failure
+   - Warnings:
+       "=:= between T1 and T2 will always fail!"
+       "=/= between T1 and T2 will always fail!"
+   - Description:
+       The term comparison will always fail making the test always return
+       'false' or, in a guard context, making the clause redundant.
+
+* Unused function
+   - Warning:
+       "Function will never be called!"
+   - Description:
+       The function is unused; no need to have it uncommented in the code.
+
+
+CODE RELICS
+===========
+
+* Tuple used as fun
+   - Warnings:
+       "Unsafe use of tuple as a fun in call to X"
+       "Tuple used as fun will fail in native compiled code"
+   - Description:
+       A 2-tuple is used as a function closure. The modern way of
+       calling higher-order code in Erlang is by using proper funs.
+       The code should be rewritten using a proper 'fun' rather than
+       a 2-tuple since among other things makes the code cleaner and
+       is safer for execution in native code.
+
+* Unsafe BEAM code
+   - Warning:
+       "Unsafe BEAM code! Please recompile with a newer BEAM compiler."
+   - Description:
+       The analysis has encountered BEAM bytecode which will fail in a
+       really bad way (even with a seg-fault) if used in an impoper way.
+       Such code was produced by the BEAM compiler of R9C-0 (and prior)
+       for some record expressions. The recommended action is to
+       generate a new .beam file using a newer version of the BEAM
+       compiler.

@@ -1,0 +1,4 @@
+{"3.0",
+ [{"1.0", [{load_module, app1_server},restart_emulator]}],
+ [{"1.0", [{load_module, app1_server},restart_emulator]}]
+}.

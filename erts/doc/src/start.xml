@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>start</title>
+    <prepared>Kent Boortz</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1999-12-15</date>
+    <rev></rev>
+    <file>start.xml</file>
+  </header>
+  <com>start</com>
+  <comsummary>OTP start script example for Unix.</comsummary>
+  <description>
+    <p>The <c><![CDATA[start]]></c> script is an example script on
+      how to start up the Erlang system in embedded mode on Unix.</p>
+
+    <p>For more information about the use, see the
+      <seealso marker="doc/embedded:embedded_solaris">
+      Embedded System User's Guide</seealso> in System Documentation.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>start [ data_file ]</name>
+      <fsummary>Example script on how to start up the Erlang system in embedded
+        mode on Unix.</fsummary>
+      <desc>
+        <p>Argument:</p>
+        <taglist>
+          <tag><c>data_file</c></tag>
+          <item>
+            <p>Optional. Specifies what <c><![CDATA[start_erl.data]]></c> file
+              to use.</p>
+          </item>
+        </taglist>
+        <p>Environment variable <c><![CDATA[RELDIR]]></c> can
+          be set before calling this example, which sets the directory
+          where to find the release files.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="run_erl"><c>run_erl(1)</c></seealso>,
+      <seealso marker="start_erl"><c>start_erl(1)</c></seealso></p>
+  </section>
+</comref>
+

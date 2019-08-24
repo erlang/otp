@@ -1,0 +1,143 @@
+-- Module IPMSSecurityExtensions (X.420:06/1999)
+IPMSSecurityExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  ipm-security-extensions(14) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything
+IMPORTS
+  -- MTS Abstract Service
+  Certificates, Content, ContentIntegrityCheck, ExtendedCertificates,
+    EXTENSION, MessageOriginAuthenticationCheck, MessageToken, EncryptionKey
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- IPMS Information Objects
+  IPMS-EXTENSION
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- IPMS Heading Extensions
+  BodyPartNumber
+    --==
+    FROM IPMSHeadingExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      heading-extensions(6) version-1999(1)}
+  -- Directory Authentication Framework
+  AlgorithmIdentifier, ENCRYPTED{}
+    --==
+    FROM AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+      authenticationFramework(7) 3}
+  -- Directory Certificate Extensions
+  CertificateAssertion
+    --==
+    FROM CertificateExtensions {joint-iso-itu-t ds(5) module(1)
+      certificateExtensions(26) 0}
+  -- IPMS Object Identifiers
+  id-sec-ipm-security-request, id-sec-security-common-fields
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)};
+
+-- Recipient Security Request
+recipient-security-request IPMS-EXTENSION ::= {
+  VALUE          RecipientSecurityRequest,
+  IDENTIFIED BY  id-sec-ipm-security-request
+}
+
+RecipientSecurityRequest ::= BIT STRING {
+  content-non-repudiation(0), content-proof(1), ipn-non-repudiation(2),
+  ipn-proof(3)}
+
+-- IPN Security Response
+ipn-security-response IPMS-EXTENSION ::= {
+  VALUE          IpnSecurityResponse,
+  IDENTIFIED BY  id-sec-security-common-fields
+}
+
+IpnSecurityResponse ::= SET {
+  content-or-arguments
+    CHOICE {original-content             OriginalContent,
+            original-security-arguments
+              SET {original-content-integrity-check
+                     [0]  OriginalContentIntegrityCheck OPTIONAL,
+                   original-message-origin-authentication-check
+                     [1]  OriginalMessageOriginAuthenticationCheck OPTIONAL,
+                   original-message-token
+                     [2]  OriginalMessageToken OPTIONAL}},
+  security-diagnostic-code  SecurityDiagnosticCode OPTIONAL
+}
+
+-- MTS security fields
+OriginalContent ::= Content
+
+OriginalContentIntegrityCheck ::= ContentIntegrityCheck
+
+OriginalMessageOriginAuthenticationCheck ::= MessageOriginAuthenticationCheck
+
+OriginalMessageToken ::= MessageToken
+
+-- Security Diagnostic Codes
+SecurityDiagnosticCode ::= INTEGER {
+  integrity-failure-on-subject-message(0),
+  integrity-failure-on-forwarded-message(1),
+  moac-failure-on-subject-message(2), unsupported-security-policy(3),
+  unsupported-algorithm-identifier(4), decryption-failed(5), token-error(6),
+  unable-to-sign-notification(7), unable-to-sign-message-receipt(8),
+  authentication-failure-on-subject-message(9),
+  security-context-failure-message(10), message-sequence-failure(11),
+  message-security-labelling-failure(12), repudiation-failure-of-message(13),
+  failure-of-proof-of-message(14), signature-key-unobtainable(15),
+  decryption-key-unobtainable(16), key-failure(17),
+  unsupported-request-for-security-service(18),
+  inconsistent-request-for-security-service(19),
+  ipn-non-repudiation-provided-instead-of-content-proof(20),
+  token-decryption-failed(21), double-enveloping-message-restoring-failure(22),
+  unauthorised-dl-member(23), reception-security-failure(24),
+  unsuitable-alternate-recipient(25), security-services-refusal(26),
+  unauthorised-recipient(27), unknown-certification-authority-name(28),
+  unknown-dl-name(29), unknown-originator-name(30), unknown-recipient-name(31),
+  security-policy-violation(32)}
+
+-- Security Envelope Extensions
+body-part-encryption-token EXTENSION ::= {
+  BodyPartTokens,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:43
+}
+
+BodyPartTokens ::=
+  SET OF
+    SET {body-part-number  BodyPartNumber,
+         body-part-choice
+           CHOICE {encryption-token              EncryptionToken,
+                   message-or-content-body-part  [0]  BodyPartTokens}
+    }
+
+EncryptionToken ::= SET {
+  encryption-algorithm-identifier  AlgorithmIdentifier,
+  encrypted-key                    ENCRYPTED{EncryptionKey},
+  recipient-certificate-selector   [0]  CertificateAssertion OPTIONAL,
+  recipient-certificate            [1]  Certificates OPTIONAL,
+  originator-certificate-selector  [2]  CertificateAssertion OPTIONAL,
+  originator-certificates          [3]  ExtendedCertificates OPTIONAL,
+  ...
+}
+
+forwarded-content-token EXTENSION ::= {
+  ForwardedContentToken,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:44
+}
+
+ForwardedContentToken ::=
+  SET OF
+    SET {body-part-number  BodyPartNumber,
+         body-part-choice
+           CHOICE {forwarding-token              MessageToken,
+                   message-or-content-body-part  ForwardedContentToken
+         }}
+
+END -- of IPMSSecurityExtensions
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

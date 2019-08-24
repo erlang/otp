@@ -1,0 +1,7 @@
+
+record_construct.erl:15: Function t_opa/0 has no local return
+record_construct.erl:16: Record construction #r_opa{b::gb_sets:set(_),c::42,e::'false'} violates the declared type of field c::boolean()
+record_construct.erl:20: Function t_rem/0 has no local return
+record_construct.erl:21: Record construction #r_rem{a::'gazonk'} violates the declared type of field a::string()
+record_construct.erl:6: Function t_loc/0 has no local return
+record_construct.erl:7: Record construction #r_loc{a::'gazonk',b::42} violates the declared type of field a::integer() and b::atom()

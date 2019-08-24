@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>io_lib</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">io_lib</module>
+  <modulesummary>I/O library functions.</modulesummary>
+  <description>
+    <p>This module contains functions for converting to and from
+      strings (lists of characters). They are used for implementing the
+      functions in the <seealso marker="io"><c>io</c></seealso> module.
+      There is no guarantee that the
+      character lists returned from some of the functions are flat,
+      they can be deep lists. Function
+      <seealso marker="lists#flatten/1"><c>lists:flatten/1</c></seealso>
+      can be used for flattening deep lists.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="chars"/>
+    </datatype>
+    <datatype>
+      <name name="continuation"/>
+      <desc><p>A continuation as returned by
+        <seealso marker="#fread/3"><c>fread/3</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="chars_limit"/>
+    </datatype>
+    <datatype>
+      <name name="depth"/>
+    </datatype>
+    <datatype>
+      <name name="fread_error"/>
+    </datatype>
+    <datatype>
+      <name name="fread_item"/>
+    </datatype>
+    <datatype>
+      <name name="latin1_string"/>
+    </datatype>
+    <datatype>
+      <name name="format_spec"/>
+      <desc><p>Where:</p>
+      <list type="bulleted">
+        <item><p><c>control_char</c> is the type of control
+          sequence: <c>$P</c>, <c>$w</c>, and so on.</p>
+        </item>
+        <item><p><c>args</c> is a list of the arguments used by the
+          control sequence, or an empty list if the control sequence
+          does not take any arguments.</p>
+        </item>
+        <item><p><c>width</c> is the field width.</p>
+        </item>
+        <item><p><c>adjust</c> is the adjustment.</p>
+        </item>
+        <item><p><c>precision</c> is the precision of the printed
+          argument.</p>
+        </item>
+        <item><p><c>pad_char</c> is the padding character.</p>
+        </item>
+        <item><p><c>encoding</c> is set to <c>true</c> if translation
+          modifier <c>t</c> is present.</p>
+        </item>
+        <item><p><c>strings</c> is set to <c>false</c> if modifier
+          <c>l</c> is present.</p>
+        </item>
+      </list>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="build_text" arity="1" since="OTP 18.0"/>
+      <fsummary>Build the output text for a preparsed format list.</fsummary>
+      <desc>
+        <p>For details, see
+          <seealso marker="#scan_format/2"><c>scan_format/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="char_list" arity="1" since=""/>
+      <fsummary>Test for a list of characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          characters in the Unicode range, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="deep_char_list" arity="1" since=""/>
+      <fsummary>Test for a deep list of characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a, possibly deep,
+          list of characters in the Unicode range, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="deep_latin1_char_list" arity="1" since="OTP R16B"/>
+      <fsummary>Test for a deep list of characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a, possibly deep,
+          list of characters in the ISO Latin-1 range, otherwise
+          <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format" arity="2" since=""/>
+      <name name="fwrite" arity="2" since=""/>
+      <fsummary>Write formatted output.</fsummary>
+      <desc>
+        <p>Returns a character list that represents <c><anno>Data</anno></c>
+          formatted in accordance with <c><anno>Format</anno></c>.
+          For a detailed description of the available formatting options, see
+          <seealso marker="io#fwrite/1"><c>io:fwrite/1,2,3</c></seealso>.
+          If the format string or argument list contains an error, a fault is
+          generated.</p>
+        <p>If and only if the Unicode translation modifier is used in the
+          format string (that is, <c>~ts</c> or <c>~tc</c>), the resulting list
+          can contain characters beyond the ISO Latin-1 character range
+          (that is, numbers &gt; 255). If so, the
+          result is still an ordinary Erlang <c>string()</c>, and can well be
+          used in any context where Unicode data is allowed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format" arity="3" since="OTP 21.0"/>
+      <name name="fwrite" arity="3" since="OTP 21.0"/>
+      <fsummary>Write formatted output.</fsummary>
+      <desc>
+        <p>Returns a character list that represents <c><anno>Data</anno></c>
+          formatted in accordance with <c><anno>Format</anno></c> in
+          the same way as
+          <seealso marker="#fwrite/2"><c>fwrite/2</c></seealso> and
+          <seealso marker="#format/2"><c>format/2</c></seealso>,
+          but takes an extra argument, a list of options.</p>
+          <p>Valid option:</p>
+          <taglist>
+            <tag><c>{chars_limit, <anno>CharsLimit</anno>}</c></tag>
+            <item>
+              <p>A soft limit on the number of characters returned.
+                When the number of characters is reached, remaining
+                structures are replaced by "<c>...</c>".
+                <c><anno>CharsLimit</anno></c> defaults to -1, which
+		means no limit on the number of characters returned.</p>
+            </item>
+          </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fread" arity="2" since=""/>
+      <fsummary>Read formatted input.</fsummary>
+      <desc>
+        <p>Tries to read <c><anno>String</anno></c> in accordance with the
+          control sequences in <c><anno>Format</anno></c>.
+          For a detailed description of the available formatting options, see
+          <seealso marker="io#fread/3"><c>io:fread/3</c></seealso>. It is
+          assumed that <c><anno>String</anno></c> contains whole lines.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <tag><c>{ok, <anno>InputList</anno>,
+            <anno>LeftOverChars</anno>}</c></tag>
+          <item>
+            <p>The string was read. <c><anno>InputList</anno></c> is the list
+              of successfully matched and read items, and
+              <c><anno>LeftOverChars</anno></c> are the input characters not
+              used.</p>
+          </item>
+          <tag><c>{more, <anno>RestFormat</anno>, <anno>Nchars</anno>,
+            <anno>InputStack</anno>}</c></tag>
+          <item>
+            <p>The string was read, but more input is needed to complete the
+              original format string. <c><anno>RestFormat</anno></c> is the
+              remaining format string, <c><anno>Nchars</anno></c> is the number
+              of characters scanned, and <c><anno>InputStack</anno></c> is the
+              reversed list of inputs matched up to that point.</p>
+          </item>
+          <tag><c>{error, <anno>What</anno>}</c></tag>
+          <item>
+            <p>The read operation failed and parameter <c><anno>What</anno></c>
+              gives a hint about the error.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <pre>
+3> <input>io_lib:fread("~f~f~f", "15.6 17.3e-6 24.5").</input>
+{ok,[15.6,1.73e-5,24.5],[]}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fread" arity="3" since=""/>
+      <fsummary>Re-entrant formatted reader</fsummary>
+      <desc>
+        <p>This is the re-entrant formatted reader. The continuation of
+          the first call to the functions must be <c>[]</c>. For a complete
+          description of how the re-entrant input scheme works, see
+          Armstrong, Virding, Williams: 'Concurrent Programming in
+          Erlang', Chapter 13.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <tag><c>{done, <anno>Result</anno>,
+            <anno>LeftOverChars</anno>}</c></tag>
+          <item>
+            <p>The input is complete. The result is one of the following:</p>
+            <taglist>
+              <tag><c>{ok, <anno>InputList</anno>}</c></tag>
+              <item>
+                <p>The string was read. <c><anno>InputList</anno></c> is the
+                  list of successfully matched and read items, and
+                  <c><anno>LeftOverChars</anno></c> are the remaining
+                  characters.</p>
+              </item>
+              <tag><c>eof</c></tag>
+              <item>
+                <p>End of file was encountered.
+                  <c><anno>LeftOverChars</anno></c> are the input characters not
+                  used.</p>
+              </item>
+              <tag><c>{error, <anno>What</anno>}</c></tag>
+              <item>
+                <p>An error occurred and parameter <c><anno>What</anno></c>
+                  gives a hint about the error.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>{more, <anno>Continuation</anno>}</c></tag>
+          <item>
+            <p>More data is required to build a term.
+              <c><anno>Continuation</anno></c> must be passed to <c>fread/3</c>
+              when more data becomes available.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="indentation" arity="2" since=""/>
+      <fsummary>Indentation after printing string.</fsummary>
+      <desc>
+        <p>Returns the indentation if <c><anno>String</anno></c> has been
+          printed, starting at <c><anno>StartIndent</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="latin1_char_list" arity="1" since="OTP R16B"/>
+      <fsummary>Test for a list of ISO Latin-1 characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          characters in the ISO Latin-1 range, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="nl" arity="0" since=""/>
+      <fsummary>Write a newline.</fsummary>
+      <desc>
+        <p>Returns a character list that represents a new line character.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="print" arity="1" since=""/>
+      <name name="print" arity="4" since=""/>
+      <fsummary>Pretty print a term.</fsummary>
+      <desc>
+        <p>Returns a list of characters that represents
+          <c><anno>Term</anno></c>, but breaks representations longer
+          than one line into many lines and indents each line sensibly.
+          Also tries to detect and output lists of printable characters
+          as strings.</p>
+        <list type="bulleted">
+          <item><c><anno>Column</anno></c> is the starting column; defaults
+            to 1.</item>
+          <item><c><anno>LineLength</anno></c> is the maximum line length;
+            defaults to 80.</item>
+          <item><c><anno>Depth</anno></c> is the maximum print depth;
+            defaults to -1, which means no limitation.</item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="printable_latin1_list" arity="1" since="OTP R16B"/>
+      <fsummary>Test for a list of printable ISO Latin-1 characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          printable ISO Latin-1 characters, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="printable_list" arity="1" since=""/>
+      <fsummary>Test for a list of printable characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          printable characters, otherwise <c>false</c>.</p>
+        <p>What is a printable character in this case is determined by
+          startup flag <c>+pc</c> to the Erlang VM; see
+          <seealso marker="io#printable_range/0">
+          <c>io:printable_range/0</c></seealso> and 
+          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="printable_unicode_list" arity="1" since="OTP R16B"/>
+      <fsummary>Test for a list of printable Unicode characters.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          printable Unicode characters, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="scan_format" arity="2" since="OTP 18.0"/>
+      <fsummary>Parse all control sequences in the format string.</fsummary>
+      <desc>
+        <p>Returns a list corresponding to the specified format string,
+          where control sequences have been replaced with
+          corresponding tuples. This list can be passed to:</p>
+        <list type="bulleted">
+          <item>
+            <p><seealso marker="#build_text/1"><c>build_text/1</c></seealso>
+              to have the same effect as <c>format(Format, Args)</c></p>
+          </item>
+          <item>
+            <p><seealso marker="#unscan_format/1">
+              <c>unscan_format/1</c></seealso> to get the corresponding pair
+              of <c>Format</c> and <c>Args</c> (with every <c>*</c> and
+              corresponding argument expanded to numeric values)</p>
+          </item>
+        </list>
+        <p>A typical use of this function is to replace unbounded-size
+          control sequences like <c>~w</c> and <c>~p</c> with the
+          depth-limited variants <c>~W</c> and <c>~P</c> before
+          formatting to text in, for example, a logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unscan_format" arity="1" since="OTP 18.0"/>
+      <fsummary>Revert a preparsed format list to a plain character list
+        and a list of arguments.</fsummary>
+      <desc>
+        <p>For details, see
+          <seealso marker="#scan_format/2"><c>scan_format/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write" arity="1" since=""/>
+      <name name="write" arity="2" clause_i="1" since=""/>
+      <name name="write" arity="2" clause_i="2" since="OTP 20.0"/>
+      <fsummary>Write a term.</fsummary>
+      <desc>
+        <p>Returns a character list that represents <c><anno>Term</anno></c>.
+          Option <c><anno>Depth</anno></c> controls the depth of the
+          structures written. When the specified depth is reached,
+          everything below this level is replaced by "<c>...</c>".
+          <c><anno>Depth</anno></c> defaults to -1, which means
+          no limitation. Option <c><anno>CharsLimit</anno></c> puts a
+          soft limit on the number of characters returned. When the
+          number of characters is reached, remaining structures are
+          replaced by "<c>...</c>". <c><anno>CharsLimit</anno></c>
+          defaults to -1, which means no limit on the number of
+          characters returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9})).</input>
+"{1,[2],[3],[4,5],6,7,8,9}"
+2> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5)).</input>
+"{1,[2],[3],[...],...}"
+3> <input>lists:flatten(io_lib:write({[1,2,3],[4,5],6,7,8,9}, [{chars_limit,20}])).</input>
+"{[1,2|...],[4|...],...}"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_atom" arity="1" since=""/>
+      <fsummary>Write an atom.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print atom
+          <c><anno>Atom</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_atom_as_latin1" arity="1" since="OTP 20.0"/>
+      <fsummary>Write an atom.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print atom
+          <c><anno>Atom</anno></c>. Non-Latin-1 characters
+          are escaped.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_char" arity="1" since=""/>
+      <fsummary>Write a character.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the Unicode character set.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_char_as_latin1" arity="1" since="OTP R16B"/>
+      <fsummary>Write a character.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the Unicode character set. Non-Latin-1 characters
+          are escaped.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_latin1_char" arity="1" since="OTP R16B"/>
+      <fsummary>Write an ISO Latin-1 character.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the ISO Latin-1 character set.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_latin1_string" arity="1" since="OTP R16B"/>
+      <fsummary>Write an ISO Latin-1 string.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print
+          <c><anno>Latin1String</anno></c> as a string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_string" arity="1" since=""/>
+      <fsummary>Write a string.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print
+          <c><anno>String</anno></c> as a string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_string_as_latin1" arity="1" since="OTP R16B"/>
+      <fsummary>Write a string.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print
+          <c><anno>String</anno></c> as a string. Non-Latin-1
+          characters are escaped.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

@@ -1,0 +1,36 @@
+#!/bin/sh
+#
+# This program invokes the erlang emulator by calling run_erl.
+# It should only be used at an embedded target system.
+# It should be modified to give the correct flags to erl (via start_erl),
+# e.g -mode embedded -sname XXX
+#
+# Usage: start [Data]
+#
+
+if [ "x${NODENAME}" = "x" ]
+then
+    echo "ERROR: Variable \$NODENAME is not set!!"
+    exit 1
+fi
+
+TESTHOST=`hostname | sed 's/[.].*//'`
+
+ROOTDIR=%ROOT%
+CLIENTDIR=$ROOTDIR/clients/type1/$NODENAME@$TESTHOST
+
+RELDIR=$CLIENTDIR/releases
+
+# Note that this scripts is modified an copied to $CLIENTDIR/bin/start
+# in release_handler_SUITE:copy_client - therefore HEART_COMMAND is as follows:
+HEART_COMMAND=$CLIENTDIR/bin/start
+export HEART_COMMAND
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+if [ ! -d /tmp/$NODENAME@$TESTHOST ]
+then
+        mkdir /tmp/$NODENAME@$TESTHOST
+fi
+
+$ROOTDIR/bin/run_erl /tmp/$NODENAME@$TESTHOST/ $CLIENTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname $NODENAME %CLIENTARGS%" > $CLIENTDIR/log/run_erl.out 2>&1 &

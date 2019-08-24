@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY man_tcp_sender
+  '<seealso marker="diameter_tcp#sender">diameter_tcp(3)</seealso>'>
+  <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
+  <!ENTITY gen_sctp_open1
+  '<seealso marker="kernel:gen_sctp#open-1">gen_sctp:open/1</seealso>'>
+  <!ENTITY ip_address
+  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
+  <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<erlref>
+<header>
+<copyright>
+<year>2011</year>
+<year>2017</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>diameter_sctp(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_sctp.xml</file>
+</header>
+
+<module since="OTP R14B03">diameter_sctp</module>
+<modulesummary>Diameter transport over SCTP.</modulesummary>
+
+<description>
+
+<p>
+This module implements diameter transport over SCTP using &gen_sctp;.
+It can be specified as the value of a transport_module option to
+&mod_add_transport;
+and implements the behaviour documented in
+&man_transport;.</p>
+
+<marker id="start"/>
+</description>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name since="OTP R14B03">start({Type, Ref}, Svc, [Opt])
+         -> {ok, Pid, [LAddr]} | {error, Reason}</name>
+<fsummary>Start a transport process.</fsummary>
+<type>
+<v>Type = connect | accept</v>
+<v>Ref = &mod_transport_ref;</v>
+<v>Svc = #diameter_service{}</v>
+<v>Opt = OwnOpt | SctpOpt</v>
+<v>Pid = pid()</v>
+<v>LAddr = &ip_address;</v>
+<v>Reason = term()</v>
+<v>OwnOpt = {raddr, &ip_address;}
+          | {rport, integer()}
+          | {accept, Match}
+          | {unordered, boolean() | pos_integer()}
+          | {packet, boolean() | raw}
+          | {message_cb, &mod_eval;}
+          | {sender, boolean()}</v>
+<v>SctpOpt = term()</v>
+<v>Match = &ip_address; | string() | [Match]</v>
+</type>
+<desc>
+
+<p>
+The start function required by &man_transport;.</p>
+
+<p>
+Options <c>raddr</c> and <c>rport</c> specify the remote address
+and port for a connecting transport and not valid for a listening
+transport: the former is required while latter defaults to 3868 if
+unspecified.
+Multiple <c>raddr</c> options can be specified, in which case the
+connecting transport in question attempts each in sequence until
+an association is established.</p>
+
+<p>
+Option <c>accept</c> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the association to be aborted.
+Multiple <c>accept</c> options can be specified.
+A string-valued <c>Match</c> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
+Option <c>unordered</c> specifies whether or not to use unordered
+delivery, integer <c>N</c> being equivalent to <c>N =&lt; OS</c>,
+where <c>OS</c> is the number of outbound streams negotiated on the
+association in question.
+Regardless of configuration, sending is ordered on stream 0
+until reception of a second incoming message, to ensure that a peer
+receives capabilities exchange messages before any other.
+Defaults to <c>false</c>.</p>
+
+<p>
+Option <c>packet</c> determines how/if an incoming message is
+packaged into a diameter_packet record.
+If <c>false</c> then messages are received as binary().
+If <c>true</c> then as a record with the binary() message in the
+<c>bin</c> field and a <c>{stream, Id}</c> tuple in the
+<c>transport_data</c> field, where <c>Id</c> is the identifier of the
+inbound stream the message was received on.
+If <c>raw</c> then as a record with the received ancillary
+sctp_sndrcvinfo record in the <c>transport_data</c> field.
+Defaults to <c>true</c>.</p>
+
+<p>
+Options <c>message_cb</c> and <c>sender</c> have semantics identical
+to those documented in &man_tcp_sender;, but with the message argument
+to a <c>recv</c> callback being as directed by the <c>packet</c>
+option.</p>
+
+<p>
+An <c>{outstream, Id}</c> tuple in the <c>transport_data</c> field of
+a outgoing diameter_packet record sets the outbound stream on which
+the message is sent, modulo the negotiated number of outbound streams.
+Any other value causes successive such sends to cycle though all
+outbound streams.</p>
+
+<p>
+Remaining options are any accepted by &gen_sctp_open1;, with the exception
+of options <c>mode</c>, <c>binary</c>, <c>list</c>, <c>active</c>
+and <c>sctp_events</c>.
+Note that options <c>ip</c> and <c>port</c> specify the local address
+and port respectively.</p>
+
+<p>
+Multiple <c>ip</c> options can be specified for a multihomed peer.
+If none are specified then the values of <c>Host-IP-Address</c>
+in the <c>diameter_service</c> record are used.
+Option <c>port</c> defaults to 3868 for a listening transport and 0 for a
+connecting transport.</p>
+
+<warning>
+<p>
+An small receive buffer may result in a peer having to
+resend incoming messages: set the &inet; option <c>recbuf</c> to increase
+the buffer size.</p>
+
+<p>
+An small send buffer may result in outgoing messages
+being discarded: set the &inet; option <c>sndbuf</c> to increase
+the buffer size.</p>
+</warning>
+
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_main;, &man_transport;, &gen_sctp;, &inet;</p>
+
+</section>
+
+</erlref>

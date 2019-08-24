@@ -1,0 +1,11 @@
+all:
+	erlc test_server_SUITE.erl
+	erlc test_server_parallel01_SUITE.erl
+	erlc test_server_conf01_SUITE.erl
+	erlc test_server_shuffle01_SUITE.erl
+	erlc test_server_conf02_SUITE.erl
+	erlc test_server_skip_SUITE.erl
+	erlc test_server_break_SUITE.erl
+	erlc test_server_cover_SUITE.erl
+	erlc +debug_info test_server_cover_SUITE_data/cover_helper.erl
+	erlc test_server_unicode_SUITE.erl

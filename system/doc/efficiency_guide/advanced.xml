@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>Advanced</title>
+    <prepared>Kenneth Lundin</prepared>
+    <docno></docno>
+    <date>2001-08-21</date>
+    <rev></rev>
+    <file>advanced.xml</file>
+  </header>
+
+  <section>
+    <title>Memory</title>
+    <p>A good start when programming efficiently is to know
+      how much memory different data types and operations require. It is
+      implementation-dependent how much memory the Erlang data types and
+      other items consume, but the following table shows some figures for
+      the <c>erts-8.0</c> system in OTP 19.0.</p>
+
+      <p>The unit of measurement is memory words. There exists both a
+      32-bit and a 64-bit implementation. A word is therefore 4 bytes or
+      8 bytes, respectively.</p>
+    <table>
+      <row>
+        <cell><em>Data Type</em></cell>
+        <cell><em>Memory Size</em></cell>
+      </row>
+      <row>
+        <cell>Small integer</cell>
+        <cell>1 word.<br></br>
+	On 32-bit architectures: -134217729 &lt; i &lt; 134217728
+	(28 bits).<br></br>
+	On 64-bit architectures: -576460752303423489 &lt; i &lt;
+	576460752303423488 (60 bits).</cell>
+      </row>
+      <row>
+        <cell>Large integer</cell>
+        <cell>3..N words.</cell>
+      </row>
+      <row>
+        <cell>Atom</cell>
+        <cell>1 word.<br></br>
+	An atom refers into an atom table, which also consumes memory.
+	The atom text is stored once for each unique atom in this table.
+	The atom table is <em>not</em> garbage-collected.</cell>
+      </row>
+      <row>
+        <cell>Float</cell>
+        <cell>On 32-bit architectures: 4 words.<br></br>
+	On 64-bit architectures: 3 words.</cell>
+      </row>
+      <row>
+        <cell>Binary</cell>
+        <cell>3..6 words + data (can be shared).</cell>
+      </row>
+      <row>
+        <cell>List</cell>
+        <cell>1 word + 1 word per element + the size of each element.</cell>
+      </row>
+      <row>
+        <cell>String (is the same as a list of integers)</cell>
+        <cell>1 word + 2 words per character.</cell>
+      </row>
+      <row>
+        <cell>Tuple</cell>
+        <cell>2 words + the size of each element.</cell>
+      </row>
+      <row>
+        <cell>Small Map</cell>
+        <cell>5 words + the size of all keys and values.</cell>
+      </row>
+      <row>
+        <cell>Large Map (> 32 keys)</cell>
+        <cell>
+            <c>N</c> x <c>F</c> words + the size of all keys and values.<br></br>
+            <c>N</c> is the number of keys in the Map.<br></br>
+            <c>F</c> is a sparsity factor that can vary between 1.6 and 1.8
+            due to the probabilistic nature of the internal HAMT data structure.
+        </cell>
+      </row>
+      <row>
+        <cell>Pid</cell>
+        <cell>1 word for a process identifier from the current local node
+	+ 5 words for a process identifier from another node.<br></br>
+	A process identifier refers into a process table and a node table,
+	which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell>Port</cell>
+        <cell>1 word for a port identifier from the current local node
+	+ 5 words for a port identifier from another node.<br></br>
+	A port identifier refers into a port table and a node table,
+	which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell>Reference</cell>
+        <cell>On 32-bit architectures: 5 words for a reference from the
+	current local node + 7 words for a reference from another
+	node.<br></br>
+	On 64-bit architectures: 4 words for a reference from the current
+	local node + 6 words for a reference from another node.<br></br>
+	A reference refers into a node table, which also consumes
+	memory.</cell>
+      </row>
+      <row>
+        <cell>Fun</cell>
+        <cell>9..13 words + the size of environment.<br></br>
+	A fun refers into a fun table, which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell>Ets table</cell>
+        <cell>Initially 768 words + the size of each element (6 words +
+	the size of Erlang data). The table grows when necessary.</cell>
+      </row>
+      <row>
+        <cell>Erlang process</cell>
+        <cell>338 words when spawned, including a heap of 233 words.</cell>
+      </row>
+      <tcaption>Memory Size of Different Data Types</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>System Limits</title>
+    <p>The Erlang language specification puts no limits on the number of
+    processes, length of atoms, and so on. However, for performance and
+    memory saving reasons, there will always be limits in a practical
+    implementation of the Erlang language and execution environment.</p>
+
+    <table>
+      <row>
+        <cell>Processes</cell>
+        <cell>The maximum number of simultaneously alive Erlang processes
+	is by default 262,144. This limit can be configured at startup.
+	For more information, see the
+	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
+	command-line flag in the
+	<seealso marker="erts:erl"><c>erl(1)</c></seealso>
+	manual page in ERTS.</cell>
+      </row>
+      <row>
+	<cell>Known nodes</cell>
+	<cell>A remote node Y must be known to node X if there exists
+	any pids, ports, references, or funs (Erlang data types) from Y
+	on X, or if X and Y are connected. The maximum number of remote
+	nodes simultaneously/ever known to a node is limited by the
+	<seealso marker="#atoms">maximum number of atoms</seealso>
+	available for node names. All data concerning remote nodes,
+	except for the node name atom, are garbage-collected.</cell>
+      </row>
+      <row>
+	<cell>Connected nodes</cell>
+	<cell>The maximum number of simultaneously connected nodes is
+	limited by either the maximum number of simultaneously known
+	remote nodes,
+	<seealso marker="#ports">the maximum number of (Erlang) ports</seealso>
+	available, or
+	<seealso marker="#files_sockets">the maximum number of sockets</seealso>
+	available.</cell>
+      </row>
+      <row>
+	<cell>Characters in an atom</cell>
+	<cell>255.</cell>
+      </row>
+      <row>
+	<cell><marker id="atoms"></marker>Atoms</cell>
+	<cell>By default, the maximum number of atoms is 1,048,576. This
+	limit can be raised or lowered using the <c>+t</c> option.</cell>
+      </row>
+      <row>
+	<cell>Elements in a tuple</cell>
+	<cell>The maximum number of elements in a tuple is 16,777,215
+	(24-bit unsigned integer).</cell>
+      </row>
+      <row>
+	<cell>Size of binary</cell>
+	<cell>In the 32-bit implementation of Erlang, 536,870,911
+	bytes is the largest binary that can be constructed or matched
+	using the bit syntax. In the 64-bit implementation, the maximum
+	size is 2,305,843,009,213,693,951 bytes. If the limit is
+	exceeded, bit syntax construction fails with a
+	<c>system_limit</c> exception, while any attempt to match a
+	binary that is too large fails. This limit is enforced starting
+	in R11B-4.<br></br>
+	In earlier Erlang/OTP releases, operations on too large
+	binaries in general either fail or give incorrect results. In
+	future releases, other operations that create binaries (such as
+	<c>list_to_binary/1</c>) will probably also enforce the same
+	limit.</cell>
+      </row>
+      <row>
+	<cell>Total amount of data allocated by an Erlang node</cell>
+	<cell>The Erlang runtime system can use the complete 32-bit
+	(or 64-bit) address space, but the operating system often
+	limits a single process to use less than that.</cell>
+      </row>
+      <row>
+	<cell>Length of a node name</cell>
+	<cell>An Erlang node name has the form host@shortname or
+	host@longname. The node name is  used as an atom within
+	the system, so the maximum size of 255 holds also for the
+	node name.</cell>
+      </row>
+      <row>
+	<cell><marker id="ports"></marker>Open ports</cell>
+	<cell>The maximum number of simultaneously open Erlang ports is
+	often by default 16,384. This limit can be configured at startup.
+	For more information, see the
+	<seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
+	command-line flag in the
+	<seealso marker="erts:erl"><c>erl(1)</c></seealso> manual page
+	in ERTS.</cell>
+      </row>
+      <row>
+	<cell><marker id="files_sockets"></marker>Open files and
+	sockets</cell>
+	<cell>The maximum number of simultaneously open files and
+	sockets depends on
+	<seealso marker="#ports">the maximum number of Erlang ports</seealso>
+	available, as well as on operating system-specific settings
+	and limits.</cell>
+      </row>
+      <row>
+	<cell>Number of arguments to a function or fun</cell>
+	<cell>255</cell>
+      </row>
+      <row>
+        <cell><marker id="unique_references"/>Unique References on a Runtime System Instance</cell>
+        <cell>Each scheduler thread has its own set of references, and all
+        other threads have a shared set of references. Each set of references
+        consist of <c>2⁶⁴ - 1</c> unique references. That is, the total
+        amount of unique references that can be produced on a runtime
+        system instance is <c>(NoSchedulers + 1) × (2⁶⁴ - 1)</c>.
+	<br/><br/>
+	If a scheduler thread create a new reference each nano second,
+        references will at earliest be reused after more than 584 years.
+	That is, for the foreseeable future they are unique enough.</cell>
+      </row>
+      <row>
+        <cell><marker id="unique_integers"/>Unique Integers on a Runtime System Instance</cell>
+        <cell>
+	    There are two types of unique integers both created using the
+            <seealso marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seealso>
+            BIF:
+	    <br/><br/>
+	    <em>1.</em> Unique integers created <em>with</em> the
+	    <c>monotonic</c> modifier consist of a set of <c>2⁶⁴ - 1</c>
+	    unique integers.
+	    <br/><br/>
+	    <em>2.</em> Unique integers created <em>without</em> the
+	    <c>monotonic</c> modifier consist of a set of <c>2⁶⁴ - 1</c>
+	    unique integers per scheduler thread and a set of <c>2⁶⁴ - 1</c>
+	    unique integers shared by other threads. That is, the total
+	    amount of unique integers without the <c>monotonic</c> modifier
+	    is <c>(NoSchedulers + 1) × (2⁶⁴ - 1)</c>.
+	    <br/><br/>
+	    If a unique integer is created each nano second, unique integers
+	    will at earliest be reused after more than 584 years. That is, for
+	    the foreseeable future they are unique enough.
+	</cell>
+      </row>	
+      <tcaption>System Limits</tcaption>
+    </table>
+  </section>
+</chapter>
+

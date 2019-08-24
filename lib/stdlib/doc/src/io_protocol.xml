@@ -1,0 +1,917 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year>
+      <year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>The Erlang I/O Protocol</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2009-02-25</date>
+    <rev>PA1</rev>
+    <file>io_protocol.xml</file>
+  </header>
+
+  <p>The I/O protocol in Erlang enables bi-directional communication between
+    clients and servers.</p>
+
+  <list type="bulleted">
+    <item>
+      <p>The I/O server is a process that handles the requests and performs
+      the requested task on, for example, an I/O device.</p>
+    </item>
+    <item>
+      <p>The client is any Erlang process wishing to read or write data from/to
+        the I/O device.</p>
+    </item>
+  </list>
+
+  <p>The common I/O protocol has been present in OTP since the beginning, but
+    has been undocumented and has also evolved over the years. In an
+    addendum to Robert Virding's rationale, the original I/O protocol is
+    described. This section describes the current I/O protocol.</p>
+
+  <p>The original I/O protocol was simple and flexible. Demands for memory
+    efficiency and execution time efficiency have triggered extensions
+    to the protocol over the years, making the protocol larger and somewhat
+    less easy to implement than the original. It can certainly be argued that
+    the current protocol is too complex, but this section describes how it
+    looks today, not how it should have looked.</p>
+
+  <p>The basic ideas from the original protocol still hold. The I/O server
+    and client communicate with one single, rather simplistic protocol and no
+    server state is ever present in the client. Any I/O server can be used
+    together with any client code, and the client code does not need to be
+    aware of the I/O device that the I/O server communicates with.</p>
+
+  <section>
+    <title>Protocol Basics</title>
+    <p>As described in Robert's paper, I/O servers and clients communicate
+      using <c>io_request</c>/<c>io_reply</c> tuples as follows:</p>
+
+    <pre>
+{io_request, From, ReplyAs, Request}
+{io_reply, ReplyAs, Reply}</pre>
+
+    <p>The client sends an <c>io_request</c> tuple to the I/O server and the
+      server eventually sends a corresponding <c>io_reply</c> tuple.</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>From</c> is the <c>pid()</c> of the client, the process which
+          the I/O server sends the I/O reply to.</p>
+      </item>
+      <item>
+        <p><c>ReplyAs</c> can be any datum and is returned in the
+          corresponding <c>io_reply</c>. The
+          <seealso marker="stdlib:io"><c>io</c></seealso> module monitors the
+          the I/O server and uses the monitor reference as the <c>ReplyAs</c>
+          datum. A more complicated client can have many outstanding I/O
+          requests to the same I/O server and can use different references (or
+          something else) to differentiate among the incoming I/O replies.
+          Element <c>ReplyAs</c> is to be considered opaque by the I/O
+          server.</p>
+        <p>Notice that the <c>pid()</c> of the I/O server is not explicitly
+          present in tuple <c>io_reply</c>. The reply can be sent from any
+          process, not necessarily the actual I/O server.</p>
+      </item>
+      <item>
+        <p><c>Request</c> and <c>Reply</c> are described below.</p>
+      </item>
+    </list>
+
+    <p>When an I/O server receives an <c>io_request</c> tuple, it acts upon the
+      <c>Request</c> part and eventually sends an <c>io_reply</c> tuple with
+      the corresponding <c>Reply</c> part.</p> 
+  </section>
+
+  <section>
+    <title>Output Requests</title>
+    <p>To output characters on an I/O device, the following <c>Request</c>s
+      exist:</p>
+
+    <pre>
+{put_chars, Encoding, Characters}
+{put_chars, Encoding, Module, Function, Args}</pre>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Encoding</c> is <c>unicode</c> or <c>latin1</c>, meaning that the
+          characters are (in case of binaries) encoded as UTF-8 or ISO Latin-1
+          (pure bytes). A well-behaved I/O server is also to return an error
+	  indication if list elements contain integers &gt; 255
+	  when <c>Encoding</c> is set to <c>latin1</c>.</p>
+        <p>Notice that this does not in any way tell how characters are to be
+          put on the I/O device or handled by the I/O server. Different I/O
+          servers can handle the characters however they want, this only tells
+          the I/O server which format the data is expected to have. In the
+          <c>Module</c>/<c>Function</c>/<c>Args</c> case, <c>Encoding</c> tells
+          which format the designated function produces.</p>
+        <p>Notice also that byte-oriented data is simplest sent using the ISO
+          Latin-1 encoding.</p>
+      </item>
+      <item>
+        <p><c>Characters</c> are the data to be put on the I/O device. If
+          <c>Encoding</c> is <c>latin1</c>, this is an <c>iolist()</c>. If
+          <c>Encoding</c> is <c>unicode</c>, this is an Erlang standard mixed
+          Unicode list (one integer in a list per character, characters in
+          binaries represented as UTF-8).</p>
+      </item>
+      <item>
+        <p><c>Module</c>, <c>Function</c>, and <c>Args</c> denote a function
+          that is called to produce the data (like
+          <seealso marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seealso>).
+        </p>
+        <p><c>Args</c> is a list of arguments to the function. The function is
+          to produce data in the specified <c>Encoding</c>. The I/O server is
+          to call the function as <c>apply(Mod, Func, Args)</c> and put the
+          returned data on the I/O device as if it was sent in a
+          <c>{put_chars, Encoding, Characters}</c> request. If the function
+          returns anything else than a binary or list, or throws an exception,
+          an error is to be sent back to the client.</p>
+      </item>
+    </list>
+
+    <p>The I/O server replies to the client with an <c>io_reply</c> tuple, where
+      element <c>Reply</c> is one of:</p>
+
+    <pre>
+ok
+{error, Error}</pre>
+
+    <list type="bulleted">
+      <item><c>Error</c> describes the error to the client, which can do
+        whatever it wants with it. The
+        <seealso marker="stdlib:io"><c>io</c></seealso> module typically
+        returns it "as is".</item>
+    </list>
+
+    <p>For backward compatibility, the following <c>Request</c>s are also to be
+      handled by an I/O server (they are not to be present after
+      Erlang/OTP R15B):</p>
+
+    <pre>
+{put_chars, Characters}
+{put_chars, Module, Function, Args}</pre>
+
+    <p>These are to behave as <c>{put_chars, latin1, Characters}</c> and
+      <c>{put_chars, latin1, Module, Function, Args}</c>, respectively.</p>
+  </section>
+
+  <section>
+    <title>Input Requests</title>
+    <p>To read characters from an I/O device, the following <c>Request</c>s
+      exist:</p>
+
+    <pre>
+{get_until, Encoding, Prompt, Module, Function, ExtraArgs}</pre>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Encoding</c> denotes how data is to be sent back to the client
+          and what data is sent to the function denoted by
+          <c>Module</c>/<c>Function</c>/<c>ExtraArgs</c>. If the function
+          supplied returns data as a list, the data is converted to this
+          encoding. If the function supplied returns data in some other format,
+          no conversion can be done, and it is up to the client-supplied
+          function to return data in a proper way.</p>
+        <p>If <c>Encoding</c> is <c>latin1</c>, lists of integers <c>0..255</c>
+          or binaries containing plain bytes are sent back to the client when
+          possible. If <c>Encoding</c> is <c>unicode</c>, lists with integers
+          in the whole Unicode range or binaries encoded in UTF-8 are sent to
+          the client. The user-supplied function always sees lists of
+          integers, never binaries, but the list can contain numbers &gt; 255
+          if <c>Encoding</c> is <c>unicode</c>.</p>
+      </item>
+      <item>
+        <p><c>Prompt</c> is a list of characters (not mixed, no binaries) or an
+          atom to be output as a prompt for input on the I/O device.
+          <c>Prompt</c> is often ignored by the I/O server; if set to <c>''</c>,
+          it is always to be ignored (and results in nothing being written to
+          the I/O device).</p>
+      </item>
+      <item>
+        <p><c>Module</c>, <c>Function</c>, and <c>ExtraArgs</c> denote a
+          function and arguments to determine when enough data is written. The
+          function is to take two more arguments, the last state, and a list of
+          characters. The function is to return one of:</p>
+        <pre>
+{done, Result, RestChars}
+{more, Continuation}</pre>
+        <p><c>Result</c> can be any Erlang term, but if it is a <c>list()</c>,
+          the I/O server can convert it to a <c>binary()</c> of appropriate
+          format before returning it to the client, if the I/O server is set in
+          binary mode (see below).</p>
+        <p>The function is called with the data the I/O server finds on its I/O
+          device, returning one of:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{done, Result, RestChars}</c> when enough data is read. In
+              this case <c>Result</c> is sent to the client and <c>RestChars</c>
+              is kept in the I/O server as a buffer for later input.</p>
+          </item>
+          <item>
+            <p><c>{more, Continuation}</c>, which indicates that more
+              characters are needed to complete the request.</p>
+          </item>
+        </list>
+        <p><c>Continuation</c> is sent as the state in later calls to the
+          function when more characters are available. When no more characters
+          are available, the function must return <c>{done, eof, Rest}</c>. The
+          initial state is the empty list. The data when an end of file is
+          reached on the IO device is the atom <c>eof</c>.</p>
+        <p>An emulation of the <c>get_line</c> request can be (inefficiently)
+          implemented using the following functions:</p>
+        <code>
+-module(demo).
+-export([until_newline/3, get_line/1]).
+
+until_newline(_ThisFar,eof,_MyStopCharacter) -&gt;
+    {done,eof,[]};
+until_newline(ThisFar,CharList,MyStopCharacter) -&gt;
+    case
+        lists:splitwith(fun(X) -&gt; X =/= MyStopCharacter end,  CharList)
+    of
+	{L,[]} -&gt;
+            {more,ThisFar++L};
+	{L2,[MyStopCharacter|Rest]} -&gt;
+	    {done,ThisFar++L2++[MyStopCharacter],Rest}
+    end.
+
+get_line(IoServer) -&gt;
+    IoServer ! {io_request,
+                self(),
+                IoServer,
+                {get_until, unicode, '', ?MODULE, until_newline, [$\n]}},
+    receive
+        {io_reply, IoServer, Data} -&gt;
+	    Data
+    end.</code>
+        <p>Notice that the last element in the <c>Request</c> tuple
+          (<c>[$\n]</c>) is appended to the argument list when the function is
+          called. The function is to be called like
+          <c>apply(Module, Function, [ State, Data | ExtraArgs ])</c> by the
+          I/O server.</p>
+      </item>
+    </list>
+
+    <p>A fixed number of characters is requested using the following
+      <c>Request</c>:</p>
+
+    <pre>
+{get_chars, Encoding, Prompt, N}</pre>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Encoding</c> and <c>Prompt</c> as for <c>get_until</c>.</p>
+      </item>
+      <item>
+        <p><c>N</c> is the number of characters to be read from the I/O
+        device.</p>
+      </item>
+    </list>
+
+    <p>A single line (as in former example) is requested with the
+      following <c>Request</c>:</p>
+
+    <pre>
+{get_line, Encoding, Prompt}</pre>
+
+    <list type="bulleted">
+      <item><c>Encoding</c> and <c>Prompt</c> as for <c>get_until</c>.</item>
+    </list>
+
+    <p>Clearly, <c>get_chars</c> and <c>get_line</c> could be implemented with
+      the <c>get_until</c> request (and indeed they were originally), but
+      demands for efficiency have made these additions necessary.</p>
+
+    <p>The I/O server replies to the client with an <c>io_reply</c> tuple, where
+      element <c>Reply</c> is one of:</p>
+
+    <pre>
+Data
+eof
+{error, Error}</pre>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Data</c> is the characters read, in list or binary form
+          (depending on the I/O server mode, see the next section).</p>
+      </item>
+      <item>
+        <p><c>eof</c> is returned when input end is reached and no more data is
+          available to the client process.</p>
+      </item>
+      <item>
+        <p><c>Error</c> describes the error to the client, which can do
+          whatever it wants with it. The
+          <seealso marker="stdlib:io"><c>io</c></seealso> module typically
+          returns it as is.</p>
+      </item>
+    </list>
+
+    <p>For backward compatibility, the following <c>Request</c>s are also to be
+      handled by an I/O server (they are not to be present after
+      Erlang/OTP R15B):</p>
+
+    <pre>
+{get_until, Prompt, Module, Function, ExtraArgs}
+{get_chars, Prompt, N}
+{get_line, Prompt}</pre>
+
+    <p>These are to behave as
+      <c>{get_until, latin1, Prompt, Module, Function, ExtraArgs}</c>,
+      <c>{get_chars, latin1, Prompt, N}</c>, and
+      <c>{get_line, latin1, Prompt}</c>, respectively.</p>
+  </section>
+
+  <section>
+    <title>I/O Server Modes</title>
+    <p>Demands for efficiency when reading data from an I/O server has not only
+      lead to the addition of the <c>get_line</c> and <c>get_chars</c> requests,
+      but has also added the concept of I/O server options. No options are
+      mandatory to implement, but all I/O servers in the Erlang standard
+      libraries honor the <c>binary</c> option, which allows element
+      <c>Data</c> of the <c>io_reply</c> tuple to be a binary instead of a list
+      <em>when possible</em>. If the data is sent as a binary, Unicode data is
+      sent in the standard Erlang Unicode format, that is, UTF-8 (notice that
+      the function of the <c>get_until</c> request still gets list data
+      regardless of the I/O server mode).</p>
+
+    <p>Notice that the <c>get_until</c> request allows for a function with the
+      data specified as always being a list. Also, the return value data from
+      such a function can be of any type (as is indeed the case when an
+      <seealso marker="stdlib:io#fread/2"><c>io:fread/2,3</c></seealso>
+      request is sent to an I/O server).
+      The client must be prepared for data received as
+      answers to those requests to be in various forms. However, the I/O
+      server is to convert the results to binaries whenever possible (that is,
+      when the function supplied to <c>get_until</c> returns a list). This is
+      done in the example in section
+      <seealso marker="#example_io_server">An Annotated and Working Example I/O Server</seealso>.
+    </p>
+
+    <p>An I/O server in binary mode affects the data sent to the client, so that
+      it must be able to handle binary data. For convenience, the modes of an
+      I/O server can be set and retrieved using the following I/O requests:</p>
+
+    <pre>
+{setopts, Opts}</pre>
+
+    <list type="bulleted">
+      <item><c>Opts</c> is a list of options in the format recognized by the
+          <seealso marker="stdlib:proplists"><c>proplists</c></seealso> module
+          (and by the I/O server).</item>
+    </list>
+
+    <p>As an example, the I/O server for the interactive shell (in
+      <c>group.erl</c>) understands the following options:</p>
+
+    <pre>
+{binary, boolean()} (or binary/list)
+{echo, boolean()}
+{expand_fun, fun()}
+{encoding, unicode/latin1} (or unicode/latin1)</pre>
+
+    <p>Options <c>binary</c> and <c>encoding</c> are common for all I/O servers
+      in OTP, while <c>echo</c> and <c>expand</c> are valid only for this I/O
+      server. Option <c>unicode</c> notifies how characters are put on the
+      physical I/O device, that is, if the terminal itself is Unicode-aware.
+      It does not affect how characters are sent in the I/O protocol, where
+      each request contains encoding information for the provided or returned
+      data.</p>
+
+    <p>The I/O server is to send one of the following as <c>Reply</c>:</p>
+
+    <pre>
+ok
+{error, Error}</pre>
+
+    <p>An error (preferably <c>enotsup</c>) is to be expected if the option is
+      not supported by the I/O server (like if an <c>echo</c> option is sent in
+      a <c>setopts</c> request to a plain file).</p>
+
+    <p>To retrieve options, the following request is used:</p>
+
+    <pre>
+getopts</pre>
+
+    <p>This request asks for a complete list of all options supported by the
+      I/O server as well as their current values.</p>
+
+    <p>The I/O server replies:</p>
+
+    <pre>
+OptList
+{error, Error}</pre>
+
+    <list type="bulleted">
+      <item><c>OptList</c> is a list of tuples <c>{Option, Value}</c>, where
+        <c>Option</c> always is an atom.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Multiple I/O Requests</title>
+    <p>The <c>Request</c> element can in itself contain many <c>Request</c>s
+      by using the following format:</p>
+
+    <pre>
+{requests, Requests}</pre>
+
+    <list type="bulleted">
+      <item><c>Requests</c> is a list of valid <c>io_request</c> tuples for the
+        protocol. They must be executed in the order that they appear in
+        the list. The execution is to continue until one of the requests results
+        in an error or the list is consumed. The result of the last request is
+        sent back to the client.</item>
+    </list>
+
+    <p>The I/O server can, for a list of requests, send any of the following
+      valid results in the reply, depending on the requests in the list:</p>
+
+    <pre>
+ok
+{ok, Data}
+{ok, Options}
+{error, Error}</pre>
+  </section>
+
+  <section>
+    <title>Optional I/O Request</title>
+    <p>The following I/O request is optional to implement and a client is to
+      be prepared for an error return:</p>
+
+    <pre>
+{get_geometry, Geometry}</pre>
+
+    <list type="bulleted">
+      <item><c>Geometry</c> is the atom <c>rows</c> or the atom
+        <c>columns</c>.</item>
+    </list>
+
+    <p>The I/O server is to send the <c>Reply</c> as:</p>
+
+    <pre>
+{ok, N}
+{error, Error}</pre>
+
+   <list type="bulleted">
+     <item><c>N</c> is the number of character rows or columns that the I/O
+       device has, if applicable to the I/O device handled by the I/O server,
+       otherwise <c>{error, enotsup}</c> is a good answer.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Unimplemented Request Types</title>
+    <p>If an I/O server encounters a request that it does not recognize (that
+      is, the <c>io_request</c> tuple has the expected format, but the
+      <c>Request</c> is unknown), the I/O server is to send a valid reply with
+      the error tuple:</p>
+
+    <pre>
+{error, request}</pre>
+
+    <p>This makes it possible to extend the protocol with optional requests
+      and for the clients to be somewhat backward compatible.</p>
+  </section>
+
+  <section>
+    <title>An Annotated and Working Example I/O Server</title>
+    <marker id="example_io_server"/>
+    <p>An I/O server is any process capable of handling the I/O protocol. There
+      is no generic I/O server behavior, but could well be. The framework is
+      simple, a process handling incoming requests, usually both I/O-requests
+      and other I/O device-specific requests (positioning, closing, and so on).
+    </p>
+
+    <p>The example I/O server stores characters in an ETS table, making
+      up a fairly crude RAM file.</p>
+
+    <p>The module begins with the usual directives, a function to start the
+      I/O server and a main loop handling the requests:</p>
+
+    <code>
+-module(ets_io_server).
+
+-export([start_link/0, init/0, loop/1, until_newline/3, until_enough/3]).
+
+-define(CHARS_PER_REC, 10).
+
+-record(state, {
+	  table,
+	  position, % absolute
+	  mode % binary | list
+	 }).
+
+start_link() -&gt;
+    spawn_link(?MODULE,init,[]).
+
+init() -&gt;
+    Table = ets:new(noname,[ordered_set]),
+    ?MODULE:loop(#state{table = Table, position = 0, mode=list}).
+
+loop(State) -&gt;
+    receive
+	{io_request, From, ReplyAs, Request} -&gt;
+	    case request(Request,State) of
+		{Tag, Reply, NewState} when Tag =:= ok; Tag =:= error -&gt;
+		    reply(From, ReplyAs, Reply),
+		    ?MODULE:loop(NewState);
+		{stop, Reply, _NewState} -&gt;
+		    reply(From, ReplyAs, Reply),
+		    exit(Reply)
+	    end;
+	%% Private message
+	{From, rewind} -&gt;
+	    From ! {self(), ok},
+	    ?MODULE:loop(State#state{position = 0});
+	_Unknown -&gt;
+	    ?MODULE:loop(State)
+    end.</code>
+
+    <p>The main loop receives messages from the client (which can use the
+      the <seealso marker="stdlib:io"><c>io</c></seealso> module to send
+      requests). For each request, the function <c>request/2</c> is called and a
+      reply is eventually sent using function <c>reply/3</c>.</p>
+
+    <p>The &quot;private&quot; message <c>{From, rewind}</c> results in the
+      current position in the pseudo-file to be reset to <c>0</c> (the beginning
+      of the &quot;file&quot;). This is a typical example of I/O device-specific
+      messages not being part of the I/O protocol. It is usually a bad idea to
+      embed such private messages in <c>io_request</c> tuples, as that can
+      confuse the reader.</p>
+
+    <p>First, we examine the reply function:</p>
+
+    <code>
+reply(From, ReplyAs, Reply) -&gt;
+    From ! {io_reply, ReplyAs, Reply}.</code>
+
+    <p>It sends the <c>io_reply</c> tuple back to the client, providing element
+      <c>ReplyAs</c> received in the request along with the result of the
+      request, as described earlier.</p>
+
+    <p>We need to handle some requests. First the requests for writing
+      characters:</p>
+
+    <code>
+request({put_chars, Encoding, Chars}, State) -&gt;
+    put_chars(unicode:characters_to_list(Chars,Encoding),State);
+request({put_chars, Encoding, Module, Function, Args}, State) -&gt;
+    try
+	request({put_chars, Encoding, apply(Module, Function, Args)}, State)
+    catch
+	_:_ -&gt;
+	    {error, {error,Function}, State}
+    end;</code>
+
+   <p>The <c>Encoding</c> says how the characters in the request are
+     represented. We want to store the characters as lists in the ETS
+     table, so we convert them to lists using function
+     <seealso marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list/2</c></seealso>.
+     The conversion function conveniently accepts the encoding types
+     <c>unicode</c> and <c>latin1</c>, so we can use <c>Encoding</c> directly.</p>
+
+    <p>When <c>Module</c>, <c>Function</c>, and <c>Arguments</c> are provided,
+      we apply it and do the same with the result as if the data was provided
+      directly.</p>
+
+    <p>We handle the requests for retrieving data:</p>
+
+    <code>
+request({get_until, Encoding, _Prompt, M, F, As}, State) -&gt;
+    get_until(Encoding, M, F, As, State);
+request({get_chars, Encoding, _Prompt, N}, State) -&gt;
+    %% To simplify the code, get_chars is implemented using get_until
+    get_until(Encoding, ?MODULE, until_enough, [N], State);
+request({get_line, Encoding, _Prompt}, State) -&gt;
+    %% To simplify the code, get_line is implemented using get_until
+    get_until(Encoding, ?MODULE, until_newline, [$\n], State);</code>
+
+   <p>Here we have cheated a little by more or less only implementing
+     <c>get_until</c> and using internal helpers to implement <c>get_chars</c>
+      and <c>get_line</c>. In production code, this can be inefficient, but
+      that depends on the frequency of the different requests. Before we start
+      implementing functions <c>put_chars/2</c> and <c>get_until/5</c>, we
+      examine the few remaining requests:</p>
+
+    <code>
+request({get_geometry,_}, State) -&gt;
+    {error, {error,enotsup}, State};
+request({setopts, Opts}, State) -&gt;
+    setopts(Opts, State);
+request(getopts, State) -&gt;
+    getopts(State);
+request({requests, Reqs}, State) -&gt;
+     multi_request(Reqs, {ok, ok, State});</code>
+
+    <p>Request <c>get_geometry</c> has no meaning for this I/O server, so the
+      reply is <c>{error, enotsup}</c>. The only option we handle is
+      <c>binary</c>/<c>list</c>, which is done in separate functions.</p>
+
+    <p>The multi-request tag (<c>requests</c>) is handled in a separate loop
+      function applying the requests in the list one after another, returning
+      the last result.</p>
+
+    <p>We need to handle backward compatibility and the
+      <seealso marker="kernel:file"><c>file</c></seealso> module (which
+      uses the old requests until backward compatibility with pre-R13 nodes is
+      no longer needed). Notice that the I/O server does not work with a simple
+      <c>file:write/2</c> if these are not added:</p>
+
+    <code>
+request({put_chars,Chars}, State) -&gt;
+    request({put_chars,latin1,Chars}, State);
+request({put_chars,M,F,As}, State) -&gt;
+    request({put_chars,latin1,M,F,As}, State);
+request({get_chars,Prompt,N}, State) -&gt;
+    request({get_chars,latin1,Prompt,N}, State);
+request({get_line,Prompt}, State) -&gt;
+    request({get_line,latin1,Prompt}, State);
+request({get_until, Prompt,M,F,As}, State) -&gt;
+    request({get_until,latin1,Prompt,M,F,As}, State);</code>
+
+    <p><c>{error, request}</c> must be returned if the request is not
+      recognized:</p>
+
+    <code>
+request(_Other, State) -&gt;
+    {error, {error, request}, State}.</code>
+
+    <p>Next we handle the different requests, first the fairly generic
+      multi-request type:</p>
+
+    <code>
+multi_request([R|Rs], {ok, _Res, State}) -&gt;
+    multi_request(Rs, request(R, State));
+multi_request([_|_], Error) -&gt;
+    Error;
+multi_request([], Result) -&gt;
+    Result.</code>
+
+    <p>We loop through the requests one at the time, stopping when we either
+      encounter an error or the list is exhausted. The last return value is
+      sent back to the client (it is first returned to the main loop and then
+      sent back by function <c>io_reply</c>).</p>
+
+    <p>Requests <c>getopts</c> and <c>setopts</c> are also simple to handle.
+      We only change or read the state record:</p>
+
+    <code>
+setopts(Opts0,State) -&gt;
+    Opts = proplists:unfold(
+	     proplists:substitute_negations(
+	       [{list,binary}], 
+	       Opts0)),
+    case check_valid_opts(Opts) of
+	true -&gt;
+	        case proplists:get_value(binary, Opts) of
+		    true -&gt;
+			{ok,ok,State#state{mode=binary}};
+		    false -&gt;
+			{ok,ok,State#state{mode=binary}};
+		    _ -&gt;
+			{ok,ok,State}
+		end;
+	false -&gt;
+	    {error,{error,enotsup},State}
+    end.
+check_valid_opts([]) -&gt;
+    true;
+check_valid_opts([{binary,Bool}|T]) when is_boolean(Bool) -&gt;
+    check_valid_opts(T);
+check_valid_opts(_) -&gt;
+    false.
+
+getopts(#state{mode=M} = S) -&gt;
+    {ok,[{binary, case M of
+		      binary -&gt;
+			  true;
+		      _ -&gt;
+			  false
+		  end}],S}.</code>
+
+    <p>As a convention, all I/O servers handle both <c>{setopts, [binary]}</c>,
+      <c>{setopts, [list]}</c>, and <c>{setopts,[{binary, boolean()}]}</c>,
+      hence the trick with <c>proplists:substitute_negations/2</c> and
+      <c>proplists:unfold/1</c>. If invalid options are sent to us, we send
+      <c>{error, enotsup}</c> back to the client.</p>
+
+    <p>Request <c>getopts</c> is to return a list of <c>{Option, Value}</c>
+      tuples. This has the twofold function of providing both the current values
+      and the available options of this I/O server. We have only one option, and
+      hence return that.</p>
+
+    <p>So far this I/O server is fairly generic (except for request
+      <c>rewind</c> handled in the main loop and the creation of an ETS
+      table). Most I/O servers contain code similar to this one.</p>
+
+    <p>To make the example runnable, we start implementing the reading and
+      writing of the data to/from the ETS table. First function
+      <c>put_chars/3</c>:</p>
+
+    <code>
+put_chars(Chars, #state{table = T, position = P} = State) -&gt;
+    R = P div ?CHARS_PER_REC,
+    C = P rem ?CHARS_PER_REC,
+    [ apply_update(T,U) || U &lt;- split_data(Chars, R, C) ],
+    {ok, ok, State#state{position = (P + length(Chars))}}.</code>
+
+    <p>We already have the data as (Unicode) lists and therefore only split
+      the list in runs of a predefined size and put each run in the table at
+      the current position (and forward). Functions <c>split_data/3</c> and
+      <c>apply_update/2</c> are implemented below.</p>
+
+    <p>Now we want to read data from the table. Function <c>get_until/5</c>
+      reads data and applies the function until it says that it is done. The
+      result is sent back to the client:</p>
+
+    <code>
+get_until(Encoding, Mod, Func, As, 
+	  #state{position = P, mode = M, table = T} = State) -&gt;
+    case get_loop(Mod,Func,As,T,P,[]) of
+	{done,Data,_,NewP} when is_binary(Data); is_list(Data) -&gt;
+	    if
+		M =:= binary -&gt; 
+		    {ok, 
+		     unicode:characters_to_binary(Data, unicode, Encoding),
+		     State#state{position = NewP}};
+		true -&gt;
+		    case check(Encoding, 
+		               unicode:characters_to_list(Data, unicode))
+                    of
+			{error, _} = E -&gt;
+			    {error, E, State};
+			List -&gt;
+			    {ok, List,
+			     State#state{position = NewP}}
+		    end
+	    end;
+	{done,Data,_,NewP} -&gt;
+	    {ok, Data, State#state{position = NewP}};
+	Error -&gt;
+	    {error, Error, State}
+    end.
+
+get_loop(M,F,A,T,P,C) -&gt;
+    {NewP,L} = get(P,T),
+    case catch apply(M,F,[C,L|A]) of
+	{done, List, Rest} -&gt;
+	    {done, List, [], NewP - length(Rest)};
+	{more, NewC} -&gt;
+	    get_loop(M,F,A,T,NewP,NewC);
+	_ -&gt;
+	    {error,F}
+    end.</code>
+
+    <p>Here we also handle the mode (<c>binary</c> or <c>list</c>) that can be
+      set by request <c>setopts</c>. By default, all OTP I/O servers send data
+      back to the client as lists, but switching mode to <c>binary</c> can
+      increase efficiency if the I/O server handles it in an appropriate way.
+      The implementation of <c>get_until</c> is difficult to get efficient, as
+      the supplied function is defined to take lists as arguments, but
+      <c>get_chars</c> and <c>get_line</c> can be optimized for binary mode.
+      However, this example does not optimize anything.</p>
+
+    <p>It is important though that the returned data is of the correct type
+      depending on the options set. We therefore convert the lists to binaries
+      in the correct encoding <em>if possible</em> before returning. The
+      function supplied in the <c>get_until</c> request tuple can, as its final
+      result return anything, so only functions returning lists can get them
+      converted to binaries. If the request contains encoding tag
+      <c>unicode</c>, the lists can contain all Unicode code points and the
+      binaries are to be in UTF-8. If the encoding tag is <c>latin1</c>, the
+      client is only to get characters in the range <c>0..255</c>. Function
+      <c>check/2</c> takes care of not returning arbitrary Unicode code points
+      in lists if the encoding was specified as <c>latin1</c>. If the function
+      does not return a list, the check cannot be performed and the result is
+      that of the supplied function untouched.</p>
+
+    <p>To manipulate the table we implement the following utility functions:</p>
+
+    <code>
+check(unicode, List) -&gt;
+    List;
+check(latin1, List) -&gt;
+    try 
+	[ throw(not_unicode) || X &lt;- List,
+				X > 255 ],
+	List
+    catch
+	throw:_ -&gt;
+	    {error,{cannot_convert, unicode, latin1}}
+    end.</code>
+
+    <p>The function check provides an error tuple if Unicode code points &gt;
+      255 are to be returned if the client requested <c>latin1</c>.</p>
+
+    <p>The two functions <c>until_newline/3</c> and <c>until_enough/3</c> are
+      helpers used together with function <c>get_until/5</c> to implement
+      <c>get_chars</c> and <c>get_line</c> (inefficiently):</p>
+
+    <code>
+until_newline([],eof,_MyStopCharacter) -&gt;
+    {done,eof,[]};
+until_newline(ThisFar,eof,_MyStopCharacter) -&gt;
+    {done,ThisFar,[]};
+until_newline(ThisFar,CharList,MyStopCharacter) -&gt;
+    case
+        lists:splitwith(fun(X) -&gt; X =/= MyStopCharacter end,  CharList)
+    of
+	{L,[]} -&gt;
+            {more,ThisFar++L};
+	{L2,[MyStopCharacter|Rest]} -&gt;
+	    {done,ThisFar++L2++[MyStopCharacter],Rest}
+    end.
+
+until_enough([],eof,_N) -&gt;
+    {done,eof,[]};
+until_enough(ThisFar,eof,_N) -&gt;
+    {done,ThisFar,[]};
+until_enough(ThisFar,CharList,N) 
+  when length(ThisFar) + length(CharList) >= N -&gt;
+    {Res,Rest} = my_split(N,ThisFar ++ CharList, []),
+    {done,Res,Rest};
+until_enough(ThisFar,CharList,_N) -&gt;
+    {more,ThisFar++CharList}.</code>
+
+    <p>As can be seen, the functions above are just the type of functions that
+      are to be provided in <c>get_until</c> requests.</p>
+
+    <p>To complete the I/O server, we only need to read and write the table in
+      an appropriate way:</p>
+
+    <code>
+get(P,Tab) -&gt;
+    R = P div ?CHARS_PER_REC,
+    C = P rem ?CHARS_PER_REC,
+    case ets:lookup(Tab,R) of
+	[] -&gt;
+	    {P,eof};
+	[{R,List}] -&gt;
+	    case my_split(C,List,[]) of
+		{_,[]} -&gt;
+		    {P+length(List),eof};
+		{_,Data} -&gt;
+		    {P+length(Data),Data}
+	    end
+    end.
+
+my_split(0,Left,Acc) -&gt;
+    {lists:reverse(Acc),Left};
+my_split(_,[],Acc) -&gt;
+    {lists:reverse(Acc),[]};
+my_split(N,[H|T],Acc) -&gt;
+    my_split(N-1,T,[H|Acc]).
+
+split_data([],_,_) -&gt;
+    [];
+split_data(Chars, Row, Col) -&gt;
+    {This,Left} = my_split(?CHARS_PER_REC - Col, Chars, []),
+    [ {Row, Col, This} | split_data(Left, Row + 1, 0) ].
+
+apply_update(Table, {Row, Col, List}) -&gt;     
+    case ets:lookup(Table,Row) of
+	[] -&gt;
+	    ets:insert(Table,{Row, lists:duplicate(Col,0) ++ List});
+	[{Row, OldData}] -&gt;
+	    {Part1,_} = my_split(Col,OldData,[]),
+	    {_,Part2} = my_split(Col+length(List),OldData,[]),
+	    ets:insert(Table,{Row, Part1 ++ List ++ Part2})
+    end.</code>
+
+    <p>The table is read or written in chunks of <c>?CHARS_PER_REC</c>,
+      overwriting when necessary. The implementation is clearly not efficient,
+      it is just working.</p>
+
+    <p>This concludes the example. It is fully runnable and you can read or
+      write to the I/O server by using, for example, the
+      <seealso marker="stdlib:io"><c>io</c></seealso> module or even the
+      <seealso marker="kernel:file"><c>file</c></seealso> module. It is
+      as simple as that to implement a fully fledged I/O server in Erlang.</p>
+  </section>
+</chapter>

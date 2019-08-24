@@ -1,0 +1,211 @@
+Author  : Hakan Mattsson <hakan@cslab.ericsson.se>
+Created : 21 Jun 2001 by Hakan Mattsson <hakan@cslab.ericsson.se>
+
+This is an implementation of a real-time database benchmark
+(LMC/UU-01:025), defined by Richard Trembley (LMC) and Miroslaw
+Zakrzewski (LMC) . The implementation runs the benchmark on the Mnesia
+DBMS which is a part of Erlang/OTP (www.erlang.org).
+
+The implementation is organized in the following parts:
+
+  bench.erl          - main API, startup and configuration
+  bench.hrl          - record definitions
+  bench_populate.erl - create database and populate it with records
+  bench_trans.erl    - the actual transactions to be benchmarked
+  bench_generate.erl - request generator, statistics computation
+
+Compile the files with:
+
+  make all
+
+and run the benchmarks with:
+
+  make test
+
+================================================================
+
+The benchmark runs on a set of Erlang nodes which should reside on
+one processor each.
+
+There are many options when running the benchmark. Benchmark
+configuration parameters may either be stated in a configuration file
+or as command line arguments in the Erlang shell. Erlang nodes may
+either be started manually or automatically by the benchmark program.
+
+In its the most automated usage you only need to provide one or more
+configuration files and run the
+
+        bench.sh <ConfigFiles>
+
+script to start all Erlang nodes, populate the database and run the
+actual benchmark for each one of the configuration files. The
+benchmark results will be displayed at stdout.
+
+In order to be able to automatically start remote Erlang nodes, 
+you need to:
+
+ - put the $ERL_TOP/bin directory in your path on all nodes
+ - bind IP adresses to hostnames (e.g via DNS or /etc/hosts)
+ - enable usage of ssh so it does not prompt for password
+
+If you cannot achieve this, it is possible to run the benchmark
+anyway, but it requires more manual work to be done for each
+execution of the benchmark.
+
+================================================================
+
+For each configuration file given to the bench.sh script:
+
+  - a brand new Erlang node is started
+  - the bench:run(['YourConfigFile']) function is invoked
+  - the Erlang node(s) are halted.
+
+Without arguments, the bench.sh simply starts an Erlang shell.
+In that shell you have the ability to invoke Erlang functions,
+such as bench:run/1. 
+
+The bench:start_all/1 function analyzes the configuration, starts
+all Erlang nodes necessary to perform the benchmark and starts
+Mnesia on all these nodes.
+
+The bench:populate/1 function populates the database according
+to the configuration and assumes that Mnesia is up and running
+on all nodes.
+
+The bench:generate/1 function starts the actual benchmark
+according to the configuration and assumes that Mnesia is
+up and running and that the database is fully populated.
+Given some arguments such as
+
+   Args = ['YourConfigFile', {statistics_detail, debug}].
+
+the invokation of
+
+   bench:run(Args).
+
+is equivivalent with:
+
+   SlaveNodes = bench:start_all(Args).
+   bench:populate(Args).
+   bench:generate(Args).
+   bench:stop_slave_nodes(SlaveNodes).
+
+In case you cannot get the automatic start of remote Erlang nodes to
+work (implied by bench:start_all/1) , you may need to manually start
+an Erlang node on each host (e.g. with bench.sh without arguments) and
+then invoke bench:run/1 or its equivivalents on one of them.
+
+================================================================
+
+The following configuration parameters are valid:
+
+generator_profile 
+
+  Selects the transaction profile of the benchmark. Must be one
+  of the following atoms: t1, t2, t3, t4, t5, ping, random.
+  Defaults to random which means that the t1 .. t5 transaction
+  types are randomly selected according to the benchmark spec.
+  The other choices means disables the random choice and selects
+  one particular transaction type to be run over and over again.
+
+generator_warmup
+
+  Defines how long the request generators should "warm up" the
+  DBMS before the actual measurements are performed. The unit
+  is milliseconds and defaults to 2000 (2 seconds).
+
+generator_duration
+
+  Defines the duration of the actual benchmark measurement activity.
+  The unit is milliseconds and defaults to 15000 (15 seconds).
+
+generator_cooldown
+
+  Defines how long the request generators should "cool down" the
+  DBMS after the actual measurements has been performed. The unit
+  is milliseconds and defaults to 2000 (2 seconds).
+
+generator_nodes
+
+  Defines which Erlang nodes that should host request generators.
+  The default is all connected nodes.
+
+n_generators_per_node
+
+  Defines how many generator processes that should be running on
+  each generator node. The default is 2.
+
+statistics_detail
+
+  Regulates the detail level of statistics. It must be one of the
+  following atoms: normal, debug and debug2. debug enables a
+  finer grain of statistics to be reported, but since it requires
+  more counters, to be updated by the generator processes it may
+  cause slightly worse benchmark performance figures than the brief
+  default case, that is normal. debug2 prints out the debug info
+  and formats it according to LMC's benchmark program.
+
+storage_type 
+
+  Defines whether the database should be kept solely in primary
+  memory (ram_copies), solely on disc (disc_only_copies) or
+  in both (disc_copies). The default is ram_copies. Currently
+  the other choices requires a little bit of manual preparation.
+
+table_nodes
+
+  Defines which Erlang nodes that should host the tables. 
+
+n_fragments
+
+  Defines how many fragments each table should be divided in.
+  Default is 100. The fragments are evenly distributed over
+  all table nodes. The group table not divided in fragments.
+
+n_replicas
+
+  Defines how many replicas that should be kept of each fragment.
+  The group table is replicated to all table nodes.
+  
+n_subscribers
+
+  Defines the number of subscriber records. Default 25000.
+
+n_subscribers
+
+  Defines the number of subscriber records. Default 25000.
+
+n_groups
+
+  Defines the number of group records. Default 5.
+
+n_servers
+
+  Defines the number of server records. Default 1.
+
+write_lock_type 
+
+  Defines whether the transactions should use ordinary
+  write locks or if they utilize sticky write locks.
+  Must be one of the following atoms: write, sticky_write.
+  Default is write.
+  
+use_binary_subscriber_key
+
+  Defines whether the subscriber key should be represented
+  as a string (binary) or as an integer. Default is false.
+
+always_try_nearest_node
+
+  The benchmark was initially written to test scalability
+  when more nodes were added to the database and when the
+  (fragmented) tables were distributed over all nodes. In
+  such a system the transactions should be evenly distributed
+  over all nodes. When this option is set to true it is possible
+  to make fair measurements of master/slave configurations, when
+  all transactions are performed on on one node. Default is false.
+
+cookie
+
+  Defines which cookie the Erlang node should use in its
+  distribution protocol. Must be an atom, default is 'bench'.

@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>win32reg</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2000-08-10</date>
+    <rev>PA1</rev>
+    <file>win32reg.xml</file>
+  </header>
+  <module since="">win32reg</module>
+  <modulesummary>Provides access to the registry on Windows.</modulesummary>
+  <description>
+    <p>This module provides read and write access to the
+      registry on Windows. It is essentially a port driver wrapped around the
+      Win32 API calls for accessing the registry.</p>
+    <p>The registry is a hierarchical database, used to store various system
+      and software information in Windows.
+      It contains installation data, and is updated by installers
+      and system programs. The Erlang installer updates the registry by adding
+      data that Erlang needs.</p>
+    <p>The registry contains keys and values. Keys are like the directories
+      in a file system, they form a hierarchy. Values are like files, they have
+      a name and a value, and also a type.</p>
+    <p>Paths to keys are left to right, with subkeys to the right and backslash
+      between keys. (Remember that backslashes must be doubled in Erlang
+      strings.) Case is preserved but not significant.</p>
+    <p>For example,
+      <c>"\\hkey_local_machine\\software\\Ericsson\\Erlang\\5.0"</c> is the key
+      for the installation data for the latest Erlang release.</p>
+    <p>There are six entry points in the Windows registry, top-level keys.
+      They can be abbreviated in this module as follows:</p>
+    <pre>
+Abbreviation     Registry key
+============     ============
+hkcr             HKEY_CLASSES_ROOT
+current_user     HKEY_CURRENT_USER
+hkcu             HKEY_CURRENT_USER
+local_machine    HKEY_LOCAL_MACHINE
+hklm             HKEY_LOCAL_MACHINE
+users            HKEY_USERS
+hku              HKEY_USERS
+current_config   HKEY_CURRENT_CONFIG
+hkcc             HKEY_CURRENT_CONFIG
+dyn_data         HKEY_DYN_DATA
+hkdd             HKEY_DYN_DATA</pre>
+    <p>The key above can be written as
+      <c>"\\hklm\\software\\ericsson\\erlang\\5.0"</c>.</p>
+    <p>This module uses a current key. It works much like the
+      current directory. From the current key, values can be fetched, subkeys
+      can be listed, and so on.</p>
+    <p>Under a key, any number of named values can be stored. They have names,
+      types, and data.</p>
+    <p><c>win32reg</c> supports storing of the following types:</p>
+    <list type="bulleted">
+      <item><c>REG_DWORD</c>, which is an integer</item>
+      <item><c>REG_SZ</c>, which is a string</item>
+      <item><c>REG_BINARY</c>, which is a binary</item>
+    </list>
+    <p>Other types can be read, and are returned as binaries.</p>
+    <p>There is also a "default" value, which has the empty string as name. It
+      is read and written with the atom <c>default</c> instead of the name.</p>
+    <p>Some registry values are stored as strings with references to environment
+      variables, for example, <c>%SystemRoot%Windows</c>. <c>SystemRoot</c> is
+      an environment variable, and is to be replaced with its value. Function
+      <seealso marker="#expand/1"><c>expand/1</c></seealso> is provided so that
+      environment variables surrounded by <c>%</c> can be expanded to their
+      values.</p>
+    <p>For more information on the Windows registry, see consult the Win32
+      Programmer's Reference.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="reg_handle"/>
+      <desc>
+        <p>As returned by
+          <seealso marker="#open/1"><c>open/1</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="name"/>
+    </datatype>
+    <datatype>
+      <name name="value"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="change_key" arity="2" since=""/>
+      <fsummary>Move to a key in the registry.</fsummary>
+      <desc>
+        <p>Changes the current key to another key. Works like <c>cd</c>.
+          The key can be specified as a relative path or as an
+          absolute path, starting with <c>\.</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="change_key_create" arity="2" since=""/>
+      <fsummary>Move to a key, create it if it is not there.</fsummary>
+      <desc>
+        <p>Creates a key, or just changes to it, if it is already there. Works
+          like a combination of <c>mkdir</c> and <c>cd</c>.
+          Calls the Win32 API function <c>RegCreateKeyEx()</c>.</p>
+        <p>The registry must have been opened in write mode.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="close" arity="1" since=""/>
+      <fsummary>Close the registry.</fsummary>
+      <desc>
+        <p>Closes the registry. After that, the <c><anno>RegHandle</anno></c>
+          cannot be used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="current_key" arity="1" since=""/>
+      <fsummary>Return the path to the current key.</fsummary>
+      <desc>
+        <p>Returns the path to the current key. This is the equivalent of
+          <c>pwd</c>.</p>
+        <p>Notice that the current key is stored in the driver, and can be
+          invalid (for example, if the key has been removed).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_key" arity="1" since=""/>
+      <fsummary>Delete the current key.</fsummary>
+      <desc>
+        <p>Deletes the current key, if it is valid. Calls the Win32 API
+          function <c>RegDeleteKey()</c>. Notice that this call does not change
+	  the current key (unlike
+          <seealso marker="#change_key_create/2">
+          <c>change_key_create/2</c></seealso>).
+          This means that after the call, the current key is invalid.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_value" arity="2" since=""/>
+      <fsummary>Delete the named value on the current key.</fsummary>
+      <desc>
+        <p>Deletes a named value on the current key. The atom <c>default</c> is
+          used for the default value.</p>
+        <p>The registry must have been opened in write mode.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="expand" arity="1" since=""/>
+      <fsummary>Expand a string with environment variables.</fsummary>
+      <desc>
+        <p>Expands a string containing environment variables between percent
+          characters. Anything between two <c>%</c> is taken for an environment
+          variable, and is replaced by the value. Two consecutive <c>%</c> are
+          replaced by one <c>%</c>.</p>
+        <p>A variable name that is not in the environment results in an
+          error.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Convert a POSIX error code to a string.</fsummary>
+      <desc>
+        <p>Converts a POSIX error code to a string
+	(by calling <c>erl_posix_msg:message/1</c>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="1" since=""/>
+      <fsummary>Open the registry for reading or writing.</fsummary>
+      <desc>
+        <p>Opens the registry for reading or writing. The current key is the
+          root (<c>HKEY_CLASSES_ROOT</c>). Flag <c>read</c> in the mode list
+          can be omitted.</p>
+        <p>Use <seealso marker="#change_key/2"><c>change_key/2</c></seealso>
+          with an absolute path after
+          <seealso marker="#open/1"><c>open</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_value" arity="3" since=""/>
+      <fsummary>Set value at the current registry key with specified name.
+      </fsummary>
+      <desc>
+        <p>Sets the named (or default) value to <c>value</c>. Calls the Win32
+          API function <c>RegSetValueEx()</c>. The value can be of three types,
+          and the corresponding registry type is used. The supported types
+          are the following:</p>
+        <list type="bulleted">
+          <item><c>REG_DWORD</c> for integers</item>
+          <item><c>REG_SZ</c> for strings</item>
+          <item><c>REG_BINARY</c> for binaries</item>
+        </list>
+        <p>Other types cannot be added or changed.</p>
+        <p>The registry must have been opened in write mode.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub_keys" arity="1" since=""/>
+      <fsummary>Get subkeys to the current key.</fsummary>
+      <desc>
+        <p>Returns a list of subkeys to the current key. Calls the Win32
+          API function <c>EnumRegKeysEx()</c>.</p>
+        <p>Avoid calling this on the root keys, as it can be slow.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="value" arity="2" since=""/>
+      <fsummary>Get the named value on the current key.</fsummary>
+      <desc>
+        <p>Retrieves the named value (or default) on the current key.
+          Registry values of type <c>REG_SZ</c> are returned as strings.
+	  Type <c>REG_DWORD</c> values are returned as integers. All other
+	  types are returned as binaries.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="values" arity="1" since=""/>
+      <fsummary>Get all values on the current key.</fsummary>
+      <desc>
+        <p>Retrieves a list of all values on the current key. The values
+          have types corresponding to the registry types, see
+	  <seealso marker="#value/2"><c>value/2</c></seealso>.
+          Calls the Win32 API function <c>EnumRegValuesEx()</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><c>erl_posix_msg</c>,
+      The Windows 95 Registry (book from O'Reilly),
+      Win32 Programmer's Reference (from Microsoft)</p>
+  </section>
+</erlref>
+

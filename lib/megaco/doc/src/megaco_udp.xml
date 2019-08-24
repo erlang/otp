@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_udp</title>
+    <prepared>Lars Thors&eacute;n</prepared>
+    <responsible>Lars Thors&eacute;n</responsible>
+    <docno></docno>
+    <approved>Lars Thors&eacute;n</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_udp.xml</file>
+  </header>
+  <module since="">megaco_udp</module>
+  <modulesummary>Interface module to UDP transport protocol for Megaco/H.248.</modulesummary>
+  <description>
+    <p>This module contains the public interface to the UDP/IP version
+      transport protocol for Megaco/H.248.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">start_transport() -> {ok, TransportRef}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>TransportRef = pid()</v>
+      </type>
+      <desc>
+        <p>This function is used for starting the UDP/IP transport service.
+          Use exit(TransportRef, Reason) to stop the transport service.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">open(TransportRef, OptionList) ->  {ok, Handle, ControlPid} |  {error, Reason}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>TransportRef = pid() | regname()</v>
+        <v>OptionList = [option()]</v>
+        <v>option() = {port, integer()} |{options, list()} |{receive_handle, receive_handle()} |{module, atom()}</v>
+        <v>Handle = socket_handle()</v>
+        <v>receive_handle() = term()</v>
+        <v>ControlPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>This function is used to open an UDP/IP socket.</p>
+        <p>The <c><![CDATA[module]]></c> option makes it possible for the user to provide
+          their own callback module. The functions <c><![CDATA[receive_message/4]]></c> or
+          <c><![CDATA[process_received_message/4]]></c> of this module is called when a new 
+          message is received (which one depends on the size of the message; 
+          small - receive_message, large - process_received_message). 
+          Default value is <em>megaco</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">close(Handle, Msg) -> ok</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Handle = socket_handle()</v>
+        <v>Msg</v>
+      </type>
+      <desc>
+        <p>This function is used for closing an active UDP socket.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">socket(Handle) -> Socket</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Handle = socket_handle()</v>
+        <v>Socket = inet_socket()</v>
+      </type>
+      <desc>
+        <p>This function is used to convert a socket_handle() to
+          a inet_socket(). inet_socket() is a plain socket,
+          see the inet module for more info.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">create_send_handle(Handle, Host, Port) -> send_handle()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Handle = socket_handle()</v>
+        <v>Host = {A,B,C,D} | string()</v>
+        <v>Port = integer()</v>
+      </type>
+      <desc>
+        <p>Creates a send handle from a transport handle.  The send
+          handle is intended to be used by megaco_udp:send_message/2.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">send_message(SendHandle, Msg) -> ok</name>
+      <fsummary></fsummary>
+      <type>
+        <v>SendHandle = send_handle()</v>
+        <v>Message = binary() | iolist()</v>
+      </type>
+      <desc>
+        <p>Sends a message on a socket. The send handle is obtained by
+          megaco_udp:create_send_handle/3. Increments the NumOutMessages
+          and NumOutOctets counters if message successfully sent. In case
+          of a failure to send, the NumErrors counter is <em>not</em>
+          incremented. This is done elsewhere in the megaco app.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">block(Handle) -> ok</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Handle = socket_handle()</v>
+      </type>
+      <desc>
+        <p>Stop receiving incoming messages on the socket.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">unblock(Handle) -> ok</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Handle = socket_handle()</v>
+      </type>
+      <desc>
+        <p>Starting to receive incoming messages from the socket again.</p>
+        <marker id="upgrade_receive_handle"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">upgrade_receive_handle(ControlPid, NewHandle) -> ok</name>
+      <fsummary></fsummary>
+      <type>
+        <v>ControlPid = pid()</v>
+        <v>NewHandle = receive_handle()</v>
+        <v>receive_handle() = term()</v>
+      </type>
+      <desc>
+        <p>Update the receive handle of the control process (e.g. after
+          having changed protocol version).</p>
+        <marker id="stats"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_stats() -> {ok, TotalStats} | {error, Reason}</name>
+      <name since="">get_stats(SendHandle) -> {ok, SendHandleStats} | {error, Reason}</name>
+      <name since="">get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>TotalStats = [total_stats()]</v>
+        <v>total_stats() = {send_handle(), [stats()]}</v>
+        <v>SendHandle = send_handle()</v>
+        <v>SendHandleStats = [stats()]</v>
+        <v>Counter = udp_stats_counter()</v>
+        <v>CounterStats = integer()</v>
+        <v>stats() = {udp_stats_counter(), integer()}</v>
+        <v>tcp_stats_counter() = medGwyGatewayNumInMessages |  medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retreive the UDP related (SNMP) statistics counters.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">reset_stats() -> void()</name>
+      <name since="">reset_stats(SendHandle) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>SendHandle = send_handle()</v>
+      </type>
+      <desc>
+        <p>Reset all TCP related (SNMP) statistics counters.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

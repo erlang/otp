@@ -1,0 +1,32 @@
+{x, suite}.
+{gen_cfg,
+	[
+		{a,a_value},
+		{b,b_value},
+		{c,[{d,d_value}]}
+	]}.
+{gen_cfg2,
+	[
+		{c, "Hello, world!"},
+		{d, atom_value},
+		{e, {tuple,1,"third value",[]}},
+		{f, []},
+		{g, [1,atom,"string",13.6,{1,2,3}]}
+	]}.
+{gen_cfg3,
+	[
+		{h,
+		[
+			{i, third1},
+			{j, "Third2"},
+			{k, 'THIRD3'}
+		]},
+		{l,
+		[
+			{m,
+			[
+				{n, "N"},
+				{o, 'O'}
+			]}
+		]}
+	]}.

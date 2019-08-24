@@ -1,0 +1,4 @@
+
+map_in_guard.erl:10: The call map_in_guard:assoc_update('not_a_map') will never return since it differs in the 1st argument from the success typing arguments: (#{})
+map_in_guard.erl:13: The call map_in_guard:assoc_guard_clause('not_a_map') will never return since it differs in the 1st argument from the success typing arguments: (#{})
+map_in_guard.erl:20: The call map_in_guard:exact_guard_clause(#{}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':='q'})

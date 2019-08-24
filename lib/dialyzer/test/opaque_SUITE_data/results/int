@@ -1,0 +1,3 @@
+
+int_adt.erl:28: Invalid type specification for function int_adt:add_f/2. The success typing is (number() | int_adt:int(),float()) -> number() | int_adt:int()
+int_adt.erl:32: Invalid type specification for function int_adt:div_f/2. The success typing is (number() | int_adt:int(),number() | int_adt:int()) -> float()

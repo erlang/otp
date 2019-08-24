@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+     </legalnotice>
+    <title>How to Build OTP like documentation</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>doc-build.xml</file>
+  </header>
+
+  <section>
+    <title>Utilities to prepare XML files</title>
+    <section>
+      <title>Create XML files from code</title>
+      <p>
+	If there are EDoc comments in a module, the escript <c>xml_from_edoc.escript</c>
+	can be used to generate an XML file according to the <c>erlref</c> DTD 
+	for this module.
+      </p>
+      <p>
+	Example:
+      </p>
+      <code>
+
+	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
+      </code>
+    </section>
+    <section>
+      <title>Include code in XML</title>
+      <p>If there are OTP DTD <i>codeinclude</i> tags in the source XML file, the escript
+          <c>codeline_preprocessing.escript</c> can be used to include the code and produce
+	  an XML file according to the OTP DTDs. 
+      </p>
+      <p>
+	Example:
+      </p>
+      <code>
+
+	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
+	   ex1.xmlsrc ex1.xml
+      </code>
+    </section>
+  </section>
+
+  <section>
+    <title>Use xsltproc to generate different output formats</title>
+
+    <section>
+      <title>Parameters used in all the the XSL transformations</title>
+      <p>
+	These parameters to <c>xsltproc</c> are used for all the supported output formats.
+      </p>
+      <taglist>
+	<tag><c>docgen</c></tag>
+	<item>
+	  Path to erl_docgen's top directory.
+	</item>
+	<tag><c>gendate</c></tag>
+	<item>
+	  The date string that will be used in the documentation.
+	</item>
+	<tag><c>appname</c></tag>
+	<item>
+	  The name of the application.>
+	</item> 
+	<tag><c>appver</c></tag>
+	<item>
+	  The version of the application.
+	</item>
+     </taglist>
+    </section>
+
+    <section>
+      <title>Generate HTML output</title>
+      <p>
+	When generating HTML one also needs these three pramaters to <c>xsltproc</c>.
+      </p> 
+      <taglist>
+	<tag><c>outdir</c></tag>
+	<item>
+	  Output directory for the produced html files.
+	</item>
+ 	<tag><c>topdocdir</c></tag>
+	<item>
+	  If one builds a standalone documentation for an application this should be set to ".".
+	</item>
+	<tag><c>pdfdir</c></tag>
+	<item>
+	  Relative path from the html directory to where the pdf file are placed.
+	</item>
+      </taglist>
+      <p>
+	Example:
+      </p>
+      <code>
+	
+	1> xsltproc --noout --stringparam outdir /tmp/myhtmldoc \
+	      --stringparam docgen $(ERL_TOP)/lib/erl_docgen \
+              --stringparam topdocdir . \
+              --stringparam pdfdir "$(PDFDIR)" \
+              --xinclude \
+	      --stringparam gendate "December 5 2011" \
+              --stringparam appname MyApp \
+              --stringparam appver 0.1 \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd_html_entities \
+	      $ERL_TOP/lib/erl_docgen/priv/xsl/db_html.xsl mybook.xml
+      </code>
+    </section>
+
+    <section>
+      <title>Generate PDF</title>
+      <p>
+	The generation of the PDF file is done in two steps. First is <c>xsltproc</c> used to generate a <c>.fo</c> file 
+	which is used as input to the <c>fop</c> command to produce th PDF file.
+      </p>
+      <p>
+	Example:
+      </p>
+      <code>
+
+	1> xsltproc --output MyApp.fo \
+             --stringparam docgen $ERL_TOP/lib/erl_docgen \
+	     --stringparam gendate  "December 5 2011" \
+             --stringparam appname MyApp \
+             --stringparam appver 0.1 \
+             --xinclude \
+             -path $ERL_TOP/lib/erl_docgen/priv/dtd \
+             -path $ERL_TOP/lib/erl_docgen/priv/dtd_html_entities \
+	     $ERL_TOP/lib/erl_docgen/priv/xsl/db_pdf.xsl mybook.xml
+
+
+        2> fop -fo MyApp.fo -pdf MyApp.pdf
+      </code>
+    </section>
+
+    <section>
+      <title>Generate man pages</title>
+      <p>
+	Unix man pages can be generated with <c>xsltproc</c> from XML files written according to 
+	the different OTP ref type DTDs. 
+      </p>
+      <p>
+	Example:
+      </p>
+      <code>
+
+	1> xsltproc --output  my_module.3\
+	      --stringparam docgen $ERL_TOP/lib/erl_docgen \
+	      --stringparam gendate  "December 5 2011" \
+	      --stringparam appname MyApp \
+	      --stringparam appver 0.1 \
+	      --xinclude -path $ERL_TOP/lib/erl_docgen/priv/dtd  \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd_man_entities \
+              $ERL_TOP/lib/erl_docgen/priv/xsl/db_man.xsl my_refpage.xml
+      </code>
+    </section>
+
+    <section>
+      <title>Upcoming changes</title>
+      <p>
+	The output from the <c>erl_docgen</c> documentation build process is now just the OTP style. 
+	But in a near future we will for example add the possibility to change logo, color in the PDF and 
+	style sheet for the HTML.
+      </p>
+    </section>
+
+  </section>
+</chapter>

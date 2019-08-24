@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_discovery_handler</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_discovery_handler.xml</file>
+  </header>
+  <module since="">snmpa_discovery_handler</module>
+  <modulesummary>Behaviour module for the SNMP agent discovery handler.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the agent discovery
+      handler. A <c>snmpa_discovery_handler</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#stage1_finish">stage1_finish/2</seealso></p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+
+     <marker id="stage1_finish"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
+      <fsummary>Discovery stage 1 finish</fsummary>
+      <type>
+        <v>TargetName = string()</v>
+        <v>ManagerEngineID = string()</v>
+        <v>ExtraInfo = term()</v>
+        <v>usm_entry() = tuple() compatible with usm.conf</v>
+        <v>NewExtraInfo = term()</v>
+      </type>
+      <desc>
+        <p>This function is called at the end of stage 1 of the 
+          discovery process. It should return either the atom 
+          <c>ignore</c> or <c>{ok, usm_entry() | [usm_entry()]}</c>. See 
+          <seealso marker="snmp_agent_config_files#usm">usm_entry()</seealso>
+          and 
+          <seealso marker="snmpa_conf#usm_entry">usm_entry/13</seealso>
+          for more info. </p>
+
+        <p>If the function returns <c>ignore</c>, then it is assumed that 
+          either: </p>
+        
+        <list type="bulleted">
+          <item>The caller (of the discovery function) will make the 
+             needed updates later. </item>
+          <item>The callback function itself did the updates. </item>
+        </list>
+
+        <p>In either case, the agent will do nothing, but return
+          the retrieved ManagerEngineID (see 
+          <seealso marker="snmpa#discovery">discovery</seealso>
+          for more info) and possible continue with stage 2 of 
+          the discovery process. </p>
+
+        <p>The <c>ExtraInfo</c> argument is passed on from the 
+          <seealso marker="snmpa#discovery">discovery</seealso>
+          function. </p>
+
+        <p>This function may return an updated <c>NewExtraInfo</c> 
+          that will be used in subsequent calls to the callback 
+          functions. Intended for future use. </p>
+
+        <p>The purpose of this function is to generate the usm-
+          related security data needed for usm processing in the 
+          agent. Specifically, updating the usmUserTable. </p>
+
+        <p>When an <c>usm_entry()</c> tuple (or a list of such
+          tuples) is returned, this data is then added to the 
+          <c>usmUserTable</c> by the (master-) agent. </p>
+
+        <p>When an <c>usm_entry()</c> tuple (or a list of such
+          tuples) is returned, this data is then added to the 
+          <c>usmUserTable</c> by the (master-) agent. </p>
+
+        <note><p>Note that the function does not check if this entry 
+          already exists. </p></note>
+
+        <note><p>Note that this function is executed in the context of 
+          the master-agent process. </p></note>
+
+      </desc>
+    </func>
+
+  </funcs>
+  
+</erlref>
+

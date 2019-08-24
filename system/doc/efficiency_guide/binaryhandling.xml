@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Constructing and Matching Binaries</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2007-10-12</date>
+    <rev></rev>
+    <file>binaryhandling.xml</file>
+  </header>
+
+  <p>Binaries can be efficiently built in the following way:</p>
+
+  <p><em>DO</em></p>
+  <code type="erl"><![CDATA[
+my_list_to_binary(List) ->
+    my_list_to_binary(List, <<>>).
+
+my_list_to_binary([H|T], Acc) ->
+    my_list_to_binary(T, <<Acc/binary,H>>);
+my_list_to_binary([], Acc) ->
+    Acc.]]></code>  
+
+  <p>Binaries can be efficiently matched like this:</p>
+
+  <p><em>DO</em></p>
+  <code type="erl"><![CDATA[
+my_binary_to_list(<<H,T/binary>>) ->
+    [H|my_binary_to_list(T)];
+my_binary_to_list(<<>>) -> [].]]></code>
+
+  <section>
+    <title>How Binaries are Implemented</title>
+
+    <p>Internally, binaries and bitstrings are implemented in the same way.
+    In this section, they are called <em>binaries</em> because that is what
+    they are called in the emulator source code.</p>
+
+    <p>Four types of binary objects are available internally:</p>
+    <list type="bulleted">
+      <item><p>Two are containers for binary data and are called:</p>
+      <list type="bulleted">
+	<item><em>Refc binaries</em> (short for
+	<em>reference-counted binaries</em>)</item>
+	<item><em>Heap binaries</em></item>
+      </list></item>
+      <item><p>Two are merely references to a part of a binary and
+      are called:</p>
+      <list type="bulleted">
+	<item><em>sub binaries</em></item>
+	<item><em>match contexts</em></item>
+      </list></item>
+    </list>
+
+    <section>
+      <marker id="refc_binary"></marker>
+      <title>Refc Binaries</title>
+      <p>Refc binaries consist of two parts:</p>
+      <list type="bulleted">
+	<item>An object stored on the process heap, called a
+	<em>ProcBin</em></item>
+	<item>The binary object itself, stored outside all process
+	heaps</item>
+      </list>
+
+    <p>The binary object can be referenced by any number of ProcBins from any
+    number of processes. The object contains a reference counter to keep track
+    of the number of references, so that it can be removed when the last
+    reference disappears.</p>
+
+    <p>All ProcBin objects in a process are part of a linked list, so that
+    the garbage collector can keep track of them and decrement the reference
+    counters in the binary when a ProcBin disappears.</p>
+    </section>
+
+    <section>
+      <marker id="heap_binary"></marker>
+      <title>Heap Binaries</title>
+    <p>Heap binaries are small binaries, up to 64 bytes, and are stored
+    directly on the process heap. They are copied when the process is
+    garbage-collected and when they are sent as a message. They do not
+    require any special handling by the garbage collector.</p>
+    </section>
+
+    <section>
+      <title>Sub Binaries</title>
+    <p>The reference objects <em>sub binaries</em> and
+    <em>match contexts</em> can reference part of
+    a refc binary or heap binary.</p>
+
+    <p><marker id="sub_binary"></marker>A <em>sub binary</em>
+    is created by <c>split_binary/2</c> and when
+    a binary is matched out in a binary pattern. A sub binary is a reference
+    into a part of another binary (refc or heap binary, but never into another
+    sub binary). Therefore, matching out a binary is relatively cheap because
+    the actual binary data is never copied.</p>
+    </section>
+
+    <section>
+      <title>Match Context</title>
+      <marker id="match_context"></marker>
+      <p>A <em>match context</em> is similar to a sub binary, but is
+      optimized for binary matching. For example, it contains a direct
+      pointer to the binary data. For each field that is matched out of
+      a binary, the position in the match context is incremented.</p>
+
+    <p>The compiler tries to avoid generating code that
+    creates a sub binary, only to shortly afterwards create a new match
+    context and discard the sub binary. Instead of creating a sub binary,
+    the match context is kept.</p>
+
+    <p>The compiler can only do this optimization if it knows
+    that the match context will not be shared. If it would be shared, the
+    functional properties (also called referential transparency) of Erlang
+    would break.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Constructing Binaries</title>
+    <p>Appending to a binary or bitstring
+    is specially optimized by the <em>runtime system</em>:</p>
+
+  <code type="erl"><![CDATA[
+<<Binary/binary, ...>>
+<<Binary/bitstring, ...>>]]></code>
+
+    <p>As the runtime system handles the optimization (instead of
+    the compiler), there are very few circumstances in which the optimization
+    does not work.</p>
+
+    <p>To explain how it works, let us examine the following code line
+    by line:</p>
+
+  <code type="erl"><![CDATA[
+Bin0 = <<0>>,                    %% 1
+Bin1 = <<Bin0/binary,1,2,3>>,    %% 2
+Bin2 = <<Bin1/binary,4,5,6>>,    %% 3
+Bin3 = <<Bin2/binary,7,8,9>>,    %% 4
+Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
+{Bin4,Bin3}                      %% 6]]></code>
+
+  <list type="bulleted">
+    <item>Line 1 (marked with the <c>%% 1</c> comment), assigns
+    a <seealso marker="#heap_binary">heap binary</seealso> to
+    the <c>Bin0</c> variable.</item>
+
+    <item>Line 2 is an append operation. As <c>Bin0</c>
+    has not been involved in an append operation,
+    a new <seealso marker="#refc_binary">refc binary</seealso>
+    is created and the contents of <c>Bin0</c> is copied
+    into it. The <em>ProcBin</em> part of the refc binary has
+    its size set to the size of the data stored in the binary, while
+    the binary object has extra space allocated.
+    The size of the binary object is either twice the
+    size of <c>Bin1</c> or 256, whichever is larger. In this case
+    it is 256.</item>
+
+    <item>Line 3 is more interesting.
+    <c>Bin1</c> <em>has</em> been used in an append operation,
+    and it has 252 bytes of unused storage at the end, so the 3 new
+    bytes are stored there.</item>
+
+    <item>Line 4. The same applies here. There are 249 bytes left,
+    so there is no problem storing another 3 bytes.</item>
+
+    <item>Line 5. Here, something <em>interesting</em> happens. Notice
+    that the result is not appended to the previous result in <c>Bin3</c>,
+    but to <c>Bin1</c>. It is expected that <c>Bin4</c> will be assigned
+    the value <c>&lt;&lt;0,1,2,3,17&gt;&gt;</c>. It is also expected that
+    <c>Bin3</c> will retain its value
+    (<c>&lt;&lt;0,1,2,3,4,5,6,7,8,9&gt;&gt;</c>).
+    Clearly, the runtime system cannot write byte <c>17</c> into the binary,
+    because that would change the value of <c>Bin3</c> to
+    <c>&lt;&lt;0,1,2,3,4,17,6,7,8,9&gt;&gt;</c>.</item>
+  </list>
+
+    <p>The runtime system sees that <c>Bin1</c> is the result
+    from a previous append operation (not from the latest append operation),
+    so it <em>copies</em> the contents of <c>Bin1</c> to a new binary,
+    reserve extra storage, and so on. (Here is not explained how the
+    runtime system can know that it is not allowed to write into <c>Bin1</c>;
+    it is left as an exercise to the curious reader to figure out how it is
+    done by reading the emulator sources, primarily <c>erl_bits.c</c>.)</p>
+
+    <section>
+      <title>Circumstances That Force Copying</title>
+
+      <p>The optimization of the binary append operation requires that
+      there is a <em>single</em> ProcBin and a <em>single reference</em> to the
+      ProcBin for the binary. The reason is that the binary object can be
+      moved (reallocated) during an append operation, and when that happens,
+      the pointer in the ProcBin must be updated. If there would be more than
+      one ProcBin pointing to the binary object, it would not be possible to
+      find and update all of them.</p>
+
+      <p>Therefore, certain operations on a binary mark it so that
+      any future append operation will be forced to copy the binary.
+      In most cases, the binary object will be shrunk at the same time 
+      to reclaim the extra space allocated for growing.</p>
+
+      <p>When appending to a binary as follows, only the binary returned
+      from the latest append operation will support further cheap append
+      operations:</p>
+      
+  <code type="erl"><![CDATA[
+Bin = <<Bin0,...>>]]></code>
+
+      <p>In the code fragment in the beginning of this section,
+      appending to <c>Bin</c> will be cheap, while appending to <c>Bin0</c>
+      will force the creation of a new binary and copying of the contents
+      of <c>Bin0</c>.</p>
+
+      <p>If a binary is sent as a message to a process or port, the binary
+      will be shrunk and any further append operation will copy the binary
+      data into a new binary. For example, in the following code fragment
+      <c>Bin1</c> will be copied in the third line:</p>
+
+  <code type="erl"><![CDATA[
+Bin1 = <<Bin0,...>>,
+PortOrPid ! Bin1,
+Bin = <<Bin1,...>>  %% Bin1 will be COPIED
+]]></code>
+
+      <p>The same happens if you insert a binary into an Ets
+      table, send it to a port using <c>erlang:port_command/2</c>, or
+      pass it to
+      <seealso marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seealso>
+      in a NIF.</p>
+
+      <p>Matching a binary will also cause it to shrink and the next append
+      operation will copy the binary data:</p>
+
+  <code type="erl"><![CDATA[
+Bin1 = <<Bin0,...>>,
+<<X,Y,Z,T/binary>> = Bin1,
+Bin = <<Bin1,...>>  %% Bin1 will be COPIED
+]]></code>
+
+      <p>The reason is that a
+      <seealso marker="#match_context">match context</seealso>
+      contains a direct pointer to the binary data.</p>
+
+      <p>If a process simply keeps binaries (either in "loop data" or in the
+      process
+      dictionary), the garbage collector can eventually shrink the binaries.
+      If only one such binary is kept, it will not be shrunk. If the process
+      later appends to a binary that has been shrunk, the binary object will
+      be reallocated to make place for the data to be appended.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Matching Binaries</title>
+
+    <p>Let us revisit the example in the beginning of the previous section:</p>
+
+  <p><em>DO</em></p>
+  <code type="erl"><![CDATA[
+my_binary_to_list(<<H,T/binary>>) ->
+    [H|my_binary_to_list(T)];
+my_binary_to_list(<<>>) -> [].]]></code>  
+
+  <p>The first time <c>my_binary_to_list/1</c> is called,
+  a <seealso marker="#match_context">match context</seealso>
+  is created. The match context points to the first
+  byte of the binary. 1 byte is matched out and the match context
+  is updated to point to the second byte in the binary.</p>
+
+  <p>At this point it would make sense to create a
+  <seealso marker="#sub_binary">sub binary</seealso>,
+  but in this particular example the compiler sees that
+  there will soon be a call to a function (in this case,
+  to <c>my_binary_to_list/1</c> itself) that immediately will
+  create a new match context and discard the sub binary.</p>
+
+  <p>Therefore <c>my_binary_to_list/1</c> calls itself
+  with the match context instead of with a sub binary. The instruction
+  that initializes the matching operation basically does nothing
+  when it sees that it was passed a match context instead of a binary.</p>
+
+  <p>When the end of the binary is reached and the second clause matches,
+  the match context will simply be discarded (removed in the next
+  garbage collection, as there is no longer any reference to it).</p>
+
+  <p>To summarize, <c>my_binary_to_list/1</c> only needs to create
+  <em>one</em> match context and no sub binaries.</p>
+
+  <p>Notice that the match context in <c>my_binary_to_list/1</c>
+  was discarded when the entire binary had been traversed. What happens if
+  the iteration stops before it has reached the end of the binary? Will
+  the optimization still work?</p>
+
+  <code type="erl"><![CDATA[
+after_zero(<<0,T/binary>>) ->
+    T;
+after_zero(<<_,T/binary>>) ->
+    after_zero(T);
+after_zero(<<>>) ->
+    <<>>.
+  ]]></code>
+
+  <p>Yes, it will. The compiler will remove the building of the sub binary in
+  the second clause:</p>
+
+  <code type="erl"><![CDATA[
+...
+after_zero(<<_,T/binary>>) ->
+    after_zero(T);
+...]]></code>
+
+  <p>But it will generate code that builds a sub binary in the first clause:</p>
+
+  <code type="erl"><![CDATA[
+after_zero(<<0,T/binary>>) ->
+    T;
+...]]></code>
+
+  <p>Therefore, <c>after_zero/1</c> builds one match context and one sub binary
+  (assuming it is passed a binary that contains a zero byte).</p>
+
+  <p>Code like the following will also be optimized:</p>
+
+  <code type="erl"><![CDATA[
+all_but_zeroes_to_list(Buffer, Acc, 0) ->
+    {lists:reverse(Acc),Buffer};
+all_but_zeroes_to_list(<<0,T/binary>>, Acc, Remaining) ->
+    all_but_zeroes_to_list(T, Acc, Remaining-1);
+all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
+    all_but_zeroes_to_list(T, [Byte|Acc], Remaining-1).]]></code>
+
+  <p>The compiler removes building of sub binaries in the second and third
+  clauses, and it adds an instruction to the first clause that converts
+  <c>Buffer</c> from a match context to a sub binary (or do nothing if
+  <c>Buffer</c> is a binary already).</p>
+
+  <p>But in more complicated code, how can one know whether the
+  optimization is applied or not?</p>
+
+  <section>
+    <marker id="bin_opt_info"></marker>
+    <title>Option bin_opt_info</title>
+
+    <p>Use the <c>bin_opt_info</c> option to have the compiler print a lot of 
+    information about binary optimizations. It can be given either to the
+    compiler or <c>erlc</c>:</p>
+
+  <code type="erl"><![CDATA[
+erlc +bin_opt_info Mod.erl]]></code>
+
+    <p>or passed through an environment variable:</p>
+
+  <code type="erl"><![CDATA[
+export ERL_COMPILER_OPTIONS=bin_opt_info]]></code>
+
+    <p>Notice that the <c>bin_opt_info</c> is not meant to be a permanent
+    option added to your <c>Makefile</c>s, because all messages that it
+    generates cannot be eliminated. Therefore, passing the option through
+    the environment is in most cases the most practical approach.</p>
+
+    <p>The warnings look as follows:</p>
+
+  <code type="erl"><![CDATA[
+./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: binary is returned from the function
+./efficiency_guide.erl:62: Warning: OPTIMIZED: match context reused]]></code>
+
+    <p>To make it clearer exactly what code the warnings refer to, the
+    warnings in the following examples are inserted as comments
+    after the clause they refer to, for example:</p>
+
+  <code type="erl"><![CDATA[
+after_zero(<<0,T/binary>>) ->
+         %% BINARY CREATED: binary is returned from the function
+    T;
+after_zero(<<_,T/binary>>) ->
+         %% OPTIMIZED: match context reused
+    after_zero(T);
+after_zero(<<>>) ->
+    <<>>.]]></code>
+
+    <p>The warning for the first clause says that the creation of a sub
+    binary cannot be delayed, because it will be returned.
+    The warning for the second clause says that a sub binary will not be
+    created (yet).</p>
+  </section>
+
+  <section>
+    <title>Unused Variables</title>
+
+    <p>The compiler figures out if a variable is unused. The same
+    code is generated for each of the following functions:</p>
+
+  <code type="erl"><![CDATA[
+count1(<<_,T/binary>>, Count) -> count1(T, Count+1);
+count1(<<>>, Count) -> Count.
+
+count2(<<H,T/binary>>, Count) -> count2(T, Count+1);
+count2(<<>>, Count) -> Count.
+
+count3(<<_H,T/binary>>, Count) -> count3(T, Count+1);
+count3(<<>>, Count) -> Count.]]></code>
+
+  <p>In each iteration, the first 8 bits in the binary will be skipped,
+  not matched out.</p>
+  </section>
+  </section>
+
+  <section>
+    <title>Historical Note</title>
+
+    <p>Binary handling was significantly improved in R12B. Because
+    code that was efficient in R11B might not be efficient in R12B,
+    and vice versa, earlier revisions of this Efficiency Guide contained
+    some information about binary handling in R11B.</p>
+  </section>
+
+</chapter>
+

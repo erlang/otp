@@ -1,0 +1,117 @@
+language: c
+
+sudo: false
+
+os:
+  - linux
+
+dist: xenial
+
+addons:
+  apt:
+    packages:
+      - autoconf
+      - libncurses-dev
+      - build-essential
+      - libssl-dev
+      - libwxgtk3.0-dev
+      - libglu1-mesa-dev
+      - default-jdk
+      - g++
+      - xsltproc
+      - libxml2-utils
+
+matrix:
+  include:
+    # Dialyzer is first as it takes the longest to run
+    - env: Linux64Dialyzer
+      addons:
+        apt:
+          packages:
+            # Don't build with wx, java or xslt to get faster build
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+      script:
+        - ./scripts/build-otp
+        - ./scripts/run-dialyzer
+
+    - env: Linux32
+      services:
+        - docker
+      script:
+        - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp release && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
+
+    - env: Linux64SmokeTest
+      script:
+        - ERL_COMPILER_OPTIONS=ssalint ./scripts/build-otp
+        - ERL_COMPILER_OPTIONS=ssalint ./otp_build tests
+        - ./scripts/run-smoke-tests
+
+    - env: Linux-ppc64le-SmokeTest
+      os: linux-ppc64le
+      script:
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - ./scripts/run-smoke-tests
+      addons:
+        apt:
+          update: true
+          packages:
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+            - libwxgtk3.0-dev
+            - libglu1-mesa-dev
+            - default-jdk
+            - g++
+            - xsltproc
+            - libxml2-utils
+
+    - env: Linux64Docbuild
+      script:
+        - ./scripts/build-otp docs
+      deploy:
+        provider: pages
+        repo: erlang/cd
+        target-branch: master
+        skip-cleanup: true
+        keep-history: false
+        verbose: true
+        github-token: $ERLANG_CD_GITHUB_TOKEN
+        on:
+          # We only deploy on pushes to branches
+          all_branches: true
+          tags: false
+          condition: $TRAVIS_PULL_REQUEST = "false"
+          repo: erlang/otp
+    # This stage publishes a otp bundle that contains multiple
+    # Erlang/OTP source repositories
+    - stage: deploy
+      env: Deploy
+      if: tag =~ ^OTP-[0-9]+\.[0-9]+$
+      script:
+        - ./scripts/bundle-otp
+      deploy:
+        provider: releases
+        skip_cleanup: true
+        api_key:
+          secure: vW5PN6zng5H5+TCvwfwpGZsABrdCWYcFwDm3KXq+plsecBmTayu/0jgNso5Z97FbzDGVTLHWchvywEYQWnmrEByyOrqH73v1LN6JEfN99VpSrdFr15IzhblcyU1R9ugYc3WEoYjX0Q1uGelDSWRuuQOPbzy8mZf3D4rSGonyraP7jPTdHhs5P3ZWk6OMFz+tCdF4XohXqbhXIBOeH/EKg0svX2u5IcV01/YOL8LHWz6G7+gqBryEXx1+ngjQXQmMQwd7Yg3WOKE4XV9gX8ixZsbpUPZXAQKF+VOYdEgeiIr1hI0tBQUYX7FYEzYH5MCxqng5RdaPTOAm1oQroyGkIcWSXzDwN4AhJ7xqa/0NRdEaBPdQzPBCc+pVUDkxBR1ytXjBQqdQMnI6184TDiU5XBnj3kmieLkkKPKQNoPve/Y8Q8zutw4GNc7gixGcQCjtAFUbrT73QVRrezQH0qIdt23rivvf2R7CCOWSmgzowrswmtHdgeEVbodUIBPTNp7qzlUk9gDp6vW0XrOC4qEFI+VaY5PsEOXrrxZmI3gGGJgsbfzRvzvvupQcLNERniJ67r/uumbForpL0x1c65scKuMWwcn1wqt2OLbDoIIuM31Ph2HX/09TTqECU7CTvqLT5MnbZHXGjY9c3ch+sY3tSfaEX6aazl/Dqx28c7boCEw=
+        file:
+          - ${TRAVIS_TAG}-bundle.txt
+          - ${TRAVIS_TAG}-bundle.tar.gz
+        on:
+          # We only deploy on pushes to tags that match the regexp
+          tags: true
+          condition: $TRAVIS_TAG =~ ^OTP-[0-9]+\.[0-9]+$
+          repo: erlang/otp
+
+
+before_script:
+  - set -e
+  - export ERL_TOP=$PWD
+  - export PATH=$ERL_TOP/bin:$PATH
+  - export ERL_LIBS=''
+  - export MAKEFLAGS=-j4

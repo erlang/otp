@@ -1,0 +1,38 @@
+DERSpec DEFINITIONS ::=
+
+BEGIN
+
+Seq ::= SEQUENCE {
+  int [1] INTEGER,
+  choice C,
+  bool BOOLEAN
+}
+
+C ::= CHOICE {
+  version INTEGER,
+  message PrintableString
+}
+
+Set ::= SET {
+  int [1] INTEGER,
+  choice C,
+  bool BOOLEAN
+}
+
+
+SetOf ::= SET OF C
+
+-- This type compiled with ber_bin, optimize, der
+-- will test the fix in OTP-4866
+Set2 ::= SET {
+  int INTEGER,
+  bool BOOLEAN}
+
+-- OTP-5602
+SO ::= SEQUENCE OF Seq2
+
+Seq2 ::= SEQUENCE {
+  a INTEGER,
+  b BOOLEAN}
+
+END

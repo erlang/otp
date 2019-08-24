@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://www.ericsson.com/is/isco/mim/2.0" xmlns="http://www.ericsson.com/is/isco/mim/2.0" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <!--
+    ============================================================================
+    %CCaseFile:	mim.xsd %
+    %CCaseRev:	/main/P4B/1 %
+    %CCaseDate:	2007-05-29 %
+    %CCaseDocNo:	22/155 19-CNA 113 082 Ux %
+    %Rev:		Error in Revision! %
+    Author: EAB/AUL/IS Siri Hansen
+    
+    ============================================================================
+    
+    Copyright (c) Ericsson AB 2006-2007 All rights reserved.
+    
+    The information in this document is the property of Ericsson.
+    
+    Except as specifically authorized in writing by Ericsson, the 
+    receiver of this document shall keep the information contained 
+    herein confidential and shall protect the same in whole or in 
+    part from disclosure and dissemination to third parties.
+    
+    Disclosure and disseminations to the receivers employees shall 
+    only be made on a strict need to know basis.
+  -->
+  <!-- Common -->
+  <xs:element name="description" type="xs:string"/>
+  <xs:element name="extension">
+    <xs:complexType>
+      <xs:group minOccurs="0" maxOccurs="unbounded" ref="anyElement"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:attributeGroup name="anyAttribute">
+    <xs:anyAttribute processContents="skip"/>
+  </xs:attributeGroup>
+  <xs:group name="anyElement">
+    <xs:sequence>
+      <xs:any processContents="skip"/>
+    </xs:sequence>
+  </xs:group>
+  <!-- Mim definition -->
+  <xs:element name="mim">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="topClass"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="dataTypeDef"/>
+          <xs:element ref="exception"/>
+        </xs:choice>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="class"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
+      </xs:sequence>
+      <xs:attribute name="version"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="topClass">
+    <xs:complexType>
+	  <xs:sequence>
+        <xs:element minOccurs="0" ref="sortPriority"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+      <xs:attribute name="minOccurs"/>
+      <xs:attribute name="maxOccurs"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- MO class definition -->
+  <xs:element name="class">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="default_access"/>
+        <xs:choice>
+          <xs:sequence>
+            <xs:element ref="singleton"/>
+            <xs:element minOccurs="0" ref="systemCreated"/>
+            <xs:element minOccurs="0" ref="readOnly"/>
+            <xs:group minOccurs="0" maxOccurs="unbounded" ref="dataTypeDef"/>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="attribute"/>
+          </xs:sequence>
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="systemCreated"/>
+            <xs:element minOccurs="0" ref="readOnly"/>
+            <xs:group minOccurs="0" maxOccurs="unbounded" ref="dataTypeDef"/>
+            <xs:element maxOccurs="unbounded" ref="attribute"/>
+          </xs:sequence>
+        </xs:choice>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="action"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[A-Z][A-Za-z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="singleton">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="systemCreated">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Relations -->
+  <xs:element name="relationship">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element ref="containment"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="containment">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="parent"/>
+        <xs:element ref="child"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="parent" type="hasClass"/>
+  <xs:element name="child">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="hasClass">
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="cardinality"/>
+            <xs:element minOccurs="0" ref="sortPriority"/>
+          </xs:sequence>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="sortPriority" type="xs:int"/>
+  <xs:element name="cardinality" type="rangeType"/>
+  <xs:complexType name="hasClass">
+    <xs:sequence>
+      <xs:element ref="hasClass"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="hasClass">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- Data types -->
+  <xs:element name="simple_type" abstract="true" substitutionGroup="type"/>  
+  <xs:element name="type" abstract="true"/>
+  <!-- For attributes, parameters and exceptions -->
+  <xs:group name="dataType">
+    <xs:sequence>
+      <xs:element name="dataType" nillable="true">
+        <xs:complexType>
+          <xs:choice>
+            <xs:element ref="type" minOccurs="0"/>
+            <xs:element ref="xs_list" minOccurs="0"/>
+          </xs:choice>
+          <xs:attribute name="name.ref" use="optional"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="simpleDataType">
+    <xs:sequence>
+      <xs:element name="dataType" nillable="true">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element ref="simple_type" minOccurs="0"/>
+          </xs:sequence>
+          <xs:attribute name="name.ref" use="optional"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="dataTypeDef">
+    <xs:sequence>
+      <xs:element name="dataType">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="description"/>
+            <xs:element minOccurs="0" ref="extension"/>
+            <xs:choice>
+              <xs:element ref="type"/>
+              <xs:element ref="xs_list"/>
+            </xs:choice>
+          </xs:sequence>
+          <xs:attribute name="name" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <!-- For actions -->
+  <xs:element name="returnType">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:choice>
+          <xs:element ref="void"/>
+          <xs:group ref="dataType"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <!-- Return data types -->
+  <xs:element name="void">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Primitive data types -->
+  <xs:complexType name="stringRestrictionType">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="lengthRange"/>
+      <xs:element minOccurs="0" ref="validValues"/>
+      <xs:element minOccurs="0" ref="pattern"/>
+      <xs:element minOccurs="0" ref="defaultValue"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="dateTimeRestrictionType">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="range"/>
+      <xs:element minOccurs="0" ref="validValues"/>
+      <xs:element minOccurs="0" ref="pattern"/>
+      <xs:element minOccurs="0" ref="defaultValue"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="numRestrictionType">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="range"/>
+      <xs:element minOccurs="0" ref="defaultValue"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="boolean" substitutionGroup="simple_type">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="dateTime" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="float" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="integer" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="string" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="pattern" type="xs:string"/>
+  <xs:element name="validValues">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="value">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lengthRange" type="rangeType"/>
+  <xs:element name="range" type="rangeType"/>
+  <xs:complexType name="rangeType">
+    <xs:sequence>
+      <xs:element name="min" type="xs:string" minOccurs="0"/>
+      <xs:element name="max" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="defaultValue" type="xs:string"/>
+  <!-- Struct data type -->
+  <xs:element name="struct" substitutionGroup="type">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="structMember"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="structMember">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:group ref="dataType"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- List data type -->
+  <xs:element name="xs_list">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:group ref="simpleDataType"/>
+        <xs:element minOccurs="0" ref="lengthRange"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <!-- MoRef data type -->
+  <xs:element name="moRef" substitutionGroup="simple_type">
+    <xs:complexType>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[A-Z][A-Za-z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <!-- Attribute -->
+  <xs:element name="attribute">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="default_access"/>
+        <xs:group ref="dataType"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="initialValue"/>
+          <xs:element ref="pmData"/>
+          <xs:choice>
+            <xs:choice>
+              <xs:element ref="key"/>
+              <xs:element ref="readOnly"/>
+            </xs:choice>
+            <xs:choice>
+              <xs:choice>
+                <xs:element ref="readOnly"/>
+                <xs:choice>
+                  <xs:element ref="mandatory"/>
+                  <xs:element ref="restricted"/>
+                </xs:choice>
+              </xs:choice>
+              <xs:element ref="nonPersistent"/>
+            </xs:choice>
+          </xs:choice>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[a-z][a-zA-Z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="initialValue" type="xs:string"/>
+  <xs:element name="key">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="mandatory">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="nonPersistent">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="pmData">
+    <xs:complexType>
+      <xs:sequence>
+      	<xs:element minOccurs="0" ref="extension"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="readOnly">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="restricted">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Action -->
+  <xs:element name="action">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="default_access"/>
+        <xs:element ref="returnType"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="raisesException"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[a-z][a-zA-Z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="parameter">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:group ref="dataType"/>
+        <xs:element minOccurs="0" ref="initialValue"/>
+        <xs:element minOccurs="0" ref="isOptional"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="isOptional">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="exception">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="exceptionParameter"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="exceptionParameter">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="extension"/>
+        <xs:group ref="dataType"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="raisesException">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- xs types, introduced in IS 2.0 -->
+  <xs:element name="xs_normalizedString" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_token" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_string" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  
+  <xs:element name="xs_base64Binary" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_hexBinary" type="stringRestrictionType" substitutionGroup="simple_type"/>
+
+  <xs:element name="xs_integer" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_positiveInteger" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_negativeInteger" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_nonNegativeInteger" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_nonPositiveInteger" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_long" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_unsignedLong" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_int" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_unsignedInt" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_short" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_unsignedShort" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_byte" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_unsignedByte" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_decimal" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_float" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_double" type="numRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_boolean" type="numRestrictionType" substitutionGroup="simple_type"/>
+
+  <xs:element name="xs_duration" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_dateTime" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_date" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_time" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_gYear" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_gYearMonth" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_gMonth" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_gMonthDay" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_gDay" type="dateTimeRestrictionType" substitutionGroup="simple_type"/>
+
+  <xs:element name="xs_QName" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_Name" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_NCName" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  
+  <xs:element name="xs_anyURI" type="stringRestrictionType" substitutionGroup="simple_type"/>
+  <xs:element name="xs_language" type="stringRestrictionType" substitutionGroup="simple_type"/>
+
+  <!-- Authorization information -->
+  <xs:element name="default_access">
+  	<xs:complexType>
+  	  <xs:attribute name="role" type="xs:token" use="required"/>
+  	  <xs:attribute name="permissions" use="required">
+  	  	<xs:simpleType>
+  	  	  <xs:restriction base="xs:token">
+  	  	    <xs:pattern value="[rwx]{3}"/>
+  	  	  </xs:restriction>
+  	  	</xs:simpleType>
+  	  </xs:attribute>
+  	</xs:complexType>
+  </xs:element>
+</xs:schema>

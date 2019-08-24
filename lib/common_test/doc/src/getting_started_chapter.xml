@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Getting Started</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date>2011-12-12</date>
+    <rev></rev>
+    <file>getting_started_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction for Newcomers</title>
+    <p>
+      The purpose of this section is to let the newcomer get started in
+      quickly writing and executing some first simple tests with a 
+      "learning by example" approach. Most explanations are left for later sections. 
+      If you are not much into "learning by example" and prefer more technical
+      details, go ahead and skip to the next section.
+    </p>
+    <p>
+      This section demonstrates how simple it is to write a basic 
+      (yet for many module testing purposes, often sufficiently complex) 
+      test suite and execute its test cases. This is not necessarily
+      obvious when you read the remaining sections in this User's Guide.
+    </p>
+    <note>
+      <p>
+      To understand what is discussed and examplified here, we recommended 
+      you to first read section
+      <seealso marker="basics_chapter#basics">Common Test Basics</seealso>.
+      </p>
+    </note>
+    </section>
+
+    <section>
+    <title>Test Case Execution</title>
+    <p>Execution of test cases is handled as follows:</p>
+    
+    <image file="tc_execution.gif">
+      <icaption>
+	Successful and Unsuccessful Test Case Execution
+      </icaption>
+    </image>
+
+    <p>For each test case that <c>Common Test</c> is ordered to execute, it spawns a
+      dedicated process on which the test case function starts
+      running. (In parallel to the test case process, an idle waiting timer
+      process is started, which is linked to the test case process. If the timer
+      process runs out of waiting time, it sends an exit signal to terminate
+      the test case process. This is called a <em>timetrap</em>).
+    </p>
+    <p>In scenario 1, the test case process terminates normally after 
+    <c>case A</c> has finished executing its test code without detecting 
+    any errors. The test case function returns a value and <c>Common Test</c> 
+    logs the test case as successful.
+    </p>
+    <p>In scenario 2, an error is detected during test <c>case B</c> execution.
+      This causes the test <c>case B</c> function to generate an exception
+      and, as a result, the test case process exits with reason other than normal. 
+      <c>Common Test</c> logs this as an unsuccessful (Failed) test case.
+    </p>
+    <p>As you can understand from the illustration, <c>Common Test</c> requires
+      a test case to generate a runtime error to indicate failure (for example,
+      by causing a bad match error or by calling <c>exit/1</c>, preferably
+      through the help function 
+      <seealso marker="ct#fail-1"><c>ct:fail/1,2</c></seealso>). A successful 
+      execution is indicated by a normal return from the test case function.
+    </p>
+    </section>
+
+    <section>
+    <title>A Simple Test Suite</title>
+    <p>As shown in section 
+    <seealso marker="basics_chapter#External_Interfaces">Common Test Basics</seealso>,
+    the test suite module implements
+      <seealso marker="common_test">callback functions</seealso>
+      (mandatory or optional) for various purposes, for example:
+    </p>
+      <list type="bulleted">
+	<item>Init/end configuration function for the test suite</item>
+	<item>Init/end configuration function for a test case</item>
+	<item>Init/end configuration function for a test case group</item>
+	<item>Test cases</item>
+      </list>
+    <p> 
+     The configuration functions are optional. The following example is a test suite 
+     without configuration functions, including one simple test case, to 
+     check that module <c>mymod</c> exists (that is, can be successfully loaded by the 
+     code server):
+    </p>
+    <pre>
+ -module(my1st_SUITE).
+ -compile(export_all).
+
+ all() ->
+     [mod_exists].
+
+ mod_exists(_) ->
+     {module,mymod} = code:load_file(mymod).</pre>
+    <p>
+      If the operation fails, a bad match error occurs that terminates the test case.
+    </p>
+    </section>
+
+    <section>
+    <title>A Test Suite with Configuration Functions</title>
+    <p>
+      If you need to perform configuration operations to run your test, you can
+      implement configuration functions in your suite. The result from a
+      configuration function is configuration data, or <c>Config</c>.
+      This is a list of key-value tuples that get passed from the configuration
+      function to the test cases (possibly through configuration functions on
+      "lower level"). The data flow looks as follows:
+    </p>
+
+    <image file="config.gif">
+      <icaption>
+	Configuration Data Flow in a Suite
+      </icaption>
+    </image>
+
+    <p>
+      The following example shows a test suite that uses configuration functions
+      to open and close a log file for the test cases (an operation that is
+      unnecessary and irrelevant to perform by each test case):
+    </p>
+    <pre>
+ -module(check_log_SUITE).
+ -export([all/0, init_per_suite/1, end_per_suite/1]).
+ -export([check_restart_result/1, check_no_errors/1]).
+
+ -define(value(Key,Config), proplists:get_value(Key,Config)).
+
+ all() -> [check_restart_result, check_no_errors].
+
+ init_per_suite(InitConfigData) ->
+     [{logref,open_log()} | InitConfigData].
+
+ end_per_suite(ConfigData) ->
+     close_log(?value(logref, ConfigData)).
+
+ check_restart_result(ConfigData) ->
+     TestData = read_log(restart, ?value(logref, ConfigData)),
+     {match,_Line} = search_for("restart successful", TestData).
+
+ check_no_errors(ConfigData) ->
+     TestData = read_log(all, ?value(logref, ConfigData)),
+     case search_for("error", TestData) of
+	 {match,Line} -> ct:fail({error_found_in_log,Line});
+	 nomatch -> ok
+     end.</pre>
+    <p>
+      The test cases verify, by parsing a log file, that our SUT has performed 
+      a successful restart and that no unexpected errors are printed.
+    </p>
+
+    <p>To execute the test cases in the recent test suite, type the 
+    following on the UNIX/Linux command line (assuming that the suite module
+      is in the current working directory):
+    </p>
+    <pre>
+ $ ct_run -dir .</pre>
+    <p>or:</p>
+    <pre>
+ $ ct_run -suite check_log_SUITE</pre>
+
+    <p>To use the Erlang shell to run our test, you can evaluate the following call:
+    </p>
+    <pre>
+ 1> ct:run_test([{dir, "."}]).</pre>
+    <p>or:</p>
+    <pre>
+ 1> ct:run_test([{suite, "check_log_SUITE"}]).</pre>
+    <p>
+      The result from running the test is printed in log files in HTML format
+      (stored in unique log directories on a different level). The following 
+      illustration shows the log file structure:
+    </p>
+
+    <image file="html_logs.gif">
+      <icaption>
+	HTML Log File Structure
+      </icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Questions and Answers</title>
+
+    <p>Here follows some questions that you might have after reading this section 
+    with corresponding tips and links to the answers:
+    </p>
+      
+      <list type="bulleted">
+	<item><p><em>Question:</em> 
+	"How and where can I specify variable data for my tests that must not 
+	be hard-coded in the test suites (such as hostnames, addresses, and
+	  user login data)?"</p>
+	  <p><em>Answer:</em> 
+	  See section <seealso marker="config_file_chapter#top">External Configuration Data</seealso>.</p>
+	</item>
+
+	<item><p><em>Question:</em> "Is there a way to declare different tests and run them
+	  in one session without having to write my own scripts? Also, can such
+	  declarations be used for regression testing?"</p>
+	  <p><em>Answer:</em> See section
+	  <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+	  in section Running Tests and Analyzing Results.
+	  </p>
+	</item>
+
+	<item><p><em>Question:</em> "Can test cases and/or test runs be automatically repeated?"</p>
+	<p><em>Answer:</em> Learn more about
+	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	  and read about start flags/options in section
+	  <seealso marker="run_test_chapter#ct_run">Running Tests</seealso> and in
+	  the Reference Manual.</p>
+	</item>
+
+	<item><p><em>Question:</em> "Does <c>Common Test</c> execute my test cases in sequence or in parallel?"</p>
+	<p><em>Answer:</em> See
+	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	in section Writing Test Suites.</p>
+	</item>
+
+	<item><p><em>Question:</em> "What is the syntax for timetraps (mentioned earlier), and how do I set them?"</p>
+	  <p><em>Answer:</em> This is explained in the
+	  <seealso marker="write_test_chapter#timetraps">Timetrap Time-Outs</seealso>
+	  part of section Writing Test Suites.</p>
+	</item>
+
+	<item><p><em>Question:</em> "What functions are available for logging and printing?"</p>
+	<p><em>Answer:</em> See
+	  <seealso marker="write_test_chapter#logging">Logging</seealso>
+	in section Writing Test Suites.</p>
+	</item>
+
+	<item><p><em>Question:</em> "I need data files for my tests. Where do I store them preferably?"</p>
+	  <p><em>Answer:</em> See
+	  <seealso marker="write_test_chapter#data_priv_dir">Data and Private
+	  Directories</seealso>.</p>
+	</item>
+
+	<item><p><em>Question:</em> "Can I start with a test suite example, please?"</p>
+	  <p><em>Answer:</em> <seealso marker="example_chapter#top">Welcome!</seealso></p>
+	</item>
+      </list>
+      <p>You probably want to get started on your own first test suites now, while
+      at the same time digging deeper into the <c>Common Test</c> User's Guide and Reference Manual.
+      There are much more to learn about the things that have been introduced
+      in this section. There are also many other useful features to learn, 
+      so please continue to the other sections and have fun.
+      </p>
+    </section>
+</chapter>
+
+
+
+
+
+
+
+

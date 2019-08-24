@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>User's Guide DTDs</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>user_guide_dtds.xml</file>
+  </header>
+
+  <section>
+    <marker id="partDTD"></marker>
+    <title>The part DTD</title>
+
+    <p>The <c>part</c> DTD is intended for a "normal" document, like
+      the User's Guide or Release Notes. First are some paragraphs
+      introducing the main contents. After that follows chapters,
+      written in separate files with
+      the <seealso marker="#chapterDTD">chapter</seealso> DTD.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE part SYSTEM "part.dtd"&gt;
+&lt;part&gt;
+  &lt;header&gt;
+    &lt;title&gt;The chapter title&lt;/title&gt;
+    &lt;prepared&gt;The author&lt;/prepared&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;Some text..&lt;/p&gt;
+  &lt;/description&gt;
+
+  &lt;include file="file1"&gt;&lt;/include&gt;
+  &lt;include file="file2"&gt;&lt;/include&gt;
+&lt;/part&gt;
+    </pre>
+  </section>
+
+  <section>
+    <marker id="partTAG"></marker>
+    <title>&lt;part></title>
+
+    <p>The top level tag of a <c>part</c> DTD.</p>
+
+    <p>Contains a
+      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      an optional
+      <seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+      followed by one or more
+      <seealso marker="#includeTAG">&lt;include&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="descriptionTAG"/>
+    <title>&lt;description&gt;</title>
+
+    <p>The introduction after the title and before the bulk of
+      included chapters/manual pages.</p>
+
+    <p>Contains any combination and any number
+      of <seealso marker="block_tags">block tags</seealso> except
+      <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
+  </section>
+
+  <section>
+    <marker id="includeTAG"></marker>
+    <title>&lt;include&gt;</title>
+
+    <p>An empty tag. The attribute <c>file</c> specifies a file to
+      include. The <c>.xml</c> file extension should be omitted.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;include file="notes">&lt;/include>
+    </pre>
+  </section>
+
+  <section>
+    <marker id="chapterDTD"></marker>
+    <title>The chapter DTD</title>
+
+    <p>The <c>chapter</c> DTD is intended for a chapter in a User's
+      Guide or similar with text divided into sections, which can be
+      nested.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE chapter SYSTEM "chapter.dtd">
+&lt;chapter>
+  &lt;header>
+    &lt;title>Title on first level&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+  
+  &lt;p>Introduction...&lt;/p>
+
+  &lt;section>
+    &lt;title>Title on second level&lt;/title>
+
+    &lt;p>First paragraph.&lt;/p>
+
+    &lt;p>Second paragraph etc.&lt;/p>
+
+    &lt;section>
+      &lt;title>Title on third level&lt;/title>
+
+      &lt;p>...&lt;/p>
+    &lt;/section>
+  &lt;/section>
+
+  ...
+&lt;/chapter>
+    </pre>
+  </section>
+
+  <section>
+    <marker id="chapterTAG"></marker>
+    <title>&lt;chapter&gt;</title>
+
+    <p>The top level tag of a <c>chapter</c> DTD.</p>
+
+    <p>Contains a
+      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      an optional introduction consisting of any combination of
+      <seealso marker="block_tags">block tags</seealso>,
+      followed by one or more
+      <seealso marker="#sectionTAG">&lt;section&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="sectionTAG"></marker>
+    <title>&lt;section&gt;</title>
+
+    <p>Subdivision of a chapter.</p>
+
+    <p>Contains an optional
+      <seealso marker="inline_tags#markerTAG">&lt;marker&gt;</seealso>,
+      a <seealso marker="#titleTAG">&lt;title&gt;</seealso>,
+      followed by any combination and any number of
+      <seealso marker="block_tags">block tags</seealso> and
+      <c><![CDATA[<section>]]></c>.</p>
+  </section>
+
+  <section>
+    <marker id="titleTAG"></marker>
+    <title>&lt;title&gt;</title>
+
+    <p>Section title, contains plain text.</p>
+  </section>
+</chapter>
+

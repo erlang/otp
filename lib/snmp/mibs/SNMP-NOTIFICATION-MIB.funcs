@@ -1,0 +1,3 @@
+{snmpNotifyTable, {snmp_notification_mib, snmpNotifyTable, []}}.
+{snmpNotifyFilterProfileTable, {snmp_notification_mib, snmpNotifyFilterProfileTable, []}}.
+{snmpNotifyFilterTable, {snmp_notification_mib, snmpNotifyFilterTable, []}}.

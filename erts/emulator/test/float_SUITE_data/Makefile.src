@@ -1,0 +1,8 @@
+DRVS = fp_drv@dll@
+
+all: has_fpe_bug $(DRVS)
+
+has_fpe_bug:
+	@erl_name@ -compile has_fpe_bug -s has_fpe_bug
+
+@SHLIB_RULES@

@@ -1,0 +1,30 @@
+ChoRecursive DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+ChoRec ::= CHOICE 
+{
+   nothing [0] NULL,
+   something SEQUENCE
+      {
+       a INTEGER,
+       b OCTET STRING,
+       c ChoRec
+      }
+}
+
+ChoRec2 ::= CHOICE 
+{
+   something SEQUENCE
+      {
+       a INTEGER,
+       b OCTET STRING,
+       c ChoRec2
+      },
+   nothing [0] NULL
+}
+
+
+
+END

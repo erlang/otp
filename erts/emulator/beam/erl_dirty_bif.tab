@@ -1,0 +1,82 @@
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2016-2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+#
+# Static declaration of BIFs that should execute on dirty schedulers.
+#
+# <dirty-bif-decl> ::= <type> <bif>
+# <bif> ::= <module> ":" <name> "/" <arity>
+# <type> ::= dirty-cpu | dirty-io | dirty-cpu-test | dirty-io-test
+#
+# When dirty scheduler support is available, a BIF declared with the
+# 'dirty-cpu' type will unconditionally execute on a dirty CPU scheduler,
+# and a BIF declared with the type 'dirty-io' will unconditionally execute
+# on a dirty IO scheduler. When dirty scheduler support is not available
+# all BIFs will of course execute on normal schedulers.
+#
+# When the emulator has been configured with the debug option
+# '--enable-dirty-schedulers-test', BIFs with the types 'dirty-cpu-test',
+# and 'dirty-io-test' will unconditionally execute on dirty schedulers.
+# When this debug option has not been enabled, these BIFs will be executed
+# on normal schedulers.
+#
+# BIFs marked as 'ubif' in ./bif.tab will be ignored, i.e., will always
+# execute on normal schedulers.
+#
+
+# --- Dirty BIFs ---
+
+dirty-cpu erts_debug:dirty_cpu/2
+dirty-io erts_debug:dirty_io/2
+
+# lcnt_control/1 doesn't need to be dirty.
+dirty-cpu erts_debug:lcnt_control/2
+dirty-cpu erts_debug:lcnt_collect/0
+dirty-cpu erts_debug:lcnt_clear/0
+
+# --- TEST of Dirty BIF functionality ---
+#  Functions below will execute on dirty schedulers when emulator has
+#  been configured for testing dirty schedulers. This is used for test
+#  and debug purposes only. We really do *not* want to execute these
+#  on dirty schedulers on a real system.
+
+dirty-cpu-test erlang:make_tuple/2
+dirty-cpu-test erlang:make_tuple/3
+dirty-cpu-test erlang:append_element/2
+dirty-cpu-test erlang:insert_element/3
+dirty-cpu-test erlang:delete_element/2
+dirty-cpu-test erlang:atom_to_list/1
+dirty-cpu-test erlang:list_to_atom/1
+dirty-cpu-test erlang:list_to_existing_atom/1
+dirty-cpu-test erlang:integer_to_list/1
+dirty-cpu-test erlang:string_to_integer/1
+dirty-cpu-test erlang:list_to_integer/1
+dirty-cpu-test erlang:list_to_integer/2
+dirty-cpu-test erlang:float_to_list/1
+dirty-cpu-test erlang:float_to_list/2
+dirty-cpu-test erlang:float_to_binary/1
+dirty-cpu-test erlang:float_to_binary/2
+dirty-cpu-test erlang:string_to_float/1
+dirty-cpu-test erlang:list_to_float/1
+dirty-cpu-test erlang:binary_to_float/1
+dirty-cpu-test erlang:tuple_to_list/1
+dirty-cpu-test erlang:list_to_tuple/1
+dirty-cpu-test erlang:display/1
+dirty-cpu-test erlang:display_string/1

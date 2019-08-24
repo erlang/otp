@@ -1,0 +1,576 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Examples</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>reltool_examples.xml</file>
+  </header>
+
+  <section>
+    <title>Start and stop windows and servers</title>
+
+    <p>The main process in Reltool is the server. It can be used as it
+    is or be used via the GUI frontend process. When the GUI is
+    started, a server process will automatically be started. The GUI
+    process is started with
+    <seealso marker="reltool#start-0"><c>reltool:start/0</c></seealso>,
+    <seealso marker="reltool#start-1"><c>reltool:start/1</c></seealso> or
+    <seealso marker="reltool#start_link-1"><c>reltool:start_link/1</c></seealso>.
+    The pid of its server can be obtained with
+    <seealso marker="reltool#start_link-1"><c>reltool:get_server/1</c></seealso>
+    </p>
+    
+    <pre>
+Erlang/OTP 20 [erts-9.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
+[hipe] [kernel-poll:false]
+Eshell V9.0  (abort with ^G)
+1&gt;
+1&gt; {ok, Win} = reltool:start([]).
+{ok,&lt;0.36.01&gt;}
+2&gt; {ok, Server} = reltool:get_server(Win).
+{ok,&lt;0.37.01&gt;}
+3&gt; reltool:get_config(Server).
+{ok,{sys,[]}}
+4&gt;
+4&gt; {ok, Server2} = reltool:start_server([]).
+{ok,&lt;0.6535.01&gt;}
+5&gt; reltool:get_config(Server2).
+{ok,{sys,[]}}
+6&gt; reltool:stop(Server2).
+ok
+    </pre>
+
+  </section>
+
+  <section>
+    <title>Inspecting the configuration</title>
+
+    <pre>
+Erlang/OTP 20 [erts-9.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
+[hipe] [kernel-poll:false]
+Eshell V9.0  (abort with ^G)
+1&gt;
+1&gt; Config = {sys, [{escript, "examples/display_args", [{incl_cond, include}]},
+		   {app, inets, [{incl_cond, include}]},
+		   {app, mnesia, [{incl_cond, exclude}]},
+		   {app, ssl, [{incl_cond, exclude}]},
+		   {app, runtime_tools, [{incl_cond, exclude}]},
+		   {app, syntax_tools, [{incl_cond, exclude}]}]}.
+{sys,[{escript,"examples/display_args",[{incl_cond,include}]},
+      {app,inets,[{incl_cond,include}]},
+      {app,mnesia,[{incl_cond,exclude}]},
+      {app,ssl,[{incl_cond,exclude}]},
+      {app,runtime_tools,[{incl_cond,exclude}]},
+      {app,syntax_tools,[{incl_cond,exclude}]}]}
+2&gt;
+2&gt; {ok, Server} = reltool:start_server([Config]).
+{ok,&lt;0.66.0&gt;}
+3&gt;
+3&gt; reltool:get_config(Server).
+{ok,{sys,[{escript,"/usr/local/lib/erlang/lib/reltool-0.7.3/examples/display_args",
+                   [{incl_cond,include}]},
+          {app,inets,[{incl_cond,include}]},
+          {app,mnesia,[{incl_cond,exclude}]},
+          {app,runtime_tools,[{incl_cond,exclude}]},
+          {app,ssl,[{incl_cond,exclude}]},
+          {app,syntax_tools,[{incl_cond,exclude}]}]}}
+4&gt;
+4&gt; reltool:get_config(Server, false, false).
+{ok,{sys,[{escript,"/usr/local/lib/erlang/lib/reltool-0.7.3/examples/display_args",
+                   [{incl_cond,include}]},
+          {app,inets,[{incl_cond,include}]},
+          {app,mnesia,[{incl_cond,exclude}]},
+          {app,runtime_tools,[{incl_cond,exclude}]},
+          {app,ssl,[{incl_cond,exclude}]},
+          {app,syntax_tools,[{incl_cond,exclude}]}]}}
+5&gt;
+5&gt; reltool:get_config(Server, true, false).
+{ok,{sys,[{root_dir,"/usr/local/lib/erlang"},
+          {lib_dirs,[]},
+          {escript,"/usr/local/lib/erlang/lib/reltool-0.7.3/examples/display_args",
+                   [{incl_cond,include}]},
+          {mod_cond,all},
+          {incl_cond,derived},
+          {app,inets,
+               [{incl_cond,include},{vsn,undefined},{lib_dir,undefined}]},
+          {app,mnesia,[{incl_cond,exclude}]},
+          {app,runtime_tools,[{incl_cond,exclude}]},
+          {app,ssl,[{incl_cond,exclude}]},
+          {app,syntax_tools,[{incl_cond,exclude}]},
+          {boot_rel,"start_clean"},
+          {rel,"start_clean","1.0",[]},
+          {rel,"start_sasl","1.0",[sasl]},
+          {emu_name,"beam"},
+          {relocatable,true},
+          {profile,development},
+          {incl_sys_filters,[".*"]},
+          {excl_sys_filters,[]},
+          {incl_app_filters,[".*"]},
+          {excl_app_filters,[]},
+          {incl_archive_filters,[".*"]},
+          {excl_archive_filters,[[...]|...]},
+          {archive_opts,[]},
+          {rel_app_type,...},
+          {...}|...]}}
+6&gt;
+6&gt; reltool:get_config(Server, true, true).
+{ok,{sys,[{root_dir,"/usr/local/lib/erlang"},
+          {lib_dirs,[]},
+          {escript,"/usr/local/lib/erlang/lib/reltool-0.7.3/examples/display_args",
+                   [{incl_cond,include}]},
+          {mod_cond,all},
+          {incl_cond,derived},
+          {erts,[{app,erts,
+                      [{vsn,"10.0"},
+                       {lib_dir,"/usr/local/lib/erlang/lib/erts-10.0"},
+                       {mod,erl_prim_loader,[]},
+                       {mod,erl_tracer,[]},
+                       {mod,erlang,[]},
+                       {mod,erts_code_purger,[]},
+                       {mod,erts_dirty_process_signal_handler,[]},
+                       {mod,erts_internal,[]},
+                       {mod,erts_literal_area_collector,[]},
+                       {mod,init,[]},
+                       {mod,erl_init,...},
+                       {mod,...},
+                       {...}|...]}]},
+          {app,compiler,
+               [{vsn,"7.0.4"},
+                {lib_dir,"/usr/local/lib/erlang/lib/compiler-7.0.4"},
+                {mod,beam_a,[]},
+                {mod,beam_asm,[]},
+                {mod,beam_block,[]},
+                {mod,beam_bs,[]},
+                {mod,beam_bsm,[]},
+                {mod,beam_clean,[]},
+                {mod,beam_dead,[]},
+                {mod,beam_dict,[]},
+                {mod,beam_disasm,[]},
+                {mod,beam_except,[]},
+                {mod,beam_flatten,...},
+                {mod,...},
+                {...}|...]},
+          {app,crypto,
+               [{vsn,"3.7.4"},
+                {lib_dir,"/usr/local/lib/erlang/lib/crypto-3.7.4"},
+                {mod,crypto,[]},
+                {mod,crypto_ec_curves,[]}]},
+          {app,hipe,
+               [{vsn,"3.15.4"},
+                {lib_dir,"/usr/local/lib/erlang/lib/hipe-3.15.4"},
+                {mod,cerl_cconv,[]},
+                {mod,cerl_closurean,[]},
+                {mod,cerl_hipeify,[]},
+                {mod,cerl_lib,[]},
+                {mod,cerl_messagean,[]},
+                {mod,cerl_pmatch,[]},
+                {mod,cerl_prettypr,[]},
+                {mod,cerl_to_icode,[]},
+                {mod,cerl_typean,...},
+                {mod,...},
+                {...}|...]},
+          {app,inets,
+               [{incl_cond,include},
+                {vsn,"6.3.9"},
+                {lib_dir,"/usr/local/lib/erlang/lib/inets-6.3.9"},
+                {mod,ftp,[]},
+                {mod,ftp_progress,[]},
+                {mod,ftp_response,[]},
+                {mod,ftp_sup,[]},
+                {mod,http_chunk,[]},
+                {mod,http_request,[]},
+                {mod,http_response,...},
+                {mod,...},
+                {...}|...]},
+          {app,kernel,
+               [{vsn,"5.2"},
+                {lib_dir,"/usr/local/lib/erlang/lib/kernel-5.2"},
+                {mod,application,[]},
+                {mod,application_controller,[]},
+                {mod,application_master,[]},
+                {mod,application_starter,[]},
+                {mod,auth,[]},
+                {mod,code,[]},
+                {mod,code_server,...},
+                {mod,...},
+                {...}|...]},
+          {app,mnesia,[{incl_cond,exclude}]},
+          {app,runtime_tools,[{incl_cond,exclude}]},
+          {app,sasl,
+               [{vsn,"3.0.3"},
+                {lib_dir,"/usr/local/lib/erlang/lib/sasl-3.0.3"},
+                {mod,alarm_handler,[]},
+                {mod,erlsrv,[]},
+                {mod,format_lib_supp,[]},
+                {mod,misc_supp,...},
+                {mod,...},
+                {...}|...]},
+          {app,ssl,[{incl_cond,exclude}]},
+          {app,stdlib,
+               [{vsn,"3.3"},
+                {lib_dir,"/usr/local/lib/erlang/lib/stdlib-3.3"},
+                {mod,array,[]},
+                {mod,base64,...},
+                {mod,...},
+                {...}|...]},
+          {app,syntax_tools,[{incl_cond,exclude}]},
+          {app,tools,
+               [{vsn,"2.9.1"},{lib_dir,[...]},{mod,...},{...}|...]},
+          {boot_rel,"start_clean"},
+          {rel,"start_clean","1.0",[]},
+          {rel,"start_sasl","1.0",[...]},
+          {emu_name,"beam"},
+          {relocatable,true},
+          {profile,...},
+          {...}|...]}}
+7&gt;
+7&gt; reltool:get_config([{sys, [{profile, embedded}]}], true, false).
+{ok,{sys,[{root_dir,"/usr/local/lib/erlang"},
+          {lib_dirs,[]},
+          {mod_cond,all},
+          {incl_cond,derived},
+          {boot_rel,"start_clean"},
+          {rel,"start_clean","1.0",[]},
+          {rel,"start_sasl","1.0",[sasl]},
+          {emu_name,"beam"},
+          {relocatable,true},
+          {profile,embedded},
+          {incl_sys_filters,["^bin","^erts","^lib","^releases"]},
+          {excl_sys_filters,["^bin/(erlc|dialyzer|typer)(|\\.exe)$",
+                             "^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)$",
+                             "^erts.*/bin/.*(debug|pdb)"]},
+          {incl_app_filters,["^ebin","^include","^priv"]},
+          {excl_app_filters,[]},
+          {incl_archive_filters,[".*"]},
+          {excl_archive_filters,["^include$","^priv$"]},
+          {archive_opts,[]},
+          {rel_app_type,permanent},
+          {embedded_app_type,load},
+          {app_file,keep},
+          {debug_info,keep}]}}
+8&gt;
+8&gt; reltool:get_config([{sys, [{profile, standalone}]}], true, false).
+{ok,{sys,[{root_dir,"/usr/local/lib/erlang"},
+          {lib_dirs,[]},
+          {mod_cond,all},
+          {incl_cond,derived},
+          {boot_rel,"start_clean"},
+          {rel,"start_clean","1.0",[]},
+          {rel,"start_sasl","1.0",[sasl]},
+          {emu_name,"beam"},
+          {relocatable,true},
+          {profile,standalone},
+          {incl_sys_filters,["^bin/(erl|epmd)(|\\.exe|\\.ini)$",
+                             "^bin/start(|_clean).boot$","^erts.*/bin","^lib$"]},
+          {excl_sys_filters,["^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)$",
+                             "^erts.*/bin/(start|escript|to_erl|run_erl)(|\\.exe)$",
+                             "^erts.*/bin/.*(debug|pdb)"]},
+          {incl_app_filters,["^ebin","^priv"]},
+          {excl_app_filters,["^ebin/.*\\.appup$"]},
+          {incl_archive_filters,[".*"]},
+          {excl_archive_filters,["^include$","^priv$"]},
+          {archive_opts,[]},
+          {rel_app_type,permanent},
+          {app_file,keep},
+          {debug_info,keep}]}}
+    </pre>
+
+  </section>
+
+  <section>
+    <title>Generate release and script files</title>
+    <pre>
+Erlang/OTP 20 [erts-10.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
+[hipe] [kernel-poll:false]
+Eshell V10.0  (abort with ^G)
+1&gt;
+1&gt; {ok, Server} = reltool:start_server([{config,
+                                         {sys,
+                                          [{boot_rel, "NAME"},
+                                           {rel, "NAME", "VSN",
+                                            [sasl],
+                                            [{load_dot_erlang, false}]}]}}]).
+{ok,&lt;0.1288.0&gt;}
+2&gt;
+2&gt; reltool:get_config(Server).
+{ok,{sys,[{boot_rel,"NAME"},
+          {rel,"NAME","VSN",[sasl]}]}}
+3&gt;
+3&gt; reltool:get_rel(Server, "NAME").
+{ok,{release,{"NAME","VSN"},
+             {erts,"10.0"},
+             [{kernel,"5.2"},{stdlib,"3.3"},{sasl,"3.0.3"}]}}
+4&gt;
+4&gt; reltool:get_script(Server, "NAME").
+{ok,{script,{"NAME","VSN"},
+            [{preLoaded,[erl_prim_loader,erl_tracer,erlang,
+                         erts_code_purger,erts_dirty_process_signal_handler,
+                         erts_internal,erts_literal_area_collector,init,erl_init,
+                         prim_eval,prim_file,prim_inet,prim_zip,zlib]},
+             {progress,preloaded},
+             {path,["$ROOT/lib/kernel-5.2/ebin",
+                    "$ROOT/lib/stdlib-3.3/ebin"]},
+             {primLoad,[error_handler]},
+             {kernel_load_completed},
+             {progress,kernel_load_completed},
+             {path,["$ROOT/lib/kernel-5.2/ebin"]},
+             {primLoad,[application,application_controller,
+                        application_master,application_starter,auth,code,
+                        code_server,disk_log,disk_log_1,disk_log_server,
+                        disk_log_sup,dist_ac,dist_util,erl_boot_server|...]},
+             {path,["$ROOT/lib/stdlib-3.3/ebin"]},
+             {primLoad,[array,base64,beam_lib,binary,c,calendar,dets,
+                        dets_server,dets_sup,dets_utils,dets_v9,dict|...]},
+             {path,["$ROOT/lib/sasl-3.0.3/ebin"]},
+             {primLoad,[alarm_handler,erlsrv,format_lib_supp,misc_supp,
+                        rb,rb_format_supp,release_handler,release_handler_1,sasl,
+                        sasl_report|...]},
+             {progress,modules_loaded},
+             {path,["$ROOT/lib/kernel-5.2/ebin",
+                    "$ROOT/lib/stdlib-3.3/ebin","$ROOT/lib/sasl-3.0.3/ebin"]},
+             {kernelProcess,heart,{heart,start,[]}},
+             {kernelProcess,error_logger,{error_logger,start_link,[]}},
+             {kernelProcess,application_controller,
+                            {application_controller,start,[{...}]}},
+             {progress,init_kernel_started},
+             {apply,{application,load,[...]}},
+             {apply,{application,load,...}},
+             {progress,applications_loaded},
+             {apply,{...}},
+             {apply,...},
+             {...}|...]}}
+5&gt;
+5&gt; reltool:stop(Server).
+ok
+    </pre>
+  </section>
+
+  <section>
+    <title>Create a target system</title>
+    <pre>
+Erlang/OTP 20 [erts-10.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
+[hipe] [kernel-poll:false]
+Eshell V10.0  (abort with ^G)
+1&gt;
+1&gt; Config = {sys, [{escript, "examples/display_args", [{incl_cond, include}]},
+		   {app, inets, [{incl_cond, include}]},
+		   {app, mnesia, [{incl_cond, exclude}]},
+		   {app, ssl, [{incl_cond, exclude}]},
+		   {app, runtime_tools, [{incl_cond, exclude}]},
+		   {app, syntax_tools, [{incl_cond, exclude}]}]}.
+{sys,[{escript,"examples/display_args",[{incl_cond,include}]},
+      {app,inets,[{incl_cond,include}]},
+      {app,mnesia,[{incl_cond,exclude}]},
+      {app,ssl,[{incl_cond,exclude}]},
+      {app,runtime_tools,[{incl_cond,exclude}]},
+      {app,syntax_tools,[{incl_cond,exclude}]}]}
+2&gt;
+2&gt; {ok, Spec} = reltool:get_target_spec([Config]).
+{ok,[{create_dir,"releases",
+         [{write_file,"start_erl.data","10.0 1.0\n"},
+          {create_dir,"1.0",
+              [{write_file,"start_clean.rel",
+                   [37,37,32,114,101,108,32,103,101,110,101,114,97,116|...]},
+               {write_file,"start_clean.script",
+                   [37,37,32,115,99,114,105,112,116,32,103,101,110|...]},
+               {write_file,"start_clean.boot",
+                   &lt;&lt;131,104,3,119,6,115,99,114,105,112,116,104,...&gt;&gt;},
+               {write_file,"start_sasl.rel",
+                   [37,37,32,114,101,108,32,103,101,110,101|...]},
+               {write_file,"start_sasl.script",
+                   [37,37,32,115,99,114,105,112,116,32|...]},
+               {write_file,"start_sasl.boot",
+                   &lt;&lt;131,104,3,119,6,115,99,114,105,...&gt;&gt;}]}]},
+     {create_dir,"bin",
+         [{copy_file,"display_args.escript",
+              "/usr/local/lib/erlang/lib/reltool-0.7.3/examples/display_args"},
+          {copy_file,"display_args","erts-10.0/bin/escript"},
+          {copy_file,"start","erts-10.0/bin/start"},
+          {copy_file,"ct_run","erts-10.0/bin/ct_run"},
+          {copy_file,"dialyzer","erts-10.0/bin/dialyzer"},
+          {copy_file,"run_erl","erts-10.0/bin/run_erl"},
+          {copy_file,"erl","erts-10.0/bin/dyn_erl"},
+          {copy_file,"to_erl","erts-10.0/bin/to_erl"},
+          {copy_file,"epmd","erts-10.0/bin/epmd"},
+          {copy_file,"erlc","erts-10.0/bin/erlc"},
+          {copy_file,"typer","erts-10.0/bin/typer"},
+          {copy_file,"escript","erts-10.0/bin/escript"},
+          {write_file,"start_clean.boot",&lt;&lt;131,104,3,119,6,115,...&gt;&gt;},
+          {write_file,"start_sasl.boot",&lt;&lt;131,104,3,119,6,...&gt;&gt;},
+          {write_file,"start.boot",&lt;&lt;131,104,3,119,...&gt;&gt;}]},
+     {copy_file,"Install"},
+     {create_dir,"misc",
+         [{copy_file,"makewhatis"},{copy_file,"format_man_pages"}]},
+     {create_dir,"usr",
+         [{create_dir,"lib",
+              [{copy_file,"liberts.a"},
+               {copy_file,"liberl_interface_st.a"},
+               {copy_file,"liberts_r.a"},
+               {copy_file,"libic.a"},
+               {copy_file,"liberl_interface.a"},
+               {copy_file,"libei_st.a"},
+               {copy_file,"libei.a"}]},
+          {create_dir,"include",
+              [{copy_file,"erl_memory_trace_parser.h"},
+               {copy_file,"driver_int.h"},
+               {copy_file,"ei_connect.h"},
+               {copy_file,"ei.h"},
+               {copy_file,"erl_nif_api_funcs.h"},
+               {copy_file,"erl_fixed_size_int_types.h"},
+               {copy_file,"erl_int_sizes_config.h"},
+               {copy_file,"erl_interface.h"},
+               {copy_file,"eicode.h"},
+               {copy_file,"erl_driver.h"},
+               {copy_file,"erlang.idl"},
+               {copy_file,[...]},
+               {copy_file,...},
+               {...}]}]},
+     {create_dir,"erts-10.0",
+         [{create_dir,"bin",
+              [{copy_file,"start"},
+               {copy_file,"ct_run"},
+               {copy_file,"erlexec"},
+               {copy_file,"dialyzer"},
+               {copy_file,"beam.smp"},
+               {copy_file,"run_erl"},
+               {copy_file,"erl","erts-10.0/bin/dyn_erl"},
+               {copy_file,"to_erl"},
+               {copy_file,"epmd"},
+               {copy_file,"erl_child_setup"},
+               {copy_file,"heart"},
+               {copy_file,[...]},
+               {copy_file,...},
+               {...}|...]},
+          {create_dir,"lib",
+              [{create_dir,"internal",
+                   [{copy_file,"liberts_internal.a"},
+                    {copy_file,"liberts_internal_r.a"},
+                    {copy_file,"libethread.a"},
+                    {copy_file,"README"}]},
+               {copy_file,"liberts.a"},
+               {copy_file,"liberts_r.a"}]},
+          {create_dir,"src",[{copy_file,"setuid_socket_wrap.c"}]},
+          {create_dir,"doc",[]},
+          {create_dir,"man",[]},
+          {create_dir,"include",
+              [{create_dir,"internal",
+                   [{create_dir,"i386",[{...}|...]},
+                    {copy_file,"erl_errno.h"},
+                    {copy_file,[...]},
+                    {copy_file,...},
+                    {...}|...]},
+               {copy_file,"erl_memory_trace_parser.h"},
+               {copy_file,"driver_int.h"},
+               {copy_file,"erl_nif_api_funcs.h"},
+               {copy_file,"erl_fixed_size_int_types.h"},
+               {copy_file,"erl_int_sizes_config.h"},
+               {copy_file,[...]},
+               {copy_file,...},
+               {...}]}]},
+     {create_dir,"lib",
+         [{archive,"compiler-7.0.4.ez",[],
+              [{create_dir,"compiler-7.0.4",
+                   [{create_dir,"src",
+                        [{copy_file,"beam_flatten.erl"},
+                         {copy_file,[...]},
+                         {copy_file,...},
+                         {...}|...]},
+                    {create_dir,"ebin",
+                        [{copy_file,[...]},{copy_file,...},{...}|...]}]}]},
+          {archive,"crypto-3.7.4.ez",[],
+              [{create_dir,"crypto-3.7.4",
+                   [{create_dir,"src",[{copy_file,[...]},{copy_file,...}]},
+                    {create_dir,"ebin",[{copy_file,...},{...}|...]}]}]},
+          {create_dir,"crypto-3.7.4",
+              [{create_dir,"priv",
+                   [{create_dir,"lib",[{copy_file,[...]},{copy_file,...}]},
+                    {create_dir,"obj",[{copy_file,...},{...}|...]}]}]},
+          {archive,"erts-10.0.ez",[],
+              [{create_dir,"erts-10.0",
+                   [{create_dir,"src",[{...}|...]},
+                    {create_dir,"ebin",[...]}]}]},
+          {archive,"hipe-3.15.4.ez",[],
+              [{create_dir,"hipe-3.15.4",
+                   [{create_dir,"flow",[...]},
+                    {copy_file,[...]},
+                    {create_dir,...},
+                    {...}|...]}]},
+          {archive,"inets-6.3.9.ez",[],
+              [{create_dir,"inets-6.3.9",
+                   [{create_dir,[...],...},{create_dir,...},{...}]}]},
+          {create_dir,"inets-6.3.9",
+              [{create_dir,"priv",[{create_dir,[...],...}]},
+               {create_dir,"include",[{copy_file,...},{...}]}]},
+          {archive,"kernel-5.2.ez",[],
+              [{create_dir,"kernel-5.2",[{...}|...]}]},
+          {create_dir,"kernel-5.2",
+              [{create_dir,"include",[{...}|...]}]},
+          {archive,"sasl-3.0.3.ez",[],[{create_dir,[...],...}]},
+          {archive,"stdlib-3.3.ez",[],[{create_dir,...}]},
+          {create_dir,"stdlib-3.3",[{create_dir,...}]},
+          {archive,"tools-2.9.1.ez",[],[...]}]}]}
+3&gt;
+3&gt; TargetDir = "/tmp/my_target_dir".
+"/tmp/my_target_dir"
+4&gt;
+4&gt; reltool:eval_target_spec(Spec, code:root_dir(), TargetDir).
+{error,"/tmp/my_target_dir: no such file or directory"}
+5&gt;
+5&gt; file:make_dir(TargetDir).
+ok
+6&gt;
+6&gt; reltool:eval_target_spec(Spec, code:root_dir(), TargetDir).
+ok
+7&gt;
+7&gt; file:list_dir(TargetDir).
+{ok,["bin","Install","lib","misc","usr","erts-10.0",
+     "releases"]}
+8&gt;
+8&gt; file:list_dir(filename:join([TargetDir,"lib"])).
+{ok,["tools-2.9.1.ez","kernel-5.2.ez","inets-6.3.9.ez",
+     "kernel-5.2","sasl-3.0.3.ez","hipe-3.15.4.ez","inets-6.3.9",
+     "crypto-3.7.4","crypto-3.7.4.ez","stdlib-3.3.ez",
+     "erts-10.0.ez","stdlib-3.3","compiler-7.0.4.ez"]}
+9&gt;
+9&gt; file:make_dir("/tmp/yet_another_target_dir").
+ok
+10&gt;
+10&gt; reltool:create_target([Config], "/tmp/yet_another_target_dir").
+ok
+11&gt;
+11&gt; file:list_dir("/tmp/yet_another_target_dir").
+{ok,["bin","Install","lib","misc","usr","erts-10.0",
+     "releases"]}
+    </pre>
+
+  </section>
+</chapter>

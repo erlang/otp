@@ -1,0 +1,11 @@
+module 'unused_multiple_values_error' ['hello'/1]
+    attributes []
+'hello'/1 =
+    fun (_cor0) ->
+	do
+	    case _cor0 of
+	      <_cor0> when 'true' ->
+		  <'ok','ok'>
+	    end
+	    'ok'
+end

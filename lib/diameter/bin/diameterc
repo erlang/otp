@@ -1,0 +1,165 @@
+#!/usr/bin/env escript
+%% Use -*- erlang -*- mode in Erlang
+
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+-module(diameterc).
+
+-mode(compile).
+
+-include_lib("kernel/include/file.hrl").
+
+%% The parsed command line.
+-record(argv, {file,
+               options = [{outdir, "."}],
+               output  = [erl, hrl]}).
+
+usage() ->
+    io:format(
+      "~w [options] dict~n"
+      "~n"
+      "  Compile a diameter dictionary file (.dia) to Erlang source (.erl)~n"
+      "  and/or header (.hrl) files.~n"
+      "~n"
+      "  options:~n"
+      "~n"
+      "      --name name       = set @name~n"
+      "      --prefix prefix   = set @prefix~n"
+      "      --inherits dict|- = set/clear @inherits~n"
+      "~n"
+      "      -h        = print this message~n"
+      "      -v        = verbose output~n"
+      "      -o dir    = set the output directory (default .)~n"
+      "      -i dir    = set an include directory for inherited beams~n"
+      "      -E        = no .erl output~n"
+      "      -H        = no .hrl output~n"
+      "      -d        = write intermediate files (.D and .F)~n",
+      [?MODULE]).
+
+main(Args) ->
+    halt(gen(Args)).
+
+gen(Args) ->
+    try parse_args(Args) of
+        #argv{} = A ->
+            compile(A)
+    catch
+        throw: usage  ->
+            usage(),
+            0;
+        throw: Reason ->
+            error_msg(norm(Reason)),
+            1
+    end.
+
+compile(#argv{file = File, options = Opts, output = Out}) ->
+    try diameter_make:codec({path, File}, Opts ++ Out) of
+        ok ->
+            0;
+        {error, Reason} ->
+            error_msg(diameter_make:format_error(Reason), []),
+            1
+    catch
+        error: Reason: Stack ->
+            error_msg("ERROR: ~p~n  ~p", [Reason, Stack]),
+            2
+    end.
+
+error_msg({Fmt, Args}) ->
+    error_msg(Fmt, Args).
+
+error_msg(Fmt, Args) ->
+    io:format(standard_error, "** " ++ Fmt ++ "~n", Args).
+
+norm({_,_} = T) ->
+    T;
+norm(Str) ->
+    {Str, []}.
+
+%% parse_args/1
+
+parse_args(Args)
+  when is_list(Args) ->
+    arg(Args, #argv{}).
+
+arg(["-h" | _], _) ->
+    throw(usage);
+
+arg(["-v" | Args], #argv{options = Opts} = A) ->
+    arg(Args, A#argv{options = [verbose | Opts]});
+
+arg(["-o", Dir | Args], #argv{options = Opts} = A) ->
+    true = dir_exists(Dir),
+    arg(Args, A#argv{options = [{outdir, Dir} | Opts]});
+
+arg(["-i", Dir | Args], #argv{} = A) ->
+    code:add_patha(Dir), %% Set path here instead of passing an include
+    arg(Args, A);        %% option so it's set before calling diameter_make.
+
+arg(["--name", Name | Args], #argv{options = Opts} = A) ->
+    arg(Args, A#argv{options = [{name, Name} | Opts]});
+
+arg(["--prefix", Name | Args], #argv{options = Opts} = A) ->
+    arg(Args, A#argv{options = [{prefix, Name} | Opts]});
+
+arg(["--inherits", Dict | Args], #argv{options = Opts} = A) ->
+    arg(Args, A#argv{options = Opts ++ [{inherits, Dict}]});
+
+arg(["-E" | Args], #argv{output = Output} = A) ->
+    arg(Args, A#argv{output = lists:delete(erl, Output)});
+
+arg(["-H" | Args], #argv{output = Output} = A) ->
+    arg(Args, A#argv{output = lists:delete(hrl, Output)});
+
+arg(["-d" | Args], #argv{output = Output} = A) ->
+    arg(Args, A#argv{output = [parse, forms | Output -- [parse, forms]]});
+
+arg([[$- = M, C, H | T] | Args], A)  %% clustered options
+  when C /= $i, C /= $o, C /= $- ->
+    arg([[M,C], [M,H|T] | Args], A);
+
+arg([File], A) ->
+    true = file_exists(File),
+    A#argv{file = File};
+
+arg([], _) ->
+    throw("No input file");
+
+arg([Bad | _], _) ->
+    throw({"Unknown option: ~p", [Bad]}).
+
+%% path_exists/2
+
+path_exists(File, Type) ->
+    case file:read_file_info(File) of
+	{ok, #file_info{type = Type}} ->
+	    true;
+	{ok, #file_info{type = WrongType}} ->
+	    throw({"Invalid type for file: ~p, ~p", [WrongType, File]});
+	_ ->
+	    throw({"No such file: ~p", [File]})
+    end.
+
+file_exists(File) ->
+    path_exists(File, regular).
+
+dir_exists(File) ->
+    path_exists(File, directory).

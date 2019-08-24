@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_codec_meas</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_codec_meas.xml</file>
+  </header>
+  <module since="">megaco_codec_meas</module>
+  <modulesummary>This module implements a simple megaco codec measurement tool.</modulesummary>
+  <description>
+    <p>This module implements a simple megaco codec measurement tool.</p>
+    <p>Results are written to file (excel compatible text files) and on stdout.</p>
+    <p><em>Note</em> that this module is <em>not</em> included in the runtime part of 
+      the application.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">start() -> void()</name>
+      <name since="">start(MessagePackage) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackageRaw = message_package()</v>
+        <v>message_package() = atom()</v>
+      </type>
+      <desc>
+        <p>This function runs the measurement on all the <em>official</em> codecs;
+          pretty, compact, ber, per and erlang.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

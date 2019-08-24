@@ -1,0 +1,4 @@
+
+incorrect_args_callback.erl:12: The inferred type for the 2nd argument of bar/2 ('yes') is not a supertype of [any()], which is expected type for this argument in the callback of the correct_behaviour behaviour
+incorrect_return_callback.erl:9: The inferred return type of foo/0 ('error') has nothing in common with 'no' | 'yes', which is the expected return type for the callback of the correct_behaviour behaviour
+missing_callback.erl:5: Undefined callback function foo/0 (behaviour correct_behaviour)

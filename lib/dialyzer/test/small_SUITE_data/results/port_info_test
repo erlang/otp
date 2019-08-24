@@ -1,0 +1,7 @@
+
+port_info_test.erl:10: The pattern {'connected', 42} can never match the type 'undefined' | {'connected',pid()}
+port_info_test.erl:14: The pattern {'registered_name', "42"} can never match the type 'undefined' | [] | {'registered_name',atom()}
+port_info_test.erl:19: The pattern {'output', 42} can never match the type 'undefined' | {'connected',pid()}
+port_info_test.erl:24: Guard test 'links' =:= Atom::'connected' can never succeed
+port_info_test.erl:28: The pattern {'gazonk', _} can never match the type 'undefined' | [] | {'connected' | 'id' | 'input' | 'links' | 'locking' | 'memory' | 'monitors' | 'name' | 'os_pid' | 'output' | 'parallelism' | 'queue_size' | 'registered_name',atom() | pid() | [pid() | char() | {'process',pid()}] | non_neg_integer()}
+port_info_test.erl:32: The pattern {'os_pid', "42"} can never match the type 'undefined' | {'os_pid','undefined' | non_neg_integer()}

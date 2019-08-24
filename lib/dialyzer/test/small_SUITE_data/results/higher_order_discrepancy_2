@@ -1,0 +1,8 @@
+
+higher_order_discrepancy_2.erl:11: The call higher_order_discrepancy_2:f('foo') will never return since it differs in the 1st argument from the success typing arguments: ('bar')
+higher_order_discrepancy_2.erl:11: The call higher_order_discrepancy_2:g('foo') will never return since it differs in the 1st argument from the success typing arguments: ('baz')
+higher_order_discrepancy_2.erl:13: Function f/1 has no local return
+higher_order_discrepancy_2.erl:13: The pattern 'bar' can never match the type 'foo'
+higher_order_discrepancy_2.erl:14: Function g/1 has no local return
+higher_order_discrepancy_2.erl:14: The pattern 'baz' can never match the type 'foo'
+higher_order_discrepancy_2.erl:5: Function test/1 has no local return

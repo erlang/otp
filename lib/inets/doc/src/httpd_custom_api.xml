@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2015</year><year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>httpd_custom_api</title>
+    <file>httpd_custom_api.xml</file>
+  </header>
+  <module since="OTP 17.5.6">httpd_custom_api</module>
+  <modulesummary>Behaviour with optional callbacks to customize the inets HTTP server.</modulesummary>
+  <description>
+    <p> The module implementing this behaviour shall be supplied to to the servers
+    configuration with the option <seealso marker="httpd#prop_customize"> customize</seealso></p>
+    
+  </description>  
+  <funcs>
+     <func>
+      <name since="OTP 18.1.1">response_default_headers() -> [Header] </name>
+      <fsummary>Provide default headers for the HTTP servers responses.</fsummary>
+      <type>
+        <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
+	<d>string:to_lower/1 will be performed on the HeaderName</d>
+      </type>
+      <desc>
+        <p>Provide default headers for the HTTP servers responses. Note that this
+	option may override built-in defaults. 
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP 17.5.6">response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
+      <fsummary>Filter and possible alter HTTP response headers.</fsummary>
+      <type>
+        <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
+	<d>The header name will be in lower case and should not be altered.</d>
+      </type>
+      <desc>
+        <p> Filter and possible alter HTTP response headers before they are sent to the client.
+	</p>
+      </desc>
+    </func>
+   
+    <func>
+      <name since="OTP 17.5.6">request_header({HeaderName, HeaderValue}) ->   {true, Header} | false </name>
+      <fsummary>Filter and possible alter HTTP request headers.</fsummary>
+      <type>
+	<v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
+	<d>The header name will be in lower case and should not be altered.</d>
+	</type>
+	<desc>
+	  <p> Filter and possible alter HTTP request headers before they are processed by the server.
+	  </p>
+	</desc>
+    </func>
+  </funcs>
+</erlref>
+
+

@@ -1,0 +1,464 @@
+-- Module Document-Profile-Descriptor (T.415:03/1993)
+
+Document-Profile-Descriptor {2 8 1 5 6} DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  Document-Profile-Descriptor, Character-Data, Document-Reference,
+    Date-and-Time, Dates-and-Times, Personal-Name, Originators,
+    Other-User-Information, Local-File-References, Security-Information,
+    Document-Description,
+    External-References ,
+    Sealed-Doc-Bodyparts, ODA-Version;
+
+IMPORTS
+  Resource-Name, Object-or-Class-Identifier, Protected-Part-Identifier,
+    Style-Identifier
+    FROM Identifiers-and-Expressions --  see 7.8 
+      
+  Measure-Pair, Transparency, Colour, Dimension-Pair, One-Of-Four-Angles,
+    Border, Medium-Type, Comment-String, Content-Background-Colour,
+    Content-Foreground-Colour
+    FROM Layout-Descriptors --  see 7.9 
+      
+  Protection
+    FROM Logical-Descriptors --  see 7.10
+      
+  Content-Architecture-Class, Content-Type, Block-Alignment, Fill-Order
+    FROM Style-Descriptors --  see 7.11
+      
+  Type-Of-Coding
+    FROM Text-Units --  see 7.13
+      
+  Colour-Characteristics, Colour-Spaces-List, Colour-Expression, Colour-Table
+    FROM Colour-Attributes --  see 7.14
+      
+  Character-Content-Defaults, Character-Presentation-Feature,
+    Character-Coding-Attribute
+    FROM Character-Profile-Attributes {2 8 1 6 4
+      } --  see ITU-T Rec. T.416 | ISO/IEC 8613-6
+  Raster-Gr-Content-Defaults, Ra-Gr-Presentation-Feature,
+    Ra-Gr-Coding-Attribute
+    FROM Raster-Gr-Profile-Attributes {2 8 1 7 4
+      } --  see ITU-T Rec. T.417 | ISO/IEC 8613-7
+  Geo-Gr-Content-Defaults, Geo-Gr-Presentation-Feature, Geo-Gr-Coding-Attribute
+    FROM Geo-Gr-Profile-Attributes {2 8 1 8 4
+      } --  see ITU-T Rec. T.418 | ISO/IEC 8613-8
+  Font-Attribute-Set
+    FROM ISO-STANDARD-9541-FONT-ATTRIBUTE-SET {1 0 9541 2 2
+      } --  see ISO/IEC 9541-2
+  Document-Presentation-Time, Time-Scaling
+    FROM Temporal-Relationships {2 8 1 14 0};
+
+--  See ITU-T Rec. T.424 | ISO/IEC 8613-14
+Document-Profile-Descriptor ::= SET {
+  generic-layout-structure        [0] IMPLICIT NumericString OPTIONAL,
+  specific-layout-structure       [1] IMPLICIT NumericString OPTIONAL,
+  generic-logical-structure       [4] IMPLICIT NumericString OPTIONAL,
+  specific-logical-structure      [5] IMPLICIT NumericString OPTIONAL,
+  presentation-styles             [6] IMPLICIT NumericString OPTIONAL,
+  layout-styles                   [7] IMPLICIT NumericString OPTIONAL,
+  sealed-profiles                 [12] IMPLICIT NumericString OPTIONAL,
+  enciphered-profiles             [13] IMPLICIT NumericString OPTIONAL,
+  preenciphered-bodyparts         [14] IMPLICIT NumericString OPTIONAL,
+  postenciphered-bodyparts        [15] IMPLICIT NumericString OPTIONAL,
+  --  for the generic structures,
+  --  'partial-generator-set' is represented by "0", 'complete-generator-set'
+  --  is represented by "1", 'factor-set' is represented by "2";
+  --  for the other cases, the numeric string has the value 'present'
+  --  represented by "1"
+  external-document-class         [9]  Document-Reference OPTIONAL,
+  resource-document               [10]  Document-Reference OPTIONAL,
+  resources
+    [11] IMPLICIT SET OF
+                    SET {resource-identifier      Resource-Name,
+                         object-class-identifier  Object-or-Class-Identifier
+                    } OPTIONAL,
+  document-characteristics        [2] IMPLICIT Document-Characteristics,
+  document-management-attributes
+    [3] IMPLICIT Document-Management-Attributes OPTIONAL,
+  document-security-attributes
+    [16] IMPLICIT Document-Security-Attributes OPTIONAL,
+  links                           [17] IMPLICIT NumericString OPTIONAL,
+  link-classes                    [18] IMPLICIT NumericString OPTIONAL,
+  enciphered-links                [19] IMPLICIT NumericString OPTIONAL,
+  temporal-relations              [20] IMPLICIT NumericString OPTIONAL
+}
+
+Document-Characteristics ::= SET {
+  document-application-profile
+    CHOICE {a  [0] IMPLICIT INTEGER {group-4-facsimile(2)},
+            b  [4] IMPLICIT OBJECT IDENTIFIER} OPTIONAL,
+  doc-appl-profile-defaults
+    [10] IMPLICIT Doc-Appl-Profile-Defaults OPTIONAL,
+  document-architecture-class
+    [1] IMPLICIT INTEGER {formatted(0), processable(1),
+                          formatted-processable(2)},
+  content-architecture-classes     [5] IMPLICIT SET OF OBJECT IDENTIFIER,
+  interchange-format-class         [6] IMPLICIT INTEGER {if-a(0), if-b(1)},
+  oda-version                      [8] IMPLICIT ODA-Version,
+  alternative-feature-sets
+    [11] IMPLICIT SET OF SET OF OBJECT IDENTIFIER OPTIONAL,
+  non-basic-doc-characteristics
+    [2] IMPLICIT Non-Basic-Doc-Characteristics OPTIONAL,
+  non-basic-struc-characteristics
+    [3] IMPLICIT Non-Basic-Struc-Characteristics OPTIONAL,
+  additional-doc-characteristics
+    [9] IMPLICIT Additional-Doc-Characteristics OPTIONAL
+}
+
+ODA-Version ::= SEQUENCE {
+  standard-or-recommendation  Character-Data,
+  publication-date            Date-and-Time
+}
+
+Doc-Appl-Profile-Defaults ::= SET {
+  document-architecture-defaults
+    [0] IMPLICIT Document-Architecture-Defaults OPTIONAL,
+  character-content-defaults
+    [1] IMPLICIT Character-Content-Defaults OPTIONAL,
+  raster-gr-content-defaults
+    [2] IMPLICIT Raster-Gr-Content-Defaults OPTIONAL,
+  geo-gr-content-defaults
+    [3] IMPLICIT Geo-Gr-Content-Defaults OPTIONAL,
+  --  the following tags are reserved for additional types
+  --  of content defaults:
+  --   [4] videotex, for use in conjunction with CCITT Recommendations
+  --  [5] audio
+  --  [6] dynamic-graphics
+  external-content-architecture-defaults
+    [7] IMPLICIT SEQUENCE OF EXTERNAL OPTIONAL
+}
+
+Document-Architecture-Defaults ::= SET {
+  content-architecture-class
+    CHOICE {a  [0] IMPLICIT Content-Architecture-Class,
+            b  [1] IMPLICIT Content-Type} OPTIONAL,
+  page-dimensions             [2] IMPLICIT Measure-Pair OPTIONAL,
+  transparency                [3] IMPLICIT Transparency OPTIONAL,
+  colour                      [4] IMPLICIT Colour OPTIONAL,
+  colour-of-layout-object     [11]  Colour-Expression OPTIONAL,
+  object-colour-table         [12] IMPLICIT Colour-Table OPTIONAL,
+  content-background-colour   [13]  Content-Background-Colour OPTIONAL,
+  content-foreground-colour   [14]  Content-Foreground-Colour OPTIONAL,
+  content-colour-table        [15] IMPLICIT Colour-Table OPTIONAL,
+  layout-path                 [5] IMPLICIT One-Of-Four-Angles OPTIONAL,
+  medium-type                 [6] IMPLICIT Medium-Type OPTIONAL,
+  block-alignment             [7] IMPLICIT Block-Alignment OPTIONAL,
+  border                      [8] IMPLICIT Border OPTIONAL,
+  page-position               [9] IMPLICIT Measure-Pair OPTIONAL,
+  type-of-coding              [10]  Type-Of-Coding OPTIONAL
+}
+
+Non-Basic-Doc-Characteristics ::= SET {
+  profile-character-sets           [5] IMPLICIT OCTET STRING OPTIONAL,
+  comments-character-sets          [1] IMPLICIT OCTET STRING OPTIONAL,
+  alternative-repr-char-sets       [6] IMPLICIT OCTET STRING OPTIONAL,
+  --  each of these octet strings represents a string of escape sequences
+  page-dimensions                  [2] IMPLICIT SET OF Dimension-Pair OPTIONAL,
+  medium-types                     [8] IMPLICIT SET OF Medium-Type OPTIONAL,
+  layout-paths
+    [21] IMPLICIT SET OF One-Of-Four-Angles OPTIONAL,
+  transparencies                   [22] IMPLICIT SET OF Transparency OPTIONAL,
+  protections                      [23] IMPLICIT SET OF Protection OPTIONAL,
+  block-alignments
+    [24] IMPLICIT SET OF Block-Alignment OPTIONAL,
+  fill-orders                      [25] IMPLICIT SET OF Fill-Order OPTIONAL,
+  colours                          [26] IMPLICIT SET OF Colour OPTIONAL,
+  colours-of-layout-object
+    [30] IMPLICIT SET OF Colour-Expression OPTIONAL,
+  object-colour-tables             [31] IMPLICIT SET OF Colour-Table OPTIONAL,
+  content-background-colours
+    [32] IMPLICIT SET OF Content-Background-Colour OPTIONAL,
+  content-foreground-colours
+    [33] IMPLICIT SET OF Content-Foreground-Colour OPTIONAL,
+  content-colour-tables            [34] IMPLICIT SET OF Colour-Table OPTIONAL,
+  borders                          [27] IMPLICIT SET OF Border OPTIONAL,
+  page-positions                   [28] IMPLICIT SET OF Measure-Pair OPTIONAL,
+  types-of-coding                  [29] IMPLICIT SET OF Type-Of-Coding OPTIONAL,
+  character-presentation-features
+    [9] IMPLICIT SET OF Character-Presentation-Feature OPTIONAL,
+  ra-gr-presentation-features
+    [4] IMPLICIT SET OF Ra-Gr-Presentation-Feature OPTIONAL,
+  geo-gr-presentation-features
+    [12] IMPLICIT SET OF Geo-Gr-Presentation-Feature OPTIONAL,
+  character-coding-attributes
+    [16] IMPLICIT SET OF Character-Coding-Attribute OPTIONAL,
+  ra-gr-coding-attributes
+    [3] IMPLICIT SET OF Ra-Gr-Coding-Attribute OPTIONAL,
+  geo-gr-coding-attributes
+    [17] IMPLICIT SET OF Geo-Gr-Coding-Attribute OPTIONAL,
+  ext-non-basic-pres-features      [10] IMPLICIT SEQUENCE OF EXTERNAL OPTIONAL,
+  ext-non-basic-coding-attributes  [11] IMPLICIT SEQUENCE OF EXTERNAL OPTIONAL
+}
+
+Non-Basic-Struc-Characteristics ::= SET {
+  number-of-objects-per-page  [0] IMPLICIT INTEGER OPTIONAL
+}
+
+Additional-Doc-Characteristics ::= SET {
+  unit-scaling                [3] IMPLICIT SEQUENCE {a  INTEGER,
+                                                     b  INTEGER} OPTIONAL,
+  fonts-list                  [2] IMPLICIT Fonts-List OPTIONAL,
+  colour-characteristics      [0] IMPLICIT Colour-Characteristics OPTIONAL,
+  colour-spaces-list          [1] IMPLICIT Colour-Spaces-List OPTIONAL,
+  assured-reproduction-areas  [5] IMPLICIT Assured-Reproduction-Areas OPTIONAL,
+  time-scaling                [6] IMPLICIT Time-Scaling OPTIONAL,
+  document-presentation-time  [7] IMPLICIT Document-Presentation-Time OPTIONAL
+}
+
+Fonts-List ::=
+  SET OF SET {font-identifier  INTEGER,
+              font-reference   Font-Reference}
+
+Font-Reference ::= SET {
+  user-visible-name      [0] IMPLICIT Comment-String OPTIONAL,
+  user-readable-comment  [1] IMPLICIT Comment-String OPTIONAL,
+  reference-properties
+    [2] IMPLICIT SET OF
+                   SET {precedence-number      [0] IMPLICIT INTEGER OPTIONAL,
+                        properties             [1] IMPLICIT Font-Attribute-Set,
+                        user-readable-comment
+                          [2] IMPLICIT Comment-String OPTIONAL}
+}
+
+Assured-Reproduction-Areas ::=
+  SET OF
+    SET {nominal-page-size          [0] IMPLICIT Measure-Pair,
+         assured-reproduction-area
+           [1]  SET {position    [0] IMPLICIT Measure-Pair,
+                     dimensions  [1] IMPLICIT Measure-Pair}}
+
+Document-Management-Attributes ::= SET {
+  document-description    [7] IMPLICIT Document-Description OPTIONAL,
+  dates-and-times         [0] IMPLICIT Dates-and-Times OPTIONAL,
+  originators             [1] IMPLICIT Originators OPTIONAL,
+  other-user-information  [2] IMPLICIT Other-User-Information OPTIONAL,
+  external-references     [3] IMPLICIT External-References OPTIONAL, 
+  local-file-references   [4] IMPLICIT Local-File-References OPTIONAL,
+  content-attributes      [5] IMPLICIT Content-Attributes OPTIONAL,
+  security-information    [6] IMPLICIT Security-Information OPTIONAL
+}
+
+Document-Description ::= SET {
+  title               [0] IMPLICIT Character-Data OPTIONAL,
+  subject             [1] IMPLICIT Character-Data OPTIONAL,
+  document-type       [2] IMPLICIT Character-Data OPTIONAL,
+  abstract            [3] IMPLICIT Character-Data OPTIONAL,
+  keywords            [4] IMPLICIT SET OF Character-Data OPTIONAL,
+  document-reference  [5]  Document-Reference OPTIONAL
+}
+
+Character-Data ::= [APPLICATION 3] IMPLICIT OCTET STRING
+
+--  string of characters from the sets designated by the attribute
+--  "profile character sets", plus space, carriage return and line feed
+Document-Reference ::= CHOICE {
+  unique-reference       OBJECT IDENTIFIER,
+  descriptive-reference  Character-Data
+}
+
+Dates-and-Times ::= SET {
+  document-date-and-time      [0] IMPLICIT Date-and-Time OPTIONAL,
+  creation-date-and-time      [1] IMPLICIT Date-and-Time OPTIONAL,
+  local-filing-date-and-time  [2] IMPLICIT SEQUENCE OF Date-and-Time OPTIONAL,
+  expiry-date-and-time        [3] IMPLICIT Date-and-Time OPTIONAL,
+  start-date-and-time         [4] IMPLICIT Date-and-Time OPTIONAL,
+  purge-date-and-time         [5] IMPLICIT Date-and-Time OPTIONAL,
+  release-date-and-time       [6] IMPLICIT Date-and-Time OPTIONAL,
+  revision-history
+    [7] IMPLICIT SEQUENCE OF
+                   SET {revision-date-and-time
+                          [0] IMPLICIT Date-and-Time OPTIONAL,
+                        version-identifier
+                          [1] IMPLICIT Character-Data OPTIONAL,
+                        revisers
+                          [2] IMPLICIT SET OF
+                                         SET {names
+                                                [0] IMPLICIT SET OF
+                                                               Personal-Name
+                                                  OPTIONAL,
+                                              position
+                                                [1] IMPLICIT Character-Data
+                                                  OPTIONAL,
+                                              organization
+                                                [2] IMPLICIT Character-Data
+                                                  OPTIONAL} OPTIONAL,
+                        version-reference
+                          [3]  Document-Reference OPTIONAL,
+                        user-comments
+                          [4] IMPLICIT Character-Data OPTIONAL} OPTIONAL
+}
+
+Date-and-Time ::= [APPLICATION 4] IMPLICIT PrintableString
+
+Originators ::= SET {
+  organizations  [0] IMPLICIT SET OF Character-Data OPTIONAL,
+  preparers
+    [1] IMPLICIT SEQUENCE OF
+                   SET {personal-name  [0] IMPLICIT Personal-Name OPTIONAL,
+                        organization   [1] IMPLICIT Character-Data OPTIONAL
+                   } OPTIONAL,
+  owners
+    [2] IMPLICIT SEQUENCE OF
+                   SET {personal-name  [0] IMPLICIT Personal-Name OPTIONAL,
+                        organization   [1] IMPLICIT Character-Data OPTIONAL
+                   } OPTIONAL,
+  authors
+    [3] IMPLICIT SEQUENCE OF
+                   SET {personal-name  [0] IMPLICIT Personal-Name OPTIONAL,
+                        organization   [1] IMPLICIT Character-Data OPTIONAL
+                   } OPTIONAL
+}
+
+Personal-Name ::= [APPLICATION 6] IMPLICIT SET {
+  surname               [0] IMPLICIT Character-Data,
+  givenname             [1] IMPLICIT Character-Data OPTIONAL,
+  initials              [2] IMPLICIT Character-Data OPTIONAL,
+  generation-qualifier  [3] IMPLICIT Character-Data OPTIONAL
+}
+
+Other-User-Information ::= SET {
+  copyright
+    [0] IMPLICIT SET OF
+                   SET {copyright-information
+                          [0] IMPLICIT SET OF Character-Data OPTIONAL,
+                        copyright-dates
+                          [1] IMPLICIT SET OF Date-and-Time OPTIONAL} OPTIONAL,
+  status                  [1] IMPLICIT Character-Data OPTIONAL,
+  user-specific-codes     [2] IMPLICIT SET OF Character-Data OPTIONAL,
+  distribution-list
+    [3] IMPLICIT SEQUENCE OF
+                   SET {personal-name  [0] IMPLICIT Personal-Name OPTIONAL,
+                        organization   [1] IMPLICIT Character-Data OPTIONAL
+                   } OPTIONAL,
+  additional-information  [5]  TYPE-IDENTIFIER.&Type OPTIONAL
+}
+
+External-References ::=
+  SET { 
+  references-to-other-documents
+    [0] IMPLICIT SET OF Document-Reference OPTIONAL,
+  superseded-documents
+    [1] IMPLICIT SET OF Document-Reference OPTIONAL
+}
+
+Local-File-References ::=
+  SET OF
+    SET {file-name      [0] IMPLICIT Character-Data OPTIONAL,
+         location       [1] IMPLICIT Character-Data OPTIONAL,
+         user-comments  [2] IMPLICIT Character-Data OPTIONAL}
+
+Content-Attributes ::= SET {
+  document-size    [1] IMPLICIT INTEGER OPTIONAL,
+  number-of-pages  [2] IMPLICIT INTEGER OPTIONAL,
+  languages        [4] IMPLICIT SET OF Character-Data OPTIONAL
+}
+
+Security-Information ::= SET {
+  authorization
+    CHOICE {person        [0] IMPLICIT Personal-Name,
+            organization  [4] IMPLICIT Character-Data} OPTIONAL,
+  security-classification  [1] IMPLICIT Character-Data OPTIONAL,
+  access-rights            [2] IMPLICIT SET OF Character-Data OPTIONAL
+}
+
+Document-Security-Attributes ::= SET {
+  sealed-info-encoding          [7] IMPLICIT OBJECT IDENTIFIER OPTIONAL,
+  oda-security-label            [0] IMPLICIT Oda-Security-Label OPTIONAL,
+  sealed-doc-profiles           [1] IMPLICIT Sealed-Doc-Profiles OPTIONAL,
+  presealed-doc-bodyparts       [2] IMPLICIT Sealed-Doc-Bodyparts OPTIONAL,
+  postsealed-doc-bodyparts      [3] IMPLICIT Sealed-Doc-Bodyparts OPTIONAL,
+  enciphered-doc-profiles       [4] IMPLICIT Protected-Doc-Parts OPTIONAL,
+  preenciphered-doc-bodyparts   [5] IMPLICIT Protected-Doc-Parts OPTIONAL,
+  postenciphered-doc-bodyparts  [6] IMPLICIT Protected-Doc-Parts OPTIONAL,
+  sealed-links                  [8] IMPLICIT Sealed-Doc-Bodyparts OPTIONAL
+}
+
+Oda-Security-Label ::= SEQUENCE {
+  oda-label-text  [0] IMPLICIT Character-Data OPTIONAL,
+  oda-label-data  [1] IMPLICIT OCTET STRING OPTIONAL
+}
+
+Seal-Data ::= SEQUENCE {
+  seal-method         [0] IMPLICIT Seal-Method OPTIONAL,
+  sealed-information  [1] IMPLICIT Sealed-Information OPTIONAL,
+  seal                [2] IMPLICIT OCTET STRING
+}
+
+Seal-Method ::= SEQUENCE {
+  fingerprint-method           [0] IMPLICIT Method-Information OPTIONAL,
+  fingerprint-key-information  [1] IMPLICIT Key-Information OPTIONAL,
+  sealing-method               [2] IMPLICIT Method-Information OPTIONAL,
+  sealing-key-information      [3] IMPLICIT Key-Information OPTIONAL
+}
+
+Sealed-Information ::= SEQUENCE {
+  fingerprint      [0] IMPLICIT OCTET STRING OPTIONAL,
+  time             [1] IMPLICIT Date-and-Time OPTIONAL,
+  sealing-orig-id  [2] IMPLICIT Personal-Name OPTIONAL,
+  location         [3] IMPLICIT Location OPTIONAL
+}
+
+Method-Information ::= SEQUENCE {
+  unique-method-info       [0] IMPLICIT OBJECT IDENTIFIER OPTIONAL,
+  descriptive-method-info  [1] IMPLICIT Character-Data OPTIONAL
+}
+
+Key-Information ::= SEQUENCE {
+  method-information      [0] IMPLICIT Method-Information OPTIONAL,
+  additional-information  [1] IMPLICIT Additional-Information OPTIONAL
+}
+
+Additional-Information ::= SEQUENCE {
+  descriptive-information  [0] IMPLICIT Character-Data OPTIONAL,
+  octet-string             [1] IMPLICIT OCTET STRING OPTIONAL
+}
+
+Location ::= SEQUENCE {
+  unique-location       [0] IMPLICIT OBJECT IDENTIFIER OPTIONAL,
+  descriptive-location  [1] IMPLICIT Character-Data OPTIONAL
+}
+
+Sealed-Doc-Profiles ::=
+  SET OF
+    SEQUENCE {sealed-doc-prof-descriptor-id
+                [0] IMPLICIT Protected-Part-Identifier,
+              privileged-recipients
+                [1] IMPLICIT SET OF Personal-Name OPTIONAL,
+              doc-prof-seal                  [2] IMPLICIT Seal-Data}
+
+Sealed-Doc-Bodyparts ::=
+  SET OF
+    SEQUENCE {seal-id                [0] IMPLICIT INTEGER,
+              sealed-constituents    [1] IMPLICIT Sealed-Constituents,
+              privileged-recipients  [2] IMPLICIT SET OF Personal-Name OPTIONAL,
+              doc-bodypart-seal      [3] IMPLICIT Seal-Data}
+
+Sealed-Constituents ::= SEQUENCE {
+  object-class-identifiers
+    [0] IMPLICIT SEQUENCE OF Object-or-Class-Identifier OPTIONAL,
+  presentation-style-identifiers
+    [1] IMPLICIT SEQUENCE OF Style-Identifier OPTIONAL,
+  layout-style-identifiers
+    [2] IMPLICIT SEQUENCE OF Style-Identifier OPTIONAL,
+  object-identifiers
+    [3] IMPLICIT SEQUENCE OF Object-or-Class-Identifier OPTIONAL
+}
+
+Protected-Doc-Parts ::=
+  SET OF
+    SEQUENCE {protected-doc-part-id  [0] IMPLICIT Protected-Part-Identifier,
+              priv-recipients-info   [1] IMPLICIT SET OF Priv-Recipients-Info
+    }
+
+Priv-Recipients-Info ::= SEQUENCE {
+  privileged-recipients     [0] IMPLICIT SET OF Personal-Name OPTIONAL,
+  encipherment-method-info  [1] IMPLICIT Method-Information OPTIONAL,
+  encipherment-key-info     [2] IMPLICIT Key-Information OPTIONAL
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

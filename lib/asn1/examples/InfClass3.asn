@@ -1,0 +1,36 @@
+InfClass3 DEFINITIONS  ::=
+BEGIN
+
+FUNCTION ::= CLASS {
+    &ArgumentType,
+    &ResultType   DEFAULT NULL,
+    &code         INTEGER
+    }
+
+ObjSet1 FUNCTION ::= { ... }
+
+object1 FUNCTION ::= {
+    &ArgumentType  INTEGER,
+    &ResultType    INTEGER,
+    &code          3
+    }
+
+object2 FUNCTION ::= {
+    &ArgumentType  INTEGER,
+    &ResultType    INTEGER,
+    &code          2
+    }
+
+
+ObjSet2 FUNCTION ::= {
+    object1 | object2 }
+
+ParamType{FUNCTION:object} ::=SEQUENCE
+{
+   val1    INTEGER,
+   val2    object.&ArgumentType
+   }
+
+parTypVal{FUNCTION:object2} ParamType ::= {1,2}
+ 
+END

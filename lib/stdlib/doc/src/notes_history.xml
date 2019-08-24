@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>STDLIB Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <section>
+    <title>STDLIB 1.13</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>For the bit syntax, when matching with a size field that
+            is bound during the same matching, a warning for unused
+            variable was emitted. This bug has been fixed.</p>
+          <p>Own Id: OTP-4858</p>
+        </item>
+        <item>
+          <p>When parsing a badly formed file <c>epp</c> hangs. This
+            problem has been fixed.</p>
+          <p>Own Id: OTP-4871 Aux Id: OTP-4870 </p>
+        </item>
+        <item>
+          <p>Bugs concerning guards have been fixed in the Erlang
+            interpreter.</p>
+          <p>Own Id: OTP-4885</p>
+        </item>
+        <item>
+          <p>The linter now checks the record name when calling the
+            function <c>erlang:is_record/2</c>.</p>
+          <p>Own Id: OTP-4886</p>
+        </item>
+        <item>
+          <p>Guards of mach specifications are corrected to resemble
+            the semantics of guards in real code more closely. The
+            implementation now corresponds to the documentation in
+            ERTS User's Guide. The following things are corrected:</p>
+          <list type="bulleted">
+            <item>Guard semantics was wrong when it came to logical
+             operators and exceptions.
+            <c>{'or', {'is_integer','$1'}, {'or', '$1', '$1'}}</c>
+             evaluated to <c>true</c> with <c>'$1'</c> bound to an
+             integer.</item>
+            <item>Unary + and - was not implemented</item>
+            <item>Calling operators as Bif's was not supported by
+            <c>ets/dbg:fun2ms</c> (<c>erlang:'or'(A,B)</c> etc)</item>
+            <item>Old typetests (like <c>integer(X)</c> instead of
+            <c>is_integer(X)</c>) was not supported by
+            <c>ets/dbg:fun2ms</c></item>
+            <item>Semicolon (;) in guards was not supported by
+            <c>ets/dbg:fun2ms</c></item>
+          </list>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4927</p>
+        </item>
+        <item>
+          <p>A bug that could cause a crash has been fixed in the
+            <c>file_sorter</c> module. The crash could only occur
+            when sorting or merging to a file and the input function
+            returned <c>{end_of_input, Value}</c>.</p>
+          <p>Own Id: OTP-5009</p>
+        </item>
+        <item>
+          <p>A function clause exit in <c>filelib:fold_files/5</c> has
+            been fixed.</p>
+          <p>Own Id: OTP-5137</p>
+        </item>
+        <item>
+          <p><c>filelib:fold_files/5</c> has been fixed to not include
+            directories that match the regular expression in the
+            result. In this process, <c>filelib:is_regular/1</c> has
+            been added to the module.</p>
+          <p>WARNING the behaviour of <c>filelib:fold_files/5</c> has
+            also been changed so the regexp match is tried not on
+            the full name, but locally in each traversed directory.</p>
+          <p>Own Id: OTP-5171 Aux Id: OTP-5128 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The initial shell process started in parallel with the
+            <c>init</c> boot process. This made it possible to pipe
+            commands to the shell that got evaluated before the system
+            had booted properly. Also the shell was normally accessible
+            before <c>.erlang</c> had been evaluated and this caused
+            problems especially related to code loading. This has now
+            been fixed so that the initial shell is not accessible
+            until after the init boot routine has finished and
+            <c>.erlang</c> has been evaluated. Note that the shell
+            starts before any <c>-s</c> arguments are executed.</p>
+          <p>Own Id: OTP-4877</p>
+        </item>
+        <item>
+          <p>It is now possible to compile files with <c>erlc</c> without
+            getting a lot of (for compilation) unnecessary code
+            loaded and executed (like distribution, inet config,
+            etc). <c>erlc</c> now also calls <c>erl</c> with <c>-boot start_clean</c> (so that SASL is not started even if
+            <c>start_sasl</c> is default boot script).</p>
+          <p>Own Id: OTP-4878</p>
+        </item>
+        <item>
+          <p>Dets tables can now be opened or closed in parallel. In
+            particular, if some table is being repaired, other tables
+            can still be opened or closed.</p>
+          <p>Own Id: OTP-4908</p>
+        </item>
+        <item>
+          <p>The new STDLIB module <c>qlc</c> implements a query
+            language with a list comprehension syntax completely
+            embedded in Erlang. There is support for reading data
+            from ETS, Dets, and Mnesia tables as well as for defining
+            other sources of data. For easy testing queries can be
+            stated in the Erlang shell. The <c>qlc</c> module aims at
+            replacing Mnemosyne. See <c>qlc(3)</c> for details and
+            examples.</p>
+          <p>Own Id: OTP-5043</p>
+        </item>
+        <item>
+          <p>Some support for records has been added to the Erlang
+            shell. There are commands for reading record definitions
+            from files and for manipulating record definitions in the
+            shell. The record syntax can be used in the shell and
+            return values are printed as records when possible using
+            the records definitions known to the shell. New commands
+            in the shell are <c>rd/2</c>, <c>rf/0,1</c>,
+            <c>rl/0,1</c>, <c>rp/1</c>, and <c>rr/1,2,3</c>. Existing
+            functions in <c>user_default.erl</c> with any of these
+            names need to be renamed. See <c>shell(3)</c> for further
+            details.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5063</p>
+        </item>
+        <item>
+          <p>A new function, <c>string:to_integer/1,</c> has been added.</p>
+          <p>Own Id: OTP-5081 Aux Id: OTP-5136 </p>
+        </item>
+        <item>
+          <p>The new function <c>dets:repair_continuation/2</c> can be
+            used for restoring an opaque continuation returned by
+            <c>dets:select/1</c> or <c>dets:select/3</c> if the
+            continuation has passed through the external term format
+            (been sent between nodes or stored on disk).</p>
+          <p>Own Id: OTP-5126</p>
+        </item>
+        <item>
+          <p>A new function, <c>string:to_float/1,</c> has been added.</p>
+          <p>Own Id: OTP-5136 Aux Id: OTP-5081 </p>
+        </item>
+        <item>
+          <p>Test cases have been added for <c>string</c>.</p>
+          <p>Own Id: OTP-5138</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The functions <c>ets:insert_new/2</c> and
+            <c>dets:insert_new/2</c> are added. Please consult
+            the manual pages for details.</p>
+          <p>Own Id: OTP-5075</p>
+        </item>
+        <item>
+          <p>New function: <c>proc_lib:hibernate/3.</c> Processes spawned
+            using <c>proc_lib</c> (also indirectly, such as
+            <c>gen_server</c> process), should use this function
+            instead of the BIF <c>erlang:hibernate/3</c> directly to
+            ensure that the exception handler for the process continues
+            to work when the process is awaken.</p>
+          <p>Own Id: OTP-5077</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>If many files or sockets were open (more than 256),
+            <c>beam_lib</c> operations could fail. Corrected.</p>
+          <p>Own Id: OTP-5046 Aux Id: OTP-4997, seq8590 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When opening a Dets table read only an attempt was made
+            to re-hash the table resulting in an error message. This
+            problem has been fixed.</p>
+          <p>Own Id: OTP-4989 Aux Id: seq8536 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>If a <c>gen_server</c>, <c>gen_event</c> or <c>gen_fsm</c>
+            process exits with <c>{undef,[{M,F,A}|...]}</c>, the error
+            report will now state if the function call failed because
+            the module could not be loaded or because the function was
+            not exported.</p>
+          <p>Own Id: OTP-4952 Aux Id: OTP-4925 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The shell function <c>c:regs()</c> did crash if there was
+            a registered port among the registered names. This is now
+            corrected.</p>
+          <p>Own Id: OTP-4890</p>
+        </item>
+        <item>
+          <p>A bug has been fixed in <c>dets</c>: not all objects were
+            always visible in tables with more than 131072 keys.</p>
+          <p>Own Id: OTP-4906</p>
+        </item>
+        <item>
+          <p>A bug has been fixed in <c>dets</c>: when trying to
+            repair a version 9 table, a <c>not_a_dets_file</c> error
+            message was returned unnecessarily often.</p>
+          <p>Own Id: OTP-4907</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Starting Erlang with the <c>+Bi</c> flag (to ignore ^C), now
+            also disables the quit ('q') option in the JCL menu.</p>
+          <p>Own Id: OTP-4897</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in <c>erl_scan</c> caused the compiler to hang when
+            end-of-file in a comment was encountered. This is now
+            corrected.</p>
+          <p>Own Id: OTP-4787</p>
+        </item>
+        <item>
+          <p>The linter now reports errors for unsafe variables when
+            the option <c>nowarn_unused_vars</c> is given.</p>
+          <p>Own Id: OTP-4831 Aux Id: seq8202 </p>
+        </item>
+        <item>
+          <p><c>gen_server:cast/2</c> now crashes for invalid
+            arguments.</p>
+          <p><c>gen_server:abcast/2-3</c> now crashes for invalid
+            arguments. The behaviour when casting to the name
+            <c>global</c> has been corrected. Previously,
+            <c>gen_server:abcast(global,[node@host])</c> tried to
+            cast to the globally registered name <c>node@host</c>,
+            which is more of a bug than less. Now such a call will
+            cast to the registered name <c>global</c> at the node
+            <c>node@host</c> as (probably) expected.</p>
+          <p>An <c>rpc:call/5</c> and <c>rpc:block_call/5</c> having a
+            timeout argument has been added.</p>
+          <p><c>rpc:abcast/2-3</c> has been improved not to get stuck
+            waiting for connection setup if the remote node is not
+            connected. In this case the send is spawned off to a
+            temporary process.</p>
+          <p>Two typos in the docs for module <c>calendar</c> has
+            been corrected thanks to Bengt Kleberg.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4844 Aux Id: seq8226 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>f/1</c> shell command did not work correctly with
+            restricted shell.</p>
+          <p>Own Id: OTP-4818</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>gen_server</c>: the internal function <c>get_parent,</c>
+            called by <c>gen_server:enter_loop/[4,5],</c> now returns
+            the pid of parents that are registered processes, instead of
+            returning their name. The reason for this is that
+            <c>gen_server</c> relies on that the parent is represented
+            as a pid. This error in <c>get_parent/0</c> had the effect
+            that the terminate function of the child was not run when
+            it was shutdown.</p>
+          <p>Own Id: OTP-4820 Aux Id: seq8170 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.12.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The code server could hang if invoked early in the startup.
+            For example if the emulator was started with
+            "<c>-s file eval Filename</c> and <c>Filename</c> contained
+            a call to <c>code:add_patha/1</c> the code server
+            accidentally tried to execute code in an unloaded module
+            from inside the code that loaded a module - hence hangup.
+            This bug has now been fixed.</p>
+          <p>Note! Starting Erlang through code loading from a remote
+            Erlang boot server will not work after this patch. It will
+            be fixed in a later patch. Rumours has it that remote boot
+            server code loading did not work before this patch either.
+            It is not a commonly used feature.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4802 Aux Id: seq8314 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

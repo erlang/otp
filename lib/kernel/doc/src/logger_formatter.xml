@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger_formatter</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger_formatter.xml</file>
+  </header>
+  <module since="OTP 21.0">logger_formatter</module>
+  <modulesummary>Default formatter for Logger.</modulesummary>
+
+  <description>
+    <p>Each Logger handler has a configured formatter specified as a
+      module and a configuration term. The purpose of the formatter is
+      to translate the log events to a final printable string
+      (<seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c>
+      </seealso>) which can be written to the output device of the
+      handler. See
+      sections <seealso marker="logger_chapter#handlers">Handlers</seealso>
+      and <seealso marker="logger_chapter#formatters">Formatters</seealso>
+      in the Kernel User's Guide for more information.</p>
+    <p><c>logger_formatter</c> is the default formatter used by
+      Logger.</p>
+  </description>
+
+
+  <datatypes>
+    <datatype>
+      <name name="config"/>
+      <desc>
+	<p>The configuration term for <c>logger_formatter</c> is a
+	  <seealso marker="stdlib:maps">map</seealso>, and the
+	  following keys can be set as configuration parameters:</p>
+	<taglist>
+	  <tag><marker id="chars_limit"/>
+	    <c>chars_limit = integer() > 0 | unlimited</c></tag>
+	  <item>
+	    <p>A positive integer representing the value of the option
+	      with the same name to be used when calling
+	      <seealso marker="stdlib:io_lib#format-3">
+		<c>io_lib:format/3</c></seealso>.
+	      This value limits the total number of characters printed
+	      for each log event. Notice that this is a soft limit. For a
+	      hard truncation limit, see option <c>max_size</c>.</p>
+	    <p>Defaults to <c>unlimited</c>.</p>
+	  </item>
+	  <tag><marker id="depth"/><c>depth = integer() > 0 | unlimited</c></tag>
+	  <item>
+	    <p>A positive integer representing the maximum depth to
+	      which terms shall be printed by this formatter. Format
+	      strings passed to this formatter are rewritten. The
+	      format controls ~p and ~w are replaced with ~P and ~W,
+	      respectively, and the value is used as the depth
+	      parameter. For details, see
+	      <seealso marker="stdlib:io#format-2"><c>io:format/2,3</c></seealso>
+	      in STDLIB.</p>
+	    <p>Defaults to <c>unlimited</c>.</p>
+	  </item>
+	  <tag><c>legacy_header = boolean()</c></tag>
+	  <item>
+	    <p>If set to <c>true</c> a header field is added to
+	      logger_formatter's part of <c>Metadata</c>. The value of
+	      this field is a string similar to the header created by
+	      the
+	      old <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      event handlers. It can be included in the log event by
+	      adding the list <c>[logger_formatter,header]</c> to the
+	      template. See the description of
+	      the <seealso marker="#type-template"><c>template()</c></seealso>
+	      type for more information.</p>
+	    <p>Defaults to <c>false</c>.</p>
+	  </item>
+	  <tag><marker id="max_size"/>
+	    <c>max_size = integer() > 0 | unlimited</c></tag>
+	  <item>
+	    <p>A positive integer representing the absolute maximum size a
+	      string returned from this formatter can have. If the
+	      formatted string is longer, after possibly being limited
+	      by <c>chars_limit</c> or <c>depth</c>, it is truncated.</p>
+	    <p>Defaults to <c>unlimited</c>.</p>
+	  </item>
+	  <tag><c>report_cb = </c><seealso marker="logger#type-report_cb">
+	      <c>logger:report_cb()</c></seealso></tag>
+	  <item>
+	    <p>A report callback is used by the formatter to transform
+	      log messages on report form to a format string and
+	      arguments. The report callback can be specified in the
+	      metadata for the log event. If no report callback exists
+	      in metadata, <c>logger_formatter</c> will
+	      use <seealso marker="logger#format_report-1">
+		<c>logger:format_report/1</c></seealso> as default
+	      callback.</p>
+	    <p>If this configuration parameter is set, it replaces
+	      both the default report callback, and any report
+	      callback found in metadata. That is, all reports are
+	      converted by this configured function.</p>
+	  </item>
+	  <tag><c>single_line = boolean()</c></tag>
+	  <item>
+	    <p>If set to <c>true</c>, each log event is printed as a
+	      single line. To achieve this, <c>logger_formatter</c>
+	      sets the field width to <c>0</c> for all <c>~p</c>
+	      and <c>~P</c> control sequences in the format a string
+	      (see <seealso marker="stdlib:io#format-2">
+		<c>io:format/2</c></seealso>), and replaces all
+	      newlines in the message with <c>", "</c>. White spaces
+	      following directly after newlines are removed. Notice
+	      that newlines added by the <c>template</c> parameter are
+	      not replaced.</p>
+	    <p>Defaults to <c>true</c>.</p>
+	  </item>
+	  <tag><marker id="template"/>
+	    <c>template = </c><seealso marker="#type-template"><c>template()</c>
+	  </seealso></tag>
+	  <item>
+	    <p>The template describes how the formatted string is
+	      composed by combining different data values from the log
+	      event. See the description of
+	      the <seealso marker="#type-template"><c>template()</c></seealso>
+	      type for more information about this.</p>
+	  </item>
+	  <tag><c>time_designator = byte()</c></tag>
+	  <item>
+	    <p>Timestamps are formatted according to RFC3339, and the
+	      time designator is the character used as date and time
+	      separator.</p>
+	    <p>Defaults to <c>$T</c>.</p>
+	    <p>The value of this parameter is used as
+	      the <c>time_designator</c> option
+	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
+	  </item>
+	  <tag><c>time_offset = integer() | [byte()]</c></tag>
+	  <item>
+	    <p>The time offset, either a string or an integer, to be
+	      used when formatting the timestamp.</p>
+	    <p>An empty string is interpreted as local time. The
+	      values <c>"Z"</c>, <c>"z"</c> or <c>0</c> are
+	      interpreted as Universal Coordinated Time (UTC).</p>
+	    <p>Strings, other than <c>"Z"</c>, <c>"z"</c>,
+	      or <c>""</c>, must be on the form <c>±[hh]:[mm]</c>, for
+	      example <c>"-02:00"</c> or <c>"+00:00"</c>.</p>
+	    <p>Integers must be in microseconds, meaning that the
+	      offset <c>7200000000</c> is equivalent
+	      to <c>"+02:00"</c>.</p>
+	    <p>Defaults to an empty string, meaning that timestamps
+	      are displayed in local time. However, for backwards
+	      compatibility, if the SASL configuration
+	      parameter <seealso marker="sasl:sasl_app#utc_log">
+		<c>utc_log</c></seealso><c>=true</c>, the default is
+	      changed to <c>"Z"</c>, meaning that timestamps are displayed
+	      in UTC.</p>
+	    <p>The value of this parameter is used as
+	      the <c>offset</c> option
+	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="metakey"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="template"/>
+      <desc>
+	<p>The template is a list of atoms, atom lists, tuples and strings. The
+	  atoms <c>level</c> or <c>msg</c>, are treated as
+	  placeholders for the severity level and the log message,
+	  respectively. Other atoms or atom lists are interpreted as
+	  placeholders for metadata, where atoms are expected to match
+	  top level keys, and atom lists represent paths to sub keys when
+	  the metadata is a nested map. For example the
+	  list <c>[key1,key2]</c> is replaced by the value of
+	  the <c>key2</c> field in the nested map below. The
+	  atom <c>key1</c> on its own is replaced by the complete
+	  value of the <c>key1</c> field. The values are converted to
+	  strings.</p>
+
+	<code>
+#{key1 => #{key2 => my_value,
+            ...}
+  ...}</code>
+
+        <p>Tuples in the template express if-exist tests for metadata
+          keys. For example, the following tuple says that
+          if <c>key1</c> exists in the metadata map,
+          print <c>"key1=Value"</c>, where <c>Value</c> is the value
+          that <c>key1</c> is associated with in the metadata map. If
+          <c>key1</c> does not exist, print nothing.</p>
+	<code>
+{key1, ["key1=",key1], []}</code>
+
+        <p>Strings in the template are printed literally.</p>
+	<p>The default value for the <c>template</c> configuration
+	  parameter depends on the value of the <c>single_line</c>
+	  and <c>legacy_header</c> configuration parameters as
+	  follows.</p>
+
+	<p>The log event used in the examples is:</p>
+	<code>
+?LOG_ERROR("name: ~p~nexit_reason: ~p", [my_name, "It crashed"])</code>
+
+	<taglist>
+	  <tag><c>legacy_header = true, single_line = false</c></tag>
+	  <item>
+	    <p>Default
+	    template: <c>[[logger_formatter,header],"\n",msg,"\n"]</c></p>
+
+	    <p>Example log entry:</p>
+	    <code type="none">
+=ERROR REPORT==== 17-May-2018::18:30:19.453447 ===
+name: my_name
+exit_reason: "It crashed"</code>
+
+	    <p>Notice that all eight levels can occur in the heading,
+	      not only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c> as
+	      <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      produces. And microseconds are added at the end of the
+	      timestamp.</p>
+	  </item>
+
+	  <tag><c>legacy_header = true, single_line = true</c></tag>
+	  <item>
+	    <p>Default
+	    template: <c>[[logger_formatter,header],"\n",msg,"\n"]</c></p>
+
+	    <p>Notice that the template is here the same as
+	      for <c>single_line=false</c>, but the resulting log entry
+	      differs in that there is only one line after the
+	      heading:</p>
+	    <code type="none">
+=ERROR REPORT==== 17-May-2018::18:31:06.952665 ===
+name: my_name, exit_reason: "It crashed"</code>
+	  </item>
+
+	  <tag><c>legacy_header = false, single_line = true</c></tag>
+	  <item>
+	    <p>Default template: <c>[time," ",level,": ",msg,"\n"]</c></p>
+
+	    <p>Example log entry:</p>
+	    <code type="none">
+2018-05-17T18:31:31.152864+02:00 error: name: my_name, exit_reason: "It crashed"</code>
+	  </item>
+
+	  <tag><c>legacy_header = false, single_line = false</c></tag>
+	  <item>
+	    <p>Default template: <c>[time," ",level,":\n",msg,"\n"]</c></p>
+
+	    <p>Example log entry:</p>
+	    <code type="none">
+2018-05-17T18:32:20.105422+02:00 error:
+name: my_name
+exit_reason: "It crashed"</code>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="check_config" arity="1" since="OTP 21.0"/>
+      <fsummary>Validates the given formatter configuration.</fsummary>
+      <desc>
+	<p>The function is called by Logger when the formatter
+	  configuration for a handler is set or modified. It
+	  returns <c>ok</c> if the configuration is valid,
+	  and <c>{error,term()}</c> if it is faulty.</p>
+	<p>The following Logger API functions can trigger this callback:</p>
+	<list>
+	  <item><seealso marker="logger#add_handler-3">
+	      <c>logger:add_handler/3</c></seealso></item>
+	  <item><seealso marker="logger#set_handler_config-2">
+	      <c>logger:set_handler_config/2,3</c></seealso></item>
+	  <item><seealso marker="logger#update_handler_config-2">
+	      <c>logger:update_handler_config/2</c></seealso></item>
+	  <item><seealso marker="logger#update_formatter_config-2">
+	      <c>logger:update_formatter_config/2</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+    <func>
+      <name name="format" arity="2" since="OTP 21.0"/>
+      <fsummary>Formats the given message.</fsummary>
+      <desc>
+	<p>This the formatter callback function to be called from
+	  handlers. The log event is processed as follows:</p>
+	<list>
+	  <item>If the message is on report form, it is converted to
+	    <c>{Format,Args}</c> by calling the report callback. See
+	    section <seealso marker="logger_chapter#log_message">Log
+	    Message</seealso> in the Kernel User's Guide for more
+	    information about report callbacks and valid forms of log
+	    messages.</item>
+	  <item>The message size is limited according to the values of
+	    configuration parameters <seealso marker="#chars_limit">
+	      <c>chars_limit</c></seealso>
+	    and <seealso marker="#depth"><c>depth</c></seealso>.</item>
+	  <item>The full log entry is composed according to
+	    the <seealso marker="#template"><c>template</c></seealso>.</item>
+	  <item>If the final string is too long, it is truncated
+	    according to the value of configuration
+	    parameter <seealso marker="#max_size"><c>max_size</c></seealso>.</item>
+	</list>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="stdlib:calendar"><c>calendar(3)</c></seealso>,
+      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
+      <seealso marker="stdlib:io"><c>io(3)</c></seealso>,
+      <seealso marker="stdlib:io_lib"><c>io_lib(3)</c></seealso>,
+      <seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="stdlib:maps"><c>maps(3)</c></seealso>,
+      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso>,
+      <seealso marker="stdlib:unicode"><c>unicode(3)</c></seealso>
+    </p>
+  </section>
+</erlref>
+
+

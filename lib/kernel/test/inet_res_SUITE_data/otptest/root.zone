@@ -1,0 +1,50 @@
+$TTL	3600
+@	IN SOA	ns.otptest lsa.otptest (
+		1		; serial
+		60		; refresh
+		10		; retry
+		300		; expiry
+		30 )		; minimum
+
+	IN NS		ns.otptest
+	IN NS		ns1-5678901234567890123456789012345678.otptest
+	IN NS		ns2-5678901234567890123456789012345678.otptest
+otptest	IN MX	10	mx.otptest
+otptest	IN MX	20	mx1-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx2-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx3-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx4-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx5-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx6-5678901234567890123456789012345678.otptest
+otptest	IN MX	20	mx7-5678901234567890123456789012345678.otptest
+
+test1-78901234567890123456789012345678.otptest	IN A	127.0.0.1
+test2-78901234567890123456789012345678.otptest	IN A	127.0.0.2
+ns1-5678901234567890123456789012345678.otptest	IN A	127.0.0.11
+ns2-5678901234567890123456789012345678.otptest	IN A	127.0.0.12
+mx.otptest					IN A	127.0.0.10
+mx1-5678901234567890123456789012345678.otptest	IN A	127.0.0.21
+mx2-5678901234567890123456789012345678.otptest	IN A	127.0.0.22
+mx3-5678901234567890123456789012345678.otptest	IN A	127.0.0.23
+mx4-5678901234567890123456789012345678.otptest	IN A	127.0.0.24
+mx5-5678901234567890123456789012345678.otptest	IN A	127.0.0.25
+mx6-5678901234567890123456789012345678.otptest	IN A	127.0.0.26
+mx7-5678901234567890123456789012345678.otptest	IN A	127.0.0.27
+
+resolve.otptest		IN A		127.0.0.28
+resolve.otptest		IN AAAA 	::127.0.0.28
+cname.resolve.otptest	IN CNAME	resolve.otptest
+wks.resolve.otptest	IN WKS		127.0.0.28 TCP ( telnet smtp )
+resolve.otptest		IN HINFO	"BEAM" "Erlang/OTP"
+ns.resolve.otptest	IN NS		resolve.otptest
+mx.resolve.otptest	IN MX	10	resolve.otptest
+_srv._tcp.resolve.otptest IN SRV	10 3 4711 resolve.otptest
+naptr.resolve.otptest	IN NAPTR	10 5 "S" "HTTP" "" _srv._tcp.resolve.otptest
+txt.resolve.otptest	IN TXT		"Hej " "du " "glade "
+txt.resolve.otptest	IN TXT		"ta " "en " "spade!"
+mb.resolve.otptest	IN MB		mx.resolve.otptest
+mg.resolve.otptest	IN MG		Lsa.otptest
+mr.resolve.otptest	IN MR		LSA.otptest
+minfo.resolve.otptest	IN MINFO	minfo-OWNER.resolve.otptest MinfoBounce.resolve.otptest
+
+ns.otptest	IN A		127.0.0.254

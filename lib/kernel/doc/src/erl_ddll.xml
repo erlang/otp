@@ -1,0 +1,1178 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_ddll</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">erl_ddll</module>
+  <modulesummary>Dynamic driver loader and linker.</modulesummary>
+  <description>
+    <p>This module provides an interface for loading
+      and unloading <em>Erlang linked-in drivers</em> in runtime.</p>
+    <note>
+      <p>This is a large reference document. For casual use of this
+        module, and for most real world applications, the
+        descriptions of functions
+	<seealso marker="#load/2"><c>load/2</c></seealso> and
+	<seealso marker="#unload/1"><c>unload/1</c></seealso>
+	are enough to getting started.</p>
+    </note>
+    <p>The driver is to be provided as a dynamically linked library
+      in an object code format specific for the platform in use,
+      that is, <c>.so</c> files on most Unix systems and <c>.ddl</c>
+      files on Windows. An Erlang linked-in driver must provide
+      specific interfaces to the emulator, so this module is not
+      designed for loading arbitrary dynamic libraries. For more
+      information about Erlang drivers, see
+      <seealso marker="erts:erl_driver"><c>erts:erl_driver</c></seealso>
+      .</p>
+    <marker id="users"></marker>
+    <p>When describing a set of functions (that is, a module, a part of a
+      module, or an application), executing in a process and wanting to
+      use a ddll-driver, we use the term <em>user</em>. A process can
+      have many users (different modules needing the same
+      driver) and many processes running the same code, making up
+      many <em>users</em> of a driver.</p>
+      <p>In the basic scenario, each user loads the driver before
+      starting to use it and unloads the driver when done.
+      The reference counting keeps track of
+      processes and the number of loads by each process. This way
+      the driver is only unloaded when no one wants it (it has no user).
+      The driver also keeps track of ports that are
+      opened to it. This enables delay of unloading until all
+      ports are closed, or killing of all ports that use the driver when
+      it is unloaded.</p>
+    <marker id="scenarios"></marker>
+    <p>The interface supports two basic scenarios of loading and
+      unloading. Each scenario can also have the option of either
+      killing ports when the driver is unloading, or waiting for the
+      ports to close themselves. The scenarios are as follows:</p>
+    <taglist>
+      <tag><em>Load and Unload on a "When Needed Basis"</em></tag>
+      <item>
+        <p>This (most common) scenario simply supports that each
+          <seealso marker="#users">user</seealso> of the driver loads
+          it when needed and unloads it when no longer needed.
+          The driver is always reference counted and as long as a
+          process keeping the driver loaded is still alive, the driver
+          is present in the system.</p>
+        <p>Each <seealso marker="#users">user</seealso> of the driver
+          use <em>literally</em> the same pathname for the driver when
+          demanding load, but the
+	  <seealso marker="#users">users</seealso> are not concerned
+          with if the driver is already loaded from the file system or
+          if the object code must be loaded from file system.</p>
+        <p>The following two pairs of functions support this scenario:</p>
+        <taglist>
+          <tag><em>load/2 and unload/1</em></tag>
+          <item>
+            <p>When using the <c>load/unload</c> interfaces, the
+              driver is not unloaded until the
+              <em>last port</em> using the driver is closed. Function
+              <c>unload/1</c> can return immediately, as the
+	      <seealso marker="#users">users</seealso>
+	      have no interrest in when the unloading occurs. The
+              driver is unloaded when no one needs it any longer.</p>
+            <p>If a process having the driver loaded dies, it has
+              the same effect as if unloading is done.</p>
+            <p>When loading, function <c>load/2</c> returns
+              <c>ok</c> when any instance of the driver is
+              present. Thus, if a driver is waiting to get unloaded
+              (because of open ports), it simply changes state to no
+              longer need unloading.</p>
+          </item>
+          <tag><em>load_driver/2 and unload_driver/1</em></tag>
+          <item>
+            <p>These interfaces are intended to be used when it is considered an
+              error that ports are open to a driver that no
+	      <seealso marker="#users">user</seealso>
+              has loaded. The ports that are still open when the
+              last <seealso marker="#users">user</seealso> calls
+              <c>unload_driver/1</c> or when the last process having the
+              driver loaded dies, are killed with reason
+              <c>driver_unloaded</c>.</p>
+            <p>The function names <c>load_driver</c> and
+              <c>unload_driver</c> are kept for backward
+              compatibility.</p>
+          </item>
+        </taglist>
+      </item>
+      <tag><em>Loading and Reloading for Code Replacement</em></tag>
+      <item>
+        <p>This scenario can occur if the driver code needs
+          replacement during operation of the Erlang
+          emulator. Implementing driver code replacement is a little
+          more tedious than Beam code replacement, as one driver
+          cannot be loaded as both "old" and "new" code. All
+	  <seealso marker="#users">users</seealso> of a driver must have it
+          closed (no open ports) before the old code can be unloaded
+          and the new code can be loaded.</p>
+        <p>The unloading/loading is done as one atomic
+          operation, blocking all processes in the system from using
+          the driver in question while in progress.</p>
+        <p>The preferred way to do driver code replacement is to let
+          <em>one single process</em> keep track of the driver. When
+          the process starts, the driver is loaded. When replacement
+          is required, the driver is reloaded. Unload is probably never
+          done, or done when the process exits. If more than one
+	  <seealso marker="#users">user</seealso> has a driver
+	  loaded when code replacement is demanded, the replacement cannot
+	  occur until the last "other"
+	  <seealso marker="#users">user</seealso> has
+          unloaded the driver.</p>
+        <p>Demanding reload when a reload is already in progress is
+          always an error. Using the high-level functions, it is also
+          an error to demand reloading when more than one
+	  <seealso marker="#users">user</seealso> has the driver loaded.</p>
+	 <p>To simplify driver replacement, avoid designing your system so
+          that more than one
+	  <seealso marker="#users">user</seealso> has the driver loaded.</p>
+        <p>The two functions for reloading drivers are to be used
+          together with corresponding load functions to support the two
+          different behaviors concerning open ports:</p>
+        <taglist>
+          <tag><em>load/2 and reload/2</em></tag>
+          <item>
+            <p>This pair of functions is used when reloading is to be
+              done after the last open port to the driver is
+              closed.</p>
+            <p>As <c>reload/2</c> waits for the reloading to
+              occur, a misbehaving process keeping open ports to
+              the driver (or keeping the driver loaded) can cause
+              infinite waiting for reload. Time-outs must be provided
+              outside of the process demanding the reload or by using
+              the low-level interface
+	      <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+	      in combination with driver monitors.</p>
+          </item>
+          <tag><em>load_driver/2 and reload_driver/2</em></tag>
+          <item>
+            <p>This pair of functions are used when open ports to
+              the driver are to be killed with reason
+              <c>driver_unloaded</c> to allow for new driver code to
+              get loaded.</p>
+            <p>However, if another process has the driver loaded,
+              calling <c>reload_driver</c> returns error code
+              <c>pending_process</c>. As stated earlier,
+              the recommended design is to not allow other
+	      <seealso marker="#users">users</seealso> than the "driver
+              reloader" to demand loading of the driver in question.</p>
+          </item>
+        </taglist>
+      </item>
+    </taglist>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="driver"/>
+    </datatype>
+    <datatype>
+      <name name="path"/>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="demonitor" arity="1" since=""/>
+      <fsummary>Remove a monitor for a driver.</fsummary>
+      <desc>
+        <p>Removes a driver monitor in much the same way as 
+          <seealso marker="erts:erlang#demonitor/1"><c>erlang:demonitor/1</c></seealso>
+	  in ERTS
+	  does with process monitors. For details about how to create
+	  driver monitors, see
+	  <seealso marker="#monitor/2"><c>monitor/2</c></seealso>,
+	  <seealso marker="#try_load/3"><c>try_load/3</c></seealso>, and
+	  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameter is not a <c>reference()</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Format an error descriptor.</fsummary>
+      <desc>
+        <p>Takes an <c><anno>ErrorDesc</anno></c> returned by load, unload, or
+          reload functions and returns a string that
+          describes the error or warning.</p>
+        <note>
+          <p>Because of peculiarities in the dynamic loading interfaces on
+            different platforms, the returned string is only guaranteed
+            to describe the correct error <em>if format_error/1 is called
+	    in the same instance of the Erlang virtual machine as the error
+	    appeared in</em> (meaning the same operating
+            system process).</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name name="info" arity="0" since=""/>
+      <fsummary>Retrieve information about all drivers.</fsummary>
+      <desc>
+        <p>Returns a list of tuples <c>{<anno>DriverName</anno>, <anno>InfoList</anno>}</c>,
+	   where <c><anno>InfoList</anno></c> is the result of calling
+	   <seealso marker="#info/1"><c>info/1</c></seealso> for that
+          <c><anno>DriverName</anno></c>. Only dynamically linked-in drivers are
+          included in the list.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="info" arity="1" since=""/>
+      <fsummary>Retrieve information about one driver.</fsummary>
+      <desc>
+        <p>Returns a list of tuples <c>{<anno>Tag</anno>, <anno>Value</anno>}</c>,
+	  where <c><anno>Tag</anno></c> is the information item and
+	  <c><anno>Value</anno></c> is the result of calling
+	  <seealso marker="#info/2"><c>info/2</c></seealso> with this driver
+	  name and this tag. The result is a tuple list containing all information
+	  available about a driver.</p>
+        <p>The following tags appears in the list:</p>
+        <list type="bulleted">
+          <item><c>processes</c></item>
+          <item><c>driver_options</c></item>
+          <item><c>port_count</c></item>
+          <item><c>linked_in_driver</c></item>
+          <item><c>permanent</c></item>
+          <item><c>awaiting_load</c></item>
+          <item><c>awaiting_unload</c></item>
+        </list>
+        <p>For a detailed description of each value, see
+          <seealso marker="#info/2"><c>info/2</c></seealso>.</p>
+        <p>The function throws a <c>badarg</c> exception if the driver
+          is not present in the system.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="info" arity="2" since=""/>
+      <fsummary>Retrieve specific information about one driver.</fsummary>
+      <desc>
+        <p>Returns specific information about one aspect of a driver.
+	  Parameter <c><anno>Tag</anno></c> specifies which aspect
+          to get information about. The return <c><anno>Value</anno></c> differs
+          between different tags:</p>
+        <taglist>
+          <tag><c>processes</c></tag>
+          <item>
+            <p>Returns all processes containing
+	    <seealso marker="#users">users</seealso> of the specific drivers
+              as a list of tuples <c>{pid(),integer() >= 0}</c>, where
+              <c>integer()</c> denotes the number of users in process
+              <c>pid()</c>.</p>
+          </item>
+          <tag><c>driver_options</c></tag>
+          <item>
+            <p>Returns a list of the driver options provided when
+              loading, and any options set by the driver
+              during initialization. The only valid option
+              is <c>kill_ports</c>.</p>
+          </item>
+          <tag><c>port_count</c></tag>
+          <item>
+            <p>Returns the number of ports (an <c>integer() >= 0</c>)
+	    using the driver.</p>
+          </item>
+          <tag><c>linked_in_driver</c></tag>
+          <item>
+            <p>Returns a <c>boolean()</c>, which is <c>true</c> if the driver is a
+              statically linked-in one, otherwise <c>false</c>.</p>
+          </item>
+          <tag><c>permanent</c></tag>
+          <item>
+            <p>Returns a <c>boolean()</c>, which is <c>true</c> if the driver has
+	      made itself permanent (and is <em>not</em> a statically
+              linked-in driver), otherwise <c>false</c>.</p>
+          </item>
+          <tag><c>awaiting_load</c></tag>
+          <item>
+            <p>Returns a list of all processes having monitors for
+              <c>loading</c> active. Each process is returned as
+              <c>{pid(),integer() >= 0}</c>, where <c>integer()</c> is the
+              number of monitors held by process <c>pid()</c>.</p>
+          </item>
+          <tag><c>awaiting_unload</c></tag>
+          <item>
+            <p>Returns a list of all processes having monitors for
+              <c>unloading</c> active. Each process is returned as
+              <c>{pid(),integer() >= 0}</c>, where <c>integer()</c> is the
+              number of monitors held by process <c>pid()</c>.</p>
+          </item>
+        </taglist>
+        <p>If option <c>linked_in_driver</c> or <c>permanent</c>
+          returns <c>true</c>, all other options return
+          <c>linked_in_driver</c> or <c>permanent</c>, respectively.</p>
+        <p>The function throws a <c>badarg</c> exception if the driver
+          is not present in the system or if the tag is not supported.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="load" arity="2" since=""/>
+      <fsummary>Load a driver.</fsummary>
+      <desc>
+        <p>Loads and links the dynamic driver <c><anno>Name</anno></c>.
+	  <c><anno>Path</anno></c>
+          is a file path to the directory containing the driver.
+          <c><anno>Name</anno></c> must be a sharable object/dynamic library. Two
+          drivers with different <c><anno>Path</anno></c> parameters cannot be
+          loaded under the same name. <c><anno>Name</anno></c> is a string or
+          atom containing at least one character.</p>
+        <p>The <c><anno>Name</anno></c> specified is to correspond to the filename
+          of the dynamically loadable object file residing in
+          the directory specified as <c><anno>Path</anno></c>, but <em>without</em> the
+          extension (that is, <c>.so</c>). The driver name provided in
+          the driver initialization routine must correspond with the
+          filename, in much the same way as Erlang module names
+          correspond to the names of the <c>.beam</c> files.</p>
+        <p>If the driver was previously unloaded, but is still
+          present because of open ports to it, a call to
+          <c>load/2</c> stops the unloading and keeps the driver
+          (as long as <c><anno>Path</anno></c> is the same), and <c>ok</c> is
+          returned. If you really want the object code to be
+          reloaded, use <seealso marker="#reload/2"><c>reload/2</c></seealso>
+	  or the low-level interface
+	  <seealso marker="#try_load/3"><c>try_load/3</c></seealso> instead.
+	  See also the description of
+	  <seealso marker="#scenarios"><c>different scenarios</c></seealso> for
+          loading/unloading in the introduction.</p>
+        <p>If more than one process tries to load an already loaded
+          driver with the same <c><anno>Path</anno></c>, or if the same process
+          tries to load it many times, the function returns
+          <c>ok</c>. The emulator keeps track of the
+          <c>load/2</c> calls, so that a corresponding number of
+          <c>unload/2</c> calls must be done from the same
+          process before the driver gets unloaded. It is
+          therefore safe for an application to load a driver that is
+          shared between processes or applications when needed. It can
+          safely be unloaded without causing trouble for other
+          parts of the system.</p>
+        <p>It is not allowed to load multiple drivers with
+	the same name but with different <c>Path</c> parameters.</p>
+        <note>
+          <p><c><anno>Path</anno></c> is interpreted
+            literally, so that all loaders of the same driver must
+            specify the same <em>literal</em> <c><anno>Path</anno></c> string,
+	    although different paths can point out the same directory
+            in the file system (because of use of relative paths and
+            links).</p>
+        </note>
+        <p>On success, the function returns <c>ok</c>. On
+          failure, the return value is <c>{error,<anno>ErrorDesc</anno>}</c>,
+          where <c><anno>ErrorDesc</anno></c> is an opaque term to be
+          translated into human readable form by function
+	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.</p>
+        <p>For more control over the error handling, use the
+          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          interface instead.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="load_driver" arity="2" since=""/>
+      <fsummary>Load a driver.</fsummary>
+      <desc>
+        <p>Works essentially as <c>load/2</c>, but loads the driver
+          with other options. All ports using the
+          driver are killed with reason <c>driver_unloaded</c>
+	  when the driver is to be unloaded.</p>
+        <p>The number of loads and unloads by different
+	  <seealso marker="#users">users</seealso> influences the loading
+          and unloading of a driver file. The port killing
+          therefore only occurs when the <em>last</em>
+	  <seealso marker="#users">user</seealso> unloads the driver,
+	  or when the last process having loaded the driver exits.</p>
+        <p>This interface (or at least the name of the functions) is
+          kept for backward compatibility.
+	  Using <seealso marker="#try_load/3"><c>try_load/3</c></seealso> with
+          <c>{driver_options,[kill_ports]}</c> in the option list
+          gives the same effect regarding the port killing.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="loaded_drivers" arity="0" since=""/>
+      <fsummary>List loaded drivers.</fsummary>
+      <desc>
+        <p>Returns a list of all the available drivers, both
+          (statically) linked-in and dynamically loaded ones.</p>
+        <p>The driver names are returned as a list of strings rather
+          than a list of atoms for historical reasons.</p>
+        <p>For more information about drivers, see
+          <seealso marker="#info/0"><c>info</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="monitor" arity="2" since=""/>
+      <fsummary>Create a monitor for a driver.</fsummary>
+      <desc>
+        <p>Creates a driver monitor and works in many
+          ways as
+	  <seealso marker="erts:erlang#monitor/2"><c>erlang:monitor/2</c></seealso>
+	  in ERTS,
+          does for processes. When a driver changes state, the monitor
+          results in a monitor message that is sent to the calling
+          process. <c><anno>MonitorRef</anno></c> returned by this function is
+          included in the message sent.</p>
+        <p>As with process monitors, each driver monitor set only
+          generates <em>one single message</em>. The monitor is
+          "destroyed" after the message is sent, so it is then not
+          needed to call
+	<seealso marker="#demonitor/1"><c>demonitor/1</c></seealso>.</p>
+        <p><c><anno>MonitorRef</anno></c> can also be used in subsequent calls
+          to <seealso marker="#demonitor/1"><c>demonitor/1</c></seealso> to
+          remove a monitor.</p>
+        <p>The function accepts the following parameters:</p>
+        <taglist>
+          <tag><c><anno>Tag</anno></c></tag>
+          <item>
+            <p>The monitor tag is always <c>driver</c>, as this function
+              can only be used to create driver monitors. In the future,
+              driver monitors will be integrated with process monitors,
+              why this parameter has to be specified for consistence.</p>
+          </item>
+          <tag><c><anno>Item</anno></c></tag>
+          <item>
+            <p>Parameter <c><anno>Item</anno></c> specifies
+	    which driver to monitor (the driver name) and
+              which state change to monitor. The parameter
+              is a tuple of arity two whose first element is the
+              driver name and second element is one of the following:</p>
+            <taglist>
+              <tag><c>loaded</c></tag>
+              <item>
+                <p>Notifies when the driver is reloaded (or loaded if
+                  loading is underway). It only makes sense to monitor
+                  drivers that are in the process of being loaded or
+                  reloaded. A future driver name for loading cannot be
+		  monitored. That only results in a
+                  <c>DOWN</c> message sent immediately.
+                  Monitoring for loading is therefore most useful when
+                  triggered by function
+		  <seealso marker="#try_load/3"><c>try_load/3</c></seealso>,
+                  where the monitor is created <em>because</em> the
+                  driver is in such a pending state.</p>
+                <p>Setting a driver monitor for <c>loading</c>
+                  eventually leads to one of the following messages
+                  being sent:</p>
+                <taglist>
+                  <tag><c>{'UP', reference(), driver, Name, loaded}</c></tag>
+                  <item>
+                    <p>This message is sent either immediately if the
+                      driver is already loaded and no reloading is
+                      pending, or when reloading is executed if
+                      reloading is pending. </p>
+                    <p>The <seealso marker="#users">user</seealso> is
+                      expected to know if reloading is demanded before
+                      creating a monitor for loading.</p>
+                  </item>
+                  <tag><c>{'UP', reference(), driver, Name, permanent}</c></tag>
+                  <item>
+                    <p>This message is sent if reloading was
+                      expected, but the (old) driver made itself
+                      permanent before reloading. It is also
+                      sent if the driver was permanent or statically
+                      linked-in when trying to create the monitor.</p>
+                  </item>
+                  <tag><c>{'DOWN', reference(), driver, Name, load_cancelled}</c></tag>
+                  <item>
+                    <p>This message arrives if reloading was
+                      underway, but the requesting
+		      <seealso marker="#users">user</seealso>
+                      cancelled it by dying or calling
+                      <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+                      (or <c>unload/1</c>/<c>unload_driver/1</c>)
+                      again before it was reloaded.</p>
+                  </item>
+                  <tag><c>{'DOWN', reference(), driver, Name, {load_failure, Failure}}</c></tag>
+                  <item>
+                    <p>This message arrives if reloading was
+                      underway but the loading for some reason
+                      failed. The <c>Failure</c> term is one of the
+                      errors that can be returned from
+		      <seealso marker="#try_load/3"><c>try_load/3</c></seealso>.
+		      The error term can be passed to
+		      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>
+                      for translation into human readable form. Notice
+                      that the translation must be done in the same
+                      running Erlang virtual machine as the error
+                      was detected in.</p>
+                  </item>
+                </taglist>
+              </item>
+              <tag><c>unloaded</c></tag>
+              <item>
+                <p>Monitors when a driver gets unloaded. If one
+                  monitors a driver that is not present in the system,
+                  one immediately gets notified that the driver got
+                  unloaded. There is no guarantee that the driver was
+                  ever loaded.</p>
+                <p>A driver monitor for unload eventually results
+                  in one of the following messages being sent:</p>
+                <taglist>
+                  <tag><c>{'DOWN', reference(), driver, Name, unloaded}</c></tag>
+                  <item>
+                    <p>The monitored driver instance is now
+                      unloaded. As the unload can be a result of a
+                      <c>reload/2</c> request, the driver can once
+                      again have been loaded when this message
+                      arrives.</p>
+                  </item>
+                  <tag><c>{'UP', reference(), driver, Name, unload_cancelled}</c></tag>
+                  <item>
+                    <p>This message is sent if unloading was
+                      expected, but while the driver was waiting for
+                      all ports to get closed, a new
+		      <seealso marker="#users">user</seealso> of the driver
+                      appeared, and the unloading was cancelled.</p>
+                    <p>This message appears if <c>{ok, pending_driver}</c>
+		      was returned from
+		      <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+                      for the last <seealso marker="#users">user</seealso>
+		      of the driver, and then <c>{ok, already_loaded}</c> is returned
+                      from a call to
+		    <seealso marker="#try_load/3"><c>try_load/3</c></seealso>.</p>
+                    <p>If one <em>really</em> wants to monitor when the
+                      driver gets unloaded, this message distorts
+                      the picture, because no unloading was done.
+                      Option <c>unloaded_only</c> creates a monitor
+                      similar to an <c>unloaded</c> monitor, but
+                      never results in this message.</p>
+                  </item>
+                  <tag><c>{'UP', reference(), driver, Name, permanent}</c></tag>
+                  <item>
+                    <p>This message is sent if unloading was
+                      expected, but the driver made itself
+                      permanent before unloading. It is also
+                      sent if trying to monitor a permanent or
+                      statically linked-in driver.</p>
+                  </item>
+                </taglist>
+              </item>
+              <tag><c>unloaded_only</c></tag>
+              <item>
+                <p>A monitor created as <c>unloaded_only</c> behaves
+                  exactly as one created as <c>unloaded</c>
+                  except that the
+		  <c>{'UP', reference(), driver, Name, unload_cancelled}</c>
+		  message is never sent, but the monitor instead persists until
+		  the driver <em>really</em> gets unloaded.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="reload" arity="2" since=""/>
+      <fsummary>Replace a driver.</fsummary>
+      <desc>
+        <p>Reloads the driver named <c><anno>Name</anno></c> from a possibly
+          different <c><anno>Path</anno></c> than previously used. This
+          function is used in the code change
+	  <seealso marker="#scenarios"><c>scenario</c></seealso> described in the
+          introduction.</p>
+        <p>If there are other <seealso marker="#users">users</seealso>
+          of this driver, the function returns <c>{error, pending_process}</c>,
+	  but if there are no other users, the function call hangs until all
+	  open ports are closed.</p>
+        <note>
+          <p>Avoid mixing multiple
+	  <seealso marker="#users">users</seealso>
+          with driver reload requests.</p>
+        </note>
+        <p>To avoid hanging on open ports, use function
+          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          instead.</p>
+        <p>The <c><anno>Name</anno></c> and <c><anno>Path</anno></c> parameters
+	  have exactly the same meaning as when calling the plain function
+	<seealso marker="#load/2"><c>load/2</c></seealso>.</p>
+
+        <p>On success, the function returns <c>ok</c>. On
+          failure, the function returns an opaque error,
+          except the <c>pending_process</c> error described
+          earlier. The opaque errors are to be translated into human
+          readable form by function
+	<seealso marker="#format_error/1"><c>format_error/1</c></seealso>.</p>
+        <p>For more control over the error handling,  use the
+          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          interface instead.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="reload_driver" arity="2" since=""/>
+      <fsummary>Replace a driver.</fsummary>
+      <desc>
+        <p>Works exactly as <seealso marker="#reload/2"><c>reload/2</c></seealso>,
+	  but for drivers loaded with the
+	<seealso marker="#load_driver/2"><c>load_driver/2</c></seealso> interface.</p>
+        <p>As this interface implies that ports are killed when
+          the last user disappears, the function does not hang waiting for
+          ports to get closed.</p>
+        <p>For more details, see
+	  <seealso marker="#scenarios"><c>scenarios</c></seealso> in this module
+          description and the function description for
+	  <seealso marker="#reload/2"><c>reload/2</c></seealso>.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="try_load" arity="3" since=""/>
+      <fsummary>Load a driver.</fsummary>
+      <desc>
+        <p>Provides more control than the
+          <c>load/2</c>/<c>reload/2</c> and
+          <c>load_driver/2</c>/<c>reload_driver/2</c> interfaces. It
+          never waits for completion of other operations related
+          to the driver, but immediately returns the status of the
+          driver as one of the following:</p>
+        <taglist>
+          <tag><c>{ok, loaded}</c></tag>
+          <item>
+            <p>The driver was loaded and is immediately usable.</p>
+          </item>
+          <tag><c>{ok, already_loaded}</c></tag>
+          <item>
+            <p>The driver was already loaded by another process
+              or is in use by a living port, or both. The load by you is
+              registered and a corresponding <c>try_unload</c> is
+              expected sometime in the future.</p>
+          </item>
+          <tag><c>{ok, pending_driver}</c>or <c>{ok, pending_driver, reference()}</c></tag>
+          <item>
+            <p>The load request is registered, but the loading is
+              delayed because an earlier instance of the
+              driver is still waiting to get unloaded (open
+              ports use it). Still, unload is expected when you are
+              done with the driver. This return value
+              <em>mostly</em> occurs when options
+              <c>{reload,pending_driver}</c> or
+              <c>{reload,pending}</c> are used, but
+              <em>can</em> occur when another
+	      <seealso marker="#users">user</seealso> is unloading a
+	      driver in parallel and driver option <c>kill_ports</c> is set.
+	      In other words, this return value always needs
+              to be handled.</p>
+          </item>
+          <tag><c>{ok, pending_process}</c>or <c>{ok, pending_process, reference()}</c></tag>
+          <item>
+            <p>The load request is registered, but the loading is
+              delayed because an earlier instance of the
+              driver is still waiting to get unloaded by another
+              <seealso marker="#users">user</seealso> (not only by a
+              port, in which case <c>{ok,pending_driver}</c> would
+              have been returned). Still, unload is expected when you
+              are done with the driver. This return value
+              <em>only</em> occurs when option <c>{reload,pending}</c>
+              is used.</p>
+          </item>
+        </taglist>
+        <p>When the function returns <c>{ok, pending_driver}</c> or
+          <c>{ok, pending_process}</c>, one can get information
+          about when the driver is <em>actually</em> loaded  by using
+	  option <c>{monitor, <anno>MonitorOption</anno>}</c>.</p>
+        <p>When monitoring is requested, and a corresponding
+	<c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c> would
+	  be returned, the function instead returns a tuple
+	  <c>{ok, <anno>PendingStatus</anno>, reference()}</c>
+	  and the process then gets a monitor message later, when the
+	  driver gets loaded. The monitor message to expect is described in
+          the function description of
+	  <seealso marker="#monitor/2"><c>monitor/2</c></seealso>.</p>
+        <note>
+          <p>In case of loading, monitoring can <em>not</em> only get
+	    triggered by using option <c>{reload, <anno>ReloadOption</anno>}</c>,
+	    but also in special cases where the load error is transient. Thus,
+	    <c>{monitor, pending_driver}</c> is to be used under basically
+            <em>all</em> real world circumstances.</p>
+        </note>
+        <p>The function accepts the following parameters:</p>
+        <taglist>
+          <tag><c><anno>Path</anno></c></tag>
+          <item>
+            <p>The file system path to the directory where the driver
+              object file is located. The filename of the object file
+              (minus extension) must correspond to the driver name
+              (used in parameter <c><anno>Name</anno></c>) and the driver must
+              identify itself with the same name.
+              <c><anno>Path</anno></c> can be provided as an <em>iolist()</em>,
+              meaning it can be a list of other <c>iolist()</c>s, characters
+              (8-bit integers), or binaries, all to be flattened
+              into a sequence of characters.</p>
+            <p>The (possibly flattened) <c><anno>Path</anno></c> parameter must be
+              consistent throughout the system. A driver is to, by
+              all <seealso marker="#users">users</seealso>, be loaded
+              using the same <em>literal</em> <c><anno>Path</anno></c>.
+	      The exception is when <em>reloading</em> is requested,
+	      in which case <c><anno>Path</anno></c> can be specified
+              differently. Notice that all
+	      <seealso marker="#users">users</seealso> trying to load the
+              driver later need to use the
+	      <em>new</em> <c><anno>Path</anno></c> if <c><anno>Path</anno></c>
+	      is changed using a <c>reload</c> option. This is yet another reason
+              to have <em>only one loader</em> of a driver one wants to
+              upgrade in a running system.</p>
+          </item>
+          <tag><c><anno>Name</anno></c></tag>
+          <item>
+            <p>This parameter is the name of the driver
+	      to be used in subsequent calls to function
+	      <seealso marker="erts:erlang#open_port/2"><c>erlang:open_port</c></seealso>
+	      in ERTS.
+	      The name can be specified as an <c>iolist()</c> or
+              an <c>atom()</c>. The name specified when loading is used
+              to find the object file (with the help of <c><anno>Path</anno></c>
+	      and the system-implied extension suffix, that is, <c>.so</c>).
+	      The name by which the driver identifies itself must also be consistent
+              with this <c><anno>Name</anno></c> parameter, much as
+	      the module name of a Beam file much corresponds to its filename.</p>
+          </item>
+          <tag><c><anno>OptionList</anno></c></tag>
+          <item>
+            <p>Some options can be specified to control the
+              loading operation. The options are specified as a list of
+              two-tuples. The tuples have the following values and
+              meanings:</p>
+            <taglist>
+              <tag><c>{driver_options, <anno>DriverOptionList</anno>}</c></tag>
+              <item>
+                <p>This is to provide options that changes
+                  its general behavior and "sticks" to the driver
+                  throughout its lifespan.</p>
+                <p>The driver options for a specified driver name need
+                  always to be consistent, <em>even when the driver is reloaded</em>,
+		  meaning that they are as much a part of the driver as the name.</p>
+                <p>The only allowed driver option is
+                  <c>kill_ports</c>, which means that all ports opened
+                  to the driver are killed with exit reason
+                  <c>driver_unloaded</c> when no process any longer
+                  has the driver loaded. This situation arises either
+                  when the last <seealso marker="#users">user</seealso> calls
+		  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>, or
+                  when the last process having loaded the driver exits.</p>
+              </item>
+              <tag><c>{monitor, <anno>MonitorOption</anno>}</c></tag>
+              <item>
+                <p>A <c><anno>MonitorOption</anno></c> tells <c>try_load/3</c> to
+                  trigger a driver monitor under certain
+                  conditions. When the monitor is triggered, the
+                  function returns a three-tuple
+		  <c>{ok, <anno>PendingStatus</anno>, reference()}</c>, where
+		  <c>reference()</c> is the monitor reference for the driver monitor.</p>
+                <p>Only one <c><anno>MonitorOption</anno></c> can be specified.
+                  It is one of the following:</p>
+		  <list type="bulleted">
+		    <item>
+		      <p>The atom <c>pending</c>, which means
+                      that a monitor is to be created whenever a load
+                      operation is delayed,</p>
+		    </item>
+		    <item>
+		      <p>The atom <c>pending_driver</c>, in which a monitor
+		      is created whenever the operation is delayed because
+		      of open ports to an otherwise unused driver.</p>
+		      </item>
+		  </list>
+		<p>Option <c>pending_driver</c> is of little use, but
+		  is present for completeness, as it is well defined which
+		  reload options that can give rise to which delays.
+		  However, it can be a good idea to use the same
+		  <c><anno>MonitorOption</anno></c> as the
+		  <c><anno>ReloadOption</anno></c>, if present.</p>
+                <p>If reloading is not requested, it can still be
+                  useful to specify option <c>monitor</c>, as
+                  forced unloads (driver option <c>kill_ports</c> or
+                  option <c>kill_ports</c> to
+		  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>)
+		  trigger a transient state where driver loading
+                  cannot be performed until all closing ports are
+                  closed. Thus, as <c>try_unload</c> can, in
+                  almost all situations, return <c>{ok, pending_driver}</c>,
+		  always specify at least <c>{monitor, pending_driver}</c>
+		  in production code (see the monitor discussion earlier).</p>
+              </item>
+              <tag><c>{reload, <anno>ReloadOption</anno>}</c></tag>
+              <item>
+                <p>This option is used to
+                  <em>reload</em> a driver from disk, most often in a
+                  code upgrade scenario. Having a <c>reload</c> option
+                  also implies that parameter <c><anno>Path</anno></c> does
+                  <em>not</em> need to be consistent with earlier loads of
+                  the driver.</p>
+                <p>To reload a driver, the process must have loaded the driver
+		  before, that is, there must be an active
+		  <seealso marker="#users">user</seealso> of the driver
+		  in the process.</p>
+                <p>The <c>reload</c> option can be either of the following:</p>
+		 <taglist>
+		   <tag><c>pending</c></tag>
+		   <item>
+		     <p>With the atom <c>pending</c>, reloading is requested
+		       for any driver and is effectuated when <em>all</em>
+                       ports opened to the driver are closed. The driver
+                       replacement in this case takes
+                       place regardless if there are still
+                       pending <seealso marker="#users">users</seealso>
+                       having the driver loaded.</p>
+                     <p>The option also triggers port-killing (if driver
+                       option <c>kill_ports</c> is used) although
+                       there are pending users, making it usable for forced
+                       driver replacement, but laying much
+                       responsibility on the driver
+		       <seealso marker="#users">users</seealso>.
+		       The pending option is seldom used as one does not want other
+		       <seealso marker="#users">users</seealso> to have loaded
+		       the driver when code change is underway.</p></item>
+		   <tag><c>pending_driver</c></tag>
+		   <item>
+		     <p>This option is more useful. Here, reloading is queued
+		        if the driver is <em>not</em> loaded by any other
+		        <seealso marker="#users">users</seealso>, but the
+			driver has opened ports, in which case
+			<c>{ok, pending_driver}</c> is returned
+			(a <c>monitor</c> option is recommended).</p></item>
+		 </taglist>
+                <p>If the driver is unloaded (not present in the system),
+		  error code <c>not_loaded</c> is returned. Option
+                  <c>reload</c> is intended for when the user
+                  has already loaded the driver in advance.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>The function can return numerous errors, some
+          can only be returned given a certain combination of options.</p>
+        <p>Some errors are opaque and can only be interpreted by
+          passing them to function
+	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>,
+          but some can be interpreted directly:</p>
+        <taglist>
+          <tag><c>{error,linked_in_driver}</c></tag>
+          <item>
+            <p>The driver with the specified name is an Erlang
+              statically linked-in driver, which cannot be manipulated
+              with this API.</p>
+          </item>
+          <tag><c>{error,inconsistent}</c></tag>
+          <item>
+            <p>The driver is already loaded with other
+              <c><anno>DriverOptionList</anno></c> or a different
+	    <em>literal</em> <c>Path</c> argument.</p>
+            <p>This can occur even if a <c>reload</c> option is specified,
+              if <c>DriverOptionList</c> differs from the current.</p>
+          </item>
+          <tag><c>{error, permanent}</c></tag>
+          <item>
+            <p>The driver has requested itself to be permanent, making
+              it behave like an Erlang linked-in driver and can no
+              longer be manipulated with this API.</p>
+          </item>
+          <tag><c>{error, pending_process}</c></tag>
+          <item>
+            <p>The driver is loaded by other
+	    <seealso marker="#users">users</seealso> when
+	    option <c>{reload, pending_driver}</c> was specified.</p>
+          </item>
+          <tag><c>{error, pending_reload}</c></tag>
+          <item>
+            <p>Driver reload is already requested by another
+	    <seealso marker="#users">user</seealso> when option
+	    <c>{reload, <anno>ReloadOption</anno>}</c> was specified.</p>
+          </item>
+          <tag><c>{error, not_loaded_by_this_process}</c></tag>
+          <item>
+            <p>Appears when option <c>reload</c> is specified. The
+              driver <c><anno>Name</anno></c> is present in the system, but there
+	      is no <seealso marker="#users">user</seealso> of it in this
+              process.</p>
+          </item>
+          <tag><c>{error, not_loaded}</c></tag>
+          <item>
+            <p>Appears when option <c>reload</c> is specified. The
+              driver <c><anno>Name</anno></c> is not in the system. Only drivers
+              loaded by this process can be reloaded.</p>
+          </item>
+        </taglist>
+        <p>All other error codes are to be translated by function
+	<seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+	  Notice that calls to <c>format_error</c> are to be
+          performed from the same running instance of the Erlang
+          virtual machine as the error is detected in, because of
+	  system-dependent behavior concerning error values.</p>
+        <p>If the arguments or options are malformed, the function
+          throws a <c>badarg</c> exception.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="try_unload" arity="2" since=""/>
+      <fsummary>Unload a driver.</fsummary>
+      <desc>
+        <p>This is the low-level function to unload (or decrement
+          reference counts of) a driver. It can be used to force port
+          killing, in much the same way as the driver option
+          <c>kill_ports</c> implicitly does. Also, it can trigger a
+          monitor either because other
+	  <seealso marker="#users">users</seealso> still have the driver
+          loaded or because open ports use the driver.</p>
+        <p>Unloading can be described as the process of telling the
+          emulator that this particular part of the code in this
+          particular process (that is, this
+	  <seealso marker="#users">user</seealso>) no longer needs
+	  the driver. That can, if there are no other users, trigger
+          unloading of the driver, in which case the driver name
+          disappears from the system and (if possible) the memory
+          occupied by the driver executable code is reclaimed.</p>
+	  <p>If the driver has option <c>kill_ports</c> set, or if
+          <c>kill_ports</c> is specified as an option to this
+          function, all pending ports using this driver are
+          killed when unloading is done by the last
+	  <seealso marker="#users">user</seealso>. If no port-killing
+	  is involved and there are open ports, the unloading
+          is delayed until no more open ports use the
+          driver. If, in this case, another
+	  <seealso marker="#users">user</seealso> (or even this user)
+	  loads the driver again before the driver is unloaded, the
+          unloading never takes place.</p>
+        <p>To allow the <seealso marker="#users">user</seealso> to
+          <em>request unloading</em> to wait for <em>actual unloading</em>,
+          <c>monitor</c> triggers can be specified in much the same way as
+	  when loading. However, as <seealso marker="#users">users</seealso>
+	  of this function seldom are interested in more than decrementing the
+          reference counts, monitoring is seldom needed.</p>
+	<note><p> If option <c>kill_ports</c> is used, monitor trigging is crucial,
+	  as the ports are not guaranteed to be killed until the driver is unloaded.
+	  Thus, a monitor must be triggered for at least the <c>pending_driver</c>
+	  case.</p></note>
+        <p>The possible monitor messages to expect are the
+          same as when using option <c>unloaded</c> to function
+          <seealso marker="#monitor/2"><c>monitor/2</c></seealso>.</p>
+        <p>The function returns one of the following statuses upon
+          success:</p>
+        <taglist>
+          <tag><c>{ok, unloaded}</c></tag>
+          <item>
+            <p>The driver was immediately unloaded, meaning that the
+              driver name is now free to use by other drivers and, if
+              the underlying OS permits it, the memory occupied by the
+              driver object code is now reclaimed.</p>
+            <p>The driver can only be unloaded when there are no open
+              ports using it and no more
+	      <seealso marker="#users">users</seealso> require it to be
+              loaded.</p>
+          </item>
+          <tag><c>{ok, pending_driver}</c>or
+	       <c>{ok, pending_driver, reference()}</c></tag>
+          <item>
+            <p>Indicates that this call removed the last
+	      <seealso marker="#users">user</seealso> from the
+              driver, but there are still open ports using it.
+              When all ports are closed and no new
+	      <seealso marker="#users">users</seealso> have arrived,
+	      the driver is reloaded and the name and memory
+              reclaimed.</p>
+            <p>This return value is valid even if option <c>kill_ports</c>
+	      was used, as killing ports can be a process that does not
+	      complete immediately. However, the condition is in that case
+	      transient. Monitors are always useful to detect when the driver
+	      is really unloaded.</p>
+          </item>
+          <tag><c>{ok, pending_process}</c>or
+	       <c>{ok, pending_process, reference()}</c></tag>
+          <item>
+            <p>The unload request is registered, but
+              other <seealso marker="#users">users</seealso> still hold
+              the driver. Notice that the term <c>pending_process</c>
+              can refer to the running process; there can be more
+              than one <seealso marker="#users">user</seealso> in the
+              same process.</p>
+            <p>This is a normal, healthy, return value if the call was
+              just placed to inform the emulator that you have no
+              further use of the driver. It is the most
+              common return value in the most common
+	      <seealso marker="#scenarios"><c>scenario</c></seealso>
+              described in the introduction.</p>
+          </item>
+        </taglist>
+        <p>The function accepts the following parameters:</p>
+        <taglist>
+          <tag><c><anno>Name</anno></c></tag>
+          <item>
+            <p><c><anno>Name</anno></c> is the name of the
+	      driver to be unloaded. The name can be specified as an
+              <c>iolist()</c> or as an <c>atom()</c>.</p>
+          </item>
+          <tag><c><anno>OptionList</anno></c></tag>
+          <item>
+            <p>Argument <c><anno>OptionList</anno></c> can be used to specify
+              certain behavior regarding ports and triggering
+              monitors under certain conditions:</p>
+            <taglist>
+              <tag><c>kill_ports</c></tag>
+              <item>
+                <p>Forces killing of all ports opened using this driver,
+                  with exit reason <c>driver_unloaded</c>, if you are
+                  the <em>last</em> <seealso marker="#users">user</seealso>
+		  of the driver.</p>
+                <p>If other <seealso marker="#users">users</seealso>
+		  have the driver loaded, this option has no effect.</p>
+                <p>To get the consistent behavior of killing ports
+                  when the last <seealso marker="#users">user</seealso>
+                  unloads, use driver option
+                  <c>kill_ports</c> when loading the driver instead.</p>
+              </item>
+              <tag><c>{monitor, <anno>MonitorOption</anno>}</c></tag>
+              <item>
+                <p>Creates a driver monitor if the condition
+                  specified in <c><anno>MonitorOption</anno></c> is true. The valid
+                  options are:</p>
+                <taglist>
+                  <tag><c>pending_driver</c></tag>
+                  <item>
+                    <p>Creates a driver monitor if the return value is to
+                      be <c>{ok, pending_driver}</c>.</p>
+                  </item>
+                  <tag><c>pending</c></tag>
+                  <item>
+                    <p>Creates a monitor if the return value is
+                      <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c>.</p>
+                  </item>
+                </taglist>
+                <p>The <c>pending_driver</c> <c><anno>MonitorOption</anno></c> is
+		  by far the most useful. It must be used to ensure that the
+                  driver really is unloaded and the ports closed
+                  whenever option <c>kill_ports</c> is used, or the
+                  driver can have been loaded with driver option
+		  <c>kill_ports</c>.</p>
+                <p>Using the monitor triggers in the call to
+                  <c>try_unload</c> ensures that the monitor is
+                  added before the unloading is executed, meaning
+                  that the monitor is always properly triggered,
+                  which is not the case if <c>monitor/2</c> is called
+		  separately.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>The function can return the following error conditions,
+          all well specified (no opaque values):</p>
+        <taglist>
+          <tag><c>{error, linked_in_driver}</c></tag>
+          <item>
+            <p>You were trying to unload an Erlang statically linked-in
+              driver, which cannot be manipulated with this interface
+              (and cannot be unloaded at all).</p>
+          </item>
+          <tag><c>{error, not_loaded}</c></tag>
+          <item>
+            <p>The driver <c><anno>Name</anno></c> is not present in the system.</p>
+          </item>
+          <tag><c>{error, not_loaded_by_this_process}</c></tag>
+          <item>
+            <p>The driver <c><anno>Name</anno></c> is present in the system, but
+              there is no <seealso marker="#users">user</seealso> of
+              it in this process. </p>
+            <p>As a special case, drivers can be unloaded from
+              processes that have done no corresponding call to
+              <c>try_load/3</c> if, and only if, there are
+	      <em>no users of the driver at all</em>, which can occur if the
+              process containing the last user dies.</p>
+          </item>
+          <tag><c>{error, permanent}</c></tag>
+          <item>
+            <p>The driver has made itself permanent, in which case it
+              can no longer be manipulated by this interface (much
+              like a statically linked-in driver).</p>
+          </item>
+        </taglist>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unload" arity="1" since=""/>
+      <fsummary>Unload a driver.</fsummary>
+      <desc>
+        <p>Unloads, or at least dereferences the driver named
+          <c><anno>Name</anno></c>. If the caller is the last
+	  <seealso marker="#users">user</seealso> of the driver,
+	  and no more open ports use the driver, the driver
+          gets unloaded. Otherwise, unloading
+          is delayed until all ports are closed and no
+          <seealso marker="#users">users</seealso> remain.</p>
+        <p>If there are other <seealso marker="#users">users</seealso>
+	  of the driver, the reference counts of the driver is merely decreased,
+	  so that the caller is no longer considered a
+	  <seealso marker="#users">user</seealso> of the driver. For use
+          scenarios, see the <seealso marker="#scenarios"><c>description</c></seealso>
+	  in the beginning of this module.</p>
+        <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
+          passed further on to function
+	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+          For more control over the operation, use the
+          <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+          interface.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unload_driver" arity="1" since=""/>
+      <fsummary>Unload a driver.</fsummary>
+      <desc>
+        <p>Unloads, or at least dereferences the driver named
+          <c><anno>Name</anno></c>. If the caller is the last
+	  <seealso marker="#users">user</seealso> of the driver, all
+          remaining open ports using the driver are killed with
+          reason <c>driver_unloaded</c> and the driver
+          eventually gets unloaded.</p>
+        <p>If there are other <seealso marker="#users">users</seealso>
+          of the driver, the reference counts of the driver is merely
+          decreased, so that the caller is no longer considered a
+          <seealso marker="#users">user</seealso>. For
+          use scenarios, see the
+	  <seealso marker="#scenarios"><c>description</c></seealso> in the
+	  beginning of this module.</p>
+        <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
+          passed further on to function
+	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+          For more control over the operation, use the
+          <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+          interface.</p>
+        <p>The function throws a <c>badarg</c> exception if the
+          parameters are not specified as described here.</p>
+      </desc>
+    </func>
+  </funcs>
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erts:erl_driver"><c>erts:erl_driver(4)</c></seealso>,
+       <seealso marker="erts:driver_entry"><c>erts:driver_entry(4)</c></seealso></p>
+  </section>
+</erlref>

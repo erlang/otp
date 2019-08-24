@@ -1,0 +1,350 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4006, Diameter Credit-Control Application
+;;
+
+@id 4
+
+@inherits common
+@inherits rfc4005_nas  Filter-Id
+
+;; ===========================================================================
+
+@avp_types
+
+   CC-Correlation-Id                 411    OctetString   -
+   CC-Input-Octets                   412    Unsigned64    M
+   CC-Money                          413    Grouped       M
+   CC-Output-Octets                  414    Unsigned64    M
+   CC-Request-Number                 415    Unsigned32    M
+   CC-Request-Type                   416    Enumerated    M
+   CC-Service-Specific-Units         417    Unsigned64    M
+   CC-Session-Failover               418    Enumerated    M
+   CC-Sub-Session-Id                 419    Unsigned64    M
+   CC-Time                           420    Unsigned32    M
+   CC-Total-Octets                   421    Unsigned64    M
+   CC-Unit-Type                      454    Enumerated    M
+   Check-Balance-Result              422    Enumerated    M
+   Cost-Information                  423    Grouped       M
+   Cost-Unit                         424    UTF8String    M
+   Credit-Control                    426    Enumerated    M
+   Credit-Control-Failure-Handling   427    Enumerated    M
+   Currency-Code                     425    Unsigned32    M
+   Direct-Debiting-Failure-Handling  428    Enumerated    M
+   Exponent                          429    Integer32     M
+   Final-Unit-Action                 449    Enumerated    M
+   Final-Unit-Indication             430    Grouped       M
+   Granted-Service-Unit              431    Grouped       M
+   G-S-U-Pool-Identifier             453    Unsigned32    M
+   G-S-U-Pool-Reference              457    Grouped       M
+   Multiple-Services-Credit-Control  456    Grouped       M
+   Multiple-Services-Indicator       455    Enumerated    M
+   Rating-Group                      432    Unsigned32    M
+   Redirect-Address-Type             433    Enumerated    M
+   Redirect-Server                   434    Grouped       M
+   Redirect-Server-Address           435    UTF8String    M
+   Requested-Action                  436    Enumerated    M
+   Requested-Service-Unit            437    Grouped       M
+   Restriction-Filter-Rule           438    IPFilterRule  M
+   Service-Context-Id                461    UTF8String    M
+   Service-Identifier                439    Unsigned32    M
+   Service-Parameter-Info            440    Grouped       -
+   Service-Parameter-Type            441    Unsigned32    -
+   Service-Parameter-Value           442    OctetString   -
+   Subscription-Id                   443    Grouped       M
+   Subscription-Id-Data              444    UTF8String    M
+   Subscription-Id-Type              450    Enumerated    M
+   Tariff-Change-Usage               452    Enumerated    M
+   Tariff-Time-Change                451    Time          M
+   Unit-Value                        445    Grouped       M
+   Used-Service-Unit                 446    Grouped       M
+   User-Equipment-Info               458    Grouped       -
+   User-Equipment-Info-Type          459    Enumerated    -
+   User-Equipment-Info-Value         460    OctetString   -
+   Value-Digits                      447    Integer64     M
+   Validity-Time                     448    Unsigned32    M
+
+;; ===========================================================================
+
+@messages
+
+   CCR ::= < Diameter Header: 272, REQ, PXY >
+
+           < Session-Id >
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Auth-Application-Id }
+           { Service-Context-Id }
+           { CC-Request-Type }
+           { CC-Request-Number }
+           [ Destination-Host ]
+           [ User-Name ]
+           [ CC-Sub-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ Origin-State-Id ]
+           [ Event-Timestamp ]
+         * [ Subscription-Id ]
+           [ Service-Identifier ]
+           [ Termination-Cause ]
+           [ Requested-Service-Unit ]
+           [ Requested-Action ]
+         * [ Used-Service-Unit ]
+           [ Multiple-Services-Indicator ]
+         * [ Multiple-Services-Credit-Control ]
+         * [ Service-Parameter-Info ]
+           [ CC-Correlation-Id ]
+           [ User-Equipment-Info ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   CCA ::= < Diameter Header: 272, PXY >
+
+           < Session-Id >
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           { Auth-Application-Id }
+           { CC-Request-Type }
+           { CC-Request-Number }
+           [ User-Name ]
+           [ CC-Session-Failover ]
+           [ CC-Sub-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ Origin-State-Id ]
+           [ Event-Timestamp ]
+           [ Granted-Service-Unit ]
+         * [ Multiple-Services-Credit-Control ]
+           [ Cost-Information]
+           [ Final-Unit-Indication ]
+           [ Check-Balance-Result ]
+           [ Credit-Control-Failure-Handling ]
+           [ Direct-Debiting-Failure-Handling ]
+           [ Validity-Time]
+         * [ Redirect-Host]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ Failed-AVP ]
+         * [ AVP ]
+
+;; ===========================================================================
+
+@grouped
+
+   Cost-Information ::= < AVP Header: 423 >
+
+           { Unit-Value }
+           { Currency-Code }
+           [ Cost-Unit ]
+
+   Unit-Value ::= < AVP Header: 445 >
+
+           { Value-Digits }
+           [ Exponent ]
+
+   Multiple-Services-Credit-Control ::= < AVP Header: 456 >
+
+           [ Granted-Service-Unit ]
+           [ Requested-Service-Unit ]
+         * [ Used-Service-Unit ]
+           [ Tariff-Change-Usage ]
+         * [ Service-Identifier ]
+           [ Rating-Group ]
+         * [ G-S-U-Pool-Reference ]
+           [ Validity-Time ]
+           [ Result-Code ]
+           [ Final-Unit-Indication ]
+         * [ AVP ]
+
+   Granted-Service-Unit ::= < AVP Header: 431 >
+
+           [ Tariff-Time-Change ]
+           [ CC-Time ]
+           [ CC-Money ]
+           [ CC-Total-Octets ]
+           [ CC-Input-Octets ]
+           [ CC-Output-Octets ]
+           [ CC-Service-Specific-Units ]
+         * [ AVP ]
+
+   Requested-Service-Unit ::= < AVP Header: 437 >
+
+           [ CC-Time ]
+           [ CC-Money ]
+           [ CC-Total-Octets ]
+           [ CC-Input-Octets ]
+           [ CC-Output-Octets ]
+           [ CC-Service-Specific-Units ]
+         * [ AVP ]
+
+   Used-Service-Unit ::= < AVP Header: 446 >
+
+           [ Tariff-Change-Usage ]
+           [ CC-Time ]
+           [ CC-Money ]
+           [ CC-Total-Octets ]
+           [ CC-Input-Octets ]
+           [ CC-Output-Octets ]
+           [ CC-Service-Specific-Units ]
+         * [ AVP ]
+
+   CC-Money ::= < AVP Header: 413 >
+
+           { Unit-Value }
+           [ Currency-Code ]
+
+   G-S-U-Pool-Reference ::= < AVP Header: 457 >
+
+           { G-S-U-Pool-Identifier }
+           { CC-Unit-Type }
+           { Unit-Value }
+
+   Final-Unit-Indication ::= < AVP Header: 430 >
+
+           { Final-Unit-Action }
+         * [ Restriction-Filter-Rule ]
+         * [ Filter-Id ]
+           [ Redirect-Server ]
+
+   Redirect-Server ::= < AVP Header: 434 >
+
+           { Redirect-Address-Type }
+           { Redirect-Server-Address }
+
+   Service-Parameter-Info ::= < AVP Header: 440 >
+
+           { Service-Parameter-Type }
+           { Service-Parameter-Value }
+
+   Subscription-Id ::= < AVP Header: 443 >
+
+           { Subscription-Id-Type }
+           { Subscription-Id-Data }
+
+   User-Equipment-Info ::= < AVP Header: 458 >
+
+           { User-Equipment-Info-Type }
+           { User-Equipment-Info-Value }
+
+;; ===========================================================================
+
+@enum CC-Request-Type
+
+   INITIAL_REQUEST                 1
+   UPDATE_REQUEST                  2
+   TERMINATION_REQUEST             3
+   EVENT_REQUEST                   4
+
+@enum CC-Session-Failover
+
+   NOT_SUPPORTED                   0
+   SUPPORTED                       1
+
+@enum Check-Balance-Result
+
+   ENOUGH_CREDIT                   0
+   NO_CREDIT                       1
+
+@enum Credit-Control
+
+   AUTHORIZATION                   0
+   RE_AUTHORIZATION                1
+
+@enum Credit-Control-Failure-Handling
+
+   TERMINATE                       0
+   CONTINUE                        1
+   RETRY_AND_TERMINATE             2
+
+@enum Direct-Debiting-Failure-Handling
+
+   TERMINATE_OR_BUFFER             0
+   CONTINUE                        1
+
+@enum Tariff-Change-Usage
+
+   UNIT_BEFORE_TARIFF_CHANGE       0
+   UNIT_AFTER_TARIFF_CHANGE        1
+   UNIT_INDETERMINATE              2
+
+@enum CC-Unit-Type
+
+   TIME                            0
+   MONEY                           1
+   TOTAL-OCTETS                    2
+   INPUT-OCTETS                    3
+   OUTPUT-OCTETS                   4
+   SERVICE-SPECIFIC-UNITS          5
+
+@enum Final-Unit-Action
+
+   TERMINATE                       0
+   REDIRECT                        1
+   RESTRICT_ACCESS                 2
+
+@enum Redirect-Address-Type
+
+   IPV4                            0
+   IPV6                            1
+   URL                             2
+   SIP_URI                         3
+
+@enum Multiple-Services-Indicator
+
+   NOT_SUPPORTED                   0
+   SUPPORTED                       1
+
+@enum Requested-Action
+
+   DIRECT_DEBITING                 0
+   REFUND_ACCOUNT                  1
+   CHECK_BALANCE                   2
+   PRICE_ENQUIRY                   3
+
+@enum Subscription-Id-Type
+
+   END_USER_E164                   0
+   END_USER_IMSI                   1
+   END_USER_SIP_URI                2
+   END_USER_NAI                    3
+   END_USER_PRIVATE                4
+
+@enum User-Equipment-Info-Type
+
+   IMEISV                          0
+   MAC                             1
+   EUI64                           2
+   MODIFIED_EUI64                  3
+
+;; ===========================================================================
+
+@define Result-Code
+
+   END_USER_SERVICE_DENIED         4010
+   CREDIT_CONTROL_NOT_APPLICABLE   4011
+   CREDIT_LIMIT_REACHED            4012
+
+   USER_UNKNOWN                    5030
+   RATING_FAILED                   5031

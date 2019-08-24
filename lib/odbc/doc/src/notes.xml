@@ -1,0 +1,1207 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ODBC Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the odbc application.
+  </p>
+
+  <section><title>ODBC 2.12.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor adjustments made to build system for parallel
+	    configure.</p>
+          <p>
+	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling to avoid stack corruption</p>
+          <p>
+	    Own Id: OTP-15667 Aux Id: ERL-808, PR-2065 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change configure to skip odbc for old MACs, the change in
+	    PR-1227 is not backwards compatible with old MACs, and we
+	    do not see a need to continue support for such old
+	    versions. However it is still possible to make it work on
+	    such machines using the --with-odbc configure option.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14083</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ODBC build configure has been updated to accept Mac OS X
+	    El Capitan. Fixed by Lee Bannard.</p>
+          <p>
+	    Own Id: OTP-13781</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Configure enhancement for better handling program paths
+	    used in the build process</p>
+          <p>
+	    Own Id: OTP-13559</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New application variable to set timeout of internal
+	    communication setup between the erlang code and the
+	    c-port program that interfaces the odbc driver. This can
+	    be useful if you have an underlying system that is slow
+	    due to heavy load at startup.</p>
+          <p>
+	    With this environment variable you can easily bypass and
+	    tailor odbc to the needs of the underlying actual system
+	    without changing the configuration. Which is a good thing
+	    because this value is very system specific.</p>
+          <p>
+	    Own Id: OTP-12935</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.22</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    OS X Mavericks is based on Darwin version 13.x, and
+	    Yosemite on 14.x. Change the ODBC configure.in script to
+	    recognize these versions.</p>
+          <p>
+	    Own Id: OTP-12260</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The commands longer than 127 chars sent to odbc server
+	    crashed it, e.g. a connection string with driver path and
+	    some additional parameters.</p>
+          <p>
+	    Own Id: OTP-12346</p>
+        </item>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.21</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings reported by LLVM</p>
+          <p>
+	    Own Id: OTP-12138</p>
+        </item>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.20</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed warnings at compile time by adding missing
+	    include file (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11569</p>
+        </item>
+        <item>
+          <p>
+	    Apple has removed iODBC in OS X 10.9 Mavericks, but
+	    forgot to remove all binaries, adopt configure so that
+	    will be possible to build odbc with own installation.</p>
+          <p>
+	    Own Id: OTP-11630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated configure test for header files sql.h and
+	    sqlext.h to function correctly on windows.</p>
+          <p>
+	    Own Id: OTP-11574</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.18</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Configure now also checks for the existence of the sql.h
+	    header file</p>
+          <p>
+	    Own Id: OTP-11483</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The format of the xml source for documentation is
+	    corrected in order to conform to the DTDs and to pass
+	    xmllint without errors.</p>
+          <p>
+	    Own Id: OTP-11193</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+        <item>
+          <p>
+	    Prevent odbcserver crash if it's executed and supplied
+	    incorrect data to stdin. Thanks to Sergei Golovan.</p>
+          <p>
+	    Own Id: OTP-11233</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix a 64bit related bug in odbcserver. Thanks to Satoshi
+	    Kinoshita.</p>
+          <p>
+	    Own Id: OTP-10993</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    Fix checking for odbc in standard locations when
+	    "with-odbc" flag present. Thanks to Alexey Saltanov.</p>
+          <p>
+	    Own Id: OTP-11126</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed calling odbc:param_query/3 and odbc:param_query/4
+	    with unparameterized query string and empty parameters
+	    list. Thanks to Danil Onishchenko.</p>
+          <p>
+	    Own Id: OTP-10798</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Under Unix enable TCP_NODELAY to disable Nagel's socket
+	    algorithm. Thanks to Andy Richards</p>
+          <p>
+	    Impact: Performance gain on Unix systems</p>
+          <p>
+	    Own Id: OTP-10506</p>
+        </item>
+        <item>
+          <p>
+	    Added extended_errors option to ODBC</p>
+          <p>
+	    When enabled, this option alters the return code of ODBC
+	    operations that produce errors to include the ODBC error
+	    code as well as the native error code, in addition to the
+	    ODBC reason field which is returned by default. Thanks to
+	    Bernard Duggan.</p>
+          <p>
+	    Own Id: OTP-10603</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fix aotocommit for Oracle ODBC driver in Linux. Thanks to
+	    Danil Onishchenko.</p>
+          <p>
+	    Own Id: OTP-10735</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add support for NULL value in odbc:param_query</p>
+          <p>
+	    Support atom 'null' in odbc:param_query as database NULL
+	    value Fix "ODBC: received unexpected info:{tcp_closed,
+	    ...}" when connection is terminated. Fix possible access
+	    violation with 64bit ODBC. Thanks to Maxim Zrazhevskiy</p>
+          <p>
+	    Own Id: OTP-10206</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ODBC process should exit normally if its client exits
+	    with 'shutdown'</p>
+          <p>
+	    There is nothing strange about the client shutting down,
+	    so the ODBC process should exit normally to avoid
+	    generating a crash report for a non-problem. (Thanks to
+	    Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9716</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When using output parameters the internal odbc state was
+	    not correctly cleaned causing the next call to
+	    param_query to misbehave.</p>
+          <p>
+	    Own Id: OTP-9444</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add code to handle old ODBC drivers on solaris. Also adds
+	    tests with MySQL.</p>
+          <p>
+	    Own Id: OTP-8407</p>
+        </item>
+        <item>
+          <p>
+	    Odbc now supports SQL_WLONGVARCHAR, thanks to Hanfei Shen
+	    for the patch.</p>
+          <p>
+	    Own Id: OTP-8493</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Better error messages for connection issues.</p>
+          <p>
+	    Own Id: OTP-9111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Ipv6 is now supported on Windows as well as on UNIX for
+	    internal socket communication. (ODBC uses sockets instead
+	    of the "Erlang port pipes" as some ODBC-drivers are known
+	    to mess with stdin/stdout.) </p>
+          <p>
+	    Loopback address constants are used when connecting the
+	    c-side to the erlang-side over local socket API avoiding
+	    getaddrinfo problems, and the {ip, loopback} option is
+	    added as a listen option on the erlang-side. Also cleaned
+	    up the TIME_STAMP contribution.</p>
+          <p>
+	    Own Id: OTP-8917</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            ODBC now handles the types SQL_WCHAR and SQL_WVARCHAR.
+            Thanks to Juhani Ränkimies. ODBC also has a new
+            connection option to return all strings as binaries and
+            also expect strings to be binaries in the param_query
+            function. These changes provides some unicode support.</p>
+          <p>
+            Own Id: OTP-7452</p>
+        </item>
+        <item>
+          <p>
+            Now supports SQL_TYPE_TIMESTAMP on the format {{YY, MM,
+            DD}, {HH, MM, SS}}. Thanks to Juhani Ränkimies.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8511</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+  <section><title>ODBC 2.10.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+      <item>
+	<p>
+	  The odbc application can now be compiled on FreeBSD.
+	(Thanks to Kenji Rikitake.)</p>
+	<p>
+	Own Id: OTP-8444</p>
+      </item>
+    </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Cross compilation improvements and other build system
+	    improvements.</p>
+	    <p>Most notable:</p> <list><item> Lots of cross
+	    compilation improvements. The old cross compilation
+	    support was more or less non-existing as well as broken.
+	    Please, note that the cross compilation support should
+	    still be considered as experimental. Also note that old
+	    cross compilation configurations cannot be used without
+	    modifications. For more information on cross compiling
+	    Erlang/OTP see the <c>$ERL_TOP/INSTALL-CROSS.md</c> file.
+	    </item><item> Support for staged install using <url
+	    href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</url>.
+	    The old broken <c>INSTALL_PREFIX</c> has also been fixed.
+	    For more information see the <c>$ERL_TOP/INSTALL.md</c>
+	    file. </item><item> Documentation of the <c>release</c>
+	    target of the top <c>Makefile</c>. For more information
+	    see the <c>$ERL_TOP/INSTALL.md</c> file. </item><item>
+	    <c>make install</c> now by default creates relative
+	    symbolic links instead of absolute ones. For more
+	    information see the <c>$ERL_TOP/INSTALL.md</c> file.
+	    </item><item> <c>$ERL_TOP/configure --help=recursive</c>
+	    now works and prints help for all applications with
+	    <c>configure</c> scripts. </item><item> Doing <c>make
+	    install</c>, or <c>make release</c> directly after
+	    <c>make all</c> no longer triggers miscellaneous
+	    rebuilds. </item><item> Existing bootstrap system is now
+	    used when doing <c>make install</c>, or <c>make
+	    release</c> without a preceding <c>make all</c>.
+	    </item><item> The <c>crypto</c> and <c>ssl</c>
+	    applications use the same runtime library path when
+	    dynamically linking against <c>libssl.so</c> and
+	    <c>libcrypto.so</c>. The runtime library search path has
+	    also been extended. </item><item> The <c>configure</c>
+	    scripts of <c>erl_interface</c> and <c>odbc</c> now
+	    search for thread libraries and thread library quirks the
+	    same way as ERTS do. </item><item> The
+	    <c>configure</c> script of the <c>odbc</c> application
+	    now also looks for odbc libraries in <c>lib64</c> and
+	    <c>lib/64</c> directories when building on a 64-bit
+	    system. </item><item> The <c>config.h.in</c> file in the
+	    <c>erl_interface</c> application is now automatically
+	    generated in instead of statically updated which reduces
+	    the risk of <c>configure</c> tests without any effect.
+	    </item></list>
+	    <p>(Thanks to Henrik Riomar for suggestions and
+	    testing)</p>
+	    <p>(Thanks to Winston Smith for the AVR32-Linux cross
+	    configuration and testing)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8323</p>
+        </item>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+        <item>
+          <p>
+	    odbc:param_query() now properly indicates if nothing was
+	    updated. (Thanks to Paul Oliver.)</p>
+          <p>
+	    Own Id: OTP-8347</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The ODBC test cases are failing for linux and MacOSX
+	    There is problems with setting of options on
+	    odbc-connections, and the odbcserver just exits with an
+	    exit code.</p>
+          <p>
+	    Own Id: OTP-8407</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Applied a patch from Andrew Thompson, which fixes some
+            error cases.</p>
+          <p>
+            Own Id: OTP-8291</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>ODBC 2.10.5</title>
+
+  <section><title>Fixed Bugs and Malfunctions</title>
+  <list>
+    <item>
+      <p>
+      A missing return statement in a non void function has been fixed in <c>odbc</c>. (Thanks to Nico Kruber)
+      </p>
+      <p>
+      Own Id: OTP-7978</p>
+    </item>
+  </list>
+  </section>
+
+  </section>
+
+
+  <section><title>ODBC 2.10.4</title>
+
+  <section><title>Improvements and New Features</title>
+  <list>
+    <item>
+      <p>
+	param_query now handles the in_or_out parameter
+      correctly.</p>
+      <p>
+      Own Id: OTP-7720</p>
+    </item>
+    <item>
+      <p>
+	Changed the internal socket use so that it will become
+      more robust to non-functional ipv6 and fallback on ipv4.</p>
+      <p>
+      Own Id: OTP-7721</p>
+    </item>
+  </list>
+  </section>
+
+  </section>
+
+ <section><title>ODBC 2.10.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Configure update for mac.</p>
+          <p>
+            Own Id: OTP-7418</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            describe_table/[2,3] on mac gives an empty result</p>
+          <p>
+            Own Id: OTP-7478</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>ODBC 2.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            SQLINTEGERs where not retrieved correctly on 64 bit
+            platforms as an SQLINTEGER is defined to be a 32 bit
+            integer and not a true long.</p>
+          <p>
+            Own Id: OTP-7297</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>ODBC 2.10.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Now supports out and input parameters for stored
+            procedures.</p>
+          <p>
+            Own Id: OTP-7019</p>
+        </item>
+        <item>
+          <p>
+            ODBC is now prebuilt for SLES10 in the commercial build
+            and parameters to error_logger:error_report/1 has been
+            corrected.</p>
+          <p>
+            Own Id: OTP-7294</p>
+        </item>
+        <item>
+          <p>
+            Parametrized queries will now work correctly when using
+            Erlang R12B-2 on Linux (SuSE 10.3), MySQL 5.0.45, myodbc
+            3.51 and unixODBC 2.2.12. Earlier it could happen that an
+            error was returned even though data was correctly
+            inserted into the database.</p>
+          <p>
+            Own Id: OTP-7307</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            SQLINTEGERs are not retrieved correctly on 64 bit
+            platforms as an SQLINTEGER seems to be defined to be a 32
+            bit integer and not a true long.</p>
+          <p>
+            Own Id: OTP-7297</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+  <section><title>ODBC 2.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Enhanced configure to among other things work better when
+            there is a library found but it is not usable e.i. 32 bit
+            library in 64 bit build.</p>
+          <p>
+            Own Id: OTP-7062</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>ODBC 2.0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The odbc application now has to be explicitly started and
+            stopped e.i. it will not automatically be started as a
+            temporary application as it did before. Although a
+            practical feature when testing things in the shell, it is
+            not desirable that people take advantage of this and not
+            start the odbc application in a correct way in their
+            products. Added functions to the odbc API that calls
+            application:start/stop.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-6984</p>
+        </item>
+        <item>
+          <p>
+            Changed Makefile.in so that odbc is not disabled on
+            64-bits architectures. It was earlier disabled due to
+            that it had never been tested in that environment.</p>
+          <p>
+            Own Id: OTP-6987</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section>
+    <title>ODBC 2.0.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ODBC 2.0.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When using a parameterized query on a windows platform
+            the data was inserted in the table on the sql-server but
+            the connection was lost, this seems to be due to a
+            compiler error that has now been worked around, but
+            further investigation is ongoing to verify that that
+            really was the problem.</p>
+          <p>Own Id: OTP-5504</p>
+        </item>
+        <item>
+          <p>param_query/[3,4] could return an unexpected row count
+            for some drivers, in this case a postgresdriver.</p>
+          <p>Own Id: OTP-6363</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ODBC 2.0.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>pthread header and library mismatch on linux systems (at
+            least some SuSE and Debian) with both NPTL and
+            Linuxthreads libraries installed.</p>
+          <p>Own Id: OTP-5981</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Changed configure to find odbc in /usr/local too</p>
+          <p>Own Id: OTP-5966</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>When using a parameterized query on a windows platform
+            the data is inserted in the table on the sql-server but
+            for some reason the connection is lost.</p>
+          <p>Own Id: OTP-5504</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ODBC 2.0.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed bug, reported error when deleting nonexisting rows,
+            thanks to Laura M. Castro for reporting this.</p>
+          <p>Own Id: OTP-5759</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>When using a parameterized query on a windows platform
+            the data is inserted in the table on the sql-server but
+            for some reason the connection is lost.</p>
+          <p>Own Id: OTP-5504</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Odbc 2.0.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>/usr was added as a default place for configure to look
+            for the odbc library on unix/linux platforms.</p>
+          <p>Own Id: OTP-5501</p>
+        </item>
+        <item>
+          <p>A legacy timer in the c port program was set to infinity.
+            All timeout handling is handled by the erlang code and a
+            extra timeout in the c code will just lead to confusion
+            if it is released.</p>
+          <p>Own Id: OTP-5502</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>When using a parameterized query on a windows platform
+            the data is inserted in the table on the sql-server but
+            for some reason the connection is lost.</p>
+          <p>Own Id: OTP-5504</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Odbc 2.0.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>odbc now uses configure as all "normal" applications
+            instead of providing special Makefiles for each
+            commercial supported platform. This also makes it easier
+            to build odbc on non supported platforms.</p>
+          <p>Own Id: OTP-5437</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 2.0.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When issuing a batch of queries and one of the queries
+            fail the odbc port program crashed. This is no longer the
+            case.</p>
+          <p>Own Id: OTP-5176</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 2.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added use of the socket option TCP_NODELAY, as in the
+            case of Erlang odbc the Nagel algorithm will never help,
+            but always cause an unnecessary delay.</p>
+          <p>Own Id: OTP-5100</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 2.0</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Erlang ODBC now handles batches of queries and can return
+            multiple result sets.</p>
+          <p>Own Id: OTP-4642 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>The old interface that became deprecated in odbc 1.0 has
+            now been removed.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4794</p>
+        </item>
+        <item>
+          <p>The port program now sends different exit codes to Erlang
+            when it exits due to failure. This instead of sending the
+            same exit code and then trying to write to stderr. Erlang
+            encodes the exit code to a descriptive atom.</p>
+          <p>Own Id: OTP-4813</p>
+        </item>
+        <item>
+          <p>Erlang ODBC now supports parameterized queries for the
+            most common ODBC data types.</p>
+          <p>Own Id: OTP-4821</p>
+        </item>
+        <item>
+          <p>SQL_NUMERIC and SQL_DECIMAL columns are converted to
+            integer and float values if possible.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4826</p>
+        </item>
+        <item>
+          <p>Result sets are now by default returned as a list of
+            tuples which is the most intuitive and useful mapping. To
+            keep some degree of backwards compatibility you may turn
+            this off to get the old behavior that result sets are
+            returned as lists of lists. However do not use this in
+            new code as it is considered a deprecated feature that
+            eventually will disappear.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4850</p>
+        </item>
+        <item>
+          <p>The odbc implementation now mostly uses sockets to
+            communicate between the c and the erlang process, this is
+            to avoid a lot of problems arising from different
+            odbc-drivers doing strange things that disturbed the
+            port-program communication mechanism.</p>
+          <p>Own Id: OTP-4875</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>

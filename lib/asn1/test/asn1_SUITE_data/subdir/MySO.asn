@@ -1,0 +1,14 @@
+MySO DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+  T
+  FROM IMP;
+
+
+Seq2 ::= SEQUENCE {
+  a T,
+  b INTEGER}
+
+END

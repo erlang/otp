@@ -1,0 +1,19 @@
+OpenTypeImplicitTag DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+Seq ::= SEQUENCE {
+  a [1] A OPTIONAL,
+  b [2] ANY OPTIONAL,
+  c [3] INTEGER,
+  d [4] C.&Type OPTIONAL
+}
+
+C ::= CLASS {
+  &Type,
+  &id  INTEGER
+}
+
+A ::= ANY
+
+END

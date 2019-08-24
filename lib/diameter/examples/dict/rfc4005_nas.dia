@@ -1,0 +1,741 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4005, Diameter Network Access Server Application
+;;
+;; Edits:
+;;
+;; - Acounting-Auth-Method      -> Accounting-Auth-Method
+;; - Connection-Info            -> ConnectInfo
+;; - Framed-Appletalk-Link      -> Framed-AppleTalk-Link
+;; - Framed-Appletalk-Network   -> Framed-AppleTalk-Network
+;; - Framed-Appletalk-Zone      -> Framed-AppleTalk-Zone
+;; - Qos-Filter-Rule            -> QoS-Filter-Rule
+;; - Redirect-Host-Usase        -> Redirect-Host-Usage
+;; - Redirected-Host            -> Redirect-Host
+;; - Redirected-Host-Usage      -> Redirect-Host-Usage
+;; - Redirected-Host-Cache-Time -> Redirect-Max-Cache-Time
+;; - Redirected-Max-Cache-Time  -> Redirect-Max-Cache-Time
+;;
+
+@id 1
+
+@inherits common
+
+;; ===========================================================================
+
+@avp_types
+
+   ;; 4.  NAS Session AVPs
+
+   NAS-Port                           5    Unsigned32    M
+   NAS-Port-Id                       87    UTF8String    M
+   NAS-Port-Type                     61    Enumerated    M
+   Called-Station-Id                 30    UTF8String    M
+   Calling-Station-Id                31    UTF8String    M
+   Connect-Info                      77    UTF8String    M
+   Originating-Line-Info             94   OctetString    -
+   Reply-Message                     18    UTF8String    M
+
+   ;; 5.  NAS Authentication AVPs
+
+   User-Password                      2   OctetString    M
+   Password-Retry                    75    Unsigned32    M
+   Prompt                            76    Enumerated    M
+   CHAP-Auth                        402       Grouped    M
+   CHAP-Algorithm                   403    Enumerated    M
+   CHAP-Ident                       404   OctetString    M
+   CHAP-Response                    405   OctetString    M
+   CHAP-Challenge                    60   OctetString    M
+   ARAP-Password                     70   OctetString    M
+   ARAP-Challenge-Response           84   OctetString    M
+   ARAP-Security                     73    Unsigned32    M
+   ARAP-Security-Data                74   OctetString    M
+
+   ;; 6.  NAS Authorization AVPs
+
+   Service-Type                       6    Enumerated    M
+   Callback-Number                   19    UTF8String    M
+   Callback-Id                       20    UTF8String    M
+   Idle-Timeout                      28    Unsigned32    M
+   Port-Limit                        62    Unsigned32    M
+   NAS-Filter-Rule                  400  IPFilterRule    M
+   Filter-Id                         11    UTF8String    M
+   Configuration-Token               78   OctetString    M
+   QoS-Filter-Rule                  407 QoSFilterRule    -
+   Framed-Protocol                    7    Enumerated    M
+   Framed-Routing                    10    Enumerated    M
+   Framed-MTU                        12    Unsigned32    M
+   Framed-Compression                13    Enumerated    M
+   Framed-IP-Address                  8   OctetString    M
+   Framed-IP-Netmask                  9   OctetString    M
+   Framed-Route                      22    UTF8String    M
+   Framed-Pool                       88   OctetString    M
+   Framed-Interface-Id               96    Unsigned64    M
+   Framed-IPv6-Prefix                97   OctetString    M
+   Framed-IPv6-Route                 99    UTF8String    M
+   Framed-IPv6-Pool                 100   OctetString    M
+   Framed-IPX-Network                23    UTF8String    M
+   Framed-AppleTalk-Link             37    Unsigned32    M
+   Framed-AppleTalk-Network          38    Unsigned32    M
+   Framed-AppleTalk-Zone             39   OctetString    M
+   ARAP-Features                     71   OctetString    M
+   ARAP-Zone-Access                  72    Enumerated    M
+   Login-IP-Host                     14   OctetString    M
+   Login-IPv6-Host                   98   OctetString    M
+   Login-Service                     15    Enumerated    M
+   Login-TCP-Port                    16    Unsigned32    M
+   Login-LAT-Service                 34   OctetString    M
+   Login-LAT-Node                    35   OctetString    M
+   Login-LAT-Group                   36   OctetString    M
+   Login-LAT-Port                    63   OctetString    M
+
+   ;; 7.  NAS Tunneling
+
+   Tunneling                        401       Grouped    M
+   Tunnel-Type                       64    Enumerated    M
+   Tunnel-Medium-Type                65    Enumerated    M
+   Tunnel-Client-Endpoint            66    UTF8String    M
+   Tunnel-Server-Endpoint            67    UTF8String    M
+   Tunnel-Password                   69   OctetString    M
+   Tunnel-Private-Group-Id           81   OctetString    M
+   Tunnel-Assignment-Id              82   OctetString    M
+   Tunnel-Preference                 83    Unsigned32    M
+   Tunnel-Client-Auth-Id             90    UTF8String    M
+   Tunnel-Server-Auth-Id             91    UTF8String    M
+
+   ;; 8.  NAS Accounting
+
+   Accounting-Input-Octets          363    Unsigned64    M
+   Accounting-Output-Octets         364    Unsigned64    M
+   Accounting-Input-Packets         365    Unsigned64    M
+   Accounting-Output-Packets        366    Unsigned64    M
+   Acct-Session-Time                 46    Unsigned32    M
+   Acct-Authentic                    45    Enumerated    M
+   Accounting-Auth-Method           406    Enumerated    M
+   Acct-Delay-Time                   41    Unsigned32    M
+   Acct-Link-Count                   51    Unsigned32    M
+   Acct-Tunnel-Connection            68   OctetString    M
+   Acct-Tunnel-Packets-Lost          86    Unsigned32    M
+
+   ;; 9.3.  AVPs Used Only for Compatibility
+
+   NAS-Identifier                    32    UTF8String    M
+   NAS-IP-Address                     4   OctetString    M
+   NAS-IPv6-Address                  95   OctetString    M
+   State                             24   OctetString    M
+ ;;Termination-Cause                295    Enumerated    M
+   Origin-AAA-Protocol              408    Enumerated    M
+
+;; ===========================================================================
+
+@messages
+
+   AAR ::= < Diameter Header: 265, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Auth-Request-Type }
+           [ Destination-Host ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ Port-Limit ]
+           [ User-Name ]
+           [ User-Password ]
+           [ Service-Type ]
+           [ State ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Auth-Session-State ]
+           [ Callback-Number ]
+           [ Called-Station-Id ]
+           [ Calling-Station-Id ]
+           [ Originating-Line-Info ]
+           [ Connect-Info ]
+           [ CHAP-Auth ]
+           [ CHAP-Challenge ]
+         * [ Framed-Compression ]
+           [ Framed-Interface-Id ]
+           [ Framed-IP-Address ]
+         * [ Framed-IPv6-Prefix ]
+           [ Framed-IP-Netmask ]
+           [ Framed-MTU ]
+           [ Framed-Protocol ]
+           [ ARAP-Password ]
+           [ ARAP-Security ]
+         * [ ARAP-Security-Data ]
+         * [ Login-IP-Host ]
+         * [ Login-IPv6-Host ]
+           [ Login-LAT-Group ]
+           [ Login-LAT-Node ]
+           [ Login-LAT-Port ]
+           [ Login-LAT-Service ]
+         * [ Tunneling ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   AAA ::= < Diameter Header: 265, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Request-Type }
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ User-Name ]
+           [ Service-Type ]
+         * [ Class ]
+         * [ Configuration-Token ]
+           [ Acct-Interim-Interval ]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+         * [ Failed-AVP ]
+           [ Idle-Timeout ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Auth-Session-State ]
+           [ Re-Auth-Request-Type ]
+           [ Multi-Round-Time-Out ]
+           [ Session-Timeout ]
+           [ State ]
+         * [ Reply-Message ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+         * [ Filter-Id ]
+           [ Password-Retry ]
+           [ Port-Limit ]
+           [ Prompt ]
+           [ ARAP-Challenge-Response ]
+           [ ARAP-Features ]
+           [ ARAP-Security ]
+         * [ ARAP-Security-Data ]
+           [ ARAP-Zone-Access ]
+           [ Callback-Id ]
+           [ Callback-Number ]
+           [ Framed-AppleTalk-Link ]
+         * [ Framed-AppleTalk-Network ]
+           [ Framed-AppleTalk-Zone ]
+         * [ Framed-Compression ]
+           [ Framed-Interface-Id ]
+           [ Framed-IP-Address ]
+         * [ Framed-IPv6-Prefix ]
+           [ Framed-IPv6-Pool ]
+         * [ Framed-IPv6-Route ]
+           [ Framed-IP-Netmask ]
+         * [ Framed-Route ]
+           [ Framed-Pool ]
+           [ Framed-IPX-Network ]
+           [ Framed-MTU ]
+           [ Framed-Protocol ]
+           [ Framed-Routing ]
+         * [ Login-IP-Host ]
+         * [ Login-IPv6-Host ]
+           [ Login-LAT-Group ]
+           [ Login-LAT-Node ]
+           [ Login-LAT-Port ]
+           [ Login-LAT-Service ]
+           [ Login-Service ]
+           [ Login-TCP-Port ]
+         * [ NAS-Filter-Rule ]
+         * [ QoS-Filter-Rule ]
+         * [ Tunneling ]
+         * [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+   RAR ::= < Diameter Header: 258, REQ, PXY >
+
+           < Session-Id >
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Destination-Host }
+           { Auth-Application-Id }
+           { Re-Auth-Request-Type }
+           [ User-Name ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+           [ Service-Type ]
+           [ Framed-IP-Address ]
+           [ Framed-IPv6-Prefix ]
+           [ Framed-Interface-Id ]
+           [ Called-Station-Id ]
+           [ Calling-Station-Id ]
+           [ Originating-Line-Info ]
+           [ Acct-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ State ]
+         * [ Class ]
+           [ Reply-Message ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   RAA ::= < Diameter Header: 258, PXY >
+
+           < Session-Id >
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ User-Name ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+         * [ Failed-AVP ]
+         * [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+           [ Service-Type ]
+         * [ Configuration-Token ]
+           [ Idle-Timeout ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Re-Auth-Request-Type ]
+           [ State ]
+         * [ Class ]
+         * [ Reply-Message ]
+           [ Prompt ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+   STR ::= < Diameter Header: 275, REQ, PXY >
+
+           < Session-Id >
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Auth-Application-Id }
+           { Termination-Cause }
+           [ User-Name ]
+           [ Destination-Host ]
+         * [ Class ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   STA ::= < Diameter Header: 275, PXY >
+
+           < Session-Id >
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ User-Name ]
+         * [ Class ]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+         * [ Failed-AVP ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+         * [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+   ASR ::= < Diameter Header: 274, REQ, PXY >
+
+           < Session-Id >
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Destination-Host }
+           { Auth-Application-Id }
+           [ User-Name ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+           [ Service-Type ]
+           [ Framed-IP-Address ]
+           [ Framed-IPv6-Prefix ]
+           [ Framed-Interface-Id ]
+           [ Called-Station-Id ]
+           [ Calling-Station-Id ]
+           [ Originating-Line-Info ]
+           [ Acct-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ State ]
+         * [ Class ]
+         * [ Reply-Message ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ASA ::= < Diameter Header: 274, PXY >
+
+           < Session-Id >
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ User-Name ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ State]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+         * [ Failed-AVP ]
+         * [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+   ACR ::= < Diameter Header: 271, REQ, PXY >
+
+           < Session-Id >
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Accounting-Record-Type }
+           { Accounting-Record-Number }
+           [ Acct-Application-Id ]
+           [ Vendor-Specific-Application-Id ]
+           [ User-Name ]
+           [ Accounting-Sub-Session-Id ]
+           [ Acct-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ Destination-Host ]
+           [ Event-Timestamp ]
+           [ Acct-Delay-Time ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+         * [ Class ]
+           [ Service-Type ]
+           [ Termination-Cause ]
+           [ Accounting-Input-Octets ]
+           [ Accounting-Input-Packets ]
+           [ Accounting-Output-Octets ]
+           [ Accounting-Output-Packets ]
+           [ Acct-Authentic ]
+           [ Accounting-Auth-Method ]
+           [ Acct-Link-Count ]
+           [ Acct-Session-Time ]
+           [ Acct-Tunnel-Connection ]
+           [ Acct-Tunnel-Packets-Lost ]
+           [ Callback-Id ]
+           [ Callback-Number ]
+           [ Called-Station-Id ]
+           [ Calling-Station-Id ]
+         * [ Connect-Info ]
+           [ Originating-Line-Info ]
+           [ Authorization-Lifetime ]
+           [ Session-Timeout ]
+           [ Idle-Timeout ]
+           [ Port-Limit ]
+           [ Accounting-Realtime-Required ]
+           [ Acct-Interim-Interval ]
+         * [ Filter-Id ]
+         * [ NAS-Filter-Rule ]
+         * [ QoS-Filter-Rule ]
+           [ Framed-AppleTalk-Link ]
+           [ Framed-AppleTalk-Network ]
+           [ Framed-AppleTalk-Zone ]
+           [ Framed-Compression ]
+           [ Framed-Interface-Id ]
+           [ Framed-IP-Address ]
+           [ Framed-IP-Netmask ]
+         * [ Framed-IPv6-Prefix ]
+           [ Framed-IPv6-Pool ]
+         * [ Framed-IPv6-Route ]
+           [ Framed-IPX-Network ]
+           [ Framed-MTU ]
+           [ Framed-Pool ]
+           [ Framed-Protocol ]
+         * [ Framed-Route ]
+           [ Framed-Routing ]
+         * [ Login-IP-Host ]
+         * [ Login-IPv6-Host ]
+           [ Login-LAT-Group ]
+           [ Login-LAT-Node ]
+           [ Login-LAT-Port ]
+           [ Login-LAT-Service ]
+           [ Login-Service ]
+           [ Login-TCP-Port ]
+         * [ Tunneling ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ACA ::= < Diameter Header: 271, PXY >
+
+           < Session-Id >
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           { Accounting-Record-Type }
+           { Accounting-Record-Number }
+           [ Acct-Application-Id ]
+           [ Vendor-Specific-Application-Id ]
+           [ User-Name ]
+           [ Accounting-Sub-Session-Id ]
+           [ Acct-Session-Id ]
+           [ Acct-Multi-Session-Id ]
+           [ Event-Timestamp ]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+         * [ Failed-AVP ]
+           [ Origin-AAA-Protocol ]
+           [ Origin-State-Id ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+           [ Service-Type ]
+           [ Termination-Cause ]
+           [ Accounting-Realtime-Required ]
+           [ Acct-Interim-Interval ]
+         * [ Class ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+;; ===========================================================================
+
+@grouped
+
+   CHAP-Auth ::= < AVP Header: 402 >
+
+           { CHAP-Algorithm }
+           { CHAP-Ident }
+           [ CHAP-Response ]
+         * [ AVP ]
+
+   Tunneling ::= < AVP Header: 401 >
+
+           { Tunnel-Type }
+           { Tunnel-Medium-Type }
+           { Tunnel-Client-Endpoint }
+           { Tunnel-Server-Endpoint }
+           [ Tunnel-Preference ]
+           [ Tunnel-Client-Auth-Id ]
+           [ Tunnel-Server-Auth-Id ]
+           [ Tunnel-Assignment-Id ]
+           [ Tunnel-Password ]
+           [ Tunnel-Private-Group-Id ]
+
+;; ===========================================================================
+
+@enum NAS-Port-Type
+
+   ASYNC                          0
+   SYNC                           1
+   ISDN_SYNC                      2
+   ISDN_ASYNC_V120                3
+   ISDN_ASYNC_V110                4
+   VIRTUAL                        5
+   PIAFS                          6
+   HDLC_CLEAR_CHANNEL             7
+   X25                            8
+   X75                            9
+   G3FAX                         10
+   SDSL                          11
+   ADSL-CAP                      12
+   ADSL-DMT                      13
+   IDSL                          14
+   ETHERNET                      15
+   XDSL                          16
+   CABLE                         17
+   WIRELESS_OTHER                18
+  'WIRELESS_802.11'              19
+   TOKEN-RING                    20
+   FDDI                          21
+   WIRELESS_CDMA2000             22
+   WIRELESS_UMTS                 23
+   WIRELESS_1X-EV                24
+   IAPP                          25
+
+@enum Prompt
+
+   NO_ECHO                        0
+   ECHO                           1
+
+@enum CHAP-Algorithm
+
+   WITH_MD5                       5
+
+@enum Service-Type
+
+   LOGIN                          1
+   FRAMED                         2
+   CALLBACK_LOGIN                 3
+   CALLBACK_FRAMED                4
+   OUTBOUND                       5
+   ADMINISTRATIVE                 6
+   NAS_PROMPT                     7
+   AUTHENTICATE_ONLY              8
+   CALLBACK_NAS_PROMPT            9
+   CALL_CHECK                    10
+   CALLBACK_ADMINISTRATIVE       11
+   VOICE                         12
+   FAX                           13
+   MODEM_RELAY                   14
+   IAPP-REGISTER                 15
+   IAPP-AP-CHECK                 16
+   AUTHORIZE_ONLY                17
+
+@enum Framed-Protocol
+
+   PPP                            1
+   SLIP                           2
+   ARAP                           3
+   GANDALF                        4
+   XYLOGICS                       5
+   X75                            6
+
+@enum Framed-Routing
+
+   NONE                           0
+   SEND                           1
+   LISTEN                         2
+   SEND_AND_LISTEN                3
+
+@enum Framed-Compression
+
+   NONE                           0
+   VJ                             1
+   IPX                            2
+   STAC-LZS                       3
+
+@enum ARAP-Zone-Access
+
+   DEFAULT                        1
+   FILTER_INCLUSIVELY             2
+   FILTER_EXCLUSIVELY             4
+
+@enum Login-Service
+
+   TELNET                         0
+   RLOGIN                         1
+   TCP_CLEAR                      2
+   PORTMASTER                     3
+   LAT                            4
+   X25-PAD                        5
+   X25-T3POS                      6
+   TCP_CLEAR_QUIET                8
+
+@enum Tunnel-Type
+
+   PPTP                           1
+   L2F                            2
+   L2TP                           3
+   ATMP                           4
+   VTP                            5
+   AH                             6
+   IP-IP                          7
+   MIN-IP-IP                      8
+   ESP                            9
+   GRE                           10
+   DVS                           11
+   IP-IN-IP                      12
+   VLAN                          13
+
+@enum Tunnel-Medium-Type
+
+   IPV4                           1
+   IPV6                           2
+   NSAP                           3
+   HDLC                           4
+   BBN_1822                       5
+  '802'                           6
+   E163                           7
+   E164                           8
+   F69                            9
+   X121                          10
+   IPX                           11
+   APPLETALK                     12
+   DECNET_IV                     13
+   BANYAN_VINES                  14
+   E164_NSAP                     15
+
+
+@enum Acct-Authentic
+
+   RADIUS                         1
+   LOCAL                          2
+   REMOTE                         3
+   DIAMETER                       4
+
+@enum Accounting-Auth-Method
+
+   PAP                            1
+   CHAP                           2
+   MS-CHAP-1                      3
+   MS-CHAP-2                      4
+   EAP                            5
+   NONE                           7
+
+@enum Termination-Cause
+
+   USER_REQUEST                  11
+   LOST_CARRIER                  12
+   LOST_SERVICE                  13
+   IDLE_TIMEOUT                  14
+   SESSION_TIMEOUT               15
+   ADMIN_RESET                   16
+   ADMIN_REBOOT                  17
+   PORT_ERROR                    18
+   NAS_ERROR                     19
+   NAS_REQUEST                   20
+   NAS_REBOOT                    21
+   PORT_UNNEEDED                 22
+   PORT_PREEMPTED                23
+   PORT_SUSPENDED                24
+   SERVICE_UNAVAILABLE           25
+   CALLBACK                      26
+   USER_ERROR                    27
+   HOST_REQUEST                  28
+   SUPPLICANT_RESTART            29
+   REAUTHORIZATION_FAILURE       30
+   PORT_REINIT                   31
+   PORT_DISABLED                 32

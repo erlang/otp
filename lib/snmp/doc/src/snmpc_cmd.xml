@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2011</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>snmpc</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpc_cmd.xml</file>
+  </header>
+  <com>snmpc(command)</com>
+  <comsummary>SNMP MIB compiler frontend</comsummary>
+  <description>
+    <p>The <c><![CDATA[snmpc]]></c> program provides a way to run
+    the SNMP MIB compiler of the Erlang system. </p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>snmpc [options] file.mib | file.bin</name>
+      <fsummary>Compile MIBs</fsummary>
+      <desc>
+        <p><c><![CDATA[snmpc]]></c> compile a SNMP MIB file, 
+	see <seealso marker="snmpc#compile">compile/1,2</seealso> for 
+	more info. </p>
+	<p>It can also be used to generate a header file (.hrl) 
+	with definitions of Erlang constants for the objects in 
+	the MIB, see 
+	<seealso marker="snmpc#mib_to_hrl">mib_to_hrl/1</seealso>. </p>
+
+	<marker id="options"></marker>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Compiler options</title>
+    <p>The following options are supported (note that most of these relate 
+    to the compilation of the MIB file):</p>
+    <marker id="option_help"></marker>
+    <taglist>
+      <tag>--help</tag>
+      <item>
+        <p>Prints help info.</p>
+	<marker id="option_version"></marker>
+      </item>
+
+      <tag>--version</tag>
+      <item>
+        <p>Prints application and mib format version.</p>
+	<marker id="option_verbosity"></marker>
+      </item>
+
+      <tag>--verbosity <em>verbosity</em></tag>
+      <item>
+        <p>Print debug info. </p>
+	<p><c>verbosity</c> = <c>trace</c> | <c>debug</c> | <c>log</c> | <c>info</c> | <c>silence</c></p>
+	<p>Defaults to <c>silence</c>.</p>
+	<marker id="option_w"></marker>
+	<marker id="option_warnings"></marker>
+      </item>
+
+      <tag>--warnings | --W</tag>
+      <item>
+        <p>Print warning messages. </p>
+	<marker id="option_wae"></marker>
+	<marker id="option_werror"></marker>
+      </item>
+
+      <tag>--wae | --Werror</tag>
+      <item>
+        <p>Warnings as errors. 
+	Indicates that warnings shall be treated as errors. </p>
+	<marker id="option_odir"></marker>
+      </item>
+
+      <tag>--o <em>directory</em></tag>
+      <item>
+        <p>The directory where the compiler should place the output files.
+	If not specified, output files will be placed in the current working
+	directory.</p>
+	<marker id="option_idir"></marker>
+      </item>
+
+      <tag>--i <em>Directory</em></tag>
+      <item>
+        <p>Specifies the path to search for imported (compiled) MIB files. 
+	By default, the current working directory is always included. </p>
+	<p>This option can be present several times, each time specifying
+	<em>one</em> path. </p>
+	<marker id="option_ildir"></marker>
+      </item>
+
+      <tag>--il <em>Directory</em></tag>
+      <item>
+        <p>This option (include_lib), specifies a list of directories to 
+	search for imported MIBs. It assumes that the first element in 
+	the directory name corresponds to an OTP application. The compiler 
+	will find the current installed version. For example, the value 
+	["snmp/mibs/"] will be replaced by ["snmp-3.1.1/mibs/"] (or what 
+	the current version may be in the system). The current directory 
+	and the "snmp-home"/priv/mibs/ are always listed last in the
+        include path. </p>
+	<marker id="option_sgc"></marker>
+      </item>
+
+      <tag>--sgc</tag>
+      <item>
+	<p>This option (skip group check), if present, disables the 
+	group check of the mib compiler. 
+	That is, should the OBJECT-GROUP and the NOTIFICATION-GROUP 
+	macro(s) be checked for correctness or not. </p>
+	<marker id="option_dep"></marker>
+      </item>
+
+      <tag>--dep</tag>
+      <item>
+        <p>Keep deprecated definition(s). 
+	If not specified the compiler will ignore deprecated definitions. </p>
+	<marker id="option_desc"></marker>
+      </item>
+
+      <tag>--desc</tag>
+      <item>
+        <p>The DESCRIPTION field will be included. </p>
+	<marker id="option_ref"></marker>
+      </item>
+
+      <tag>--ref</tag>
+      <item>
+        <p>The REFERENCE field will be included. </p>
+	<marker id="option_imp"></marker>
+      </item>
+
+      <tag>--imp</tag>
+      <item>
+        <p>The IMPORTS field will be included. </p>
+	<marker id="option_mi"></marker>
+      </item>
+
+      <tag>--mi</tag>
+      <item>
+        <p>The MODULE-IDENTITY field will be included. </p>
+	<marker id="option_mc"></marker>
+      </item>
+
+      <tag>--mc</tag>
+      <item>
+        <p>The MODULE-COMPLIANCE field will be included. </p>
+	<marker id="option_ac"></marker>
+      </item>
+
+      <tag>--ac</tag>
+      <item>
+        <p>The AGENT-CAPABILITIES field will be included. </p>
+	<marker id="option_mod"></marker>
+      </item>
+
+      <tag>--mod <em>module</em></tag>
+      <item>
+        <p>The module which implements all the instrumentation functions. </p>
+	<p>The name of all instrumentation functions must be the 
+	same as the corresponding managed object it implements. </p>
+	<marker id="option_nd"></marker>
+      </item>
+
+      <tag>--nd</tag>
+      <item>
+        <p>The default instrumentation functions will <em>not</em> be
+	used if a managed object have no instrumentation function.
+	Instead this will be reported as an error, and the compilation 
+	aborts. </p>
+	<marker id="option_rrnac"></marker>
+      </item>
+
+      <tag>--rrnac</tag>
+      <item>
+        <p>This option, if present, specifies that the row name assign check 
+	shall not be done strictly according to the SMI (which allows only 
+	the value 1). </p>
+	<p>With this option, all values greater than zero is allowed (>= 1). 
+	This means that the error will be converted to a warning. </p>
+	<p>By default it is not included, but if this option is present 
+	it will be. </p>
+	<marker id="see_also"></marker>
+      </item>
+
+    </taglist>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="erts:erlc">erlc(1)</seealso>,
+    <seealso marker="compiler:compile">compile(3)</seealso>,
+    <seealso marker="snmp:snmpc">snmpc(3)</seealso></p>
+  </section>
+</comref>
+

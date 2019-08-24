@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Getting Started</title>
+    <prepared></prepared>
+    <docno></docno>
+    <approved></approved>
+    <date></date>
+    <rev></rev>
+    <file>using_ssh.xml</file>
+  </header>
+
+  <section>
+    <title>General Information</title>
+    <p>The following examples use the utility function
+    <seealso marker="ssh#start-0"> ssh:start/0</seealso> to start
+    all needed applications (<c>crypto</c>, <c>public_key</c>, and <c>ssh</c>).
+    All examples are run in an Erlang shell, or in a bash shell, using <em>openssh</em>
+    to illustrate how the <c>ssh</c> application can be used. The
+    examples are run as the user <c>otptest</c> on a local network where the
+    user is authorized to log in over <c>ssh</c> to the host <em>tarlop</em>.
+    </p>
+    <p>If nothing else is stated, it is presumed that the <c>otptest</c> user
+    has an entry in the <em>authorized_keys</em> file of <em>tarlop</em>
+    (allowed to log in over <c>ssh</c> without entering a password).
+    Also, <em>tarlop</em> is a known host in the <c>known_hosts</c>
+    file of the user <c>otptest</c>. This means that host-verification
+    can be done without user-interaction.
+    </p>
+  </section>
+
+  <section>
+    <title>Using the Erlang ssh Terminal Client</title>
+
+    <p>The user <c>otptest</c>, which has bash as default shell, uses the
+    <c>ssh:shell/1</c> client to connect to the <em>openssh</em> daemon running on a
+    host called <em>tarlop</em>:</p>
+
+    <code type="erl" >
+      1>  ssh:start().
+      ok
+      2> {ok, S} = ssh:shell("tarlop").
+      otptest@tarlop:> pwd
+      /home/otptest
+      otptest@tarlop:> exit
+      logout
+      3>
+    </code>
+  </section>
+
+  <section>
+    <marker id="Running an Erlang ssh Daemon"></marker>
+    <title>Running an Erlang ssh Daemon</title>
+
+    <p>The
+    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>
+    option must be a directory containing a host key file and it defaults to <c>/etc/ssh</c>.
+    For details, see Section Configuration Files in <seealso marker="SSH_app">ssh(6)</seealso>.
+    </p>
+
+    <note><p>Normally, the <c>/etc/ssh</c> directory is only readable by root.</p>
+    </note>
+
+    <p>The option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+    defaults to directory <c>users ~/.ssh</c>.</p>
+
+    <p><em>Step 1.</em> To run the example without root privileges,
+    generate new keys and host keys:</p>
+
+    <code>
+      $bash> ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
+      [...]
+      $bash> ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa
+      [...]
+    </code>
+
+    <p><em>Step 2.</em> Create the file <c>/tmp/otptest_user/.ssh/authorized_keys</c>
+    and add the content of <c>/tmp/otptest_user/.ssh/id_rsa.pub</c>.</p>
+
+    <p><em>Step 3.</em> Start the Erlang <c>ssh</c> daemon:</p>
+
+    <code type="erl">
+      1> ssh:start().
+      ok
+      2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                        {user_dir, "/tmp/otptest_user/.ssh"}]).
+      {ok,&lt;0.54.0>}
+      3>
+    </code>
+
+    <p><em>Step 4.</em> Use the <em>openssh</em> client from a shell to connect
+    to the Erlang <c>ssh</c> daemon:</p>
+
+    <code>
+      $bash> ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
+      The authenticity of host 'tarlop' can't be established.
+      RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
+      Are you sure you want to continue connecting (yes/no)? yes
+      Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
+      Eshell V5.10  (abort with ^G)
+      1>
+    </code>
+
+    <p>There are two ways of shutting down an <c>ssh</c> daemon,
+    see <em>Step 5a</em> and <em>Step 5b</em>.</p>
+
+    <p><em>Step 5a.</em> Shut down the Erlang <c>ssh</c> daemon so that it
+    stops the listener but leaves existing connections, started by the listener,
+    operational:</p>
+
+    <code type="erl">
+      3> ssh:stop_listener(Sshd).
+      ok
+      4>
+    </code>
+
+    <p><em>Step 5b.</em> Shut down the Erlang <c>ssh</c> daemon so that it
+    stops the listener and all connections started by the listener:</p>
+
+    <code type="erl">
+      3> ssh:stop_daemon(Sshd)
+      ok
+      4>
+    </code>
+
+  </section>
+
+  <section>
+    <title>One-Time Execution</title>
+
+    <p>In the following example, the Erlang shell is the client process
+    that receives the channel replies.</p>
+
+    <note><p>The number of received messages in this example depends on which OS
+    and which shell that is used on the machine running the <c>ssh</c> daemon.
+    See also <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>.
+    </p></note>
+
+    <p>Do a one-time execution of a remote command over <c>ssh</c>:</p>
+
+    <code type="erl" >
+      1>  ssh:start().
+      ok
+      2> {ok, ConnectionRef} = ssh:connect("tarlop", 22, []).
+      {ok,&lt;0.57.0>}
+      3>{ok, ChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+      {ok,0}
+      4> success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).
+      5>  flush().
+      Shell got {ssh_cm,&lt;0.57.0>,{data,0,0,&lt;&lt;"/home/otptest\n">>}}
+      Shell got {ssh_cm,&lt;0.57.0>,{eof,0}}
+      Shell got {ssh_cm,&lt;0.57.0>,{exit_status,0,0}}
+      Shell got {ssh_cm,&lt;0.57.0>,{closed,0}}
+      ok
+      6>
+    </code>
+
+    <p>Notice that only the channel is closed. The connection is still up and can
+    handle other channels:</p>
+
+    <code type="erl" >
+      6> {ok, NewChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+        {ok,1}
+	...
+    </code>
+  </section>
+
+  <section>
+    <title>SFTP Server</title>
+
+    <p>Start the Erlang <c>ssh</c> daemon with the SFTP subsystem:</p>
+
+    <code type="erl" >
+      1> ssh:start().
+      ok
+      2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                           {user_dir, "/tmp/otptest_user/.ssh"},
+                           {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])
+                                        ]}]).
+      {ok,&lt;0.54.0>}
+      3>
+    </code>
+
+    <p>Run the OpenSSH SFTP client:</p>
+
+    <code type="erl">
+      $bash> sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
+      Connecting to tarlop...
+      sftp> pwd
+      Remote working directory: /tmp/sftp/example
+      sftp>
+    </code>
+  </section>
+
+  <section>
+    <title>SFTP Client</title>
+
+    <p>Fetch a file with the Erlang SFTP client:</p>
+
+    <code type="erl" >
+      1> ssh:start().
+      ok
+      2> {ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).
+      {ok,&lt;0.57.0>,&lt;0.51.0>}
+      3>  ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").
+      {ok,&lt;&lt;"This is a test file\n">>}
+    </code>
+  </section>
+
+  <section>
+    <title>SFTP Client with TAR Compression</title>
+    <section>
+      <title>Basic example</title>
+    <p>This is an example of writing and then reading a tar file:</p>
+    <code type="erl">
+      {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ...
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:close(HandleWrite),
+
+      %% And for reading
+      {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
+      {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+      ok = erl_tar:close(HandleRead),
+    </code>
+  </section>
+
+  <section>
+    <title>Example with encryption</title>
+    <p>The previous <seealso marker="using_ssh#basic-example">Basic example</seealso>
+    can be extended with encryption and decryption as follows:</p>
+    <code type="erl">
+%% First three parameters depending on which crypto type we select:
+Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
+Ivec0 = crypto:strong_rand_bytes(16),
+DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
+
+%% Initialization of the CryptoState, in this case it is the Ivector.
+InitFun = fun() -> {ok, Ivec0, DataSize} end,
+
+%% How to encrypt:
+EncryptFun =
+    fun(PlainBin,Ivec) ->
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+        {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+%% What to do with the very last block:
+CloseFun =
+    fun(PlainBin, Ivec) ->
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec,
+                                            pad(16,PlainBin) %% Last chunk
+                                           ),
+       {ok, EncryptedBin}
+    end,
+
+Cw = {InitFun,EncryptFun,CloseFun},
+{ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:add(HandleWrite, .... ),
+...
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:close(HandleWrite),
+
+%% And for decryption (in this crypto example we could use the same InitFun
+%% as for encryption):
+DecryptFun =
+    fun(EncryptedBin,Ivec) ->
+        PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
+       {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+Cr = {InitFun,DecryptFun},
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+ok = erl_tar:close(HandleRead),
+    </code>
+  </section>
+  </section>
+
+  <section>
+    <marker id="usersguide_creating_a_subsystem"/>
+    <title>Creating a Subsystem</title>
+
+    <p>A small <c>ssh</c> subsystem that echoes N bytes can be implemented as shown
+    in the following example:</p>
+
+    <code type="erl" >
+-module(ssh_echo_server).
+-behaviour(ssh_server_channel). % replaces ssh_daemon_channel
+-record(state, {
+	  n,
+	  id,
+	  cm
+	 }).
+-export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
+
+init([N]) ->
+    {ok, #state{n = N}}.
+
+handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
+    {ok, State#state{id = ChannelId,
+		     cm = ConnectionManager}}.
+
+handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) ->
+    M = N - size(Data),
+    case M > 0 of
+	true ->
+	   ssh_connection:send(CM, ChannelId, Data),
+	   {ok, State#state{n = M}};
+	false ->
+	   &lt;&lt;SendData:N/binary, _/binary>> = Data,
+           ssh_connection:send(CM, ChannelId, SendData),
+           ssh_connection:send_eof(CM, ChannelId),
+	   {stop, ChannelId, State}
+    end;
+handle_ssh_msg({ssh_cm, _ConnectionManager,
+		{data, _ChannelId, 1, Data}}, State) ->
+    error_logger:format(standard_error, " ~p~n", [binary_to_list(Data)]),
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
+    %% Ignore signals according to RFC 4254 section 6.9.
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},
+	       State) ->
+    {stop, ChannelId,  State};
+
+handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, _Status}}, State) ->
+    {stop, ChannelId, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+ </code>
+
+ <p>The subsystem can be run on the host <em>tarlop</em> with the generated keys,
+ as described in Section <seealso marker="#Running an Erlang ssh Daemon">
+ Running an Erlang ssh Daemon</seealso>:</p>
+
+ <code type="erl" >
+   1> ssh:start().
+   ok
+   2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                        {user_dir, "/tmp/otptest_user/.ssh"}
+                        {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
+   {ok,&lt;0.54.0>}
+   3>
+ </code>
+
+ <code type="erl" >
+   1> ssh:start().
+   ok
+   2>{ok, ConnectionRef} = ssh:connect("tarlop", 8989, [{user_dir, "/tmp/otptest_user/.ssh"}]).
+    {ok,&lt;0.57.0>}
+   3>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
+   4> success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
+   5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
+   6> flush().
+   {ssh_msg, &lt;0.57.0>, {data, 0, 1, "0123456789"}}
+   {ssh_msg, &lt;0.57.0>, {eof, 0}}
+   {ssh_msg, &lt;0.57.0>, {closed, 0}}
+   7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
+ </code>
+<p>See also <seealso marker="ssh_client_channel">ssh_client_channel(3)</seealso> (replaces ssh_channel(3)).</p>
+
+</section>
+
+</chapter>

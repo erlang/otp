@@ -1,0 +1,17 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+-module(factorial).
+-export([main/1]).
+
+-define(PREFIX, ?MODULE_STRING).
+
+main([In]) ->
+    X = list_to_integer(In),
+    N = fac(X),
+    io:format("~s ~w = ~w~n",[?PREFIX, X, N]).
+
+fac(0) -> 1;
+fac(N) ->
+    N * fac(N-1).
+

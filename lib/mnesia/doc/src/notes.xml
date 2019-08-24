@@ -1,0 +1,1468 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Mnesia Release Notes</title>
+    <prepared>Dan Gudmundsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>05-01-26</date>
+    <rev>AE</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Mnesia system
+    from version to version.  The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Mnesia. Each release of Mnesia
+    thus constitutes one section in this document. The title of each
+    section is the version number of Mnesia.</p>
+
+  <section><title>Mnesia 4.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Optimize mnesia:read/1 if data have been written in the
+	    same transaction.</p>
+          <p>
+	    Own Id: OTP-15550 Aux Id: PR-2029 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bugs in table index plugin handling.</p>
+          <p>
+	    Own Id: OTP-15689 Aux Id: PR-1695 ERL-556 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimized dumping of tables with plugin backends.</p>
+          <p>
+	    Own Id: OTP-15588 Aux Id: PR-2102 </p>
+        </item>
+        <item>
+          <p>
+	    Include stacktrace in exception if a dirty activity
+	    errors, thus if user have matched on the error thrown it
+	    may not match any more.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15804 Aux Id: PR-2216 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid overload warnings caused by a race condition.</p>
+          <p>
+	    Own Id: OTP-15619 Aux Id: ERIERL-310 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed type spec for <c>mnesia:change_config/2</c>.</p>
+          <p>
+	    Own Id: OTP-15201 Aux Id: PR-1881 </p>
+        </item>
+        <item>
+          <p>
+	    When master node is set do not force a load from
+	    ram_copies replica when there are no available
+	    disc_copies, since that would load an empty table. Wait
+	    until a disk replica is available or until user
+	    explicitly force_loads the table.</p>
+          <p>
+	    Own Id: OTP-15221 Aux Id: ERIERL-217 </p>
+        </item>
+        <item>
+          <p>
+	    Allow to add replicas even if all other replicas are down
+	    when the other replicas are not stored on disk.</p>
+          <p>
+	    Own Id: OTP-15226 Aux Id: ERIERL-221 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>mnesia:delete_object/1</c> bug, where
+	    delete_object was deleting the record if it was written
+	    in the same transaction even if it was written to a
+	    different value.</p>
+          <p>
+	    Own Id: OTP-15231 Aux Id: PR-1858 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where the bag table index data was not
+	    deleted when objects were deleted.</p>
+          <p>
+	    Own Id: OTP-15243</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When master node is set do not force a load from
+	    ram_copies replica when there are no available
+	    disc_copies, since that would load an empty table. Wait
+	    until a disk replica is available or until user
+	    explicitly force_loads the table.</p>
+          <p>
+	    Own Id: OTP-15221 Aux Id: ERIERL-217 </p>
+        </item>
+        <item>
+          <p>
+	    Allow to add replicas even if all other replicas are down
+	    when the other replicase are not stored on disk.</p>
+          <p>
+	    Own Id: OTP-15226 Aux Id: ERIERL-221 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed a quadratic behavior in startup. This change
+	    implies that backend plugins (if used) must be set when
+	    the schema is created or via configuration parameters
+	    before mnesia is started.</p>
+          <p>
+	    Own Id: OTP-14829 Aux Id: ERIERL-84 </p>
+        </item>
+        <item>
+          <p>
+	    Bad timing could crash mnesia after a checkpoint was
+	    deactivated and reactivated with the same checkpoint name
+	    on different tables.</p>
+          <p>
+	    Own Id: OTP-14841 Aux Id: ERIERL-113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix backup error handling, the real failure reason was
+	    not returned.</p>
+          <p>
+	    Own Id: OTP-14776 Aux Id: ERIERL-103 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed the wrapping of select continuations in extension
+	    plugin handling. This might require the user to rewrite
+	    user backend plugin if used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14039</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.14.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed crash in checkpoint handling when table was deleted
+	    during backup.</p>
+          <p>
+	    Own Id: OTP-14167</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.14.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A continuation returned by mnesia:select/[14] should be
+	    reusable in different, non-transactional activities.</p>
+          <p>
+	    Own Id: OTP-13944 Aux Id: PR-1184 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed crash when calling block_table multiple times.
+	    Could happen when having locks for a long time and
+	    restarting mnesia.</p>
+          <p>
+	    Own Id: OTP-13970 Aux Id: Seq-13198 </p>
+        </item>
+        <item>
+          <p>
+	    Change mnesia_tm process to have off-heap messages since
+	    mnesia_tm can be the receiver of many non-synchronized
+	    message from other nodes.</p>
+          <p>
+	    Own Id: OTP-14074</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.14.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct some minor documentation issues. </p>
+          <p>
+	    Own Id: OTP-13891</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added experimental external backend plugin api. This adds
+	    the possibility for the user to write other storage
+	    backends for data, for example by using shared memory or
+	    ram-cached disk storage.</p>
+          <p>
+	    The plugin api may change in future versions after being
+	    battle tested.</p>
+          <p>
+	    Own Id: OTP-13058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia transactions could hang while waiting on a
+	    response from a node who had stopped.</p>
+          <p>
+	    Own Id: OTP-13423</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid deadlock possibility in
+	    <c>mnesia:del_table_copy/2</c></p>
+          <p>
+	    Own Id: OTP-13284</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a process and file descriptor leak in
+	    mnesia:restore/2.</p>
+          <p>
+	    Own Id: OTP-13025 Aux Id: seq12957 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved index updates to avoid a timing glitch in
+	    dirty_index_read.</p>
+          <p>
+	    Own Id: OTP-12972</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia's dirty functions did not always exit with
+	    <c>{aborted, Reason}</c> as documented when an error
+	    occurred.</p>
+          <p>
+	    Own Id: OTP-12714</p>
+        </item>
+        <item>
+          <p>
+	    Consider file descriptors limits (emfile) as a fatal
+	    error and do not delete log files. Previously the error
+	    was seen as a corrupted disk and the log files deleted
+	    which caused data loss.</p>
+          <p>
+	    Own Id: OTP-12807</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make Mnesia DCD dump behavior at start up optional, when
+	    turned off mnesia loads large disc_copies tables faster.</p>
+          <p>
+	    Own Id: OTP-12481</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed race condition in protocol negotiation.</p>
+          <p>
+	    Own Id: OTP-12473</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Grammar corrections. (Thanks to Derek Brown)</p>
+          <p>
+	    Own Id: OTP-12400</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in mnesia documentation.</p>
+          <p>
+	    Own Id: OTP-12278</p>
+        </item>
+        <item>
+          <p>
+	    Matching data with <c>mnesia:match_object/1</c> did not
+	    work as expected in some cases, when data was written in
+	    the same transaction before the matching was invoked.</p>
+          <p>
+	    Own Id: OTP-12304 Aux Id: Seq12745 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various logging fixes, including: Add run queue index to
+	    the process dump in crash dumps.<br/> Add thread index to
+	    enomem slogan when crashing.<br/> Remove error logger
+	    message for sending messages to old instances of the same
+	    node.</p>
+          <p>
+	    Own Id: OTP-12115</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race which could make create_table fail if a node
+	    was going down during the transaction.</p>
+          <p>
+	    Own Id: OTP-12124 Aux Id: seq12694 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Force load table could hang when a node went away during
+	    start up.</p>
+          <p>
+	    Own Id: OTP-11948 Aux Id: seq12585 </p>
+        </item>
+        <item>
+          <p>
+	    The time for inserting locks for a transaction with large
+	    number of locks is reduced significantly.</p>
+          <p>
+	    Own Id: OTP-11981</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    To prevent a race condition if there is a short
+	    communication problem when node-down and node-up events
+	    are received. They are now stored and later checked if
+	    the node came up just before mnesia flagged the node as
+	    down. (Thanks to Jonas Falkevik )</p>
+          <p>
+	    Own Id: OTP-11497</p>
+        </item>
+        <item>
+          <p>
+	    Added <c>mnesia:sync_log/0</c> to explicit sync mnesias
+	    transaction log.</p>
+          <p>
+	    Own Id: OTP-11729</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race in mnesia which could cause hanging
+	    transaction when sticky locks had been used. Thanks
+	    janchochol.</p>
+          <p>
+	    Own Id: OTP-11375</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dirty_update_counter which could return ok, thanks
+	    Anton Ryabkov.</p>
+          <p>
+	    Own Id: OTP-11485</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing issues in checkpoint creation.</p>
+          <p>
+	    Own Id: OTP-10957</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a problem where the fallback BUP file is removed
+	    when calling mnesia:uninstall_fallback and mnesia is not
+	    started.</p>
+          <p>
+	    Own Id: OTP-11241</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If mnesia:clear_table/2 was called during a table load on
+	    that table, the schema record was written to the table
+	    instead of clearing table.</p>
+          <p>
+	    Own Id: OTP-11030 Aux Id: seq12267 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize index creation for Mnesia set tables. Thanks to
+	    Nick Marino.</p>
+          <p>
+	    Own Id: OTP-11103</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use chained send_after instead of send_interval, to make
+	    decrease the number of messages sent after a sleep
+	    (Thanks to James Wheare)</p>
+          <p>
+	    Own Id: OTP-10636</p>
+        </item>
+        <item>
+          <p>
+	    Fix format of mnesia overload message (Thanks to Ahmed
+	    Omar)</p>
+          <p>
+	    Own Id: OTP-10639</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a general framework for executing benchmarks of
+	    Erlang/OTP. Benchmarks for the Erlang VM and mnesia have
+	    been incorporated in the framework. </p>
+          <p>
+	    For details about how to add more benchmarks see
+	    $ERL_TOP/HOWTO/BENCHMARKS.md in the source distribution.</p>
+          <p>
+	    Own Id: OTP-10156</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Remove support for the query keyword and query
+	    expressions. Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-10729</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add tests showing that trying to delete non-existing
+	    object may corrupt the </p>
+          <p>
+	    In case of bag tables, trying to delete a non-existing
+	    object leads to the index becoming corrupt. This happens
+	    if the non-existing object we try to delete happens to
+	    share its key and index field value with a single
+	    existing object in the table. Result: The index entry
+	    corresponding to the existing object is removed.</p>
+          <p>
+	    Prevent index from being corrupted if a nonexistent item
+	    is deleted</p>
+          <p>
+	    We have to ensure that we actually delete the last object
+	    with a given (key, index) pair before removing the index.
+	    Thanks to Bartlomiej Puzon</p>
+          <p>
+	    Own Id: OTP-10220</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returns the same value for
+	    mnesia_loader:disc_load_table/2 as
+	    mnesia_loader:net_load_table/4 if a table copy cannot be
+	    found. (Thanks to Uwe Dauernheim)</p>
+          <p>
+	    Own Id: OTP-10015</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved table lock algorithm.</p>
+          <p>
+	    Own Id: OTP-9890</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reduce calls to phash in key_to_frag_number</p>
+          <p>
+	    Original code calls phash 1..2 times, based on which
+	    fragment the hashed key targets and how many fragments
+	    exist. New code always calls phash only once.</p>
+          <p>
+	    Add mnesia_frag_hash test (Thanks to Philip Robinson)</p>
+          <p>
+	    Own Id: OTP-9722</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a sticky lock bug which caused mnesia:read(Tab,
+	    Key, write) return undefined.</p>
+          <p>
+	    Own Id: OTP-9786</p>
+        </item>
+        <item>
+          <p>
+	    Use the synchronous log_terms instead of alog_terms in
+	    mnesia_log:ets2dcd()</p>
+          <p>
+	    This avoids the situation where mnesia could dump a very
+	    large ets table in its entirety into the message queue of
+	    the disk_log process, causing memory blowup and choking
+	    the disk logger. (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9804</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented a new option to mnesia:create_table/2 which
+	    allows the user to assign 'ets' and 'dets' options not
+	    available in mnesia.</p>
+          <p>
+	    Own Id: OTP-8970</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix deadlock in mnesia:del_table_copy/2.</p>
+          <p>
+	    Own Id: OTP-9689 Aux Id: seq11927 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow schema operations when using different mnesia
+	    versions.</p>
+          <p>
+	    Own Id: OTP-9657 Aux Id: seq11926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix protocol issues. Mnesia-4.4.19 could not communicate
+	    with to older nodes.</p>
+          <p>
+	    Own Id: OTP-9473</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dump the log even if no transactions have been invoked on
+	    local node, otherwise the log will grow forever with
+	    decisions from the other nodes who have tables on disk.
+	    Thanks Marek Majkowski.</p>
+          <p>
+	    Own Id: OTP-9551</p>
+        </item>
+        <item>
+          <p>
+	    Use dedicated api for clear_table, i.e. instead of
+	    match_delete use delete_all_objects. Thanks KukHyun Lee.</p>
+          <p>
+	    Own Id: OTP-9558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia could crash if mnesia:add_table_index/2 was
+	    invoked before the table was loaded on all nodes.</p>
+          <p>
+	    Own Id: OTP-9285 Aux Id: seq11844 </p>
+        </item>
+        <item>
+          <p>
+	    Add {majority, boolean()} per-table option.</p>
+          <p>
+	    With {majority, true} set for a table, write transactions
+	    will abort if they cannot commit to a majority of the
+	    nodes that have a copy of the table. Currently, the
+	    implementation hooks into the prepare_commit, and forces
+	    an asymmetric transaction if the commit set affects any
+	    table with the majority flag set. In the commit itself,
+	    the transaction will abort if it cannot satisfy the
+	    majority requirement for all tables involved in the
+	    transaction.(Thanks to Ulf Wiger)</p>
+          <p>
+	    Own Id: OTP-9304</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Call chmod without the "-f" flag</p>
+          <p>
+	    "-f" is a non-standard chmod option which at least SGI
+	    IRIX and HP UX do not support. As the only effect of the
+	    "-f" flag is to suppress warning messages, it can be
+	    safely omitted. (Thanks to Holger Weiß)</p>
+          <p>
+	    Own Id: OTP-9170</p>
+        </item>
+        <item>
+          <p>
+	    Mnesia sometimes failed to update meta-information in
+	    large systems, which could cause table content to be
+	    inconsistent between nodes.</p>
+          <p>
+	    Own Id: OTP-9186 Aux Id: seq11728 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Calling mnesia:first/1 on empty fragmented table works.
+	    Thanks Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-9108</p>
+        </item>
+        <item>
+          <p>
+	    If Mnesia detects that the network is not fully connected
+	    during start, Mnesia will not start until all nodes are
+	    reachable.</p>
+          <p>
+	    Own Id: OTP-9115 Aux Id: seq-11728 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix issues reported by dialyzer.</p>
+          <p>
+	    Own Id: OTP-9107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Sometimes a 'log_header' record was added to tables when
+	    invoking mnesia:restore/2 with the option
+	    'recreate_tables'. Thanks Vance Shipley.</p>
+          <p>
+	    Own Id: OTP-8960</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compiler warnings were eliminated.</p>
+          <p>
+	    Own Id: OTP-8855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added mnesia:subscribe(activity) contributed by Bernard
+            Duggan.</p>
+          <p>
+            Own Id: OTP-8519</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Mnesia 4.4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Transactions could be left hanging if a node went down
+            when invoking mnesia:sync_transaction/[1,2]. Thanks Igor
+            Ribeiro Sucupira.</p>
+          <p>
+            Own Id: OTP-8402</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Igor Ribeiro Sucupira added the option to compress data
+            when copying tables between Mnesia nodes.</p>
+          <p>
+            Own Id: OTP-8406</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  <section><title>Mnesia 4.4.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  <section><title>Mnesia 4.4.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Fixed duplicate results with mnesia:index_read() on
+            ordered_set tables. Reported by Sam Bobroff. </p>
+	  <p>
+	    Fixed locking in mnesia:index_read() which now grabs a read
+            table lock to ensure correctness, this may slow down the
+            operation or block other processes trying to reach the
+            same table. </p>
+	  <p>
+	    Calling mnesia:dump_log() could crash mnesia,
+            Reported by Igor Ribeiro Sucupira.</p>
+          <p> Own Id: OTP-8074</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  <section><title>Mnesia 4.4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia crashed if a qlc query was running inside a
+            transaction when mnesia stopped at another node. Thanks
+            Teemu Antti-Poika.</p>
+          <p>
+            Own Id: OTP-7968</p>
+        </item>
+        <item>
+          <p>
+            Mnesia could crash when loading local_content tables.</p>
+          <p>
+            Own Id: OTP-8002 Aux Id: seq11277 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Minor (smp) optimizations.</p>
+          <p>
+            Own Id: OTP-7928</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+
+  <section><title>Mnesia 4.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            mnesia:clear_table/1 crashed instead of returning
+            <c>{aborted,..}</c> if it was called inside a
+            transaction.</p>
+          <p>
+            Own Id: OTP-7911</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Mnesia 4.4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            With bad timing several api functions could return or
+            exit with a bad error message when mnesia was shutting
+            down.</p>
+          <p>
+            Own Id: OTP-7753 Aux Id: seq11179 </p>
+        </item>
+        <item>
+          <p>
+            <c>mnesia:clear_table/1</c> cleared all nodes table
+            content even if the table was <c>local_content</c> only
+            type.</p>
+          <p>
+            Own Id: OTP-7835</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+ <section><title>Mnesia 4.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Disallowed match patterns ('_', and '$n') as argument to
+            <c>mnesia:delete_object/1</c> and friends.</p>
+          <p>
+            Own Id: OTP-7524</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Introduced a few new functions in Mnesia: <c>mnesia:read/2</c>,
+            <c>mnesia:first/3</c>, <c>mnesia:last/3</c>, <c>mnesia:prev/4</c>,
+            <c>mnesia:next/4</c>, <c>mnesia_frag:first/1</c>, <c>mnesia_frag:last/1</c>,
+            <c>mnesia_frag:prev/2</c>, <c>mnesia_frag:next/2</c>.</p>
+          <p>
+            Own Id: OTP-7625</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+ <section><title>Mnesia 4.4.6</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            <c>mnesia:restore/2</c> aborted if a <c>EXIT</c> message
+            appeared in the client message queue.</p>
+          <p>
+            Own Id: OTP-7585 Aux Id: seq11046 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.5</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    mnesia:clear_table/1 does not require that all
+            replicas of the table are available anymore.</p>
+          <p>
+            Own Id: OTP-7466 Aux Id: seq11015</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia did not garbage collect transaction decisions on
+            disk based nodes if no transactions where made on the
+            local node.</p>
+          <p>
+            Own Id: OTP-7419</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Mnesia 4.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Table referred to by foreign key did not have node_pool
+            properly cleaned up when a node was removed from the
+            schema. Thanks Paul Mineiro.</p>
+          <p>
+            Own Id: OTP-7340</p>
+        </item>
+        <item>
+          <p>
+            Mnesia crashed and generated a core dump if a
+            schema_transaction was running when mnesia stopped.</p>
+          <p>
+            Own Id: OTP-7378 Aux Id: seq10964 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            It is now possible to delete a db node even when other
+            disk resident nodes are down. Thanks Paul Mineiro.</p>
+          <p>
+            Own Id: OTP-7383</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Mnesia 4.4.2</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Sticky locks could lead to hanging transactions.</p>
+          <p>
+            Own Id: OTP-7205 Aux Id: seq10793 </p>
+        </item>
+        <item>
+          <p>
+            <c>mnesia:snmp_get_next_index/2</c> didn't work with
+            partial index keys. Argument checking is now done
+            according to documentation, in functions
+            <c>mnesia:snmp_get_row/2</c>,
+            <c>mnesia:snmp_get_mnesia_key/2</c> and
+            <c>mnesia:snmp_get_next_index/2</c>. These functions now
+            require that <c>RowIndex</c> is a list.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7208</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Snmp index tables was not initialized correctly in
+            <c>mnesia-4.4</c>.</p>
+          <p>
+            Own Id: OTP-7170 Aux Id: seq10870 </p>
+        </item>
+      </list>
+    </section>
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            Rearranging fragmented tables is an O(N^2) operation.</p>
+          <p>
+            Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia ignored the module argument to
+            <c>mnesia:restore/2</c>. Thanks Paul Minerio.</p>
+          <p>
+            Own Id: OTP-6981</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Mnesia's snmp operations <c>snmp_get_row/2</c>,
+            <c>snmp_get_next_index/2</c> and
+            <c>snmp_get_mnesia_key/2</c> have been made context
+            aware, i.e. inside a transaction they will compensate for
+            table updates made in earlier in the same transaction.
+            This might cause a performance drop if a lot of updates
+            have been made before the invocation of these functions.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-6856 Aux Id: seq10671 </p>
+        </item>
+        <item>
+          <p>
+            Introduced erlang:phash/2 as new default for fragmented
+            tables. Already existing tables will continue to use
+            whatever hash function they where using.</p>
+          <p>
+            Own Id: OTP-6923</p>
+        </item>
+        <item>
+          <p>
+            Introduced <c>mnesia:is_transaction/0</c>.</p>
+          <p>
+            Own Id: OTP-6995 Aux Id: seq10812 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            Rearranging fragmented tables is an O(N^2) operation.</p>
+          <p>
+            Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+</chapter>

@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>cover</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>cover_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The module <c>cover</c> provides a set of functions for coverage
+      analysis of Erlang programs, counting how many times each
+      <seealso marker="#lines">executable line</seealso> is executed.</p>
+    <p>Coverage analysis can be used to verify test cases, making sure all
+      relevant code is covered, and may be helpful when looking for
+      bottlenecks in the code.</p>
+  </section>
+
+  <section>
+    <title>Getting Started With Cover</title>
+
+    <section>
+      <title>Example</title>
+      <p>Assume that a test case for the following program should be
+        verified:</p>
+      <code type="none">
+-module(channel).
+-behaviour(gen_server).
+
+-export([start_link/0,stop/0]).
+-export([alloc/0,free/1]). % client interface
+-export([init/1,handle_call/3,terminate/2]). % callback functions
+
+start_link() ->
+    gen_server:start_link({local,channel},channel,[],[]).
+
+stop() ->
+    gen_server:call(channel,stop).
+
+%%%-Client interface functions-------------------------------------------
+
+alloc() ->
+    gen_server:call(channel,alloc).
+
+free(Channel) ->
+    gen_server:call(channel,{free,Channel}).
+
+%%%-gen_server callback functions----------------------------------------
+
+init(_Arg) ->
+    {ok,channels()}.
+
+handle_call(stop,Client,Channels) ->
+    {stop,normal,ok,Channels};
+
+handle_call(alloc,Client,Channels) ->
+    {Ch,Channels2} = alloc(Channels),
+    {reply,{ok,Ch},Channels2};
+
+handle_call({free,Channel},Client,Channels) ->
+    Channels2 = free(Channel,Channels),
+    {reply,ok,Channels2}.
+
+terminate(_Reason,Channels) ->
+    ok.
+
+%%%-Internal functions---------------------------------------------------
+
+channels() ->
+    [ch1,ch2,ch3].
+
+alloc([Channel|Channels]) ->
+    {Channel,Channels};
+alloc([]) ->
+    false.
+
+free(Channel,Channels) ->
+    [Channel|Channels].</code>
+      <p>The test case is implemented as follows:</p>
+      <code type="none">
+-module(test).
+-export([s/0]).
+
+s() ->
+    {ok,Pid} = channel:start_link(),
+    {ok,Ch1} = channel:alloc(),
+    ok = channel:free(Ch1),
+    ok = channel:stop().</code>
+    </section>
+
+    <section>
+      <title>Preparation</title>
+      <p>First of all, Cover must be started. This spawns a process which
+        owns the Cover database where all coverage data will be stored.</p>
+      <pre>
+1> <input>cover:start().</input>
+{ok,&lt;0.30.0>}</pre>
+      <p>To include other nodes in the coverage analysis, use
+        <c>start/1</c>. All cover compiled modules will then be loaded
+        on all nodes, and data from all nodes will be summed up when
+        analysing. For simplicity this example only involves the
+        current node.</p>
+      <p>Before any analysis can take place, the involved modules must be
+        <em>Cover compiled</em>. This means that some extra information is
+        added to the module before it is compiled into a binary which then
+        is <seealso marker="#loading">loaded</seealso>. The source file of
+        the module is not affected and no <c>.beam</c> file is created.</p>
+      <pre>
+2> <input>cover:compile_module(channel).</input>
+{ok,channel}</pre>
+      <p>Each time a function in the Cover compiled module <c>channel</c>
+        is called, information about the call will be added to the Cover
+        database. Run the test case:</p>
+      <pre>
+3> <input>test:s().</input>
+ok</pre>
+      <p>Cover analysis is performed by examining the contents of the Cover
+        database. The output is determined by two parameters, <c>Level</c>
+        and <c>Analysis</c>. <c>Analysis</c> is either <c>coverage</c> or
+        <c>calls</c> and determines the type of the analysis. <c>Level</c>
+        is either <c>module</c>, <c>function</c>, <c>clause</c>, or
+        <c>line</c> and determines the level of the analysis.</p>
+    </section>
+
+    <section>
+      <title>Coverage Analysis</title>
+      <p>Analysis of type <c>coverage</c> is used to find out how much of
+        the code has been executed and how much has not been executed.
+        Coverage is represented by a tuple <c>{Cov,NotCov}</c>, where
+        <c>Cov</c> is the number of executable lines that have been executed
+        at least once and <c>NotCov</c> is the number of executable lines
+        that have not been executed.</p>
+      <p>If the analysis is made on module level, the result is given for
+        the entire module as a tuple <c>{Module,{Cov,NotCov}}</c>:</p>
+      <pre>
+4> <input>cover:analyse(channel,coverage,module).</input>
+{ok,{channel,{14,1}}}</pre>
+      <p>For <c>channel</c>, the result shows that 14 lines in the module
+        are covered but one line is not covered.</p>
+      <p>If the analysis is made on function level, the result is given as
+        a list of tuples <c>{Function,{Cov,NotCov}}</c>, one for each
+        function in the module. A function is specified by its module name,
+        function name and arity:</p>
+      <pre>
+5> <input>cover:analyse(channel,coverage,function).</input>
+{ok,[{{channel,start_link,0},{1,0}},
+     {{channel,stop,0},{1,0}},
+     {{channel,alloc,0},{1,0}},
+     {{channel,free,1},{1,0}},
+     {{channel,init,1},{1,0}},
+     {{channel,handle_call,3},{5,0}},
+     {{channel,terminate,2},{1,0}},
+     {{channel,channels,0},{1,0}},
+     {{channel,alloc,1},{1,1}},
+     {{channel,free,2},{1,0}}]}</pre>
+      <p>For <c>channel</c>, the result shows that the uncovered line is in
+        the function <c>channel:alloc/1</c>.</p>
+      <p>If the analysis is made on clause level, the result is given as
+        a list of tuples <c>{Clause,{Cov,NotCov}}</c>, one for each
+        function clause in the module. A clause is specified by its module
+        name, function name, arity and position within the function
+        definition:</p>
+      <pre>
+6> <input>cover:analyse(channel,coverage,clause).</input>
+{ok,[{{channel,start_link,0,1},{1,0}},
+     {{channel,stop,0,1},{1,0}},
+     {{channel,alloc,0,1},{1,0}},
+     {{channel,free,1,1},{1,0}},
+     {{channel,init,1,1},{1,0}},
+     {{channel,handle_call,3,1},{1,0}},
+     {{channel,handle_call,3,2},{2,0}},
+     {{channel,handle_call,3,3},{2,0}},
+     {{channel,terminate,2,1},{1,0}},
+     {{channel,channels,0,1},{1,0}},
+     {{channel,alloc,1,1},{1,0}},
+     {{channel,alloc,1,2},{0,1}},
+     {{channel,free,2,1},{1,0}}]}</pre>
+      <p>For <c>channel</c>, the result shows that the uncovered line is in
+        the second clause of <c>channel:alloc/1</c>.</p>
+      <p>Finally, if the analysis is made on line level, the result is given
+        as a list of tuples <c>{Line,{Cov,NotCov}}</c>, one for each
+        executable line in the source code. A line is specified by its
+        module name and line number.</p>
+      <pre>
+7> <input>cover:analyse(channel,coverage,line).</input>
+{ok,[{{channel,9},{1,0}},
+     {{channel,12},{1,0}},
+     {{channel,17},{1,0}},
+     {{channel,20},{1,0}},
+     {{channel,25},{1,0}},
+     {{channel,28},{1,0}},
+     {{channel,31},{1,0}},
+     {{channel,32},{1,0}},
+     {{channel,35},{1,0}},
+     {{channel,36},{1,0}},
+     {{channel,39},{1,0}},
+     {{channel,44},{1,0}},
+     {{channel,47},{1,0}},
+     {{channel,49},{0,1}},
+     {{channel,52},{1,0}}]}</pre>
+      <p>For <c>channel</c>, the result shows that the uncovered line is
+        line number 49.</p>
+    </section>
+
+    <section>
+      <title>Call Statistics</title>
+      <p>Analysis of type <c>calls</c> is used to find out how many times
+        something has been called and is represented by an integer
+        <c>Calls</c>.</p>
+      <p>If the analysis is made on module level, the result is given as a
+        tuple <c>{Module,Calls}</c>. Here <c>Calls</c> is the total number
+        of calls to functions in the module:</p>
+      <pre>
+8> <input>cover:analyse(channel,calls,module).</input>
+{ok,{channel,12}}</pre>
+      <p>For <c>channel</c>, the result shows that a total of twelve calls
+        have been made to functions in the module.</p>
+      <p>If the analysis is made on function level, the result is given as
+        a list of tuples <c>{Function,Calls}</c>. Here <c>Calls</c> is
+        the number of calls to each function:</p>
+      <pre>
+9> <input>cover:analyse(channel,calls,function).</input>
+{ok,[{{channel,start_link,0},1},
+     {{channel,stop,0},1},
+     {{channel,alloc,0},1},
+     {{channel,free,1},1},
+     {{channel,init,1},1},
+     {{channel,handle_call,3},3},
+     {{channel,terminate,2},1},
+     {{channel,channels,0},1},
+     {{channel,alloc,1},1},
+     {{channel,free,2},1}]}</pre>
+      <p>For <c>channel</c>, the result shows that <c>handle_call/3</c> is
+        the most called function in the module (three calls). All other
+        functions have been called once.</p>
+      <p>If the analysis is made on clause level, the result is given as
+        a list of tuples <c>{Clause,Calls}</c>. Here <c>Calls</c> is
+        the number of calls to each function clause:</p>
+      <pre>
+10> <input>cover:analyse(channel,calls,clause).</input>
+{ok,[{{channel,start_link,0,1},1},
+     {{channel,stop,0,1},1},
+     {{channel,alloc,0,1},1},
+     {{channel,free,1,1},1},
+     {{channel,init,1,1},1},
+     {{channel,handle_call,3,1},1},
+     {{channel,handle_call,3,2},1},
+     {{channel,handle_call,3,3},1},
+     {{channel,terminate,2,1},1},
+     {{channel,channels,0,1},1},
+     {{channel,alloc,1,1},1},
+     {{channel,alloc,1,2},0},
+     {{channel,free,2,1},1}]}</pre>
+      <p>For <c>channel</c>, the result shows that all clauses have been
+        called once, except the second clause of <c>channel:alloc/1</c>
+        which has not been called at all.</p>
+      <p>Finally, if the analysis is made on line level, the result is given
+        as a list of tuples <c>{Line,Calls}</c>. Here <c>Calls</c> is 
+        the number of times each line has been executed:</p>
+      <pre>
+11> <input>cover:analyse(channel,calls,line).</input>
+{ok,[{{channel,9},1},
+     {{channel,12},1},
+     {{channel,17},1},
+     {{channel,20},1},
+     {{channel,25},1},
+     {{channel,28},1},
+     {{channel,31},1},
+     {{channel,32},1},
+     {{channel,35},1},
+     {{channel,36},1},
+     {{channel,39},1},
+     {{channel,44},1},
+     {{channel,47},1},
+     {{channel,49},0},
+     {{channel,52},1}]}</pre>
+      <p>For <c>channel</c>, the result shows that all lines have been
+        executed once, except line number 49 which has not been executed at
+        all.</p>
+    </section>
+
+    <section>
+      <title>Analysis to File</title>
+      <p>A line level calls analysis of <c>channel</c> can be written to
+        a file using <c>cover:analysis_to_file/1</c>:</p>
+      <pre>
+12> <input>cover:analyse_to_file(channel).</input>
+{ok,"channel.COVER.out"}</pre>
+      <p>The function creates a copy of <c>channel.erl</c> where it for
+        each executable line is specified how many times that line has been
+        executed. The output file is called <c>channel.COVER.out</c>.</p>
+      <pre>
+File generated from channel.erl by COVER 2001-05-21 at 11:16:38
+
+****************************************************************************
+
+        |  -module(channel).
+        |  -behaviour(gen_server).
+        |  
+        |  -export([start_link/0,stop/0]).
+        |  -export([alloc/0,free/1]). % client interface
+        |  -export([init/1,handle_call/3,terminate/2]). % callback functions
+        |  
+        |  start_link() ->
+     1..|      gen_server:start_link({local,channel},channel,[],[]).
+        |  
+        |  stop() ->
+     1..|      gen_server:call(channel,stop).
+        |  
+        |  %%%-Client interface functions------------------------------------
+        |  
+        |  alloc() ->
+     1..|      gen_server:call(channel,alloc).
+        |  
+        |  free(Channel) ->
+     1..|      gen_server:call(channel,{free,Channel}).
+        |  
+        |  %%%-gen_server callback functions---------------------------------
+        |  
+        |  init(_Arg) ->
+     1..|      {ok,channels()}.
+        |  
+        |  handle_call(stop,Client,Channels) ->
+     1..|      {stop,normal,ok,Channels};
+        |  
+        |  handle_call(alloc,Client,Channels) ->
+     1..|      {Ch,Channels2} = alloc(Channels),
+     1..|      {reply,{ok,Ch},Channels2};
+        |  
+        |  handle_call({free,Channel},Client,Channels) ->
+     1..|      Channels2 = free(Channel,Channels),
+     1..|      {reply,ok,Channels2}.
+        |  
+        |  terminate(_Reason,Channels) ->
+     1..|      ok.
+        |  
+        |  %%%-Internal functions--------------------------------------------
+        |  
+        |  channels() ->
+     1..|      [ch1,ch2,ch3].
+        |  
+        |  alloc([Channel|Channels]) ->
+     1..|      {Channel,Channels};
+        |  alloc([]) ->
+     0..|      false.
+        |  
+        |  free(Channel,Channels) ->
+     1..|      [Channel|Channels].</pre>
+    </section>
+
+    <section>
+      <title>Conclusion</title>
+      <p>By looking at the results from the analyses, it can be deducted
+        that the test case does not cover the case when all channels are
+        allocated and <c>test.erl</c> should be extended accordingly.        <br></br>
+
+        Incidentally, when the test case is corrected a bug in <c>channel</c>
+        should indeed be discovered.</p>
+      <p>When the Cover analysis is ready, Cover is stopped and all Cover
+        compiled modules are <seealso marker="#loading">unloaded</seealso>.
+        The code for <c>channel</c> is now loaded as usual from a
+        <c>.beam</c> file in the current path.</p>
+      <pre>
+13> <input>code:which(channel).</input>
+cover_compiled
+14> <input>cover:stop().</input>
+ok
+15> <input>code:which(channel).</input>
+"./channel.beam"</pre>
+    </section>
+  </section>
+
+  <section>
+    <title>Miscellaneous</title>
+
+    <section>
+      <title>Performance</title>
+      <p>Execution of code in Cover compiled modules is slower and more
+        memory consuming than for regularly compiled modules. As the Cover
+        database contains information about each executable line in each
+        Cover compiled module, performance decreases proportionally to
+        the size and number of the Cover compiled modules.</p>
+      <p>To improve performance when analysing cover results it is possible
+	to do multiple calls to <seealso marker="cover#analyse-1">analyse</seealso>
+	and <seealso marker="cover#analyse_to_file-1">analyse_to_file</seealso>
+	at once. You can also use the 
+	<seealso marker="cover#async_analyse_to_file-1">async_analyse_to_file</seealso> 
+	convenience function.
+      </p>
+    </section>
+
+    <section>
+      <marker id="lines"></marker>
+      <title>Executable Lines</title>
+      <p>Cover uses the concept of <em>executable lines</em>, which is lines
+        of code containing an executable expression such as a matching or
+        a function call. A blank line or a line containing a comment,
+        function head or pattern in a <c>case</c>- or <c>receive</c>
+        statement is not executable.</p>
+      <p>In the example below, lines number 2,4,6,8 and 11 are executable
+        lines:</p>
+      <p></p>
+      <pre>
+1: is_loaded(Module,Compiled) ->
+2:   case get_file(Module,Compiled) of
+3:     {ok,File} ->
+4:       case code:which(Module) of
+5:         ?TAG ->
+6:           {loaded,File};
+7:         _ ->
+8:           unloaded
+9:       end;
+10:    false ->
+11:      false
+12:  end.</pre>
+    </section>
+
+    <section>
+      <marker id="loading"></marker>
+      <title>Code Loading Mechanism</title>
+      <p>When a module is Cover compiled, it is also loaded using the normal
+        code loading mechanism of Erlang. This means that if a Cover
+        compiled module is re-loaded during a Cover session, for example
+        using <c>c(Module)</c>, it will no longer be Cover compiled.</p>
+      <p>Use <c>cover:is_compiled/1</c> or <c>code:which/1</c> to see if
+        a module is Cover compiled (and still loaded) or not.</p>
+      <p>When Cover is stopped, all Cover compiled modules are unloaded.</p>
+    </section>
+  </section>
+</chapter>
+

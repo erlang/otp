@@ -1,0 +1,308 @@
+   PKIX1-PSS-OAEP-Algorithms-2009
+       {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+       mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-rsa-pkalgs-02(54)}
+   DEFINITIONS EXPLICIT TAGS ::=
+   BEGIN
+   IMPORTS
+
+   AlgorithmIdentifier{}, ALGORITHM, DIGEST-ALGORITHM, KEY-TRANSPORT,
+       SIGNATURE-ALGORITHM, PUBLIC-KEY, SMIME-CAPS
+   FROM AlgorithmInformation-2009
+       {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+       mechanisms(5) pkix(7) id-mod(0)
+       id-mod-algorithmInformation-02(58)}
+
+   id-sha1, mda-sha1, pk-rsa, RSAPublicKey
+   FROM PKIXAlgs-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-algorithms2008-02(56)};
+
+   -- ============================
+   --    Object Set exports
+   -- ============================
+   --
+   --  Define top-level symbols with all of the objects defined for
+   --  export to other modules.  These objects would be included as part
+   --  of an Object Set to restrict the set of legal values.
+   --
+
+   PublicKeys PUBLIC-KEY ::= { pk-rsaSSA-PSS | pk-rsaES-OAEP, ... }
+   SignatureAlgs SIGNATURE-ALGORITHM ::= { sa-rsaSSA-PSS, ...}
+   KeyTransportAlgs KEY-TRANSPORT ::= { kta-rsaES-OAEP, ... }
+   HashAlgs DIGEST-ALGORITHM ::= { mda-sha224 | mda-sha256 | mda-sha384
+                                      | mda-sha512, ... }
+   SMimeCaps SMIME-CAPS ::= {
+       sa-rsaSSA-PSS.&smimeCaps |
+       kta-rsaES-OAEP.&smimeCaps,
+       ...
+   }
+
+   -- =============================
+   --    Algorithm Objects
+   -- =============================
+
+   --
+   -- Public key object for PSS signatures
+   --
+
+   pk-rsaSSA-PSS PUBLIC-KEY ::= {
+       IDENTIFIER id-RSASSA-PSS
+       KEY RSAPublicKey
+       PARAMS TYPE RSASSA-PSS-params ARE optional
+        -- Private key format not in this module --
+       CERT-KEY-USAGE { nonRepudiation, digitalSignature,
+                            keyCertSign, cRLSign }
+   }
+
+   --
+   --  Signature algorithm definition for PSS signatures
+   --
+
+   sa-rsaSSA-PSS SIGNATURE-ALGORITHM ::= {
+       IDENTIFIER id-RSASSA-PSS
+       PARAMS TYPE RSASSA-PSS-params ARE required
+       HASHES { mda-sha1 | mda-sha224 | mda-sha256 | mda-sha384
+                    | mda-sha512 }
+       PUBLIC-KEYS { pk-rsa | pk-rsaSSA-PSS }
+       SMIME-CAPS { IDENTIFIED BY id-RSASSA-PSS }
+   }
+
+   --
+   --  Signature algorithm definitions for PKCS v1.5 signatures
+   --
+
+   sa-sha224WithRSAEncryption SIGNATURE-ALGORITHM ::= {
+       IDENTIFIER sha224WithRSAEncryption
+       PARAMS TYPE NULL ARE required
+       HASHES { mda-sha224 }
+       PUBLIC-KEYS { pk-rsa }
+       SMIME-CAPS { IDENTIFIED BY sha224WithRSAEncryption }
+   }
+   sha224WithRSAEncryption  OBJECT IDENTIFIER  ::=  { pkcs-1 14 }
+
+   sa-sha256WithRSAEncryption SIGNATURE-ALGORITHM ::= {
+       IDENTIFIER sha256WithRSAEncryption
+       PARAMS TYPE NULL ARE required
+       HASHES { mda-sha256 }
+       PUBLIC-KEYS { pk-rsa }
+       SMIME-CAPS { IDENTIFIED BY sha256WithRSAEncryption }
+   }
+   sha256WithRSAEncryption  OBJECT IDENTIFIER  ::=  { pkcs-1 11 }
+
+   sa-sha384WithRSAEncryption SIGNATURE-ALGORITHM ::= {
+       IDENTIFIER sha384WithRSAEncryption
+       PARAMS TYPE NULL ARE required
+       HASHES { mda-sha384 }
+       PUBLIC-KEYS { pk-rsa }
+       SMIME-CAPS { IDENTIFIED BY sha384WithRSAEncryption }
+   }
+   sha384WithRSAEncryption  OBJECT IDENTIFIER  ::=  { pkcs-1 12 }
+
+   sa-sha512WithRSAEncryption SIGNATURE-ALGORITHM ::= {
+       IDENTIFIER sha512WithRSAEncryption
+       PARAMS TYPE NULL ARE required
+       HASHES { mda-sha512 }
+       PUBLIC-KEYS { pk-rsa }
+       SMIME-CAPS { IDENTIFIED BY sha512WithRSAEncryption }
+   }
+   sha512WithRSAEncryption  OBJECT IDENTIFIER  ::=  { pkcs-1 13 }
+
+   --
+   --  Public key definition for OAEP encryption
+   --
+
+   pk-rsaES-OAEP PUBLIC-KEY ::= {
+       IDENTIFIER id-RSAES-OAEP
+       KEY RSAPublicKey
+       PARAMS TYPE RSAES-OAEP-params ARE optional
+        -- Private key format not in this module --
+       CERT-KEY-USAGE {keyEncipherment, dataEncipherment}
+   }
+
+   --
+   --  Key transport key lock definition for OAEP encryption
+   --
+
+   kta-rsaES-OAEP KEY-TRANSPORT ::= {
+       IDENTIFIER id-RSAES-OAEP
+       PARAMS TYPE RSAES-OAEP-params ARE required
+       PUBLIC-KEYS { pk-rsa | pk-rsaES-OAEP }
+       SMIME-CAPS { TYPE RSAES-OAEP-params IDENTIFIED BY id-RSAES-OAEP}
+   }
+   -- ============================
+   --   Basic object identifiers
+   -- ============================
+
+   pkcs-1  OBJECT IDENTIFIER  ::=
+       { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 1 }
+
+   -- When rsaEncryption is used in an AlgorithmIdentifier, the
+   -- parameters MUST be present and MUST be NULL.
+   -- rsaEncryption  OBJECT IDENTIFIER  ::=  { pkcs-1 1 }
+
+   -- When id-RSAES-OAEP is used in an AlgorithmIdentifier,
+   -- and the parameters field is present, it MUST be
+   -- RSAES-OAEP-params.
+
+   id-RSAES-OAEP  OBJECT IDENTIFIER  ::=  { pkcs-1 7 }
+
+   -- When id-mgf1 is used in an AlgorithmIdentifier, the parameters
+   -- MUST be present and MUST be a HashAlgorithm.
+
+   id-mgf1  OBJECT IDENTIFIER  ::=  { pkcs-1 8 }
+
+   -- When id-pSpecified is used in an AlgorithmIdentifier, the
+   -- parameters MUST be an OCTET STRING.
+
+   id-pSpecified  OBJECT IDENTIFIER  ::=  { pkcs-1 9 }
+
+   -- When id-RSASSA-PSS is used in an AlgorithmIdentifier, and the
+   -- parameters field is present, it MUST be RSASSA-PSS-params.
+
+   id-RSASSA-PSS  OBJECT IDENTIFIER  ::=  { pkcs-1 10 }
+
+   -- When the following OIDs are used in an AlgorithmIdentifier, the
+   -- parameters SHOULD be absent, but if the parameters are present,
+   -- they MUST be NULL.
+
+   --
+   -- id-sha1 is imported from RFC 3279.  Additionally, the v1.5
+   -- signature algorithms (i.e., rsaWithSHA256) are now solely placed
+   -- in that module.
+   --
+
+   id-sha224  OBJECT IDENTIFIER  ::=
+       { joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistAlgorithms(4) hashalgs(2) 4 }
+
+   mda-sha224 DIGEST-ALGORITHM ::= {
+       IDENTIFIER id-sha224
+       PARAMS TYPE NULL ARE preferredAbsent
+   }
+
+   id-sha256  OBJECT IDENTIFIER  ::=
+       { joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistAlgorithms(4) hashalgs(2) 1 }
+
+   mda-sha256 DIGEST-ALGORITHM ::= {
+       IDENTIFIER id-sha256
+       PARAMS TYPE NULL ARE preferredAbsent
+   }
+   id-sha384  OBJECT IDENTIFIER  ::=
+       { joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistAlgorithms(4) hashalgs(2) 2 }
+
+   mda-sha384 DIGEST-ALGORITHM ::= {
+       IDENTIFIER id-sha384
+       PARAMS TYPE NULL ARE preferredAbsent
+   }
+   id-sha512  OBJECT IDENTIFIER  ::=
+       { joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistAlgorithms(4) hashalgs(2) 3 }
+
+   mda-sha512 DIGEST-ALGORITHM ::= {
+       IDENTIFIER id-sha512
+       PARAMS TYPE NULL ARE preferredAbsent
+   }
+
+   -- =============
+   --   Constants
+   -- =============
+
+   EncodingParameters ::= OCTET STRING(SIZE(0..MAX))
+
+   nullOctetString  EncodingParameters  ::=  ''H
+
+   nullParameters NULL  ::=  NULL
+
+   -- =========================
+   --   Algorithm Identifiers
+   -- =========================
+
+   HashAlgorithm  ::=  AlgorithmIdentifier{DIGEST-ALGORITHM,
+                           {HashAlgorithms}}
+
+   HashAlgorithms DIGEST-ALGORITHM ::=  {
+       { IDENTIFIER id-sha1 PARAMS TYPE NULL ARE preferredPresent } |
+       { IDENTIFIER id-sha224 PARAMS TYPE NULL ARE preferredPresent } |
+       { IDENTIFIER id-sha256 PARAMS TYPE NULL ARE preferredPresent } |
+       { IDENTIFIER id-sha384 PARAMS TYPE NULL ARE preferredPresent } |
+       { IDENTIFIER id-sha512 PARAMS TYPE NULL ARE preferredPresent }
+   }
+
+   sha1Identifier HashAlgorithm ::= {
+       algorithm id-sha1,
+       parameters NULL : NULL
+   }
+
+   --
+   --  We have a default algorithm - create the value here
+   --
+
+   MaskGenAlgorithm ::= AlgorithmIdentifier{ALGORITHM,
+                           {PKCS1MGFAlgorithms}}
+
+   mgf1SHA1 MaskGenAlgorithm ::= {
+       algorithm id-mgf1,
+       parameters HashAlgorithm : sha1Identifier
+   }
+
+   --
+   --  Define the set of mask generation functions
+   --
+   --  If the identifier is id-mgf1, any of the listed hash
+   --    algorithms may be used.
+   --
+
+   PKCS1MGFAlgorithms ALGORITHM ::= {
+       { IDENTIFIER id-mgf1 PARAMS TYPE HashAlgorithm ARE required },
+       ...
+   }
+
+   --
+   -- Define the set of known source algorithms for PSS
+   --
+
+   PSourceAlgorithm ::= AlgorithmIdentifier{ALGORITHM,
+                                                {PSS-SourceAlgorithms}}
+
+   PSS-SourceAlgorithms ALGORITHM ::= {
+       { IDENTIFIER id-pSpecified PARAMS TYPE EncodingParameters
+             ARE required },
+       ...
+   }
+   pSpecifiedEmpty PSourceAlgorithm ::=  {
+       algorithm id-pSpecified,
+       parameters EncodingParameters : nullOctetString
+   }
+
+   -- ===================
+   --   Main structures
+   -- ===================
+
+   -- AlgorithmIdentifier parameters for id-RSASSA-PSS.
+   -- Note that the tags in this Sequence are explicit.
+   -- Note: The hash algorithm in hashAlgorithm and in
+   -- maskGenAlgorithm should be the same.
+
+   RSASSA-PSS-params  ::=  SEQUENCE  {
+       hashAlgorithm     [0] HashAlgorithm DEFAULT sha1Identifier,
+       maskGenAlgorithm  [1] MaskGenAlgorithm DEFAULT mgf1SHA1,
+       saltLength        [2] INTEGER DEFAULT 20,
+       trailerField      [3] INTEGER DEFAULT 1
+   }
+
+   -- AlgorithmIdentifier parameters for id-RSAES-OAEP.
+   -- Note that the tags in this Sequence are explicit.
+   -- Note: The hash algorithm in hashFunc and in
+   -- maskGenFunc should be the same.
+
+   RSAES-OAEP-params  ::=  SEQUENCE  {
+       hashFunc          [0] HashAlgorithm DEFAULT sha1Identifier,
+       maskGenFunc       [1] MaskGenAlgorithm DEFAULT mgf1SHA1,
+       pSourceFunc       [2] PSourceAlgorithm DEFAULT
+                                 pSpecifiedEmpty
+   }
+
+   END

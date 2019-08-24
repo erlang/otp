@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>erl_id_trans</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-21</date>
+    <rev>B</rev>
+    <file>erl_id_trans.xml</file>
+  </header>
+  <module since="">erl_id_trans</module>
+  <modulesummary>An identity parse transform.</modulesummary>
+  <description>
+    <p>This module performs an identity parse transformation of Erlang code.
+      It is included as an example for users who wants to write their own
+      parse transformers. If option <c>{parse_transform,Module}</c> is passed
+      to the compiler, a user-written function <c>parse_transform/2</c>
+      is called by the compiler before the code is checked for errors.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">parse_transform(Forms, Options) -> Forms</name>
+      <fsummary>Transform Erlang forms.</fsummary>
+      <type>
+        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>
+          | <seealso marker="erl_parse#type-form_info">erl_parse:form_info()</seealso>]</v>
+        <v>Options = [<seealso marker="compile#type-option">compile:option()</seealso>]</v>
+      </type>
+      <desc>
+        <p>Performs an identity transformation on Erlang forms, as an example.
+        </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Parse Transformations</title>
+    <p>Parse transformations are used if a programmer wants to use
+      Erlang syntax, but with different semantics. The original Erlang
+      code is then transformed into other Erlang code.</p>
+    <note>
+      <p>Programmers are strongly advised not to engage in parse
+        transformations. No support is offered for problems encountered.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
+      <seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
+  </section>
+</erlref>
+

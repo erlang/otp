@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>List Handling</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2007-11-16</date>
+    <rev></rev>
+    <file>listHandling.xml</file>
+  </header>
+
+  <section>
+    <title>Creating a List</title>
+    
+    <p>Lists can only be built starting from the end and attaching list
+    elements at the beginning. If you use the "<c>++</c>" operator as
+    follows, a new list is created that is a copy of the elements in
+    <c>List1</c>, followed by <c>List2</c>:</p>
+
+    <code type="erl">
+List1 ++ List2</code>
+
+    <p>Looking at how <c>lists:append/1</c> or <c>++</c> would be
+    implemented in plain Erlang, clearly the first list is copied:</p>
+
+    <code type="erl">
+append([H|T], Tail) ->
+    [H|append(T, Tail)];
+append([], Tail) ->
+    Tail.</code>
+
+    <p>When recursing and building a list, it is important to ensure
+    that you attach the new elements to the beginning of the list. In
+    this way, you will build <em>one</em> list, not hundreds or thousands
+    of copies of the growing result list.</p>
+
+    <p>Let us first see how it is not to be done:</p>
+
+    <p><em>DO NOT</em></p>
+    <code type="erl"><![CDATA[
+bad_fib(N) ->
+    bad_fib(N, 0, 1, []).
+
+bad_fib(0, _Current, _Next, Fibs) ->
+    Fibs;
+bad_fib(N, Current, Next, Fibs) -> 
+    bad_fib(N - 1, Next, Current + Next, Fibs ++ [Current]).]]></code>
+
+    <p>Here more than one list is built. In each iteration step a new list
+    is created that is one element longer than the new previous list.</p>
+
+    <p>To avoid copying the result in each iteration, build the list in
+    reverse order and reverse the list when you are done:</p>
+
+    <p><em>DO</em></p>
+    <code type="erl"><![CDATA[
+tail_recursive_fib(N) ->
+    tail_recursive_fib(N, 0, 1, []).
+
+tail_recursive_fib(0, _Current, _Next, Fibs) ->
+    lists:reverse(Fibs);
+tail_recursive_fib(N, Current, Next, Fibs) -> 
+    tail_recursive_fib(N - 1, Next, Current + Next, [Current|Fibs]).]]></code>
+
+  </section>
+
+  <section>
+    <title>List Comprehensions</title>
+
+    <p>Lists comprehensions still have a reputation for being slow.
+    They used to be implemented using funs, which used to be slow.</p>
+
+    <p>A list comprehension:</p>
+
+    <code type="erl"><![CDATA[
+[Expr(E) || E <- List]]]></code>
+
+    <p>is basically translated to a local function:</p>
+
+    <code type="erl">
+'lc^0'([E|Tail], Expr) ->
+    [Expr(E)|'lc^0'(Tail, Expr)];
+'lc^0'([], _Expr) -> [].</code>
+
+    <p>If the result of the list comprehension will <em>obviously</em>
+    not be used, a list will not be constructed. For example, in this code:</p>
+    
+    <code type="erl"><![CDATA[
+[io:put_chars(E) || E <- List],
+ok.]]></code>
+ 
+    <p>or in this code:</p>
+   
+    <code type="erl"><![CDATA[
+...
+case Var of
+    ... ->
+        [io:put_chars(E) || E <- List];
+    ... ->
+end,
+some_function(...),
+...]]></code>
+    
+    <p>the value is not assigned to a variable, not passed to another function,
+    and not returned. This means that there is no need to construct a list and
+    the compiler will simplify the code for the list comprehension to:</p>
+
+    <code type="erl">
+'lc^0'([E|Tail], Expr) ->
+    Expr(E),
+    'lc^0'(Tail, Expr);
+'lc^0'([], _Expr) -> [].</code>
+
+    <p>The compiler also understands that assigning to '_' means that
+    the value will not used. Therefore, the code in the following example
+    will also be optimized:</p>
+
+    <code type="erl"><![CDATA[
+_ = [io:put_chars(E) || E <- List],
+ok.]]></code>
+
+  </section>
+
+  <section>
+    <title>Deep and Flat Lists</title>
+
+    <p><seealso marker="stdlib:lists#flatten/1">lists:flatten/1</seealso>
+    builds an entirely new list. It is therefore expensive, and even
+    <em>more</em> expensive than the <c>++</c> operator (which copies its
+    left argument, but not its right argument).</p>
+
+    <p>In the following situations, you can easily avoid calling
+    <c>lists:flatten/1</c>:</p>
+
+    <list type="bulleted">
+      <item>When sending data to a port. Ports understand deep lists
+       so there is no reason to flatten the list before sending it to
+       the port.</item>
+      <item>When calling BIFs that accept deep lists, such as
+      <seealso marker="erts:erlang#list_to_binary/1">list_to_binary/1</seealso> or
+      <seealso marker="erts:erlang#iolist_to_binary/1">iolist_to_binary/1</seealso>.</item>
+      <item>When you know that your list is only one level deep, you can use
+      <seealso marker="stdlib:lists#append/1">lists:append/1</seealso>.</item>
+    </list>
+
+    <section>
+      <title>Port Example</title>
+
+    <p><em>DO</em></p>
+    <pre>
+      ...
+      port_command(Port, DeepList)
+      ...</pre>
+
+    <p><em>DO NOT</em></p>
+    <pre>
+      ...
+      port_command(Port, lists:flatten(DeepList))
+      ...</pre>
+
+    <p>A common way to send a zero-terminated string to a port is the following:</p>
+
+    <p><em>DO NOT</em></p>
+    <pre>
+      ...
+      TerminatedStr = String ++ [0], % String="foo" => [$f, $o, $o, 0]
+      port_command(Port, TerminatedStr)
+      ...</pre>
+
+    <p>Instead:</p>
+
+    <p><em>DO</em></p>
+    <pre>
+      ...
+      TerminatedStr = [String, 0], % String="foo" => [[$f, $o, $o], 0]
+      port_command(Port, TerminatedStr) 
+      ...</pre>
+    </section>
+
+    <section>
+      <title>Append Example</title>
+
+    <p><em>DO</em></p>
+    <pre>
+      > lists:append([[1], [2], [3]]).
+      [1,2,3]
+      ></pre>
+
+    <p><em>DO NOT</em></p>
+    <pre>
+      > lists:flatten([[1], [2], [3]]).
+      [1,2,3]
+      ></pre>
+    </section>
+  </section>
+
+  <section>
+    <title>Recursive List Functions</title>
+
+    <p>In section about myths, the following myth was exposed:
+    <seealso marker="myths#tail_recursive">Tail-Recursive Functions
+    are Much Faster Than Recursive Functions</seealso>.</p>
+
+    <p>There is usually not much difference between
+    a body-recursive list function and tail-recursive function that reverses
+    the list at the end. Therefore, concentrate on writing beautiful code
+    and forget about the performance of your list functions. In the
+    time-critical parts of your code (and only there), <em>measure</em>
+    before rewriting your code.</p>
+
+    <note><p>This section is about list functions that <em>construct</em>
+    lists. A tail-recursive function that does not construct a list runs
+    in constant space, while the corresponding body-recursive function
+    uses stack space proportional to the length of the list.</p></note>
+
+    <p>For example, a function that sums a list of integers, is
+    <em>not</em> to be written as follows:</p>
+    
+    <p><em>DO NOT</em></p>
+    <code type="erl">
+recursive_sum([H|T]) -> H+recursive_sum(T);
+recursive_sum([])    -> 0.</code>
+
+    <p>Instead:</p>
+
+    <p><em>DO</em></p>
+    <code type="erl">
+sum(L) -> sum(L, 0).
+
+sum([H|T], Sum) -> sum(T, Sum + H);
+sum([], Sum)    -> Sum.</code>
+  </section>
+</chapter>
+

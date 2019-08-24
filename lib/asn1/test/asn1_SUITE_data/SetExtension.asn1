@@ -1,0 +1,37 @@
+SetExtension DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSetExt1, XSetExt2  FROM External;
+
+SetExt1 ::= SET 
+{
+  ...
+}
+
+SetExt2 ::= SET 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  ...
+}
+
+SetExt3 ::= SET 
+{
+  ...,
+  bool  BOOLEAN,
+  int  INTEGER
+}
+
+SetExt4 ::= SET 
+{
+  bool  BOOLEAN,
+  ...,
+  int  INTEGER
+}
+
+SetExt1X ::= XSetExt1 
+SetExt2X ::= XSetExt2 
+
+
+END

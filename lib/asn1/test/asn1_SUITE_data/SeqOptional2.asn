@@ -1,0 +1,90 @@
+SeqOptional2 DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+SeqOpt1 ::= SEQUENCE 
+{
+  bool1  BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  seq1  SeqIn OPTIONAL
+}
+
+SeqOpt1Imp ::= SEQUENCE 
+{
+  bool1 [1] BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  seq1  [2] SeqIn OPTIONAL,
+  seq2  [3] SeqIn OPTIONAL,
+  ...,
+  int2  [4] SeqIn,
+  int3  [5] SeqIn
+}
+
+SeqOpt1Exp ::= SEQUENCE 
+{
+  bool1 [1] EXPLICIT BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  seq1  [2] EXPLICIT SeqIn OPTIONAL
+}
+
+SeqOpt2 ::= SEQUENCE 
+{
+  seq2  SeqIn OPTIONAL,
+  bool2  BOOLEAN,
+  int2  INTEGER
+}
+
+SeqOpt2Imp ::= SEQUENCE 
+{
+  seq2  [1] SeqIn OPTIONAL,
+  bool2 [2] BOOLEAN,
+  int2  INTEGER
+}
+
+SeqOpt2Exp ::= SEQUENCE 
+{
+  seq2  [1] EXPLICIT SeqIn OPTIONAL,
+  bool2 [2] EXPLICIT BOOLEAN,
+  int2  INTEGER
+}
+
+SeqOpt3 ::= SEQUENCE 
+{
+  bool3  BOOLEAN OPTIONAL,
+  seq3  SeqIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+SeqOpt3Imp ::= SEQUENCE 
+{
+  bool3 [1] BOOLEAN OPTIONAL,
+  seq3  [2] SeqIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+SeqOpt3Exp ::= SEQUENCE 
+{
+  bool3 [1] EXPLICIT BOOLEAN OPTIONAL,
+  seq3  [2] EXPLICIT SeqIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+
+SeqChoOpt ::= SEQUENCE
+{
+   int INTEGER,
+   cho CHOICE {
+                boolC BOOLEAN,
+                intC  INTEGER
+              } OPTIONAL
+}
+
+
+SeqIn ::= SEQUENCE 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+END

@@ -1,0 +1,562 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>array</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>array.xml</file>
+  </header>
+  <module since="">array</module>
+  <modulesummary>Functional, extendible arrays.</modulesummary>
+  <description>
+    <p>Functional, extendible arrays. Arrays can have fixed size, or can grow
+      automatically as needed. A default value is used for entries that have not
+      been explicitly set.</p>
+
+    <p>Arrays uses <em>zero</em>-based indexing. This is a deliberate design
+      choice and differs from other Erlang data structures, for example,
+      tuples.</p>
+
+    <p>Unless specified by the user when the array is created, the default
+      value is the atom <c>undefined</c>. There is no difference between an
+      unset entry and an entry that has been explicitly set to the same value
+      as the default one (compare
+      <seealso marker="#reset-2"><c>reset/2</c></seealso>). If you need to
+      differentiate between unset and set entries, ensure that the default value
+      cannot be confused with the values of set entries.</p>
+
+    <p>The array never shrinks automatically. If an index <c>I</c> has been used
+      to set an entry successfully, all indices in the range [0,<c>I</c>] stay
+      accessible unless the array size is explicitly changed by calling
+      <seealso marker="#resize-2"><c>resize/2</c></seealso>.</p>
+
+    <p><em>Examples:</em></p>
+
+    <p>Create a fixed-size array with entries 0-9 set to <c>undefined</c>:</p>
+
+    <pre>
+A0 = array:new(10).
+10 = array:size(A0).</pre>
+
+    <p>Create an extendible array and set entry 17 to <c>true</c>, causing the
+      array to grow automatically:</p>
+
+    <pre>
+A1 = array:set(17, true, array:new()).
+18 = array:size(A1).</pre>
+
+    <p>Read back a stored value:</p>
+
+    <pre>
+true = array:get(17, A1).</pre>
+
+    <p>Accessing an unset entry returns default value:</p>
+
+    <pre>
+undefined = array:get(3, A1)</pre>
+
+    <p>Accessing an entry beyond the last set entry also returns the default
+     value, if the array does not have fixed size:</p>
+
+    <pre>
+undefined = array:get(18, A1).</pre>
+
+    <p>"Sparse" functions ignore default-valued entries:</p>
+
+    <pre>
+A2 = array:set(4, false, A1).
+[{4, false}, {17, true}] = array:sparse_to_orddict(A2).</pre>
+
+    <p>An extendible array can be made fixed-size later:</p>
+
+    <pre>
+A3 = array:fix(A2).</pre>
+
+    <p>A fixed-size array does not grow automatically and does not allow
+      accesses beyond the last set entry:</p>
+
+    <pre>
+{'EXIT',{badarg,_}} = (catch array:set(18, true, A3)).
+{'EXIT',{badarg,_}} = (catch array:get(18, A3)).</pre>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="array" n_vars="1"/>
+      <desc>
+        <p>A functional, extendible array. The representation is not documented
+          and is subject to change without notice. Notice that arrays cannot be
+          directly compared for equality.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="array" n_vars="0"/>
+    </datatype>
+    <datatype>
+      <name name="array_indx"/>
+    </datatype>
+    <datatype>
+      <name name="array_opts"/>
+    </datatype>
+    <datatype>
+      <name name="array_opt"/>
+    </datatype>
+    <datatype>
+      <name name="indx_pairs"/>
+    </datatype>
+    <datatype>
+      <name name="indx_pair"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="default" arity="1" since=""/>
+      <fsummary>Get the value used for uninitialized entries.</fsummary>
+      <desc><marker id="default-1"/>
+        <p>Gets the value used for uninitialized entries.</p>
+        <p>See also <seealso marker="#new-2"><c>new/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fix" arity="1" since=""/>
+      <fsummary>Fix the array size.</fsummary>
+      <desc><marker id="fix-1"/>
+        <p>Fixes the array size. This prevents it from growing automatically
+          upon insertion.</p>
+        <p>See also <seealso marker="#set-3"><c>set/3</c></seealso> and
+          <seealso marker="#relax-1"><c>relax/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foldl" arity="3" since=""/>
+      <fsummary>Fold the array elements using the specified function and initial
+        accumulator value.</fsummary>
+      <desc><marker id="foldl-3"/>
+        <p>Folds the array elements using the specified function and initial
+          accumulator value. The elements are visited in order from the lowest
+          index to the highest. If <c><anno>Function</anno></c> is not a
+          function, the call fails with reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#foldr-3"><c>foldr/3</c></seealso>,
+          <seealso marker="#map-2"><c>map/2</c></seealso>,
+          <seealso marker="#sparse_foldl-3"><c>sparse_foldl/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foldr" arity="3" since=""/>
+      <fsummary>Fold the array elements right-to-left using the specified
+        function and initial accumulator value.</fsummary>
+      <desc><marker id="foldr-3"/>
+        <p>Folds the array elements right-to-left using the specified function
+          and initial accumulator value. The elements are visited in order from
+          the highest index to the lowest. If <c><anno>Function</anno></c> is
+          not a function, the call fails with reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#foldl-3"><c>foldl/3</c></seealso>,
+          <seealso marker="#map-2"><c>map/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_list" arity="1" since=""/>
+      <fsummary>Equivalent to <c>from_list(List, undefined)</c>.</fsummary>
+      <desc><marker id="from_list-1"/>
+        <p>Equivalent to
+          <seealso marker="#from_list-2"><c>from_list(<anno>List</anno>, undefined)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_list" arity="2" since=""/>
+      <fsummary>Convert a list to an extendible array.</fsummary>
+      <desc><marker id="from_list-2"/>
+        <p>Converts a list to an extendible array. <c><anno>Default</anno></c>
+          is used as the value for uninitialized entries of the array. If
+          <c><anno>List</anno></c> is not a proper list, the call fails with
+          reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#new-2"><c>new/2</c></seealso>,
+          <seealso marker="#to_list-1"><c>to_list/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_orddict" arity="1" since=""/>
+      <fsummary>Equivalent to <c>from_orddict(Orddict, undefined)</c>.
+      </fsummary>
+      <desc><marker id="from_orddict-1"/>
+        <p>Equivalent to
+          <seealso marker="#from_orddict-2"><c>from_orddict(<anno>Orddict</anno>, undefined)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_orddict" arity="2" since=""/>
+      <fsummary>Convert an ordered list of pairs <c>{Index, Value}</c> to a
+        corresponding extendible array.</fsummary>
+      <desc><marker id="from_orddict-2"/>
+        <p>Converts an ordered list of pairs <c>{Index, <anno>Value</anno>}</c>
+          to a corresponding extendible array. <c><anno>Default</anno></c> is
+          used as the value for uninitialized entries of the array. If
+          <c><anno>Orddict</anno></c> is not a proper, ordered list of pairs
+          whose first elements are non-negative integers, the call fails with
+          reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#new-2"><c>new/2</c></seealso>,
+          <seealso marker="#to_orddict-1"><c>to_orddict/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since=""/>
+      <fsummary>Get the value of entry <c>I</c>.</fsummary>
+      <desc><marker id="get-2"/>
+        <p>Gets the value of entry <c><anno>I</anno></c>. If
+          <c><anno>I</anno></c> is not a non-negative integer, or if the array
+          has fixed size and <c><anno>I</anno></c> is larger than the maximum
+          index, the call fails with reason <c>badarg</c>.</p>
+        <p>If the array does not have fixed size, the default value for any
+          index <c><anno>I</anno></c> greater than
+          <c>size(<anno>Array</anno>)-1</c> is returned.</p>
+        <p>See also <seealso marker="#set-3"><c>set/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_array" arity="1" since=""/>
+      <fsummary>Returns <c>true</c> if <c>X</c> is an array, otherwise
+        <c>false</c>.</fsummary>
+      <desc><marker id="is_array-1"/>
+        <p>Returns <c>true</c> if <c><anno>X</anno></c> is an array, otherwise
+          <c>false</c>. Notice that the check is only shallow, as there is no
+          guarantee that <c><anno>X</anno></c> is a well-formed array
+          representation even if this function returns <c>true</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_fix" arity="1" since=""/>
+      <fsummary>Check if the array has fixed size.</fsummary>
+      <desc><marker id="is_fix-1"/>
+        <p>Checks if the array has fixed size. Returns <c>true</c> if the array
+          is fixed, otherwise <c>false</c>.</p>
+        <p>See also <seealso marker="#fix-1"><c>fix/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since=""/>
+      <fsummary>Map the specified function onto each array element.</fsummary>
+      <desc><marker id="map-2"/>
+        <p>Maps the specified function onto each array element. The elements are
+          visited in order from the lowest index to the highest. If
+          <c><anno>Function</anno></c> is not a function, the call fails with
+          reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#foldl-3"><c>foldl/3</c></seealso>,
+          <seealso marker="#foldr-3"><c>foldr/3</c></seealso>,
+          <seealso marker="#sparse_map-2"><c>sparse_map/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="0" since=""/>
+      <fsummary>Create a new, extendible array with initial size zero.
+      </fsummary>
+      <desc><marker id="new-0"/>
+        <p>Creates a new, extendible array with initial size zero.</p>
+        <p>See also <seealso marker="#new-1"><c>new/1</c></seealso>,
+          <seealso marker="#new-2"><c>new/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="1" since=""/>
+      <fsummary>Create a new array according to the specified options.
+      </fsummary>
+      <desc><marker id="new-1"/>
+        <p>Creates a new array according to the specified otions. By default,
+          the array is extendible and has initial size zero. Array indices
+          start at <c>0</c>.</p> 
+        <p><c><anno>Options</anno></c> is a single term or a list of terms,
+          selected from the following:</p>
+        <taglist>
+          <tag><c>N::integer() >= 0</c> or <c>{size, N::integer() >= 0}</c>
+          </tag>
+          <item><p>Specifies the initial array size; this also implies
+            <c>{fixed, true}</c>. If <c>N</c> is not a non-negative integer, the
+            call fails with reason <c>badarg</c>.</p></item>
+          <tag><c>fixed</c> or <c>{fixed, true}</c></tag>
+          <item><p>Creates a fixed-size array. See also
+            <seealso marker="#fix-1"><c>fix/1</c></seealso>.</p></item>
+          <tag><c>{fixed, false}</c></tag>
+          <item><p>Creates an extendible (non-fixed-size) array.</p></item>
+          <tag><c>{default, Value}</c></tag>
+          <item><p>Sets the default value for the array to <c>Value</c>.</p>
+          </item>
+        </taglist>
+        <p>Options are processed in the order they occur in the list, that is,
+          later options have higher precedence.</p>
+        <p>The default value is used as the value of uninitialized entries, and
+          cannot be changed once the array has been created.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+array:new(100)</pre>
+        <p>creates a fixed-size array of size 100.</p>
+        <pre>
+array:new({default,0})</pre>
+        <p>creates an empty, extendible array whose default value is <c>0</c>.
+        </p>
+        <pre>
+array:new([{size,10},{fixed,false},{default,-1}])</pre>
+        <p>creates an extendible array with initial size 10 whose default value
+          is <c>-1</c>.</p>
+        <p>See also <seealso marker="#fix-1"><c>fix/1</c></seealso>,
+          <seealso marker="#from_list-2"><c>from_list/2</c></seealso>,
+          <seealso marker="#get-2"><c>get/2</c></seealso>,
+          <seealso marker="#new-0"><c>new/0</c></seealso>,
+          <seealso marker="#new-2"><c>new/2</c></seealso>,
+          <seealso marker="#set-3"><c>set/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="2" since=""/>
+      <fsummary>Create a new array according to the specified size and options.
+      </fsummary>
+      <desc><marker id="new-2"/>
+        <p>Creates a new array according to the specified size and options. If
+          <c><anno>Size</anno></c> is not a non-negative integer, the call fails
+          with reason <c>badarg</c>. By default, the array has fixed size.
+          Notice that any size specifications in <c><anno>Options</anno></c>
+          override parameter <c><anno>Size</anno></c>.</p>
+        <p>If <c><anno>Options</anno></c> is a list, this is equivalent to
+          <c>new([{size, <anno>Size</anno>} | <anno>Options</anno>]</c>,
+          otherwise it is equivalent to <c>new([{size, <anno>Size</anno>} |
+          [<anno>Options</anno>]]</c>. However, using this function directly is
+          more efficient.</p>
+        <p><em>Example:</em></p>
+        <pre>
+array:new(100, {default,0})</pre>
+        <p>creates a fixed-size array of size 100, whose default value is
+          <c>0</c>.</p>
+        <p>See also <seealso marker="#new-1"><c>new/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="relax" arity="1" since=""/>
+      <fsummary>Make the array resizable.</fsummary>
+      <desc><marker id="relax-1"/>
+        <p>Makes the array resizable. (Reverses the effects of
+          <seealso marker="#fix-1"><c>fix/1</c></seealso>.)</p>
+        <p>See also <seealso marker="#fix-1"><c>fix/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reset" arity="2" since=""/>
+      <fsummary>Reset entry <c>I</c> to the default value for the array.
+      </fsummary>
+      <desc><marker id="reset-2"/>
+        <p>Resets entry <c><anno>I</anno></c> to the default value for the
+          array. If the value of entry <c><anno>I</anno></c> is the default
+          value, the array is returned unchanged. Reset never changes the array
+          size. Shrinking can be done explicitly by calling
+          <seealso marker="#resize-2"><c>resize/2</c></seealso>.</p> 
+        <p>If <c><anno>I</anno></c> is not a non-negative integer, or if the
+          array has fixed size and <c><anno>I</anno></c> is larger than the
+          maximum index, the call fails with reason <c>badarg</c>; compare
+          <seealso marker="#set-3"><c>set/3</c></seealso></p>
+        <p>See also <seealso marker="#new-2"><c>new/2</c></seealso>,
+          <seealso marker="#set-3"><c>set/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resize" arity="1" since=""/>
+      <fsummary>Change the array size to that reported by <c>sparse_size/1</c>.
+      </fsummary>
+      <desc><marker id="resize-1"/>
+        <p>Changes the array size to that reported by
+          <seealso marker="#sparse_size-1"><c>sparse_size/1</c></seealso>. If
+          the specified array has fixed size, also the resulting array has fixed
+          size.</p>
+        <p>See also <seealso marker="#resize-2"><c>resize/2</c></seealso>,
+          <seealso marker="#sparse_size-1"><c>sparse_size/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resize" arity="2" since=""/>
+      <fsummary>Change the array size.</fsummary>
+      <desc><marker id="resize-2"/>
+        <p>Change the array size. If <c><anno>Size</anno></c> is not a
+          non-negative integer, the call fails with reason <c>badarg</c>. If
+          the specified array has fixed size, also the resulting array has fixed
+          size.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set" arity="3" since=""/>
+      <fsummary>Set entry <c>I</c> of the array to <c>Value</c>.</fsummary>
+      <desc><marker id="set-3"/>
+        <p>Sets entry <c><anno>I</anno></c> of the array to
+          <c><anno>Value</anno></c>. If <c><anno>I</anno></c> is not a
+          non-negative integer, or if the array has fixed size and
+          <c><anno>I</anno></c> is larger than the maximum index, the call
+          fails with reason <c>badarg</c>.</p> 
+        <p>If the array does not have fixed size, and <c><anno>I</anno></c> is
+          greater than <c>size(<anno>Array</anno>)-1</c>, the array grows to
+          size <c><anno>I</anno>+1</c>.</p>
+        <p>See also <seealso marker="#get-2"><c>get/2</c></seealso>,
+          <seealso marker="#reset-2"><c>reset/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="size" arity="1" since=""/>
+      <fsummary>Get the number of entries in the array.</fsummary>
+      <desc><marker id="size-1"/>
+        <p>Gets the number of entries in the array. Entries are numbered from
+          <c>0</c> to <c>size(<anno>Array</anno>)-1</c>. Hence, this is also the
+          index of the first entry that is guaranteed to not have been
+          previously set.</p>
+        <p>See also <seealso marker="#set-3"><c>set/3</c></seealso>,
+          <seealso marker="#sparse_size-1"><c>sparse_size/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_foldl" arity="3" since=""/>
+      <fsummary>Fold the array elements using the specified function and initial
+        accumulator value, skipping default-valued entries.</fsummary>
+      <desc><marker id="sparse_foldl-3"/>
+        <p>Folds the array elements using the specified function and initial
+          accumulator value, skipping default-valued entries. The elements are
+          visited in order from the lowest index to the highest. If
+          <c><anno>Function</anno></c> is not a function, the call fails with
+          reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#foldl-3"><c>foldl/3</c></seealso>,
+          <seealso marker="#sparse_foldr-3"><c>sparse_foldr/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_foldr" arity="3" since=""/>
+      <fsummary>Fold the array elements right-to-left using the specified
+        function and initial accumulator value, skipping default-valued
+        entries.</fsummary>
+      <desc><marker id="sparse_foldr-3"/>
+        <p>Folds the array elements right-to-left using the specified
+          function and initial accumulator value, skipping default-valued
+          entries. The elements are visited in order from the highest index to
+          the lowest. If <c><anno>Function</anno></c> is not a function, the
+          call fails with reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#foldr-3"><c>foldr/3</c></seealso>,
+          <seealso marker="#sparse_foldl-3"><c>sparse_foldl/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_map" arity="2" since=""/>
+      <fsummary>Map the specified function onto each array element, skipping
+        default-valued entries.</fsummary>
+      <desc><marker id="sparse_map-2"/>
+        <p>Maps the specified function onto each array element, skipping
+          default-valued entries. The elements are visited in order from the
+          lowest index to the highest. If <c><anno>Function</anno></c> is not a
+          function, the call fails with reason <c>badarg</c>.</p>
+        <p>See also <seealso marker="#map-2"><c>map/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_size" arity="1" since=""/>
+      <fsummary>Get the number of entries in the array up until the last
+        non-default-valued entry.</fsummary>
+      <desc><marker id="sparse_size-1"/>
+        <p>Gets the number of entries in the array up until the last
+          non-default-valued entry. That is, returns <c>I+1</c> if <c>I</c> is
+          the last non-default-valued entry in the array, or zero if no such
+          entry exists.</p>
+        <p>See also <seealso marker="#resize-1"><c>resize/1</c></seealso>,
+          <seealso marker="#size-1"><c>size/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_to_list" arity="1" since=""/>
+      <fsummary>Convert the array to a list, skipping default-valued entries.
+      </fsummary>
+      <desc><marker id="sparse_to_list-1"/>
+        <p>Converts the array to a list, skipping default-valued entries.</p>
+        <p>See also <seealso marker="#to_list-1"><c>to_list/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sparse_to_orddict" arity="1" since=""/>
+      <fsummary>Convert the array to an ordered list of pairs <c>{Index,
+        Value}</c>, skipping default-valued entries.</fsummary>
+      <desc><marker id="sparse_to_orddict-1"/>
+        <p>Converts the array to an ordered list of pairs <c>{Index,
+          <anno>Value</anno>}</c>, skipping default-valued entries.</p>
+        <p>See also
+          <seealso marker="#to_orddict-1"><c>to_orddict/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_list" arity="1" since=""/>
+      <fsummary>Convert the array to a list.</fsummary>
+      <desc><marker id="to_list-1"/>
+        <p>Converts the array to a list.</p>
+        <p>See also <seealso marker="#from_list-2"><c>from_list/2</c></seealso>,
+          <seealso marker="#sparse_to_list-1"><c>sparse_to_list/1</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_orddict" arity="1" since=""/>
+      <fsummary>Convert the array to an ordered list of pairs <c>{Index,
+        Value}</c>.</fsummary>
+      <desc><marker id="to_orddict-1"/>
+        <p>Converts the array to an ordered list of pairs <c>{Index,
+          <anno>Value</anno>}</c>.</p>
+        <p>See also
+          <seealso marker="#from_orddict-2"><c>from_orddict/2</c></seealso>,
+          <seealso marker="#sparse_to_orddict-1"><c>sparse_to_orddict/1</c></seealso>.
+        </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

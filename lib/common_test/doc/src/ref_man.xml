@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Common Test Reference Manual</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ref_man.xml</file>
+  </header>
+  <description>
+  </description>
+
+  <xi:include href="common_test_app.xml"/>
+  <xi:include href="ct_run.xml"/>
+  <xi:include href="ct.xml"/>
+  <xi:include href="ct_master.xml"/>
+  <xi:include href="ct_cover.xml"/>
+  <xi:include href="ct_ftp.xml"/>
+  <xi:include href="ct_ssh.xml"/>
+  <xi:include href="ct_netconfc.xml"/>
+  <xi:include href="ct_rpc.xml"/>
+  <xi:include href="ct_snmp.xml"/>
+  <xi:include href="ct_telnet.xml"/>
+  <xi:include href="unix_telnet.xml"/>
+  <xi:include href="ct_slave.xml"/>
+  <xi:include href="ct_hooks.xml"/>
+  <xi:include href="ct_property_test.xml"/>
+  <xi:include href="ct_testspec.xml"/>
+</application>
+
+

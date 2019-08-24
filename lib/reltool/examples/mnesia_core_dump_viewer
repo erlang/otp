@@ -1,0 +1,54 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%
+%% Pretty print a Mnesia Core Dump
+%% 
+%% core_dump_viewer CoreFile [OutputFile]
+%%
+%% Status codes:
+%%
+%%  0 -> Ok
+%%  1 -> Bad usage
+%%  2 -> Cannot read Mnesia Core file
+%%  3 -> Cannot write to file
+
+-mode(compile).
+
+main([CoreFile | OptOutputFile]) when CoreFile =/= "--help" ->
+    %% io:format("Args: ~p\n", [init:get_arguments()]),
+    case file:read_file(CoreFile) of
+	{ok, Bin} ->
+	    Core = binary_to_term(Bin),
+	    PrettyCore = io_lib:format("~p\n", [Core]),
+	    PrettyBin = list_to_binary(PrettyCore),
+	    case OptOutputFile of
+		[OutputFile] ->
+		    case file:write_file(OutputFile, PrettyBin) of
+			ok ->
+			    ok;
+			{error, Reason} ->
+			    io:format("<ERROR> Cannot write to file ~p ~p\n",
+				      [OutputFile, Reason]),
+			    halt(3)
+		    end;
+		[] ->
+		    io:format("~p\n", [Core]),
+		    io:format("ok\n", []),
+		    timer:sleep(timer:seconds(2)), % Poor mans flush of io buffers
+		    init:stop();
+		_ ->
+		    usage()
+	    end;
+	{error, Reason} ->
+	    io:format("<ERROR> Cannot read Mnesia Core file ~p ~p\n",
+		      [CoreFile, Reason]),
+	    halt(2)
+    end;
+main(_BadArgs) ->
+    usage().
+
+usage() ->
+    FullName = escript:script_name(),
+    BaseName = filename:basename(FullName),
+    io:format("usage: ~s CoreFile [OutputFile]\n", [BaseName]),
+    halt(1).

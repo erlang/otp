@@ -1,0 +1,20 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROGS = my_echo@exe@ my_fds@exe@
+
+all: $(PROGS)
+
+my_echo@exe@: my_echo@obj@
+	$(LD) $(CROSSLDFLAGS) -o my_echo my_echo@obj@ @LIBS@
+
+my_echo@obj@: my_echo.c
+	$(CC) -c -o my_echo@obj@ $(CFLAGS) my_echo.c
+
+my_fds@exe@: my_fds@obj@
+	$(LD) $(CROSSLDFLAGS) -o my_fds my_fds@obj@ @LIBS@
+
+my_fds@obj@: my_fds.c
+	$(CC) -c -o my_fds@obj@ $(CFLAGS) my_fds.c

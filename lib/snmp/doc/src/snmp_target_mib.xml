@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_target_mib</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_target_mib.xml</file>
+  </header>
+  <module since="">snmp_target_mib</module>
+  <modulesummary>Instrumentation Functions for SNMP-TARGET-MIB</modulesummary>
+  <description>
+    <p>The module <c>snmp_target_mib</c> implements the instrumentation
+      functions for the SNMP-TARGET-MIB, 
+      and functions for configuring the database. </p>
+    <p>The configuration files are described in the SNMP User's Manual.</p>
+    <p>Legacy API functions <c>add_addr/10</c> that does not specify
+      transport domain, and <c>add_addr/11</c> that has got separate
+      <c>IpAddr</c> and <c>PortNumber</c> arguments still work as before
+      for backwards compatibility reasons.</p>
+
+    <marker id="types"></marker>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>See the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+
+    <marker id="configure"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">configure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>This function is called from the supervisor at system
+          start-up.
+          </p>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old rows with StorageType
+          <c>volatile</c>.  The rows created from the configuration file
+          will have StorageType <c>nonVolatile</c>. </p>
+        <p>All <c>snmp</c> counters are set to zero. </p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function <c>config_err/2</c> of the error
+          report module, and the function fails with the reason 
+          <c>configuration_error</c>. </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found. </p>
+        <p>The configuration files read are: <c>target_addr.conf</c>
+          and <c>target_params.conf</c>. </p>
+
+	<marker id="reconfigure"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">reconfigure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old data, including the rows with
+          StorageType <c>nonVolatile</c>.  The rows created from the
+          configuration file will have StorageType <c>nonVolatile</c>. </p>
+        <p>Thus, the data in the SNMP-TARGET-MIB, after this
+          function has been called, is the data from the configuration
+          files. </p>
+        <p>All <c>snmp</c> counters are set to zero.</p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function <c>config_err/2</c> of the ,
+          and the function fails with the reason 
+          <c>configuration_error</c>.</p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found. </p>
+        <p>The configuration files read are: <c>target_addr.conf</c>
+          and <c>target_params.conf</c>. </p>
+
+	<marker id="set_target_engine_id"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_target_engine_id(TargetAddrName, EngineId) -> boolean()</name>
+      <fsummary>Set the engine id for a targetAddr row.</fsummary>
+      <type>
+        <v>TargetAddrName = string()</v>
+        <v>EngineId = string()</v>
+      </type>
+      <desc>
+        <p>Changes the engine id for a target in the 
+          <c>snmpTargetAddrTable</c>.
+          If notifications are sent as Inform requests to a target, its
+          engine id must be set. </p>
+
+	<marker id="add_addr"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
+      <fsummary>Add one target address definition</fsummary>
+      <type>
+        <v>Name = string()</v>
+        <v>Domain = transportDomain()</v>
+	<v>Addr = transportAddress()  % Default port is 162</v>
+        <v>Timeout = integer()</v>
+        <v>Retry = integer()</v>
+        <v>TagList = string()</v>
+        <v>ParamsName = string()</v>
+        <v>EngineId = string()</v>
+        <v>TMask = transportAddressMask()  % Depends on Domain</v>
+        <v>MMS = integer()</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a target address definition to the agent config. 
+          Equivalent to one line in the <c>target_addr.conf</c> file.</p>
+
+        <marker id="delete_addr"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delete_addr(Key) -> Ret</name>
+      <fsummary>Delete one target address definition</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a target address definition from the agent config.</p>
+
+        <marker id="add_params"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret</name>
+      <fsummary>Add one target parameter definition</fsummary>
+      <type>
+        <v>Name = string()</v>
+        <v>MPModel = v1 | v2c | v3</v>
+        <v>SecModel = v1 | v2c | usm</v>
+        <v>SecName = string()</v>
+        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a target parameter definition to the agent config. 
+          Equivalent to one line in the <c>target_params.conf</c> file.</p>
+
+        <marker id="delete_params"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">delete_params(Key) -> Ret</name>
+      <fsummary>Delete one target parameter definition</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a target parameter definition from the agent config.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

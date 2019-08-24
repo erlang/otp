@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_call</title>
+    <prepared>Torbj&ouml;rn T&ouml;rnkvist</prepared>
+    <responsible>Torbj&ouml;rn T&ouml;rnkvist</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
+    <date>1997-05-16</date>
+    <rev>B</rev>
+    <file>erl_call.xml</file>
+  </header>
+  <com>erl_call</com>
+  <comsummary>Call/start a distributed Erlang node.</comsummary>
+  <description>
+    <p><c>erl_call</c> makes it possible to start and/or
+      communicate with a distributed Erlang node. It is built upon the
+      <c>Erl_Interface</c> library as an example application.
+      Its purpose is to use a Unix shell script to interact with a distributed
+      Erlang node. It performs all communication with the Erlang
+      <em>rex server</em>, using the standard Erlang RPC facility. It does not
+      require any special software to be run at the Erlang target node.</p>
+
+    <p>The main use is to either start a distributed Erlang node
+      or to make an ordinary function call. However, it is also
+      possible to pipe an Erlang module to <c>erl_call</c> and have
+      it compiled, or to pipe a sequence of Erlang expressions to be evaluated
+      (similar to the Erlang shell).</p>
+
+    <p>Options, which cause <c>stdin</c> to be read, can be used
+      with advantage,
+      as scripts from within (Unix) shell scripts. Another nice use
+      of <c>erl_call</c> could be from (HTTP) CGI-bin scripts.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>erl_call &lt;options></name>
+      <fsummary>Start/call Erlang.</fsummary>
+      <desc>
+        <p>Starts/calls Erlang.</p>
+        <p>Each option flag is described below with its name, type, and
+          meaning.</p>
+        <taglist>
+          <tag><c>-a [Mod [Fun [Args]]]]</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Applies the specified function
+              and returns the result. <c>Mod</c> must be specified.
+              However, <c>start</c> and <c>[]</c> are assumed for unspecified
+              <c>Fun</c> and <c>Args</c>, respectively.
+              <c>Args</c> is to be in the same format as for
+              <seealso marker="erts:erlang#apply/3">
+              <c>erlang:apply/3</c></seealso> in <c>ERTS</c>.</p>
+            <p>Notice that this flag takes exactly one argument, so quoting
+              can be necessary to group <c>Mod</c>,
+              <c>Fun</c>, and <c>Args</c> in a manner
+              dependent on the behavior of your command shell.</p>
+          </item>
+          <tag><c>-c Cookie</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Use this option to specify a certain cookie.
+              If no cookie is specified, the <c>~/.erlang.cookie</c>
+              file is read and its content is used as cookie. The Erlang node
+              we want to communicate with must have the same cookie.</p>
+          </item>
+          <tag><c>-d</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Debug mode. This causes all I/O to be output
+              to the <c>~/.erl_call.out.Nodename</c> file, where
+              <c>Nodename</c>
+              is the node name of the Erlang node in question.</p>
+          </item>
+          <tag><c>-e</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Reads a sequence of Erlang expressions,
+              separated by comma (,) and ended with a full stop (.), from
+              <c>stdin</c> until EOF (Control-D). Evaluates the
+              expressions and returns the result from the last expression.
+              Returns <c>{ok,Result}</c> on success.</p>
+          </item>
+          <tag><c>-h HiddenName</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Specifies the name of the hidden node
+              that <c>erl_call</c> represents.</p>
+          </item>
+          <tag><c>-m</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Reads an Erlang module from
+              <c>stdin</c> and compiles it.</p>
+          </item>
+          <tag><c>-n Node</c></tag>
+          <item>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              Has the same meaning as <c>-name</c> and can still be
+              used for backward compatibility reasons.</p>
+          </item>
+          <tag><c>-name Node</c></tag>
+          <item>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              <c>Node</c> is the name of the node to be
+              started or communicated with. It is assumed that
+              <c>Node</c> is started with
+              <c>erl -name</c>, which means that fully
+              qualified long node names are used. If option
+              <c>-s</c> is specified, an Erlang node will (if
+              necessary) be started with <c>erl -name</c>.</p>
+          </item>
+          <tag><c>-q</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Halts the Erlang node specified
+              with switch <c>-n</c>. This switch overrides switch <c>-s</c>.</p>
+          </item>
+          <tag><c>-r</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Generates a random name of the hidden node
+              that <c>erl_call</c> represents.</p>
+          </item>
+          <tag><c>-s</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Starts a distributed Erlang node if
+              necessary. This means that in a sequence of calls, where
+              '<c>-s</c>' and '<c>-n Node</c>' are
+              constant, only the first call starts the Erlang node. This makes
+              the rest of the communication very fast. This flag is currently
+              only available on Unix-like platforms (Linux, Mac OS X, Solaris,
+              and so on).</p>
+          </item>
+          <tag><c>-sname Node</c></tag>
+          <item>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              <c>Node</c> is the name of the node to be started
+              or communicated with. It is assumed that <c>Node</c>
+              is started with <c>erl -sname</c>, which means that
+              short node names are used. If option <c>-s</c> is
+              specified, an Erlang node is started (if necessary) with
+              <c>erl -sname</c>.</p>
+          </item>
+          <tag><c>-v</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Prints a lot of <c>verbose</c>
+              information. This is only useful for the developer and maintainer
+              of <c>erl_call</c>.</p>
+          </item>
+          <tag><c>-x ErlScript</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Specifies another name of the Erlang
+              startup script to be used. If not specified, the standard
+              <c>erl</c> startup script is used.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Examples</title>
+    <p>To start an Erlang node and call <c>erlang:time/0</c>:</p>
+
+    <code type="none"><![CDATA[
+erl_call -s -a 'erlang time' -n madonna
+{18,27,34}
+    ]]></code>
+
+    <p>To terminate an Erlang node by calling
+      <c>erlang:halt/0</c>:</p>
+
+    <code type="none"><![CDATA[
+erl_call -s -a 'erlang halt' -n madonna
+    ]]></code>
+
+    <p>To apply with many arguments:</p>
+
+    <code type="none"><![CDATA[
+erl_call -s -a 'lists seq [1,10]' -n madonna
+    ]]></code>
+
+    <p>To evaluate some expressions
+      (<em>the input ends with EOF (Control-D)</em>):</p>
+
+    <code type="none"><![CDATA[
+erl_call -s -e -n madonna
+statistics(runtime),
+X=1,
+Y=2,
+{_,T}=statistics(runtime),
+{X+Y,T}.
+^D
+{ok,{3,0}}
+    ]]></code>
+
+    <p>To compile a module and run it (<em>again, the input ends with EOF
+      (Control-D)</em>):</p>
+    <p>(In the example, the output has been formatted afterwards.)</p>
+
+    <code type="none"><![CDATA[
+erl_call -s -m -a procnames -n madonna
+-module(procnames).
+-compile(export_all).
+start() ->
+        P = processes(),
+        F = fun(X) -> {X,process_info(X,registered_name)} end,
+        lists:map(F,[],P).
+^D
+[{<madonna@chivas.du.etx.ericsson.se,0,0>,
+                  {registered_name,init}},
+ {<madonna@chivas.du.etx.ericsson.se,2,0>,
+                  {registered_name,erl_prim_loader}},
+ {<madonna@chivas.du.etx.ericsson.se,4,0>,
+                  {registered_name,error_logger}},
+ {<madonna@chivas.du.etx.ericsson.se,5,0>,
+                  {registered_name,application_controller}},
+ {<madonna@chivas.du.etx.ericsson.se,6,0>,
+                  {registered_name,kernel}},
+ {<madonna@chivas.du.etx.ericsson.se,7,0>,
+                  []},
+ {<madonna@chivas.du.etx.ericsson.se,8,0>,
+                  {registered_name,kernel_sup}},
+ {<madonna@chivas.du.etx.ericsson.se,9,0>,
+                  {registered_name,net_sup}},
+ {<madonna@chivas.du.etx.ericsson.se,10,0>,
+                  {registered_name,net_kernel}},
+ {<madonna@chivas.du.etx.ericsson.se,11,0>,
+                  []},
+ {<madonna@chivas.du.etx.ericsson.se,12,0>,
+                  {registered_name,global_name_server}},
+ {<madonna@chivas.du.etx.ericsson.se,13,0>,
+                  {registered_name,auth}},
+ {<madonna@chivas.du.etx.ericsson.se,14,0>,
+                  {registered_name,rex}},
+ {<madonna@chivas.du.etx.ericsson.se,15,0>,
+                  []},
+ {<madonna@chivas.du.etx.ericsson.se,16,0>,
+                  {registered_name,file_server}},
+ {<madonna@chivas.du.etx.ericsson.se,17,0>,
+                  {registered_name,code_server}},
+ {<madonna@chivas.du.etx.ericsson.se,20,0>,
+                  {registered_name,user}},
+ {<madonna@chivas.du.etx.ericsson.se,38,0>,
+                  []}]
+    ]]></code>
+  </section>
+</comref>

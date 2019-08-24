@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd" [
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary file</seealso>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<comref>
+<header>
+<copyright>
+<year>2011</year><year>2016</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+
+The program may be used and/or copied only with the written permission
+from Ericsson AB, or in accordance with the terms and conditions
+stipulated in the agreement/contract under which the program has been
+supplied.
+
+</legalnotice>
+
+<title>diameterc(1)</title>
+
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>diameterc.xml</file>
+</header>
+
+<com>diameterc</com>
+<comsummary><![CDATA[diameterc [<options>] <file>]]></comsummary>
+
+<description>
+
+<p>
+The diameterc utility is used to compile a diameter
+&dictionary; into Erlang source.
+The resulting source implements the interface diameter required
+to encode and decode the dictionary's messages and AVPs.</p>
+
+<p>
+The module &man_make; provides an alternate compilation interface.</p>
+
+</description>
+
+<section>
+<title>USAGE</title>
+
+<taglist>
+
+<tag><![CDATA[diameterc [<options>] <file>]]></tag>
+<item>
+<p>
+Compile a single dictionary file to Erlang source.
+Valid options are as follows.</p>
+
+<taglist>
+<tag><![CDATA[-i <dir>]]></tag>
+<item>
+<p>
+Prepend the specified directory to the code path.
+Use to point at beam files compiled from inherited dictionaries,
+<c>&dict_inherits;</c> in a dictionary file creating a beam
+dependency, not an erl/hrl dependency.</p>
+
+<p>
+Multiple <c>-i</c> options can be specified.</p>
+</item>
+
+<tag><![CDATA[-o <dir>]]></tag>
+<item>
+<p>
+Write generated source to the specified directory.
+Defaults to the current working directory.</p>
+</item>
+
+<tag><![CDATA[-E]]></tag><item/>
+<tag><![CDATA[-H]]></tag>
+<item>
+<p>
+Suppress erl and hrl generation, respectively.</p>
+</item>
+
+<tag><![CDATA[--name <name>]]></tag><item/>
+<tag><![CDATA[--prefix <prefix>]]></tag>
+<item>
+<p>
+Transform the input dictionary before compilation, setting
+<c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.</p>
+</item>
+
+<tag><![CDATA[--inherits <arg>]]></tag>
+<item>
+<p>
+Transform the input dictionary before compilation, appending
+<c>&dict_inherits;</c> of the specified string.</p>
+
+<p>
+Two forms of <c>--inherits</c> have special meaning:</p>
+
+<pre>
+--inherits -
+--inherits Prev/Mod
+</pre>
+
+<p>
+The first has the effect of clearing any previous inherits, the second
+of replacing a previous inherits of <c>Prev</c> to one of <c>Mod</c>.
+This allows the semantics of the input dictionary to be changed without
+modifying the file itself.</p>
+
+<p>
+Multiple <c>--inherits</c> options can be specified.</p>
+</item>
+
+</taglist>
+
+</item>
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>EXIT STATUS</title>
+
+<p>
+Returns 0 on success, non-zero on failure.</p>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_make;, &man_dict;</p>
+
+</section>
+
+</comref>

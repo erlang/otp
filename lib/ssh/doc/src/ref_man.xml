@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>SSH Reference Manual</title>
+    <prepared>OTP</prepared>
+    <date>2007-10-06</date>
+    <rev>%VSN%</rev>
+    <file>ref_man.xml</file>
+  </header>
+  <description>
+    <p>The <c>ssh</c> application is an Erlang implementation of the
+      Secure Shell Protocol (SSH) as defined by RFC 4250 - 4254.</p>
+
+  </description>
+  <xi:include href="ssh_app.xml"/>
+  <xi:include href="ssh.xml"/>
+  <xi:include href="ssh_client_channel.xml"/>
+  <xi:include href="ssh_server_channel.xml"/>
+  <xi:include href="ssh_connection.xml"/>
+  <xi:include href="ssh_client_key_api.xml"/>
+  <xi:include href="ssh_server_key_api.xml"/>
+  <xi:include href="ssh_file.xml"/>
+  <xi:include href="ssh_sftp.xml"/>
+  <xi:include href="ssh_sftpd.xml"/>
+</application>
+

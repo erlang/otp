@@ -1,0 +1,2 @@
+
+flatten.erl:17: The call lists:flatten(nonempty_improper_list(atom() | [any()] | char(),atom() | {'no_translation',binary()})) will never return since it differs in the 1st argument from the success typing arguments: ([any()])

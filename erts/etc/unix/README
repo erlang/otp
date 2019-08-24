@@ -1,0 +1,112 @@
+ 
+ %CopyrightBegin%
+ 
+ Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ %CopyrightEnd%
+ 
+--------------------------------------------------------------------------------
+%sunos4 This is Erlang version %VERSION% for SunOS 4.
+%solaris2 This is Erlang version %VERSION% for Solaris 2 (SunOS 5).
+%isc32 This is Erlang version %VERSION% for Interactive UNIX.
+%aix This is Erlang version %VERSION% for AIX.
+%hpux This is Erlang version %VERSION% for HP-UX.
+%osf This is Erlang version %VERSION% for OSF/1 (currently unsupported).
+%linux This is Erlang version %VERSION% for Linux.
+%qnx This is Erlang version %VERSION% for QNX.
+%freebsd This is Erlang version %VERSION% for FreeBSD.
+
+
+Installation
+------------
+
+Please refer to the "System Administrator's Guide" for a description
+of how to install the Erlang system. Ultra-short summary for the
+impatient: Run the 'Install' script in this directory and answer the
+questions; defaults (if any) are given in square brackets [] at the
+end of each question.
+
+Note that the Install script will terminate if it detects problems -
+you will have to correct them and re-run the script. If everything
+goes well, the last printout should be:
+
+Erlang installation successfully completed
+
+If it isn't, something went wrong - check the printouts to find out
+what it was.
+
+%hpux Note: On HP-UX, it isn't possible to have per-manpage-tree 'whatis'
+%hpux files. Thus, 'erl -man -k <subject>' will not work, and it isn't
+%hpux recommended to integrate the Erlang man pages into /usr/lib/whatis
+%hpux since (as mentioned in the "System Administrator's Guide") there are
+%hpux some potential conflicts in naming with standard Unix man pages.
+%hpux 
+%isc32 Note: The release currently includes several files with names longer
+%isc32 than 14 characters - this means that you will have problems unpacking
+%isc32 it in a standard Interactive S51K (or S52K) filesystem (which you've
+%isc32 probably already noticed...). Furthermore, the Erlang filer makes no
+%isc32 attempts to deal "intelligently" with such restrictions. The bottom
+%isc32 line is that you have to install the Erlang system in an S5L (or
+%isc32 possibly NFS) filesystem, unless you have found a way to make the
+%isc32 Interactive system silently truncate filenames longer than 14
+%isc32 characters when using S5?K (if so, please tell us about it!).
+%isc32 
+
+Overview of the files/directories in the system
+-----------------------------------------------
+
+README    - this file.
+
+RELNOTES  - release notes.
+
+Install   - the main installation script.
+
+bin       - the directory where all code that is to be executed
+            directly by UNIX is placed during the installation.
+
+lib       - a number of "bundles" included in the release - each
+            bundle lives in a subdirectory.  Most of them are written
+            entirely in Erlang, but in some cases C programs are also
+            used (these are copied to the bin directory during
+            installation). The code server will automatically add the
+            appropriate directory for each bundle to the search path.
+            Some of the more noteworthy bundles:
+            std - this is the standard library, with modules such as
+            file, io, lists, etc.
+            compiler - the Erlang compiler (of course)
+            debugger - the Erlang debugger (ditto)
+            pxw - the "Primitive X Window interface", which perhaps
+            isn't so primitive anymore...
+            For further information on these and the other bundles,
+            please refer to the man pages.
+
+doc       - The printed documentation in compressed PostScript format,
+            and some code examples.
+
+man       - Manual pages, best accessed with 'erl -man' - there are
+            some conflicts with standard Unix manpages if you put
+            this directory in $MANPATH.
+
+emulator  - The object code for the emulator itself is in the 'obj'
+            subdirectory, along with a simple Makefile and a couple
+            of source files that advanced users *may* be interested in
+            changing - care should be taken, of course, since any
+            changes may make the system non-functional. Refer to the
+            "System Adminstrator's Guide" and "Additional Features"
+            documents for some more information on this.
+
+misc      - Some pieces that don't belong to any particular part of the
+            system - e.g. the new erl_interface package, and an Erlang
+            mode for emacs.

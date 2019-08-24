@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>escript</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>escript.xml</file>
+  </header>
+  <com>escript</com>
+  <comsummary>Erlang scripting support</comsummary>
+  <description>
+    <p><c>escript</c> provides support for running short Erlang programs
+      without having to compile them first, and an easy way to retrieve the
+      command-line arguments.</p>
+
+      <p>It is possible to bundle <c>escript</c>(s) with an Erlang
+      runtime system to make it self-sufficient and relocatable. In such
+      a standalone system, the <c>escript</c>(s) should be located in
+      the top <c>bin</c> directory of the standalone system and given
+      <c>.escript</c> as file extension. Further the (built-in)
+      <c>escript</c> program should be copied to the same directory and
+      given the scripts original name (without the <c>.escript</c>
+      extension). This will enable use of the bundled Erlang runtime
+      system.</p>
+
+      <p>The (built-in) <c>escript</c> program first determines which
+      Erlang runtime system to use and then starts it to execute your
+      script. Usually the runtime system is located in the same Erlang
+      installation as the <c>escript</c> program itself. But for
+      standalone systems with one or more escripts it may be the case
+      that the <c>escript</c> program in your path actually starts the
+      runtime system bundled with the escript. This is intentional, and
+      typically happens when the standalone system <c>bin</c> directory is not
+      in the execution path (as it may cause its <c>erl</c> program to
+      override the desired one) and the <c>escript</c>(s) are referred to via
+      symbolic links from a <c>bin</c> directory in the path.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>script-name script-arg1 script-arg2...</name>
+      <name>escript escript-flags script-name script-arg1 script-arg2...</name>
+      <fsummary>Run a script written in Erlang.</fsummary>
+      <desc>
+        <p><c>escript</c> runs a script written in Erlang.</p>
+        <p>Example:</p>
+        <pre>
+$ <input>chmod u+x factorial</input>
+$ <input>cat factorial</input>
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -smp enable -sname factorial -mnesia debug verbose
+main([String]) ->
+    try
+        N = list_to_integer(String),
+        F = fac(N),
+        io:format("factorial ~w = ~w\n", [N,F])
+    catch
+        _:_ ->
+            usage()
+    end;
+main(_) ->
+    usage().
+
+usage() ->
+    io:format("usage: factorial integer\n"),
+    halt(1).
+
+fac(0) -> 1;
+fac(N) -> N * fac(N-1).
+$ <input>./factorial 5</input>
+factorial 5 = 120
+$ <input>./factorial</input>
+usage: factorial integer
+$ <input>./factorial five</input>
+usage: factorial integer</pre>
+        <p>The header of the Erlang script in the example differs from
+          a normal Erlang module. The first line is intended to be the
+          interpreter line, which invokes <c>escript</c>.</p>
+        <p>However, if you invoke the <c>escript</c> as follows,
+          the contents of the first line does not matter, but it
+          cannot contain Erlang code as it will be ignored:</p>
+        <pre>
+$ <input>escript factorial 5</input></pre>
+        <p>The second line in the example contains an optional
+          directive to the <c>Emacs</c> editor, which causes it to
+          enter the major mode for editing Erlang source files. If the
+          directive is present, it must be located on the second
+          line.</p>
+        <p>If a comment selecting the <seealso
+          marker="stdlib:epp#encoding">encoding</seealso> exists, it can be
+          located on the second line.</p>
+        <note>
+          <p>The encoding specified by the above mentioned comment
+            applies to the script itself. The encoding of the
+            I/O-server, however, must be set explicitly as follows:</p>
+          <code>
+io:setopts([{encoding, unicode}])</code>
+          <p>The default encoding of the I/O-server for <c>standard_io</c>
+            is <c>latin1</c>, as the script runs in a non-interactive terminal
+            (see section
+            <seealso marker="stdlib:unicode_usage#unicode_options_summary">
+            Summary of Options</seealso>) in the STDLIB User's Guide.</p>
+        </note>
+        <p>On the third line (or second line depending on the presence
+          of the Emacs directive), arguments can be specified to
+          the emulator, for example:</p>
+        <pre>
+%%! -smp enable -sname factorial -mnesia debug verbose</pre>
+        <p>Such an argument line must start with <c>%%!</c> and the
+          remaining line is interpreted as arguments to the emulator.</p>
+        <p>If you know the location of the <c>escript</c> executable, the first
+          line can directly give the path to <c>escript</c>, for example:</p>
+        <pre>
+#!/usr/local/bin/escript</pre>
+        <p>As any other type of scripts, Erlang scripts do not work on
+          Unix platforms if the execution bit for the script file is not set.
+          (To turn on the execution bit, use <c>chmod +x script-name</c>.)</p>
+        <p>The remaining Erlang script file can either contain
+          Erlang <em>source code</em>, an <em>inlined beam file</em>, or an
+          <em>inlined archive file</em>.</p>
+        <p>An Erlang script file must always contain the <c>main/1</c>
+          function. When the script is run, the
+          <c>main/1</c> function is called with a list
+          of strings representing the arguments specified to the script (not
+          changed or interpreted in any way).</p>
+        <p>If the <c>main/1</c> function in the script returns successfully,
+          the exit status for the script is <c>0</c>. If an exception is
+          generated during execution, a short message is printed and the script
+          terminates with exit status <c>127</c>.</p>
+        <p>To return your own non-zero exit code, call <c>halt(ExitCode)</c>,
+          for example:</p>
+        <pre>
+halt(1).</pre>
+        <p>
+	  To retrieve the pathname of the script, call
+	  <seealso marker="#script_name-0">
+	    <c>escript:script_name()</c>
+	  </seealso>
+	  from your script
+	  (the pathname is usually, but not always, absolute).</p>
+        <p>If the file contains source code (as in the example above),
+          it is processed by the
+          <seealso marker="stdlib:epp"><c>epp</c></seealso> preprocessor.
+          This means that you, for example, can use predefined macros
+          (such as <c>?MODULE</c>) and include directives like
+          the <c>-include_lib</c> directive. For example, use</p>
+        <pre>
+-include_lib("kernel/include/file.hrl").</pre>
+        <p>to include the record definitions for the records used by function
+          <seealso marker="kernel:file#read_link_info/1">
+          <c>file:read_link_info/1</c></seealso>. You can also select
+          encoding by including an encoding comment here, but if
+          a valid encoding comment exists on the second line, it takes
+          precedence.</p>
+        <p>The script is checked for syntactic and semantic
+          correctness before it is run. If there are warnings (such as
+          unused variables), they are printed and the script will
+          still be run. If there are errors, they are printed and
+          the script will not be run and its exit status is
+          <c>127</c>.</p>
+        <p>Both the module declaration and the export declaration of
+          the <c>main/1</c> function are optional.</p>
+        <p>By default, the script will be interpreted. You can force
+          it to be compiled by including the following line somewhere
+          in the script file:</p>
+        <pre>
+-mode(compile).</pre>
+        <p>Execution of interpreted code is slower than compiled code.
+          If much of the execution takes place in interpreted code, it
+          can be worthwhile to compile it, although the compilation
+          itself takes a little while. Also, <c>native</c> can be supplied
+          instead of <c>compile</c>. This compiles the script
+          using the native flag and may or may not be worthwhile
+          depending on the escript characteristics.</p>
+        <p>As mentioned earlier, a script can
+          contains precompiled <c>beam</c> code. In a precompiled
+          script, the interpretation of the script header is
+          the same as in a script containing source code. This means
+          that you can make a <c>beam</c> file executable by
+          prepending the file with the lines starting with <c>#!</c>
+          and <c>%%!</c> mentioned above. In a precompiled script, the
+          <c>main/1</c> function must be exported.</p>
+        <p>Another option is to have an entire
+          Erlang archive in the script. In an archive script, the
+          interpretation of the script header is the same as
+          in a script containing source code. This means that you can
+          make an archive file executable by prepending the file with
+          the lines starting with <c>#!</c> and <c>%%!</c> mentioned
+          above. In an archive script, the <c>main/1</c> function must
+          be exported. By default the <c>main/1</c> function in the
+          module with the same name as the basename of the
+          <c>escript</c> file is invoked. This behavior can be
+          overridden by setting flag <c>-escript main Module</c>
+          as one of the emulator flags. <c>Module</c> must be the
+          name of a module that has an exported <c>main/1</c>
+          function. For more information about archives and code loading, see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+        <p>It is often very convenient to have a header in
+          the escript, especially on Unix platforms. However, the header
+          is optional, so you directly can "execute"
+          an Erlang module, Beam file, or archive file without adding
+          any header to them. But then you have to invoke the script
+          as follows:</p>
+        <pre>
+$ <input>escript factorial.erl 5</input>
+factorial 5 = 120
+$ <input>escript factorial.beam 5</input>
+factorial 5 = 120
+$ <input>escript factorial.zip 5</input>
+factorial 5 = 120</pre>
+        <marker id="create-2"/>
+      </desc>
+    </func>
+
+    <func>
+      <name>escript:create(FileOrBin, Sections) -> ok | {ok, binary()} |
+        {error, term()}</name>
+      <fsummary>Create an escript.</fsummary>
+      <type>
+        <v>FileOrBin = filename() | 'binary'</v>
+        <v>Sections = [Header] Body | Body</v>
+        <v>Header = shebang | {shebang, Shebang}
+        &nbsp;&nbsp;&nbsp;| comment | {comment, Comment}
+        &nbsp;&nbsp;&nbsp;| {emu_args, EmuArgs}</v>
+        <v>Shebang = string() | 'default' | 'undefined'</v>
+        <v>Comment = string() | 'default' | 'undefined'</v>
+        <v>EmuArgs = string() | 'undefined'</v>
+        <v>Body = {source, SourceCode} | {beam, BeamCode}
+        &nbsp;&nbsp;&nbsp;| {archive, ZipArchive}
+        &nbsp;&nbsp;&nbsp;| {archive, ZipFiles, ZipOptions}</v>
+        <v>SourceCode = BeamCode = file:filename() | binary()</v>
+        <v>ZipArchive = <seealso marker="stdlib:zip#type-filename">
+          zip:filename()</seealso> | binary()</v>
+        <v>ZipFiles = [ZipFile]</v>
+        <v>ZipFile = file:filename()
+        &nbsp;&nbsp;&nbsp;| {file:filename(), binary()}
+        &nbsp;&nbsp;&nbsp;| {file:filename(), binary(), file:file_info()}</v>
+        <v>ZipOptions = [<seealso marker="stdlib:zip#type-create_option">
+          zip:create_option()</seealso>]</v>
+      </type>
+      <desc>
+        <p>
+          Creates an escript from a list of sections. The
+          sections can be specified in any order. An escript begins with an
+          optional <c>Header</c> followed by a mandatory <c>Body</c>. If
+          the header is present, it does always begin with a
+          <c>shebang</c>, possibly followed by a <c>comment</c> and
+          <c>emu_args</c>. The <c>shebang</c> defaults to
+          <c>"/usr/bin/env escript"</c>. The <c>comment</c> defaults to
+          <c>"This is an -*- erlang -*- file"</c>. The created escript
+          can either be returned as a binary or written to file.</p>
+        <p>As an example of how the function can be used, we create an
+          interpreted escript that uses <c>emu_args</c> to set some emulator
+          flag. In this case, it happens to disable the <c>smp_support</c>. We
+          also extract the different sections from the newly created script:</p>
+        <pre>
+&gt; <input>Source = "%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_support)).\n".</input>
+"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_support)).\n"
+&gt; <input>io:format("~s\n", [Source]).</input>
+%% Demo
+main(_Args) ->
+    io:format(erlang:system_info(smp_support)).
+
+ok
+&gt; <input>{ok, Bin} = escript:create(binary, [shebang, comment, {emu_args, "-smp disable"},
+                                      {source, list_to_binary(Source)}]).</input>
+{ok,&lt;&lt;"#!/usr/bin/env escript\n%% This is an -*- erlang -*- file\n%%!-smp disabl"...&gt;&gt;}
+&gt; <input>file:write_file("demo.escript", Bin).</input>
+ok
+&gt; <input>os:cmd("escript demo.escript").</input>
+"false"
+&gt; <input>escript:extract("demo.escript", []).</input>
+{ok,[{shebang,default}, {comment,default}, {emu_args,"-smp disable"},
+     {source,&lt;&lt;"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_su"...&gt;&gt;}]}</pre>
+        <p>An escript without header can be created as follows:</p>
+        <pre>
+&gt; <input>file:write_file("demo.erl",
+                  ["%% demo.erl\n-module(demo).\n-export([main/1]).\n\n", Source]).</input>
+ok
+&gt; <input>{ok, _, BeamCode} = compile:file("demo.erl", [binary, debug_info]).</input>
+{ok,demo,
+    &lt;&lt;70,79,82,49,0,0,2,208,66,69,65,77,65,116,111,109,0,0,0,
+      79,0,0,0,9,4,100,...&gt;&gt;}
+&gt; <input>escript:create("demo.beam", [{beam, BeamCode}]).</input>
+ok
+&gt; <input>escript:extract("demo.beam", []).</input>
+{ok,[{shebang,undefined}, {comment,undefined}, {emu_args,undefined},
+     {beam,&lt;&lt;70,79,82,49,0,0,3,68,66,69,65,77,65,116,
+             111,109,0,0,0,83,0,0,0,9,...&gt;&gt;}]}
+&gt; <input>os:cmd("escript demo.beam").</input>
+"true"</pre>
+        <p>Here we create an archive script containing both Erlang
+          code and Beam code, then we iterate over all files in
+          the archive and collect their contents and some information about
+          them:</p>
+        <pre>
+&gt; <input>{ok, SourceCode} = file:read_file("demo.erl").</input>
+{ok,&lt;&lt;"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...&gt;&gt;}
+&gt; <input>escript:create("demo.escript",
+                 [shebang,
+                  {archive, [{"demo.erl", SourceCode},
+                             {"demo.beam", BeamCode}], []}]).</input>
+ok
+&gt; <input>{ok, [{shebang,default}, {comment,undefined}, {emu_args,undefined},
+     {archive, ArchiveBin}]} = escript:extract("demo.escript", []).</input>
+{ok,[{shebang,default}, {comment,undefined}, {emu_args,undefined},
+     {{archive,&lt;&lt;80,75,3,4,20,0,0,0,8,0,118,7,98,60,105,
+                152,61,93,107,0,0,0,118,0,...&gt;&gt;}]}
+&gt; <input>file:write_file("demo.zip", ArchiveBin).</input>
+ok
+&gt; <input>zip:foldl(fun(N, I, B, A) -> [{N, I(), B()} | A] end, [], "demo.zip").</input>
+{ok,[{"demo.beam",
+      {file_info,748,regular,read_write,
+                 {{2010,3,2},{0,59,22}},
+                 {{2010,3,2},{0,59,22}},
+                 {{2010,3,2},{0,59,22}},
+                 54,1,0,0,0,0,0},
+      &lt;&lt;70,79,82,49,0,0,2,228,66,69,65,77,65,116,111,109,0,0,0,
+        83,0,0,...&gt;&gt;},
+     {"demo.erl",
+      {file_info,118,regular,read_write,
+                 {{2010,3,2},{0,59,22}},
+                 {{2010,3,2},{0,59,22}},
+                 {{2010,3,2},{0,59,22}},
+                 54,1,0,0,0,0,0},
+      &lt;&lt;"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...&gt;&gt;}]}</pre>
+        <marker id="extract-2"/>
+      </desc>
+    </func>
+
+    <func>
+      <name>escript:extract(File, Options) -> {ok, Sections} |
+        {error, term()}</name>
+      <fsummary>Parse an escript and extract its sections.</fsummary>
+      <type>
+        <v>File = filename()</v>
+        <v>Options = [] | [compile_source]</v>
+        <v>Sections = Headers Body</v>
+        <v>Headers =  {shebang, Shebang}
+          {comment, Comment}
+          {emu_args, EmuArgs}</v>
+        <v>Shebang = string() | 'default' | 'undefined'</v>
+        <v>Comment = string() | 'default' | 'undefined'</v>
+        <v>EmuArgs = string() | 'undefined'</v>
+        <v>Body = {source, SourceCode}
+        &nbsp;&nbsp;&nbsp;| {source, BeamCode}
+        &nbsp;&nbsp;&nbsp;| {beam, BeamCode}
+        &nbsp;&nbsp;&nbsp;| {archive, ZipArchive}</v>
+        <v>SourceCode = BeamCode = ZipArchive = binary()</v>
+      </type>
+      <desc>
+        <p>
+	  Parses an escript and extracts its sections.
+	  This is the reverse of
+	  <seealso marker="#create-2"><c>create/2</c></seealso>.
+	</p>
+        <p>All sections are returned even if they do not exist in the
+          escript. If a particular section happens to have the same
+          value as the default value, the extracted value is set to the
+          atom <c>default</c>. If a section is missing, the extracted
+          value is set to the atom <c>undefined</c>.</p>
+        <p>Option <c>compile_source</c> only affects the result if
+          the escript contains <c>source</c> code. In this case the
+          Erlang code is automatically compiled and <c>{source,
+          BeamCode}</c> is returned instead of <c>{source,
+          SourceCode}</c>.</p>
+        <p>Example:</p>
+        <pre>
+&gt; <input>escript:create("demo.escript",
+                 [shebang, {archive, [{"demo.erl", SourceCode},
+                                      {"demo.beam", BeamCode}], []}]).</input>
+ok
+&gt; <input>{ok, [{shebang,default}, {comment,undefined}, {emu_args,undefined},
+     {archive, ArchiveBin}]} =
+              escript:extract("demo.escript", []).</input>
+{ok,[{{archive,&lt;&lt;80,75,3,4,20,0,0,0,8,0,118,7,98,60,105,
+                152,61,93,107,0,0,0,118,0,...&gt;&gt;}
+     {emu_args,undefined}]}</pre>
+        <marker id="script_name-0"/>
+      </desc>
+    </func>
+
+    <func>
+      <name>escript:script_name() -> File</name>
+      <fsummary>Return the name of an escript.</fsummary>
+      <type>
+        <v>File = filename()</v>
+      </type>
+      <desc>
+        <p>
+          Returns the name of the escript that is executed.
+          If the function is invoked outside the context
+          of an escript, the behavior is undefined.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Options Accepted By escript</title>
+    <taglist>
+      <tag><c>-c</c></tag>
+      <item>Compiles the escript regardless of the value of the mode attribute.
+      </item>
+      <tag><c>-d</c></tag>
+      <item>Debugs the escript. Starts the debugger, loads the module
+        containing the <c>main/1</c> function into the debugger, sets a
+        breakpoint in <c>main/1</c>, and invokes <c>main/1</c>. If the
+        module is precompiled, it must be explicitly compiled with option
+        <c>debug_info</c>.
+      </item>
+      <tag><c>-i</c></tag>
+      <item>Interprets the escript regardless of the value of the mode
+        attribute.
+      </item>
+      <tag><c>-s</c></tag>
+      <item>Performs a syntactic and semantic check of the script file.
+        Warnings and errors (if any) are written to the standard output, but
+        the script will not be run. The exit status is <c>0</c> if any errors
+        are found, otherwise <c>127</c>.
+      </item>
+      <tag><c>-n</c></tag>
+      <item>Compiles the escript using flag <c>+native</c>.
+      </item>
+    </taglist>
+  </section>
+</comref>
+

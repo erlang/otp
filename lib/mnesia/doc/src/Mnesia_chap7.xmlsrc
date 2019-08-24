@@ -1,0 +1,924 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Mnesia System Information</title>
+    <prepared>Claes Wikstr&ouml;m, Hans Nilsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>Mnesia_chap7.xml</file>
+  </header>
+
+  <p>The following topics are included:</p>
+  <list type="bulleted">
+    <item>Database configuration data</item>
+    <item>Core dumps</item>
+    <item>Dumping tables</item>
+    <item>Checkpoints</item>
+    <item>Startup files, log file, and data files</item>
+    <item>Loading tables at startup</item>
+    <item>Recovery from communication failure</item>
+    <item>Recovery of transactions</item>
+    <item>Backup, restore, fallback, and disaster recovery</item>
+  </list>
+
+  <section>
+    <title>Database Configuration Data</title>
+    <p>The following two functions can be used to retrieve system
+      information. For details, see the Reference Manual.</p>
+    <list type="bulleted">
+      <item><seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, Key)
+       -> Info | exit({aborted,Reason})</seealso>
+       returns information about one table, for example,
+       the current size of the table and on which nodes it resides.
+      </item>
+      <item><seealso marker="mnesia#system_info/1">mnesia:system_info(Key)
+       -> Info | exit({aborted, Reason})</seealso>
+       returns information about the <c>Mnesia</c> system,
+       for example, transaction statistics, <c>db_nodes</c>, and
+       configuration parameters.
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Core Dumps</title>
+    <p>If <c>Mnesia</c> malfunctions, system information is dumped to
+      file <c>MnesiaCore.Node.When</c>. The type of system
+      information contained in this file can also be generated with
+      the function <c>mnesia_lib:coredump()</c>. If a <c>Mnesia</c>
+      system behaves strangely, it is recommended that a <c>Mnesia</c>
+      core dump file is included in the bug report.</p>
+  </section>
+
+  <section>
+    <title>Dumping Tables</title>
+    <p>Tables of type <c>ram_copies</c> are by definition stored in
+      memory only. However, these tables can be dumped to
+      disc, either at regular intervals or before the system is
+      shut down. The function
+      <seealso marker="mnesia#dump_tables/1">mnesia:dump_tables(TabList)</seealso>
+      dumps all replicas of a set of RAM tables to disc. The tables can be
+      accessed while being dumped to disc. To dump the tables to disc,
+      all replicas must have the storage type <c>ram_copies</c>.</p>
+    <p>The table content is placed in a <c>.DCD</c> file on the
+      disc. When the <c>Mnesia</c> system is started, the RAM table
+      is initially loaded with data from its <c>.DCD</c> file.</p>
+  </section>
+
+  <section>
+    <marker id="checkpoints"></marker>
+    <title>Checkpoints</title>
+    <p>A checkpoint is a transaction consistent state that spans over
+      one or more tables. When a checkpoint is activated, the system
+      remembers the current content of the set of tables. The
+      checkpoint retains a transaction consistent state of the tables,
+      allowing the tables to be read and updated while the checkpoint
+      is active. A checkpoint is typically used to
+      back up tables to external media, but they are also used
+      internally in <c>Mnesia</c> for other purposes. Each checkpoint
+      is independent and a table can be involved in several checkpoints
+      simultaneously.</p>
+    <p>Each table retains its old contents in a checkpoint retainer.
+      For performance critical applications, it can be important
+      to realize the processing overhead associated with checkpoints.
+      In a worst case scenario, the checkpoint retainer consumes
+      more memory than the table itself. Also, each update becomes
+      slightly slower on those nodes where checkpoint
+      retainers are attached to the tables.</p>
+    <p>For each table, it is possible to choose if there is to be one
+      checkpoint retainer attached to all replicas of the table, or if
+      it is enough to have only one checkpoint retainer attached to a
+      single replica. With a single checkpoint retainer per table, the
+      checkpoint consumes less memory, but it is vulnerable
+      to node crashes. With several redundant checkpoint retainers, the
+      checkpoint survives as long as there is at least one active
+      checkpoint retainer attached to each table.</p>
+    <p>Checkpoints can be explicitly deactivated with the function
+      <seealso marker="mnesia#deactivate_checkpoint/1">mnesia:deactivate_checkpoint(Name)</seealso>,
+      where <c>Name</c> is
+      the name of an active checkpoint. This function returns
+      <c>ok</c> if successful or <c>{error, Reason}</c> if there is
+      an error. All tables in a checkpoint must be attached to at
+      least one checkpoint retainer. The checkpoint is automatically
+      deactivated by <c>Mnesia</c>, when any table lacks a checkpoint
+      retainer. This can occur when a node goes down or when a
+      replica is deleted. Use arguments <c>min</c> and
+      <c>max</c> (described in the following list) to control the
+      degree of checkpoint retainer redundancy.</p>
+    <marker id="mnesia:chkpt(Args)"></marker>
+    <p>Checkpoints are activated with the function
+      <seealso marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seealso>,
+      where <c>Args</c> is a list of the following tuples:</p>
+    <list type="bulleted">
+      <item><c>{name,Name}</c>, where <c>Name</c> specifies a temporary
+       name of the checkpoint. The name can be reused when the checkpoint
+       has been deactivated. If no name is specified, a name is
+       generated automatically.
+      </item>
+      <item><c>{max,MaxTabs}</c>, where <c>MaxTabs</c> is a list of
+       tables that are to be included in the checkpoint. Default is
+       <c>[]</c> (empty list). For these tables, the redundancy
+       is maximized. The old content of the table is
+       retained in the checkpoint retainer when the main table is
+       updated by the applications. The checkpoint is more fault
+       tolerant if the tables have several replicas. When new
+       replicas are added by the schema manipulation function
+       <seealso marker="mnesia#add_table_copy/3">mnesia:add_table_copy/3</seealso>
+       it also attaches a local checkpoint retainer.
+      </item>
+      <item><c>{min,MinTabs}</c>, where <c>MinTabs</c> is a list of
+       tables that are to be included in the checkpoint. Default
+       is <c>[]</c>. For these tables, the redundancy is minimized,
+       and there is to be single checkpoint retainer per table,
+       preferably at the local node.
+      </item>
+      <item><c>{allow_remote,Bool}</c>, where <c>false</c> means that
+       all checkpoint retainers must be local. If a table does not
+       reside locally, the checkpoint cannot be activated. <c>true</c>
+       allows checkpoint retainers to be allocated on any node.
+       Default is <c>true</c>.
+      </item>
+      <item><c>{ram_overrides_dump,Bool}</c>. This argument only
+       applies to tables of type <c>ram_copies</c>. <c>Bool</c>
+       specifies if the table state in RAM is to override the table
+       state on disc. <c>true</c> means that the latest committed
+       records in RAM are included in the checkpoint retainer. These
+       are the records that the application accesses. <c>false</c>
+       means that the records on the disc <c>.DAT</c> file are
+       included in the checkpoint retainer. These records are
+       loaded on startup. Default is <c>false</c>.</item>
+    </list>
+    <p>The function
+      <seealso marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seealso>
+      returns one of the following values:</p>
+    <list type="bulleted">
+      <item><c>{ok, Name, Nodes}</c></item>
+      <item><c>{error, Reason}</c></item>
+    </list>
+    <p><c>Name</c> is the checkpoint name. <c>Nodes</c> are
+      the nodes where the checkpoint is known.</p>
+    <p>A list of active checkpoints can be obtained with the following
+      functions:</p>
+    <list type="bulleted">
+      <item><seealso marker="mnesia#system_info/1">mnesia:system_info(checkpoints)</seealso>
+       returns all active checkpoints on the current node.</item>
+      <item><seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, checkpoints)</seealso>
+       returns active checkpoints on a specific table.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Startup Files, Log File, and Data Files</title>
+    <p>This section describes the internal files that are created
+      and maintained by the <c>Mnesia</c> system. In particular,
+      the workings of the <c>Mnesia</c> log are described.</p>
+
+    <section>
+      <title>Startup Files</title>
+    <p><seealso marker="Mnesia_chap3#start_mnesia">Start Mnesia</seealso>
+    states the following prerequisites
+    for starting <c>Mnesia</c>:</p>
+    <list type="bulleted">
+      <item>An Erlang session must be started and a <c>Mnesia</c>
+       directory must be specified for the database.
+      </item>
+      <item>A database schema must be initiated, using the function
+       <seealso marker="mnesia#create_schema/1">mnesia:create_schema/1</seealso>.
+      </item>
+    </list>
+    <p>The following example shows how these tasks are performed:</p>
+    <p><em>Step 1:</em> Start an Erlang session and specify a
+      <c>Mnesia</c> directory for the database:</p>
+    <pre>
+% <input>erl -sname klacke -mnesia dir '"/ldisc/scratch/klacke"'</input></pre>
+    <pre>
+Erlang (BEAM) emulator version 4.9
+ 
+Eshell V4.9  (abort with ^G)
+(klacke@gin)1> <input>mnesia:create_schema([node()]).</input>
+ok
+(klacke@gin)2> 
+<input>^Z</input>
+Suspended</pre>
+    <p><em>Step 2:</em> You can inspect the <c>Mnesia</c> directory
+      to see what files have been created:</p>
+    <pre>
+% <input>ls -l /ldisc/scratch/klacke</input>
+-rw-rw-r--   1 klacke   staff       247 Aug 12 15:06 FALLBACK.BUP</pre>
+    <p>The response shows that the file <c>FALLBACK.BUP</c> has
+      been created. This is called a backup file, and it contains
+      an initial schema. If more than one node in the function
+      <seealso marker="mnesia#create_schema/1">mnesia:create_schema/1</seealso>
+      had been specified, identical
+      backup files would have been created on all nodes.</p>
+    <p><em>Step 3:</em> Start <c>Mnesia</c>:</p>
+    <pre>
+(klacke@gin)3><input>mnesia:start( ).</input>
+ok</pre>
+    <p><em>Step 4:</em> You can see the following listing in
+      the <c>Mnesia</c> directory:</p>
+    <pre>
+-rw-rw-r--   1 klacke   staff         86 May 26 19:03 LATEST.LOG
+-rw-rw-r--   1 klacke   staff      34507 May 26 19:03 schema.DAT</pre>
+    <p>The schema in the backup file <c>FALLBACK.BUP</c> has been
+      used to generate the file <c>schema.DAT</c>. Since there are
+      no other disc resident tables than the schema, no other data
+      files were created. The file <c>FALLBACK.BUP</c> was removed
+      after the successful "restoration". You also see some files
+      that are for internal use by <c>Mnesia</c>.</p>
+    <p><em>Step 5:</em> Create a table:</p>
+    <pre>
+(klacke@gin)4> <input>mnesia:create_table(foo,[{disc_copies, [node()]}]).</input>
+{atomic,ok}</pre>
+    <p><em>Step 6:</em> You can see the following listing in
+      the <c>Mnesia</c> directory:</p>
+    <pre>
+% <input>ls -l /ldisc/scratch/klacke</input>
+-rw-rw-r-- 1 klacke staff    86 May 26 19:07 LATEST.LOG
+-rw-rw-r-- 1 klacke staff    94 May 26 19:07 foo.DCD
+-rw-rw-r-- 1 klacke staff  6679 May 26 19:07 schema.DAT</pre>
+    <p>The file <c>foo.DCD</c> has been created. This file will
+      eventually store all data that is written into the
+      <c>foo</c> table.</p>
+    </section>
+
+    <section>
+      <title>Log File</title>
+      <p>When starting <c>Mnesia</c>, a <c>.LOG</c> file called
+        <c>LATEST.LOG</c> is created
+        and placed in the database directory. This file is used by
+        <c>Mnesia</c> to log disc-based transactions. This includes all
+        transactions that write at least one record in a table that is
+        of storage type <c>disc_copies</c> or <c>disc_only_copies</c>.
+        The file also includes all operations that
+        manipulate the schema itself, such as creating new tables.
+        The log format can vary with different implementations of
+        <c>Mnesia</c>. The <c>Mnesia</c> log is currently implemented
+        in the standard library module
+        <seealso marker="kernel:disk_log">disk_log</seealso> in
+        <c>Kernel</c>.</p>
+      <p>The log file grows continuously and must be dumped at
+        regular intervals. "Dumping the log file" means that <c>Mnesia</c>
+        performs all the operations listed in the log and place the
+        records in the corresponding <c>.DAT</c>, <c>.DCD</c>, and
+        <c>.DCL</c> data files. For example, if the operation "write
+        record <c>{foo, 4, elvis,  6}</c>" is listed in the log,
+        <c>Mnesia</c> inserts the operation into the file
+        <c>foo.DCL</c>. Later, when <c>Mnesia</c> thinks that the
+        <c>.DCL</c> file is too large, the data is moved to the
+        <c>.DCD</c> file. The dumping operation can be time consuming
+        if the log is large. Notice that the <c>Mnesia</c> system
+        continues to operate during log dumps.</p>
+      <p>By default <c>Mnesia</c> either dumps the log whenever
+        1000 records have
+        been written in the log or when three minutes have passed.
+        This is controlled by the two application parameters
+        <c>-mnesia dump_log_write_threshold WriteOperations</c> and
+        <c>-mnesia dump_log_time_threshold MilliSecs</c>.</p>
+      <p>Before the log is dumped, the file <c>LATEST.LOG</c> is
+        renamed to <c>PREVIOUS.LOG</c>, and a new <c>LATEST.LOG</c> file
+        is created. Once the log has been successfully dumped, the file
+        <c>PREVIOUS.LOG</c> is deleted.</p>
+      <p>The log is also dumped at startup and whenever a schema
+        operation is performed.</p>
+    </section>
+
+    <section>
+      <title>Data Files</title>
+      <p>The directory listing also contains one <c>.DAT</c> file,
+        which contains the schema itself, contained in the
+        <c>schema.DAT</c> file. The <c>DAT</c> files are indexed
+        files, and it is efficient to insert and search for records
+        in these files with a specific key. The <c>.DAT</c> files
+        are used for the schema and for <c>disc_only_copies</c>
+        tables. The <c>Mnesia</c> data files are currently implemented
+        in the standard library module
+        <seealso marker="stdlib:dets">dets</seealso> in
+        <c>STDLIB</c>.</p>
+      <p>All operations that can be performed on <c>dets</c> files
+        can also be performed on the <c>Mnesia</c> data files. For
+        example, <c>dets</c> contains the function
+        <c>dets:traverse/2</c>, which can be used to view the
+        contents of a <c>Mnesia</c> <c>DAT</c> file. However, this
+        can only be done when <c>Mnesia</c> is not running. So, to
+        view the schema file, do as follows;</p>
+      <pre>
+{ok, N} = dets:open_file(schema, [{file, "./schema.DAT"},{repair,false}, 
+{keypos, 2}]),
+F = fun(X) -> io:format("~p~n", [X]), continue end,
+dets:traverse(N, F),
+dets:close(N).</pre>
+      <warning>
+        <p>The <c>DAT</c> files must always be opened with option
+          <c>{repair, false}</c>. This ensures that these files are not
+          automatically repaired. Without this option, the database can
+          become inconsistent, because <c>Mnesia</c> can believe that
+          the files were properly closed. For information about
+          configuration parameter <c>auto_repair</c>, see the
+          Reference Manual.</p>
+      </warning>
+      <warning>
+        <p>It is recommended that the data files are not tampered
+          with while <c>Mnesia</c> is running. While not prohibited,
+          the behavior of <c>Mnesia</c> is unpredictable.</p>
+      </warning>
+      <p>The <c>disc_copies</c> tables are stored on disk with
+        <c>.DCL</c> and <c>.DCD</c> files, which are standard
+        <c>disk_log</c> files.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Loading Tables at Startup</title>
+    <p>At startup, <c>Mnesia</c> loads tables to make them accessible
+      for its applications. Sometimes <c>Mnesia</c> decides to load
+      all tables that reside locally, and sometimes the tables are
+      not accessible until <c>Mnesia</c> brings a copy of the table
+      from another node.</p>
+    <p>To understand the behavior of <c>Mnesia</c> at startup, it is
+      essential to understand how <c>Mnesia</c> reacts when it loses
+      contact with <c>Mnesia</c> on another node. At this stage,
+      <c>Mnesia</c> cannot distinguish between a communication
+      failure and a "normal" node-down. When this occurs,
+      <c>Mnesia</c> assumes that the other node is no longer running,
+      whereas, in reality, the communication between the nodes has
+      failed.</p>
+    <p>To overcome this situation, try to restart the ongoing
+      transactions that are accessing tables on the failing node,
+      and write a <c>mnesia_down</c> entry to a log file.</p>
+    <p>At startup, notice that all tables residing on nodes
+      without a <c>mnesia_down</c> entry can have fresher replicas.
+      Their replicas can have been updated after the termination of
+      <c>Mnesia</c> on the current node. To catch up with the latest
+      updates, transfer a copy of the table from one of these other
+      "fresh" nodes. If you are unlucky, other nodes can be down
+      and you must wait for the table to be loaded on one of these
+      nodes before receiving a fresh copy of the table.</p>
+    <p>Before an application makes its first access to a table,
+      <seealso marker="mnesia#wait_for_tables/2">mnesia:wait_for_tables(TabList, Timeout)</seealso>
+      is to be executed
+      to ensure that the table is accessible from the local node. If
+      the function times out, the application can choose to force a
+      load of the local replica with
+      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>
+      and deliberately lose all
+      updates that can have been performed on the other nodes while
+      the local node was down. If <c>Mnesia</c>
+      has loaded the table on another node already, or intends
+      to do so, copy the table from that node to
+      avoid unnecessary inconsistency.</p>
+    <warning>
+      <p>Only one table is loaded by
+      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>.
+        Since committed
+        transactions can have caused updates in several tables, the
+        tables can become inconsistent because of the forced load.</p>
+    </warning>
+    <p>The allowed <c>AccessMode</c> of a table can be defined to be
+      <c>read_only</c> or <c>read_write</c>. It can be toggled with
+      the function
+      <seealso marker="mnesia#change_table_access_mode/2">
+      mnesia:change_table_access_mode(Tab, AccessMode)</seealso>
+      in runtime. <c>read_only</c> tables and
+      <c>local_content</c> tables are always loaded locally, as
+      there is no need for copying the table from other nodes. Other
+      tables are primarily loaded remotely from active replicas on
+      other nodes if the table has been loaded there already, or if
+      the running <c>Mnesia</c> has decided to load the table there
+      already.</p>
+    <p>At startup, <c>Mnesia</c> assumes that its local replica is the
+      most recent version and loads the table from disc if either of
+      the following situations is detected:</p>
+    <list type="bulleted">
+      <item><c>mnesia_down</c> is returned from all other nodes that
+       hold a disc resident replica of the table.</item>
+      <item>All replicas are <c>ram_copies</c>.</item>
+    </list>
+    <p>This is normally a wise decision, but it can be disastrous
+      if the nodes have been disconnected because of a communication
+      failure, as the <c>Mnesia</c> normal table load
+      mechanism does not cope with communication failures.</p>
+    <p>When <c>Mnesia</c> loads many tables, the default load order
+      is used. However, the load order
+      can be affected, by explicitly changing property
+      <c>load_order</c> for the tables, with the function
+      <seealso marker="mnesia#change_table_load_order/2">
+      mnesia:change_table_load_order(Tab, LoadOrder)</seealso>.
+      <c>LoadOrder</c> is by default <c>0</c> for all tables, but
+      it can be set to any integer. The table with the highest
+      <c>load_order</c> is loaded first. Changing the load order is
+      especially useful for applications that need to ensure early
+      availability of fundamental tables. Large peripheral tables
+      are to have a low load order value, perhaps less than <c>0</c></p>
+  </section>
+
+  <section>
+    <title>Recovery from Communication Failure</title>
+    <p>There are several occasions when <c>Mnesia</c> can detect
+      that the network has been partitioned because of a
+      communication failure, for example:</p>
+    <list type="bulleted">
+      <item><c>Mnesia</c> is operational already and the Erlang nodes
+       gain contact again. Then <c>Mnesia</c> tries to contact
+       <c>Mnesia</c> on the other node to see if it also thinks that
+       the network has been partitioned for a while. If <c>Mnesia</c>
+       on both nodes has logged <c>mnesia_down</c> entries from each
+       other, <c>Mnesia</c> generates a system event, called
+       <c>{inconsistent_database, running_partitioned_network, Node}</c>,
+       which is sent to the <c>Mnesia</c> event handler and other
+       possible subscribers. The default event
+       handler reports an error to the error logger.
+      </item>
+      <item>If <c>Mnesia</c> detects at startup that both the local
+       node and another node received <c>mnesia_down</c> from each
+       other, <c>Mnesia</c> generates an
+       <c>{inconsistent_database, starting_partitioned_network, Node}</c>
+       system event and acts as described in the previous item.
+      </item>
+    </list>
+    <p>If the application detects that there has been a communication
+      failure that can have caused an inconsistent database, it can
+      use the function
+      <seealso marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, Nodes)</seealso>
+      to pinpoint from which nodes each table can be loaded.</p>
+    <p>At startup, the <c>Mnesia</c> normal table load algorithm is
+      bypassed and the table is loaded from one of the master
+      nodes defined for the table, regardless of potential
+      <c>mnesia_down</c> entries in the log. <c>Nodes</c> can only
+      contain nodes where the table has a replica. If <c>Nodes</c>
+      is empty, the master node recovery mechanism for the particular
+      table is reset and the normal load mechanism is used at the
+      next restart.</p>
+    <p>The function
+      <seealso marker="mnesia#set_master_nodes/1">mnesia:set_master_nodes(Nodes)</seealso>
+      sets master
+      nodes for all tables. For each table it determines its replica
+      nodes and starts
+      <seealso marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, TabNodes)</seealso>
+      with those replica nodes that are included in the <c>Nodes</c>
+      list (that is, <c>TabNodes</c> is the intersection of
+      <c>Nodes</c> and the replica nodes of the table). If the
+      intersection is empty, the master node recovery mechanism for
+      the particular table is reset and the normal load mechanism
+      is used at the next restart.</p>
+    <p>The functions
+      <seealso marker="mnesia#system_info/1">mnesia:system_info(master_node_tables)</seealso>
+      and
+      <seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, master_nodes)</seealso>
+      can be used to
+      obtain information about the potential master nodes.</p>
+    <p>Determining what data to keep after a communication failure
+      is outside the scope of <c>Mnesia</c>. One approach is to
+      determine which "island" contains most of the nodes. Using
+      option <c>{majority,true}</c> for critical tables can be a way
+      to ensure that nodes that are not part of a "majority island"
+      cannot update those tables. Notice that this constitutes a
+      reduction in service on the minority nodes. This would be a
+      tradeoff in favor of higher consistency guarantees.</p>
+    <p>The function
+      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>
+      can be used to force load the table regardless of which table
+      load mechanism that is activated.</p>
+  </section>
+
+  <section>
+    <title>Recovery of Transactions</title>
+    <p>A <c>Mnesia</c> table can reside on one or more nodes. When a
+      table is updated, <c>Mnesia</c> ensures that the updates are
+      replicated to all nodes where the table resides. If a replica is
+      inaccessible (for example, because of a temporary node-down),
+      <c>Mnesia</c> performs the replication later.</p>
+    <p>On the node where the application is started, there is a
+      transaction coordinator process. If the transaction is
+      distributed, there is also a transaction participant process on
+      all the other nodes where commit-work needs to be performed.</p>
+    <p>Internally <c>Mnesia</c> uses several commit protocols. The
+      selected protocol depends on which table that has been updated
+      in the transaction. If all the involved tables are symmetrically
+      replicated (that is, they all have the same <c>ram_nodes</c>,
+      <c>disc_nodes</c>, and <c>disc_only_nodes</c> currently
+      accessible from the coordinator node), a lightweight transaction
+      commit protocol is used.</p>
+    <p>The number of messages that the
+      transaction coordinator and its participants need to exchange
+      is few, as the <c>Mnesia</c> table load mechanism takes care of
+      the transaction recovery if the commit protocol gets
+      interrupted. Since all involved tables are replicated
+      symmetrically, the transaction is automatically recovered by
+      loading the involved tables from the same node at startup of a
+      failing node. It does not matter if the transaction was
+      committed or terminated as long as the ACID properties can be
+      ensured. The lightweight commit protocol is non-blocking,
+      that is, the surviving participants and their coordinator
+      finish the transaction, even if any node crashes in the
+      middle of the commit protocol.</p>
+    <p>If a node goes down in the middle of a dirty operation, the
+      table load mechanism ensures that the update is
+      performed on all replicas, or none. Both asynchronous dirty
+      updates and synchronous dirty updates use the same recovery
+      principle as lightweight transactions.</p>
+    <p>If a transaction involves updates of asymmetrically replicated
+      tables or updates of the schema table, a heavyweight commit
+      protocol is used. This protocol can
+      finish the transaction regardless of how the tables are
+      replicated. The typical use of a heavyweight transaction is
+      when a replica is to be moved from one node to another. Then
+      ensure that the replica either is entirely moved or left as
+      it was. Do never end up in a situation with replicas on both
+      nodes, or on no node at all. Even if a node crashes in the middle
+      of the commit protocol, the transaction must be guaranteed to be
+      atomic. The heavyweight commit protocol involves more messages
+      between the transaction coordinator and its participants than
+      a lightweight protocol, and it performs recovery work at
+      startup to finish the terminating or commit work.</p>
+    <p>The heavyweight commit protocol is also non-blocking,
+      which allows the surviving participants and their coordinator to
+      finish the transaction regardless (even if a node crashes in the
+      middle of the commit protocol). When a node fails at startup,
+      <c>Mnesia</c> determines the outcome of the transaction and
+      recovers it. Lightweight protocols, heavyweight protocols, and
+      dirty updates, are dependent on other nodes to be operational
+      to make the correct heavyweight transaction recovery decision.</p>
+    <p>If <c>Mnesia</c> has not started on some of the nodes that
+      are involved in the transaction <em>and</em> neither the
+      local node nor any of the already running nodes know the
+      outcome of the transaction, <c>Mnesia</c> waits for one,
+      by default. In the worst case scenario, all other involved
+      nodes must start before <c>Mnesia</c> can make the correct
+      decision about the transaction and finish its startup.</p>
+    <p>Thus, <c>Mnesia</c> (on one node) can hang if a double fault
+      occurs, that is, when two nodes crash simultaneously
+      and one attempts to start when the other refuses to
+      start, for example, because of a hardware error.</p>
+    <p>The maximum time that <c>Mnesia</c> waits for other nodes to
+      respond with a transaction recovery decision can be specified.
+      The configuration parameter <c>max_wait_for_decision</c>
+      defaults to <c>infinity</c>, which can cause the indefinite
+      hanging as mentioned earlier. However, if the parameter is
+      set to a definite time period (for example, three minutes),
+      <c>Mnesia</c> then enforces a transaction recovery decision,
+      if needed, to allow <c>Mnesia</c> to continue with its startup
+      procedure.</p>
+    <p>The downside of an enforced transaction recovery decision is
+      that the decision can be incorrect, because of insufficient
+      information about the recovery decisions from the other nodes.
+      This can result in an inconsistent database where <c>Mnesia</c>
+      has committed the transaction on some nodes but terminated it
+      on others.</p>
+    <p>In fortunate cases, the inconsistency is only visible in
+      tables belonging to a specific application. However, if a
+      schema transaction is inconsistently recovered because of
+      the enforced transaction recovery decision, the
+      effects of the inconsistency can be fatal.
+      However, if the higher priority is availability rather than
+      consistency, it can be worth the risk.</p>
+    <p>If <c>Mnesia</c> detects an inconsistent transaction decision,
+      an <c>{inconsistent_database, bad_decision, Node}</c> system event
+      is generated to give the application a chance to install a
+      fallback or other appropriate measures to resolve the
+      inconsistency. The default behavior of the <c>Mnesia</c>
+      event handler is the same as if the database became
+      inconsistent as a result of partitioned network (as
+      described earlier).</p>
+  </section>
+
+  <section>
+    <title>Backup, Restore, Fallback, and Disaster Recovery</title>
+    <p>The following functions are used to back up data, to install
+      a backup as fallback, and for disaster recovery:</p>
+    <list type="bulleted">
+      <item>
+       <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seealso>
+       performs a backup of the tables included in the checkpoint.
+      </item>
+      <item>
+       <seealso marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seealso>
+       activates a new
+       checkpoint that covers all <c>Mnesia</c> tables and
+       performs a backup. It is performed with maximum degree of
+       redundancy (see also the function
+       <seealso marker="#checkpoints">mnesia:activate_checkpoint(Args)</seealso>,
+       <c>{max, MaxTabs} and {min, MinTabs})</c>.
+      </item>
+      <item>
+       <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>
+       can be used to read an existing backup, create a backup from an
+       existing one, or to copy a backup from one type media to another.
+      </item>
+      <item>
+       <seealso marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seealso>
+       removes previously installed fallback files.
+      </item>
+      <item>
+       <seealso marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seealso>
+       restores a set of tables from a previous backup.
+      </item>
+      <item>
+       <seealso marker="mnesia#install_fallback/1">mnesia:install_fallback(Opaque, [Mod])</seealso>
+       can be configured to restart <c>Mnesia</c> and the reload data
+       tables, and possibly the schema tables, from an existing
+       backup. This function is typically used for disaster recovery
+       purposes, when data or schema tables are corrupted.
+      </item>
+    </list>
+    <p>These functions are explained in the following sections.
+      See also <seealso marker="#checkpoints">Checkpoints</seealso>,
+      which describes the two functions used
+      to activate and deactivate checkpoints.</p>
+
+    <section>
+      <title>Backup</title>
+      <p>Backup operation are performed with the following functions:</p>
+      <list type="bulleted">
+        <item>
+         <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seealso>
+        </item>
+        <item>
+         <seealso marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seealso>
+        </item>
+        <item>
+         <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>
+        </item>
+      </list>
+      <p>By default, the actual access to the backup media is
+        performed through module <c>mnesia_backup</c> for both read
+        and write. Currently <c>mnesia_backup</c> is implemented with
+        the standard library module <c>disc_log</c>. However, you
+        can write your own module with the same interface as
+        <c>mnesia_backup</c> and configure <c>Mnesia</c> so that
+        the alternative module performs the actual accesses to
+        the backup media. The user can
+        therefore put the backup on a media that <c>Mnesia</c>
+        does not know about, possibly on hosts where Erlang is not
+        running. Use configuration parameter
+        <c><![CDATA[-mnesia backup_module <module>]]></c>
+        for this purpose.</p>
+      <p>The source for a backup is an activated checkpoint.
+        The backup function
+        <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque,[Mod])</seealso>
+        is most commonly used and returns <c>ok</c> or
+        <c>{error,Reason}</c>. It has the following arguments:</p>
+      <list type="bulleted">
+        <item><c>Name</c> is the name of an activated checkpoint.
+         For details on how to include table names in checkpoints,
+         see the function <c>mnesia:activate_checkpoint(ArgList)</c>
+         in <seealso marker="#checkpoints">Checkpoints</seealso>.
+        </item>
+        <item><c>Opaque</c>. <c>Mnesia</c> does not interpret this
+         argument, but it is forwarded to the backup module. The
+         <c>Mnesia</c> default backup module <c>mnesia_backup</c>
+         interprets this argument as a local filename.
+        </item>
+        <item><c>Mod</c> is the name of an alternative backup module.
+        </item>
+      </list>
+      <p>The function
+        <seealso marker="mnesia#backup/1">mnesia:backup(Opaque [,Mod])</seealso>
+        activates a
+        new checkpoint that covers all <c>Mnesia</c> tables with
+        maximum degree of redundancy and performs a backup. Maximum
+        redundancy means that each table replica has a checkpoint
+        retainer. Tables with property <c>local_contents</c> are
+        backed up as they look on the current node.</p>
+      <p>You can iterate over a backup, either to transform it
+        into a new backup, or only read it. The function
+        <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>,
+        which normally returns <c>{ok, LastAcc}</c>,
+        is used for both of these purposes.</p>
+      <p>Before the traversal starts, the source backup media is
+        opened with <c>SourceMod:open_read(Source)</c>, and the target
+        backup media is opened with
+        <c>TargetMod:open_write(Target)</c>. The arguments are as
+        follows:</p>
+      <list type="bulleted">
+        <item><c>SourceMod</c> and <c>TargetMod</c> are module names.
+        </item>
+        <item><c>Source</c> and <c>Target</c> are opaque data used
+         exclusively by the modules <c>SourceMod</c> and
+         <c>TargetMod</c> for initializing the backup medias.
+        </item>
+        <item><c>Acc</c> is an initial accumulator value.
+        </item>
+        <item><c>Fun(BackupItems, Acc)</c> is applied to each item in
+         the backup. The Fun must return a tuple
+         <c>{ValGoodBackupItems, NewAcc}</c>,
+         where <c>ValidBackupItems</c> is a list of valid
+         backup items. <c>NewAcc</c> is a new accumulator value.
+         The <c>ValidBackupItems</c> are written to the target backup
+         with the function <c>TargetMod:write/2</c>.
+        </item>
+        <item><c>LastAcc</c> is the last accumulator value, that is,
+         the last <c>NewAcc</c> value that was returned by <c>Fun</c>.
+        </item>
+      </list>
+      <p>Also, a read-only traversal of the source backup can be
+        performed without updating a target backup. If
+        <c>TargetMod==read_only</c>, no target backup is accessed.</p>
+      <p>By setting <c>SourceMod</c> and <c>TargetMod</c> to different
+        modules, a backup can be copied from one backup
+        media to another.</p>
+      <p>Valid <c>BackupItems</c> are the following tuples:</p>
+      <list type="bulleted">
+        <item><c>{schema, Tab}</c> specifies a table to be deleted.
+        </item>
+        <item><c>{schema, Tab, CreateList}</c> specifies a table to be
+         created. For more information about <c>CreateList</c>, see
+         <seealso marker="mnesia#create_table/2">mnesia:create_table/2</seealso>.
+        </item>
+        <item><c>{Tab, Key}</c> specifies the full identity of a record
+         to be deleted.
+        </item>
+        <item><c>{Record}</c> specifies a record to be inserted. It
+         can be a tuple with <c>Tab</c> as first field. Notice that the
+         record name is set to the table name regardless of what
+         <c>record_name</c> is set to.
+        </item>
+      </list>
+      <p>The backup data is divided into two sections. The first
+        section contains information related to the schema. All
+        schema-related items are tuples where the first field equals
+        the atom schema. The second section is the record section.
+        Schema records cannot be mixed with other records and all
+        schema records must be located first in the backup.</p>
+      <p>The schema itself is a table and is possibly included in
+        the backup. Each node where the schema table resides is
+        regarded as a <c>db_node</c>.</p>
+      <p>The following example shows how
+        <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup</seealso>
+        can be used to rename a <c>db_node</c> in a backup file:</p>
+      <codeinclude file="bup.erl" tag="%0" type="erl"></codeinclude>
+    </section>
+
+    <section>
+      <title>Restore</title>
+      <p>Tables can be restored online from a backup without
+        restarting <c>Mnesia</c>. A restore is performed with the
+        function
+        <seealso marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seealso>,
+        where <c>Args</c> can contain the following tuples:</p>
+      <list type="bulleted">
+        <item><c>{module,Mod}</c>. The backup module <c>Mod</c> is
+         used to access the backup media. If omitted, the default
+         backup module is used.
+        </item>
+        <item><c>{skip_tables, TableList}</c>, where <c>TableList</c>
+         is a list of tables, which is not to be read from the backup.
+        </item>
+        <item><c>{clear_tables, TableList}</c>, where <c>TableList</c>
+         is a list of tables, which is to be cleared before the
+         records from the backup are inserted. That is, all records in
+         the tables are deleted before the tables are restored.
+         Schema information about the tables is not cleared or read
+         from the backup.
+        </item>
+        <item><c>{keep_tables, TableList}</c>, where <c>TableList</c>
+         is a list of tables, which is not to be cleared before
+         the records from the backup are inserted. That is, the records
+         in the backup are added to the records in the table.
+         Schema information about the tables is not cleared or read
+         from the backup.
+        </item>
+        <item><c>{recreate_tables, TableList}</c>, where <c>TableList</c>
+         is a list of tables, which is to be recreated before the
+         records from the backup are inserted. The tables are first
+         deleted and then created with the schema information from the
+         backup. All the nodes in the backup need to be operational.
+        </item>
+        <item><c>{default_op, Operation}</c>, where <c>Operation</c> is
+         one of the operations <c>skip_tables</c>,
+         <c>clear_tables</c>, <c>keep_tables</c>, or
+         <c>recreate_tables</c>. The default operation specifies
+         which operation is to be used on tables from the backup
+         that are not specified in any of the previous lists.
+         If omitted, the operation <c>clear_tables</c> is used.
+        </item>
+      </list>
+      <p>The argument <c>Opaque</c> is forwarded to the backup module.
+        It returns <c>{atomic, TabList}</c> if successful, or the
+        tuple <c>{aborted, Reason}</c> if there is an error.
+        <c>TabList</c> is a list of the restored tables. Tables that
+        are restored are write-locked during the restore
+        operation. However, regardless of any lock conflict caused by
+        this, applications can continue to do their work during the
+        restore operation.</p>
+      <p>The restoration is performed as a single transaction. If the
+        database is large, it cannot always be restored
+        online. The old database must then be restored by
+        installing a fallback, followed by a restart.</p>
+    </section>
+
+    <section>
+      <title>Fallback</title>
+      <p>The function
+        <seealso marker="mnesia#install_fallback/2">mnesia:install_fallback(Opaque, [Mod])</seealso>
+        installs a backup as fallback. It uses the backup module
+        <c>Mod</c>, or the default backup module, to access the backup
+        media. The function returns <c>ok</c> if successful, or
+        <c>{error, Reason}</c> if there is an error.</p>
+      <p>Installing a fallback is a distributed operation, which is
+        <em>only</em> performed on all <c>db_nodes</c>. The fallback
+        restores the database the next time the system is started.
+        If a <c>Mnesia</c> node with a fallback installed detects that
+        <c>Mnesia</c> on another node has died, it
+        unconditionally terminates itself.</p>
+      <p>A fallback is typically used when a system upgrade is
+        performed. A system typically involves the installation of new
+        software versions, and <c>Mnesia</c> tables are often transformed
+        into new layouts. If the system crashes during an upgrade, it is
+        highly probable that reinstallation of the old applications is
+        required, and restoration of the database to its previous state.
+        This can be done if a backup is performed and
+        installed as a fallback before the system upgrade begins.</p>
+      <p>If the system upgrade fails, <c>Mnesia</c> must be restarted
+        on all <c>db_nodes</c> to restore the old database. The
+        fallback is automatically deinstalled after a successful
+        startup. The function
+        <seealso marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seealso>
+        can also be used to deinstall the fallback after a
+        successful system upgrade. Again, this is a distributed
+        operation that is either performed on all <c>db_nodes</c> or
+        none. Both the installation and deinstallation of fallbacks
+        require Erlang to be operational on all <c>db_nodes</c>, but
+        it does not matter if <c>Mnesia</c> is running or not.</p>
+    </section>
+
+    <section>
+      <title>Disaster Recovery</title>
+      <p>The system can become inconsistent as a result of a power
+        failure. The UNIX feature <c>fsck</c> can possibly repair the
+        file system, but there is no guarantee that the file content
+        is consistent.</p>
+      <p>If <c>Mnesia</c> detects that a file has not been properly
+        closed, possibly as a result of a power failure, it tries to
+        repair the bad file in a similar manner. Data can be lost, but
+        <c>Mnesia</c> can be restarted even if the data is inconsistent.
+        Configuration parameter
+        <c><![CDATA[-mnesia auto_repair <bool>]]></c> can be used
+        to control the behavior of <c>Mnesia</c> at startup. If
+        <c><![CDATA[<bool>]]></c> has the value <c>true</c>,
+        <c>Mnesia</c> tries to repair the file. If
+        <c><![CDATA[<bool>]]></c> has the value <c>false</c>,
+        <c>Mnesia</c> does not restart if it detects a suspect file.
+        This configuration parameter affects the repair behavior of log
+        files, <c>DAT</c> files, and the default backup media.</p>
+      <p>Configuration parameter
+        <c><![CDATA[-mnesia dump_log_update_in_place <bool>]]></c>
+        controls the safety level of the function
+        <seealso marker="mnesia#dump_log/0">mnesia:dump_log()</seealso>
+        By default, <c>Mnesia</c> dumps the
+        transaction log directly into the <c>DAT</c> files. If a power
+        failure occurs during the dump, this can cause the randomly
+        accessed <c>DAT</c> files to become corrupt. If the parameter
+        is set to <c>false</c>, <c>Mnesia</c> copies the <c>DAT</c>
+        files and target the dump
+        to the new temporary files. If the dump is successful, the
+        temporary files are renamed to their normal <c>DAT</c>
+        suffixes. The possibility for unrecoverable inconsistencies in
+        the data files becomes much smaller with this strategy.
+        However, the actual dumping of the transaction log becomes
+        considerably slower. The system designer must decide whether
+        speed or safety is the higher priority.</p>
+      <p>Replicas of type <c>disc_only_copies</c> are only
+        affected by this parameter during the initial dump of the log
+        file at startup. When designing applications with
+        <em>very</em> high requirements, it can be appropriate not to
+        use <c>disc_only_copies</c> tables at all. The reason for this
+        is the random access nature of normal operating system files. If
+        a node goes down for a reason such as a power
+        failure, these files can be corrupted because they are not
+        properly closed. The <c>DAT</c> files for <c>disc_only_copies</c>
+        are updated on a per transaction basis.</p>
+      <p>If a disaster occurs and the <c>Mnesia</c> database is
+        corrupted, it can be reconstructed from a backup. Regard
+        this as a last resort, as the backup contains old data. The
+        data is hopefully consistent, but data is definitely lost
+        when an old backup is used to restore the database.</p>
+    </section>
+  </section>
+</chapter>
+

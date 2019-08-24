@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>memsup</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">memsup</module>
+  <modulesummary>A Memory Supervisor Process</modulesummary>
+  <description>
+    <p><c>memsup</c> is a process which supervises the memory usage for
+      the system and for individual processes. It is part of the OS_Mon
+      application, see <seealso marker="os_mon_app">os_mon(6)</seealso>.
+      Available for Unix, Windows and VxWorks.</p>
+    <p>Periodically performs a memory check:</p>
+    <list type="bulleted">
+      <item>
+        <p>If more than a certain amount of available system memory is
+          allocated, as reported by the underlying operating system,
+          the alarm <c>{system_memory_high_watermark, []}</c> is set.</p>
+      </item>
+      <item>
+        <p>If any Erlang process <c>Pid</c> in the system has allocated
+          more than a certain amount of total system memory, the alarm
+          <c>{process_memory_high_watermark, Pid}</c> is set.</p>
+      </item>
+    </list>
+    <p>Alarms are reported to the SASL alarm handler, see
+      <seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>.
+      To set an alarm, <c>alarm_handler:set_alarm(Alarm)</c> is called
+      where <c>Alarm</c> is either of the alarms specified above.</p>
+    <p>The alarms are cleared automatically when the alarm cause is no
+      longer valid.</p>
+    <p>The function 
+      <seealso marker="#get_memory_data/0">get_memory_data()</seealso>
+      can be used to retrieve the result of the latest periodic memory
+      check.</p>
+    <p>There is also a interface to system dependent memory data,
+      <seealso marker="#get_system_memory_data/0">get_system_memory_data()</seealso>.
+      The result is highly dependent on the underlying operating
+      system and the interface is targeted primarily for systems
+      without virtual memory (e.g. VxWorks). The output on other
+      systems is however still valid, although sparse.</p>
+    <p>A call to <c>get_system_memory_data/0</c> is more costly
+      than a call to <c>get_memory_data/0</c> as data is collected
+      synchronously when this function is called.</p>
+    <p>The total system memory reported under UNIX is the number of
+      physical pages of memory times the page size, and the available
+      memory is the number of available physical pages times the page
+      size. This is a reasonable measure as swapping should be avoided
+      anyway, but the task of defining total memory and available
+      memory is difficult because of virtual memory and swapping.</p>
+  </description>
+
+  <section>
+    <marker id="config"></marker>
+    <title>Configuration</title>
+    <p>The following configuration parameters can be used to change
+      the default values for time intervals and thresholds:</p>
+    <taglist>
+      <tag><c>memory_check_interval = int()>0</c></tag>
+      <item>
+        <p>The time interval, in minutes, for the periodic memory check.
+          The default is one minute.</p>
+      </item>
+      <tag><c>system_memory_high_watermark = float()</c></tag>
+      <item>
+        <p>The threshold, as percentage of system memory, for how much
+          system memory can be allocated before the corresponding alarm
+          is set. The default is 0.80 (80%).</p>
+      </item>
+      <tag><c>process_memory_high_watermark = float()</c></tag>
+      <item>
+        <p>The threshold, as percentage of system memory, for how much
+          system memory can be allocated by one Erlang process before
+          the corresponding alarm is set. The default is 0.05 (5%).</p>
+      </item>
+      <tag><c>memsup_helper_timeout = int()>0</c></tag>
+      <item>
+        <p>A timeout, in seconds, for how long the <c>memsup</c>
+          process should wait for a result from a memory check. If
+          the timeout expires, a warning message <c>"OS_MON (memsup) timeout"</c> is issued via <c>error_logger</c> and any
+          pending, synchronous client calls will return a dummy value.
+          Normally, this situation should not occur. There have been
+          cases on Linux, however, where the pseudo file from which
+          system data is read is temporarily unavailable when the system
+          is heavily loaded.</p>
+        <p>The default is 30 seconds. </p>
+      </item>
+      <tag><c>memsup_system_only = bool()</c></tag>
+      <item>
+        <p>Specifies whether the <c>memsup</c> process should only
+          check system memory usage (<c>true</c>) or not. The default is
+          <c>false</c>, meaning that information regarding both system
+          memory usage and Erlang process memory usage is collected.</p>
+        <p>It is recommended to set this parameter to <c>false</c> on
+          systems with many concurrent processes, as each process memory
+          check makes a traversal of the entire list of processes.</p>
+      </item>
+    </taglist>
+    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+      information about how to change the value of configuration
+      parameters.</p>
+  </section>
+  <funcs>
+    <func>
+      <name since="">get_memory_data() -> {Total,Allocated,Worst}</name>
+      <fsummary>Get data for the memory in the system</fsummary>
+      <type>
+        <v>Total = Allocated = int()</v>
+        <v>Worst = {Pid, PidAllocated} | undefined</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;PidAllocated = int()</v>
+      </type>
+      <desc>
+        <p>Returns the result of the latest memory check, where
+          <c>Total</c> is the total memory size and <c>Allocated</c>
+          the allocated memory size, in bytes.</p>
+        <p><c>Worst</c> is the pid and number of allocated bytes of
+          the largest Erlang process on the node. If <c>memsup</c>
+          should not collect process data, that is if the configuration
+          parameter <c>memsup_system_only</c> was set to <c>true</c>,
+          <c>Worst</c> is <c>undefined</c>.</p>
+        <p>The function is normally asynchronous in the sense that it
+          does not invoke a memory check, but returns the latest
+          available value. The one exception if is the function is
+          called before a first memory check is finished, in which case
+          it does not return a value until the memory check is finished.</p>
+        <p>Returns <c>{0,0,{pid(),0}}</c> or <c>{0,0,undefined}</c> if
+          <c>memsup</c> is not available, or if all memory checks so far
+          have timed out.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_system_memory_data() -> MemDataList</name>
+      <fsummary>Get system dependent memory data</fsummary>
+      <type>
+        <v>MemDataList = [{Tag, Size}]</v>
+        <v>&nbsp;Tag = atom()</v>
+        <v>&nbsp;Size = int()</v>
+      </type>
+      <desc>
+        <p>Invokes a memory check and returns the resulting, system
+          dependent, data as a list of tagged tuples, where <c>Tag</c>
+          can be one of the following:</p>
+        <taglist>
+          <tag><c>total_memory</c></tag>
+          <item>The total amount of memory available to the Erlang emulator,
+           allocated and free. May or may not be equal to the amount
+           of memory configured in the system.</item>
+          <tag><c>free_memory</c></tag>
+          <item>The amount of free memory available to the Erlang emulator
+           for allocation.</item>
+          <tag><c>system_total_memory</c></tag>
+          <item>The amount of memory available to the whole operating
+           system. This may well be equal to <c>total_memory</c> but
+           not necessarily.</item>
+          <tag><c>largest_free</c></tag>
+          <item>The size of the largest contiguous free memory block
+           available to the Erlang emulator.</item>
+          <tag><c>number_of_free</c></tag>
+          <item>The number of free blocks available to the Erlang runtime
+           system. This gives a fair indication of how fragmented
+           the memory is.</item>
+          <tag><c>buffered_memory</c></tag>
+          <item>
+                The amount of memory the system uses for temporary storing raw disk blocks.
+          </item>
+          <tag><c>cached_memory</c></tag>
+          <item>
+                The amount of memory the system uses for cached files read from disk.
+          </item>
+          <tag><c>total_swap</c></tag>
+          <item>
+                The amount of total amount of memory the system has available
+                for disk swap.
+          </item>
+          <tag><c>free_swap</c></tag>
+          <item>
+                The amount of memory the system has available for disk swap.
+          </item>
+
+        </taglist>
+        <p>All memory sizes are presented as number of <em>bytes</em>.</p>
+        <p>The <c>largest_free</c> and <c>number_of_free</c> tags are
+          currently only returned on a VxWorks system.</p>
+        <p>Returns the empty list [] if <c>memsup</c> is not available,
+          or if the memory check times out.</p>
+	<note><p>
+	On linux the memory available to the emulator is <c>cached_memory</c> and <c>buffered_memory</c> in addition to 
+	<c>free_memory</c>.</p>
+	</note>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_os_wordsize() -> Wordsize</name>
+      <fsummary>Get the wordsize of running os.</fsummary>
+      <type>
+        <v>Wordsize = 32 | 64 | unsupported_os</v>
+      </type>
+      <desc>
+        <p>Returns the wordsize of the current running operating system. </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_check_interval() -> MS</name>
+      <fsummary>Get time interval, in milliseconds, for the periodic memory check</fsummary>
+      <type>
+        <v>MS = int()</v>
+      </type>
+      <desc>
+        <p>Returns the time interval, in milliseconds, for the periodic
+          memory check.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_check_interval(Minutes) -> ok</name>
+      <fsummary>Set time interval, in minutes, for the periodic memory check</fsummary>
+      <type>
+        <v>Minutes = int()>0</v>
+      </type>
+      <desc>
+        <p>Changes the time interval, given in minutes, for the periodic
+          memory check.</p>
+        <p>The change will take effect after the next memory check and is
+          non-persistent. That is, in case of a process restart, this
+          value is forgotten and the default value will be used. See
+          <seealso marker="#config">Configuration</seealso> above.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_procmem_high_watermark() -> int()</name>
+      <fsummary>Get threshold, in percent, for process memory allocation</fsummary>
+      <desc>
+        <p>Returns the threshold, in percent, for process memory
+          allocation.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_procmem_high_watermark(Float) -> ok</name>
+      <fsummary>Set threshold, as percentage represented by a float, for process memory allocation</fsummary>
+      <desc>
+        <p>Changes the threshold, given as a float, for process memory
+          allocation.</p>
+        <p>The change will take effect during the next periodic memory
+          check and is non-persistent. That is, in case of a process
+          restart, this value is forgotten and the default value will be
+          used. See <seealso marker="#config">Configuration</seealso>
+          above.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_sysmem_high_watermark() -> int()</name>
+      <fsummary>Get threshold, in percent, for system memory allocation</fsummary>
+      <desc>
+        <p>Returns the threshold, in percent, for system memory
+          allocation.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_sysmem_high_watermark(Float) -> ok</name>
+      <fsummary>Set threshold, given as a float, for system memory allocation</fsummary>
+      <desc>
+        <p>Changes the threshold, given as a float, for system memory
+          allocation.</p>
+        <p>The change will take effect during the next periodic memory
+          check and is non-persistent. That is, in case of a process
+          restart, this value is forgotten and the default value will be
+          used. See <seealso marker="#config">Configuration</seealso>
+          above.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_helper_timeout() -> Seconds</name>
+      <fsummary>Get the timeout value, in seconds, for memory checks</fsummary>
+      <type>
+        <v>Seconds = int()</v>
+      </type>
+      <desc>
+        <p>Returns the timeout value, in seconds, for memory checks.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_helper_timeout(Seconds) -> ok</name>
+      <fsummary>Set the timeout value, in seconds, for memory checks</fsummary>
+      <type>
+        <v>Seconds = int() (>= 1)</v>
+      </type>
+      <desc>
+        <p>Changes the timeout value, given in seconds, for memory
+          checks.</p>
+        <p>The change will take effect for the next memory check and is
+          non-persistent. That is, in the case of a process restart, this
+          value is forgotten and the default value will be used. See
+          <seealso marker="#config">Configuration</seealso> above.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>,
+      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+  </section>
+</erlref>
+

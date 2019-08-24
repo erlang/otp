@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>supervisor_bridge</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">supervisor_bridge</module>
+  <modulesummary>Generic supervisor bridge behavior.</modulesummary>
+  <description>
+    <p>This behavior module provides a supervisor bridge, a process
+      that connects a subsystem not designed according to the OTP design
+      principles to a supervision tree. The supervisor bridge sits between
+      a supervisor and the subsystem. It behaves like a real supervisor to
+      its own supervisor, but has a different interface than a real
+      supervisor to the subsystem. For more information, see
+      <seealso marker="doc/design_principles:sup_princ">
+	Supervisor Behaviour</seealso> in OTP Design Principles.
+    </p>
+
+    <p>A supervisor bridge assumes the functions for starting and stopping
+      the subsystem to be located in a callback module exporting a
+      predefined set of functions.</p>
+
+    <p>The <seealso marker="sys"><c>sys(3)</c></seealso> module can be used
+      for debugging a supervisor bridge.</p>
+
+    <p>Unless otherwise stated, all functions in this module fail if
+      the specified supervisor bridge does not exist or if bad arguments are
+      specified.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
+      <fsummary>Create a supervisor bridge process.</fsummary>
+      <desc>
+        <p>Creates a supervisor bridge process, linked to the calling process,
+          which calls <c><anno>Module</anno>:init/1</c> to start the subsystem.
+          To ensure a synchronized startup procedure, this function does
+          not return until <c><anno>Module</anno>:init/1</c> has returned.</p>
+        <list type="bulleted">
+          <item>
+            <p>If <c><anno>SupBridgeName</anno>={local,<anno>Name</anno>}</c>,
+              the supervisor bridge is registered locally as
+              <c><anno>Name</anno></c> using <c>register/2</c>.</p>
+          </item>
+          <item>
+            <p>If <c><anno>SupBridgeName</anno>={global,<anno>Name</anno>}</c>,
+              the supervisor bridge is registered globally as
+              <c><anno>Name</anno></c> using
+              <seealso marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seealso>.</p>
+          </item>
+          <item>
+            <p>If
+            <c><anno>SupBridgeName</anno>={via,<anno>Module</anno>,<anno>Name</anno>}</c>,
+            the supervisor bridge is registered as <c><anno>Name</anno></c>
+            using a registry represented by <anno>Module</anno>. The
+            <c>Module</c> callback is to export functions
+            <c>register_name/2</c>, <c>unregister_name/1</c>, and <c>send/2</c>,
+            which are to behave like the corresponding functions in
+            <seealso marker="kernel:global"><c>global</c></seealso>.
+            Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
+          </item>
+        </list>
+        <p>If no name is provided, the supervisor bridge is not registered.</p>
+        <p><c><anno>Module</anno></c> is the name of the callback module.</p>
+        <p><c><anno>Args</anno></c> is an arbitrary term that is passed as the
+          argument to <c><anno>Module</anno>:init/1</c>.</p>
+        <list type="bulleted">
+          <item>
+            <p>If the supervisor bridge and the subsystem are successfully
+              started, the function returns <c>{ok,<anno>Pid</anno>}</c>, where
+              <c><anno>Pid</anno></c> is is the pid of the supervisor
+              bridge.</p>
+          </item>
+          <item>
+            <p>If there already exists a process with the specified
+              <c><anno>SupBridgeName</anno></c>, the function returns
+              <c>{error,{already_started,<anno>Pid</anno>}}</c>, where
+              <c><anno>Pid</anno></c> is the pid of that process.</p>
+          </item>
+          <item>
+            <p>If <c><anno>Module</anno>:init/1</c> returns <c>ignore</c>, this
+              function returns <c>ignore</c> as well and the supervisor bridge
+              terminates with reason <c>normal</c>.</p>
+          </item>
+          <item>
+            <p>If <c><anno>Module</anno>:init/1</c> fails or returns an error
+              tuple or an incorrect value, this function returns
+              <c>{error,<anno>Error</anno>r}</c>, where
+              <c><anno>Error</anno></c> is a term with information about the
+              error, and the supervisor bridge
+              terminates with reason <c><anno>Error</anno></c>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Callback Functions</title>
+    <p>The following functions must be exported from a
+      <c>supervisor_bridge</c> callback module.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">Module:init(Args) -> Result</name>
+      <fsummary>Initialize process and start subsystem.</fsummary>
+      <type>
+        <v>Args = term()</v>
+        <v>Result = {ok,Pid,State} | ignore | {error,Error}</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;State = term()</v>
+        <v>&nbsp;Error = term()</v>
+      </type>
+      <desc>
+        <p>Whenever a supervisor bridge is started using
+          <seealso marker="#start_link/2"><c>start_link/2,3</c></seealso>,
+          this function is called
+          by the new process to start the subsystem and initialize.</p>
+        <p><c>Args</c> is the <c>Args</c> argument provided to the start
+          function.</p>
+        <p>The function is to return <c>{ok,Pid,State}</c>, where <c>Pid</c>
+          is the pid of the main process in the subsystem and <c>State</c>
+          is any term.</p>
+        <p>If later <c>Pid</c> terminates with a reason <c>Reason</c>,
+          the supervisor bridge terminates with reason <c>Reason</c> as well.
+          If later the supervisor bridge is stopped by its supervisor with
+          reason <c>Reason</c>, it calls
+          <c>Module:terminate(Reason,State)</c> to terminate.</p>
+        <p>If the initialization fails, the function is to return
+          <c>{error,Error}</c>, where <c>Error</c> is any term,
+          or <c>ignore</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:terminate(Reason, State)</name>
+      <fsummary>Clean up and stop subsystem.</fsummary>
+      <type>
+        <v>Reason = shutdown | term()</v>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>This function is called by the supervisor bridge when it is about
+          to terminate. It is to be the opposite of <c>Module:init/1</c>
+          and stop the subsystem and do any necessary cleaning up.
+          The return value is ignored.</p>
+        <p><c>Reason</c> is <c>shutdown</c> if the supervisor bridge is
+          terminated by its supervisor. If the supervisor bridge terminates
+          because a a linked process (apart from the main process of
+          the subsystem) has terminated with reason <c>Term</c>,
+          then <c>Reason</c> becomes <c>Term</c>.</p>
+        <p><c>State</c> is taken from the return value of
+          <c>Module:init/1</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="supervisor"><c>supervisor(3)</c></seealso>, 
+      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,651 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>binary</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2010-05-05</date>
+    <rev>A</rev>
+    <file>binary.xml</file>
+  </header>
+  <module since="OTP R14B">binary</module>
+  <modulesummary>Library for handling binary data.</modulesummary>
+  <description>
+
+    <p>This module contains functions for manipulating byte-oriented
+    binaries. Although the majority of functions could be provided
+    using bit-syntax, the functions in this library are highly
+    optimized and are expected to either execute faster or consume
+    less memory, or both, than a counterpart written in pure Erlang.</p>
+
+    <p>The module is provided according to Erlang Enhancement Proposal
+      (EEP) 31.</p>
+
+    <note>
+      <p>The library handles byte-oriented data. For bitstrings that are not
+      binaries (does not contain whole octets of bits) a <c>badarg</c>
+      exception is thrown from any of the functions in this module.</p>
+    </note>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="cp"/>
+      <desc><p>Opaque data type representing a compiled
+        search pattern. Guaranteed to be a <c>tuple()</c> to allow programs to
+        distinguish it from non-precompiled search patterns.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="part"/>
+      <desc><p>A representaion of a part (or range) in a binary. <c>Start</c> is
+        a zero-based offset into a <c>binary()</c> and <c>Length</c> is the
+        length of that part. As input to functions in this module, a reverse
+        part specification is allowed, constructed with a negative
+        <c>Length</c>, so that the part of the binary begins at <c>Start</c> +
+        <c>Length</c> and is -<c>Length</c> long. This is useful for referencing
+        the last <c>N</c> bytes of a binary as <c>{size(Binary), -N}</c>. The
+        functions in this module always return <c>part()</c>s with positive
+        <c>Length</c>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+    <name name="at" arity="2" since="OTP R14B"/>
+      <fsummary>Return the byte at a specific position in a binary.</fsummary>
+      <desc>
+      <p>Returns the byte at position <c><anno>Pos</anno></c> (zero-based) in
+      binary <c><anno>Subject</anno></c> as an integer. If
+      <c><anno>Pos</anno></c> &gt;= <c>byte_size(<anno>Subject</anno>)</c>,
+      a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bin_to_list" arity="1" since="OTP R14B"/>
+      <fsummary>Convert a binary to a list of integers.</fsummary>
+      <desc>
+      <p>Same as <c>bin_to_list(<anno>Subject</anno>, {0,byte_size(<anno>Subject</anno>)})</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bin_to_list" arity="2" since="OTP R14B"/>
+      <fsummary>Convert a binary to a list of integers.</fsummary>
+      <desc>
+      <p>Converts <c><anno>Subject</anno></c> to a list of <c>byte()</c>s, each
+      representing the value of one byte. <c>part()</c> denotes which part of
+      the <c>binary()</c> to convert.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:bin_to_list(&lt;&lt;"erlang"&gt;&gt;, {1,3}).
+"rla"
+%% or [114,108,97] in list notation.</code>
+
+      <p>If <c><anno>PosLen</anno></c> in any way references outside the binary,
+      a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bin_to_list" arity="3" since="OTP R14B"/>
+      <fsummary>Convert a binary to a list of integers.</fsummary>
+      <desc>
+      <p>Same as<c> bin_to_list(<anno>Subject</anno>, {<anno>Pos</anno>, <anno>Len</anno>})</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="compile_pattern" arity="1" since="OTP R14B"/>
+      <fsummary>Precompile a binary search pattern.</fsummary>
+      <desc>
+      <p>Builds an internal structure representing a compilation of a
+      search pattern, later to be used in functions
+      <seealso marker="#match-3"><c>match/3</c></seealso>,
+      <seealso marker="#matches-3"><c>matches/3</c></seealso>,
+      <seealso marker="#split-3"><c>split/3</c></seealso>, or
+      <seealso marker="#replace-4"><c>replace/4</c></seealso>.
+      The <c>cp()</c> returned is guaranteed to be a
+      <c>tuple()</c> to allow programs to distinguish it from
+      non-precompiled search patterns.</p>
+
+      <p>When a list of binaries is specified, it denotes a set of
+      alternative binaries to search for. For example, if
+      <c>[&lt;&lt;"functional"&gt;&gt;,&lt;&lt;"programming"&gt;&gt;]</c>
+      is specified as <c><anno>Pattern</anno></c>, this
+      means either <c>&lt;&lt;"functional"&gt;&gt;</c> or
+      <c>&lt;&lt;"programming"&gt;&gt;</c>". The pattern is a set of
+      alternatives; when only a single binary is specified, the set has
+      only one element. The order of alternatives in a pattern is
+      not significant.</p>
+
+      <p>The list of binaries used for search alternatives must be flat and
+      proper.</p>
+
+      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper list of
+      binaries with length &gt; 0, a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="copy" arity="1" since="OTP R14B"/>
+      <fsummary>Create a duplicate of a binary.</fsummary>
+      <desc>
+      <p>Same as <c>copy(<anno>Subject</anno>, 1)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="copy" arity="2" since="OTP R14B"/>
+      <fsummary>Duplicate a binary <c>N</c> times and create a new.</fsummary>
+      <desc>
+      <p>Creates a binary with the content of <c><anno>Subject</anno></c>
+      duplicated <c><anno>N</anno></c> times.</p>
+
+      <p>This function always creates a new binary, even if <c><anno>N</anno> =
+      1</c>. By using <seealso marker="#copy/1"><c>copy/1</c></seealso>
+      on a binary referencing a larger binary, one
+      can free up the larger binary for garbage collection.</p>
+
+      <note>
+      <p>By deliberately copying a single binary to avoid referencing
+      a larger binary, one can, instead of freeing up the larger
+      binary for later garbage collection, create much more binary
+      data than needed. Sharing binary data is usually good. Only in
+      special cases, when small parts reference large binaries and the
+      large binaries are no longer used in any process, deliberate
+      copying can be a good idea.</p>
+      </note>
+
+      <p>If <c><anno>N</anno></c> &lt; <c>0</c>, a <c>badarg</c> exception is
+      raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="decode_unsigned" arity="1" since="OTP R14B"/>
+      <fsummary>Decode a whole binary into an integer of arbitrary size.
+      </fsummary>
+      <desc>
+      <p>Same as <c>decode_unsigned(<anno>Subject</anno>, big)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="decode_unsigned" arity="2" since="OTP R14B"/>
+      <fsummary>Decode a whole binary into an integer of arbitrary size.
+      </fsummary>
+      <desc>
+      <p>Converts the binary digit representation, in big endian or little
+      endian, of a positive integer in <c><anno>Subject</anno></c> to an Erlang
+      <c>integer()</c>.</p>
+
+      <p><em>Example:</em></p>
+
+      <code>
+1> binary:decode_unsigned(&lt;&lt;169,138,199&gt;&gt;,big).
+11111111</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="encode_unsigned" arity="1" since="OTP R14B"/>
+      <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
+      <desc>
+      <p>Same as <c>encode_unsigned(<anno>Unsigned</anno>, big)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="encode_unsigned" arity="2" since="OTP R14B"/>
+      <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
+      <desc>
+      <p>Converts a positive integer to the smallest possible
+      representation in a binary digit representation, either big endian
+      or little endian.</p>
+
+      <p><em>Example:</em></p>
+
+      <code>
+1> binary:encode_unsigned(11111111, big).
+&lt;&lt;169,138,199&gt;&gt;</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="first" arity="1" since="OTP R14B"/>
+      <fsummary>Return the first byte of a binary.</fsummary>
+      <desc>
+      <p>Returns the first byte of binary <c><anno>Subject</anno></c> as an
+      integer. If the size of <c><anno>Subject</anno></c> is zero, a
+      <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="last" arity="1" since="OTP R14B"/>
+      <fsummary>Return the last byte of a binary.</fsummary>
+      <desc>
+      <p>Returns the last byte of binary <c><anno>Subject</anno></c> as an
+      integer. If the size of <c><anno>Subject</anno></c> is zero, a
+      <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="list_to_bin" arity="1" since="OTP R14B"/>
+      <fsummary>Convert a list of integers and binaries to a binary.</fsummary>
+      <desc>
+      <p>Works exactly as
+      <seealso marker="erts:erlang#list_to_binary/1"><c>erlang:list_to_binary/1</c></seealso>,
+      added for completeness.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="longest_common_prefix" arity="1" since="OTP R14B"/>
+      <fsummary>Return length of longest common prefix for a set of binaries.
+      </fsummary>
+      <desc>
+      <p>Returns the length of the longest common prefix of the
+      binaries in list <c><anno>Binaries</anno></c>.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"ergonomy"&gt;&gt;]).
+2
+2> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
+0</code>
+
+      <p>If <c><anno>Binaries</anno></c> is not a flat list of binaries, a
+      <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="longest_common_suffix" arity="1" since="OTP R14B"/>
+      <fsummary>Return length of longest common suffix for a set of binaries.
+      </fsummary>
+      <desc>
+      <p>Returns the length of the longest common suffix of the
+      binaries in list <c><anno>Binaries</anno></c>.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"fang"&gt;&gt;]).
+3
+2> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
+0</code>
+
+      <p>If <c>Binaries</c> is not a flat list of binaries, a <c>badarg</c>
+      exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match" arity="2" since="OTP R14B"/>
+      <fsummary>Search for the first match of a pattern in a binary.</fsummary>
+      <desc>
+      <p>Same as <c>match(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match" arity="3" since="OTP R14B"/>
+      <fsummary>Search for the first match of a pattern in a binary.</fsummary>
+      <type name="part"/>
+      <desc>
+      <p>Searches for the first occurrence of <c><anno>Pattern</anno></c> in
+      <c><anno>Subject</anno></c> and returns the position and length.</p>
+
+      <p>The function returns <c>{Pos, Length}</c> for the binary
+      in <c><anno>Pattern</anno></c>, starting at the lowest position in
+      <c><anno>Subject</anno></c>.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:match(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"bcde"&gt;&gt;, &lt;&lt;"cd"&gt;&gt;],[]).
+{1,4}</code>
+
+      <p>Even though <c>&lt;&lt;"cd"&gt;&gt;</c> ends before
+      <c>&lt;&lt;"bcde"&gt;&gt;</c>, <c>&lt;&lt;"bcde"&gt;&gt;</c>
+      begins first and is therefore the first match. If two
+      overlapping matches begin at the same position, the longest is
+      returned.</p>
+
+      <p>Summary of the options:</p>
+
+      <taglist>
+      <tag>{scope, {<anno>Start</anno>, <anno>Length</anno>}}</tag>
+      <item><p>Only the specified part is searched. Return values still have
+      offsets from the beginning of <c><anno>Subject</anno></c>. A negative
+      <c>Length</c> is allowed as described in section Data Types in this
+      manual.</p></item>
+      </taglist>
+
+      <p>If none of the strings in <c><anno>Pattern</anno></c> is found, the
+      atom <c>nomatch</c> is returned.</p>
+
+      <p>For a description of <c><anno>Pattern</anno></c>, see function
+      <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+      </p>
+
+      <p>If <c>{scope, {Start,Length}}</c> is specified in the options such
+      that <c>Start</c> &gt; size of <c>Subject</c>, <c>Start</c> +
+      <c>Length</c> &lt; 0 or <c>Start</c> + <c>Length</c> &gt; size of
+      <c>Subject</c>, a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="matches" arity="2" since="OTP R14B"/>
+      <fsummary>Search for all matches of a pattern in a binary.</fsummary>
+      <desc>
+      <p>Same as <c>matches(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="matches" arity="3" since="OTP R14B"/>
+      <fsummary>Search for all matches of a pattern in a binary.</fsummary>
+      <type name="part"/>
+      <desc>
+      <p>As <seealso marker="#match-2"><c>match/2</c></seealso>,
+      but <c><anno>Subject</anno></c> is searched until
+      exhausted and a list of all non-overlapping parts matching
+      <c><anno>Pattern</anno></c> is returned (in order).</p>
+
+      <p>The first and longest match is preferred to a shorter,
+      which is illustrated by the following example:</p>
+
+<code>
+1> binary:matches(&lt;&lt;"abcde"&gt;&gt;,
+                  [&lt;&lt;"bcde"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;,&lt;&lt;"de"&gt;&gt;],[]).
+[{1,4}]</code>
+
+       <p>The result shows that &lt;&lt;"bcde"&gt;&gt; is selected instead of
+       the shorter match &lt;&lt;"bc"&gt;&gt; (which would have given raise to
+       one more match, &lt;&lt;"de"&gt;&gt;).
+       This corresponds to the behavior of
+       POSIX regular expressions (and programs like awk), but is not
+       consistent with alternative matches in <c>re</c> (and Perl), where
+       instead lexical ordering in the search pattern selects which
+       string matches.</p>
+
+       <p>If none of the strings in a pattern is found, an empty list is
+       returned.</p>
+
+       <p>For a description of <c><anno>Pattern</anno></c>, see
+       <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+       For a description of available options, see
+       <seealso marker="#match-3"><c>match/3</c></seealso>.</p>
+
+       <p>If <c>{scope, {<anno>Start</anno>,<anno>Length</anno>}}</c> is
+       specified in the options such that <c><anno>Start</anno></c> &gt; size
+       of <c><anno>Subject</anno></c>, <c><anno>Start</anno> +
+       <anno>Length</anno></c> &lt; 0 or <c><anno>Start</anno> +
+       <anno>Length</anno></c> is &gt; size of <c><anno>Subject</anno></c>,
+       a <c>badarg</c> exception is raised.</p>
+     </desc>
+    </func>
+
+    <func>
+      <name name="part" arity="2" since="OTP R14B"/>
+      <fsummary>Extract a part of a binary.</fsummary>
+      <desc>
+      <p>Extracts the part of binary <c><anno>Subject</anno></c> described by
+      <c><anno>PosLen</anno></c>.</p>
+
+      <p>A negative length can be used to extract bytes at the end of a
+      binary:</p>
+
+<code>
+1> Bin = &lt;&lt;1,2,3,4,5,6,7,8,9,10&gt;&gt;.
+2> binary:part(Bin, {byte_size(Bin), -5}).
+&lt;&lt;6,7,8,9,10&gt;&gt;</code>
+
+      <note>
+      <p><seealso marker="#part-2">part/2</seealso> and
+      <seealso marker="#part-3">part/3</seealso> are also available in the
+      <seealso marker="erts:erlang"><c>erlang</c></seealso>
+      module under the names <c>binary_part/2</c> and
+      <c>binary_part/3</c>. Those BIFs are allowed in guard tests.</p>
+      </note>
+
+      <p>If <c><anno>PosLen</anno></c> in any way references outside the binary,
+      a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="part" arity="3" since="OTP R14B"/>
+      <fsummary>Extract a part of a binary.</fsummary>
+      <desc>
+      <p>Same as <c>part(<anno>Subject</anno>, {<anno>Pos</anno>,
+      <anno>Len</anno>})</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="referenced_byte_size" arity="1" since="OTP R14B"/>
+      <fsummary>Determine the size of the binary pointed out by a subbinary.
+      </fsummary>
+      <desc>
+      <p>If a binary references a larger binary (often described as
+      being a subbinary), it can be useful to get the size of the
+      referenced binary. This function can be used in a program to trigger the
+      use of <seealso marker="#copy/1"><c>copy/1</c></seealso>. By copying a
+      binary, one can dereference the original, possibly large, binary that a
+      smaller binary is a reference to.</p>
+
+      <p><em>Example:</em></p>
+
+      <code>
+store(Binary, GBSet) ->
+  NewBin =
+      case binary:referenced_byte_size(Binary) of
+          Large when Large > 2 * byte_size(Binary) ->
+             binary:copy(Binary);
+          _ ->
+             Binary
+      end,
+  gb_sets:insert(NewBin,GBSet).</code>
+
+      <p>In this example, we chose to copy the binary content before
+      inserting it in <c>gb_sets:set()</c> if it references a binary more than
+      twice the data size we want to keep. Of course,
+      different rules apply when copying to different programs.</p>
+
+      <p>Binary sharing occurs whenever binaries are taken apart.
+      This is the fundamental reason why binaries are fast,
+      decomposition can always be done with O(1) complexity. In rare
+      circumstances this data sharing is however undesirable, why this
+      function together with <c>copy/1</c> can be useful when optimizing
+      for memory use.</p>
+
+      <p>Example of binary sharing:</p>
+
+      <code>
+1> A = binary:copy(&lt;&lt;1&gt;&gt;, 100).
+&lt;&lt;1,1,1,1,1 ...
+2> byte_size(A).
+100
+3> binary:referenced_byte_size(A).
+100
+4> &lt;&lt;B:10/binary, C:90/binary&gt;&gt; = A.
+&lt;&lt;1,1,1,1,1 ...
+5> {byte_size(B), binary:referenced_byte_size(B)}.
+{10,10}
+6> {byte_size(C), binary:referenced_byte_size(C)}.
+{90,100}</code>
+      <p>In the above example, the small binary <c>B</c> was copied while the
+      larger binary <c>C</c> references binary <c>A</c>.</p>
+      <note>
+      <p>Binary data is shared among processes. If another process
+      still references the larger binary, copying the part this
+      process uses only consumes more memory and does not free up the
+      larger binary for garbage collection. Use this kind of intrusive
+      functions with extreme care and only if a real problem is detected.</p>
+      </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="replace" arity="3" since="OTP R14B"/>
+      <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
+      <desc>
+      <p>Same as <c>replace(<anno>Subject</anno>, <anno>Pattern</anno>, <anno>Replacement</anno>,[])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="replace" arity="4" since="OTP R14B"/>
+      <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
+      <type_desc variable="OnePos">An integer() =&lt; byte_size(<anno>Replacement</anno>)
+      </type_desc>
+      <desc>
+      <p>Constructs a new binary by replacing the parts in
+      <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with
+      the content of <c><anno>Replacement</anno></c>.</p>
+
+      <p>If the matching subpart of <c><anno>Subject</anno></c> giving raise
+      to the replacement is to be inserted in the result, option
+      <c>{insert_replaced, <anno>InsPos</anno>}</c> inserts the matching part
+      into <c><anno>Replacement</anno></c> at the specified position (or
+      positions) before inserting <c><anno>Replacement</anno></c> into
+      <c><anno>Subject</anno></c>.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:replace(&lt;&lt;"abcde"&gt;&gt;,&lt;&lt;"b"&gt;&gt;,&lt;&lt;"[]"&gt;&gt;, [{insert_replaced,1}]).
+&lt;&lt;"a[b]cde"&gt;&gt;
+2> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,1}]).
+&lt;&lt;"a[b]c[d]e"&gt;&gt;
+3> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[]"&gt;&gt;,[global,{insert_replaced,[1,1]}]).
+&lt;&lt;"a[bb]c[dd]e"&gt;&gt;
+4> binary:replace(&lt;&lt;"abcde"&gt;&gt;,[&lt;&lt;"b"&gt;&gt;,&lt;&lt;"d"&gt;&gt;],&lt;&lt;"[-]"&gt;&gt;,[global,{insert_replaced,[1,2]}]).
+&lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;</code>
+
+        <p>If any position specified in <c><anno>InsPos</anno></c> &gt; size
+        of the replacement binary, a <c>badarg</c> exception is raised.</p>
+
+        <p>Options <c>global</c> and <c>{scope, part()}</c> work as for
+        <seealso marker="#split-3"><c>split/3</c></seealso>.
+        The return type is always a <c>binary()</c>.</p>
+
+        <p>For a description of <c><anno>Pattern</anno></c>, see
+        <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="split" arity="2" since="OTP R14B"/>
+      <fsummary>Split a binary according to a pattern.</fsummary>
+      <desc>
+      <p>Same as <c>split(<anno>Subject</anno>, <anno>Pattern</anno>,
+      [])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="split" arity="3" since="OTP R14B"/>
+      <fsummary>Split a binary according to a pattern.</fsummary>
+      <desc>
+      <p>Splits <c><anno>Subject</anno></c> into a list of binaries based on
+      <c><anno>Pattern</anno></c>. If option <c>global</c> is not specified,
+      only the first occurrence of <c><anno>Pattern</anno></c> in
+      <c><anno>Subject</anno></c> gives rise to a split.</p>
+
+      <p>The parts of <c><anno>Pattern</anno></c> found in
+      <c><anno>Subject</anno></c> are not included in the result.</p>
+
+      <p><em>Example:</em></p>
+
+<code>
+1> binary:split(&lt;&lt;1,255,4,0,0,0,2,3&gt;&gt;, [&lt;&lt;0,0,0&gt;&gt;,&lt;&lt;2&gt;&gt;],[]).
+[&lt;&lt;1,255,4&gt;&gt;, &lt;&lt;2,3&gt;&gt;]
+2> binary:split(&lt;&lt;0,1,0,0,4,255,255,9&gt;&gt;, [&lt;&lt;0,0&gt;&gt;, &lt;&lt;255,255&gt;&gt;],[global]).
+[&lt;&lt;0,1&gt;&gt;,&lt;&lt;4&gt;&gt;,&lt;&lt;9&gt;&gt;]</code>
+
+      <p>Summary of options:</p>
+
+      <taglist>
+      <tag>{scope, part()}</tag>
+      <item><p>Works as in <seealso marker="#match-3"><c>match/3</c></seealso>
+      and <seealso marker="#matches-3"><c>matches/3</c></seealso>. Notice that
+      this only defines the scope of the search for matching strings,
+      it does not cut the binary before splitting. The bytes before and after
+      the scope are kept in the result. See the example below.</p></item>
+      <tag>trim</tag>
+      <item><p>Removes trailing empty parts of the result (as does <c>trim</c>
+      in <seealso marker="re#split/3"><c>re:split/3</c></seealso>.</p></item>
+      <tag>trim_all</tag>
+      <item><p>Removes all empty parts of the result.</p></item>
+      <tag>global</tag>
+      <item><p>Repeats the split until <c><anno>Subject</anno></c> is
+      exhausted. Conceptually option <c>global</c> makes split work
+      on the positions returned by
+      <seealso marker="#matches-3"><c>matches/3</c></seealso>, while it
+      normally works on the position returned by
+      <seealso marker="#match-3"><c>match/3</c></seealso>.</p></item>
+      </taglist>
+
+     <p>Example of the difference between a scope and taking the
+     binary apart before splitting:</p>
+
+<code>
+1> binary:split(&lt;&lt;"banana"&gt;&gt;, [&lt;&lt;"a"&gt;&gt;],[{scope,{2,3}}]).
+[&lt;&lt;"ban"&gt;&gt;,&lt;&lt;"na"&gt;&gt;]
+2> binary:split(binary:part(&lt;&lt;"banana"&gt;&gt;,{2,3}), [&lt;&lt;"a"&gt;&gt;],[]).
+[&lt;&lt;"n"&gt;&gt;,&lt;&lt;"n"&gt;&gt;]</code>
+
+      <p>The return type is always a list of binaries that are all
+      referencing <c><anno>Subject</anno></c>. This means that the data in
+      <c><anno>Subject</anno></c> is not copied to new binaries, and that
+      <c><anno>Subject</anno></c> cannot be garbage collected until the results
+      of the split are no longer referenced.</p>
+
+      <p>For a description of <c><anno>Pattern</anno></c>, see
+      <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+      </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

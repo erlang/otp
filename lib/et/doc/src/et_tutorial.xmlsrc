@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Tutorial</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_tutorial.xml</file>
+  </header>
+
+  <section>
+   <title>Visualizing Message Sequence Charts</title>
+    
+    <p>The easiest way of using <c>ET</c>, is to just use it as a
+    graphical tool for displaying message sequence charts. In order to
+    do that you need to first start a <c>Viewer</c> (which by default
+    starts a <c>Collector</c>):</p>
+
+    <code type="none"><![CDATA[
+      {ok, ViewerPid} = et_viewer:start([{title,"Coffee Order"}]),
+      CollectorPid = et_viewer:get_collector_pid(ViewerPid).]]></code>
+
+    <marker id="report_event"></marker>
+    <p>Then you send events to the <c>Collector</c>
+    with the function <c>et_collector:report_event/6</c> like this:</p>
+    
+    <code type="none"><![CDATA[
+      et_collector:report_event(CollectorPid,85,from,to,message,extra_stuff).]]></code>
+
+    <p>The <c>Viewer</c> will automatically pull events from the
+    <c>Collector</c> and display them on the screen.</p>
+
+    <p>The number (in this case 85) is an integer from 1 to 100 that
+    specifies the "detail level" of the message. The higher the
+    number, the more important it is. This provides a crude form of
+    priority filtering.</p>
+
+    <p>The <c>from</c>, <c>to</c>, and <c>message</c> parameters are
+    exactly what they sound like. <c>from</c> and <c>to</c> are
+    visualized in the <c>Viewer</c> as "lifelines", with the message
+    passing from one to the other. If <c>from</c> and <c>to</c> are
+    the same value, then it is displayed next to the lifeline as an
+    "action". The <c>extra_stuff </c>value is simply data that you can
+    attach that will be displayed when someone actually clicks on the
+    action or message in the <c>Viewer</c> window.</p>
+
+    <p>The module <c>et/examples/et_display_demo.erl</c> illustrates
+    how it can be used:</p>
+    
+    <codeinclude file="../../examples/et_display_demo.erl" tag="%module" type="erl"></codeinclude>
+    
+    <p>When you run the <c>et_display_demo:test().</c> function in the
+    example above, the <c>Viewer</c> window will look like this:</p>
+    
+    <image file="coffee_order.png">
+      <icaption>Screenshot of the Viewer window</icaption>
+    </image>
+
+ </section>
+
+  <section>
+    <title>Four Modules</title>
+
+    <p>The event tracer framework is made up of four modules:</p>
+
+    <list type="bulleted">
+      <item><p><c>et</c></p></item>
+      <item><p><c>et_collector</c></p></item>
+      <item><p><c>et_viewer</c></p></item>
+      <item><p><c>et_selector</c></p></item>
+    </list>
+
+    <p>In addition, you'll probably want to familiarize yourself with
+    the <c>dbg</c> module and possibly <c>seq_trace</c> module as
+    well.</p>
+  </section>
+
+  <section>
+    <title>The Event Tracer Interface</title>
+
+    <p>The <c>et</c> module is not like other modules. It contains a
+    function called <c>et:trace_me/5</c>. Which is a function that
+    does not do any useful stuff at all. Its sole purpose is to be a
+    function that is easy to trace. A call to it may be something
+    like:</p>
+
+    <code type="none"><![CDATA[
+      et:trace_me(85,from,to,message,extra_stuff).]]></code>
+
+    <p>The parameters to <c>et:trace_me/5</c> are the same as to
+    <seealso
+    marker="#report_event"><c>et_collector:report_event/6</c></seealso>
+    in the previous chapter. The big difference between the two is in
+    the semantics of the two functions. The second actually reports an
+    <c>Event</c> to the <c>Collector</c> while the first does nothing,
+    it just returns the atom <c>hopefully_traced</c>. In order to make
+    the parameters to <c>et:trace_me/5</c> turn up in the
+    <c>Collector</c>, tracing of that function must be activated and
+    the <c>Collector</c> must be registered as a <c>Tracer</c> of the
+    <c>Raw Trace Data</c>.</p>
+
+    <p>Erlang tracing is a seething pile of pain that involves
+    reasonably complex knowledge of clever ports, tracing return
+    formats, and specialized tracing <c>MatchSpecs</c> (which are
+    really their own special kind of hell). The tracing mechanism is
+    very powerful indeed, but it can be hard to grasp.</p>
+
+    <p>Luckily there is a simplified way to start tracing of
+    <c>et:trace_me/5</c> function calls. The idea is that you should
+    instrument your code with calls to <c>et:trace_me/5</c> in
+    strategic places where you have interesting information available
+    in your program. Then you just start the <c>Collector</c> with
+    global tracing enabled:</p>
+
+    <code type="none"><![CDATA[
+      et_viewer:start([{trace_global, true}, {trace_pattern, {et,max}}]).]]></code>
+
+    <p>This will start a <c>Collector</c>, a <c>Viewer</c> and also
+    start the tracing of <c>et:trace_me/5</c> function calls. The
+    <c>Raw Trace Data</c> is collected by the <c>Collector</c> and a
+    view of it is displayed on the screen by the <c>Viewer</c>. You
+    can define your own "views" of the data by implementing your own
+    <c>Filter</c> functions and register them in the
+    <c>Viewer</c>.</p>
+  </section>
+
+  <section>
+    <title>The Collector and Viewer</title>
+
+    <p>These two pieces work in concert. Basically, the
+    <c>Collector</c> receives <c>Raw Trace Data</c> and processes it
+    into <c>Events</c> in a <c>et</c> specific format (defined in
+    <c>et/include/et.hrl</c>). The <c>Viewer</c> interrogates the
+    <c>Collector</c> and displays an interactive representation of the
+    data.</p>
+
+    <p>You might wonder why these aren't just one module. The
+    <c>Collector</c> is a generic full-fledged framework that allows
+    processes to "subscribe" to the <c>Events</c> that it
+    collects. One <c>Collector</c> can serve several
+    <c>Viewers</c>. The typical case is that you have one
+    <c>Viewer</c> that visualizes <c>Events</c> in one flavor and
+    another <c>Viewer</c> that visualizes them in another flavor. If
+    you for example are tracing a text based protocol like <c>HTML</c>
+    (or <c>Megaco/H.248</c>) it would be useful to be able to display
+    the <c>Events</c> as plain text as well as the internal
+    representation of the message. The architecture does also allow
+    you to implement your own <c>Viewer</c> program as long as it
+    complies to the protocol between the <c>Collector/Viewer</c>
+    protocol. Currently two kinds of <c>Viewers</c> exists. That is
+    the old <c>GS</c> based one and the new based on
+    <c>wxWidgets</c>. But if you feel for it you may implement your
+    own <c>Viewer</c>, which for example could display the
+    <c>Events</c> as ASCII art or whatever you feel useful.</p>
+
+    <p>The <c>Viewer</c> will by default create a <c>Collector</c> for
+    you. With a few options and some configuration settings you can
+    start collecting <c>Events</c>.</p>
+
+    <p>The <c>Collector</c> API does also allow you to save the
+    collected <c>Events</c> to file and later load them in a later
+    session.</p>
+
+  </section>
+
+  <section>
+    <title>The Selector</title>
+
+    <p>This is perhaps the most central module in the entirety of the
+    <c>et</c> suite. The <c>Collector</c> needs "filters" to convert
+    the <c>Raw Trace Data</c> into "events" that it can display. The
+    <c>et_selector</c> module provides the default <c>Filter</c> and
+    some API calls to manage the <c>Trace Pattern</c>. The
+    <c>Selector</c> provides various functions that achieve the
+    following:</p>
+
+    <list type="bulleted">
+      <item><p>Convert <c>Raw Trace Data</c> into an appropriate
+      <c>Event</c></p></item>
+      <item><p>Magically notice traces of the <c>et:trace_me/5</c>
+      function and make appropriate <c>Events</c></p></item>
+      <item><p>Carefully prevent translating the <c>Raw Trace Data</c>
+      twice</p></item>
+      <item><p>Manage a <c>Trace Pattern</c></p></item>
+    </list>
+
+    <p>The <c>Trace Pattern</c> is basically a tuple of a
+    <c>module</c> and a <c>detail level</c> (either an integer or the
+    atom max for full detail). In most cases the <c>Trace Pattern</c>
+    <c>{et,max}</c> does suffice. But if you do not want any runtime
+    dependency of <c>et</c> you can implement your own
+    <c>trace_me/5</c> function in some module and refer to that module
+    in the <c>Trace Pattern</c>.</p>
+
+    <p>The specified module flows from your instantiation of the
+    <c>Viewer</c>, to the <c>Collector</c> that it automatically
+    creates, gets stashed in as the <c>Trace Pattern</c>, and
+    eventually goes down into the bowels of the <c>Selector</c>.</p>
+
+    <p>The module that you specify gets passed down (eventually) into
+    <c>Selector</c>'s default <c>Filter</c>. The format of the
+    <c>et:trace_me/5</c> function call is hardcoded in that
+    <c>Filter</c>.</p>
+
+  </section>
+
+  <section>
+    <title>How To Put It Together</title>
+
+    <p>The <c>Collector</c> automatically registers itself to listen
+    for trace <c>Events</c>, so all you have to do is enable them.</p>
+
+    <p>For those people who want to do general tracing, consult the
+    <c>dbg</c> module on how to trace whatever you're interested in
+    and let it work its magic. If you just want <c>et:trace_me/5</c>
+    to work, do the following:</p>
+
+    <list type="ordered">
+      <item><p>Create a <c>Collector</c></p></item>
+      <item><p>Create a <c>Viewer</c> (this can do step #1 for you)</p></item>
+      <item><p>Turn on and pare down debugging</p></item>
+    </list>
+
+    <p>The module <c>et/examples/et_trace_demo.erl</c> achieves this.</p>
+
+    <codeinclude file="../../examples/et_trace_demo.erl" tag="%module" type="erl"></codeinclude>
+
+    <p>Running through the above, the most important points are:</p>
+
+    <list type="bulleted">
+      <item><p>Turn on global tracing</p></item>
+      <item><p>Set a <c>Trace Pattern</c></p></item>
+      <item><p>Tell <c>dbg</c> to trace function Calls</p></item>
+      <item><p>Tell it specifically to trace the <c>et:trace_me/5</c> function</p></item>
+    </list>
+
+    <p>When you run the <c>et_trace_demo:test()</c> function above, the
+    <c>Viewer</c> window will look like this screenshot:</p>
+
+    <image file="coffee_order.png">
+      <icaption>Screenshot of the Viewer window</icaption>
+    </image>
+    
+  </section>
+</chapter>

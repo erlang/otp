@@ -1,0 +1,253 @@
+-- Module IPMSFileTransferBodyPartType (X.420:06/1999)
+IPMSFileTransferBodyPartType {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  file-transfer-body-part-type(9)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS
+  -- FTAM Attribute Types
+  Attribute-Extensions, Concurrency-Access, Date-and-Time-Attribute,
+    Legal-Qualification-Attribute, Object-Availability-Attribute,
+    Object-Size-Attribute, Pathname, Permitted-Actions-Attribute,
+    Private-Use-Attribute
+    --==
+    FROM ISO8571-FTAM {iso standard 8571 application-context(1) iso-ftam(1)}
+  -- ACSE definitions of AP-title and AE-qualifier
+  AE-qualifier, AP-title
+    --==
+    FROM ACSE-1 {joint-iso-itu-t association-control(2) modules(0) apdus(0)
+      version1(1)}
+  -- IPMS Information Objects
+  EXTENDED-BODY-PART-TYPE, ExtensionsField
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- IPMS Object Identifiers
+  id-ep-file-transfer, id-et-file-transfer
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- MTS Abstract Service
+  ORName
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)};
+
+-- File Transfer body part
+file-transfer-body-part EXTENDED-BODY-PART-TYPE ::= {
+  PARAMETERS  {FileTransferParameters
+               IDENTIFIED BY  id-ep-file-transfer},
+  DATA        {FileTransferData
+               IDENTIFIED BY  id-et-file-transfer}
+}
+
+FileTransferParameters ::= SEQUENCE {
+  related-stored-file  [0]  RelatedStoredFile OPTIONAL,
+  contents-type
+    [1]  ContentsTypeParameter
+      DEFAULT
+        document-type:
+          {document-type-name
+           {iso standard 8571 document-type(5) unstructured-binary(3)}},
+  environment          [2]  EnvironmentParameter OPTIONAL,
+  compression          [3]  CompressionParameter OPTIONAL,
+  file-attributes      [4]  FileAttributes OPTIONAL,
+  extensions           [5]  ExtensionsField OPTIONAL
+}
+
+FileTransferData ::= SEQUENCE OF EXTERNAL
+
+-- This conveys a sequence of data values representing file contents;
+-- The rules for generating this sequence are implied by the value of the contents-type parameter.
+RelatedStoredFile ::=
+  SET OF
+    SEQUENCE {file-identifier  FileIdentifier,
+              relationship
+                Relationship DEFAULT explicit-relationship:unspecified
+    }
+
+FileIdentifier ::= CHOICE {
+  pathname-and-version  [0]  PathnameandVersion,
+  cross-reference       [1]  CrossReference
+}
+
+PathnameandVersion ::= SEQUENCE {
+  pathname      [0]  Pathname-Attribute,
+  file-version  [1]  GraphicString OPTIONAL
+}
+
+CrossReference ::= SEQUENCE {
+  application-cross-reference  [0]  OCTET STRING,
+  message-reference            [1]  MessageReference OPTIONAL,
+  body-part-reference          [2]  INTEGER OPTIONAL
+}
+
+MessageReference ::= SET {
+  user                      [0]  ORName OPTIONAL,
+  -- Defined in 8.5.5 of ITU-T Rec. X.411 | ISO/IEC 10021-4
+  user-relative-identifier  [1]  PrintableString
+}
+
+Relationship ::= CHOICE {
+  explicit-relationship     [0]  ExplicitRelationship,
+  descriptive-relationship  [1]  GraphicString
+}
+
+ExplicitRelationship ::= INTEGER {
+  unspecified(0), new-file(1), replacement(2), extension(3)}
+
+ContentsTypeParameter ::= Contents-Type-Attribute
+
+Contents-Type-Attribute ::= CHOICE {
+  document-type
+    [0]  SEQUENCE {document-type-name  Document-Type-Name,
+                   parameter           [0]  DOCUMENT-PARAMETER.&Type OPTIONAL
+  },
+  -- The actual types to be used for values of the parameter field
+  -- are defined in the named document type.
+  constraint-set-and-abstract-syntax
+    [1]  SEQUENCE {constraint-set-name   Constraint-Set-Name,
+                   abstract-syntax-name  Abstract-Syntax-Name}
+}
+
+Document-Type-Name ::= OBJECT IDENTIFIER
+
+DOCUMENT-PARAMETER ::= CLASS {&Type  
+}
+
+Constraint-Set-Name ::= OBJECT IDENTIFIER
+
+Abstract-Syntax-Name ::= OBJECT IDENTIFIER
+
+EnvironmentParameter ::= SEQUENCE {
+  application-reference  [0]  GeneralIdentifier OPTIONAL,
+  machine                [1]  GeneralIdentifier OPTIONAL,
+  operating-system       [2]  OBJECT IDENTIFIER OPTIONAL,
+  user-visible-string    [3]  SEQUENCE OF GraphicString OPTIONAL
+}
+
+GeneralIdentifier ::= CHOICE {
+  registered-identifier   [0]  OBJECT IDENTIFIER,
+  descriptive-identifier  [1]  SEQUENCE OF GraphicString
+}
+
+CompressionParameter ::= SEQUENCE {
+  compression-algorithm-id
+    [0]  COMPRESSION-ALGORITHM.&id({CompressionAlgorithmTable}),
+  compression-algorithm-param
+    [1]  COMPRESSION-ALGORITHM.&Type
+           ({CompressionAlgorithmTable}{@compression-algorithm-id})
+}
+
+COMPRESSION-ALGORITHM ::= TYPE-IDENTIFIER
+
+CompressionAlgorithmTable COMPRESSION-ALGORITHM ::=
+  {...}
+
+FileAttributes ::= SEQUENCE {
+  pathname                                      Pathname-Attribute OPTIONAL,
+  permitted-actions
+    [1]  Permitted-Actions-Attribute OPTIONAL,
+  storage-account                               [3]  Account-Attribute OPTIONAL,
+  date-and-time-of-creation
+    [4]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-modification
+    [5]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-read-access
+    [6]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-attribute-modification
+    [7]  Date-and-Time-Attribute OPTIONAL,
+  identity-of-creator
+    [8]  User-Identity-Attribute OPTIONAL,
+  identity-of-last-modifier
+    [9]  User-Identity-Attribute OPTIONAL,
+  identity-of-last-reader
+    [10]  User-Identity-Attribute OPTIONAL,
+  identity-of-last-attribute-modifier
+    [11]  User-Identity-Attribute OPTIONAL,
+  object-availability
+    [12]  Object-Availability-Attribute OPTIONAL,
+  object-size
+    [13]  Object-Size-Attribute OPTIONAL,
+  future-object-size
+    [14]  Object-Size-Attribute OPTIONAL,
+  access-control
+    [15]  Access-Control-Attribute OPTIONAL,
+  legal-qualifications
+    [16]  Legal-Qualification-Attribute OPTIONAL,
+  private-use
+    [17]  Private-Use-Attribute OPTIONAL,
+  attribute-extensions
+    [22]  Attribute-Extensions OPTIONAL
+}
+
+Pathname-Attribute ::= CHOICE {
+  incomplete-pathname  [0]  Pathname,
+  complete-pathname    [23]  Pathname
+}
+
+Account-Attribute ::= CHOICE {
+  no-value-available  [0]  NULL,
+  -- Indicates partial support of this attribute
+  actual-values       Account
+}
+
+Account ::= GraphicString
+
+User-Identity-Attribute ::= CHOICE {
+  no-value-available  [0]  NULL,
+  -- Indicates partial support of this attribute.
+  actual-values       User-Identity
+}
+
+User-Identity ::= GraphicString
+
+Access-Control-Attribute ::= CHOICE {
+  no-value-available  [0]  NULL,
+  -- Indicates partial support of this attribute.
+  actual-values       [1]  SET OF Access-Control-Element
+}
+
+--  The semantics of this attribute are described in ISO 8571-2
+Access-Control-Element ::= SEQUENCE {
+  action-list         [0]  Access-Request,
+  concurrency-access  [1]  Concurrency-Access OPTIONAL,
+  identity            [2]  User-Identity OPTIONAL,
+  passwords           [3]  Access-Passwords OPTIONAL,
+  location            [4]  Application-Entity-Title OPTIONAL
+}
+
+Access-Request ::= BIT STRING {
+  read(0), insert(1), replace(2), extend(3), erase(4), read-attribute(5),
+  change-attribute(6), delete-object(7)}
+
+Access-Passwords ::= SEQUENCE {
+  read-password              [0]  Password,
+  insert-password            [1]  Password,
+  replace-password           [2]  Password,
+  extend-password            [3]  Password,
+  erase-password             [4]  Password,
+  read-attribute-password    [5]  Password,
+  change-attribute-password  [6]  Password,
+  delete-password            [7]  Password,
+  pass-passwords             [8]  Pass-Passwords,
+  link-password              [9]  Password
+}
+
+Password ::= CHOICE {
+  graphic-string  GraphicString,
+  octet-string    OCTET STRING
+}
+
+Pass-Passwords ::= SEQUENCE OF Password
+
+Application-Entity-Title ::= SEQUENCE {
+  ap-title      AP-title,
+  ae-qualifier  AE-qualifier
+}
+
+END -- of IPMSFileTransferBodyPartType
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

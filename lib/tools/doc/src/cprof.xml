@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>cprof</title>
+    <prepared>Raimo Niskanen</prepared>
+    <responsible>nobody</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked></checked>
+    <date>2002-09-12</date>
+    <rev>PA1</rev>
+    <file>cprof.sgml</file>
+  </header>
+  <module since="">cprof</module>
+  <modulesummary>A simple Call Count Profiling Tool using breakpoints for minimal runtime performance impact.</modulesummary>
+  <description>
+    <p>The <c>cprof</c> module is used to profile a program
+      to find out how many times different functions are called.
+      Breakpoints similar to local call trace, but containing a
+      counter, are used to minimise runtime performance impact. 
+      </p>
+    <p>Since breakpoints are used there is no need for special
+      compilation of any module to be profiled. For now these
+      breakpoints can only be set on BEAM code so <term id="BIF"></term>s
+      cannot be call count traced.
+      </p>
+    <p>The size of the call counters is the host machine word
+      size. One bit is used when pausing the counter, so the maximum
+      counter value for a 32-bit host is 2147483647.
+      </p>
+    <p>The profiling result is delivered as a term containing a
+      sorted list of entries, one per module. Each module entry
+      contains a sorted list of functions. The sorting order in both
+      cases is of decreasing call count.
+      </p>
+    <p>Call count tracing is very lightweight compared to other forms
+      of tracing since no trace message has to be generated. Some 
+      measurements indicates performance degradation in the vicinity
+      of 10 percent.
+            <marker id="analyse"></marker>
+</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">analyse() -> {AllCallCount, ModAnalysisList}</name>
+      <name since="">analyse(Limit) -> {AllCallCount, ModAnalysisList}</name>
+      <name since="">analyse(Mod) -> ModAnalysis</name>
+      <name since="">analyse(Mod, Limit) -> ModAnalysis</name>
+      <fsummary>Collect and analyse call counters.</fsummary>
+      <type>
+        <v>Limit = integer()</v>
+        <v>Mod = atom()</v>
+        <v>AllCallCount = integer()</v>
+        <v>ModAnalysisList = [ModAnalysis]</v>
+        <v>ModAnalysis = {Mod, ModCallCount, FuncAnalysisList}</v>
+        <v>ModCallCount = integer()</v>
+        <v>FuncAnalysisList = [{{Mod, Func, Arity}, FuncCallCount}]</v>
+        <v>Func = atom()</v>
+        <v>Arity = integer()</v>
+        <v>FuncCallCount = integer()</v>
+      </type>
+      <desc>
+        <p>Collects and analyses the call counters presently in the
+          node for either module <c>Mod</c>, or for all modules
+          (except <c>cprof</c> itself), and returns: </p>
+        <taglist>
+          <tag><c>FuncAnalysisList</c></tag>
+          <item>A list of tuples, one for each function in a module, in
+           decreasing <c>FuncCallCount</c> order.</item>
+          <tag><c>ModCallCount</c></tag>
+          <item>The sum of <c>FuncCallCount</c> values for all
+           functions in module <c>Mod</c>.</item>
+          <tag><c>AllCallCount</c></tag>
+          <item>The sum of <c>ModCallCount</c> values for all modules
+           concerned in <c>ModAnalysisList</c>.</item>
+          <tag><c>ModAnalysisList</c></tag>
+          <item>A list of tuples, one for each module except
+          <c>cprof</c>, in decreasing <c>ModCallCount</c> order.</item>
+        </taglist>
+        <p>If call counters are still running while
+          <c>analyse/0..2</c> is executing, you might get an
+          inconsistent result. This happens if the process executing
+          <c>analyse/0..2</c> gets scheduled out so some other process
+          can increment the counters that are being analysed, Calling
+          <c>pause()</c> before analysing takes care of the problem.
+          </p>
+        <p>If the <c>Mod</c> argument is given, the result contains a
+          <c>ModAnalysis</c> tuple for module <c>Mod</c> only,
+          otherwise the result contains one <c>ModAnalysis</c> tuple
+          for all  modules returned from <c>code:all_loaded()</c>
+          except <c>cprof</c> itself.
+          </p>
+        <p>All functions with a <c>FuncCallCount</c> lower than
+          <c>Limit</c> are excluded from <c>FuncAnalysisList</c>. They
+          are still included in <c>ModCallCount</c>, though. 
+          The default value for <c>Limit</c> is <c>1</c>.
+                    <marker id="pause_0"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">pause() -> integer()</name>
+      <fsummary>Pause running call count trace for all functions.</fsummary>
+      <desc>
+        <p>Pause call count tracing for all functions in all modules
+          and stop it for all functions in modules to be
+          loaded. This is the same as 
+          <c>(pause({'_','_','_'})+stop({on_load}))</c>.
+          </p>
+        <p>See also 
+          <seealso marker="#pause">pause/1..3</seealso> below.
+                    <marker id="pause"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">pause(FuncSpec) -> integer()</name>
+      <name since="">pause(Mod, Func) -> integer()</name>
+      <name since="">pause(Mod, Func, Arity) -> integer()</name>
+      <fsummary>Pause running call count trace for matching functions.</fsummary>
+      <type>
+        <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Arity = integer()</v>
+        <v>FS = term()</v>
+      </type>
+      <desc>
+        <p>Pause call counters for matching functions in matching 
+          modules. The <c>FS</c> argument can be used to
+          specify the first argument to
+          <c>erlang:trace_pattern/3</c>. See erlang(3). 
+          </p>
+        <p>The call counters for all matching functions that
+          has got call count breakpoints are paused at their current
+          count. 
+          </p>
+        <p>Return the number of matching functions that can have
+          call count breakpoints, the same as
+          <c>start/0..3</c> with the same arguments would have
+          returned. 
+                    <marker id="restart"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">restart() -> integer()</name>
+      <name since="">restart(FuncSpec) -> integer()</name>
+      <name since="">restart(Mod, Func) -> integer()</name>
+      <name since="">restart(Mod, Func, Arity) -> integer()</name>
+      <fsummary>Restart existing call counters for matching functions.</fsummary>
+      <type>
+        <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Arity = integer()</v>
+        <v>FS = term()</v>
+      </type>
+      <desc>
+        <p>Restart call counters for the matching functions in
+          matching modules that are call count traced. The <c>FS</c>
+          argument can be used to specify the first argument to
+          <c>erlang:trace_pattern/3</c>. See erlang(3).
+          </p>
+        <p>The call counters for all matching functions that has got
+          call count breakpoints are set to zero and running.
+          </p>
+        <p>Return the number of matching functions that can have
+          call count breakpoints, the same as
+          <c>start/0..3</c> with the same arguments would have
+          returned. 
+                    <marker id="start_0"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start() -> integer()</name>
+      <fsummary>Start call count tracing for all functions.</fsummary>
+      <desc>
+        <p>Start call count tracing for all functions in all modules, 
+          and also for all functions in modules to be
+          loaded. This is the same as 
+          <c>(start({'_','_','_'})+start({on_load}))</c>.
+          </p>
+        <p>See also 
+          <seealso marker="#start">start/1..3</seealso> below.
+                    <marker id="start"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start(FuncSpec) -> integer()</name>
+      <name since="">start(Mod, Func) -> integer()</name>
+      <name since="">start(Mod, Func, Arity) -> integer()</name>
+      <fsummary>Start call count tracing for matching functions.</fsummary>
+      <type>
+        <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Arity = integer()</v>
+        <v>FS = term()</v>
+      </type>
+      <desc>
+        <p>Start call count tracing for matching functions in matching 
+          modules. The <c>FS</c> argument can be used to specify the
+          first argument to <c>erlang:trace_pattern/3</c>, for example
+          <c>on_load</c>. See erlang(3). 
+          </p>
+        <p>Set call count breakpoints on the matching functions that
+          has no call count breakpoints. Call counters 
+          are set to zero and running for all matching functions.
+          </p>
+        <p>Return the number of matching functions that has got
+          call count breakpoints.
+                    <marker id="stop_0"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> integer()</name>
+      <fsummary>Stop call count tracing for all functions.</fsummary>
+      <desc>
+        <p>Stop call count tracing for all functions in all modules, 
+          and also for all functions in modules to be
+          loaded. This is the same as 
+          <c>(stop({'_','_','_'})+stop({on_load}))</c>.
+          </p>
+        <p>See also 
+          <seealso marker="#stop">stop/1..3</seealso> below.
+                    <marker id="stop"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop(FuncSpec) -> integer()</name>
+      <name since="">stop(Mod, Func) -> integer()</name>
+      <name since="">stop(Mod, Func, Arity) -> integer()</name>
+      <fsummary>Stop call count tracing for matching functions.</fsummary>
+      <type>
+        <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Arity = integer()</v>
+        <v>FS = term()</v>
+      </type>
+      <desc>
+        <p>Stop call count tracing for matching functions in matching 
+          modules. The <c>FS</c> argument can be used to specify the
+          first argument to <c>erlang:trace_pattern/3</c>, for example
+          <c>on_load</c>. See erlang(3). 
+          </p>
+        <p>Remove call count breakpoints from the matching functions that
+          has call count breakpoints.
+          </p>
+        <p>Return the number of matching functions that can have
+          call count breakpoints, the same as
+          <c>start/0..3</c> with the same arguments would have
+          returned. 
+          </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="eprof">eprof</seealso>(3), 
+      <seealso marker="fprof">fprof</seealso>(3), 
+      erlang(3), 
+      <seealso marker="cprof_chapter">User's Guide</seealso></p>
+  </section>
+</erlref>
+

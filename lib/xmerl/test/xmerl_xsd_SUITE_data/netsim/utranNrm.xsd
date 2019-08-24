@@ -1,0 +1,174 @@
+<!--
+   3GPP TS 32.615 v4.5 Bulk CM IRP
+  Configuration data file UTRAN Network Resources IRP NRM XML schema
+  To be used with WEGA Bucket 2.1 onwards
+-->
+<schema xmlns:gn="geranNrm.xsd" xmlns:un="utranNrm.xsd" xmlns:xn="genericNrm.xsd" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="utranNrm.xsd" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- UTRAN Network Resources IRP NRM class associated XML elements -->
+	<import namespace="genericNrm.xsd" schemaLocation="genericNrm.xsd"/>
+	<import namespace="geranNrm.xsd" schemaLocation="geranNrm.xsd"/>
+	<element name="RncFunction">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="rncId" minOccurs="0"/>
+									<!--
+									<element name="mncLength" minOccurs="0"/>
+									-->
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="un:UtranCell"/>
+							<element ref="un:IubLink"/>
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="NodeBFunction">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="nodeBFunctionIubLink" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="UtranCell">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="cId" minOccurs="0"/>
+									<element name="localCellId" minOccurs="0"/>
+									<element name="uarfcnUl" minOccurs="0"/>
+									<element name="uarfcnDl" minOccurs="0"/>
+									<element name="primaryScramblingCode" minOccurs="0"/>
+									<element name="primaryCpichPower" minOccurs="0"/>
+									<element name="maximumTransmissionPower" minOccurs="0"/>
+									<element name="primarySchPower" minOccurs="0"/>
+									<element name="secondarySchPower" minOccurs="0"/>
+									<element name="bchPower" minOccurs="0"/>
+									<element name="lac" minOccurs="0"/>
+									<element name="rac" minOccurs="0"/>
+									<element name="sac" minOccurs="0"/>
+									<element name="utranCellIubLink" minOccurs="0"/>
+									<element name="uraList" minOccurs="0"/>
+									<!-- 3.1
+									<element name="ura" minOccurs="0"/>
+									-->
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="un:UtranRelation"/>
+							<element ref="gn:GsmRelation"/>
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="IubLink">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="iubLinkUtranCell" minOccurs="0"/>
+									<element name="iubLinkNodeBFunction" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="UtranRelation">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="adjacentCell" minOccurs="0"/>
+									<!--
+									<element name="relationType" minOccurs="0"/>
+									-->
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="ExternalUtranCell">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="cId" minOccurs="0"/>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="rncId" minOccurs="0"/>
+									<element name="uarfcnUl" minOccurs="0"/>
+									<element name="uarfcnDl" minOccurs="0"/>
+									<element name="primaryScramblingCode" minOccurs="0"/>
+									<element name="primaryCpichPower" minOccurs="0"/>
+									<element name="lac" minOccurs="0"/>
+									<element name="rac" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+</schema>

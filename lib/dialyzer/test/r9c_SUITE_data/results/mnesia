@@ -1,0 +1,41 @@
+
+mnesia.erl:1319: Guard test size(Spec::[{_,_,_},...]) can never succeed
+mnesia.erl:1498: The call mnesia:bad_info_reply(Tab::atom(),Item::'type') will never return since it differs in the 2nd argument from the success typing arguments: (atom(),'memory' | 'size')
+mnesia_backup.erl:49: Callback info about the mnesia_backup behaviour is not available
+mnesia_bup.erl:111: The created fun has no local return
+mnesia_bup.erl:574: Function fallback_receiver/2 has no local return
+mnesia_bup.erl:967: Function uninstall_fallback_master/2 has no local return
+mnesia_checkpoint.erl:1014: The variable Error can never match since previous clauses completely covered the type {'ok',#checkpoint_args{nodes::[any()],retainers::[any(),...]}}
+mnesia_checkpoint.erl:894: The call sys:handle_system_msg(Msg::any(),From::any(),'no_parent','mnesia_checkpoint',[],Cp::#checkpoint_args{}) breaks the contract (Msg,From,Parent,Module,Debug,Misc) -> no_return() when Msg :: term(), From :: {pid(),Tag::_}, Parent :: pid(), Module :: module(), Debug :: [dbg_opt()], Misc :: term()
+mnesia_controller.erl:1666: The variable Tab can never match since previous clauses completely covered the type [any()]
+mnesia_controller.erl:1679: The pattern {'stop', Reason, Reply, State2} can never match the type {'noreply',_} | {'reply',_,_} | {'stop','shutdown',#state{}}
+mnesia_controller.erl:1685: The pattern {'noreply', State2, _Timeout} can never match the type {'reply',_,_}
+mnesia_event.erl:77: The pattern 'remove_handler' can never match the type {'ok',_}
+mnesia_event.erl:79: The pattern {'swap_handler', Args1, State1, Mod2, Args2} can never match the type {'ok',_}
+mnesia_frag.erl:26: Callback info about the mnesia_access behaviour is not available
+mnesia_frag.erl:294: The call mnesia_frag:remote_collect(Ref::reference(),{'error',_},[],OldSelectFun::fun(() -> [any()])) will never return since it differs in the 2nd argument from the success typing arguments: (reference(),'ok',[any()],fun(() -> [any()]))
+mnesia_frag.erl:304: The call mnesia_frag:remote_collect(Ref::reference(),{'error',{'node_not_running',_}},[],OldSelectFun::fun(() -> [any()])) will never return since it differs in the 2nd argument from the success typing arguments: (reference(),'ok',[any()],fun(() -> [any()]))
+mnesia_frag.erl:312: The call mnesia_frag:remote_collect(Ref::reference(),LocalRes::{'error',_},[],OldSelectFun::fun(() -> [any()])) will never return since it differs in the 2nd argument from the success typing arguments: (reference(),'ok',[any()],fun(() -> [any()]))
+mnesia_frag_hash.erl:24: Callback info about the mnesia_frag_hash behaviour is not available
+mnesia_frag_old_hash.erl:105: Call to missing or unexported function erlang:hash/2
+mnesia_frag_old_hash.erl:23: Callback info about the mnesia_frag_hash behaviour is not available
+mnesia_index.erl:52: The call mnesia_lib:other_val(Var::{_,'commit_work' | 'index' | 'setorbag' | 'storage_type' | {'index',_}},_ReASoN_::any()) will never return since it differs in the 1st argument from the success typing arguments: ({_,'active_replicas' | 'where_to_read' | 'where_to_write'},any())
+mnesia_lib.erl:1028: The pattern {'EXIT', Reason} can never match the type [any()] | {'error',_}
+mnesia_lib.erl:957: The pattern {'ok', {0, _}} can never match the type 'eof' | {'error',atom() | {'no_translation','unicode','latin1'}} | {'ok',binary() | string()}
+mnesia_lib.erl:959: The pattern {'ok', {_, Bin}} can never match the type 'eof' | {'error',atom() | {'no_translation','unicode','latin1'}} | {'ok',binary() | string()}
+mnesia_loader.erl:36: The call mnesia_lib:other_val(Var::{_,'access_mode' | 'cstruct' | 'db_nodes' | 'setorbag' | 'snmp' | 'storage_type'},Reason::any()) will never return since it differs in the 1st argument from the success typing arguments: ({_,'active_replicas' | 'where_to_read' | 'where_to_write'},any())
+mnesia_locker.erl:1017: Function system_terminate/4 has no local return
+mnesia_log.erl:707: The test {'error',{[1..255,...],[any(),...]}} | {'ok',_} == atom() can never evaluate to 'true'
+mnesia_log.erl:727: The created fun has no local return
+mnesia_monitor.erl:162: The pattern <[], []> can never match the type <[any(),...],[any(),...]>
+mnesia_monitor.erl:354: The pattern {'error', Reason} can never match the type 'ok'
+mnesia_recover.erl:159: The call mnesia_lib:other_val(Var::'latest_transient_decision' | 'max_wait_for_decision' | 'previous_transient_decisions' | 'recover_nodes',Reason::any()) will never return since it differs in the 1st argument from the success typing arguments: ({_,'active_replicas' | 'where_to_read' | 'where_to_write'},any())
+mnesia_recover.erl:884: The pattern {'stop', Reason, Reply, State2} can never match the type {'noreply',_} | {'stop','shutdown',#state{}}
+mnesia_schema.erl:1088: Guard test Storage::'disc_copies' | 'disc_only_copies' | 'ram_copies' == 'unknown' can never succeed
+mnesia_schema.erl:1258: Guard test FromS::'disc_copies' | 'disc_only_copies' | 'ram_copies' == 'unknown' can never succeed
+mnesia_schema.erl:1639: The pattern {'false', 'mandatory'} can never match the type {'false','optional'}
+mnesia_schema.erl:2434: The variable Reason can never match since previous clauses completely covered the type {'error',_} | {'ok',_}
+mnesia_schema.erl:451: Guard test UseDirAnyway::'false' == 'true' can never succeed
+mnesia_text.erl:180: The variable T can never match since previous clauses completely covered the type {'error',{non_neg_integer(),atom(),_}} | {'ok',_}
+mnesia_tm.erl:1522: Function commit_participant/5 has no local return
+mnesia_tm.erl:2169: Function system_terminate/4 has no local return

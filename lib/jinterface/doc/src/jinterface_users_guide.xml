@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>The Jinterface Package</title>
+    <prepared>Gordon Beaton, Babbis Xagorarakis</prepared>
+    <responsible>Gordon Beaton, Babbis Xagorarakis</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>000822</date>
+    <rev>A</rev>
+    <file>jinterface_users_guide.xml</file>
+  </header>
+  <p>The <seealso marker="java/com/ericsson/otp/erlang/package-summary">Jinterface</seealso> package provides 
+    a set of tools for communication with Erlang processes. It can also be used for communication with 
+    other Java processes using the same package, as well as C processes using the Erl_Interface library.  </p>
+  <p>The set of classes in the package can be divided into two categories:
+    those that provide the actual communication, and those that provide a
+    Java representation of the Erlang data types. The latter are all
+    subclasses of OtpErlangObject, and they are identified by the
+    OtpErlang prefix.</p>
+  <p>Since this package provides a mechanism for communicating with Erlang,
+    message recipients can be Erlang processes or instances of
+    com.ericsson.otp.erlang.OtpMbox, both of which are identified with
+    pids and possibly registered names. When pids or mailboxes are
+    mentioned as message senders or recipients in this section, it should
+    assumed that even Erlang processes are included, unless specified
+    otherwise.
+    The classes in
+    <seealso marker="java/com/ericsson/otp/erlang/package-summary">Jinterface</seealso> support the following:</p>
+  <list type="bulleted">
+    <item>manipulation of data represented as Erlang data types</item>
+    <item>conversion of data between Java and Erlang formats</item>
+    <item>encoding and decoding of Erlang data types for transmission or storage</item>
+    <item>communication between Java nodes and Erlang processes</item>
+  </list>
+  <p>In the following sections, these topics are described:</p>
+  <list type="bulleted">
+    <item>mapping of Erlang types to Java</item>
+    <item>encoding, decoding, and sending Erlang terms</item>
+    <item>connecting to a distributed Erlang node</item>
+    <item>using nodes, mailboxes and EPMD</item>
+    <item>sending and receiving Erlang messages and data</item>
+    <item>remote procedure calls</item>
+    <item>linking to remote processes</item>
+    <item>compiling your code for use with Jinterface</item>
+    <item>tracing message flow</item>
+  </list>
+
+  <section>
+    <title>Mapping of Basic Erlang Types to Java</title>
+    <p>This section describes the mapping of Erlang basic types to Java. </p>
+    <table>
+      <row>
+        <cell align="left" valign="middle">Erlang type</cell>
+        <cell align="left" valign="middle">Java type</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">atom</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangAtom">OtpErlangAtom</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangBinary">OtpErlangBinary</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">floating point types</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangFloat">OtpErlangFloat</seealso>or <seealso marker="java/com/ericsson/otp/erlang/OtpErlangDouble">OtpErlangDouble</seealso>, depending on the floating point value size</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">integral types</cell>
+        <cell align="left" valign="middle">One of <seealso marker="java/com/ericsson/otp/erlang/OtpErlangByte">OtpErlangByte</seealso>,<seealso marker="java/com/ericsson/otp/erlang/OtpErlangChar">OtpErlangChar</seealso>,<seealso marker="java/com/ericsson/otp/erlang/OtpErlangShort">OtpErlangShort</seealso>,<seealso marker="java/com/ericsson/otp/erlang/OtpErlangUShort">OtpErlangUShort</seealso>,<seealso marker="java/com/ericsson/otp/erlang/OtpErlangInt">OtpErlangInt</seealso>,<seealso marker="java/com/ericsson/otp/erlang/OtpErlangUInt">OtpErlangUInt</seealso>or<seealso marker="java/com/ericsson/otp/erlang/OtpErlangLong">OtpErlangLong</seealso>, depending on the integral value size and sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">list</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangList">OtpErlangList</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">pid</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangPid">OtpErlangPid</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">port</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangPort">OtpErlangPort</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ref</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangRef">OtpErlangRef</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">tuple</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangTuple">OtpErlangTuple</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">map</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangMap">OtpErlangMap</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">term</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangObject">OtpErlangObject</seealso></cell>
+      </row>
+      <tcaption>Mapping of Erlang basic types to Java</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>Special Mapping Issues</title>
+    <p>The atoms <c>true</c> and <c>false</c> are special atoms, used as boolean values. 
+      The class <seealso marker="java/com/ericsson/otp/erlang/OtpErlangBoolean">OtpErlangBoolean</seealso> can be used to represent these.</p>
+    <p>Lists in Erlang are also used to describe sequences of printable characters (strings).
+      A convenience class <seealso marker="java/com/ericsson/otp/erlang/OtpErlangString">OtpErlangString</seealso>
+      is provided to represent Erlang strings.</p>
+  </section>
+
+  <section>
+    <title>Nodes</title>
+    <p>A node as defined by Erlang/OTP is an instance of the Erlang Runtime
+      System, a virtual machine roughly equivalent to a JVM. Each node has a
+      unique name in the form of an identifier composed partly of the
+      hostname on which the node is running, e.g "gurka@sallad.com". Several
+      such nodes can run on the same host as long as their names are unique.
+      The class <seealso marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seealso> 
+      represents an Erlang node. It is created with a name
+      and optionally a port number on which it listens for incoming
+      connections. Before creating an instance of 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seealso>, 
+      ensure that Epmd is running on the host machine. See the Erlang documentation 
+      for more information about Epmd. In this example, the host name is appended
+      automatically to the identifier, and the port number is chosen by the
+      underlying system:</p>
+    <code type="none">
+OtpNode node = new OtpNode("gurka");    </code>
+  </section>
+
+  <section>
+    <title>Mailboxes</title>
+    <p>Erlang processes running on an Erlang node are identified by process
+      identifiers (pids) and, optionally, by registered names unique within
+      the node. Each Erlang process has an implicit mailbox that is used to
+      receive messages; the mailbox is identified with the pid of the
+      process.</p>
+    <p>Jinterface provides a similar mechanism with the class 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpMbox">OtpMbox</seealso>, a
+      mailbox that can be used to send and receive messages asynchronously.
+      Each OtpMbox is identified with a unique pid and , optionally, a registered 
+      name unique within the 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seealso>. </p>
+    <p>Applications are free to create mailboxes as necessary. This is done
+      as follows:</p>
+    <code type="none">
+        OtpMbox mbox = node.createMbox();    </code>
+    <p>The mailbox created in the above example has no registered name,
+      although it does have a pid. The pid can be obtained from the mailbox
+      and included in messages sent from the mailbox, so that remote
+      processes are able to respond. </p>
+    <p>An application can register a name for a mailbox, either when the
+      mailbox is initially created:</p>
+    <code type="none">
+        OtpMbox mbox = node.createMbox("server");    </code>
+    <p>or later on, as necessary:</p>
+    <code type="none">
+        OtpMbox mbox = node.createMbox();
+        mbox.registerName("server");    </code>
+    <p>Registered names are usually necessary in order to start
+      communication, since it is impossible to know in advance the pid of a
+      remote process. If a well-known name for one of the processes is
+      chosen in advance and known by all communicating parties within an
+      application, each mailbox can send an initial message to the named
+      mailbox, which then can identify the sender pid.</p>
+  </section>
+
+  <section>
+    <title>Connections</title>
+    <p>It is not necessary to explicitly set up communication with a remote
+      node. Simply sending a message to a mailbox on that node will cause
+      the OtpNode to create a connection if one does not already exist. Once
+      the connection is established, subsequent messages to the same node
+      will reuse the same connection.</p>
+    <p>It is possible to check for the existence of a remote node before
+      attempting to communicate with it. Here we send a ping message to the
+      remote node to see if it is alive and accepting connections:</p>
+    <code type="none">
+        if (node.ping("remote",2000)) {
+          System.out.println("remote is up");
+        }
+        else {
+          System.out.println("remote is not up");
+       }    </code>
+    <p>If the call to ping() succeeds, a connection to the remote node has
+      been established. Note that it is not necessary to ping remote nodes
+      before communicating with them, but by using ping you can determine if
+      the remote exists before attempting to communicate with it.</p>
+    <p>Connections are only permitted by nodes using the same security
+      cookie. The cookie is a short string provided either as an argument
+      when creating OtpNode objects, or found in the user's home directory
+      in the file <c>.erlang.cookie</c>. When a connection attempt is made, the
+      string is used as part of the authentication process. If you are
+      having trouble getting communication to work, use the trace facility
+      (described later in this document) to show the connection
+      establishment. A likely problem is that the cookies are different.</p>
+    <p>Connections are never broken explicitly. If a node fails or is closed,
+      a connection may be broken however.</p>
+  </section>
+
+  <section>
+    <title>Transport Factory</title>
+    <p>All necessary connections are made using methods of
+    <seealso marker="java/com/ericsson/otp/erlang/OtpTransportFactory">OtpTransportFactory</seealso>
+    interface. Default OtpTransportFactory implementation is based on standard Socket class.
+    User may provide custom transport factory as needed. See java doc for details.</p>
+  </section>
+
+  <section>
+    <title>Sending and Receiving Messages</title>
+    <p>Messages sent with this package must be instances of 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpErlangObject">OtpErlangObject</seealso>
+      or one of its subclasses. Message can be sent to processes or pids,
+      either by specifying the pid of the remote, or its registered name and
+      node.</p>
+    <p>In this example, we create a message containing our own pid so the
+      echo process can reply:</p>
+    <code type="none">
+        OtpErlangObject[] msg = new OtpErlangObject[2];
+        msg[0] = mbox.self();
+        msg[1] = new OtpErlangAtom("hello, world");
+        OtpErlangTuple tuple = new OtpErlangTuple(msg);    </code>
+    <p>When we send the message, a connection will be created:</p>
+    <code type="none">
+        mbox.send("echo", "gurka@sallad.com", tuple);    </code>
+    <p>And here we receive the reply:</p>
+    <code type="none">
+        OtpErlangObject reply = mbox.receive();    </code>
+    <p>Messages are sent asynchronously, so the call to <c>send()</c> returns as
+      soon as the message has been dispatched to the underlying
+      communication layer. This means that you receive no indication whether
+      the operation completed successfully or the remote even existed. If
+      you need this kind of confirmation, you should wait for a response
+      from the remote process.</p>
+    <p>The echo server itself might look like this:</p>
+    <code type="none">
+    OtpNode self = new OtpNode("gurka");
+    OtpMbox mbox = self.createMbox("echo");
+    OtpErlangObject o;
+    OtpErlangTuple msg;
+    OtpErlangPid from;
+    
+    while (true) {
+      try {
+        o = mbox.receive();
+        if (o instanceof OtpErlangTuple) {
+          msg = (OtpErlangTuple)o;
+          from = (OtpErlangPid)(msg.elementAt(0));
+          mbox.send(from,msg.elementAt(1));
+      }
+      catch (Exception e) {
+        System.out.println("" + e);
+      }
+    }    </code>
+    <p>In the examples above, only one mailbox was created on each node.
+      however you are free to create as many mailboxes on each node as you
+      like. You are also free to create as many nodes as you like on each
+      JVM, however because each node uses some limited system resources such
+      as file descriptors, it is recommended that you create only a small
+      number of nodes (such as one) on each JVM.</p>
+  </section>
+
+  <section>
+    <title>Sending Arbitrary Data</title>
+    <p>This package was originally intended to be used for communicating
+      between Java and Erlang, and for that reason the send and receive
+      methods all use Java representations of Erlang data types. </p>
+    <p>However it is possible to use the package to communicate with remote
+      processes written in Java as well, and in these cases it may be
+      desirable to send other data types.</p>
+    <p>The simplest way to do this is to encapsulate arbitrary data in
+      messages of type 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpErlangBinary">OtpErlangBinary</seealso>. 
+      The OtpErlangBinary class can be created from arbitrary Java objects that implement the 
+      Serializable or Externalizable interface:</p>
+    <code type="none">
+        o = new MyClass(foo);
+        mbox.send(remote,new OtpErlangBinary(o));    </code>
+    <p>The example above will cause the object to be serialized and
+      encapsulated in an OtpErlangBinary before being sent. The recipient
+      will receive an OtpErlangBinary but can extract the original object
+      from it:</p>
+    <code type="none">
+        msg = mbox.receive();
+        if (msg instanceof OtpErlangBinary) {
+           OtpErlangBinary b = (OtpErlangBinary)msg;
+           MyClass o = (MyClass)(b.getObject());
+        }    </code>
+  </section>
+
+  <section>
+    <title>Linking to Remote Processes</title>
+    <p>Erlang defines a concept known as linked processes. A link is an
+      implicit connection between two processes that causes an exception to
+      be raised in one of the processes if the other process terminates for
+      any reason. Links are bidirectional: it does not matter which of the
+      two processes created the link or which of the linked processes
+      eventually terminates; an exception will be raised in the remaining
+      process. Links are also idempotent: at most one link can exist between
+      two given processes, only one operation is necessary to remove the
+      link.</p>
+    <p>Jinterface provides a similar mechanism. Also here, no distinction is
+      made between mailboxes and Erlang processes. A link can be created to
+      a remote mailbox or process when its pid is known:</p>
+    <code type="none">
+        mbox.link(remote);    </code>
+    <p>The link can be removed by either of the processes in a similar manner:</p>
+    <code type="none">
+        mbox.unlink(remote);    </code>
+    <p>If the remote process terminates while the link is still in place, an
+      exception will be raised on a subsequent call to receive():</p>
+    <code type="none">
+        try {
+          msg = mbox.receive();
+        }
+        catch (OtpErlangExit e) {
+          System.out.println("Remote pid " + e.pid() + " has terminated");
+        }
+        catch (OtpErlangDecodeException f) {
+          System.out.println("Received message could not be decoded: " + f);
+        }    </code>
+    <p>When a mailbox is explicitly closed, exit messages will be sent in
+      order to break any outstanding links. If a mailbox is never closed but
+      instead goes out of scope, the objects <c>finalize()</c> method will call
+      <c>close()</c>. However since Java provides no guarantees about when or even
+      if finalize() will be called, it is important that your application
+      explicitly closes mailboxes when they are no longer needed if you
+      want links to work in a timely manner. 
+      </p>
+  </section>
+
+  <section>
+    <title>Using EPMD</title>
+    <p>Epmd is the Erlang Port Mapper Daemon. Distributed Erlang nodes
+      register with epmd on the localhost to indicate to other nodes that
+      they exist and can accept connections. Epmd maintains a register of
+      node and port number information, and when a node wishes to connect to
+      another node, it first contacts epmd in order to find out the correct
+      port number to connect to.</p>
+    <p>The basic interaction with EPMD is done through instances of 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd">OtpEpmd</seealso> class.
+      Nodes wishing to contact other nodes must first request information 
+      from Epmd before a connection can be set up, however this is done automatically 
+      by <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect-com.ericsson.otp.erlang.OtpPeer-">OtpSelf.connect()</seealso> when necessary. </p>
+    <p>When you use <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect-com.ericsson.otp.erlang.OtpPeer-">OtpSelf.connect()</seealso> to connect to an Erlang node, 
+      a connection is first made to epmd and, if the node is known, a
+      connection is then made to the Erlang node.</p>
+    <p>Java nodes can also register themselves with epmd if they want other
+      nodes in the system to be able to find and connect to them.
+      This is done by call to method <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#publishPort-com.ericsson.otp.erlang.OtpLocalNode-">OtpEpmd.publishPort()</seealso>.</p>
+    <p>Be aware that on some systems (such as VxWorks), a failed node will
+      not be detected by this mechanism since the operating system does not
+      automatically close descriptors that were left open when the node
+      failed. If a node has failed in this way, epmd will prevent you from
+      registering a new node with the old name, since it thinks that the old
+      name is still in use. In this case, you must unregister the name
+      explicitly, by using <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#unPublishPort-com.ericsson.otp.erlang.OtpLocalNode-">OtpEpmd.unPublishPort()</seealso></p>
+    <p>This will cause epmd to close the connection from the far end. Note
+      that if the name was in fact still in use by a node, the results of
+      this operation are unpredictable. Also, doing this does not cause the
+      local end of the connection to close, so resources may be consumed.</p>
+  </section>
+
+  <section>
+    <title>Remote Procedure Calls</title>
+    <p>An Erlang node acting as a client to another Erlang node
+      typically sends a request and waits for a reply. Such a request is
+      included in a function call at a remote node and is called a remote
+      procedure call. Remote procedure calls are supported through the class
+      <seealso marker="java/com/ericsson/otp/erlang/OtpConnection">OtpConnection</seealso>.
+      The following example shows how the
+      <seealso marker="java/com/ericsson/otp/erlang/OtpConnection">OtpConnection</seealso> 
+      class is used for remote procedure calls:</p>
+    <code type="none">
+
+OtpSelf self = new OtpSelf("client", "hejsan" ); 
+OtpPeer other  = new OtpPeer("server@balin"); 
+OtpConnection connection = self.connect(other); 
+
+connection.sendRPC("erlang","date",new OtpErlangList());
+OtpErlangObject received = connection.receiveRPC(); 
+    </code>
+    <p><c>erlang:date/0</c> is just called to get the date tuple
+      from a remote host. </p>
+  </section>
+
+  <section>
+    <title>Compiling and Loading Your Code</title>
+    <p>In order to use any of the <seealso marker="java/com/ericsson/otp/erlang/package-summary">Jinterface</seealso> 
+      classes, include the following line in your code:</p>
+    <code type="none">
+import com.ericsson.otp.erlang.*;    </code>
+    <p>Determine where the top directory of your OTP installation is. You
+      can find this out by starting Erlang and entering the following
+      command at the Eshell prompt:</p>
+    <code type="none">
+Eshell V4.9.1.2  (abort with ^G)
+1> code:root_dir().
+/usr/local/otp    </code>
+    <p>To compile your code, make sure that your Java compiler knows where
+      to find the file <c>OtpErlang.jar</c> which contains the package.
+      This is done by specifying an appropriate <c>-classpath</c>
+      argument on the command line, or by adding it to the <c>CLASSPATH</c>
+      definition in your <c>Makefile</c>. The correct value for this path is
+      <c>$OTPROOT/lib/jinterface</c><em>Vsn</em><c>/priv/OtpErlang.jar</c>, where <c>$OTPROOT</c> 
+      is the path reported by <c>code:root_dir/0</c> in the above example and <em>Vsn</em> is the version of Jinterface, for example <c>jinterface-1.2</c></p>
+    <code type="none">
+$ javac -classpath ".:/usr/local/otp/lib/jinterface-1.2/priv/OtpErlang.jar" 
+                    myclass.java    </code>
+    <p>When running your program, you will also need to specify the path to
+      <c>OtpErlang.jar</c> in a similar way.</p>
+    <code type="none">
+$ java ".:/usr/local/otp/lib/jinterface-1.2/priv/OtpErlang.jar" myclass    </code>
+  </section>
+
+  <section>
+    <title>Tracing</title>
+    <p>Communication between nodes can be traced by setting a system property
+      before the communication classes in this package are initialized. 
+      The value system property "OtpConnection.trace" is the default trace
+      level for all connections. Normally the default trace level is zero,
+      i.e. no tracing is performed. By setting 
+      <seealso marker="java/com/ericsson/otp/erlang/OtpConnection">OtpConnection.trace</seealso> 
+      to some non-zero value, the communication protocol can be shown in more or
+      less detail. The valid values are:</p>
+    <list type="bulleted">
+      <item>0: no tracing is performed</item>
+      <item>1: only ordinary send and reg-send messages are shown</item>
+      <item>2: control messages such as link, unlink and exit are shown</item>
+      <item>3: connection setup (handshake) is shown</item>
+      <item>4: epmd requests are shown</item>
+    </list>
+    <p>Each level also includes the information shown by all lower levels.</p>
+  </section>
+</chapter>
+

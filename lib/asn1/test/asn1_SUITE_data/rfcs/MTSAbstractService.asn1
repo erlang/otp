@@ -1,0 +1,2366 @@
+-- Module MTSAbstractService (X.411:06/1999)
+MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+  mts-abstract-service(1) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+--	Prologue
+--	Exports everything
+IMPORTS
+  -- Remote Operations
+  CONNECTION-PACKAGE, CONTRACT, ERROR, OPERATION, OPERATION-PACKAGE,
+    ROS-OBJECT-CLASS
+    --==
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  emptyUnbind
+    --==
+    FROM Remote-Operations-Useful-Definitions {joint-iso-itu-t
+      remote-operations(4) useful-definitions(7) version1(0)}
+  -- MTA Abstract Service
+  internal-trace-information, trace-information
+    --==
+    FROM MTAAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mta-abstract-service(2) version-1999(1)}
+  -- MS Abstract Service Extension
+  forwarding-request
+    --==
+    FROM MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      abstract-service(1) version-1999(1)}
+  -- IPM Information Objects
+  IPMPerRecipientEnvelopeExtensions
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- Object Identifiers
+  id-att-physicalRendition-basic, id-cp-mts-connect, id-ct-mts-access,
+    id-ct-mts-forced-access, id-ot-mts, id-ot-mts-user, id-pt-administration,
+    id-pt-delivery, id-pt-submission, id-tok-asymmetricToken
+    --==
+    FROM MTSObjectIdentifiers {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- Operation and Error Codes
+  err-control-violates-registration,
+    err-deferred-delivery-cancellation-rejected, err-delivery-control-violated,
+    err-element-of-service-not-subscribed, err-inconsistent-request,
+    err-message-submission-identifier-invalid,
+    err-new-credentials-unacceptable,
+    err-old-credentials-incorrectly-specified, err-operation-refused,
+    err-originator-invalid, err-recipient-improperly-specified,
+    err-register-rejected, err-remote-bind-error, err-security-error,
+    err-submission-control-violated, err-unsupported-critical-function,
+    op-cancel-deferred-delivery, op-change-credentials, op-delivery-control,
+    op-message-delivery, op-message-submission, op-probe-submission,
+    op-register, op-report-delivery, op-submission-control
+    --==
+    FROM MTSAccessProtocol {joint-iso-itu-t mhs(6) protocols(0) modules(0)
+      mts-access-protocol(1) version-1999(1)}
+  -- Directory Definitions
+  Name
+    --==
+    FROM InformationFramework
+  PresentationAddress
+    --==
+    FROM SelectedAttributeTypes
+  ALGORITHM, AlgorithmIdentifier, Certificates, ENCRYPTED{}, SIGNATURE{},
+    SIGNED{}
+    --==
+    FROM AuthenticationFramework
+      
+  -- Certificate Extensions
+  CertificateAssertion
+    --==
+    FROM CertificateExtensions
+      
+  -- Upper Bounds
+  ub-bit-options, ub-built-in-content-type,
+    ub-built-in-encoded-information-types, ub-certificates,
+    ub-common-name-length, ub-content-id-length, ub-content-length,
+    ub-content-types, ub-country-name-alpha-length,
+    ub-country-name-numeric-length, ub-deliverable-class, ub-diagnostic-codes,
+    ub-dl-expansions, ub-domain-defined-attributes,
+    ub-domain-defined-attribute-type-length,
+    ub-domain-defined-attribute-value-length, ub-domain-name-length,
+    ub-encoded-information-types, ub-extension-attributes, ub-extension-types,
+    ub-e163-4-number-length, ub-e163-4-sub-address-length,
+    ub-generation-qualifier-length, ub-given-name-length, ub-initials-length,
+    ub-integer-options, ub-local-id-length, ub-mta-name-length,
+    ub-mts-user-types, ub-numeric-user-id-length, ub-organization-name-length,
+    ub-organizational-units, ub-organizational-unit-name-length,
+    ub-orig-and-dl-expansions, ub-password-length, ub-pds-name-length,
+    ub-pds-parameter-length, ub-pds-physical-address-lines,
+    ub-postal-code-length, ub-privacy-mark-length, ub-queue-size,
+    ub-reason-codes, ub-recipients, ub-recipient-number-for-advice-length,
+    ub-redirections, ub-redirection-classes, ub-restrictions,
+    ub-security-categories, ub-security-labels, ub-security-problems,
+    ub-supplementary-info-length, ub-surname-length, ub-terminal-id-length,
+    ub-tsap-id-length, ub-unformatted-address-length,
+    ub-universal-generation-qualifier-length, ub-universal-given-name-length,
+    ub-universal-initials-length, ub-universal-surname-length,
+    ub-x121-address-length
+    --==
+    FROM MTSUpperBounds {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      upper-bounds(3) version-1999(1)};
+
+operationObject1 OPERATION ::= {LINKED  {operationObject2}
+}
+
+operationObject2 OPERATION ::= {LINKED  {operationObject3}
+}
+
+operationObject3 OPERATION ::= {LINKED  {operationObject4}
+}
+
+operationObject4 OPERATION ::= {LINKED  {...}
+}
+
+--	Objects
+MHS-OBJECT ::= ROS-OBJECT-CLASS
+
+mts MHS-OBJECT ::= {
+  INITIATES  {mts-forced-access-contract}
+  RESPONDS   {mts-access-contract}
+  ID         id-ot-mts
+}
+
+mts-user MHS-OBJECT ::= {
+  INITIATES  {mts-access-contract}
+  RESPONDS   {mts-forced-access-contract}
+  ID         id-ot-mts-user
+}
+
+-- Contracts
+mts-access-contract CONTRACT ::= {
+  CONNECTION             mts-connect
+  INITIATOR CONSUMER OF  {submission | delivery | administration}
+  ID                     id-ct-mts-access
+}
+
+mts-forced-access-contract CONTRACT ::= {
+  CONNECTION             mts-connect
+  RESPONDER CONSUMER OF  {submission | delivery | administration}
+  ID                     id-ct-mts-forced-access
+}
+
+-- Connection package
+mts-connect CONNECTION-PACKAGE ::= {
+  BIND    mts-bind
+  UNBIND  mts-unbind
+  ID      id-cp-mts-connect
+}
+
+--	Ports
+PORT ::= OPERATION-PACKAGE
+
+submission PORT ::= {
+  OPERATIONS        {operationObject1, ...}
+  CONSUMER INVOKES
+    {message-submission | probe-submission | cancel-deferred-delivery, ...}
+  SUPPLIER INVOKES  {submission-control, ...}
+  ID                id-pt-submission
+}
+
+delivery PORT ::= {
+  OPERATIONS        {operationObject1, ...}
+  CONSUMER INVOKES  {delivery-control, ...}
+  SUPPLIER INVOKES  {message-delivery | report-delivery, ...}
+  ID                id-pt-delivery
+}
+
+administration PORT ::= {
+  OPERATIONS        {change-credentials, ...}
+  CONSUMER INVOKES  {register, ...}
+  SUPPLIER INVOKES  {operationObject1, ...}
+  ID                id-pt-administration
+}
+
+--	MTS-bind and MTS-unbind
+ABSTRACT-OPERATION ::= OPERATION
+
+ABSTRACT-ERROR ::= ERROR
+
+mts-bind ABSTRACT-OPERATION ::= {
+  ARGUMENT  MTSBindArgument
+  RESULT    MTSBindResult
+  ERRORS    {mts-bind-error}
+}
+
+MTSBindArgument ::= SET {
+  initiator-name         ObjectName,
+  messages-waiting       [1] EXPLICIT MessagesWaiting OPTIONAL,
+  initiator-credentials  [2]  InitiatorCredentials,
+  security-context       [3]  SecurityContext OPTIONAL,
+  ...,
+  extensions
+    [5]  SET OF ExtensionField{{MTSBindExtensions}} DEFAULT {}
+}
+
+MTSBindExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+MTSBindResult ::= SET {
+  responder-name         ObjectName,
+  messages-waiting       [1] EXPLICIT MessagesWaiting OPTIONAL,
+  responder-credentials  [2]  ResponderCredentials,
+  ...,
+  extensions
+    [5]  SET OF ExtensionField{{MTSBindResultExtensions}} DEFAULT {}
+}
+
+MTSBindResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+mts-bind-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    INTEGER {busy(0), authentication-error(2), unacceptable-dialogue-mode(3),
+             unacceptable-security-context(4),
+             inadequate-association-confidentiality(5)}(0..ub-integer-options)
+}
+
+mts-unbind ABSTRACT-OPERATION ::= emptyUnbind
+
+--	Association Control Parameters
+ObjectName ::= CHOICE {
+  user-agent     ORAddressAndOptionalDirectoryName,
+  mTA            [0]  MTAName,
+  message-store  [4]  ORAddressAndOptionalDirectoryName
+}
+
+MessagesWaiting ::= SET {
+  urgent      [0]  DeliveryQueue,
+  normal      [1]  DeliveryQueue,
+  non-urgent  [2]  DeliveryQueue
+}
+
+DeliveryQueue ::= SET {
+  messages  [0]  INTEGER(0..ub-queue-size),
+  octets    [1]  INTEGER(0..ub-content-length) OPTIONAL
+}
+
+InitiatorCredentials ::= Credentials
+
+ResponderCredentials ::= Credentials
+
+Credentials ::= CHOICE {
+  simple     Password,
+  strong     [0]  StrongCredentials,
+  ...,
+  protected  [1]  ProtectedPassword
+}
+
+Password ::= CHOICE {
+  ia5-string    IA5String(SIZE (0..ub-password-length)),
+  octet-string  OCTET STRING(SIZE (0..ub-password-length))
+}
+
+StrongCredentials ::= SET {
+  bind-token               [0]  Token OPTIONAL,
+  certificate              [1]  Certificates OPTIONAL,
+  ...,
+  certificate-selector     [2]  CertificateAssertion OPTIONAL
+}
+
+ProtectedPassword ::= SET {
+  signature
+    SIGNATURE{SET {password  Password,
+                   time1     [0]  UTCTime OPTIONAL,
+                   time2     [1]  UTCTime OPTIONAL,
+                   random1   [2]  BIT STRING OPTIONAL,
+                   random2   [3]  BIT STRING OPTIONAL}},
+  time1      [0]  UTCTime OPTIONAL,
+  time2      [1]  UTCTime OPTIONAL,
+  random1    [2]  BIT STRING OPTIONAL,
+  random2    [3]  BIT STRING OPTIONAL
+}
+
+SecurityContext ::= SET SIZE (1..ub-security-labels) OF SecurityLabel
+
+--	Submission Port
+message-submission ABSTRACT-OPERATION ::= {
+  ARGUMENT         MessageSubmissionArgument
+  RESULT           MessageSubmissionResult
+  ERRORS
+    {submission-control-violated | element-of-service-not-subscribed |
+      originator-invalid | recipient-improperly-specified |
+      inconsistent-request | security-error | unsupported-critical-function |
+      remote-bind-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {4 | 6 | 7}
+  CODE             op-message-submission
+}
+
+MessageSubmissionArgument ::= SEQUENCE {
+  envelope  MessageSubmissionEnvelope,
+  content   Content
+}
+
+MessageSubmissionResult ::= SET {
+  message-submission-identifier  MessageSubmissionIdentifier,
+  message-submission-time        [0]  MessageSubmissionTime,
+  content-identifier             ContentIdentifier OPTIONAL,
+  extensions
+    [1]  SET OF ExtensionField{{MessageSubmissionResultExtensions}} DEFAULT {}
+}
+
+MessageSubmissionResultExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   originating-MTA-certificate | proof-of-submission | PrivateExtensions, 
+   ...}
+
+probe-submission ABSTRACT-OPERATION ::= {
+  ARGUMENT         ProbeSubmissionArgument
+  RESULT           ProbeSubmissionResult
+  ERRORS
+    {submission-control-violated | element-of-service-not-subscribed |
+      originator-invalid | recipient-improperly-specified |
+      inconsistent-request | security-error | unsupported-critical-function |
+      remote-bind-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {5}
+  CODE             op-probe-submission
+}
+
+ProbeSubmissionArgument ::= ProbeSubmissionEnvelope
+
+ProbeSubmissionResult ::= SET {
+  probe-submission-identifier  ProbeSubmissionIdentifier,
+  probe-submission-time        [0]  ProbeSubmissionTime,
+  content-identifier           ContentIdentifier OPTIONAL,
+  extensions
+    [1]  SET OF ExtensionField{{ProbeResultExtensions}} DEFAULT {}
+}
+
+ProbeResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions,
+-- at most one instance of each extension type
+cancel-deferred-delivery ABSTRACT-OPERATION ::= {
+  ARGUMENT         CancelDeferredDeliveryArgument
+  RESULT           CancelDeferredDeliveryResult
+  ERRORS
+    {deferred-delivery-cancellation-rejected |
+      message-submission-identifier-invalid | remote-bind-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {3}
+  CODE             op-cancel-deferred-delivery
+}
+
+CancelDeferredDeliveryArgument ::= MessageSubmissionIdentifier
+
+CancelDeferredDeliveryResult ::= NULL
+
+submission-control ABSTRACT-OPERATION ::= {
+  ARGUMENT         SubmissionControlArgument
+  RESULT           SubmissionControlResult
+  ERRORS           {security-error | remote-bind-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {3}
+  CODE             op-submission-control
+}
+
+SubmissionControlArgument ::= SubmissionControls
+
+SubmissionControlResult ::= Waiting
+
+submission-control-violated ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-submission-control-violated
+}
+
+element-of-service-not-subscribed ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-element-of-service-not-subscribed
+}
+
+deferred-delivery-cancellation-rejected ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-deferred-delivery-cancellation-rejected
+}
+
+originator-invalid ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-originator-invalid
+}
+
+recipient-improperly-specified ABSTRACT-ERROR ::= {
+  PARAMETER  ImproperlySpecifiedRecipients
+  CODE       err-recipient-improperly-specified
+}
+
+ImproperlySpecifiedRecipients ::=
+  SEQUENCE SIZE (1..ub-recipients) OF RecipientName
+
+message-submission-identifier-invalid ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-message-submission-identifier-invalid
+}
+
+inconsistent-request ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-inconsistent-request
+}
+
+security-error ABSTRACT-ERROR ::= {
+  PARAMETER  SecurityProblem
+  CODE       err-security-error
+}
+
+SecurityProblem ::= INTEGER {
+  assemby-instructions-conflict-with-security-services(0),
+  authentication-problem(1), authentication-failure-on-subject-message(2),
+  confidentiality-association-problem(3), decryption-failed(4),
+  decryption-key-unobtainable(5), failure-of-proof-of-message(6),
+  forbidden-user-security-label-register(7),
+  incompatible-change-with-original-security-context(8),
+  integrity-failure-on-subject-message(9), invalid-security-label(10),
+  invalid-security-label-update(11), key-failure(12),
+  mandatory-parameter-absence(13), operation-security-failure(14),
+  redirection-prohibited(15), refused-alternate-recipient-name(16),
+  repudiation-failure-of-message(17),
+  responder-credentials-checking-problem(18), security-context-failure(19),
+  security-context-problem(20), security-policy-violation(21),
+  security-services-refusal(22), token-decryption-failed(23), token-error(24),
+  unable-to-aggregate-security-labels(25), unauthorised-dl-name(26),
+  unauthorised-entry-class(27),
+  unauthorised-originally-intended-recipient-name(28),
+  unauthorised-originator-name(29), unauthorised-recipient-name(30),
+  unauthorised-security-label-update(31), unauthorised-user-name(32),
+  unknown-security-label(33), unsupported-algorithm-identifier(34),
+  unsupported-security-policy(35)}(0..ub-security-problems)
+
+unsupported-critical-function ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-unsupported-critical-function
+}
+
+remote-bind-error ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-remote-bind-error
+}
+
+--	Submission Port Parameters
+MessageSubmissionIdentifier ::= MTSIdentifier
+
+MessageSubmissionTime ::= Time
+
+ProbeSubmissionIdentifier ::= MTSIdentifier
+
+ProbeSubmissionTime ::= Time
+
+SubmissionControls ::=
+  Controls
+    (WITH COMPONENTS {
+       ...,
+       permissible-content-types              ABSENT,
+       permissible-encoded-information-types  ABSENT
+     })
+
+Waiting ::= SET {
+  waiting-operations                 [0]  Operations DEFAULT {},
+  waiting-messages                   [1]  WaitingMessages DEFAULT {},
+  waiting-content-types
+    [2]  SET SIZE (0..ub-content-types) OF ContentType DEFAULT {},
+  waiting-encoded-information-types  EncodedInformationTypes OPTIONAL
+}
+
+Operations ::= BIT STRING {
+  probe-submission-or-report-delivery(0),
+  message-submission-or-message-delivery(1)}(SIZE (0..ub-bit-options))
+
+-- holding 'one', not-holding 'zero'
+WaitingMessages ::= BIT STRING {
+  long-content(0), low-priority(1), other-security-labels(2)
+}(SIZE (0..ub-bit-options))
+
+--	Delivery Port
+message-delivery ABSTRACT-OPERATION ::= {
+  ARGUMENT         MessageDeliveryArgument
+  RESULT           MessageDeliveryResult
+  ERRORS
+    {delivery-control-violated | security-error |
+      unsupported-critical-function}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {4 | 6 | 7}
+  CODE             op-message-delivery
+}
+
+MessageDeliveryArgument ::= SEQUENCE {
+  COMPONENTS OF MessageDeliveryEnvelope,
+  content  Content
+}
+
+MessageDeliveryResult ::= SET {
+  recipient-certificate  [0]  RecipientCertificate OPTIONAL,
+  proof-of-delivery      [1] IMPLICIT ProofOfDelivery OPTIONAL,
+  ...,
+  extensions
+    [2]  SET OF ExtensionField{{MessageDeliveryResultExtensions}} DEFAULT {}
+}
+
+MessageDeliveryResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+report-delivery ABSTRACT-OPERATION ::= {
+  ARGUMENT         ReportDeliveryArgument
+  RESULT           ReportDeliveryResult
+  ERRORS
+    {delivery-control-violated | security-error |
+      unsupported-critical-function}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {5}
+  CODE             op-report-delivery
+}
+
+ReportDeliveryArgument ::= SET {
+  COMPONENTS OF ReportDeliveryEnvelope,
+  returned-content  [0]  Content OPTIONAL
+}
+
+ReportDeliveryResult ::= CHOICE {
+  empty-result  NULL,
+  ...,
+  extensions
+    SET SIZE (1..MAX) OF ExtensionField{{ReportDeliveryResultExtensions}}
+}
+
+ReportDeliveryResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+delivery-control ABSTRACT-OPERATION ::= {
+  ARGUMENT         DeliveryControlArgument
+  RESULT           DeliveryControlResult
+  ERRORS
+    {control-violates-registration | security-error | operation-refused}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {3}
+  CODE             op-delivery-control
+}
+
+DeliveryControlArgument ::= SET {
+  COMPONENTS OF DeliveryControls,
+  extensions
+    [6]  SET OF ExtensionField{{DeliveryControlExtensions}} DEFAULT {}
+}
+
+DeliveryControlExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+DeliveryControlResult ::= SET {
+  COMPONENTS OF Waiting,
+  extensions
+    [6]  SET OF ExtensionField{{DeliveryControlResultExtensions}} DEFAULT {}
+}
+
+DeliveryControlResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+delivery-control-violated ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-delivery-control-violated
+}
+
+control-violates-registration ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-control-violates-registration
+}
+
+operation-refused ABSTRACT-ERROR ::= {
+  PARAMETER  RefusedOperation
+  CODE       err-operation-refused
+}
+
+RefusedOperation ::= SET {
+  refused-argument
+    CHOICE {built-in-argument  [1]  RefusedArgument,
+            refused-extension  EXTENSION.&id},
+  refusal-reason    [2]  RefusalReason
+}
+
+RefusedArgument ::= INTEGER {
+  user-name(0), user-address(1), deliverable-content-types(2),
+  deliverable-maximum-content-length(3),
+  deliverable-encoded-information-types-constraints(4),
+  deliverable-security-labels(5), recipient-assigned-redirections(6),
+  restricted-delivery(7),
+  retrieve-registrations(8), -- value 9 reserved for possible future extension to Register arguments
+  restrict(10), permissible-operations(11), permissible-lowest-priority(12),
+  permissible-encoded-information-types(13), permissible-content-types(14),
+  permissible-maximum-content-length(15), permissible-security-context(16)
+}(0..ub-integer-options)
+
+RefusalReason ::= INTEGER {
+  facility-unavailable(0), facility-not-subscribed(1),
+  parameter-unacceptable(2)}(0..ub-integer-options)
+
+--	Delivery Port Parameters
+RecipientCertificate ::= Certificates
+
+ProofOfDelivery ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 ProofOfDeliveryAlgorithmIdentifier,
+               delivery-time                       MessageDeliveryTime,
+               this-recipient-name                 ThisRecipientName,
+               originally-intended-recipient-name
+                 OriginallyIntendedRecipientName OPTIONAL,
+               content                             Content,
+               content-identifier                  ContentIdentifier OPTIONAL,
+               message-security-label
+                 MessageSecurityLabel OPTIONAL}}
+
+ProofOfDeliveryAlgorithmIdentifier ::= AlgorithmIdentifier
+
+DeliveryControls ::= Controls
+
+Controls ::= SET {
+  restrict                               [0]  BOOLEAN DEFAULT TRUE,
+  -- update 'TRUE', remove 'FALSE'
+  permissible-operations                 [1]  Operations OPTIONAL,
+  permissible-maximum-content-length     [2]  ContentLength OPTIONAL,
+  permissible-lowest-priority            Priority OPTIONAL,
+  permissible-content-types              [4]  ContentTypes OPTIONAL,
+  permissible-encoded-information-types
+    PermissibleEncodedInformationTypes OPTIONAL,
+  permissible-security-context           [5]  SecurityContext OPTIONAL
+}
+
+--	Note - The Tags [0], [1] and [2] are altered for the Register operation only.
+PermissibleEncodedInformationTypes ::=
+  EncodedInformationTypesConstraints
+
+--	Administration Port
+register ABSTRACT-OPERATION ::= {
+  ARGUMENT         RegisterArgument
+  RESULT           RegisterResult
+  ERRORS
+    {register-rejected | remote-bind-error | operation-refused |
+      security-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {5}
+  CODE             op-register
+}
+
+RegisterArgument ::= SET {
+  user-name                  UserName OPTIONAL,
+  user-address               [0]  UserAddress OPTIONAL,
+  deliverable-class
+    SET SIZE (1..ub-deliverable-class) OF DeliverableClass OPTIONAL,
+  default-delivery-controls  [2] EXPLICIT DefaultDeliveryControls OPTIONAL,
+  redirections               [3]  Redirections OPTIONAL,
+  restricted-delivery        [4]  RestrictedDelivery OPTIONAL,
+  retrieve-registrations     [5]  RegistrationTypes OPTIONAL,
+  extensions
+    [6]  SET OF ExtensionField{{RegisterExtensions}} DEFAULT {}
+}
+
+RegisterExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+RegisterResult ::= CHOICE {
+  empty-result      NULL,
+  non-empty-result
+    SET {registered-information
+           [0]  RegisterArgument
+                  (WITH COMPONENTS {
+                     ...,
+                     retrieve-registrations  ABSENT
+                   }) OPTIONAL,
+         extensions
+           [1]  SET OF ExtensionField{{RegisterResultExtensions}} DEFAULT {}
+  }
+}
+
+RegisterResultExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+change-credentials ABSTRACT-OPERATION ::= {
+  ARGUMENT         ChangeCredentialsArgument
+  RESULT           NULL
+  ERRORS
+    {new-credentials-unacceptable | old-credentials-incorrectly-specified |
+      remote-bind-error | security-error}
+  LINKED           {operationObject1, ...}
+  INVOKE PRIORITY  {5}
+  CODE             op-change-credentials
+}
+
+ChangeCredentialsArgument ::= SET {
+  old-credentials  [0]  Credentials(WITH COMPONENTS {
+                                      simple  
+                                    }),
+  new-credentials  [1]  Credentials(WITH COMPONENTS {
+                                      simple  
+                                    })
+}
+
+register-rejected ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-register-rejected
+}
+
+new-credentials-unacceptable ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-new-credentials-unacceptable
+}
+
+old-credentials-incorrectly-specified ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-old-credentials-incorrectly-specified
+}
+
+--	Administration Port Parameters
+UserName ::= ORAddressAndOptionalDirectoryName
+
+UserAddress ::= CHOICE {
+  x121
+    [0]  SEQUENCE {x121-address
+                     NumericString(SIZE (1..ub-x121-address-length)) OPTIONAL,
+                   tsap-id
+                     PrintableString(SIZE (1..ub-tsap-id-length)) OPTIONAL
+  },
+  presentation  [1]  PSAPAddress
+}
+
+PSAPAddress ::= PresentationAddress
+
+DeliverableClass ::=
+  MessageClass
+    (WITH COMPONENTS {
+       ...,
+       priority         ABSENT,
+       -- The 'objects' component shall always be defaulted.
+       -- objects ABSENT,
+       -- A component with a DEFAULT clause cannot be ABSENT 
+       applies-only-to  ABSENT
+     })
+
+DefaultDeliveryControls ::=
+  Controls
+    (WITH COMPONENTS {
+       ...,
+       
+       -- The 'restrict' component shall always be defaulted.
+       -- restrict ABSENT,
+       -- A component with a DEFAULT clause cannot be ABSENT 
+       permissible-security-context  ABSENT
+     })
+
+Redirections ::= SEQUENCE SIZE (1..ub-redirections) OF RecipientRedirection
+
+RecipientRedirection ::= SET {
+  redirection-classes
+    [0]  SET SIZE (1..ub-redirection-classes) OF RedirectionClass OPTIONAL,
+  recipient-assigned-alternate-recipient
+    [1]  RecipientAssignedAlternateRecipient OPTIONAL
+}
+
+RedirectionClass ::= MessageClass
+
+MessageClass ::= SET {
+  content-types                          [0]  ContentTypes OPTIONAL,
+  maximum-content-length                 [1]  ContentLength OPTIONAL,
+  encoded-information-types-constraints
+    [2]  EncodedInformationTypesConstraints OPTIONAL,
+  security-labels                        [3]  SecurityContext OPTIONAL,
+  priority                               [4]  SET OF Priority OPTIONAL,
+  objects
+    [5]  ENUMERATED {messages(0), reports(1), both(2), ...
+                     } DEFAULT both,
+  applies-only-to                        [6]  SEQUENCE OF Restriction OPTIONAL, -- Not considered in the case of Reports 
+  extensions
+    [7]  SET OF ExtensionField{{MessageClassExtensions}} DEFAULT {}
+}
+
+EncodedInformationTypesConstraints ::= SEQUENCE {
+  unacceptable-eits            [0]  ExtendedEncodedInformationTypes OPTIONAL,
+  acceptable-eits              [1]  ExtendedEncodedInformationTypes OPTIONAL,
+  exclusively-acceptable-eits  [2]  ExtendedEncodedInformationTypes OPTIONAL
+}
+
+MessageClassExtensions EXTENSION ::= {PrivateExtensions, ...}
+
+-- May contain private extensions and future standardised extensions
+RecipientAssignedAlternateRecipient ::=
+  ORAddressAndOrDirectoryName
+
+RestrictedDelivery ::= SEQUENCE SIZE (1..ub-restrictions) OF Restriction
+
+Restriction ::= SET {
+  permitted    BOOLEAN DEFAULT TRUE,
+  source-type
+    BIT STRING {originated-by(0), redirected-by(1), dl-expanded-by(2)}
+      DEFAULT {originated-by, redirected-by, dl-expanded-by},
+  source-name  ExactOrPattern OPTIONAL
+}
+
+ExactOrPattern ::= CHOICE {
+  exact-match    [0]  ORName,
+  pattern-match  [1]  ORName
+}
+
+RegistrationTypes ::= SEQUENCE {
+  standard-parameters
+    [0]  BIT STRING {user-name(0), user-address(1), deliverable-class(2),
+                     default-delivery-controls(3), redirections(4),
+                     restricted-delivery(5)} OPTIONAL,
+  extensions           [1]  SET OF EXTENSION.&id({RegisterExtensions}) OPTIONAL
+}
+
+--	Message Submission Envelope
+MessageSubmissionEnvelope ::= SET {
+  COMPONENTS OF PerMessageSubmissionFields,
+  per-recipient-fields
+    [1]  SEQUENCE SIZE (1..ub-recipients) OF
+           PerRecipientMessageSubmissionFields
+}
+
+PerMessageSubmissionFields ::= SET {
+  originator-name                     OriginatorName,
+  original-encoded-information-types  OriginalEncodedInformationTypes OPTIONAL,
+  content-type                        ContentType,
+  content-identifier                  ContentIdentifier OPTIONAL,
+  priority                            Priority DEFAULT normal,
+  per-message-indicators              PerMessageIndicators DEFAULT {},
+  deferred-delivery-time              [0]  DeferredDeliveryTime OPTIONAL,
+  extensions
+    [2]  SET OF ExtensionField{{PerMessageSubmissionExtensions}} DEFAULT {}
+}
+
+PerMessageSubmissionExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   recipient-reassignment-prohibited | dl-expansion-prohibited |
+   conversion-with-loss-prohibited | latest-delivery-time |
+   originator-return-address | originator-certificate |
+   content-confidentiality-algorithm-identifier |
+   message-origin-authentication-check | message-security-label |
+   proof-of-submission-request | content-correlator | dl-exempted-recipients |
+   certificate-selectors | multiple-originator-certificates |
+   forwarding-request -- for MS Abstract Service only -- | PrivateExtensions,
+   ...}
+
+PerRecipientMessageSubmissionFields ::= SET {
+  recipient-name             RecipientName,
+  originator-report-request  [0]  OriginatorReportRequest,
+  explicit-conversion        [1]  ExplicitConversion OPTIONAL,
+  extensions
+    [2]  SET OF ExtensionField{{PerRecipientMessageSubmissionExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientMessageSubmissionExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   originator-requested-alternate-recipient | requested-delivery-method |
+   physical-forwarding-prohibited | physical-forwarding-address-request |
+   physical-delivery-modes | registered-mail-type | recipient-number-for-advice
+   | physical-rendition-attributes | physical-delivery-report-request |
+   message-token | content-integrity-check | proof-of-delivery-request |
+   certificate-selectors-override | recipient-certificate |
+   IPMPerRecipientEnvelopeExtensions | PrivateExtensions, ...}
+
+--	Probe Submission Envelope
+ProbeSubmissionEnvelope ::= SET {
+  COMPONENTS OF PerProbeSubmissionFields,
+  per-recipient-fields
+    [3]  SEQUENCE SIZE (1..ub-recipients) OF PerRecipientProbeSubmissionFields
+}
+
+PerProbeSubmissionFields ::= SET {
+  originator-name                     OriginatorName,
+  original-encoded-information-types  OriginalEncodedInformationTypes OPTIONAL,
+  content-type                        ContentType,
+  content-identifier                  ContentIdentifier OPTIONAL,
+  content-length                      [0]  ContentLength OPTIONAL,
+  per-message-indicators              PerMessageIndicators DEFAULT {},
+  extensions
+    [2]  SET OF ExtensionField{{PerProbeSubmissionExtensions}} DEFAULT {}
+}
+
+PerProbeSubmissionExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   recipient-reassignment-prohibited | dl-expansion-prohibited |
+   conversion-with-loss-prohibited | originator-certificate |
+   message-security-label | content-correlator |
+   probe-origin-authentication-check | PrivateExtensions, ...}
+
+PerRecipientProbeSubmissionFields ::= SET {
+  recipient-name             RecipientName,
+  originator-report-request  [0]  OriginatorReportRequest,
+  explicit-conversion        [1]  ExplicitConversion OPTIONAL,
+  extensions
+    [2]  SET OF ExtensionField{{PerRecipientProbeSubmissionExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientProbeSubmissionExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   originator-requested-alternate-recipient | requested-delivery-method |
+   physical-rendition-attributes | PrivateExtensions, ...}
+
+--	Message Delivery Envelope
+MessageDeliveryEnvelope ::= SEQUENCE {
+  message-delivery-identifier  MessageDeliveryIdentifier,
+  message-delivery-time        MessageDeliveryTime,
+  other-fields                 OtherMessageDeliveryFields
+}
+
+OtherMessageDeliveryFields ::= SET {
+  content-type                         DeliveredContentType,
+  originator-name                      DeliveredOriginatorName,
+  original-encoded-information-types
+    [1]  OriginalEncodedInformationTypes OPTIONAL,
+  priority                             Priority DEFAULT normal,
+  delivery-flags                       [2]  DeliveryFlags OPTIONAL,
+  other-recipient-names                [3]  OtherRecipientNames OPTIONAL,
+  this-recipient-name                  [4]  ThisRecipientName,
+  originally-intended-recipient-name
+    [5]  OriginallyIntendedRecipientName OPTIONAL,
+  converted-encoded-information-types
+    [6]  ConvertedEncodedInformationTypes OPTIONAL,
+  message-submission-time              [7]  MessageSubmissionTime,
+  content-identifier                   [8]  ContentIdentifier OPTIONAL,
+  extensions
+    [9]  SET OF ExtensionField{{MessageDeliveryExtensions}} DEFAULT {}
+}
+
+MessageDeliveryExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   conversion-with-loss-prohibited | requested-delivery-method |
+   physical-forwarding-prohibited | physical-forwarding-address-request |
+   physical-delivery-modes | registered-mail-type | recipient-number-for-advice
+   | physical-rendition-attributes | originator-return-address |
+   physical-delivery-report-request | originator-certificate | message-token |
+   content-confidentiality-algorithm-identifier | content-integrity-check |
+   message-origin-authentication-check | message-security-label |
+   proof-of-delivery-request | dl-exempted-recipients | certificate-selectors |
+   certificate-selectors-override | multiple-originator-certificates |
+   recipient-certificate | IPMPerRecipientEnvelopeExtensions |
+   redirection-history | dl-expansion-history | trace-information |
+   internal-trace-information | PrivateExtensions, ...}
+
+--	Report Delivery Envelope
+ReportDeliveryEnvelope ::= SET {
+  COMPONENTS OF PerReportDeliveryFields,
+  per-recipient-fields
+    SEQUENCE SIZE (1..ub-recipients) OF PerRecipientReportDeliveryFields
+}
+
+PerReportDeliveryFields ::= SET {
+  subject-submission-identifier       SubjectSubmissionIdentifier,
+  content-identifier                  ContentIdentifier OPTIONAL,
+  content-type                        ContentType OPTIONAL,
+  original-encoded-information-types  OriginalEncodedInformationTypes OPTIONAL,
+  extensions
+    [1]  SET OF ExtensionField{{ReportDeliveryExtensions}} DEFAULT {}
+}
+
+ReportDeliveryExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   message-security-label | content-correlator | redirection-history |
+   originator-and-DL-expansion-history | reporting-DL-name |
+   reporting-MTA-certificate | report-origin-authentication-check |
+   trace-information | internal-trace-information | reporting-MTA-name |
+   PrivateExtensions, ...}
+
+PerRecipientReportDeliveryFields ::= SET {
+  actual-recipient-name                [0]  ActualRecipientName,
+  report-type                          [1]  ReportType,
+  converted-encoded-information-types
+    ConvertedEncodedInformationTypes OPTIONAL,
+  originally-intended-recipient-name
+    [2]  OriginallyIntendedRecipientName OPTIONAL,
+  supplementary-information            [3]  SupplementaryInformation OPTIONAL,
+  extensions
+    [4]  SET OF ExtensionField{{PerRecipientReportDeliveryExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientReportDeliveryExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   redirection-history | physical-forwarding-address | recipient-certificate |
+   proof-of-delivery | PrivateExtensions, ...}
+
+ReportType ::= CHOICE {
+  delivery      [0]  DeliveryReport,
+  non-delivery  [1]  NonDeliveryReport
+}
+
+DeliveryReport ::= SET {
+  message-delivery-time  [0]  MessageDeliveryTime,
+  type-of-MTS-user       [1]  TypeOfMTSUser DEFAULT public
+}
+
+NonDeliveryReport ::= SET {
+  non-delivery-reason-code      [0]  NonDeliveryReasonCode,
+  non-delivery-diagnostic-code  [1]  NonDeliveryDiagnosticCode OPTIONAL
+}
+
+--	Envelope Fields
+OriginatorName ::= ORAddressAndOrDirectoryName
+
+DeliveredOriginatorName ::= ORAddressAndOptionalDirectoryName
+
+OriginalEncodedInformationTypes ::= EncodedInformationTypes
+
+ContentTypes ::= SET SIZE (1..ub-content-types) OF ContentType
+
+ContentType ::= CHOICE {
+  built-in  BuiltInContentType,
+  extended  ExtendedContentType
+}
+
+BuiltInContentType ::= [APPLICATION 6]  INTEGER {
+  unidentified(0),
+  external(1), -- identified by the object-identifier of the EXTERNAL content
+  interpersonal-messaging-1984(2), interpersonal-messaging-1988(22),
+  edi-messaging(35), voice-messaging(40)}(0..ub-built-in-content-type)
+
+ExtendedContentType ::= RELATIVE-OID
+
+DeliveredContentType ::= CHOICE {
+  built-in  [0]  BuiltInContentType,
+  extended  ExtendedContentType
+}
+
+ContentIdentifier ::=
+  [APPLICATION 10]  PrintableString(SIZE (1..ub-content-id-length))
+
+PerMessageIndicators ::= [APPLICATION 8]  BIT STRING {
+  disclosure-of-other-recipients(0), -- disclosure-of-other-recipients-requested 'one',
+  
+  -- disclosure-of-other-recipients-prohibited 'zero';
+  -- ignored for Probe-submission
+  implicit-conversion-prohibited(1), -- implicit-conversion-prohibited 'one', 
+  
+  -- implicit-conversion-allowed 'zero'
+  alternate-recipient-allowed(2), -- alternate-recipient-allowed 'one',
+  
+  -- alternate-recipient-prohibited 'zero'
+  content-return-request(3), -- content-return-requested 'one', 
+  
+  -- content-return-not-requested 'zero';
+  -- ignored for Probe-submission
+  reserved(4), -- bit reserved by MOTIS 1986
+  bit-5(5),
+  bit-6(6), -- notification type-1 : bit 5 'zero' and bit 6 'one'
+  
+  -- notification type-2 : bit 5 'one' and bit 6 'zero'
+  -- notification type-3 : bit 5 'one' and bit 6 'one'
+  -- the mapping between notification type 1, 2, 3
+  -- and the content specific notification types are defined
+  -- in relevant content specifications
+  service-message(7) -- the message content is for service purposes;
+  
+  
+-- it may be a notification related to a service message;
+-- used only by bilateral agreement --}(SIZE (0..ub-bit-options))
+
+RecipientName ::= ORAddressAndOrDirectoryName
+
+OriginatorReportRequest ::= BIT STRING {report(3), non-delivery-report(4)
+                                                   
+-- at most one bit shall be 'one':
+-- report bit 'one' requests a 'report';
+-- non-delivery-report bit 'one' requests a 'non-delivery-report';
+-- both bits 'zero' requests 'no-report' --}(SIZE (0..ub-bit-options))
+
+ExplicitConversion ::= INTEGER {
+  ia5-text-to-teletex(0),
+  -- values 1 to 7 are no longer defined
+  ia5-text-to-g3-facsimile(8), ia5-text-to-g4-class-1(9),
+  ia5-text-to-videotex(10), teletex-to-ia5-text(11),
+  teletex-to-g3-facsimile(12), teletex-to-g4-class-1(13),
+  teletex-to-videotex(14),
+  -- value 15 is no longer defined
+  videotex-to-ia5-text(16), videotex-to-teletex(17)}(0..ub-integer-options)
+
+DeferredDeliveryTime ::= Time
+
+Priority ::= [APPLICATION 7]  ENUMERATED {normal(0), non-urgent(1), urgent(2)}
+
+ContentLength ::= INTEGER(0..ub-content-length)
+
+MessageDeliveryIdentifier ::= MTSIdentifier
+
+MessageDeliveryTime ::= Time
+
+DeliveryFlags ::= BIT STRING {
+  implicit-conversion-prohibited(1) -- implicit-conversion-prohibited 'one', 
+  
+  -- implicit-conversion-allowed 'zero' --}(SIZE (0..ub-bit-options))
+
+OtherRecipientNames ::= SEQUENCE SIZE (1..ub-recipients) OF OtherRecipientName
+
+OtherRecipientName ::= ORAddressAndOptionalDirectoryName
+
+ThisRecipientName ::= ORAddressAndOptionalDirectoryName
+
+OriginallyIntendedRecipientName ::= ORAddressAndOptionalDirectoryName
+
+ConvertedEncodedInformationTypes ::= EncodedInformationTypes
+
+SubjectSubmissionIdentifier ::= MTSIdentifier
+
+ActualRecipientName ::= ORAddressAndOrDirectoryName
+
+TypeOfMTSUser ::= INTEGER {
+  public(0), private(1), ms(2), dl(3), pdau(4), physical-recipient(5), other(6)
+}(0..ub-mts-user-types)
+
+NonDeliveryReasonCode ::= INTEGER {
+  transfer-failure(0), unable-to-transfer(1), conversion-not-performed(2),
+  physical-rendition-not-performed(3), physical-delivery-not-performed(4),
+  restricted-delivery(5), directory-operation-unsuccessful(6),
+  deferred-delivery-not-performed(7), transfer-failure-for-security-reason(8)
+}(0..ub-reason-codes)
+
+NonDeliveryDiagnosticCode ::= INTEGER {
+  unrecognised-OR-name(0), ambiguous-OR-name(1), mts-congestion(2),
+  loop-detected(3), recipient-unavailable(4), maximum-time-expired(5),
+  encoded-information-types-unsupported(6), content-too-long(7),
+  conversion-impractical(8), implicit-conversion-prohibited(9),
+  implicit-conversion-not-subscribed(10), invalid-arguments(11),
+  content-syntax-error(12), size-constraint-violation(13),
+  protocol-violation(14), content-type-not-supported(15),
+  too-many-recipients(16), no-bilateral-agreement(17),
+  unsupported-critical-function(18), conversion-with-loss-prohibited(19),
+  line-too-long(20), page-split(21), pictorial-symbol-loss(22),
+  punctuation-symbol-loss(23), alphabetic-character-loss(24),
+  multiple-information-loss(25), recipient-reassignment-prohibited(26),
+  redirection-loop-detected(27), dl-expansion-prohibited(28),
+  no-dl-submit-permission(29), dl-expansion-failure(30),
+  physical-rendition-attributes-not-supported(31),
+  undeliverable-mail-physical-delivery-address-incorrect(32),
+  undeliverable-mail-physical-delivery-office-incorrect-or-invalid(33),
+  undeliverable-mail-physical-delivery-address-incomplete(34),
+  undeliverable-mail-recipient-unknown(35),
+  undeliverable-mail-recipient-deceased(36),
+  undeliverable-mail-organization-expired(37),
+  undeliverable-mail-recipient-refused-to-accept(38),
+  undeliverable-mail-recipient-did-not-claim(39),
+  undeliverable-mail-recipient-changed-address-permanently(40),
+  undeliverable-mail-recipient-changed-address-temporarily(41),
+  undeliverable-mail-recipient-changed-temporary-address(42),
+  undeliverable-mail-new-address-unknown(43),
+  undeliverable-mail-recipient-did-not-want-forwarding(44),
+  undeliverable-mail-originator-prohibited-forwarding(45),
+  secure-messaging-error(46), unable-to-downgrade(47),
+  unable-to-complete-transfer(48), transfer-attempts-limit-reached(49),
+  incorrect-notification-type(50),
+  dl-expansion-prohibited-by-security-policy(51),
+  forbidden-alternate-recipient(52), security-policy-violation(53),
+  security-services-refusal(54), unauthorised-dl-member(55),
+  unauthorised-dl-name(56),
+  unauthorised-originally-intended-recipient-name(57),
+  unauthorised-originator-name(58), unauthorised-recipient-name(59),
+  unreliable-system(60), authentication-failure-on-subject-message(61),
+  decryption-failed(62), decryption-key-unobtainable(63),
+  double-envelope-creation-failure(64),
+  double-enveloping-message-restoring-failure(65),
+  failure-of-proof-of-message(66), integrity-failure-on-subject-message(67),
+  invalid-security-label(68), key-failure(69), mandatory-parameter-absence(70),
+  operation-security-failure(71), repudiation-failure-of-message(72),
+  security-context-failure(73), token-decryption-failed(74), token-error(75),
+  unknown-security-label(76), unsupported-algorithm-identifier(77),
+  unsupported-security-policy(78)}(0..ub-diagnostic-codes)
+
+SupplementaryInformation ::=
+  PrintableString(SIZE (1..ub-supplementary-info-length))
+
+--	Extension Fields
+EXTENSION ::= CLASS {
+  &id           ExtensionType UNIQUE,
+  &Type         OPTIONAL,
+  &absent       &Type OPTIONAL,
+  &recommended  Criticality DEFAULT {}
+}
+WITH SYNTAX {
+  [&Type
+   [IF ABSENT &absent],]
+  [RECOMMENDED CRITICALITY &recommended,]
+  IDENTIFIED BY &id
+}
+
+ExtensionType ::= CHOICE {
+  standard-extension  [0]  INTEGER(0..ub-extension-types),
+  private-extension   [3]  OBJECT IDENTIFIER
+}
+
+Criticality ::= BIT STRING {for-submission(0), for-transfer(1), for-delivery(2)
+}(SIZE (0..ub-bit-options)) -- critical 'one', non-critical 'zero'
+ 
+
+ExtensionField{EXTENSION:ChosenFrom} ::= SEQUENCE {
+  type         EXTENSION.&id({ChosenFrom}),
+  criticality  [1]  Criticality DEFAULT {},
+  value        [2]  EXTENSION.&Type({ChosenFrom}{@type}) DEFAULT NULL:NULL
+}
+
+PrivateExtensions EXTENSION ::=
+  {-- Any value shall be relayed and delivered if not Critical (see Table 27)
+   -- except those values whose semantics the MTA obeys which are defined to be removed when obeyed.
+   -- Shall be IDENTIFIED BY ExtensionType.private-extension --...}
+
+recipient-reassignment-prohibited EXTENSION ::= {
+  RecipientReassignmentProhibited
+  IF ABSENT                recipient-reassignment-allowed,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:1
+}
+
+RecipientReassignmentProhibited ::= ENUMERATED {
+  recipient-reassignment-allowed(0), recipient-reassignment-prohibited(1)
+}
+
+originator-requested-alternate-recipient EXTENSION ::= {
+  OriginatorRequestedAlternateRecipient,
+  RECOMMENDED CRITICALITY  {for-submission},
+  IDENTIFIED BY            standard-extension:2
+}
+
+OriginatorRequestedAlternateRecipient ::= ORAddressAndOrDirectoryName
+
+-- OriginatorRequestedAlternateRecipient as defined here differs from the field of the same name 
+-- defined in Figure 4, since on submission the OR-address need not be present, but on 
+-- transfer the OR-address must be present.
+dl-expansion-prohibited EXTENSION ::= {
+  DLExpansionProhibited
+  IF ABSENT                dl-expansion-allowed,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:3
+}
+
+DLExpansionProhibited ::= ENUMERATED {
+  dl-expansion-allowed(0), dl-expansion-prohibited(1)}
+
+conversion-with-loss-prohibited EXTENSION ::= {
+  ConversionWithLossProhibited
+  IF ABSENT                conversion-with-loss-allowed,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:4
+}
+
+ConversionWithLossProhibited ::= ENUMERATED {
+  conversion-with-loss-allowed(0), conversion-with-loss-prohibited(1)
+}
+
+latest-delivery-time EXTENSION ::= {
+  LatestDeliveryTime,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:5
+}
+
+LatestDeliveryTime ::= Time
+
+requested-delivery-method EXTENSION ::= {
+  RequestedDeliveryMethod
+  IF ABSENT      {any-delivery-method},
+  IDENTIFIED BY  standard-extension:6
+}
+
+RequestedDeliveryMethod ::=
+  SEQUENCE OF INTEGER { -- each different in order of preference,
+      -- most preferred first
+      any-delivery-method(0), mhs-delivery(1), physical-delivery(2),
+      telex-delivery(3), teletex-delivery(4), g3-facsimile-delivery(5),
+      g4-facsimile-delivery(6), ia5-terminal-delivery(7), videotex-delivery(8),
+      telephone-delivery(9)}(0..ub-integer-options)
+
+physical-forwarding-prohibited EXTENSION ::= {
+  PhysicalForwardingProhibited
+  IF ABSENT                physical-forwarding-allowed,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:7
+}
+
+PhysicalForwardingProhibited ::= ENUMERATED {
+  physical-forwarding-allowed(0), physical-forwarding-prohibited(1)}
+
+physical-forwarding-address-request EXTENSION ::= {
+  PhysicalForwardingAddressRequest
+  IF ABSENT                physical-forwarding-address-not-requested,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:8
+}
+
+PhysicalForwardingAddressRequest ::= ENUMERATED {
+  physical-forwarding-address-not-requested(0),
+  physical-forwarding-address-requested(1)}
+
+physical-delivery-modes EXTENSION ::= {
+  PhysicalDeliveryModes
+  IF ABSENT                {ordinary-mail},
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:9
+}
+
+PhysicalDeliveryModes ::= BIT STRING {
+  ordinary-mail(0), special-delivery(1), express-mail(2),
+  counter-collection(3), counter-collection-with-telephone-advice(4),
+  counter-collection-with-telex-advice(5),
+  counter-collection-with-teletex-advice(6), bureau-fax-delivery(7)
+                                             
+-- bits 0 to 6 are mutually exclusive
+-- bit 7 can be set independently of any of bits 0 to 6 --}
+(SIZE (0..ub-bit-options))
+
+registered-mail-type EXTENSION ::= {
+  RegisteredMailType
+  IF ABSENT                non-registered-mail,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:10
+}
+
+RegisteredMailType ::= INTEGER {
+  non-registered-mail(0), registered-mail(1),
+  registered-mail-to-addressee-in-person(2)}(0..ub-integer-options)
+
+recipient-number-for-advice EXTENSION ::= {
+  RecipientNumberForAdvice,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:11
+}
+
+RecipientNumberForAdvice ::=
+  TeletexString(SIZE (1..ub-recipient-number-for-advice-length))
+
+physical-rendition-attributes EXTENSION ::= {
+  PhysicalRenditionAttributes
+  IF ABSENT                id-att-physicalRendition-basic,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:12
+}
+
+PhysicalRenditionAttributes ::= OBJECT IDENTIFIER
+
+originator-return-address EXTENSION ::= {
+  OriginatorReturnAddress,
+  IDENTIFIED BY  standard-extension:13
+}
+
+OriginatorReturnAddress ::= ORAddress
+
+physical-delivery-report-request EXTENSION ::= {
+  PhysicalDeliveryReportRequest
+  IF ABSENT                return-of-undeliverable-mail-by-PDS,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:14
+}
+
+PhysicalDeliveryReportRequest ::= INTEGER {
+  return-of-undeliverable-mail-by-PDS(0), return-of-notification-by-PDS(1),
+  return-of-notification-by-MHS(2), return-of-notification-by-MHS-and-PDS(3)
+}(0..ub-integer-options)
+
+originator-certificate EXTENSION ::= {
+  OriginatorCertificate,
+  IDENTIFIED BY  standard-extension:15
+}
+
+OriginatorCertificate ::= Certificates
+
+message-token EXTENSION ::= {
+  MessageToken,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:16
+}
+
+MessageToken ::= Token
+
+content-confidentiality-algorithm-identifier EXTENSION ::= {
+  ContentConfidentialityAlgorithmIdentifier,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:17
+}
+
+ContentConfidentialityAlgorithmIdentifier ::= AlgorithmIdentifier
+
+content-integrity-check EXTENSION ::= {
+  ContentIntegrityCheck,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:18
+}
+
+ContentIntegrityCheck ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 ContentIntegrityAlgorithmIdentifier OPTIONAL,
+               content               Content}}
+
+ContentIntegrityAlgorithmIdentifier ::= AlgorithmIdentifier
+
+message-origin-authentication-check EXTENSION ::= {
+  MessageOriginAuthenticationCheck,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:19
+}
+
+MessageOriginAuthenticationCheck ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 MessageOriginAuthenticationAlgorithmIdentifier,
+               content                 Content,
+               content-identifier      ContentIdentifier OPTIONAL,
+               message-security-label  MessageSecurityLabel OPTIONAL}}
+
+MessageOriginAuthenticationAlgorithmIdentifier ::= AlgorithmIdentifier
+
+message-security-label EXTENSION ::= {
+  MessageSecurityLabel,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:20
+}
+
+MessageSecurityLabel ::= SecurityLabel
+
+proof-of-submission-request EXTENSION ::= {
+  ProofOfSubmissionRequest
+  IF ABSENT                proof-of-submission-not-requested,
+  RECOMMENDED CRITICALITY  {for-submission},
+  IDENTIFIED BY            standard-extension:21
+}
+
+ProofOfSubmissionRequest ::= ENUMERATED {
+  proof-of-submission-not-requested(0), proof-of-submission-requested(1)
+}
+
+proof-of-delivery-request EXTENSION ::= {
+  ProofOfDeliveryRequest
+  IF ABSENT                proof-of-delivery-not-requested,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:22
+}
+
+ProofOfDeliveryRequest ::= ENUMERATED {
+  proof-of-delivery-not-requested(0), proof-of-delivery-requested(1)}
+
+content-correlator EXTENSION ::= {
+  ContentCorrelator,
+  IDENTIFIED BY  standard-extension:23
+}
+
+ContentCorrelator ::= CHOICE {ia5text  IA5String,
+                              octets   OCTET STRING
+}
+
+probe-origin-authentication-check EXTENSION ::= {
+  ProbeOriginAuthenticationCheck,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:24
+}
+
+ProbeOriginAuthenticationCheck ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 ProbeOriginAuthenticationAlgorithmIdentifier,
+               content-identifier      ContentIdentifier OPTIONAL,
+               message-security-label  MessageSecurityLabel OPTIONAL}}
+
+ProbeOriginAuthenticationAlgorithmIdentifier ::= AlgorithmIdentifier
+
+redirection-history EXTENSION ::= {
+  RedirectionHistory,
+  IDENTIFIED BY  standard-extension:25
+}
+
+RedirectionHistory ::= SEQUENCE SIZE (1..ub-redirections) OF Redirection
+
+Redirection ::= SEQUENCE {
+  intended-recipient-name  IntendedRecipientName,
+  redirection-reason       RedirectionReason
+}
+
+IntendedRecipientName ::= SEQUENCE {
+  intended-recipient  ORAddressAndOptionalDirectoryName,
+  redirection-time    Time
+}
+
+RedirectionReason ::= ENUMERATED {
+  recipient-assigned-alternate-recipient(0),
+  originator-requested-alternate-recipient(1),
+  recipient-MD-assigned-alternate-recipient(2),
+  -- The following values may not be supported by implementations of earlier versions of this Service Definition
+  directory-look-up(3), alias(4), ...
+  }
+
+dl-expansion-history EXTENSION ::= {
+  DLExpansionHistory,
+  IDENTIFIED BY  standard-extension:26
+}
+
+DLExpansionHistory ::= SEQUENCE SIZE (1..ub-dl-expansions) OF DLExpansion
+
+DLExpansion ::= SEQUENCE {
+  dl                 ORAddressAndOptionalDirectoryName,
+  dl-expansion-time  Time
+}
+
+physical-forwarding-address EXTENSION ::= {
+  PhysicalForwardingAddress,
+  IDENTIFIED BY  standard-extension:27
+}
+
+PhysicalForwardingAddress ::= ORAddressAndOptionalDirectoryName
+
+recipient-certificate EXTENSION ::= {
+  RecipientCertificate,
+  IDENTIFIED BY  standard-extension:28
+}
+
+proof-of-delivery EXTENSION ::= {
+  ProofOfDelivery,
+  IDENTIFIED BY  standard-extension:29
+}
+
+originator-and-DL-expansion-history EXTENSION ::= {
+  OriginatorAndDLExpansionHistory,
+  IDENTIFIED BY  standard-extension:30
+}
+
+OriginatorAndDLExpansionHistory ::=
+  SEQUENCE SIZE (2..ub-orig-and-dl-expansions) OF OriginatorAndDLExpansion
+
+OriginatorAndDLExpansion ::= SEQUENCE {
+  originator-or-dl-name          ORAddressAndOptionalDirectoryName,
+  origination-or-expansion-time  Time
+}
+
+reporting-DL-name EXTENSION ::= {
+  ReportingDLName,
+  IDENTIFIED BY  standard-extension:31
+}
+
+ReportingDLName ::= ORAddressAndOptionalDirectoryName
+
+reporting-MTA-certificate EXTENSION ::= {
+  ReportingMTACertificate,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:32
+}
+
+ReportingMTACertificate ::= Certificates
+
+report-origin-authentication-check EXTENSION ::= {
+  ReportOriginAuthenticationCheck,
+  RECOMMENDED CRITICALITY  {for-delivery},
+  IDENTIFIED BY            standard-extension:33
+}
+
+ReportOriginAuthenticationCheck ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 ReportOriginAuthenticationAlgorithmIdentifier,
+               content-identifier      ContentIdentifier OPTIONAL,
+               message-security-label  MessageSecurityLabel OPTIONAL,
+               per-recipient
+                 SEQUENCE SIZE (1..ub-recipients) OF PerRecipientReportFields
+    }}
+
+ReportOriginAuthenticationAlgorithmIdentifier ::= AlgorithmIdentifier
+
+PerRecipientReportFields ::= SEQUENCE {
+  actual-recipient-name               ActualRecipientName,
+  originally-intended-recipient-name  OriginallyIntendedRecipientName OPTIONAL,
+  report-type
+    CHOICE {delivery      [0]  PerRecipientDeliveryReportFields,
+            non-delivery  [1]  PerRecipientNonDeliveryReportFields}
+}
+
+PerRecipientDeliveryReportFields ::= SEQUENCE {
+  message-delivery-time  MessageDeliveryTime,
+  type-of-MTS-user       TypeOfMTSUser,
+  recipient-certificate  [0]  RecipientCertificate OPTIONAL,
+  proof-of-delivery      [1]  ProofOfDelivery OPTIONAL
+}
+
+PerRecipientNonDeliveryReportFields ::= SEQUENCE {
+  non-delivery-reason-code      NonDeliveryReasonCode,
+  non-delivery-diagnostic-code  NonDeliveryDiagnosticCode OPTIONAL
+}
+
+originating-MTA-certificate EXTENSION ::= {
+  OriginatingMTACertificate,
+  IDENTIFIED BY  standard-extension:34
+}
+
+OriginatingMTACertificate ::= Certificates
+
+proof-of-submission EXTENSION ::= {
+  ProofOfSubmission,
+  IDENTIFIED BY  standard-extension:35
+}
+
+ProofOfSubmission ::=
+  SIGNATURE
+    {SEQUENCE {algorithm-identifier
+                 ProofOfSubmissionAlgorithmIdentifier,
+               message-submission-envelope    MessageSubmissionEnvelope,
+               content                        Content,
+               message-submission-identifier  MessageSubmissionIdentifier,
+               message-submission-time        MessageSubmissionTime}}
+
+ProofOfSubmissionAlgorithmIdentifier ::= AlgorithmIdentifier
+
+reporting-MTA-name EXTENSION ::= {
+  ReportingMTAName,
+  IDENTIFIED BY  standard-extension:39
+}
+
+ReportingMTAName ::= SEQUENCE {
+  domain              GlobalDomainIdentifier,
+  mta-name            MTAName,
+  mta-directory-name  [0]  Name OPTIONAL
+}
+
+multiple-originator-certificates EXTENSION ::= {
+  ExtendedCertificates,
+  IDENTIFIED BY  standard-extension:40
+}
+
+ExtendedCertificates ::= SET SIZE (1..ub-certificates) OF ExtendedCertificate
+
+ExtendedCertificate ::= CHOICE {
+  directory-entry  [0]  Name, -- Name of a Directory entry where the certificate can be found
+  certificate      [1]  Certificates
+}
+
+dl-exempted-recipients EXTENSION ::= {
+  DLExemptedRecipients,
+  IDENTIFIED BY  standard-extension:42
+}
+
+DLExemptedRecipients ::= SET OF ORAddressAndOrDirectoryName
+
+certificate-selectors EXTENSION ::= {
+  CertificateSelectors,
+  IDENTIFIED BY  standard-extension:45
+}
+
+CertificateSelectors ::= SET {
+  encryption-recipient           [0]  CertificateAssertion OPTIONAL,
+  encryption-originator          [1]  CertificateAssertion OPTIONAL,
+  content-integrity-check        [2]  CertificateAssertion OPTIONAL,
+  token-signature                [3]  CertificateAssertion OPTIONAL,
+  message-origin-authentication  [4]  CertificateAssertion OPTIONAL
+}
+
+certificate-selectors-override EXTENSION ::= {
+  CertificateSelectors
+    (WITH COMPONENTS {
+       ...,
+       message-origin-authentication  ABSENT
+     }),
+  IDENTIFIED BY  standard-extension:46
+}
+
+-- Some standard-extensions are defined elsewhere:
+--	36 (forwarding-request) in ITU-T Rec. X.413 | ISO/IEC 10021-5;
+--	37 (trace-information), and 38 (internal-trace-information) in Figure 4;
+--	41 (blind-copy-recipients), 43 (body-part-encryption-token), and 44 (forwarded-content-token) in 
+--		ITU-T Rec. X.420 | ISO/IEC 10021-7
+--	Common Parameter Types
+Content ::=
+  OCTET
+    STRING -- when the content-type has the integer value external, the value of the
+
+-- content octet string is the ASN.1 encoding of the external-content;
+-- an external-content is a data type EXTERNAL
+MTSIdentifier ::= [APPLICATION 4]  SEQUENCE {
+  global-domain-identifier  GlobalDomainIdentifier,
+  local-identifier          LocalIdentifier
+}
+
+LocalIdentifier ::= IA5String(SIZE (1..ub-local-id-length))
+
+GlobalDomainIdentifier ::= [APPLICATION 3]  SEQUENCE {
+  country-name                CountryName,
+  administration-domain-name  AdministrationDomainName,
+  private-domain-identifier   PrivateDomainIdentifier OPTIONAL
+}
+
+PrivateDomainIdentifier ::= CHOICE {
+  numeric    NumericString(SIZE (1..ub-domain-name-length)),
+  printable  PrintableString(SIZE (1..ub-domain-name-length))
+}
+
+MTAName ::= IA5String(SIZE (1..ub-mta-name-length))
+
+Time ::= UTCTime
+
+--	OR Names
+ORAddressAndOrDirectoryName ::= ORName
+
+ORAddressAndOptionalDirectoryName ::= ORName
+
+ORName ::= [APPLICATION 0]  SEQUENCE {
+  -- address --COMPONENTS OF ORAddress,
+  directory-name  [0]  Name OPTIONAL
+}
+
+ORAddress ::= SEQUENCE {
+  built-in-standard-attributes        BuiltInStandardAttributes,
+  built-in-domain-defined-attributes  BuiltInDomainDefinedAttributes OPTIONAL,
+  -- see also teletex-domain-defined-attributes
+  extension-attributes                ExtensionAttributes OPTIONAL
+}
+
+--	The OR-address is semantically absent from the OR-name if the built-in-standard-attribute
+--	sequence is empty and the built-in-domain-defined-attributes and extension-attributes are both omitted.
+--	Built-in Standard Attributes
+BuiltInStandardAttributes ::= SEQUENCE {
+  country-name                CountryName OPTIONAL,
+  administration-domain-name  AdministrationDomainName OPTIONAL,
+  network-address             [0]  NetworkAddress OPTIONAL,
+  -- see also extended-network-address
+  terminal-identifier         [1]  TerminalIdentifier OPTIONAL,
+  private-domain-name         [2]  PrivateDomainName OPTIONAL,
+  organization-name           [3]  OrganizationName OPTIONAL,
+  -- see also teletex-organization-name
+  numeric-user-identifier     [4]  NumericUserIdentifier OPTIONAL,
+  personal-name               [5]  PersonalName OPTIONAL,
+  -- see also teletex-personal-name
+  organizational-unit-names   [6]  OrganizationalUnitNames OPTIONAL
+  -- see also teletex-organizational-unit-names 
+}
+
+CountryName ::= [APPLICATION 1]  CHOICE {
+  x121-dcc-code         NumericString(SIZE (ub-country-name-numeric-length)),
+  iso-3166-alpha2-code  PrintableString(SIZE (ub-country-name-alpha-length))
+}
+
+AdministrationDomainName ::= [APPLICATION 2]  CHOICE {
+  numeric    NumericString(SIZE (0..ub-domain-name-length)),
+  printable  PrintableString(SIZE (0..ub-domain-name-length))
+}
+
+NetworkAddress ::= X121Address
+
+-- see also extended-network-address
+X121Address ::= NumericString(SIZE (1..ub-x121-address-length))
+
+TerminalIdentifier ::= PrintableString(SIZE (1..ub-terminal-id-length))
+
+PrivateDomainName ::= CHOICE {
+  numeric    NumericString(SIZE (1..ub-domain-name-length)),
+  printable  PrintableString(SIZE (1..ub-domain-name-length))
+}
+
+OrganizationName ::= PrintableString(SIZE (1..ub-organization-name-length))
+
+-- see also teletex-organization-name
+NumericUserIdentifier ::= NumericString(SIZE (1..ub-numeric-user-id-length))
+
+PersonalName ::= SET {
+  surname               [0]  PrintableString(SIZE (1..ub-surname-length)),
+  given-name
+    [1]  PrintableString(SIZE (1..ub-given-name-length)) OPTIONAL,
+  initials
+    [2]  PrintableString(SIZE (1..ub-initials-length)) OPTIONAL,
+  generation-qualifier
+    [3]  PrintableString(SIZE (1..ub-generation-qualifier-length)) OPTIONAL
+}
+
+-- see also teletex-personal-name
+OrganizationalUnitNames ::=
+  SEQUENCE SIZE (1..ub-organizational-units) OF OrganizationalUnitName
+
+-- see also teletex-organizational-unit-names
+OrganizationalUnitName ::=
+  PrintableString(SIZE (1..ub-organizational-unit-name-length))
+
+--	Built-in Domain-defined Attributes
+BuiltInDomainDefinedAttributes ::=
+  SEQUENCE SIZE (1..ub-domain-defined-attributes) OF
+    BuiltInDomainDefinedAttribute
+
+BuiltInDomainDefinedAttribute ::= SEQUENCE {
+  type   PrintableString(SIZE (1..ub-domain-defined-attribute-type-length)),
+  value  PrintableString(SIZE (1..ub-domain-defined-attribute-value-length))
+}
+
+--	Extension Attributes
+ExtensionAttributes ::=
+  SET SIZE (1..ub-extension-attributes) OF ExtensionAttribute
+
+ExtensionAttribute ::= SEQUENCE {
+  extension-attribute-type
+    [0]  EXTENSION-ATTRIBUTE.&id({ExtensionAttributeTable}),
+  extension-attribute-value
+    [1]  EXTENSION-ATTRIBUTE.&Type
+           ({ExtensionAttributeTable}{@extension-attribute-type})
+}
+
+EXTENSION-ATTRIBUTE ::= CLASS {
+  &id    INTEGER(0..ub-extension-attributes) UNIQUE,
+  &Type  
+}WITH SYNTAX {&Type
+              IDENTIFIED BY &id
+}
+
+ExtensionAttributeTable EXTENSION-ATTRIBUTE ::=
+  {common-name | teletex-common-name | universal-common-name |
+   teletex-organization-name | universal-organization-name |
+   teletex-personal-name | universal-personal-name |
+   teletex-organizational-unit-names | universal-organizational-unit-names |
+   teletex-domain-defined-attributes | universal-domain-defined-attributes |
+   pds-name | physical-delivery-country-name | postal-code |
+   physical-delivery-office-name | universal-physical-delivery-office-name |
+   physical-delivery-office-number | universal-physical-delivery-office-number
+   | extension-OR-address-components |
+   universal-extension-OR-address-components | physical-delivery-personal-name
+   | universal-physical-delivery-personal-name |
+   physical-delivery-organization-name |
+   universal-physical-delivery-organization-name |
+   extension-physical-delivery-address-components |
+   universal-extension-physical-delivery-address-components |
+   unformatted-postal-address | universal-unformatted-postal-address |
+   street-address | universal-street-address | post-office-box-address |
+   universal-post-office-box-address | poste-restante-address |
+   universal-poste-restante-address | unique-postal-name |
+   universal-unique-postal-name | local-postal-attributes |
+   universal-local-postal-attributes | extended-network-address | terminal-type
+  }
+
+--	Extension Standard Attributes
+common-name EXTENSION-ATTRIBUTE ::= {CommonName
+                                     IDENTIFIED BY  1
+}
+
+CommonName ::= PrintableString(SIZE (1..ub-common-name-length))
+
+teletex-common-name EXTENSION-ATTRIBUTE ::= {TeletexCommonName
+                                             IDENTIFIED BY  2
+}
+
+TeletexCommonName ::= TeletexString(SIZE (1..ub-common-name-length))
+
+universal-common-name EXTENSION-ATTRIBUTE ::= {
+  UniversalCommonName
+  IDENTIFIED BY  24
+}
+
+UniversalCommonName ::= UniversalOrBMPString{ub-common-name-length}
+
+teletex-organization-name EXTENSION-ATTRIBUTE ::= {
+  TeletexOrganizationName
+  IDENTIFIED BY  3
+}
+
+TeletexOrganizationName ::=
+  TeletexString(SIZE (1..ub-organization-name-length))
+
+universal-organization-name EXTENSION-ATTRIBUTE ::= {
+  UniversalOrganizationName
+  IDENTIFIED BY  25
+}
+
+UniversalOrganizationName ::= UniversalOrBMPString{ub-organization-name-length}
+
+teletex-personal-name EXTENSION-ATTRIBUTE ::= {
+  TeletexPersonalName
+  IDENTIFIED BY  4
+}
+
+TeletexPersonalName ::= SET {
+  surname               [0]  TeletexString(SIZE (1..ub-surname-length)),
+  given-name
+    [1]  TeletexString(SIZE (1..ub-given-name-length)) OPTIONAL,
+  initials
+    [2]  TeletexString(SIZE (1..ub-initials-length)) OPTIONAL,
+  generation-qualifier
+    [3]  TeletexString(SIZE (1..ub-generation-qualifier-length)) OPTIONAL
+}
+
+universal-personal-name EXTENSION-ATTRIBUTE ::= {
+  UniversalPersonalName
+  IDENTIFIED BY  26
+}
+
+UniversalPersonalName ::= SET {
+  surname               [0]  UniversalOrBMPString{ub-universal-surname-length},
+  --	If a language is specified within surname, then that language applies to each of the following
+  --	optional components unless the component specifies another language.
+  given-name
+    [1]  UniversalOrBMPString{ub-universal-given-name-length} OPTIONAL,
+  initials
+    [2]  UniversalOrBMPString{ub-universal-initials-length} OPTIONAL,
+  generation-qualifier
+    [3]  UniversalOrBMPString{ub-universal-generation-qualifier-length}
+      OPTIONAL
+}
+
+teletex-organizational-unit-names EXTENSION-ATTRIBUTE ::= {
+  TeletexOrganizationalUnitNames
+  IDENTIFIED BY  5
+}
+
+TeletexOrganizationalUnitNames ::=
+  SEQUENCE SIZE (1..ub-organizational-units) OF TeletexOrganizationalUnitName
+
+TeletexOrganizationalUnitName ::=
+  TeletexString(SIZE (1..ub-organizational-unit-name-length))
+
+universal-organizational-unit-names EXTENSION-ATTRIBUTE ::= {
+  UniversalOrganizationalUnitNames
+  IDENTIFIED BY  27
+}
+
+UniversalOrganizationalUnitNames ::=
+  SEQUENCE SIZE (1..ub-organizational-units) OF UniversalOrganizationalUnitName
+
+--	If a unit name specifies a language, then that language applies to subordinate unit names unless
+--	the subordinate specifies another language.
+UniversalOrganizationalUnitName ::=
+  UniversalOrBMPString{ub-organizational-unit-name-length}
+
+UniversalOrBMPString{INTEGER:ub-string-length} ::= SET {
+  character-encoding
+    CHOICE {two-octets   BMPString(SIZE (1..ub-string-length)),
+            four-octets  UniversalString(SIZE (1..ub-string-length))},
+  iso-639-language-code  PrintableString(SIZE (2 | 5)) OPTIONAL
+}
+
+pds-name EXTENSION-ATTRIBUTE ::= {PDSName
+                                  IDENTIFIED BY  7
+}
+
+PDSName ::= PrintableString(SIZE (1..ub-pds-name-length))
+
+physical-delivery-country-name EXTENSION-ATTRIBUTE ::= {
+  PhysicalDeliveryCountryName
+  IDENTIFIED BY  8
+}
+
+PhysicalDeliveryCountryName ::= CHOICE {
+  x121-dcc-code         NumericString(SIZE (ub-country-name-numeric-length)),
+  iso-3166-alpha2-code  PrintableString(SIZE (ub-country-name-alpha-length))
+}
+
+postal-code EXTENSION-ATTRIBUTE ::= {PostalCode
+                                     IDENTIFIED BY  9
+}
+
+PostalCode ::= CHOICE {
+  numeric-code    NumericString(SIZE (1..ub-postal-code-length)),
+  printable-code  PrintableString(SIZE (1..ub-postal-code-length))
+}
+
+physical-delivery-office-name EXTENSION-ATTRIBUTE ::= {
+  PhysicalDeliveryOfficeName
+  IDENTIFIED BY  10
+}
+
+PhysicalDeliveryOfficeName ::= PDSParameter
+
+universal-physical-delivery-office-name EXTENSION-ATTRIBUTE ::= {
+  UniversalPhysicalDeliveryOfficeName
+  IDENTIFIED BY  29
+}
+
+UniversalPhysicalDeliveryOfficeName ::= UniversalPDSParameter
+
+physical-delivery-office-number EXTENSION-ATTRIBUTE ::= {
+  PhysicalDeliveryOfficeNumber
+  IDENTIFIED BY  11
+}
+
+PhysicalDeliveryOfficeNumber ::= PDSParameter
+
+universal-physical-delivery-office-number EXTENSION-ATTRIBUTE ::= {
+  UniversalPhysicalDeliveryOfficeNumber
+  IDENTIFIED BY  30
+}
+
+UniversalPhysicalDeliveryOfficeNumber ::= UniversalPDSParameter
+
+extension-OR-address-components EXTENSION-ATTRIBUTE ::= {
+  ExtensionORAddressComponents
+  IDENTIFIED BY  12
+}
+
+ExtensionORAddressComponents ::= PDSParameter
+
+universal-extension-OR-address-components EXTENSION-ATTRIBUTE ::= {
+  UniversalExtensionORAddressComponents
+  IDENTIFIED BY  31
+}
+
+UniversalExtensionORAddressComponents ::= UniversalPDSParameter
+
+physical-delivery-personal-name EXTENSION-ATTRIBUTE ::= {
+  PhysicalDeliveryPersonalName
+  IDENTIFIED BY  13
+}
+
+PhysicalDeliveryPersonalName ::= PDSParameter
+
+universal-physical-delivery-personal-name EXTENSION-ATTRIBUTE ::= {
+  UniversalPhysicalDeliveryPersonalName
+  IDENTIFIED BY  32
+}
+
+UniversalPhysicalDeliveryPersonalName ::= UniversalPDSParameter
+
+physical-delivery-organization-name EXTENSION-ATTRIBUTE ::= {
+  PhysicalDeliveryOrganizationName
+  IDENTIFIED BY  14
+}
+
+PhysicalDeliveryOrganizationName ::= PDSParameter
+
+universal-physical-delivery-organization-name EXTENSION-ATTRIBUTE ::= 
+{UniversalPhysicalDeliveryOrganizationName
+ IDENTIFIED BY  33
+}
+
+UniversalPhysicalDeliveryOrganizationName ::= UniversalPDSParameter
+
+extension-physical-delivery-address-components EXTENSION-ATTRIBUTE ::= 
+{ExtensionPhysicalDeliveryAddressComponents
+ IDENTIFIED BY  15
+}
+
+ExtensionPhysicalDeliveryAddressComponents ::= PDSParameter
+
+universal-extension-physical-delivery-address-components EXTENSION-ATTRIBUTE
+  ::= {UniversalExtensionPhysicalDeliveryAddressComponents
+       IDENTIFIED BY  34
+}
+
+UniversalExtensionPhysicalDeliveryAddressComponents ::= UniversalPDSParameter
+
+unformatted-postal-address EXTENSION-ATTRIBUTE ::= {
+  UnformattedPostalAddress
+  IDENTIFIED BY  16
+}
+
+UnformattedPostalAddress ::= SET {
+  printable-address
+    SEQUENCE SIZE (1..ub-pds-physical-address-lines) OF
+      PrintableString(SIZE (1..ub-pds-parameter-length)) OPTIONAL,
+  teletex-string
+    TeletexString(SIZE (1..ub-unformatted-address-length)) OPTIONAL
+}
+
+universal-unformatted-postal-address EXTENSION-ATTRIBUTE ::= {
+  UniversalUnformattedPostalAddress
+  IDENTIFIED BY  35
+}
+
+UniversalUnformattedPostalAddress ::=
+  UniversalOrBMPString{ub-unformatted-address-length}
+
+street-address EXTENSION-ATTRIBUTE ::= {StreetAddress
+                                        IDENTIFIED BY  17
+}
+
+StreetAddress ::= PDSParameter
+
+universal-street-address EXTENSION-ATTRIBUTE ::= {
+  UniversalStreetAddress
+  IDENTIFIED BY  36
+}
+
+UniversalStreetAddress ::= UniversalPDSParameter
+
+post-office-box-address EXTENSION-ATTRIBUTE ::= {
+  PostOfficeBoxAddress
+  IDENTIFIED BY  18
+}
+
+PostOfficeBoxAddress ::= PDSParameter
+
+universal-post-office-box-address EXTENSION-ATTRIBUTE ::= {
+  UniversalPostOfficeBoxAddress
+  IDENTIFIED BY  37
+}
+
+UniversalPostOfficeBoxAddress ::= UniversalPDSParameter
+
+poste-restante-address EXTENSION-ATTRIBUTE ::= {
+  PosteRestanteAddress
+  IDENTIFIED BY  19
+}
+
+PosteRestanteAddress ::= PDSParameter
+
+universal-poste-restante-address EXTENSION-ATTRIBUTE ::= {
+  UniversalPosteRestanteAddress
+  IDENTIFIED BY  38
+}
+
+UniversalPosteRestanteAddress ::= UniversalPDSParameter
+
+unique-postal-name EXTENSION-ATTRIBUTE ::= {UniquePostalName
+                                            IDENTIFIED BY  20
+}
+
+UniquePostalName ::= PDSParameter
+
+universal-unique-postal-name EXTENSION-ATTRIBUTE ::= {
+  UniversalUniquePostalName
+  IDENTIFIED BY  39
+}
+
+UniversalUniquePostalName ::= UniversalPDSParameter
+
+local-postal-attributes EXTENSION-ATTRIBUTE ::= {
+  LocalPostalAttributes
+  IDENTIFIED BY  21
+}
+
+LocalPostalAttributes ::= PDSParameter
+
+universal-local-postal-attributes EXTENSION-ATTRIBUTE ::= {
+  UniversalLocalPostalAttributes
+  IDENTIFIED BY  40
+}
+
+UniversalLocalPostalAttributes ::= UniversalPDSParameter
+
+PDSParameter ::= SET {
+  printable-string  PrintableString(SIZE (1..ub-pds-parameter-length)) OPTIONAL,
+  teletex-string    TeletexString(SIZE (1..ub-pds-parameter-length)) OPTIONAL
+}
+
+UniversalPDSParameter ::= UniversalOrBMPString{ub-pds-parameter-length}
+
+extended-network-address EXTENSION-ATTRIBUTE ::= {
+  ExtendedNetworkAddress
+  IDENTIFIED BY  22
+}
+
+ExtendedNetworkAddress ::= CHOICE {
+  e163-4-address
+    SEQUENCE {number
+                [0]  NumericString(SIZE (1..ub-e163-4-number-length)),
+              sub-address
+                [1]  NumericString(SIZE (1..ub-e163-4-sub-address-length))
+                  OPTIONAL},
+  psap-address    [0]  PresentationAddress
+}
+
+terminal-type EXTENSION-ATTRIBUTE ::= {TerminalType
+                                       IDENTIFIED BY  23
+}
+
+TerminalType ::= INTEGER {
+  telex(3), teletex(4), g3-facsimile(5), g4-facsimile(6), ia5-terminal(7),
+  videotex(8)}(0..ub-integer-options)
+
+--	Extension Domain-defined Attributes
+teletex-domain-defined-attributes EXTENSION-ATTRIBUTE ::= {
+  TeletexDomainDefinedAttributes
+  IDENTIFIED BY  6
+}
+
+TeletexDomainDefinedAttributes ::=
+  SEQUENCE SIZE (1..ub-domain-defined-attributes) OF
+    TeletexDomainDefinedAttribute
+
+TeletexDomainDefinedAttribute ::= SEQUENCE {
+  type   TeletexString(SIZE (1..ub-domain-defined-attribute-type-length)),
+  value  TeletexString(SIZE (1..ub-domain-defined-attribute-value-length))
+}
+
+universal-domain-defined-attributes EXTENSION-ATTRIBUTE ::= {
+  UniversalDomainDefinedAttributes
+  IDENTIFIED BY  28
+}
+
+UniversalDomainDefinedAttributes ::=
+  SEQUENCE SIZE (1..ub-domain-defined-attributes) OF
+    UniversalDomainDefinedAttribute
+
+UniversalDomainDefinedAttribute ::= SEQUENCE {
+  type   UniversalOrBMPString{ub-domain-defined-attribute-type-length},
+  value  UniversalOrBMPString{ub-domain-defined-attribute-value-length}
+}
+
+--	Encoded Information Types
+EncodedInformationTypes ::= [APPLICATION 5]  SET {
+  built-in-encoded-information-types  [0]  BuiltInEncodedInformationTypes,
+  -- non-basic-parameters --COMPONENTS OF NonBasicParameters,
+  extended-encoded-information-types
+    [4]  ExtendedEncodedInformationTypes OPTIONAL
+}
+
+--	Built-in Encoded Information Types
+BuiltInEncodedInformationTypes ::= BIT STRING {
+  unknown(0), ia5-text(2), g3-facsimile(3), g4-class-1(4), teletex(5),
+  videotex(6), voice(7), sfd(8), mixed-mode(9)
+}(SIZE (0..ub-built-in-encoded-information-types))
+
+--	Extended Encoded Information Types
+ExtendedEncodedInformationTypes ::=
+  SET SIZE (1..ub-encoded-information-types) OF ExtendedEncodedInformationType
+
+ExtendedEncodedInformationType ::= OBJECT IDENTIFIER
+
+--	Non-basic Parameters
+NonBasicParameters ::= SET {
+  g3-facsimile  [1]  G3FacsimileNonBasicParameters DEFAULT {},
+  teletex       [2]  TeletexNonBasicParameters DEFAULT {}
+}
+
+G3FacsimileNonBasicParameters ::= BIT STRING {
+  two-dimensional(8), -- As defined in ITU-T Recommendation T.30
+  fine-resolution(9), --
+  unlimited-length(20), -- These bit values are chosen such that when
+  b4-length(21), -- encoded using ASN.1 Basic Encoding Rules
+  a3-width(22), -- the resulting octets have the same values
+  b4-width(23), -- as for T.30 encoding
+  t6-coding(25), --
+  uncompressed(30), -- Trailing zero bits are not significant.
+  width-middle-864-of-1728(37), -- It is recommended that implementations
+  width-middle-1216-of-1728(38), -- should not encode more than 32 bits unless
+  resolution-type(44), -- higher numbered bits are non-zero.
+  resolution-400x400(45), resolution-300x300(46), resolution-8x15(47), 
+  edi(49), dtm(50), bft(51), mixed-mode(58), character-mode(60),
+  twelve-bits(65), preferred-huffmann(66), full-colour(67), jpeg(68),
+  processable-mode-26(71)}
+
+TeletexNonBasicParameters ::= SET {
+  graphic-character-sets               [0]  TeletexString OPTIONAL,
+  control-character-sets               [1]  TeletexString OPTIONAL,
+  page-formats                         [2]  OCTET STRING OPTIONAL,
+  miscellaneous-terminal-capabilities  [3]  TeletexString OPTIONAL,
+  private-use
+    [4]  OCTET STRING
+      OPTIONAL -- maximum ub-teletex-private-use-length octets --
+}
+
+-- as defined in CCITT Recommendation T.62
+--	Token
+Token ::= SEQUENCE {
+  token-type-identifier  [0]  TOKEN.&id({TokensTable}),
+  token
+    [1]  TOKEN.&Type({TokensTable}{@token-type-identifier})
+}
+
+TOKEN ::= TYPE-IDENTIFIER
+
+TokensTable TOKEN ::= {asymmetric-token, ...}
+
+asymmetric-token TOKEN ::= {
+  AsymmetricToken
+  IDENTIFIED BY  id-tok-asymmetricToken
+}
+
+AsymmetricToken ::=
+  SIGNED
+    {SEQUENCE {signature-algorithm-identifier   AlgorithmIdentifier,
+               name
+                 CHOICE {recipient-name  RecipientName,
+                         mta
+                           [3]  SEQUENCE {global-domain-identifier
+                                            GlobalDomainIdentifier OPTIONAL,
+                                          mta-name                  MTAName
+                         }},
+               time                             Time,
+               signed-data                      [0]  TokenData OPTIONAL,
+               encryption-algorithm-identifier
+                 [1]  AlgorithmIdentifier OPTIONAL,
+               encrypted-data
+                 [2]  ENCRYPTED{TokenData} OPTIONAL}}
+
+TokenData ::= SEQUENCE {
+  type   [0]  TOKEN-DATA.&id({TokenDataTable}),
+  value  [1]  TOKEN-DATA.&Type({TokenDataTable}{@type})
+}
+
+TOKEN-DATA ::= CLASS {&id    INTEGER UNIQUE,
+                      &Type  
+}WITH SYNTAX {&Type
+              IDENTIFIED BY &id
+}
+
+TokenDataTable TOKEN-DATA ::=
+  {bind-token-signed-data | message-token-signed-data |
+   message-token-encrypted-data | bind-token-encrypted-data, ...}
+
+bind-token-signed-data TOKEN-DATA ::= {BindTokenSignedData
+                                       IDENTIFIED BY  1
+}
+
+BindTokenSignedData ::= RandomNumber
+
+RandomNumber ::= BIT STRING
+
+message-token-signed-data TOKEN-DATA ::= {
+  MessageTokenSignedData
+  IDENTIFIED BY  2
+}
+
+MessageTokenSignedData ::= SEQUENCE {
+  content-confidentiality-algorithm-identifier
+    [0]  ContentConfidentialityAlgorithmIdentifier OPTIONAL,
+  content-integrity-check
+    [1]  ContentIntegrityCheck OPTIONAL,
+  message-security-label
+    [2]  MessageSecurityLabel OPTIONAL,
+  proof-of-delivery-request
+    [3]  ProofOfDeliveryRequest OPTIONAL,
+  message-sequence-number                       [4]  INTEGER OPTIONAL
+}
+
+message-token-encrypted-data TOKEN-DATA ::= {
+  MessageTokenEncryptedData
+  IDENTIFIED BY  3
+}
+
+MessageTokenEncryptedData ::= SEQUENCE {
+  content-confidentiality-key  [0]  EncryptionKey OPTIONAL,
+  content-integrity-check      [1]  ContentIntegrityCheck OPTIONAL,
+  message-security-label       [2]  MessageSecurityLabel OPTIONAL,
+  content-integrity-key        [3]  EncryptionKey OPTIONAL,
+  message-sequence-number      [4]  INTEGER OPTIONAL
+}
+
+EncryptionKey ::= BIT STRING
+
+bind-token-encrypted-data TOKEN-DATA ::= {
+  BindTokenEncryptedData
+  IDENTIFIED BY  4
+}
+
+BindTokenEncryptedData ::= EXTERNAL
+
+--	Security Label
+SecurityLabel ::= SET {
+  security-policy-identifier  SecurityPolicyIdentifier OPTIONAL,
+  security-classification     SecurityClassification OPTIONAL,
+  privacy-mark                PrivacyMark OPTIONAL,
+  security-categories         SecurityCategories OPTIONAL
+}
+
+SecurityPolicyIdentifier ::= OBJECT IDENTIFIER
+
+SecurityClassification ::= INTEGER {
+  unmarked(0), unclassified(1), restricted(2), confidential(3), secret(4),
+  top-secret(5)}(0..ub-integer-options)
+
+PrivacyMark ::= PrintableString(SIZE (1..ub-privacy-mark-length))
+
+SecurityCategories ::= SET SIZE (1..ub-security-categories) OF SecurityCategory
+
+SecurityCategory ::= SEQUENCE {
+  type   [0]  SECURITY-CATEGORY.&id({SecurityCategoriesTable}),
+  value  [1]  SECURITY-CATEGORY.&Type({SecurityCategoriesTable}{@type})
+}
+
+SECURITY-CATEGORY ::= TYPE-IDENTIFIER
+
+SecurityCategoriesTable SECURITY-CATEGORY ::=
+  {...}
+
+END -- of MTSAbstractService
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2001</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>gb_trees</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">gb_trees</module>
+  <modulesummary>General balanced trees.</modulesummary>
+  <description>
+    <p>This module provides Prof. Arne Andersson's General
+      Balanced Trees. These have no storage overhead compared to
+      unbalanced binary trees, and their performance is
+      better than AVL trees.</p>
+
+    <p>This module considers two keys as different if and only if
+      they do not compare equal (<c>==</c>).</p>
+  </description>
+
+  <section>
+    <title>Data Structure</title>
+    <p>Trees and iterators are built using opaque data structures that should
+      not be pattern-matched from outside this module.</p>
+
+    <p>There is no attempt to balance trees after deletions. As
+      deletions do not increase the height of a tree, this should be OK.</p>
+
+    <p>The original balance condition <em>h(T) &lt;= ceil(c * log(|T|))</em>
+      has been changed to the similar (but not quite equivalent)
+      condition <em>2 ^ h(T) &lt;= |T| ^ c</em>. This should also be OK.</p>
+  </section>
+
+  <datatypes>
+    <datatype>
+      <name name="tree" n_vars="2"/>
+      <desc><p>A general balanced tree.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="tree" n_vars="0"/>
+    </datatype>
+    <datatype>
+      <name name="iter" n_vars="2"/>
+      <desc><p>A general balanced tree iterator.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="iter" n_vars="0"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="balance" arity="1" since=""/>
+      <fsummary>Rebalance a tree.</fsummary>
+      <desc>
+        <p>Rebalances <c><anno>Tree1</anno></c>. Notice that this is
+          rarely necessary,
+          but can be motivated when many nodes have been
+          deleted from the tree without further insertions. Rebalancing
+          can then be forced to minimize lookup times, as
+          deletion does not rebalance the tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <fsummary>Remove a node from a tree.</fsummary>
+      <desc>
+        <p>Removes the node with key <c><anno>Key</anno></c> from
+          <c><anno>Tree1</anno></c> and returns the new tree. Assumes that the
+          key is present in the tree, crashes otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_any" arity="2" since=""/>
+      <fsummary>Remove a (possibly non-existing) node from a tree.</fsummary>
+      <desc>
+        <p>Removes the node with key <c><anno>Key</anno></c> from
+          <c><anno>Tree1</anno></c> if
+          the key is present in the tree, otherwise does nothing.
+          Returns the new tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2" since="OTP 20.0"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
+      <desc>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
+          and new <c><anno>Tree2</anno></c> without the node with this value.
+          Assumes that the node with key is present in the tree,
+         crashes otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take_any" arity="2" since="OTP 20.0"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
+      <desc>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
+          and new <c><anno>Tree2</anno></c> without the node with this value.
+          Returns <c>error</c> if the node with the key is not present in
+          the tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="empty" arity="0" since=""/>
+      <fsummary>Return an empty tree.</fsummary>
+      <desc>
+        <p>Returns a new empty tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="enter" arity="3" since=""/>
+      <fsummary>Insert or update key with value in a tree.</fsummary>
+      <desc>
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c>
+          into <c><anno>Tree1</anno></c> if the key is not present in the tree,
+          otherwise updates <c><anno>Key</anno></c> to value
+          <c><anno>Value</anno></c> in <c><anno>Tree1</anno></c>. Returns the
+          new tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_orddict" arity="1" since=""/>
+      <fsummary>Make a tree from an orddict.</fsummary>
+      <desc>
+        <p>Turns an ordered list <c><anno>List</anno></c> of key-value tuples
+          into a tree. The list must not contain duplicate keys.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since=""/>
+      <fsummary>Look up a key in a tree, if present.</fsummary>
+      <desc>
+        <p>Retrieves the value stored with <c><anno>Key</anno></c> in
+          <c><anno>Tree</anno></c>.
+          Assumes that the key is present in the tree, crashes
+          otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="insert" arity="3" since=""/>
+      <fsummary>Insert a new key and value in a tree.</fsummary>
+      <desc>
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c>
+          into <c><anno>Tree1</anno></c> and
+          returns the new tree. Assumes that the key is not present in
+          the tree, crashes otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_defined" arity="2" since=""/>
+      <fsummary>Test for membership of a tree.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Key</anno></c> is present in
+          <c><anno>Tree</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_empty" arity="1" since=""/>
+      <fsummary>Test for empty tree.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Tree</anno></c> is an empty tree,
+          othwewise  <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator" arity="1" since=""/>
+      <fsummary>Return an iterator for a tree.</fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+          entries of <c><anno>Tree</anno></c>; see
+          <seealso marker="#next/1"><c>next/1</c></seealso>. The implementation
+          of this is very efficient; traversing the whole tree using
+          <c>next/1</c> is only slightly slower than getting the list
+          of all elements using
+          <seealso marker="#to_list/1"><c>to_list/1</c></seealso>
+          and traversing that.
+          The main advantage of the iterator approach is that it does
+          not require the complete list of all elements to be built in
+          memory at one time.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator_from" arity="2" since="OTP 18.0"/>
+      <fsummary>Return an iterator for a tree starting from a specified key.
+      </fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+          entries of <c><anno>Tree</anno></c>; see
+          <seealso marker="#next/1"><c>next/1</c></seealso>.
+          The difference as compared to the iterator returned by
+          <seealso marker="#iterator/1"><c>iterator/1</c></seealso>
+          is that the first key greater than
+          or equal to <c><anno>Key</anno></c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="keys" arity="1" since=""/>
+      <fsummary>Return a list of the keys in a tree.</fsummary>
+      <desc>
+        <p>Returns the keys in <c><anno>Tree</anno></c> as an ordered list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="largest" arity="1" since=""/>
+      <fsummary>Return largest key and value.</fsummary>
+      <desc>
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where
+          <c><anno>Key</anno></c> is the largest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Value</anno></c> is
+          the value associated
+          with this key. Assumes that the tree is not empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lookup" arity="2" since=""/>
+      <fsummary>Look up a key in a tree.</fsummary>
+      <desc>
+        <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>.
+          Returns <c>{value, <anno>Value</anno>}</c>, or <c>none</c> if
+          <c><anno>Key</anno></c> is not present.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since=""/>
+      <fsummary>Return largest key and value.</fsummary>
+      <desc>
+        <p>Maps function F(<anno>K</anno>, <anno>V1</anno>) -> <anno>V2</anno>
+          to all key-value pairs of tree <c><anno>Tree1</anno></c>. Returns a
+          new tree <c><anno>Tree2</anno></c> with the same set of keys as
+	  <c><anno>Tree1</anno></c> and the new set of values
+          <c><anno>V2</anno></c>.</p>
+         </desc>
+    </func>
+
+    <func>
+      <name name="next" arity="1" since=""/>
+      <fsummary>Traverse a tree with an iterator.</fsummary>
+      <desc>
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
+          <anno>Iter2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          smallest key referred to by iterator <c><anno>Iter1</anno></c>, and
+          <c><anno>Iter2</anno></c> is the new iterator to be used for
+          traversing the remaining nodes, or the atom <c>none</c> if no
+          nodes remain.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="size" arity="1" since=""/>
+      <fsummary>Return the number of nodes in a tree.</fsummary>
+      <desc>
+        <p>Returns the number of nodes in <c><anno>Tree</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="smallest" arity="1" since=""/>
+      <fsummary>Return smallest key and value.</fsummary>
+      <desc>
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where
+          <c><anno>Key</anno></c> is the smallest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Value</anno></c> is
+          the value associated
+          with this key. Assumes that the tree is not empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take_largest" arity="1" since=""/>
+      <fsummary>Extract largest key and value.</fsummary>
+      <desc>
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
+          <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          largest key in <c><anno>Tree1</anno></c>, <c><anno>Value</anno></c>
+          is the value associated with this key, and <c><anno>Tree2</anno></c>
+          is this tree with the corresponding node deleted. Assumes that the
+          tree is not empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take_smallest" arity="1" since=""/>
+      <fsummary>Extract smallest key and value.</fsummary>
+      <desc>
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
+          <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          smallest key in <c><anno>Tree1</anno></c>, <c><anno>Value</anno></c>
+          is the value associated with this key, and <c><anno>Tree2</anno></c>
+          is this tree with the corresponding node deleted. Assumes that the
+          tree is not empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_list" arity="1" since=""/>
+      <fsummary>Convert a tree into a list.</fsummary>
+      <desc>
+        <p>Converts a tree into an ordered list of key-value tuples.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update" arity="3" since=""/>
+      <fsummary>Update a key to new value in a tree.</fsummary>
+      <desc>
+        <p>Updates <c><anno>Key</anno></c> to value <c><anno>Value</anno></c>
+          in <c><anno>Tree1</anno></c> and
+          returns the new tree. Assumes that the key is present in the tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="values" arity="1" since=""/>
+      <fsummary>Return a list of the values in a tree.</fsummary>
+      <desc>
+        <p>Returns the values in <c><anno>Tree</anno></c> as an ordered list,
+          sorted by their corresponding keys. Duplicates are not removed.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="dict"><c>dict(3)</c></seealso>,
+      <seealso marker="gb_sets"><c>gb_sets(3)</c></seealso></p>
+  </section>
+</erlref>
+

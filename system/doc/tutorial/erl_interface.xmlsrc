@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Erl_Interface</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>erl_interface.xml</file>
+  </header>
+
+  <p>This section outlines an example of how to solve the example
+    problem in <seealso marker="example">Problem Example</seealso> by
+    using a port and Erl_Interface. It is necessary to read the port
+    example in <seealso marker="c_port">Ports</seealso> before reading
+    this section.</p>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>The following example shows an Erlang program communicating
+      with a C program over a plain port with home made encoding:</p>
+      <codeinclude file="complex1.erl" type="erl"/>
+    <p>There are two differences when using Erl_Interface on the C
+      side compared to the example in <seealso marker="c_port">
+      Ports</seealso>, using only the plain port:</p>
+    <list type="bulleted">
+       <item>As Erl_Interface operates on the Erlang external term format,
+       the port must be set to use binaries.</item>
+       <item>Instead of inventing an encoding/decoding scheme, the
+       <c>term_to_binary/1</c> and <c>binary_to_term/1</c> BIFs are to
+       be used.</item>
+     </list>
+    <p>That is:</p>
+    <pre>
+open_port({spawn, ExtPrg}, [{packet, 2}])</pre>
+    <p>is replaced with:</p>
+    <pre>
+open_port({spawn, ExtPrg}, [{packet, 2}, binary])</pre>
+    <p>And:</p>
+    <pre>
+Port ! {self(), {command, encode(Msg)}},
+receive
+  {Port, {data, Data}} ->
+    Caller ! {complex, decode(Data)}
+end</pre>
+    <p>is replaced with:</p>
+    <pre>
+Port ! {self(), {command, term_to_binary(Msg)}},
+receive
+  {Port, {data, Data}} ->
+    Caller ! {complex, binary_to_term(Data)}
+end</pre>
+    <p>The resulting Erlang program is as follows:</p>
+    <codeinclude file="complex2.erl" type="erl"/>
+    <p>Notice that calling <c>complex2:foo/1</c> and
+      <c>complex2:bar/1</c> results in the tuple <c>{foo,X}</c> or
+      <c>{bar,Y}</c> being sent to the <c>complex</c> process, which
+      codes them as binaries and sends them to the port. This means
+      that the C program must be able to handle these two tuples.</p>
+  </section>
+
+  <section>
+    <title>C Program</title>
+    <p>The following example shows a C program communicating with an
+      Erlang program over a plain port with home made encoding:</p>
+    <codeinclude file="port.c" type="c"/>
+    <p>Compared to the C program in <seealso marker="c_port">
+      Ports</seealso>, using only the plain port, the
+      <c>while</c>-loop must be rewritten. Messages coming from the
+      port is on the Erlang external term format. They must be
+      converted into an <c>ETERM</c> struct, which is a C struct
+      similar to an Erlang term. The result of calling <c>foo()</c> or
+      <c>bar()</c> must be converted to the Erlang external term
+      format before being sent back to the port. But before calling
+      any other Erl_Interface function, the memory handling must be
+      initiated:</p>
+    <pre>
+erl_init(NULL, 0);</pre>
+    <p>The following functions, <c>read_cmd()</c> and
+      <c>write_cmd()</c>, from the <c>erl_comm.c</c> example in
+      <seealso marker="c_port">Ports</seealso> can still be
+      used for reading from and writing to the port:
+    </p>
+    <codeinclude file="erl_comm.c" type="c"/>
+    <p>The function <c>erl_decode()</c> from <c>erl_marshal</c>
+      converts the binary into an <c>ETERM</c> struct:</p>
+    <pre>
+int main() {
+  ETERM *tuplep;
+
+  while (read_cmd(buf) > 0) {
+    tuplep = erl_decode(buf);</pre>
+    <p>Here, <c>tuplep</c> points to an <c>ETERM</c> struct
+      representing a tuple with two elements; the function name (atom)
+      and the argument (integer). Using the function
+      <c>erl_element()</c> from <c>erl_eterm</c>, these elements can
+      be extracted, but they must also be declared as pointers to an
+      <c>ETERM</c> struct:</p>
+    <pre>
+    fnp = erl_element(1, tuplep);
+    argp = erl_element(2, tuplep);</pre>
+    <p>The macros <c>ERL_ATOM_PTR</c> and <c>ERL_INT_VALUE</c> from
+      <c>erl_eterm</c> can be used to obtain the actual values of the
+      atom and the integer. The atom value is represented as a string.
+      By comparing this value with the strings "foo" and "bar", it can
+      be decided which function to call:</p>
+    <pre>
+    if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+      res = foo(ERL_INT_VALUE(argp));
+    } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+      res = bar(ERL_INT_VALUE(argp));
+    }</pre>
+    <p>Now an <c>ETERM</c> struct that represents the integer result
+      can be constructed using the function <c>erl_mk_int()</c> from
+      <c>erl_eterm</c>. The function
+      <c>erl_format()</c> from the module <c>erl_format</c> can also
+      be used:</p>
+    <pre>
+    intp = erl_mk_int(res);</pre>
+    <p>The resulting <c>ETERM</c> struct is converted into the Erlang
+      external term format using the function <c>erl_encode()</c> from
+      <c>erl_marshal</c> and sent to Erlang using
+      <c>write_cmd()</c>:</p>
+    <pre>
+    erl_encode(intp, buf);
+    write_cmd(buf, erl_eterm_len(intp));</pre>
+    <p>Finally, the memory allocated by the <c>ETERM</c> creating
+      functions must be freed:</p>
+    <pre>
+    erl_free_compound(tuplep);
+    erl_free_term(fnp);
+    erl_free_term(argp);
+    erl_free_term(intp);</pre>
+    <p>The resulting C program is as follows:</p>
+    <codeinclude file="ei.c" type="c"/>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p><em>Step 1.</em> Compile the C code. This provides the paths to
+      the include files <c>erl_interface.h</c> and <c>ei.h</c>, and
+      also to the libraries <c>erl_interface</c> and <c>ei</c>:</p>
+    <pre>
+unix> <input>gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \\ </input>
+<input>      -L/usr/local/otp/lib/erl_interface-3.9.2/lib \\ </input>
+<input>      complex.c erl_comm.c ei.c -lerl_interface -lei -lpthread</input></pre>
+    <p>In Erlang/OTP R5B and later versions of OTP, the <c>include</c>
+      and <c>lib</c> directories are situated under
+      <c>OTPROOT/lib/erl_interface-VSN</c>, where <c>OTPROOT</c> is
+      the root directory of the OTP installation
+      (<c>/usr/local/otp</c> in the recent example) and <c>VSN</c> is
+      the version of the Erl_interface application (3.2.1 in the
+      recent example).</p>
+    <p>In R4B and earlier versions of OTP, <c>include</c> and <c>lib</c>
+      are situated under <c>OTPROOT/usr</c>.</p>
+    <p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p>
+    <pre>
+unix> <input>erl</input>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1> <input>c(complex2).</input>
+{ok,complex2}</pre>
+    <p><em>Step 3.</em> Run the example:</p>
+    <pre>
+2> <input>complex2:start("./extprg").</input>
+&lt;0.34.0>
+3> <input>complex2:foo(3).</input>
+4
+4> <input>complex2:bar(5).</input>
+10
+5> <input>complex2:bar(352).</input>
+704
+6> <input>complex2:stop().</input>
+stop</pre>
+  </section>
+</chapter>
+

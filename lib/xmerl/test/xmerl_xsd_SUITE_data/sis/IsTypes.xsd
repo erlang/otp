@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ericsson.com/is/isco/IsTypes" xmlns="http://www.ericsson.com/is/isco/IsTypes" xmlns:nc="http://www.ericsson.com/is/isco/nc">
+  <xsd:annotation>
+    <xsd:appinfo>
+      <mim file="types_mim.xml" version=""/>
+    </xsd:appinfo>
+  </xsd:annotation>
+  <xsd:import schemaLocation="nc.xsd" namespace="http://www.ericsson.com/is/isco/nc"/>
+  <xsd:complexType name="IpAddress">
+    <xsd:annotation>
+      <xsd:documentation>
+        An IPv4 address 
+        in the form v1.v2.v3.v4 where v1 ... v4 is a
+        decimal number in the range 0 to 255.
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType0">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="MacAddress">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType1">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:simpleType name="ccsHelperType1">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:pattern value="[A-F0-9][A-F0-9]?:[A-F0-9][A-F0-9]?:[A-F0-9][A-F0-9]?:[A-F0-9][A-F0-9]?:[A-F0-9][A-F0-9]?:[A-F0-9][A-F0-9]?"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType0">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:pattern value="(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

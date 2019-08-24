@@ -1,0 +1,246 @@
+Test2 DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    TimeTicks, Counter32, snmpModules, mib-2, enterprises, IpAddress,
+    Integer32, OBJECT-IDENTITY
+        FROM SNMPv2-SMI
+    DisplayString, TestAndIncr, TimeStamp, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+snmpMIB MODULE-IDENTITY
+    LAST-UPDATED "9511090000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib, used to test processing of requests."
+    ::= { snmpModules 1 }
+
+
+test2   OBJECT IDENTIFIER ::= { mib-2 16 }
+test3   OBJECT IDENTIFIER ::= { mib-2 17 }
+
+xDescr OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	"Outside mibview"
+    ::= { test3 1 }
+
+xDescr2 OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test3 2 }
+
+
+tDescr OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	"Outside mibview"
+    ::= { test2 1 }
+
+tDescr2 OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 2 }
+
+tDescr3 OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 3 }
+
+tDescr4 OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 4 }
+
+tTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TEntry
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The (conceptual) table listing the capabilities of the
+            local SNMPv2 entity acting in an agent role with respect to
+            various MIB modules.  SNMPv2 entities having dynamically-
+            configurable support of MIB modules will have a
+            dynamically-varying number of conceptual rows."
+    ::= { test2 5 }
+
+tEntry OBJECT-TYPE
+    SYNTAX     TEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { tIndex }
+    ::= { tTable 1 }
+
+TEntry ::= SEQUENCE {
+    tIndex      DisplayString,
+    tDescrX     DisplayString,
+    tCnt        Counter32
+}
+
+tIndex OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { tEntry 1 }
+
+tDescrX OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { tEntry 2 }
+
+tCnt OBJECT-TYPE
+    SYNTAX     Counter32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { tEntry 3 }
+
+testErr OBJECT-IDENTITY
+       STATUS     current
+       DESCRIPTION
+               ""
+       ::= { test2 6 }
+
+tTooBig OBJECT-TYPE
+    SYNTAX     OCTET STRING
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+            "This object will generate a tooBig error"
+    ::= { testErr 1 }
+
+tGenErr1 OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "This object will generate a genErr error"
+    ::= { testErr 2 }
+
+tGenErr2 OBJECT-TYPE
+    SYNTAX     INTEGER
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "This object will generate a genErr error"
+    ::= { testErr 3 }
+
+tGenErr3 OBJECT-TYPE
+    SYNTAX     INTEGER
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "This object will generate a genErr error"
+    ::= { testErr 4 }
+
+tStr OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (1..4))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 7 }
+
+tInt1 OBJECT-TYPE
+    SYNTAX      INTEGER (1..4)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 8 }
+
+tInt2 OBJECT-TYPE
+    SYNTAX      INTEGER { v1(1), v2(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 9 }
+
+tInt3 OBJECT-TYPE
+    SYNTAX      INTEGER (1..7)  -- (1..4 | 6..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test2 10 }
+
+
+tTable2 OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TEntry2
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The (conceptual) table listing the capabilities of the
+            local SNMPv2 entity acting in an agent role with respect to
+            various MIB modules.  SNMPv2 entities having dynamically-
+            configurable support of MIB modules will have a
+            dynamically-varying number of conceptual rows."
+    ::= { snmpModules 99 }
+
+tEntry2 OBJECT-TYPE
+    SYNTAX     TEntry2
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { tIndex2 }
+    ::= { tTable2 1 }
+
+TEntry2 ::= SEQUENCE {
+    tIndex2      DisplayString,
+    tCnt2        Counter32
+}
+
+tIndex2 OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { tEntry2 1 }
+
+tCnt2 OBJECT-TYPE
+    SYNTAX     Counter32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { tEntry2 2 }
+
+
+END

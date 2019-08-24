@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Port Drivers</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>c_portdriver.xml</file>
+  </header>
+  <p>This section outlines an example of how to solve the example problem
+    in <seealso marker="example">Problem Example</seealso>
+    by using a linked-in port driver.</p>
+  <p>A port driver is a linked-in driver that is accessible as a port
+    from an Erlang program. It is a shared library (SO in UNIX, DLL in
+    Windows), with special entry points. The Erlang runtime system
+    calls these entry points when the driver is started and when data
+    is sent to the port. The port driver can also send data to
+    Erlang.</p>
+  <p>As a port driver is dynamically linked into the emulator process,
+    this is the fastest way of calling C-code from Erlang. Calling
+    functions in the port driver requires no context switches. But it
+    is also the least safe way, because a crash in the port driver
+    brings the emulator down too.</p>
+  <p>The scenario is illustrated in the following figure:</p>
+  <image file="../tutorial/port_driver.gif">
+    <icaption>Port Driver Communication</icaption>
+  </image>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>Like a port program, the port communicates with an Erlang
+      process. All communication goes through one Erlang process that
+      is the <em>connected process</em> of the port
+      driver. Terminating this process closes the port driver.</p>
+    <p>Before the port is created, the driver must be loaded. This is
+      done with the function <c>erl_dll:load_driver/1</c>, with the
+      name of the shared library as argument.</p>
+    <p>The port is then created using the BIF <c>open_port/2</c>, with
+      the tuple <c>{spawn, DriverName}</c> as the first argument. The
+      string <c>SharedLib</c> is the name of the port driver. The second
+      argument is a list of options, none in this case:</p>
+    <pre>
+-module(complex5).
+-export([start/1, init/1]).
+
+start(SharedLib) ->
+    case erl_ddll:load_driver(".", SharedLib) of
+        ok -> ok;
+        {error, already_loaded} -> ok;
+        _ -> exit({error, could_not_load_driver})
+    end,
+    spawn(?MODULE, init, [SharedLib]).
+
+init(SharedLib) ->
+  register(complex, self()),
+  Port = open_port({spawn, SharedLib}, []),
+  loop(Port).</pre>
+    <p>Now <c>complex5:foo/1</c> and <c>complex5:bar/1</c>
+      can be implemented. Both send a message to the
+      <c>complex</c> process and receive the following reply:</p>
+    <pre>
+foo(X) ->
+    call_port({foo, X}).
+bar(Y) ->
+    call_port({bar, Y}).
+
+call_port(Msg) ->
+    complex ! {call, self(), Msg},
+    receive
+        {complex, Result} ->
+            Result
+    end.</pre>
+    <p>The <c>complex</c> process performs the following:</p>
+    <list type="bulleted">
+       <item>Encodes the message into a sequence of bytes.</item>
+       <item>Sends it to the port.</item>
+       <item>Waits for a reply.</item>
+       <item>Decodes the reply.</item>
+       <item>Sends it back to the caller:</item>
+     </list>
+    <pre>
+loop(Port) ->
+    receive
+        {call, Caller, Msg} ->
+            Port ! {self(), {command, encode(Msg)}},
+            receive
+                {Port, {data, Data}} ->
+                    Caller ! {complex, decode(Data)}
+            end,
+            loop(Port)
+    end.</pre>
+    <p>Assuming that both the arguments and the results from the C
+      functions are less than 256, a simple encoding/decoding scheme
+      is employed. In this scheme, <c>foo</c> is represented by byte
+      1, <c>bar</c> is represented by 2, and the argument/result is
+      represented by a single byte as well:</p>
+    <pre>
+encode({foo, X}) -> [1, X];
+encode({bar, Y}) -> [2, Y].
+
+decode([Int]) -> Int.</pre>
+    <p>The resulting Erlang program, including functions for stopping
+      the port and detecting port failures, is as follows:</p>
+      <codeinclude file="complex5.erl" type="erl"/>
+  </section>
+
+  <section>
+    <title>C Driver</title>
+    <p>The C driver is a module that is compiled and linked into a
+      shared library. It uses a driver structure and includes the
+      header file <c>erl_driver.h</c>.</p>
+    <p>The driver structure is filled with the driver name and function
+      pointers. It is returned from the special entry point, declared
+      with the macro <c><![CDATA[DRIVER_INIT(<driver_name>)]]></c>.</p>
+    <p>The functions for receiving and sending data are combined into
+      a function, pointed out by the driver structure. The data sent
+      into the port is given as arguments, and the replied data is sent
+      with the C-function <c>driver_output</c>.</p>
+    <p>As the driver is a shared module, not a program, no main
+      function is present. All function pointers are not used
+      in this example, and the corresponding fields in the
+      <c>driver_entry</c> structure are set to NULL.</p>
+    <p>All functions in the driver takes a handle (returned from
+      <c>start</c>) that is just passed along by the Erlang
+      process. This must in some way refer to the port driver
+      instance.</p>
+    <p>The <c>example_drv_start</c>, is the only function that is called with
+      a handle to the port instance, so this must be saved. It is
+      customary to use an allocated driver-defined structure for this
+      one, and to pass a pointer back as a reference.</p>
+    <p>It is not a good idea to use a global variable as the port
+      driver can be spawned by multiple Erlang processes. This
+      driver-structure is to be instantiated multiple times:
+      </p>
+    <codeinclude file="port_driver.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p><em>Step 1.</em> Compile the C code:</p>
+    <pre>
+unix> <input>gcc -o example_drv.so -fpic -shared complex.c port_driver.c</input>
+windows> <input>cl -LD -MD -Fe example_drv.dll complex.c port_driver.c</input></pre>
+    <p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p>
+    <pre>
+> <input>erl</input>
+Erlang (BEAM) emulator version 5.1
+
+Eshell V5.1 (abort with ^G)
+1> <input>c(complex5).</input>
+{ok,complex5}</pre>
+    <p><em>Step 3.</em> Run the example:</p>
+    <pre>
+2> <input>complex5:start("example_drv").</input>
+&lt;0.34.0>
+3> <input>complex5:foo(3).</input>
+4
+4> <input>complex5:bar(5).</input>
+10
+5> <input>complex5:stop().</input>
+stop</pre>
+  </section>
+</chapter>
+

@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Testing and tools</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_debug.xml</file>
+  </header>
+
+  <section>
+    <title>Tracing</title>
+    <p>We have instrumented our code in order to enable
+      tracing. Running the application with tracing deactivated,
+      causes a negligible performance overhead (an external call to a
+      function which returns an atom). Activation of tracing does not
+      require any recompilation of the code, since we rely on
+      Erlang/OTP's built in support for dynamic trace activation. In
+      our case tracing of calls to a given external function.</p>
+    <p>Event traces can be viewed in a generic message sequence chart
+      tool, <c>et</c>, or as standard output (events are written to stdio). </p>
+    <p>See <seealso marker="megaco#enable_trace">enable_trace</seealso>, 
+      <seealso marker="megaco#disable_trace">disable_trace</seealso> and
+      <seealso marker="megaco#set_trace">set_trace</seealso> for
+      more info. </p>
+  </section>
+
+  <section>
+    <title>Measurement and transformation</title>
+    <p>We have included some simple tool(s) for codec measurement (meas),
+      performance tests (mstone1 and mstone2) and message transformation.</p>
+    <p>The tool(s) are located in the example/meas directory.</p>
+
+    <section>
+      <title>Requirement</title>
+      <list type="bulleted">
+        <item>
+          <p>Erlang/OTP, version R13B01 or later.</p>
+        </item>
+        <item>
+          <p>Version 3.11 or later of <em>this</em> application.</p>
+        </item>
+        <item>
+          <p>Version 1.6.10 or later of the <em>asn1</em> application. </p>
+        </item>
+        <item>
+          <p>The flex libraries. Without it, the flex powered codecs cannot 
+            be used.</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Meas results</title>
+      <p>The results from the measurement run (meas) is four 
+        excel-compatible textfiles: </p>
+      <list type="bulleted">
+        <item>
+          <p>decode_time.xls  -&gt; Decoding result</p>
+        </item>
+        <item>
+          <p>encode_time.xls  -&gt; Encoding result</p>
+        </item>
+        <item>
+          <p>total_time.xls   -&gt; Total (Decoding+encoding) result</p>
+        </item>
+        <item>
+          <p>message_size.xls -&gt; Message size</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Instruction</title>
+      <p>The tool contain four things:
+        </p>
+      <list type="bulleted">
+        <item>
+          <p>The transformation module</p>
+        </item>
+        <item>
+          <p>The measurement (meas) module(s)</p>
+        </item>
+        <item>
+          <p>The mstone (mstone1 and mstone2) module(s)</p>
+        </item>
+        <item>
+          <p>The basic message file</p>
+        </item>
+      </list>
+
+      <section>
+        <title>Message Transformation</title>
+        <p>The messages used by the different tools are contained in 
+          single message package file (see below for more info). The messages
+          in this file is encoded with just one codec. During 
+          measurement initiation, the messages are read and then transformed to all
+          codec formats used in the measurement. </p>
+        <p>The message transformation is done by the transformation module.
+          It is used to transform a set of messages encoded with one codec 
+          into the other base codec's.</p>
+      </section>
+
+      <section>
+        <title>Measurement(s)</title>
+        <p>There are two different measurement tools: </p>
+        <list type="bulleted">
+          <item>
+            <p><em>meas</em>: </p>
+            <p>Used to perform codec measurements. That is, to see what 
+              kind of performance can be expected by the different codecs 
+              provided by the megaco application. </p>
+            <p>The measurement is done by iterating over the decode/encode 
+              function for approx 2 seconds per message and counting 
+              the number of decodes/encodes.</p>
+            <p>Is best run by modifying the meas.sh.skel skeleton script
+              provided by the tool.</p>
+            <p>To run it manually do the following: </p>
+              <code type="none"><![CDATA[
+        % erl -pa <path-megaco-ebin-dir> -pa <path-to-meas-module-dir>
+        Erlang (BEAM) emulator version 5.6 [source]
+
+        Eshell V5.7.1  (abort with ^G)
+        1> megaco_codec_meas:start().
+        ...
+        2> halt().
+        ]]></code>
+            <p>or to make it even easier, assuming a measure shall be 
+              done on all the codecs (as above):</p>
+              <code type="none"><![CDATA[
+        % erl -noshell -pa <path-megaco-ebin-dir> \\
+              -pa <path-to-meas-module-dir> \\
+              -s megaco_codec_meas -s init stop
+        ]]></code>
+            <p>When run as above (this will take some time), the measurement 
+              process is done as follows:</p>
+        <pre>
+For each codec:
+    For each message:
+        Read the message from the file
+            Detect message version
+            Measure decode
+                Measure encode
+          Write results, encode, decode and total, to file
+        </pre>
+          </item>
+
+          <item>
+            <p><em>mstone1 and mstone2</em>: </p>
+            <p>These are two different SMP performance monitoring tool(s). </p>
+            <p><em>mstone1</em> creates a process for each codec config supported by 
+              the megaco application and let them run for a specific 
+              time (all at the same time), encoding and decoding 
+              megaco messages. The number of messages processed in total 
+              is the mstone1(1) value. </p>
+            <p>There are different ways to run the mstone1 tool, e.g. with or without 
+              the use of drivers, with <em>only</em> flex-empowered configs. </p>
+            <p>Is best run by modifying the mstone1.sh.skel skeleton script
+              provided by the tool.</p>
+            <p>The <em>mstone2</em> is similar to the <em>mstone1</em> tool,
+              but in this case, each created process makes only <em>one</em> run 
+              through the messages and then exits. A soon as a process exits,
+              a new process (with the same config and messages) is created to takes 
+              its place. 
+              The number of messages processed in total 
+              is the mstone2(1) value. </p>
+          </item>
+        </list>
+
+        <p>Both these tools use the message package (time_test.msgs) provided
+          with the tool(s), although it can run on any message package as long as
+          it has the same structure. </p>
+      </section>
+
+      <section>
+        <title>Message package file</title>
+        <p>This is simply an erlang compatible text-file with the following 
+          structure: <c>{codec_name(), messages_list()}</c>. </p>
+
+<pre>
+codec_name() = pretty | compact | ber | per | erlang      (how the messages are encoded)
+messages_list() = [{message_name(), message()}]
+message_name() = atom()
+message() = binary()
+</pre>
+
+        <p>The codec name is the name of the codec with which all messages in
+          the <c>message_list()</c> has been encoded. </p>
+
+        <p>This file can be <c>exported</c> to a file structure by calling the 
+          <seealso marker="megaco_codec_transform#export_messages">export_messages</seealso>
+          function. This can be usefull if a measurement shall be done with
+          an external tool. Exporting the messages creates a directory tree 
+          with the following structure:
+          </p>
+        <code type="none"><![CDATA[
+<message package>/pretty/<message-files>
+                  compact/
+                  per/
+                  ber/<message-files>
+                  erlang/
+        ]]></code>
+        <p>The file includes both version 1, 2 and version 3 messages.</p>
+      </section>
+    </section>
+
+    <section>
+      <title>Notes</title>
+
+      <section>
+        <title>Binary codecs</title>
+        <p>There are two basic ways to use the binary encodings: 
+          With package related name and termination id transformation
+          (the 'native' encoding config) or without. This transformation 
+          converts package related names and termination id's to a more 
+          convenient internal form (equivalent with the decoded text message).</p>
+        <p>The transformation is done _after_ the actual decode has been 
+          done.</p>
+        <p>Furthermore, it is possible to make use of a linked in driver that 
+          performs some of the decode/encode, decode for ber and encode for per 
+          (the 'driver' encoding config).</p>
+        <p>Therefor in the tests, binary codecs are tested with four 
+          different encoding configs to determine exactly how the
+          different options effect the performance: with transformation and 
+          without driver ([]), without transformation and without driver 
+          ([native]), with transformation and with driver ([driver]) and 
+          finally without transformation and with driver ([driver,native]).</p>
+      </section>
+
+      <section>
+        <title>Included test messages</title>
+        <p>Some of these messages are ripped from the call flow examples 
+          in an old version of the RFC and others are created to test
+          a specific feature of megaco. </p>
+      </section>
+
+      <section>
+        <title>Measurement tool directory name</title>
+        <p>Be sure <em>not</em> no name the directory containing the measurement
+          binaries starting with 'megaco-', e.g. megaco-meas. This will
+          confuse the erlang application loader (erlang applications
+          are named, e.g. megaco-1.0.2).</p>
+      </section>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,111 @@
+#!/usr/bin/env perl
+
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2018. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+
+#
+# Replaces runtime_dependencies pointing to future not yet
+# resolved versions in the maint and master branches while under
+# development. Such dependencies may exist in .app files on the
+# form (<app name>-@<ticket>(:<ticket>)*@) and will be replaced
+# with the current version of the application in the source tree.
+# This in order not to break tests looking at runtime_dependencies.
+#
+
+use strict;
+use File::Basename;
+
+my $usage_text = <<"HERE";
+  usage: $0 <ERL_TOP>
+HERE
+
+my %app_vsn;
+my $exit_status = 0;
+
+@ARGV == 1 or die $usage_text;
+my $erl_top = shift @ARGV;
+
+chdir $erl_top or die "Failed to change directory into '$erl_top'";
+
+print "Fixing up development runtime dependencies\n";
+
+#
+# Determine versions of all applications in the source tree...
+#
+foreach my $vsn_mk (<lib/*/vsn.mk>, <erts/vsn.mk>) {
+    my $app_dir = dirname($vsn_mk);
+    my $app = basename($app_dir);
+
+    if (!open(VSN, $vsn_mk)) {
+        $exit_status = 1;
+        print STDERR "ERROR: Failed to open '$vsn_mk' for reading: $!\n";
+    }
+    else {
+	my $vsn = '';
+	while (<VSN>) {
+	    if (/VSN\s*=\s*(\S+)/) {
+		$vsn = $1;
+		last;
+	    }
+	}
+	close VSN;
+        if (!$vsn) {
+            $exit_status = 1;
+            print STDERR "ERROR: No version found in '$vsn_mk'\n"
+        }
+        else {
+            $app_vsn{$app} = "$app-$vsn";
+        }
+    }
+}
+
+my $valid_apps = join('|', keys %app_vsn);
+
+#
+# Replace all <app name>-@<ticket>(:<ticket>)*@ versions
+# in all *.app files with the versions currently used...
+#
+foreach my $app_file (<lib/*/ebin/*.app>, <erts/preloaded/ebin/erts.app>) {
+    if (!open(IN, "<", $app_file)) {
+        $exit_status = 1;
+        print STDERR "ERROR: Failed to open '$app_file' for reading: $!";
+    }
+    else {
+        local $/;
+        my $file = <IN>;
+        close IN;
+        my $old_file = $file;
+
+        $file =~ s/($valid_apps)-\@OTP-\d{4,5}(?::OTP-\d{4,5})*\@/$app_vsn{$1}/g;
+
+        if ($file ne $old_file) {
+            if (!open(OUT, ">", $app_file)) {
+                $exit_status = 1;
+                print STDERR "ERROR: Failed to open '$app_file' for writing: $!";
+            }
+            else {
+                print OUT $file;
+                close OUT;
+            }
+        }
+    }
+}
+
+exit $exit_status;

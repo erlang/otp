@@ -1,0 +1,20 @@
+>Submitter-Id:   <Your id>
+>Originator:     <Your name>
+>Organization:   <The name of your company>
+>Confidential:   <[yes | no ] (one line)> 
+>Synopsis:       <synopsis of the problem (one line)>
+>Severity:       < [non-critical | serious | critical ] (one line)>
+>Priority:       < [ low | medium | high ] (one line)>
+>Category:       <product, component or concept name>
+>Class:          < [ sw-bug | doc-bug | change-request | support ] (one line)>
+>Release:        <Release version, e.g. OTP %SYSTEM_VSN%, Erlang %VSN%>
+>Environment:	 
+        <machine, os, target, libraries (multiple lines)>
+>Description:
+        <precise description of the problem (multiple lines)>
+>How-To-Repeat:
+        <code/input/activities to reproduce the problem (multiple lines)
+>Fix:	
+        <How to correct or work around the problem, if known
+	 (multiple lines)>
+

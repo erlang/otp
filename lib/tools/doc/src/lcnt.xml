@@ -1,0 +1,534 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+    <header>
+	<copyright>
+	    <year>2009</year>
+	    <year>2018</year>
+	    <holder>Ericsson AB, All Rights Reserved</holder>
+	</copyright>
+	<legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+      The Initial Developer of the Original Code is Ericsson AB.
+	</legalnotice>
+
+	<title>lcnt</title>
+	<prepared>Björn-Egil Dahlberg</prepared>
+	<responsible>nobody</responsible>
+	<docno></docno>
+	<approved>nobody</approved>
+	<checked></checked>
+	<date>2009-11-26</date>
+	<rev>PA1</rev>
+	<file>lcnt.xml</file>
+    </header>
+    <module since="OTP R13B04">lcnt</module>
+    <modulesummary>A runtime system Lock Profiling tool.</modulesummary>
+    <description>
+	<p>The <c>lcnt</c> module is used to profile the internal ethread locks in the
+	    Erlang Runtime System. With <c>lcnt</c> enabled, internal counters in the
+	    runtime system are updated each time a lock is taken. The counters stores
+	    information about the number of acquisition tries and the number of collisions
+	    that has occurred during the acquisition tries. The counters also record the
+	    waiting time a lock has caused for a blocked thread when a collision has occurred.
+	</p>
+	<p>
+	    The data produced by the lock counters will give an estimate on how well
+	    the runtime system will behave from a parallelizable view point for the
+	    scenarios tested. This tool was mainly developed to help Erlang runtime
+	    developers iron out potential and generic bottlenecks.
+	</p>
+	<p>Locks in the emulator are named after what type of resource they protect and where
+	    in the emulator they are initialized, those are lock 'classes'. Most of those
+	    locks are also instantiated several times, and given unique identifiers, to increase
+	    locking granularity. Typically an instantiated lock protects a disjunct set of
+	    the resource, for example ets tables, processes or ports. In other cases it protects a
+	    specific range of a resource, for example <c>pix_lock</c> which protects index to process
+	    mappings, and is given a unique number within the class. A unique lock in <c>lcnt</c>
+	    is referenced by a name (class) and an identifier: <c>{Name, Id}</c>.
+	</p>
+	<p>Some locks in the system are static and protects global resources, for example
+	    <c>bif_timers</c> and the <c>run_queue</c> locks. Other locks are dynamic and not
+	    necessarily long lived, for example process locks and ets-table locks. The
+	    statistics data from short lived locks can be stored separately when the locks
+	    are deleted. This behavior is by default turned off to save memory but can be
+	    turned on via <c>lcnt:rt_opt({copy_save, true})</c>. The <c>lcnt:apply/1,2,3</c>
+	    functions enables this behavior during profiling.
+	</p>
+    </description>
+    <funcs>
+
+	<func>
+	    <name since="OTP R13B04">start() -> {ok, Pid} | {error, {already_started, Pid}} </name>
+	    <fsummary>Starts the lock profiler server.</fsummary>
+	    <type>
+		<v>Pid = pid()</v>
+	    </type>
+	    <desc>
+		<p>Starts the lock profiler server. The server only act as a medium for the
+		    user and performs filtering and printing of data collected by <c>lcnt:collect/1</c>.
+		</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">stop() -> ok</name>
+	    <fsummary>Stops the lock profiler server.</fsummary>
+	    <desc>
+		<p>Stops the lock profiler server.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">collect() -> ok</name>
+	    <fsummary>Same as <c>collect(node())</c>.</fsummary>
+	    <desc><p>Same as <c>collect(node())</c>.</p></desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">collect(Node) -> ok</name>
+	    <fsummary>Collects lock statistics from the runtime system.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+	    </type>
+	    <desc>
+		<p>Collects lock statistics from the runtime system. The function starts a
+		    server if it is not already started. It then populates the server with lock
+		    statistics. If the server held any lock statistics data before the collect then
+		    that data is lost.
+		</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">clear() -> ok</name>
+	    <fsummary>Same as <c>clear(node())</c>.</fsummary>
+	    <desc><p>Same as <c>clear(node())</c>.</p></desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">clear(Node) -> ok</name>
+	    <fsummary>Clears the internal lock statistics from runtime system.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+	    </type>
+	    <desc>
+		<p>Clears the internal lock statistics from the runtime system. This does not clear the
+		    data on the server only on runtime system. All counters for static locks are zeroed,
+		    all dynamic locks currently alive are zeroed and all saved locks now destroyed are removed.
+		    It also resets the duration timer.
+		</p>
+	    </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">conflicts() -> ok</name>
+	    <fsummary>Same as <c>conflicts([])</c>.</fsummary>
+	    <desc><p>Same as <c>conflicts([])</c>.</p></desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">conflicts([Option]) -> ok</name>
+	    <fsummary>Prints a list of internal lock counters.</fsummary>
+	    <type>
+		<v>Option     = {sort, Sort} | {reverse, bool()} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</v>
+		<v>Sort       = name | id | type | tries | colls | ratio | time | entry</v>
+		<v>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</v>
+		<v>Print      = name | id | type | entry | tries | colls | ratio | time | duration</v>
+		<v>MaxLocks   = integer() | none</v>
+	    </type>
+	    <desc>
+		<p>Prints a list of internal locks and its statistics.</p>
+		<p>For option description, see <seealso marker="#inspect/2">lcnt:inspect/2</seealso>.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">locations() -> ok</name>
+	    <fsummary>Same as <c>locations([])</c>.</fsummary>
+	    <desc>
+		<p>Same as <c>locations([])</c>.</p>
+	    </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">locations([Option]) -> ok</name>
+	    <fsummary>Prints a list of internal lock counters by source code locations.</fsummary>
+	    <type>
+		<v>Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</v>
+		<v>Sort       = name | id | type | tries | colls | ratio | time | entry</v>
+		<v>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</v>
+		<v>Print      = name | id | type | entry | tries | colls | ratio | time | duration</v>
+		<v>MaxLocks   = integer() | none</v>
+	    </type>
+	    <desc>
+		<p>Prints a list of internal lock counters by source code locations.</p>
+		<p>For option description, see <seealso marker="#inspect/2">lcnt:inspect/2</seealso>.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">inspect(Lock) -> ok</name>
+	    <fsummary>Same as <c>inspect(Lock, [])</c>.</fsummary>
+	    <desc><p>Same as <c>inspect(Lock, [])</c>.</p></desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">inspect(Lock, [Option]) -> ok</name>
+	    <fsummary>Prints a list of internal lock counters for a specific lock.</fsummary>
+	    <type>
+		<v>Lock       = Name | {Name, Id | [Id]}</v>
+		<v>Name       = atom() | pid() | port()</v>
+		<v>Id         = atom() | integer() | pid() | port()</v>
+		<v>Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()} | {locations, bool()}</v>
+		<v>Sort       = name | id | type | tries | colls | ratio | time</v>
+		<v>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</v>
+		<v>Print      = name | id | type | entry | tries | colls | ratio | time | duration</v>
+		<v>MaxLocks   = integer() | none</v>
+	    </type>
+	    <desc>
+		<p>Prints a list of internal lock counters for a specific lock.</p>
+		<p>Lock <c>Name</c> and <c>Id</c> for ports and processes are interchangeable with the use of <c>lcnt:swap_pid_keys/0</c> and is the reason why <c>pid()</c> and <c>port()</c> options can be used in both <c>Name</c> and <c>Id</c> space. Both pids and ports are special identifiers with stripped creation and can be recreated with <seealso marker="#pid/3">lcnt:pid/2,3</seealso> and <seealso marker="#port/2">lcnt:port/1,2</seealso>.  </p>
+		<p>Option description:</p>
+		<taglist>
+		    <tag><c>{combine, bool()}</c></tag>
+		    <item>Combine the statistics from different instances of a lock class.
+			<br/>Default: <c>true</c>
+		    </item>
+
+		    <tag><c>{locations, bool()}</c></tag>
+		    <item>Print the statistics by source file and line numbers.
+			<br/>Default: <c>false</c>
+		    </item>
+
+		    <tag><c>{max_locks, MaxLocks}</c></tag>
+		    <item>Maximum number of locks printed or no limit with <c>none</c>.
+			<br/>Default: <c>20</c>
+		    </item>
+
+		    <tag><c>{print, PrintOptions}</c></tag>
+		    <item>Printing options:
+			<taglist>
+			    <tag><c>name</c></tag>
+			    <item>Named lock or named set of locks (classes). The same name used for initializing the lock in the VM.</item>
+
+			    <tag><c>id</c></tag>
+			    <item>Internal id for set of locks, not always unique. This could be table name for ets tables (db_tab), port id for ports, integer identifiers for allocators, etc.</item>
+
+			    <tag><c>type</c></tag>
+			    <item>Type of lock: <c>rw_mutex</c>, <c>mutex</c>, <c>spinlock</c>, <c>rw_spinlock</c> or <c>proclock</c>.</item>
+
+			    <tag><c>entry</c></tag>
+			    <item>In combination with <c>{locations, true}</c> this option prints the lock operations source file and line number entry-points along with statistics for each entry. </item>
+
+			    <tag><c>tries</c></tag>
+			    <item>Number of acquisitions of this lock.</item>
+
+			    <tag><c>colls</c></tag>
+			    <item>Number of collisions when a thread tried to acquire this lock. This is when a trylock is EBUSY, a write try on read held rw_lock, a try read on write held rw_lock, a thread tries to lock an already locked lock. (Internal states supervises this).</item>
+
+			    <tag><c>ratio</c></tag>
+			    <item>The ratio between the number of collisions and the number of tries (acquisitions) in percentage.</item>
+
+			    <tag><c>time</c></tag>
+			    <item>Accumulated waiting time for this lock. This could be greater than actual wall clock time, it is accumulated for all threads. Trylock conflicts does not accumulate time.</item>
+
+			    <tag><c>duration</c></tag>
+			    <item>Percentage of accumulated waiting time of wall clock time. This percentage can be higher than 100% since accumulated time is from all threads.</item>
+			</taglist>
+			<br/>Default: <c>[name,id,tries,colls,ratio,time,duration]</c>
+		    </item>
+
+		    <tag><c>{reverse, bool()}</c></tag>
+		    <item>Reverses the order of sorting.
+			<br/>Default: <c>false</c>
+		    </item>
+
+		    <tag><c>{sort, Sort}</c></tag>
+		    <item>Column sorting orders.
+			<br/>Default: <c>time</c>
+		    </item>
+
+		    <tag><c>{thresholds, Thresholds}</c></tag>
+		    <item>Filtering thresholds. Anything values above the threshold value are passed through.
+			<br/>Default: <c>[{tries, 0}, {colls, 0}, {time, 0}]</c>
+		    </item>
+
+		</taglist>
+
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">information() -> ok</name>
+	    <fsummary>Prints lcnt server state and generic information about collected lock statistics.</fsummary>
+	    <desc>
+		<p>Prints lcnt server state and generic information about collected lock statistics.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">swap_pid_keys() -> ok</name>
+	    <fsummary>Swaps places on <c>Name</c> and <c>Id</c> space for ports and processes.</fsummary>
+	    <desc>
+		<p>Swaps places on <c>Name</c> and <c>Id</c> space for ports and processes.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">load(Filename) -> ok</name>
+	    <fsummary>Restores previously saved data to the server.</fsummary>
+	    <type>
+		<v>Filename = filename()</v>
+	    </type>
+	    <desc>
+		<p>Restores previously saved data to the server.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">save(Filename) -> ok</name>
+	    <fsummary>Saves the collected data to file.</fsummary>
+	    <type>
+		<v>Filename = filename()</v>
+	    </type>
+	    <desc>
+		<p>Saves the collected data to file.</p>
+	    </desc>
+	</func>
+    </funcs>
+
+    <section>
+	<title>Convenience functions</title>
+	<p>The following functions are used for convenience.</p>
+    </section>
+    <funcs>
+	<func>
+	    <name since="OTP R13B04">apply(Fun) -> term()</name>
+	    <fsummary>Same as <c>apply(Fun, [])</c>.</fsummary>
+	    <type>
+		<v>Fun = fun()</v>
+	    </type>
+	    <desc>
+		<p>Same as <c>apply(Fun, [])</c>.</p>
+	    </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">apply(Fun, Args) -> term()</name>
+	    <fsummary>Same as <c>apply(Module, Function, Args)</c>.</fsummary>
+	    <type>
+		<v>Fun = fun()</v>
+		<v>Args = [term()]</v>
+	    </type>
+	    <desc>
+		<p>Same as <c>apply(Module, Function, Args)</c>.</p>
+	    </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">apply(Module, Function, Args) -> term()</name>
+	    <fsummary>Clears counters, applies function and collects the profiling results.</fsummary>
+	    <type>
+		<v>Module = atom()</v>
+		<v>Function = atom()</v>
+		<v>Args = [term()]</v>
+	    </type>
+	    <desc>
+		<p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
+		    After setup the function is called, passing the elements in <c>Args</c> as arguments.
+		    When the function returns the statistics are immediately collected to the server. After the
+		    collection the instrumentation is returned to its previous behavior.
+		    The result of the applied function is returned.
+		</p>
+                <warning>
+                    <p>
+                        This function should only be used for micro-benchmarks; it sets <c>copy_save</c>
+                        to <c>true</c> for the duration of the call, which can quickly lead to running
+                        out of memory.
+                    </p>
+                </warning>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">pid(Id, Serial) -> pid()</name>
+	    <fsummary>Same as <c>pid(node(), Id, Serial)</c>.</fsummary>
+	    <desc><p>Same as <c>pid(node(), Id, Serial)</c>.</p></desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">pid(Node, Id, Serial) -> pid()</name>
+	    <fsummary>Creates a process id with creation 0.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+		<v>Id = integer()</v>
+		<v>Serial = integer()</v>
+	    </type>
+	    <desc>
+		<p>Creates a process id with creation 0.</p>
+	    </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">port(Id) -> port()</name>
+	    <fsummary>Same as <c>port(node(), Id)</c>.</fsummary>
+	    <desc><p>Same as <c>port(node(), Id)</c>.</p></desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">port(Node, Id) -> port()</name>
+	    <fsummary>Creates a port id with creation 0.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+		<v>Id = integer()</v>
+	    </type>
+	    <desc><p>Creates a port id with creation 0.</p></desc>
+	</func>
+
+    </funcs>
+
+    <section>
+	<title>Internal runtime lock counter controllers</title>
+	<p> The following functions control the behavior of the internal counters.  </p>
+    </section>
+
+    <funcs>
+	<func>
+	    <name since="OTP R13B04">rt_collect() -> [lock_counter_data()]</name>
+	    <fsummary>Same as <c>rt_collect(node())</c>.</fsummary>
+	    <desc> <p>Same as <c>rt_collect(node())</c>.</p> </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">rt_collect(Node) -> [lock_counter_data()]</name>
+	    <fsummary>Returns a list of raw lock counter data.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+	    </type>
+	    <desc> <p>Returns a list of raw lock counter data.</p> </desc>
+	</func>
+
+	<func>
+	    <name since="OTP R13B04">rt_clear() -> ok</name>
+	    <fsummary>Same as <c>rt_clear(node())</c>.</fsummary>
+	    <desc> <p>Same as <c>rt_clear(node())</c>.</p> </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">rt_clear(Node) -> ok</name>
+	    <fsummary>Clears the internal counters.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+	    </type>
+	    <desc> <p>Clear the internal counters. Same as <c>lcnt:clear(Node)</c>.</p></desc>
+	</func>
+
+        <func>
+            <name since="OTP 20.1">rt_mask() -> [category_atom()]</name>
+            <fsummary>Same as <c>rt_mask(node())</c>.</fsummary>
+            <desc><p>Same as <c>rt_mask(node())</c>.</p></desc>
+        </func>
+
+        <func>
+            <name since="OTP 20.1">rt_mask(Node) -> [category_atom()]</name>
+            <fsummary>Returns the current lock category mask.</fsummary>
+            <type>
+                <v>Node = node()</v>
+            </type>
+            <desc>
+                <p>
+                    Refer to <c>rt_mask/2</c> for a list of valid categories. All
+                    categories are enabled by default.
+                </p>
+            </desc>
+        </func>
+
+        <func>
+            <name since="OTP 20.1">rt_mask(Categories) -> ok | {error, copy_save_enabled}</name>
+            <fsummary>Same as <c>rt_mask(node(), Categories)</c>.</fsummary>
+            <type>
+                <v>Categories = [atom()]</v>
+            </type>
+            <desc><p>Same as <c>rt_mask(node(), Categories)</c>.</p></desc>
+        </func>
+
+        <func>
+            <name since="OTP 20.1">rt_mask(Node, Categories) -> ok | {error, copy_save_enabled}</name>
+            <fsummary>Changes the lock category mask.</fsummary>
+            <type>
+                <v>Node = node()</v>
+                <v>Categories = [atom()]</v>
+            </type>
+            <desc>
+                <p>
+                    Sets the lock category mask to the given categories.
+                </p>
+                <p>
+                    This will fail if the <c>copy_save</c> option is enabled; see
+                    <c>lcnt:rt_opt/2</c>.
+                </p>
+                <p>Valid categories are:</p>
+                <list>
+                    <item><c>allocator</c></item>
+                    <item><c>db</c> (ETS tables)</item>
+                    <item><c>debug</c></item>
+                    <item><c>distribution</c></item>
+                    <item><c>generic</c></item>
+                    <item><c>io</c></item>
+                    <item><c>process</c></item>
+                    <item><c>scheduler</c></item>
+                </list>
+                <p>
+                    This list is subject to change at any time, as is the category any given lock
+                    may belong to.
+                </p>
+            </desc>
+        </func>
+
+	<func>
+	    <name since="OTP R13B04">rt_opt({Type, bool()}) -> bool()</name>
+	    <fsummary>Same as <c>rt_opt(node(), {Type, Opt})</c>.</fsummary>
+	    <desc> <p>Same as <c>rt_opt(node(), {Type, Opt})</c>.</p> </desc>
+	</func>
+	<func>
+	    <name since="OTP R13B04">rt_opt(Node, {Type, bool()}) -> bool()</name>
+	    <fsummary>Changes the lock counter behavior and returns the previous behaviour.</fsummary>
+	    <type>
+		<v>Node = node()</v>
+		<v>Type = copy_save | process_locks</v>
+	    </type>
+	    <desc>
+		<p>Option description:</p>
+		<taglist>
+		    <tag><c>{copy_save, bool()}</c></tag>
+		    <item>Retains the statistics of destroyed locks.
+			<br/>Default: <c>false</c>
+                        <warning>
+                            <p>
+                                This option will use a lot of memory when enabled, which must be
+                                reclaimed with <c>lcnt:rt_clear</c>. Note that it makes no distinction
+                                between locks that were destroyed and locks for which counting was
+                                disabled, so enabling this option will disable changes to the lock
+                                category mask.
+                            </p>
+                        </warning>
+		    </item>
+
+		    <tag><c>{process_locks, bool()}</c></tag>
+		    <item>Profile process locks, equal to adding <c>process</c> to the lock category mask;
+            see <c>lcnt:rt_mask/2</c>
+			<br/>Default: <c>true</c>
+		    </item>
+		</taglist>
+	    </desc>
+	</func>
+    </funcs>
+
+    <section>
+	<title>See Also</title>
+	<p> <seealso marker="lcnt_chapter">LCNT User's Guide</seealso></p>
+    </section>
+</erlref>

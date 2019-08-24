@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>ssh_connection</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">ssh_connection</module>
+  <modulesummary>
+    This module provides API functions to send SSH Connection Protocol 
+    events to the other side of an SSH channel.
+  </modulesummary>
+
+  <description>
+    <p>The <url href="http://www.ietf.org/rfc/rfc4254.txt">SSH Connection Protocol</url> 
+    is used by clients and servers, that is, SSH channels, to communicate over the 
+    SSH connection. The API functions in this module send SSH Connection Protocol events,
+    which are received as messages by the remote channel handling the remote channel.
+    The Erlang format of thoose messages is
+    (see also <seealso marker="#type-event">below</seealso>):
+    </p>
+    <p><c>{ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, </c><seealso marker="#type-channel_msg"><c>channel_msg()</c></seealso><c>}</c>
+    </p>
+    <p>
+    If the <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior is used to
+    implement the channel process, these messages are handled by
+    <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2</seealso>.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="ssh_data_type_code"/>
+      <desc>
+	<p>The valid values are <c>0</c> ("normal") and <c>1</c> ("stderr"), see
+	<url href="https://tools.ietf.org/html/rfc4254#page-8">RFC 4254, Section 5.2</url>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="result"/>
+      <name name="reason"/>
+      <desc>
+	<p>The result of a call.</p>
+	<p>If the request reached the peer, was handled and the response
+	reached the requesting node the	<seealso marker="#type-req_status">req_status()</seealso>
+	is the status reported from the peer.</p>
+	<p>If not, the <seealso marker="#type-reason">reason()</seealso> indicates what went wrong:</p>
+	<taglist>
+	  <tag><c>closed</c></tag>
+	  <item>indicates that the channel or connection was closed when trying to send the request
+	  </item>
+	  <tag><c>timeout</c></tag>
+	  <item>indicates that the operation exceeded a time limit
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="req_status"/>
+      <desc>
+	<p>The status of a request.
+	Coresponds to the <c>SSH_MSG_CHANNEL_SUCCESS</c> and <c>SSH_MSG_CHANNEL_FAILURE</c> values in
+	<url href="https://tools.ietf.org/html/rfc4254#section-5.4">RFC 4254, Section 5.4</url>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>SSH Connection Protocol: General</datatype_title>
+    <datatype>
+      <name name="event"/>
+      <name name="channel_msg"/>
+      <desc>
+	<p>As mentioned in the introduction, the
+	<url href="https://tools.ietf.org/html/rfc4254">SSH Connection Protocol</url>
+	events are handled as messages. When writing a channel handling process without using
+	the support by the <seealso marker="ssh_client_channel">ssh_client_channel</seealso>
+	behavior the process must handle thoose messages.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="want_reply"/>
+      <desc>
+      <p>Messages that include a <c>WantReply</c> expect the channel handling
+       process to call <seealso marker="ssh_connection#reply_request-4">
+       ssh_connection:reply_request/4</seealso>
+      with the boolean value of <c>WantReply</c> as the second argument.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Data Transfer (RFC 4254, section 5.2)</datatype_title>
+    <datatype>
+      <name name="data_ch_msg"/>
+      <desc>
+	<p>Data has arrived on the channel. This event is sent as a result of calling
+	<seealso marker="ssh_connection#send-3"> ssh_connection:send/[3,4,5]</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Closing a Channel (RFC 4254, section 5.3)</datatype_title>
+    <datatype>
+      <name name="eof_ch_msg"/>
+      <desc>
+	<p>Indicates that the other side sends no more data. This event is sent as a result of calling
+	<seealso marker="ssh_connection#send_eof-2"> ssh_connection:send_eof/2</seealso>.
+      </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="closed_ch_msg"/>
+      <desc>
+	<p>This event is sent as a result of calling
+	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso>.
+	Both the handling of this event and sending it are taken care of by the
+	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Requesting a Pseudo-Terminal (RFC 4254, section 6.2)</datatype_title>
+    <datatype>
+      <name name="pty_ch_msg"/>
+      <name name="term_mode"/>
+      <desc>
+	<p>A pseudo-terminal has been requested for the
+	 session. <c>Terminal</c> is the value of the TERM environment
+	 variable value, that is, <c>vt100</c>. Zero dimension parameters must
+	 be ignored. The character/row dimensions override the pixel
+	 dimensions (when non-zero). Pixel dimensions refer to the
+	 drawable area of the window. <c>Opcode</c> in the
+	 <c>TerminalModes</c> list is the mnemonic name, represented
+	 as a lowercase Erlang atom, defined in
+	 <url href="https://tools.ietf.org/html/rfc4254#section-8">RFC 4254</url>, Section 8.
+	 It can also be an <c>Opcode</c> if the mnemonic name is not listed in the
+	 RFC. Example: <c>OP code: 53, mnemonic name ECHO erlang atom:
+	 echo</c>. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seealso>.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Environment Variable Passing (RFC 4254, section 6.4)</datatype_title>
+    <datatype>
+      <name name="env_ch_msg"/>
+      <desc>
+	<p>Environment variables can be passed to the shell/command
+	 to be started later. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#setenv-5"> ssh_connection:setenv/5</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Starting a Shell or Command (RFC 4254, section 6.5)</datatype_title>
+    <datatype>
+      <name name="shell_ch_msg"/>
+      <desc>
+	<p>This message requests that the user default shell
+	 is started at the other end. This event is sent as a result of calling
+	 <seealso marker="ssh_connection#shell-2"> ssh_connection:shell/2</seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="exec_ch_msg"/>
+      <desc>
+	<p>This message requests that the server starts
+	 execution of the given command. This event is sent as a result of calling <seealso
+	 marker="ssh_connection#exec-4">ssh_connection:exec/4 </seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Window Dimension Change Message (RFC 4254, section 6.7)</datatype_title>
+    <datatype>
+      <name name="window_change_ch_msg"/>
+      <desc>
+	<p>When the window (terminal) size changes on the client
+	 side, it <em>can</em> send a message to the server side to inform it of
+	the new dimensions. No API function generates this event.</p>
+      </desc>
+    </datatype>
+     
+    <datatype_title>Signals (RFC 4254, section 6.9)</datatype_title>
+    <datatype>
+      <name name="signal_ch_msg"/>
+      <desc>
+	<p>A signal can be delivered to the remote process/service
+	using the following message. Some systems do not support
+	signals, in which case they are to ignore this message. There is
+	currently no function to generate this event as the signals
+	referred to are on OS-level and not something generated by an
+	Erlang program.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype_title>Returning Exit Status (RFC 4254, section 6.10)</datatype_title>
+    <datatype>
+      <name name="exit_status_ch_msg"/>
+      <desc>
+	<p>When the command running at the other end terminates, the
+	following message can be sent to return the exit status of the
+	command. A zero <c>exit_status</c> usually means that the command
+	terminated successfully. This event is sent as a result of calling
+	<seealso marker="ssh_connection#exit_status-3">
+	ssh_connection:exit_status/3</seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="exit_signal_ch_msg"/>
+      <desc>
+	<p>A remote execution can terminate violently because of a signal.
+	Then this message can be received. For details on valid string
+	values, see <url href="https://tools.ietf.org/html/rfc4254#section-6.10">RFC 4254</url>
+	Section 6.10, which shows a special case of these signals.</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+
+  <funcs>
+   
+   <func>
+     <name since="" name="adjust_window" arity="3"/>
+     <fsummary>Adjusts the SSH flow control window.</fsummary>
+     <desc>
+	<p>Adjusts the SSH flow control window. This is to be done by both the
+	client- and server-side channel processes.</p>
+	
+	<note><p>Channels implemented with the <seealso marker="ssh_client_channel"> ssh_client_channel</seealso>
+	behavior do not normally need to call this function as flow control
+	is handled by the behavior. The behavior adjusts the window every time
+	the callback <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">
+	handle_ssh_msg/2</seealso> returns after processing channel data.</p></note>
+      </desc>
+   </func>
+   
+   <func>
+     <name since="" name="close" arity="2"/>
+     <fsummary>Sends a close message on the channel <c>ChannelId</c>.</fsummary>
+     <desc>
+       <p>A server- or client-channel process can choose to close their session by
+       sending a close event.
+       </p>
+       <note><p>This function is called by the <c>ssh_client_channel</c>
+       behavior when the channel is terminated, see <seealso
+       marker="ssh_client_channel"> ssh_client_channel(3)</seealso>. Thus, channels implemented
+       with the behavior are not to call this function explicitly.</p></note>
+     </desc>
+   </func>
+   
+   <func>
+     <name since="" name="exec" arity="4"/>
+     <fsummary>Requests that the server starts the execution of the given command.</fsummary>
+     <desc>
+       <p>Is to be called by a client-channel process to request that the server starts
+       executing the given command. The result is several messages according to the
+       following pattern. The last message is a channel close message, as the <c>exec</c>
+       request is a one-time execution that closes the channel when it is done.</p>
+
+       <!--taglist>
+	 <tag><c>N x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {data, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, </c><seealso marker="#type-ssh_data_type_code">ssh_data_type_code()</seealso><c>, Data :: binary()}}</c></tag>
+	 <item><p>The result of executing the command can be only one line
+	 or thousands of lines depending on the command.</p></item>
+
+	 <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {eof, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}}</c></tag>
+	 <item><p>Indicates that no more data is to be sent.</p></item>
+
+	 <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {exit_signal, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, ExitSignal :: string(), ErrorMsg :: string(), LanguageString :: string()}}</c></tag>
+	 <item><p>Not all systems send signals. For details on valid string
+	 values, see RFC 4254, Section 6.10</p></item>
+	 
+	  <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {exit_status, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, ExitStatus :: integer()}}</c></tag>
+	  <item><p>It is recommended by the SSH Connection Protocol to send this
+	  message, but that is not always the case.</p></item>
+
+	  <tag><c>1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {closed, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}}</c></tag>
+	  <item><p>Indicates that the <c>ssh_client_channel</c> started for the
+	  execution of the command has now been shut down.</p></item>
+       </taglist-->
+
+       <taglist>
+	 <tag>N x <seealso marker="#type-data_ch_msg">data message(s)</seealso></tag>
+	 <item><p>The result of executing the command can be only one line
+	 or thousands of lines depending on the command.</p></item>
+
+	 <tag>0 or 1 x <seealso marker="#type-eof_ch_msg">eof message</seealso></tag>
+	 <item><p>Indicates that no more data is to be sent.</p></item>
+
+	 <tag>0 or 1 x <seealso marker="#type-exit_signal_ch_msg">exit signal message</seealso></tag>
+	 <item><p>Not all systems send signals. For details on valid string
+	 values, see RFC 4254, Section 6.10</p></item>
+
+	 <tag>0 or 1 x <seealso marker="#type-exit_status_ch_msg">exit status message</seealso></tag>
+	 <item><p>It is recommended by the SSH Connection Protocol to send this
+	 message, but that is not always the case.</p></item>
+
+	 <tag>1 x <seealso marker="#type-closed_ch_msg">closed status message</seealso></tag>
+	 <item><p>Indicates that the <c>ssh_client_channel</c> started for the
+	 execution of the command has now been shut down.</p></item>
+       </taglist>
+     </desc>
+   </func>
+
+   <func>
+     <name since="" name="exit_status" arity="3"/>
+     <fsummary>Sends the exit status of a command to the client.</fsummary>
+     <desc>
+       <p>Is to be called by a server-channel process to send the exit status of a command
+       to the client.</p>
+     </desc>
+   </func>
+   
+   <func>
+     <name since="OTP 17.5" name="ptty_alloc" arity="3"/>
+     <name since="OTP 17.4" name="ptty_alloc" arity="4"/>
+       <fsummary>Sends an SSH Connection Protocol <c>pty_req</c>,
+       to allocate a pseudo-terminal.</fsummary>
+      <desc>
+	<p>Sends an SSH Connection Protocol <c>pty_req</c>, to allocate a pseudo-terminal.
+	Is to be called by an SSH client process.</p>
+	<p>Options:</p>
+
+	<taglist>
+	  <tag>{term, string()}</tag>
+	  <item><p>Defaults to <em>os:getenv("TERM")</em> or <em>vt100</em>
+	  if it is undefined.</p></item>
+
+	  <tag>{width, integer()}</tag>
+	  <item><p>Defaults to 80 if <c>pixel_width</c> is not defined.</p></item>
+
+	  <tag>{height, integer()}</tag>
+	  <item><p>Defaults to 24 if <c>pixel_height</c> is not defined.</p></item>
+
+	  <tag>{pixel_width, integer()}</tag>
+	  <item><p>Is disregarded if <c>width</c> is defined.</p></item>
+
+	  <tag>{pixel_height, integer()}</tag>
+	  <item><p>Is disregarded if <c>height</c> is defined.</p></item>
+
+	  <tag>{pty_opts, [{posix_atom(), integer()}]}</tag>
+	  <item><p>Option can be an empty list. Otherwise, see possible <em>POSIX</em> names
+	  in Section 8 in <url href="http://www.ietf.org/rfc/rfc4254.txt"> RFC 4254</url>.</p>
+	  </item>
+	 </taglist>
+      </desc>
+     </func>
+
+     <func>
+       <name since="" name="reply_request" arity="4"/>
+       <fsummary>Sends status replies to requests that want such replies.</fsummary>
+      <desc>
+	<p>Sends status replies to requests where the requester has
+	stated that it wants a status report, that is, <c>WantReply = true</c>.
+	If <c>WantReply</c> is <c>false</c>, calling this function becomes a
+	"noop". Is to be called while handling an SSH Connection
+	Protocol message containing a <c>WantReply</c> boolean value.</p>
+      </desc>
+     </func>
+    
+     <func>
+       <name since="">send(ConnectionRef, ChannelId, Data) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Data, Timeout) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Type, Data) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
+       ok | Error</name>
+       <fsummary>Sends channel data.</fsummary>
+       <type>
+	<v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
+	<v>ChannelId = <seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>Data = binary()</v>
+	<v>Type = <seealso marker="#type-ssh_data_type_code">ssh_data_type_code()</seealso></v>
+	<v>Timeout = timeout()</v>
+	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
+       </type>
+       <desc>
+	 <p>Is to be called by client- and server-channel processes to send data to each other.
+	 </p>
+	 <p>The function <seealso marker="ssh:ssh_connection#subsystem/4">subsystem/4</seealso> and subsequent
+	 calls of <c>send/3,4,5</c> must be executed in the same process.
+	 </p>
+       </desc>
+     </func>
+     
+     <func>
+       <name since="" name="send_eof" arity="2"/>
+       <fsummary>Sends EOF on channel <c>ChannelId</c>.</fsummary>
+       <desc>
+	 <p>Sends EOF on channel <c>ChannelId</c>.</p>
+       </desc>
+     </func>
+
+     <func>
+       <name since="" name="session_channel" arity="2"/>
+       <name since="" name="session_channel" arity="4"/>
+       <fsummary>Opens a channel for an SSH session.</fsummary>
+       <desc>
+	 <p>Opens a channel for an SSH session. The channel id returned from this function
+	 is the id used as input to the other functions in this module.</p>
+       </desc>
+     </func>
+
+    <func>
+      <name since="" name="setenv" arity="5"/>
+      <fsummary>Environment variables can be passed to the
+      shell/command to be started later.</fsummary>
+      <desc>
+	<p>Environment variables can be passed before starting the
+	shell/command. Is to be called by a client channel processes.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="shell" arity="2"/>
+      <fsummary>Requests that the user default shell (typically defined in
+      /etc/passwd in Unix systems) is to be executed at the server end.</fsummary>
+       <desc>
+	 <p>Is to be called by a client channel process to request that the user default
+	 shell (typically defined in /etc/passwd in Unix systems) is executed
+	 at the server end.</p>
+	 <p>Note: the return value is <c>ok</c> instead of <c>success</c> unlike in other
+	 functions in this module. This is a fault that was introduced so long ago that
+	 any change would break a large number of existing software.
+	 </p>
+       </desc>
+    </func>
+
+    <func>
+      <name since="" name="subsystem" arity="4"/>
+      <fsummary>Requests to execute a predefined subsystem on the server.</fsummary>
+       <desc>
+	 <p>Is to be called by a client-channel process for requesting to execute a predefined
+	 subsystem on the server.
+	 </p>
+	 <p>The function <c>subsystem/4</c> and subsequent calls of 
+	 <seealso marker="ssh:ssh_connection#send/3">send/3,4,5</seealso> must be executed in the same process.
+	 </p>
+       </desc>
+    </func>
+    
+  </funcs>
+  
+</erlref>

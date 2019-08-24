@@ -1,0 +1,355 @@
+-- RANAP-Constants.asn
+--
+-- Taken from 3GPP TS 25.413 V8.2.1 (2009-03)
+-- http://www.3gpp.org/ftp/Specs/archive/25_series/25.413/25413-821.zip
+--
+-- 9.3.6	Constant Definitions
+--
+-- $Id$
+--
+-- **************************************************************
+--
+-- Constant definitions
+--
+-- **************************************************************
+
+RANAP-Constants { 
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) ranap (0) version1 (1) ranap-Constants (4) } 
+
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- **************************************************************
+--
+-- Elementary Procedures
+--
+-- **************************************************************
+
+id-RAB-Assignment					INTEGER ::= 0
+id-Iu-Release						INTEGER ::= 1
+id-RelocationPreparation			INTEGER ::= 2
+id-RelocationResourceAllocation		INTEGER ::= 3
+id-RelocationCancel					INTEGER ::= 4
+id-SRNS-ContextTransfer				INTEGER ::= 5
+id-SecurityModeControl				INTEGER ::= 6
+id-DataVolumeReport					INTEGER ::= 7
+id-Reset							INTEGER ::= 9
+id-RAB-ReleaseRequest				INTEGER ::= 10
+id-Iu-ReleaseRequest				INTEGER ::= 11
+id-RelocationDetect					INTEGER ::= 12
+id-RelocationComplete				INTEGER ::= 13
+id-Paging							INTEGER ::= 14
+id-CommonID							INTEGER ::= 15
+id-CN-InvokeTrace					INTEGER ::= 16
+id-LocationReportingControl			INTEGER ::= 17
+id-LocationReport					INTEGER ::= 18
+id-InitialUE-Message				INTEGER ::= 19
+id-DirectTransfer					INTEGER ::= 20
+id-OverloadControl					INTEGER ::= 21
+id-ErrorIndication					INTEGER ::= 22
+id-SRNS-DataForward					INTEGER ::= 23
+id-ForwardSRNS-Context				INTEGER ::= 24
+id-privateMessage					INTEGER ::= 25
+id-CN-DeactivateTrace				INTEGER ::= 26
+id-ResetResource					INTEGER ::= 27
+id-RANAP-Relocation					INTEGER ::= 28
+id-RAB-ModifyRequest				INTEGER ::= 29
+id-LocationRelatedData				INTEGER ::= 30
+id-InformationTransfer				INTEGER ::= 31
+id-UESpecificInformation			INTEGER ::= 32
+id-UplinkInformationExchange		INTEGER ::= 33
+id-DirectInformationTransfer		INTEGER ::= 34
+id-MBMSSessionStart					INTEGER ::= 35
+id-MBMSSessionUpdate				INTEGER ::= 36
+id-MBMSSessionStop					INTEGER ::= 37
+id-MBMSUELinking					INTEGER ::= 38
+id-MBMSRegistration					INTEGER ::= 39
+id-MBMSCNDe-Registration-Procedure	INTEGER ::= 40
+id-MBMSRABEstablishmentIndication	INTEGER ::= 41
+id-MBMSRABRelease					INTEGER ::= 42
+id-enhancedRelocationComplete		INTEGER ::= 43
+id-enhancedRelocationCompleteConfirm		INTEGER ::= 44
+id-RANAPenhancedRelocation			INTEGER ::= 45
+id-SRVCCPreparation					INTEGER ::= 256
+
+
+
+-- **************************************************************
+--
+-- Extension constants
+--
+-- **************************************************************
+
+maxPrivateIEs 						INTEGER ::= 65535
+maxProtocolExtensions 				INTEGER ::= 65535
+maxProtocolIEs						INTEGER ::= 65535
+
+-- **************************************************************
+--
+-- Lists
+--
+-- **************************************************************
+
+maxNrOfDTs							INTEGER ::= 15
+maxNrOfErrors						INTEGER ::= 256
+maxNrOfIuSigConIds					INTEGER ::= 250
+maxNrOfPDPDirections				INTEGER ::= 2
+maxNrOfPoints						INTEGER ::= 15
+maxNrOfRABs							INTEGER ::= 256
+maxNrOfSeparateTrafficDirections	INTEGER ::= 2
+maxNrOfSRBs							INTEGER ::= 8
+maxNrOfVol							INTEGER ::= 2
+maxNrOfLevels						INTEGER ::= 256 
+maxNrOfAltValues					INTEGER ::= 16
+maxNrOfPLMNsSN						INTEGER ::= 32
+maxNrOfLAs							INTEGER ::= 65536
+maxNrOfSNAs							INTEGER ::= 65536
+maxNrOfUEsToBeTraced				INTEGER ::= 64
+maxNrOfInterfaces					INTEGER ::= 16
+maxRAB-Subflows						INTEGER ::= 7
+maxRAB-SubflowCombination			INTEGER ::= 64
+maxSet								INTEGER ::= 9
+maxNrOfHSDSCHMACdFlows-1			INTEGER	::= 7
+maxnoofMulticastServicesPerUE		INTEGER ::= 128
+maxnoofMulticastServicesPerRNC		INTEGER ::= 512
+maxMBMSSA							INTEGER ::= 256
+maxMBMSRA							INTEGER ::= 65536
+maxNrOfEDCHMACdFlows-1				INTEGER ::= 7
+maxGANSSSet							INTEGER ::= 9
+
+-- **************************************************************
+--
+-- IEs
+--
+-- **************************************************************
+
+id-AreaIdentity 								INTEGER ::= 0
+id-CN-DomainIndicator 							INTEGER ::= 3
+id-Cause 										INTEGER ::= 4
+id-ChosenEncryptionAlgorithm 					INTEGER ::= 5
+id-ChosenIntegrityProtectionAlgorithm 			INTEGER ::= 6
+id-ClassmarkInformation2 						INTEGER ::= 7
+id-ClassmarkInformation3 						INTEGER ::= 8
+id-CriticalityDiagnostics 						INTEGER ::= 9
+id-DL-GTP-PDU-SequenceNumber 					INTEGER ::= 10
+id-EncryptionInformation 						INTEGER ::= 11
+id-IntegrityProtectionInformation 				INTEGER ::= 12
+id-IuTransportAssociation 						INTEGER ::= 13
+id-L3-Information 								INTEGER ::= 14
+id-LAI 											INTEGER ::= 15
+id-NAS-PDU 										INTEGER ::= 16
+id-NonSearchingIndication 						INTEGER ::= 17
+id-NumberOfSteps 								INTEGER ::= 18
+id-OMC-ID 										INTEGER ::= 19
+id-OldBSS-ToNewBSS-Information 					INTEGER ::= 20
+id-PagingAreaID 								INTEGER ::= 21
+id-PagingCause 									INTEGER ::= 22
+id-PermanentNAS-UE-ID 							INTEGER ::= 23
+id-RAB-ContextItem 								INTEGER ::= 24
+id-RAB-ContextList 								INTEGER ::= 25
+id-RAB-DataForwardingItem 						INTEGER ::= 26
+id-RAB-DataForwardingItem-SRNS-CtxReq 			INTEGER ::= 27
+id-RAB-DataForwardingList 						INTEGER ::= 28
+id-RAB-DataForwardingList-SRNS-CtxReq 			INTEGER ::= 29
+id-RAB-DataVolumeReportItem 					INTEGER ::= 30
+id-RAB-DataVolumeReportList 					INTEGER ::= 31
+id-RAB-DataVolumeReportRequestItem 				INTEGER ::= 32
+id-RAB-DataVolumeReportRequestList 				INTEGER ::= 33
+id-RAB-FailedItem 								INTEGER ::= 34
+id-RAB-FailedList 								INTEGER ::= 35
+id-RAB-ID 										INTEGER ::= 36
+id-RAB-QueuedItem 								INTEGER ::= 37
+id-RAB-QueuedList 								INTEGER ::= 38
+id-RAB-ReleaseFailedList 						INTEGER ::= 39
+id-RAB-ReleaseItem 								INTEGER ::= 40
+id-RAB-ReleaseList 								INTEGER ::= 41
+id-RAB-ReleasedItem 							INTEGER ::= 42
+id-RAB-ReleasedList 							INTEGER ::= 43
+id-RAB-ReleasedList-IuRelComp 					INTEGER ::= 44
+id-RAB-RelocationReleaseItem 					INTEGER ::= 45
+id-RAB-RelocationReleaseList 					INTEGER ::= 46
+id-RAB-SetupItem-RelocReq 						INTEGER ::= 47
+id-RAB-SetupItem-RelocReqAck 					INTEGER ::= 48
+id-RAB-SetupList-RelocReq 						INTEGER ::= 49
+id-RAB-SetupList-RelocReqAck 					INTEGER ::= 50
+id-RAB-SetupOrModifiedItem 						INTEGER ::= 51
+id-RAB-SetupOrModifiedList 						INTEGER ::= 52
+id-RAB-SetupOrModifyItem 						INTEGER ::= 53
+id-RAB-SetupOrModifyList 						INTEGER ::= 54
+id-RAC 											INTEGER ::= 55
+id-RelocationType 								INTEGER ::= 56
+id-RequestType 									INTEGER ::= 57
+id-SAI 											INTEGER ::= 58
+id-SAPI 										INTEGER ::= 59
+id-SourceID 									INTEGER ::= 60
+id-Source-ToTarget-TransparentContainer 	INTEGER ::= 61
+id-TargetID 									INTEGER ::= 62
+id-Target-ToSource-TransparentContainer 	INTEGER ::= 63
+id-TemporaryUE-ID 								INTEGER ::= 64
+id-TraceReference 								INTEGER ::= 65
+id-TraceType 									INTEGER ::= 66
+id-TransportLayerAddress 						INTEGER ::= 67
+id-TriggerID 									INTEGER ::= 68
+id-UE-ID 										INTEGER ::= 69
+id-UL-GTP-PDU-SequenceNumber 					INTEGER ::= 70
+id-RAB-FailedtoReportItem						INTEGER ::= 71
+id-RAB-FailedtoReportList 						INTEGER ::= 72
+id-KeyStatus									INTEGER ::= 75
+id-DRX-CycleLengthCoefficient 					INTEGER ::= 76
+id-IuSigConIdList								INTEGER ::= 77
+id-IuSigConIdItem								INTEGER ::= 78
+id-IuSigConId									INTEGER ::= 79
+id-DirectTransferInformationItem-RANAP-RelocInf	INTEGER ::= 80
+id-DirectTransferInformationList-RANAP-RelocInf	INTEGER ::= 81
+id-RAB-ContextItem-RANAP-RelocInf				INTEGER ::= 82
+id-RAB-ContextList-RANAP-RelocInf				INTEGER ::= 83
+id-RAB-ContextFailedtoTransferItem				INTEGER ::= 84
+id-RAB-ContextFailedtoTransferList				INTEGER ::= 85
+id-GlobalRNC-ID									INTEGER ::= 86
+id-RAB-ReleasedItem-IuRelComp					INTEGER ::= 87
+id-MessageStructure								INTEGER ::= 88
+id-Alt-RAB-Parameters							INTEGER ::= 89
+id-Ass-RAB-Parameters							INTEGER ::= 90
+id-RAB-ModifyList								INTEGER ::= 91
+id-RAB-ModifyItem								INTEGER ::= 92
+id-TypeOfError									INTEGER ::= 93
+id-BroadcastAssistanceDataDecipheringKeys		INTEGER ::= 94
+id-LocationRelatedDataRequestType				INTEGER ::= 95
+id-GlobalCN-ID									INTEGER ::= 96
+id-LastKnownServiceArea							INTEGER ::= 97
+id-SRB-TrCH-Mapping								INTEGER ::= 98
+id-InterSystemInformation-TransparentContainer	INTEGER ::= 99
+id-NewBSS-To-OldBSS-Information 						INTEGER ::= 100
+id-SourceRNC-PDCP-context-info							INTEGER ::= 103
+id-InformationTransferID								INTEGER ::= 104
+id-SNA-Access-Information								INTEGER ::= 105
+id-ProvidedData											INTEGER ::= 106
+id-GERAN-BSC-Container									INTEGER ::= 107
+id-GERAN-Classmark										INTEGER ::= 108
+id-GERAN-Iumode-RAB-Failed-RABAssgntResponse-Item		INTEGER ::= 109
+id-GERAN-Iumode-RAB-FailedList-RABAssgntResponse		INTEGER ::= 110
+id-VerticalAccuracyCode									INTEGER ::= 111
+id-ResponseTime											INTEGER ::= 112
+id-PositioningPriority									INTEGER ::= 113
+id-ClientType											INTEGER ::= 114
+id-LocationRelatedDataRequestTypeSpecificToGERANIuMode	INTEGER ::= 115
+id-SignallingIndication									INTEGER ::= 116
+id-hS-DSCH-MAC-d-Flow-ID								INTEGER ::= 117
+id-UESBI-Iu												INTEGER ::= 118
+id-PositionData											INTEGER ::= 119
+id-PositionDataSpecificToGERANIuMode					INTEGER ::= 120
+id-CellLoadInformationGroup								INTEGER ::= 121
+id-AccuracyFulfilmentIndicator							INTEGER ::= 122
+id-InformationTransferType								INTEGER ::= 123
+id-TraceRecordingSessionInformation						INTEGER ::= 124
+id-TracePropagationParameters							INTEGER ::= 125
+id-InterSystemInformationTransferType					INTEGER ::= 126
+id-SelectedPLMN-ID										INTEGER ::= 127
+id-RedirectionCompleted									INTEGER ::= 128
+id-RedirectionIndication								INTEGER ::= 129
+id-NAS-SequenceNumber									INTEGER ::= 130
+id-RejectCauseValue										INTEGER ::= 131
+id-APN													INTEGER ::= 132
+id-CNMBMSLinkingInformation								INTEGER ::= 133
+id-DeltaRAListofIdleModeUEs								INTEGER ::= 134
+id-FrequenceLayerConvergenceFlag						INTEGER ::= 135
+id-InformationExchangeID								INTEGER ::= 136
+id-InformationExchangeType								INTEGER ::= 137
+id-InformationRequested									INTEGER ::= 138
+id-InformationRequestType								INTEGER ::= 139
+id-IPMulticastAddress									INTEGER ::= 140
+id-JoinedMBMSBearerServicesList							INTEGER ::= 141
+id-LeftMBMSBearerServicesList							INTEGER ::= 142
+id-MBMSBearerServiceType								INTEGER ::= 143
+id-MBMSCNDe-Registration								INTEGER ::= 144
+id-MBMSServiceArea										INTEGER ::= 145
+id-MBMSSessionDuration									INTEGER ::= 146
+id-MBMSSessionIdentity									INTEGER ::= 147
+id-PDP-TypeInformation									INTEGER ::= 148
+id-RAB-Parameters										INTEGER ::= 149
+id-RAListofIdleModeUEs									INTEGER ::= 150
+id-MBMSRegistrationRequestType							INTEGER ::= 151
+id-SessionUpdateID										INTEGER ::= 152
+id-TMGI													INTEGER ::= 153
+id-TransportLayerInformation							INTEGER ::= 154
+id-UnsuccessfulLinkingList								INTEGER ::= 155
+id-MBMSLinkingInformation								INTEGER ::= 156
+id-MBMSSessionRepetitionNumber							INTEGER ::= 157
+id-AlternativeRABConfiguration							INTEGER ::= 158
+id-AlternativeRABConfigurationRequest					INTEGER ::= 159
+id-E-DCH-MAC-d-Flow-ID									INTEGER ::= 160
+id-SourceBSS-ToTargetBSS-TransparentContainer			INTEGER ::= 161
+id-TargetBSS-ToSourceBSS-TransparentContainer			INTEGER ::= 162
+id-TimeToMBMSDataTransfer								INTEGER ::= 163
+id-IncludeVelocity										INTEGER ::= 164
+id-VelocityEstimate										INTEGER ::= 165
+id-RedirectAttemptFlag									INTEGER ::= 166
+id-RAT-Type												INTEGER ::= 167
+id-PeriodicLocationInfo									INTEGER ::= 168
+id-MBMSCountingInformation								INTEGER ::= 169
+id-170-not-to-be-used-for-IE-ids						INTEGER ::= 170
+id-ExtendedRNC-ID										INTEGER ::= 171
+id-Alt-RAB-Parameter-ExtendedGuaranteedBitrateInf		INTEGER ::= 172
+id-Alt-RAB-Parameter-ExtendedMaxBitrateInf				INTEGER ::= 173
+id-Ass-RAB-Parameter-ExtendedGuaranteedBitrateList		INTEGER ::= 174
+id-Ass-RAB-Parameter-ExtendedMaxBitrateList				INTEGER ::= 175
+id-RAB-Parameter-ExtendedGuaranteedBitrateList			INTEGER ::= 176
+id-RAB-Parameter-ExtendedMaxBitrateList					INTEGER ::= 177
+id-Requested-RAB-Parameter-ExtendedMaxBitrateList		INTEGER ::= 178
+id-Requested-RAB-Parameter-ExtendedGuaranteedBitrateList	INTEGER ::= 179
+id-LAofIdleModeUEs										INTEGER ::= 180
+id-newLAListofIdleModeUEs								INTEGER ::= 181
+id-LAListwithNoIdleModeUEsAnyMore						INTEGER ::= 182
+id-183-not-to-be-used-for-IE-ids						INTEGER ::= 183
+id-GANSS-PositioningDataSet								INTEGER ::= 184
+id-RequestedGANSSAssistanceData							INTEGER ::= 185
+id-BroadcastGANSSAssistanceDataDecipheringKeys			INTEGER ::= 186
+id-d-RNTI-for-NoIuCSUP									INTEGER ::= 187
+id-RAB-SetupList-EnhancedRelocCompleteReq				INTEGER ::= 188
+id-RAB-SetupItem-EnhancedRelocCompleteReq				INTEGER ::= 189
+id-RAB-SetupList-EnhancedRelocCompleteRes				INTEGER ::= 190
+id-RAB-SetupItem-EnhancedRelocCompleteRes				INTEGER ::= 191
+id-RAB-SetupList-EnhRelocInfoReq						INTEGER ::= 192
+id-RAB-SetupItem-EnhRelocInfoReq						INTEGER ::= 193
+id-RAB-SetupList-EnhRelocInfoRes						INTEGER ::= 194
+id-RAB-SetupItem-EnhRelocInfoRes						INTEGER ::= 195
+id-OldIuSigConId										INTEGER ::= 196
+id-RAB-FailedList-EnhRelocInfoRes						INTEGER ::= 197
+id-RAB-FailedItem-EnhRelocInfoRes						INTEGER ::= 198
+id-Global-ENB-ID										INTEGER ::= 199
+id-UE-History-Information								INTEGER ::= 200
+id-MBMSSynchronisationInformation						INTEGER ::= 201
+id-SubscriberProfileIDforRFP							INTEGER ::= 202
+id-CSG-Id												INTEGER ::= 203
+id-OldIuSigConIdCS										INTEGER ::= 204
+id-OldIuSigConIdPS										INTEGER ::= 205
+id-GlobalCN-IDCS										INTEGER ::= 206
+id-GlobalCN-IDPS										INTEGER ::= 207
+id-SourceExtendedRNC-ID									INTEGER ::= 208
+id-RAB-ToBeReleasedItem-EnhancedRelocCompleteRes		INTEGER ::= 209
+id-RAB-ToBeReleasedList-EnhancedRelocCompleteRes		INTEGER ::= 210
+id-SourceRNC-ID											INTEGER ::= 211
+id-Relocation-TargetRNC-ID								INTEGER ::= 212
+id-Relocation-TargetExtendedRNC-ID						INTEGER ::= 213
+id-Alt-RAB-Parameter-SupportedGuaranteedBitrateInf		INTEGER ::= 214
+id-Alt-RAB-Parameter-SupportedMaxBitrateInf				INTEGER ::= 215
+id-Ass-RAB-Parameter-SupportedGuaranteedBitrateList		INTEGER ::= 216
+id-Ass-RAB-Parameter-SupportedMaxBitrateList			INTEGER ::= 217
+id-RAB-Parameter-SupportedGuaranteedBitrateList			INTEGER ::= 218
+id-RAB-Parameter-SupportedMaxBitrateList				INTEGER ::= 219
+id-Requested-RAB-Parameter-SupportedMaxBitrateList		INTEGER ::= 220
+id-Requested-RAB-Parameter-SupportedGuaranteedBitrateList	INTEGER ::= 221
+id-Relocation-SourceRNC-ID								INTEGER ::= 222
+id-Relocation-SourceExtendedRNC-ID						INTEGER ::= 223
+id-EncryptionKey										INTEGER ::= 224
+id-IntegrityProtectionKey								INTEGER ::= 225
+id-SRVCC-HO-Indication									INTEGER ::= 226
+id-SRVCC-Information									INTEGER ::= 227
+id-SRVCC-Operation-Possible								INTEGER ::= 228
+
+END
+
+
+

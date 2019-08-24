@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>docgen_xml_check</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP R15B">docgen_xml_check</module>
+  <modulesummary>Validate XML documentation source code</modulesummary>
+  <description>
+    <p><c>docgen_xml_check</c> contains functions for validating XML
+      documentation source code.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="OTP R15B">validate(File) -> ok | error | {error, badfile}</name>
+      <fsummary>Validate XML source code.</fsummary>
+      <type>
+	<v>File = string()</v>
+      </type>
+      <desc>
+        <p>Validates the XML documentation source code in <c>File</c>.
+	  The <c>.xml</c> extension can be omitted.</p>
+
+	<p>Returns <c>ok</c> if successful, otherwise error information
+	  is printed and the function returns <c>error</c>.
+	  If <c>File</c> does not exist, <c>{error, badfile}</c> is
+	  returned.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

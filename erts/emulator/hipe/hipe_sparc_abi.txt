@@ -1,0 +1,78 @@
+
+ %CopyrightBegin%
+ %CopyrightEnd%
+
+
+
+HiPE SPARC ABI
+==============
+This document describes aspects of HiPE's runtime system
+that are specific for the SPARC architecture.
+
+Register Usage
+--------------
+%g6, %g7, %o6 (%sp), and %i6 (%fp) are reserved for the C runtime system.
+
+%i0-%i2 are fixed (unallocatable).
+%i0 (P) is the current process' "Process" pointer.
+%i1 (NSP) is the current process' native stack pointer.
+%i2 (HP) is the current process' heap pointer.
+
+%g1-%g5, %o0-%o5, %o7 (RA), %l0-%l7, %i3-%i5, and %i7 are caller-save.
+They are used as temporary scratch registers and for function call
+parameters and results.
+
+The runtime system uses temporaries in specific contexts:
+%i5 (TEMP_ARG1) is used to pass the callee arity in native-to-BEAM traps.
+%i4 (TEMP_ARG0) is used to preserve the return value in nbif_stack_trap_ra,
+preserve RA in hipe_sparc_inc_stack (the caller saved its RA in
+TEMP_RA), to pass the callee address in native-to-BEAM traps,
+and to contain the target in BEAM-to-native calls.
+%i3 (TEMP_RA) is used to preserve RA around BIF calls.
+%o1 (ARG0) is used for MBUF-after-BIF checks, for storing the
+arity of a BIF that throws an exception or does GC due to MBUF,
+and for checking P->flags for pending timeout.
+%o0 is used to inspect the type of a thrown exception, and to
+return a result token from glue.S back to hipe_mode_switch().
+
+Calling Convention
+------------------
+The first NR_ARG_REGS parameters (a tunable parameter between 0 and 6,
+inclusive) are passed in %o1-%o5 and %o0.
+
+%o0 is not used for parameter passing. This allows the BIF wrappers to
+simply move P to %o0 without shifting the remaining parameter registers.
+
+%o7 (RA) contains the return address during function calls.
+
+The return value from a function is placed in %o0.
+
+Stack Frame Layout
+Stack Descriptors
+-----------------
+Same as AMD64/ARM/PowerPC/x86.
+
+Standard SPARC Calling Conventions
+==================================
+
+Reg		Status		Role
+---		------		----
+%g0		reserved	constant 0
+%g1-%g5		calleR-save	volatile
+%g6-%g7		reserved	thread register? got?
+%o0		calleR-save	volatile, parameter, return value
+%o1-%o5		calleR-save	volatile, parameters
+%o6		reserved	stack pointer, 8-byte aligned
+%o7		reserved	return address
+%l0-%l7		calleE-save	local variables
+%i0-%i5		calleE-save	input parameters, local variables
+%i6		calleE-save	frame pointer (caller's stack pointer)
+%i7		calleE-save	input return address, local variable
+
+The stack grows from high to low addresses.
+Excess parameters are stored on the stack, at %sp+92 and up.
+
+See also:
+http://soldc.sun.com/articles/sparcv9abi.html
+http://www.users.qwest.net/~eballen1/sparc.tech.links.html
+http://compilers.iecc.com/comparch/article/93-12-073

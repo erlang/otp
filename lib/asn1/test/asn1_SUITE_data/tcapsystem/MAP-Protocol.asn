@@ -1,0 +1,176 @@
+MAP-Protocol {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Protocol (4) version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+IMPORTS
+OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4) informationObjects(5) version1(0)}
+
+	updateLocation,
+	cancelLocation,
+	purgeMS,
+	sendIdentification,
+	updateGprsLocation,
+	prepareHandover,
+	sendEndSignal,
+	processAccessSignalling,
+	forwardAccessSignalling,
+	prepareSubsequentHandover,
+	sendAuthenticationInfo,
+	authenticationFailureReport,
+	checkIMEI,
+	insertSubscriberData,
+	deleteSubscriberData,
+	reset,
+	forwardCheckSS-Indication,
+	restoreData,
+	provideSubscriberInfo,
+	anyTimeInterrogation,
+	anyTimeSubscriptionInterrogation,
+	anyTimeModification,
+	sendRoutingInfoForGprs,
+	failureReport,
+	noteMsPresentForGprs,
+	noteMM-Event,
+	noteSubscriberDataModified
+
+
+FROM MAP-MobileServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-MobileServiceOperations (5)
+   version9 (9)}
+
+	activateTraceMode,
+	deactivateTraceMode,
+	sendIMSI
+FROM MAP-OperationAndMaintenanceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-OperationAndMaintenanceOperations (6)
+   version9 (9)}
+
+	sendRoutingInfo,
+	provideRoamingNumber,
+	resumeCallHandling,
+	setReportingState,
+	statusReport,
+	remoteUserFree,
+	ist-Alert,
+	ist-Command
+FROM MAP-CallHandlingOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CallHandlingOperations (7)
+   version9 (9)}
+
+	registerSS,
+	eraseSS,
+	activateSS,
+	deactivateSS,
+	interrogateSS,
+	processUnstructuredSS-Request,
+	unstructuredSS-Request,
+	unstructuredSS-Notify,
+	registerPassword,
+	getPassword,
+	ss-InvocationNotification,
+	registerCC-Entry,
+	eraseCC-Entry
+FROM MAP-SupplementaryServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SupplementaryServiceOperations (8)
+   version9 (9)}
+
+	sendRoutingInfoForSM,
+	mo-ForwardSM,
+	mt-ForwardSM,
+	reportSM-DeliveryStatus,
+	alertServiceCentre,
+	informServiceCentre,
+	readyForSM
+FROM MAP-ShortMessageServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ShortMessageServiceOperations (9)
+   version9 (9)}
+
+	prepareGroupCall,
+	processGroupCallSignalling,
+	forwardGroupCallSignalling,
+	sendGroupCallEndSignal
+FROM MAP-Group-Call-Operations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Group-Call-Operations (22)
+   version9 (9)}
+
+	provideSubscriberLocation,
+	sendRoutingInfoForLCS,
+	subscriberLocationReport
+FROM MAP-LocationServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-LocationServiceOperations (24)
+   version9 (9)}
+
+secureTransportClass1,
+secureTransportClass2,
+secureTransportClass3,
+secureTransportClass4
+
+FROM MAP-SecureTransportOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SecureTransportOperations (26)
+   version9 (9)}
+
+;
+Supported-MAP-Operations OPERATION ::= {updateLocation | cancelLocation | purgeMS | 
+sendIdentification | updateGprsLocation | prepareHandover | sendEndSignal | 
+processAccessSignalling | forwardAccessSignalling | prepareSubsequentHandover | 
+sendAuthenticationInfo | authenticationFailureReport | checkIMEI | insertSubscriberData | 
+deleteSubscriberData | reset | forwardCheckSS-Indication | restoreData | provideSubscriberInfo | 
+anyTimeInterrogation | anyTimeSubscriptionInterrogation | anyTimeModification | 
+sendRoutingInfoForGprs | failureReport |noteMsPresentForGprs | noteMM-Event | 
+noteSubscriberDataModified | activateTraceMode | deactivateTraceMode | sendIMSI | 
+sendRoutingInfo | provideRoamingNumber | resumeCallHandling | setReportingState | statusReport | remoteUserFree | ist-Alert | 
+ist-Command | registerSS | eraseSS | activateSS | deactivateSS | interrogateSS | 
+processUnstructuredSS-Request | unstructuredSS-Request | unstructuredSS-Notify | 
+registerPassword | getPassword | ss-InvocationNotification | registerCC-Entry | eraseCC-Entry | 
+sendRoutingInfoForSM | mo-ForwardSM | mt-ForwardSM | reportSM-DeliveryStatus | 
+alertServiceCentre | informServiceCentre | readyForSM | prepareGroupCall | 
+processGroupCallSignalling | forwardGroupCallSignalling | sendGroupCallEndSignal |
+provideSubscriberLocation | sendRoutingInfoForLCS | subscriberLocationReport | 
+secureTransportClass1 |secureTransportClass2 | secureTransportClass3 | secureTransportClass4}
+
+
+
+-- The following operation codes are reserved for operations
+-- existing in previous versions of the protocol
+
+-- Operation Name	AC used	Oper. Code
+-- 
+-- sendParameters	map-ac infoRetrieval (14) version1 (1)	local:9
+-- processUnstructuredSS-Data	map-ac networkFunctionalSs (18) version1 (1)	local:19
+-- performHandover	map-ac handoverControl (11) version1 (1)	local:28
+-- performSubsequentHandover	map-ac handoverControl (11) version1 (1)	local:30
+-- provideSIWFSNumber	map-ac sIWFSAllocation (12) version3 (3)	local:31
+-- siwfs-SignallingModify	map-ac sIWFSAllocation (12) version3 (3)	local:32
+-- noteInternalHandover	map-ac handoverControl (11) version1 (1)	local:35
+-- noteSubscriberPresent	map-ac mwdMngt (24) version1 (1)	local:48
+-- alertServiceCentreWithoutResult	map-ac shortMsgAlert (23) version1 (1)	local:49
+-- traceSubscriberActivity	map-ac handoverControl (11) version1 (1)	local:52
+-- beginSubscriberActivity	map-ac networkFunctionalSs (18) version1 (1)	local:54
+
+-- The following error codes are reserved for errors
+-- existing in previous versions of the protocol
+
+-- Error Name	AC used	Error Code
+-- 
+-- unknownBaseStation	map-ac handoverControl (11) version1 (1)	local:2
+-- invalidTargetBaseStation	map-ac handoverControl (11) version1 (1)	local:23
+-- noRadioResourceAvailable	map-ac handoverControl (11) version1 (1)	local:24
+
+
+END

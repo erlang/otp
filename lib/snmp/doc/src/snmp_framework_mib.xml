@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_framework_mib</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_framework_mib.xml</file>
+  </header>
+  <module since="">snmp_framework_mib</module>
+  <modulesummary>Instrumentation Functions for SNMP-FRAMEWORK-MIB</modulesummary>
+  <description>
+    <p>The module <c>snmp_framework_mib</c> implements instrumentation
+      functions for the
+      SNMP-FRAMEWORK-MIB, and functions for initializing and configuring the
+      database.
+      </p>
+    <p>The configuration files are described in the SNMP User's Manual.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">configure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-FRAMEWORK-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>This function is called from the supervisor at system
+          start-up.
+          </p>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old data.
+          </p>
+        <p>Thus, the data in the SNMP-FRAMEWORK-MIB, after this
+          function has been called, is from the configuration
+          files.
+          </p>
+        <p>All <c>snmp</c> counters are set to zero.
+          </p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function <c>config_err/2</c> of the error 
+          report module, and the function fails with reason 
+          <c>configuration_error</c>.
+          </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found.
+          </p>
+        <p>The configuration file read is: <c>context.conf</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">init() -> void()</name>
+      <fsummary>Initialize the SNMP-FRAMEWORK-MIB</fsummary>
+      <desc>
+        <p>This function is called from the supervisor at system
+          start-up.
+          </p>
+        <p>Creates the necessary objects in the database if they do not
+          exist. It does not destroy any old values.
+                    <marker id="add_context"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">add_context(Ctx) -> Ret</name>
+      <fsummary>Added one context</fsummary>
+      <type>
+        <v>Ctx = string()</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a context to the agent config. 
+          Equivalent to one line in the <c>context.conf</c> file.</p>
+        <marker id="delete_context"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">delete_context(Key) -> Ret</name>
+      <fsummary>Delete one context</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a context from the agent config.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

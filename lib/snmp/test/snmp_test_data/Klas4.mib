@@ -1,0 +1,156 @@
+          Klas4 DEFINITIONS ::= BEGIN
+ 
+-- This MIB is used for testing the undo phase
+
+          IMPORTS
+                  mib-2 FROM RFC1213-MIB
+                  RowStatus FROM STANDARD-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212
+                  klas3 FROM Klas3;
+ 
+           DisplayString ::=
+              OCTET STRING
+
+          friendsTable3 OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry3
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas3 4 }
+ 
+          friendsEntry3 OBJECT-TYPE
+              SYNTAX  FriendsEntry3
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex3 }
+              ::= { friendsTable3 1 }
+ 
+          FriendsEntry3 ::=
+              SEQUENCE {
+			fIndex3
+                      INTEGER,
+                   fStatus3
+                      RowStatus              }
+ 
+          fIndex3 OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  not-accessible
+              STATUS  mandatory
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry3 1 }
+ 
+           fStatus3 OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry3 2 }
+
+          friendsTable4 OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry4
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas3 5 }
+ 
+          friendsEntry4 OBJECT-TYPE
+              SYNTAX  FriendsEntry4
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex4 }
+              ::= { friendsTable4 1 }
+ 
+          FriendsEntry4 ::=
+              SEQUENCE {
+			fIndex4
+                      INTEGER,
+			fName4
+                      INTEGER,
+                   fStatus4
+                      RowStatus              }
+ 
+          fIndex4 OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  not-accessible
+              STATUS  mandatory
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry4 1 }
+ 
+          fName4 OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+               DESCRIPTION
+                      "name of friend"
+              ::= { friendsEntry4 2 }
+ 
+           fStatus4 OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry4 3 }
+
+          friendsTable5 OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry5
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas3 6 }
+ 
+          friendsEntry5 OBJECT-TYPE
+              SYNTAX  FriendsEntry5
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex5 }
+              ::= { friendsTable5 1 }
+ 
+          FriendsEntry5 ::=
+              SEQUENCE {
+			fIndex5
+                      INTEGER,
+			fName5
+                      INTEGER,
+                   fStatus5
+                      RowStatus              }
+ 
+          fIndex5 OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry5 1 }
+ 
+          fName5 OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+               DESCRIPTION
+                      "name of friend"
+              ::= { friendsEntry5 2 }
+ 
+           fStatus5 OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry5 3 }
+
+          END
+ 

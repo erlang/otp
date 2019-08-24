@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2017</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>make</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">make</module>
+  <modulesummary>A Make Utility for Erlang</modulesummary>
+  <description>
+    <p>The module <c>make</c> provides a set of functions similar to
+      the UNIX type <c>Make</c> functions.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">all() -> up_to_date | error</name>
+      <name since="">all(Options) -> up_to_date | error</name>
+      <fsummary>Compile a set of modules.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+	<v>&nbsp;Option = noexec | load | netload | {emake, Emake} | &lt;compiler option&gt;</v>
+      </type>
+      <desc>
+      <p>This function determines the set of modules to compile and the
+          compile options to use, by first looking for the <c>emake</c> make
+          option, if not present reads the configuration from a file named
+          <c>Emakefile</c> (see below). If no such file is found, the
+          set of modules to compile defaults to all modules in the
+          current working directory.</p>
+        <p>Traversing the set of modules, it then recompiles every module for
+          which at least one of the following conditions apply:</p>
+        <list type="bulleted">
+          <item>there is no object file, or</item>
+          <item>the source file has been modified since it was last compiled,
+           or,</item>
+          <item>an include file has been modified since the source file was
+           last compiled.</item>
+        </list>
+        <p>As a side effect, the function prints the name of each module it
+          tries to compile. If compilation fails for a module, the make
+          procedure stops and <c>error</c> is returned.</p>
+        <p><c>Options</c> is a list of make- and compiler options.
+          The following make options exist:</p>
+        <list type="bulleted">
+          <item><c>noexec</c>          <br></br>
+
+           No execution mode. Just prints the name of each module that needs
+           to be compiled.</item>
+          <item><c>load</c>          <br></br>
+
+           Load mode. Loads all recompiled modules.</item>
+          <item><c>netload</c>          <br></br>
+
+           Net load mode. Loads all recompiled modules on all known nodes.</item>
+          <item><c>{emake, Emake}</c>          <br></br>
+
+           Rather than reading the <c>Emakefile</c> specify configuration explicitly.</item>
+        </list>
+        <p>All items in <c>Options</c> that are not make options are assumed
+          to be compiler options and are passed as-is to
+          <c>compile:file/2</c>. <c>Options</c> defaults to <c>[]</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">files(ModFiles) -> up_to_date | error</name>
+      <name since="">files(ModFiles, Options) -> up_to_date | error</name>
+      <fsummary>Compile a set of modules.</fsummary>
+      <type>
+        <v>ModFiles = [Module | File]</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>&nbsp;File = string()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = noexec | load | netload | &lt;compiler option&gt;</v>
+      </type>
+      <desc>
+        <p><c>files/1,2</c> does exactly the same thing as <c>all/0,1</c> but
+          for the specified <c>ModFiles</c>, which is a list of module or
+          file names. The file extension <c>.erl</c> may be omitted.</p>
+        <p>The <c>Emakefile</c> (if it exists) in the current
+          directory is searched for compiler options for each module. If
+          a given module does not exist in <c>Emakefile</c> or if
+          <c>Emakefile</c> does not exist, the module is still compiled.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Emakefile</title>
+    <p><c>make:all/0,1</c> and <c>make:files/1,2</c> first looks for
+      <c>{emake, Emake}</c> in options, then in the current working directory
+      for a file named <c>Emakefile</c>. If present <c>Emake</c> should
+      contain elements like this:</p>
+    <code type="none">
+Modules.
+{Modules,Options}.    </code>
+    <p><c>Modules</c> is an atom or a list of atoms. It can be 
+      </p>
+    <list type="bulleted">
+      <item>a module name, e.g. <c>file1</c></item>
+      <item>a module name in another directory,
+       e.g. <c>../foo/file3</c></item>
+      <item>a set of modules specified with a wildcards,
+       e.g. <c>'file*'</c></item>
+      <item>a wildcard indicating all modules in current directory,
+       i.e. <c>'*'</c></item>
+      <item>a list of any of the above,
+       e.g. <c>['file*','../foo/file3','File4']</c></item>
+    </list>
+    <p><c>Options</c> is a list of compiler options.
+      </p>
+    <p><c>Emakefile</c> is read from top to bottom. If a module
+      matches more than one entry, the first match is valid. For
+      example, the following <c>Emakefile</c> means that <c>file1</c>
+      shall be compiled with the options
+      <c>[debug_info,{i,"../foo"}]</c>, while all other files in the
+      current directory shall be compiled with only the
+      <c>debug_info</c> flag.</p>
+    <code type="none">
+{'file1',[debug_info,{i,"../foo"}]}.
+{'*',[debug_info]}.    </code>
+    <p></p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,619 @@
+PKIX1Explicit88 { iso(1) identified-organization(3) dod(6) internet(1)
+  security(5) mechanisms(5) pkix(7) id-mod(0) id-pkix1-explicit(18) }
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS ALL --
+
+-- IMPORTS NONE --
+
+-- UNIVERSAL Types defined in 1993 and 1998 ASN.1
+-- and required by this specification
+
+-- UniversalString ::= [UNIVERSAL 28] IMPLICIT OCTET STRING
+        -- UniversalString is defined in ASN.1:1993
+
+-- BMPString ::= [UNIVERSAL 30] IMPLICIT OCTET STRING
+      -- BMPString is the subtype of UniversalString and models
+      -- the Basic Multilingual Plane of ISO/IEC/ITU 10646-1
+
+--UTF8String ::= [UNIVERSAL 12] IMPLICIT OCTET STRING
+      -- The content of this type conforms to RFC 2279.
+
+-- PKIX specific OIDs
+
+id-pkix  OBJECT IDENTIFIER  ::=
+         { iso(1) identified-organization(3) dod(6) internet(1)
+                    security(5) mechanisms(5) pkix(7) }
+
+-- PKIX arcs
+
+id-pe OBJECT IDENTIFIER  ::=  { id-pkix 1 }
+        -- arc for private certificate extensions
+id-qt OBJECT IDENTIFIER ::= { id-pkix 2 }
+        -- arc for policy qualifier types
+id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
+        -- arc for extended key purpose OIDS
+id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+        -- arc for access descriptors
+
+-- policyQualifierIds for Internet policy qualifiers
+
+id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+      -- OID for CPS qualifier
+id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+      -- OID for user notice qualifier
+
+-- access descriptor definitions
+
+id-ad-ocsp         OBJECT IDENTIFIER ::= { id-ad 1 }
+id-ad-caIssuers    OBJECT IDENTIFIER ::= { id-ad 2 }
+id-ad-timeStamping OBJECT IDENTIFIER ::= { id-ad 3 }
+id-ad-caRepository OBJECT IDENTIFIER ::= { id-ad 5 }
+
+-- attribute data types
+
+Attribute       ::=     SEQUENCE {
+      type              AttributeType,
+      values    SET OF AttributeValue }
+            -- at least one value is required
+
+AttributeType           ::=  OBJECT IDENTIFIER
+
+AttributeValue          ::=  ANY
+
+AttributeTypeAndValue           ::=     SEQUENCE {
+        type    AttributeType,
+        value   AttributeValue }
+
+-- suggested naming attributes: Definition of the following
+--   information object set may be augmented to meet local
+--   requirements.  Note that deleting members of the set may
+--   prevent interoperability with conforming implementations.
+-- presented in pairs: the AttributeType followed by the
+--   type definition for the corresponding AttributeValue
+--Arc for standard naming attributes
+id-at OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 4 }
+
+-- Naming attributes of type X520name
+
+id-at-name              AttributeType ::= { id-at 41 }
+id-at-surname           AttributeType ::= { id-at 4 }
+id-at-givenName         AttributeType ::= { id-at 42 }
+id-at-initials          AttributeType ::= { id-at 43 }
+id-at-generationQualifier AttributeType ::= { id-at 44 }
+
+X520name ::= CHOICE {
+      teletexString     TeletexString   (SIZE (1..ub-name)),
+      printableString   PrintableString (SIZE (1..ub-name)),
+      universalString   UniversalString (SIZE (1..ub-name)),
+      utf8String        UTF8String      (SIZE (1..ub-name)),
+      bmpString         BMPString       (SIZE (1..ub-name)) }
+
+-- Naming attributes of type X520CommonName
+
+id-at-commonName        AttributeType ::= { id-at 3 }
+
+X520CommonName ::= CHOICE {
+      teletexString     TeletexString   (SIZE (1..ub-common-name)),
+      printableString   PrintableString (SIZE (1..ub-common-name)),
+      universalString   UniversalString (SIZE (1..ub-common-name)),
+      utf8String        UTF8String      (SIZE (1..ub-common-name)),
+      bmpString         BMPString       (SIZE (1..ub-common-name)) }
+
+-- Naming attributes of type X520LocalityName
+
+id-at-localityName      AttributeType ::= { id-at 7 }
+
+X520LocalityName ::= CHOICE {
+      teletexString     TeletexString   (SIZE (1..ub-locality-name)),
+      printableString   PrintableString (SIZE (1..ub-locality-name)),
+      universalString   UniversalString (SIZE (1..ub-locality-name)),
+      utf8String        UTF8String      (SIZE (1..ub-locality-name)),
+      bmpString         BMPString       (SIZE (1..ub-locality-name)) }
+
+-- Naming attributes of type X520StateOrProvinceName
+
+id-at-stateOrProvinceName AttributeType ::= { id-at 8 }
+
+X520StateOrProvinceName ::= CHOICE {
+      teletexString     TeletexString   (SIZE (1..ub-state-name)),
+      printableString   PrintableString (SIZE (1..ub-state-name)),
+      universalString   UniversalString (SIZE (1..ub-state-name)),
+      utf8String        UTF8String      (SIZE (1..ub-state-name)),
+      bmpString         BMPString       (SIZE(1..ub-state-name)) }
+
+-- Naming attributes of type X520OrganizationName
+
+id-at-organizationName  AttributeType ::= { id-at 10 }
+
+X520OrganizationName ::= CHOICE {
+      teletexString     TeletexString
+                          (SIZE (1..ub-organization-name)),
+      printableString   PrintableString
+                          (SIZE (1..ub-organization-name)),
+      universalString   UniversalString
+                          (SIZE (1..ub-organization-name)),
+      utf8String        UTF8String
+                          (SIZE (1..ub-organization-name)),
+      bmpString         BMPString
+                          (SIZE (1..ub-organization-name))  }
+
+-- Naming attributes of type X520OrganizationalUnitName
+
+id-at-organizationalUnitName AttributeType ::= { id-at 11 }
+
+X520OrganizationalUnitName ::= CHOICE {
+      teletexString     TeletexString
+                          (SIZE (1..ub-organizational-unit-name)),
+      printableString   PrintableString
+                          (SIZE (1..ub-organizational-unit-name)),
+      universalString   UniversalString
+                          (SIZE (1..ub-organizational-unit-name)),
+      utf8String        UTF8String
+                          (SIZE (1..ub-organizational-unit-name)),
+      bmpString         BMPString
+                          (SIZE (1..ub-organizational-unit-name)) }
+
+-- Naming attributes of type X520Title
+
+id-at-title             AttributeType ::= { id-at 12 }
+
+X520Title ::= CHOICE {
+      teletexString     TeletexString   (SIZE (1..ub-title)),
+      printableString   PrintableString (SIZE (1..ub-title)),
+      universalString   UniversalString (SIZE (1..ub-title)),
+      utf8String        UTF8String      (SIZE (1..ub-title)),
+      bmpString         BMPString       (SIZE (1..ub-title)) }
+
+-- Naming attributes of type X520dnQualifier
+
+id-at-dnQualifier       AttributeType ::= { id-at 46 }
+
+X520dnQualifier ::=     PrintableString
+
+-- Naming attributes of type X520countryName (digraph from IS 3166)
+
+id-at-countryName       AttributeType ::= { id-at 6 }
+
+X520countryName ::=     PrintableString (SIZE (2))
+
+-- Naming attributes of type X520SerialNumber
+
+id-at-serialNumber      AttributeType ::= { id-at 5 }
+
+X520SerialNumber ::=    PrintableString (SIZE (1..ub-serial-number))
+
+-- Naming attributes of type X520Pseudonym
+
+id-at-pseudonym         AttributeType ::= { id-at 65 }
+
+X520Pseudonym ::= CHOICE {
+   teletexString     TeletexString   (SIZE (1..ub-pseudonym)),
+   printableString   PrintableString (SIZE (1..ub-pseudonym)),
+   universalString   UniversalString (SIZE (1..ub-pseudonym)),
+   utf8String        UTF8String      (SIZE (1..ub-pseudonym)),
+   bmpString         BMPString       (SIZE (1..ub-pseudonym)) }
+
+-- Naming attributes of type DomainComponent (from RFC 2247)
+
+id-domainComponent      AttributeType ::=
+                          { 0 9 2342 19200300 100 1 25 }
+
+DomainComponent ::=     IA5String
+
+-- Legacy attributes
+
+pkcs-9 OBJECT IDENTIFIER ::=
+       { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 9 }
+
+id-emailAddress          AttributeType ::= { pkcs-9 1 }
+
+EmailAddress ::=         IA5String (SIZE (1..ub-emailaddress-length))
+
+-- naming data types --
+
+Name ::= CHOICE { -- only one possibility for now --
+      rdnSequence  RDNSequence }
+
+RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
+
+DistinguishedName ::=   RDNSequence
+
+RelativeDistinguishedName  ::=
+                    SET SIZE (1 .. MAX) OF AttributeTypeAndValue
+
+-- Directory string type --
+
+DirectoryString ::= CHOICE {
+      teletexString             TeletexString   (SIZE (1..MAX)),
+      printableString           PrintableString (SIZE (1..MAX)),
+      universalString           UniversalString (SIZE (1..MAX)),
+      utf8String              UTF8String      (SIZE (1..MAX)),
+      bmpString               BMPString       (SIZE (1..MAX)) }
+
+-- certificate and CRL specific structures begin here
+
+Certificate  ::=  SEQUENCE  {
+     tbsCertificate       TBSCertificate,
+     signatureAlgorithm   AlgorithmIdentifier,
+     signature            BIT STRING  }
+
+TBSCertificate  ::=  SEQUENCE  {
+     version         [0]  Version DEFAULT v1,
+     serialNumber         CertificateSerialNumber,
+     signature            AlgorithmIdentifier,
+     issuer               Name,
+     validity             Validity,
+     subject              Name,
+     subjectPublicKeyInfo SubjectPublicKeyInfo,
+     issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     extensions      [3]  Extensions OPTIONAL
+                          -- If present, version MUST be v3 --  }
+
+Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+
+CertificateSerialNumber  ::=  INTEGER
+
+Validity ::= SEQUENCE {
+     notBefore      Time,
+     notAfter       Time  }
+
+Time ::= CHOICE {
+     utcTime        UTCTime,
+     generalTime    GeneralizedTime }
+
+UniqueIdentifier  ::=  BIT STRING
+
+SubjectPublicKeyInfo  ::=  SEQUENCE  {
+     algorithm            AlgorithmIdentifier,
+     subjectPublicKey     BIT STRING  }
+
+Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+
+Extension  ::=  SEQUENCE  {
+     extnID      OBJECT IDENTIFIER,
+     critical    BOOLEAN DEFAULT FALSE,
+     extnValue   OCTET STRING  }
+
+-- CRL structures
+
+CertificateList  ::=  SEQUENCE  {
+     tbsCertList          TBSCertList,
+     signatureAlgorithm   AlgorithmIdentifier,
+     signature            BIT STRING  }
+
+TBSCertList  ::=  SEQUENCE  {
+     version                 Version OPTIONAL,
+                                  -- if present, MUST be v2
+     signature               AlgorithmIdentifier,
+     issuer                  Name,
+     thisUpdate              Time,
+     nextUpdate              Time OPTIONAL,
+     revokedCertificates     SEQUENCE OF SEQUENCE  {
+          userCertificate         CertificateSerialNumber,
+          revocationDate          Time,
+          crlEntryExtensions      Extensions OPTIONAL
+                                         -- if present, MUST be v2
+                               }  OPTIONAL,
+     crlExtensions           [0] Extensions OPTIONAL }
+                                         -- if present, MUST be v2
+
+-- Version, Time, CertificateSerialNumber, and Extensions were
+-- defined earlier for use in the certificate structure
+
+AlgorithmIdentifier  ::=  SEQUENCE  {
+     algorithm               OBJECT IDENTIFIER,
+     parameters              ANY DEFINED BY algorithm OPTIONAL  }
+                                -- contains a value of the type
+                                -- registered for use with the
+                                -- algorithm object identifier value
+
+-- X.400 address syntax starts here
+
+ORAddress ::= SEQUENCE {
+   built-in-standard-attributes BuiltInStandardAttributes,
+   built-in-domain-defined-attributes
+                   BuiltInDomainDefinedAttributes OPTIONAL,
+   -- see also teletex-domain-defined-attributes
+   extension-attributes ExtensionAttributes OPTIONAL }
+
+-- Built-in Standard Attributes
+
+BuiltInStandardAttributes ::= SEQUENCE {
+   country-name                  CountryName OPTIONAL,
+   administration-domain-name    AdministrationDomainName OPTIONAL,
+   network-address           [0] IMPLICIT NetworkAddress OPTIONAL,
+     -- see also extended-network-address
+   terminal-identifier       [1] IMPLICIT TerminalIdentifier OPTIONAL,
+   private-domain-name       [2] PrivateDomainName OPTIONAL,
+   organization-name         [3] IMPLICIT OrganizationName OPTIONAL,
+     -- see also teletex-organization-name
+   numeric-user-identifier   [4] IMPLICIT NumericUserIdentifier
+                                 OPTIONAL,
+   personal-name             [5] IMPLICIT PersonalName OPTIONAL,
+     -- see also teletex-personal-name
+   organizational-unit-names [6] IMPLICIT OrganizationalUnitNames
+                                 OPTIONAL }
+     -- see also teletex-organizational-unit-names
+
+CountryName ::= [APPLICATION 1] CHOICE {
+   x121-dcc-code         NumericString
+                           (SIZE (ub-country-name-numeric-length)),
+   iso-3166-alpha2-code  PrintableString
+                           (SIZE (ub-country-name-alpha-length)) }
+
+AdministrationDomainName ::= [APPLICATION 2] CHOICE {
+   numeric   NumericString   (SIZE (0..ub-domain-name-length)),
+   printable PrintableString (SIZE (0..ub-domain-name-length)) }
+
+NetworkAddress ::= X121Address  -- see also extended-network-address
+
+X121Address ::= NumericString (SIZE (1..ub-x121-address-length))
+
+TerminalIdentifier ::= PrintableString (SIZE
+(1..ub-terminal-id-length))
+
+PrivateDomainName ::= CHOICE {
+   numeric   NumericString   (SIZE (1..ub-domain-name-length)),
+   printable PrintableString (SIZE (1..ub-domain-name-length)) }
+
+OrganizationName ::= PrintableString
+                            (SIZE (1..ub-organization-name-length))
+  -- see also teletex-organization-name
+
+NumericUserIdentifier ::= NumericString
+                            (SIZE (1..ub-numeric-user-id-length))
+
+PersonalName ::= SET {
+   surname     [0] IMPLICIT PrintableString
+                    (SIZE (1..ub-surname-length)),
+   given-name  [1] IMPLICIT PrintableString
+                    (SIZE (1..ub-given-name-length)) OPTIONAL,
+   initials    [2] IMPLICIT PrintableString
+                    (SIZE (1..ub-initials-length)) OPTIONAL,
+   generation-qualifier [3] IMPLICIT PrintableString
+                    (SIZE (1..ub-generation-qualifier-length))
+                    OPTIONAL }
+  -- see also teletex-personal-name
+
+OrganizationalUnitNames ::= SEQUENCE SIZE (1..ub-organizational-units)
+                             OF OrganizationalUnitName
+  -- see also teletex-organizational-unit-names
+
+OrganizationalUnitName ::= PrintableString (SIZE
+                    (1..ub-organizational-unit-name-length))
+
+-- Built-in Domain-defined Attributes
+
+BuiltInDomainDefinedAttributes ::= SEQUENCE SIZE
+                    (1..ub-domain-defined-attributes) OF
+                    BuiltInDomainDefinedAttribute
+
+BuiltInDomainDefinedAttribute ::= SEQUENCE {
+   type PrintableString (SIZE
+                   (1..ub-domain-defined-attribute-type-length)),
+   value PrintableString (SIZE
+                   (1..ub-domain-defined-attribute-value-length)) }
+
+-- Extension Attributes
+
+ExtensionAttributes ::= SET SIZE (1..ub-extension-attributes) OF
+               ExtensionAttribute
+
+ExtensionAttribute ::=  SEQUENCE {
+   extension-attribute-type [0] IMPLICIT INTEGER
+                   (0..ub-extension-attributes),
+   extension-attribute-value [1]
+                   ANY DEFINED BY extension-attribute-type }
+
+-- Extension types and attribute values
+
+common-name INTEGER ::= 1
+
+CommonName ::= PrintableString (SIZE (1..ub-common-name-length))
+
+teletex-common-name INTEGER ::= 2
+
+TeletexCommonName ::= TeletexString (SIZE (1..ub-common-name-length))
+
+teletex-organization-name INTEGER ::= 3
+
+TeletexOrganizationName ::=
+                TeletexString (SIZE (1..ub-organization-name-length))
+
+teletex-personal-name INTEGER ::= 4
+
+TeletexPersonalName ::= SET {
+   surname     [0] IMPLICIT TeletexString
+                    (SIZE (1..ub-surname-length)),
+   given-name  [1] IMPLICIT TeletexString
+                    (SIZE (1..ub-given-name-length)) OPTIONAL,
+   initials    [2] IMPLICIT TeletexString
+                    (SIZE (1..ub-initials-length)) OPTIONAL,
+   generation-qualifier [3] IMPLICIT TeletexString
+                    (SIZE (1..ub-generation-qualifier-length))
+                    OPTIONAL }
+
+teletex-organizational-unit-names INTEGER ::= 5
+
+TeletexOrganizationalUnitNames ::= SEQUENCE SIZE
+      (1..ub-organizational-units) OF TeletexOrganizationalUnitName
+
+TeletexOrganizationalUnitName ::= TeletexString
+                  (SIZE (1..ub-organizational-unit-name-length))
+
+pds-name INTEGER ::= 7
+
+PDSName ::= PrintableString (SIZE (1..ub-pds-name-length))
+
+physical-delivery-country-name INTEGER ::= 8
+
+PhysicalDeliveryCountryName ::= CHOICE {
+   x121-dcc-code NumericString (SIZE
+(ub-country-name-numeric-length)),
+   iso-3166-alpha2-code PrintableString
+                  (SIZE (ub-country-name-alpha-length)) }
+
+postal-code INTEGER ::= 9
+
+PostalCode ::= CHOICE {
+   numeric-code NumericString (SIZE (1..ub-postal-code-length)),
+   printable-code PrintableString (SIZE (1..ub-postal-code-length)) }
+
+physical-delivery-office-name INTEGER ::= 10
+
+PhysicalDeliveryOfficeName ::= PDSParameter
+
+physical-delivery-office-number INTEGER ::= 11
+
+PhysicalDeliveryOfficeNumber ::= PDSParameter
+
+extension-OR-address-components INTEGER ::= 12
+
+ExtensionORAddressComponents ::= PDSParameter
+
+physical-delivery-personal-name INTEGER ::= 13
+
+PhysicalDeliveryPersonalName ::= PDSParameter
+
+physical-delivery-organization-name INTEGER ::= 14
+
+PhysicalDeliveryOrganizationName ::= PDSParameter
+
+extension-physical-delivery-address-components INTEGER ::= 15
+
+ExtensionPhysicalDeliveryAddressComponents ::= PDSParameter
+
+unformatted-postal-address INTEGER ::= 16
+
+UnformattedPostalAddress ::= SET {
+   printable-address SEQUENCE SIZE (1..ub-pds-physical-address-lines)
+         OF PrintableString (SIZE (1..ub-pds-parameter-length))
+         OPTIONAL,
+   teletex-string TeletexString
+         (SIZE (1..ub-unformatted-address-length)) OPTIONAL }
+
+street-address INTEGER ::= 17
+
+StreetAddress ::= PDSParameter
+
+post-office-box-address INTEGER ::= 18
+
+PostOfficeBoxAddress ::= PDSParameter
+
+poste-restante-address INTEGER ::= 19
+
+PosteRestanteAddress ::= PDSParameter
+
+unique-postal-name INTEGER ::= 20
+
+UniquePostalName ::= PDSParameter
+
+local-postal-attributes INTEGER ::= 21
+
+LocalPostalAttributes ::= PDSParameter
+
+PDSParameter ::= SET {
+   printable-string PrintableString
+                (SIZE(1..ub-pds-parameter-length)) OPTIONAL,
+   teletex-string TeletexString
+                (SIZE(1..ub-pds-parameter-length)) OPTIONAL }
+
+extended-network-address INTEGER ::= 22
+
+ExtendedNetworkAddress ::= CHOICE {
+   e163-4-address SEQUENCE {
+      number      [0] IMPLICIT NumericString
+                       (SIZE (1..ub-e163-4-number-length)),
+      sub-address [1] IMPLICIT NumericString
+                       (SIZE (1..ub-e163-4-sub-address-length))
+                       OPTIONAL },
+   psap-address [0] IMPLICIT PresentationAddress }
+
+PresentationAddress ::= SEQUENCE {
+    pSelector     [0] EXPLICIT OCTET STRING OPTIONAL,
+    sSelector     [1] EXPLICIT OCTET STRING OPTIONAL,
+    tSelector     [2] EXPLICIT OCTET STRING OPTIONAL,
+    nAddresses    [3] EXPLICIT SET SIZE (1..MAX) OF OCTET STRING }
+
+terminal-type  INTEGER ::= 23
+
+TerminalType ::= INTEGER {
+   telex (3),
+   teletex (4),
+   g3-facsimile (5),
+   g4-facsimile (6),
+   ia5-terminal (7),
+   videotex (8) } (0..ub-integer-options)
+
+-- Extension Domain-defined Attributes
+
+teletex-domain-defined-attributes INTEGER ::= 6
+
+TeletexDomainDefinedAttributes ::= SEQUENCE SIZE
+   (1..ub-domain-defined-attributes) OF TeletexDomainDefinedAttribute
+
+TeletexDomainDefinedAttribute ::= SEQUENCE {
+        type TeletexString
+               (SIZE (1..ub-domain-defined-attribute-type-length)),
+        value TeletexString
+               (SIZE (1..ub-domain-defined-attribute-value-length)) }
+
+--  specifications of Upper Bounds MUST be regarded as mandatory
+--  from Annex B of ITU-T X.411 Reference Definition of MTS Parameter
+--  Upper Bounds
+
+-- Upper Bounds
+ub-name INTEGER ::= 32768
+ub-common-name INTEGER ::= 64
+ub-locality-name INTEGER ::= 128
+ub-state-name INTEGER ::= 128
+ub-organization-name INTEGER ::= 64
+ub-organizational-unit-name INTEGER ::= 64
+ub-title INTEGER ::= 64
+ub-serial-number INTEGER ::= 64
+ub-match INTEGER ::= 128
+ub-emailaddress-length INTEGER ::= 128
+ub-common-name-length INTEGER ::= 64
+ub-country-name-alpha-length INTEGER ::= 2
+ub-country-name-numeric-length INTEGER ::= 3
+ub-domain-defined-attributes INTEGER ::= 4
+ub-domain-defined-attribute-type-length INTEGER ::= 8
+ub-domain-defined-attribute-value-length INTEGER ::= 128
+ub-domain-name-length INTEGER ::= 16
+ub-extension-attributes INTEGER ::= 256
+ub-e163-4-number-length INTEGER ::= 15
+ub-e163-4-sub-address-length INTEGER ::= 40
+ub-generation-qualifier-length INTEGER ::= 3
+ub-given-name-length INTEGER ::= 16
+ub-initials-length INTEGER ::= 5
+ub-integer-options INTEGER ::= 256
+ub-numeric-user-id-length INTEGER ::= 32
+ub-organization-name-length INTEGER ::= 64
+ub-organizational-unit-name-length INTEGER ::= 32
+ub-organizational-units INTEGER ::= 4
+ub-pds-name-length INTEGER ::= 16
+ub-pds-parameter-length INTEGER ::= 30
+ub-pds-physical-address-lines INTEGER ::= 6
+ub-postal-code-length INTEGER ::= 16
+ub-pseudonym INTEGER ::= 128
+ub-surname-length INTEGER ::= 40
+ub-terminal-id-length INTEGER ::= 24
+ub-unformatted-address-length INTEGER ::= 180
+ub-x121-address-length INTEGER ::= 16
+
+-- Note - upper bounds on string types, such as TeletexString, are
+-- measured in characters.  Excepting PrintableString or IA5String, a
+-- significantly greater number of octets will be required to hold
+-- such a value.  As a minimum, 16 octets, or twice the specified
+-- upper bound, whichever is the larger, should be allowed for
+-- TeletexString.  For UTF8String or UniversalString at least four
+-- times the upper bound should be allowed.
+
+END

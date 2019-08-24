@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Deprecations</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>deprecations.xml</file>
+  </header>
+  <section>
+    <title>Introduction</title>
+    <p>This document aim to list all deprecated functionality in Erlang/OTP. It
+    was introduced as of OTP 22, and have not yet been updated with all old
+    deprecations. Deprecations made in other parts of the documentation are of
+    course still valid. For more information regarding the strategy regarding
+    deprecations see the documentation of
+    <seealso marker="../system_principles/misc#deprecation">Support, Compatibility,
+    Deprecations, and Removal</seealso>.</p>
+  </section>
+  <section>
+    <marker id="OTP-22"/>
+    <title>OTP 22</title>
+    <section>
+      <title>VxWorks Support</title>
+      <p>Some parts of OTP has had limited VxWorks support, such as for
+      example <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>.
+      This support is now deprecated and has also been
+      <seealso marker="scheduled_for_removal#OTP-23">scheduled for removal</seealso>.</p>
+    </section>
+    <section>
+      <title>Legacy parts of erl_interface</title>
+      <p>The old legacy <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>
+      library (functions with prefix <c>erl_</c>) is deprecated as of OTP 22. These
+      parts of <c>erl_interface</c> has been informally deprecated
+      for a very long time. You typically want to replace the usage of
+      the <c>erl_interface</c> library with the use of the <c>ei</c> library
+      which also is part of the <c>erl_interface</c> application. The old legacy
+      <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>
+      library has also been <seealso marker="scheduled_for_removal#OTP-23">scheduled
+      for removal</seealso>.</p>
+    </section>
+    <section>
+      <title>System Events</title>
+      <p>
+	The format of "System Events" as defined in the man page for
+	<seealso marker="stdlib:sys">sys</seealso>
+	has been clarified and cleaned up.
+	Due to this, code that relied on the internal badly
+	documented previous (before this change) format
+	of OTP's "System Events", needs to be changed.
+      </p>
+      <p>
+	In the wake of this the function
+	<seealso marker="stdlib:sys#get_debug/3">sys:get_debug/3</seealso>
+	that returns data with undocumented and internal format
+	(and therefore is practically useless) has been deprecated,
+	and a new function
+	<seealso marker="stdlib:sys#get_log/1">sys:get_log/1</seealso>
+	has been added,
+	that hopefully does what the deprecated function was intended for.
+      </p>
+    </section>
+  </section>
+  <section>
+    <marker id="OTP-18"/>
+    <title>OTP 18</title>
+    <section>
+      <title>erlang:now()</title>
+      <p>New time functionality and a new time API was introduced. For more information
+      see the <seealso marker="erts:time_correction">Time and Time Correction</seealso>
+      chapter in the ERTS User's guide and specifically the
+      <seealso marker="erts:time_correction#Dos_and_Donts">Dos and Donts</seealso>
+      section on how to replace usage of <c>erlang:now()</c>.</p>
+    </section>
+  </section>
+</chapter>

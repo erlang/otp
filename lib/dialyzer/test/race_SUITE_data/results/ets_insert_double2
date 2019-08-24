@@ -1,0 +1,4 @@
+
+ets_insert_double2.erl:15: The call ets:insert('foo',[{_,[number()] | integer()},...]) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('foo',Random::any()) call in ets_insert_double2.erl on line 10, the ets:lookup('foo',Pass::any()) call in ets_insert_double2.erl on line 27
+ets_insert_double2.erl:19: The call ets:insert('foo',[{_,[number()] | integer()},...]) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('foo',Random::any()) call in ets_insert_double2.erl on line 10, the ets:lookup('foo',Pass::any()) call in ets_insert_double2.erl on line 27
+ets_insert_double2.erl:24: The call ets:insert('foo',{_,'empty'}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('foo',Pass::any()) call in ets_insert_double2.erl on line 22

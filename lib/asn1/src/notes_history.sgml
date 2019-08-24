@@ -1,0 +1,101 @@
+<!doctype chapter PUBLIC "-//Stork//DTD chapter//EN">
+<!-- 
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+ Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+ AB. All Rights Reserved.''
+ 
+     $Id$
+-->
+<chapter>
+  <header>
+    <title>ASN1 Release Notes (Old)</title>
+    <prepared>Kenneth Lundin</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno></docno>
+    <approved>Kenneth Lundin</approved>
+    <checked>Kenneth Lundin</checked>
+    <date>98-02-02</date>
+    <rev>A</rev>
+    <file>notes_history.sgml</file>
+  </header>
+  
+  <p>This document describes the changes made to old versions of the <c>asn1</c> application.
+
+  <section>
+    <title>ASN1 0.8.1</title>
+    <p>This is the first release of the ASN1 application. This version is released
+      for beta-testing. Some functionality will be added until the 1.0 version is
+      released. A list of missing features and restrictions can be found in the
+      chapter below.
+    
+    <section>
+      <title>Missing features and other restrictions</title>
+      <list>
+	<item> 
+	  <p>The encoding rules BER and PER (aligned) is supported. <em>PER (unaligned) 
+	      IS NOT SUPPORTED</em>.
+	<item> 
+	  <p>NOT SUPPORTED types <c>ANY</c> and <c>ANY DEFINED BY</c> 
+	    (is not in the standard any more).
+	<item> 
+	  <p>NOT SUPPORTED types <c>EXTERNAL</c> and <c>EMBEDDED-PDV</c>. 
+	<item> 
+	  <p>NOT SUPPORTED type <c>REAL</c> (planned to  be implemented). 
+	<item> 
+	  <p>The code generation support for value definitions in the ASN.1 notation is very limited
+	    (planned to be enhanced).
+	<item>
+	  <p>The support for constraints is limited to:
+	  <list>
+	    <item><p>
+		SizeConstraint	SIZE(X)
+	    <item><p>
+		SingleValue	(1)
+	    <item><p>
+		ValueRange	(X..Y)
+	    <item><p>
+		PermittedAlpabet FROM (but not for BMPString and UniversalString when generating PER).
+	  </list>
+	  <p>Complex expressions in constraints is not supported (planned to be extended).
+	<item> 
+	  <p>The current version of the compiler has very limited error checking:
+	    <list>
+	    <item><p>Stops at first syntax error.
+	    <item><p>Does not stop when a reference to an undefined type is found , 
+		but prints an error message. Compilation of the generated 
+		Erlang module will then fail.
+	    <item><p>A whole number of other semantical controls is currently missing. This
+		means that the compiler will give little or bad help to detect what's wrong
+		with an ASN.1 specification, but will mostly work very well when the
+		ASN.1 specification is correct.
+	  </list>
+	<item> 
+	  <p>The maximum INTEGER supported in this version is a signed 64 bit integer. This
+	    limitation is probably quite reasonable. (Planned to be extended).
+	<item> 
+	  <p>Only AUTOMATIC TAGS supported for PER.
+	<item> 
+	  <p>Only EXPLICIT and IMPLICIT TAGS supported for BER.
+	<item> 
+	  <p>The compiler supports decoding of BER-data with indefinite length but it is 
+	    not possible to produce data with indefinite length with the encoder. 
+      </list>
+    </section>
+	  
+  </section>
+</chapter>
+
+
+

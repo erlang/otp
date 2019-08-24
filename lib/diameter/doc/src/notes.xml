@@ -1,0 +1,2633 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<chapter>
+
+<header>
+<copyright>
+<year>2011</year>
+<year>2018</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>Release Notes</title>
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>notes.xml</file>
+</header>
+
+<p>
+Releases are listed in reverse chronological order, most recent
+first.</p>
+
+<!-- ===================================================================== -->
+
+<section><title>diameter 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix inadvertently broad monitor that resulted in
+	    gen_server cast messages to hidden nodes from module
+	    diameter_dist.</p>
+          <p>
+	    Own Id: OTP-15768</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add spawn_opt MFA configuration to allow a callback to
+	    spawn a handler process for an incoming Diameter request
+	    on an an arbitrary node. Module diameter_dist provides a
+	    route_session/2 that can be used to distribute requests
+	    based on Session-Id, although this module is currently
+	    only documented in the module itself and may change.</p>
+          <p>
+	    Own Id: OTP-15398</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix function_clause when sending an outgoing request
+	    after DPA has been sent in response to an incoming DPR.
+	    The caused the diameter_peer_fsm gen_server associated
+	    with the peer connection to fail, which could then result
+	    in the transport connection being reset before the peer
+	    closed it upon reception of DPA.</p>
+          <p>
+	    Own Id: OTP-15198 Aux Id: ERIERL-213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typos.</p>
+          <p>
+	    Own Id: OTP-15045</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix close of diameter_tcp/sctp listening socket at
+	    diameter:remove_transport/2, that was broken in diameter
+	    2.1. A reconfigured transport could not listen on the
+	    same endpoint as a result.</p>
+          <p>
+	    Own Id: OTP-14839</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of SUSPECT connections at service
+	    termination. A connection with this watchdog state caused
+	    diameter_service:terminate/2 to fail.</p>
+          <p>
+	    Own Id: OTP-14947 Aux Id: ERIERL-124 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typo: peer_up/3 was written where
+	    peer_down/3 was intended.</p>
+          <p>
+	    Own Id: OTP-14805</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A fault introduced in diameter 2.1 could cause decode
+	    errors to be ignored in AVPs following the header of a
+	    Grouped AVP.</p>
+          <p>
+	    Own Id: OTP-14684 Aux Id: ERIERL-85 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An inadvertently removed monitor in diameter 2.1 caused
+	    the ets table diameter_reg to leak entries, and caused
+	    service restart and more to fail.</p>
+          <p>
+	    Own Id: OTP-14668 Aux Id: ERIERL-83 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Proxy-Info in answer messages setting the
+	    E-bit.</p>
+          <p>
+	    RFC 6733 requires that Proxy-Info AVPs in an incoming
+	    request be echoed in an outgoing answer. This was not
+	    done in answers formulated by diameter; for example, as a
+	    result of a handle_request callback having returned an
+	    'answer-message' or protocol_error tuple.</p>
+          <p>
+	    Own Id: OTP-9869</p>
+        </item>
+        <item>
+          <p>
+	    React to nodeup/nodedown when sharing peer connections.</p>
+          <p>
+	    Service configuration share_peers and use_shared_peers
+	    did not respond to the coming and going of remote nodes.</p>
+          <p>
+	    Own Id: OTP-14011</p>
+        </item>
+        <item>
+          <p>
+	    Fix inappropriate message callbacks.</p>
+          <p>
+	    An incoming CER or DPR was regarded as discarded,
+	    resulting in a corresponding message callback (if
+	    configured) in diameter_tcp/sctp.</p>
+          <p>
+	    Own Id: OTP-14486</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 5009 errors (DIAMETER_AVP_OCCURS_TOO_MANY
+	    TIMES).</p>
+          <p>
+	    RFC 6733 says that the first AVP that exceeds the bound
+	    should be reported, but the suggestions in the errors
+	    field of a diameter_packet record counted AVPs from the
+	    rear of the message, not the front. Additionally,
+	    diameter 2.0 in OTP 20.0 broke the counting by accepting
+	    one more AVP than the message grammar in question
+	    allowed.</p>
+          <p>
+	    Own Id: OTP-14512</p>
+        </item>
+        <item>
+          <p>
+	    Match case insensitively in diameter_tcp/sctp accept
+	    tuple.</p>
+          <p>
+	    Matching of remote addresses when accepting connections
+	    in a listening transport was case-sensitive, causing the
+	    semantics to change as a consequence of (kernel)
+	    OTP-13006.</p>
+          <p>
+	    Own Id: OTP-14535 Aux Id: OTP-13006 </p>
+        </item>
+        <item>
+          <p>
+	    Fix backwards incompatibility of remote send when sharing
+	    transports.</p>
+          <p>
+	    The sending of requests over a transport connection on a
+	    remote node running an older version of diameter was
+	    broken by diameter 2.0 in OTP 20.0.</p>
+          <p>
+	    Own Id: OTP-14552</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_packet.avps decode of Grouped AVP errors in
+	    Failed-AVP.</p>
+          <p>
+	    Decode didn't produce a list of diameter_avp records, so
+	    information about faulty component AVPs was lost.</p>
+          <p>
+	    Own Id: OTP-14607</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let unordered delivery be configured in diameter_sctp.</p>
+          <p>
+	    With option {unordered, boolean() | pos_integer()}, with
+	    false the default, and N equivalent to OS =&lt; N, where
+	    OS is the number of outbound streams negotiated on the
+	    association in question. If configured, unordered sending
+	    commences upon reception of a second message, outgoing
+	    messages being sent on stream 0 before this.</p>
+          <p>
+	    The default false is for backwards compatibility, but
+	    false or 1 should be set to follow RFC 6733's
+	    recommendation on the use of unordered sending to avoid
+	    head-of-line blocking. There is typically no meaningful
+	    order to preserve, since the order in which outgoing
+	    messages are received by a transport process isn't known
+	    to the sender.</p>
+          <p>
+	    Own Id: OTP-10889</p>
+        </item>
+        <item>
+          <p>
+	    Complete/simplify Standards Compliance in User's Guide.</p>
+          <p>
+	    Own Id: OTP-10927</p>
+        </item>
+        <item>
+          <p>
+	    Add service option decode_format.</p>
+          <p>
+	    To allow incoming messages to be decoded into maps or
+	    lists instead of records. Messages can be presented in
+	    any of the formats for encode.</p>
+          <p>
+	    Decode performance has also been improved.</p>
+          <p>
+	    Own Id: OTP-14511 Aux Id: OTP-14343 </p>
+        </item>
+        <item>
+          <p>
+	    Add service option traffic_counters.</p>
+          <p>
+	    To let message-related counters be disabled, which can be
+	    a performance improvement in some usecases.</p>
+          <p>
+	    Own Id: OTP-14521</p>
+        </item>
+        <item>
+          <p>
+	    Allow loopback/any as local addresses in
+	    diameter_tcp/sctp.</p>
+          <p>
+	    The atoms were implied by documentation, but not handled
+	    in code.</p>
+          <p>
+	    Own Id: OTP-14544</p>
+        </item>
+        <item>
+          <p>
+	    Add transport option strict_capx.</p>
+          <p>
+	    To allow the RFC 6733 requirement that a transport
+	    connection be closed if a message is received before
+	    capabilities exchange to be relaxed.</p>
+          <p>
+	    Own Id: OTP-14546</p>
+        </item>
+        <item>
+          <p>
+	    Be consistent with service/transport configuration.</p>
+          <p>
+	    For options for which it's meaningful, defaults values
+	    for transport options can now be configured on a service.
+	    This was previously the case only for an arbitrary subset
+	    of options.</p>
+          <p>
+	    Own Id: OTP-14555</p>
+        </item>
+        <item>
+          <p>
+	    Add service/transport option avp_dictionaries.</p>
+          <p>
+	    To provide better support for AVPs that are not defined
+	    in the application dictionary: configuring additional
+	    dictionaries in an avp_dictionaries tuple allows their
+	    AVPs to be encoded/decoded in much the same fashion as
+	    application AVPs.</p>
+          <p>
+	    The motivation is RFC 7683 Diameter Overload, Indicator
+	    Conveyance (DOIC), that defines AVPs intended to be
+	    piggybacked onto arbitrary messages. A DOIC dictionary
+	    has been included in the installation, in module
+	    diameter_gen_doic_rfc7683.</p>
+          <p>
+	    Own Id: OTP-14588</p>
+        </item>
+        <item>
+          <p>
+	    Decode application AVPs in answers setting the E-bit.</p>
+          <p>
+	    AVPs defined in the application of the message being sent
+	    were previously not decoded, only those in the common
+	    application that defines the answer-message grammar.</p>
+          <p>
+	    Own Id: OTP-14596</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let candidate peers be passed to diameter:call/4</p>
+          <p>
+	    With call option peer, to allow a request to be sent to a
+	    peer that hasn't advertised support for the application
+	    in question.</p>
+          <p>
+	    RFC 6733 2.4 requires a node to send the application
+	    identifiers of all locally supported applications at
+	    capabilities exchange, but not all nodes respect this for
+	    the common application, and diameter itself will send
+	    D[WP][RA] without the common application having been
+	    explicitly advertised. Regarding the common application
+	    as implicit renders Result-Code 5010
+	    (DIAMETER_NO_COMMON_APPLICATION) meaningless however, so
+	    allow any request to be sent as long as there is a
+	    configured dictionary to support it.</p>
+          <p>
+	    Own Id: OTP-14338</p>
+        </item>
+        <item>
+          <p>
+	    Improve performance of message encode/decode and related
+	    handling.</p>
+          <p>
+	    Dictionaries using @custom_types or @codecs will need to
+	    adapt the corresponding functions to accept an additional
+	    argument that is now passed through encode/decode, which
+	    was required to remove various process dictionary-based
+	    workarounds that have been used to solve problems in the
+	    past.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14343</p>
+        </item>
+        <item>
+          <p>
+	    Add transport options to avoid deadlock and allow for
+	    load regulation.</p>
+          <p>
+	    Both diameter_tcp and diameter_sctp now accept two new
+	    configuration options: sender and message_cb. The former
+	    causes outgoing sends to take place in a dedicated
+	    process, to avoid the possibility of deadlock when both
+	    the transport process and its peer block in send. The
+	    latter allows a callback to control the reading of
+	    messages on the socket, to allow for backpressure towards
+	    peers when the rate of incoming traffic is greater than
+	    can otherwise be handled.</p>
+          <p>
+	    Neither of these options are yet documented, but are
+	    unlikely to change unless problems are discovered. The
+	    sender option is not the default since it should probably
+	    always be used in combination with message_cb, to prevent
+	    incoming requests from being read at a higher rate than a
+	    peer allows outgoing answers to be sent.</p>
+          <p>
+	    Own Id: OTP-14455 Aux Id: ERL-332 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An improvement in the handling of peer failover in
+	    diameter 1.12.1 adversely affected performance when
+	    sending requests. Further, the inefficient use of a
+	    public table to route incoming answers has been removed.</p>
+          <p>
+	    Own Id: OTP-14206</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Close diameter_tcp/sctp listening sockets at
+	    diameter:stop_service/1.</p>
+          <p>
+	    Broken by OTP-13611.</p>
+          <p>
+	    Own Id: OTP-13787 Aux Id: OTP-13611 </p>
+        </item>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ensure listening socket is closed at transport removal.</p>
+          <p>
+	    Transport removal did not immediately close a
+	    <c>diameter_tcp/sctp</c> listening socket, and a
+	    subsequent peer connection caused it to remain open.</p>
+          <p>
+	    Own Id: OTP-13611</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>diameter:peer_info/1</c>.</p>
+          <p>
+	    That retrieves information in the style of
+	    <c>diameter:service_info/2</c>, but for a single peer
+	    connection.</p>
+          <p>
+	    Own Id: OTP-13508</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make peer handling more efficient.</p>
+          <p>
+	    Inefficient lookup and manipulation of peer lists could
+	    result in poor performance when many outgoing requests
+	    were sent simultaneously, or when many peers connected
+	    simultaneously. Filtering peer lists on realm/host is now
+	    also more efficient in many cases.</p>
+          <p>
+	    Own Id: OTP-13164</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of shared peer connections in watchdog state
+	    SUSPECT.</p>
+          <p>
+	    A peer connection shared from a remote node was regarded
+	    as being up for the lifetime of the connection, ignoring
+	    watchdog transitions into state SUSPECT.</p>
+          <p>
+	    Own Id: OTP-13342</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix request table leaks</p>
+          <p>
+	    The End-to-End and Hop-by-Hop identifiers of outgoing
+	    Diameter requests are stored in a table in order for the
+	    caller to be located when the corresponding answer
+	    message is received. Entries were orphaned if the handler
+	    was terminated by an exit signal as a consequence of
+	    actions taken by callback functions, or if callbacks
+	    modified identifiers in retransmission cases.</p>
+          <p>
+	    Own Id: OTP-13137</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix relay encode of nested, Grouped AVPs.</p>
+          <p>
+	    A fault in OTP-12475 caused encode to fail if the first
+	    AVP in a Grouped AVP was itself Grouped.</p>
+          <p>
+	    Own Id: OTP-12879 Aux Id: OTP-12475 </p>
+        </item>
+        <item>
+          <p>
+	    Match acceptable peer addresses case insensitively.</p>
+          <p>
+	    Regular expressions passed in an 'accept' tuple to
+	    diameter_tcp or diameter_sctp inappropriately matched
+	    case.</p>
+          <p>
+	    Own Id: OTP-12902</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_watchdog function clause.</p>
+          <p>
+	    OTP-12912 introduced an error with accepting transports
+	    setting <c>{restrict_connections, false}</c>, causing
+	    processes to fail when peer connections were terminated.</p>
+          <p>
+	    Own Id: OTP-12969</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Don't report 5005 (DIAMETER_AVP_MISSING) errors
+	    unnecessarily.</p>
+          <p>
+	    An AVP whose decode failed was reported as missing,
+	    despite having been reported with another error as a
+	    consequence of the failure.</p>
+          <p>
+	    Own Id: OTP-12871</p>
+        </item>
+        <item>
+          <p>
+	    Improve decode performance.</p>
+          <p>
+	    The time required to decode a message increased
+	    quadratically with the number of AVPs in the worst case,
+	    leading to extremely long execution times.</p>
+          <p>
+	    Own Id: OTP-12891</p>
+        </item>
+        <item>
+          <p>
+	    Improve watchdog and statistics performance.</p>
+          <p>
+	    Inefficient use of timers contributed to poor performance
+	    at high load, as did ordering of the table statistics are
+	    written to.</p>
+          <p>
+	    Own Id: OTP-12912</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() strict_mbit.</p>
+          <p>
+	    There are differing opinions on whether or not reception
+	    of an arbitrary AVP setting the M-bit is an error. The
+	    default interpretation is strict: if a command grammar
+	    doesn't explicitly allow an AVP setting the M-bit then
+	    reception of such an AVP is regarded as an error. Setting
+	    <c>{strict_mbit, false}</c> disables this check.</p>
+          <p>
+	    Own Id: OTP-12947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix decode of Grouped AVPs containing errors.</p>
+          <p>
+	    RFC 6733 says this of Failed-AVP in 7.5:</p>
+
+	    <taglist><tag></tag><item><p><c> In the case where the offending AVP
+	    is embedded within a Grouped AVP, the Failed-AVP MAY
+	    contain the grouped AVP, which in turn contains the
+	    single offending AVP. The same method MAY be employed if
+	    the grouped AVP itself is embedded in yet another grouped
+	    AVP and so on. In this case, the Failed-AVP MAY contain
+	    the grouped AVP hierarchy up to the single offending AVP.
+	    This enables the recipient to detect the location of the
+	    offending AVP when embedded in a
+	    group.</c></p></item></taglist>
+          <p>
+	    It says this of DIAMETER_INVALID_AVP_LENGTH in 7.1.5:</p>
+
+	    <taglist><tag></tag><item><p><c> The request contained an AVP with
+	    an invalid length. A Diameter message indicating this
+	    error MUST include the offending AVPs within a Failed-AVP
+	    AVP. In cases where the erroneous AVP length value
+	    exceeds the message length or is less than the minimum
+	    AVP header length, it is sufficient to include the
+	    offending AVP header and a zero filled payload of the
+	    minimum required length for the payloads data type. If
+	    the AVP is a Grouped AVP, the Grouped AVP header with an
+	    empty payload would be sufficient to indicate the
+	    offending AVP. In the case where the offending AVP header
+	    cannot be fully decoded when the AVP length is less than
+	    the minimum AVP header length, it is sufficient to
+	    include an offending AVP header that is formulated by
+	    padding the incomplete AVP header with zero up to the
+	    minimum AVP header length.</c></p></item></taglist>
+
+          <p>
+	    The AVPs placed in the errors field of a diameter_packet
+	    record are intended to be appropriate for inclusion in a
+	    Failed-AVP, but neither of the above paragraphs has been
+	    followed in the Grouped case: the entire faulty AVP
+	    (non-faulty components and all) has been included. This
+	    made it difficult to identify the actual faulty AVP in
+	    all but simple cases.</p>
+          <p>
+	    The decode is now adapted to the RFC, and implements the
+	    suggested single faulty AVP, nested in as many Grouped
+	    containers as required.</p>
+          <p>
+	    Own Id: OTP-12721</p>
+        </item>
+        <item>
+          <p>
+	    Fix SCTP problems on Solaris.</p>
+          <p>
+	    The allocation of association ids in Solaris was in
+	    conflict with an assumption made in diameter_sctp,
+	    resulting in failures when accepting multiple peer
+	    connections.</p>
+          <p>
+	    Own Id: OTP-12768</p>
+        </item>
+        <item>
+          <p>
+	    Fix start order of alternate transports.</p>
+          <p>
+	    A transport configured with diameter:add_transport/2 can
+	    be passed multiple transport_module/transport_config
+	    tuples in order to specify alternate configuration,
+	    modules being attempted in order until one succeeds. This
+	    is primarily for the connecting case; for example, to
+	    allow a transport to be configured to first attempt
+	    connection over SCTP, and then TCP in case SCTP fails.
+	    Multiple module tuples can be paired with a single config
+	    tuple, but in this case the start order was reversed
+	    relative to the order in which the modules were specifed.</p>
+          <p>
+	    Own Id: OTP-12851</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2.</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken relay counters.</p>
+          <p>
+	    OTP-12654 in OTP 17.5.3 broke counters in the case of
+	    answer messages received in the relay application.
+	    Counters were accumulated as unknown messages or
+	    no_result_code instead of as relayed messages on the
+	    intended Result-Code and 'Experimental-Result' tuples.</p>
+          <p>
+	    Own Id: OTP-12741</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_sctp listener race.</p>
+          <p>
+	    An oversight in OTP-12428 made it possible to start a
+	    transport process that could not establish associations.</p>
+          <p>
+	    Own Id: OTP-12744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.9.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Don't leave extra bit in decoded AVP data.</p>
+          <p>
+	    OTP-12074 in OTP 17.3 missed one case: a length error on
+	    a trailing AVP unknown to the dictionary in question.</p>
+          <p>
+	    Own Id: OTP-12642</p>
+        </item>
+        <item>
+          <p>
+	    Don't confuse Result-Code and Experimental-Result.</p>
+          <p>
+	    The errors field of a decoded diameter_packet record was
+	    populated with a Result-Code AVP when an
+	    Experimental-Result containing a 3xxx Result-Code was
+	    received in an answer not setting the E-bit. The correct
+	    AVP is now extracted from the incoming message.</p>
+          <p>
+	    Own Id: OTP-12654</p>
+        </item>
+        <item>
+          <p>
+	    Don't count on unknown Application Id.</p>
+          <p>
+	    OTP-11721 in OTP 17.1 missed the case of an Application
+	    Id not agreeing with that of the dictionary in question,
+	    causing counters to be accumulated on keys containing the
+	    unknown id.</p>
+          <p>
+	    Own Id: OTP-12701</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't discard outgoing answers unnecessarily.</p>
+          <p>
+	    Answers missing a Result-Code AVP or setting an E-bit
+	    inappropriately were discarded even if encode was
+	    successful.</p>
+          <p>
+	    Own Id: OTP-11492</p>
+        </item>
+        <item>
+          <p>
+	    Increase supervision timeouts.</p>
+          <p>
+	    At diameter application shutdown, DPR could be omitted on
+	    open peer connections because of short supervision
+	    timeouts.</p>
+          <p>
+	    Own Id: OTP-12412</p>
+        </item>
+        <item>
+          <p>
+	    Fix retransmission of messages sent as header/avps list.</p>
+          <p>
+	    Extracting End-to-End and Hop-by-Hop Identifiers resulted
+	    in a function clause error, resulting in a handle_error
+	    callback.</p>
+          <p>
+	    Own Id: OTP-12415</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_avp decode of Grouped AVPs having decode
+	    errors.</p>
+          <p>
+	    Components of such an AVP were not extracted, causing it
+	    to be represented by a single diameter_avp record instead
+	    of the intended list.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12475</p>
+        </item>
+        <item>
+          <p>
+	    Fix ordering of AVPs in relayed messages.</p>
+          <p>
+	    The order was reversed relative to the received order,
+	    with a Route-Record AVP prepended.</p>
+          <p>
+	    Thanks to Andrzej Trawiński.</p>
+          <p>
+	    Own Id: OTP-12551</p>
+        </item>
+        <item>
+          <p>
+	    Fix issues with DiameterURI encode/decode.</p>
+          <p>
+	    RFC 6773 changed the default port and transport, but the
+	    RFC 3588 defaults were used even if the RFC 6733 common
+	    dictionary was in use. The RFC 3588 defaults are now only
+	    used when the common dictionary is
+	    diameter_gen_base_rfc3588.</p>
+          <p>
+	    Both RFC 3588 and 6733 disallow
+	    transport=udp;protocol=diameter. Encode of the
+	    combination now fails.</p>
+          <p>
+	    Decode of ports numbers outside the range 0-65535 and
+	    fully qualified domain names longer than 255 octets now
+	    fails.</p>
+          <p>
+	    Note that RFC 3588 is obsolete, and that there is a
+	    diameter_gen_base_rfc6733. The change in defaults is a
+	    potential interoperability problem when moving to RFC
+	    6733 with peers that do not send all URI components. The
+	    fact that 6733 allows 5xxx result codes in answer
+	    messages setting the E-bit, which RFC 3588 doesn't, is
+	    another.</p>
+          <p>
+	    Own Id: OTP-12589</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add service_opt() string_decode.</p>
+          <p>
+	    To disable the decode of potentially large binaries to
+	    string. This prevents large strings from being copied
+	    when incoming Diameter messages are passed between
+	    processes, a vulnerability that can lead to memory being
+	    exhausted given sufficiently malicious peers.</p>
+          <p>
+	    The value is a boolean(), true being the default for
+	    backwards compatibility. Setting false causes both
+	    diameter_caps records and decoded messages to contain
+	    binary() in relevant places that previously had string():
+	    diameter_app(3) callbacks need to be prepared for the
+	    change.</p>
+          <p>
+	    The Diameter types affected are OctetString and the
+	    derived types UTF8String, DiameterIdentity, DiameterURI,
+	    IPFilterRule, and QoSFilterRule. Time and Address are
+	    unaffected.</p>
+          <p>
+	    Own Id: OTP-11952</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() pool_size.</p>
+          <p>
+	    To allow for pools of accepting transport processes,
+	    which can better service multiple simultaneous peer
+	    connections. The option can also be used with connecting
+	    transports, to establish multiple connections to the same
+	    peer without having to configure multiple transports.</p>
+          <p>
+	    Own Id: OTP-12428</p>
+        </item>
+        <item>
+          <p>
+	    Allow DPR to be sent with diameter:call/4.</p>
+          <p>
+	    It has been possible to send, but the answer was regarded
+	    as unsolicited and discarded. DPA now causes the
+	    transport process in question to be terminated, as for
+	    DPR that diameter itself sends.</p>
+          <p>
+	    Own Id: OTP-12542</p>
+        </item>
+        <item>
+          <p>
+	    Discard requests after DPR.</p>
+          <p>
+	    RFC 6733 is imprecise, but the tone is that messages
+	    received after DPR are an exception to be dealt with only
+	    because of the possibility of unordered delivery over
+	    SCTP. As a consequence, and because a request following
+	    DPR is unlikely to be answered due to the impending loss
+	    of the peer connection, discard outgoing requests
+	    following an outgoing or incoming DPR. Incoming requests
+	    are also discarded, with the exception of DPR itself.
+	    Answers are sent and received as usual.</p>
+          <p>
+	    Own Id: OTP-12543</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() dpr_timeout.</p>
+          <p>
+	    To cause a peer connection to be closed following an
+	    outgoing DPA when the peer fails to do so. It is the
+	    recipient of DPA that should close the connection
+	    according to RFC 6733.</p>
+          <p>
+	    Own Id: OTP-12609</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() incoming_maxlen.</p>
+          <p>
+	    To bound the expected size of incoming Diameter messages.
+	    Messages larger than the specified number of bytes are
+	    discarded, to prevent a malicious peer from generating
+	    excessive load.</p>
+          <p>
+	    Own Id: OTP-12628</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix remote diameter_request table leak.</p>
+          <p>
+	    An outgoing request whose pick_peer callback selected a
+	    transport on another node resulted in an orphaned table
+	    entry on that node.</p>
+          <p>
+	    Own Id: OTP-12196</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 3xxx Result-Code without E-bit.</p>
+          <p>
+	    OTP-12233 broke the population of the errors field of the
+	    diameter_packet record when an incoming request with an
+	    E-bit/Result-Code mismatch was detected, causing a
+	    4-tuple to be inserted as Result-Code in a diameter_avp
+	    record.</p>
+          <p>
+	    Own Id: OTP-12233</p>
+        </item>
+        <item>
+          <p>
+	    Fix ignored connect timer.</p>
+          <p>
+	    There are two timers governing the establishment of peer
+	    connections: connect_timer and watchdog_timer. The former
+	    is the RFC 6733 Tc timer, and is used at initial
+	    connection establishment. The latter is RFC 3539 TwInit,
+	    and is used for connection reestablishment. A connecting
+	    transport erroneously used watchdog_timer in both cases.</p>
+          <p>
+	    Own Id: OTP-12281 Aux Id: seq12728 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Order candidate peers in pick_peer callbacks.</p>
+          <p>
+	    The order of candidate peers presented to a
+	    diameter_app(3) pick_peer callback has previously not
+	    been documented, but there are use cases that are
+	    simplified by an ordering. The order is now determined by
+	    the filter.</p>
+          <p>
+	    Own Id: OTP-12308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't leave extra bit in decoded AVP data.</p>
+          <p>
+	    An extra bit could be communicated in the data field of a
+	    diameter_avp record in the case of length errors. Of no
+	    consequence for code using the record encoding of
+	    Diameter messages, but code examining diameter_avp
+	    records would see this bit.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12074</p>
+        </item>
+        <item>
+          <p>
+	    Fix counting of outgoing requests and answers setting the
+	    E-bit.</p>
+          <p>
+	    OTP-11721 broke these counters for all outgoing requests
+	    except DWR, and caused answers setting the E-bit to be
+	    counted as unknown messages.</p>
+          <p>
+	    Own Id: OTP-12080</p>
+        </item>
+        <item>
+          <p>
+	    Fix Failed-AVP decode.</p>
+          <p>
+	    The best-effort decode only worked for AVPs in the common
+	    dictionary, not for those in the dictionary of the
+	    application identified in the Diameter Header of the
+	    answer message in question.</p>
+          <p>
+	    Failed-AVP in an answer decoded with the RFC 3588 common
+	    dictionary (diameter_gen_base_rfc3588) was regarded as an
+	    error. The RFC 6733 dictionary was unaffected.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12094</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve robustness.</p>
+          <p>
+	    Counters returned by diameter:service_info/2 now only
+	    count messages known to the dictionary in question, so
+	    that an attacker cannot cause arbitrarily many counters
+	    to be created.</p>
+          <p>
+	    Messages to the Erlang log have been minimized, and those
+	    related to traffic have been removed entirely since an
+	    attacker could cause a node to be logged to death.
+	    Consequently, the default answer_errors configuration has
+	    been changed from report to discard. A service needs to
+	    be restarted for the change in default to take effect.</p>
+          <p>
+	    Own Id: OTP-11721</p>
+        </item>
+        <item>
+          <p>
+	    Fix request table leak.</p>
+          <p>
+	    Outgoing Diameter requests are stored in a table until an
+	    answer is received or times out. Calling
+	    diameter:stop_service/1 before this took place would
+	    orphan the entries, resulting in a memory leak.</p>
+          <p>
+	    Own Id: OTP-11893</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken SCTP transport.</p>
+          <p>
+	    OTP-11593 caused the sending of answer messages over SCTP
+	    to fail.</p>
+          <p>
+	    Own Id: OTP-11901 Aux Id: OTP-11593 </p>
+        </item>
+        <item>
+          <p>
+	    Fix watchdog process leak.</p>
+          <p>
+	    A failed capabilities exchange on a listening transport
+	    would orphan a process, causing a memory leak.</p>
+          <p>
+	    Own Id: OTP-11934</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect handling of incoming DPR.</p>
+          <p>
+	    In the case of a listening transport, a reconnection by a
+	    peer following DPR could transition the watchdog state to
+	    REOPEN instead of OKAY.</p>
+          <p>
+	    Own Id: OTP-11938</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of AVP length errors on unknown AVPs.</p>
+          <p>
+	    An AVP (Header) length that pointed past the end of the
+	    message was not flagged as a 5014 error in this case.
+	    Moreover, encoding such an AVP in the Failed-AVP of an
+	    answer message as a consequence of other errors (eg.
+	    M-bit, resulting in 5001) failed if the AVP contained a
+	    complete header.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-11946</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken check in dictionary compilation.</p>
+          <p>
+	    That an AVP specified in the content of a @codecs or
+	    @custom_types section was undefined went undetected,
+	    causing compilation to fail when attempting to lookup the
+	    AVP's type.</p>
+          <p>
+	    Own Id: OTP-11958</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add result code counters for CEA, DWA, and DPA.</p>
+          <p>
+	    In addition to the existing result code counters on other
+	    answer messages.</p>
+          <p>
+	    Own Id: OTP-11891</p>
+        </item>
+        <item>
+          <p>
+	    Add best-effort decode of AVPs within Failed-AVP.</p>
+          <p>
+	    OTP-11007 disabled the decode of AVPs in Failed-AVP since
+	    errors could cause the decode of Failed-AVP itself to
+	    fail. Component AVPs are now decoded if possible,
+	    otherwise not. AVPs of type Grouped are decoded as much
+	    as possible, as deeply as possible.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-11936 Aux Id: OTP-11007 </p>
+        </item>
+        <item>
+          <p>
+	    Add counters for encode errors in outgoing Diameter
+	    messages.</p>
+          <p>
+	    In addition to the existing counters on decode errors.
+	    The latter now count independently of result codes in
+	    answer messages since decode errors do not preclude the
+	    presence of a result code.</p>
+          <p>
+	    Own Id: OTP-11937</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing check at dictionary compilation.</p>
+          <p>
+	    In particular, that an AVP defined as having type Grouped
+	    in an @avp_types section has a corresponding definition
+	    in a @grouped section.</p>
+          <p>
+	    Own Id: OTP-11561</p>
+        </item>
+        <item>
+          <p>
+	    Correct documentation on the setting of Origin-State-Id</p>
+          <p>
+	    It was incorrectly stated that the AVP would be set in an
+	    outgoing DPR/DPA.</p>
+          <p>
+	    Own Id: OTP-11583</p>
+        </item>
+        <item>
+          <p>
+	    Change interface for communicating outbound stream id to
+	    diameter_sctp</p>
+          <p>
+	    The module uses the transport_data field of record
+	    diameter_packet to communicate the stream on which the an
+	    incoming message is received and on which an outgoing
+	    message should be sent, the previous interface being that
+	    both are communicated as a tuple of the form {stream,
+	    Id}. However, since diameter retains the value of an
+	    incoming request's transport_data unless the
+	    corresponding answer message specifies otherwise, the
+	    behaviour in this case is to send an answer on the
+	    outbound stream with the same identifier as the that of
+	    the inbound stream on which the request was received. If
+	    the inbound stream id is greater than or equal to the
+	    number of outbound streams then this is guaranteed to
+	    fail, causing the transport process in question to
+	    terminate. There is no relationship between inbound and
+	    outbound stream identifiers so diameter_sctp's imposition
+	    of one is simply wrong.</p>
+          <p>
+	    Outbound stream ids are now communicated with a different
+	    tuple: {outstream, Id}, interpreted modulo the number of
+	    outbound streams. Thus, retention of an inbound request's
+	    transport_data has no effect on the selection of an
+	    outbound stream.</p>
+          <p>
+	    The change in interface is not strictly backwards
+	    compatible because of the new atom for the outbound
+	    stream. However, as there is currently no documented way
+	    of obtaining the available number of outbound streams for
+	    a peer connection, there is no way for a client to have
+	    known the range of ids from which it could reliably have
+	    chosen with the previous interface, so any setting of the
+	    outbound stream has probably been unintentional. Not
+	    explicitly specifying an outbound stream now results in a
+	    round-robin selection.</p>
+          <p>
+	    Thanks to Sharmila Pillai for reporting the problem.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11593</p>
+        </item>
+        <item>
+          <p>
+	    Fix unicode path failure in diameter_make:codec/2.</p>
+          <p>
+	    A dictionary path containing a unicode codepoint > 255
+	    caused the function to fail.</p>
+          <p>
+	    Own Id: OTP-11655</p>
+        </item>
+        <item>
+          <p>
+	    Fix 'accept' config to diameter_sctp.</p>
+          <p>
+	    OTP-10893 added support for {accept, Match} tuples to
+	    specify addresses or regexps that should be matched
+	    against peer addresses to decide whether or not a newly
+	    established association should be retained, but this
+	    hasn't been functional in the SCTP case because of
+	    missing support in inet(3).</p>
+          <p>
+	    The display of both local and peer addresses in
+	    diameter:service_info/2 output has also been corrected.</p>
+          <p>
+	    Own Id: OTP-11661 Aux Id: OTP-10229 </p>
+        </item>
+        <item>
+          <p>
+	    Be lenient with the M-bit in Grouped AVPs.</p>
+          <p>
+	    RFC 6733 says this, in 4.4:</p>
+
+	    <taglist><tag></tag><item><p><c>Receivers of a Grouped AVP that does
+	    not have the 'M' (mandatory) bit set and one or more of
+	    the encapsulated AVPs within the group has the 'M'
+	    (mandatory) bit set MAY simply be ignored if the Grouped
+	    AVP itself is unrecognized. The rule applies even if the
+	    encapsulated AVP with its 'M' (mandatory) bit set is
+	    further encapsulated within other sub-groups, i.e., other
+	    Grouped AVPs embedded within the Grouped
+	    AVP.</c></p></item></taglist>
+          <p>
+	    The first sentence is mangled but take it to mean this:</p>
+
+	    <taglist><tag></tag><item><p><c>An unrecognized AVP of type Grouped
+	    that does not set the 'M' bit MAY be ignored even if one
+	    of its encapsulated AVPs sets the 'M'
+	    bit.</c></p></item></taglist>
+          <p>
+	    This is a bit of a non-statement since if the AVP is
+	    unrecognized then its type is unknown. We therefore don't
+	    know that its data bytes contain encapsulated AVPs, so
+	    can't but ignore any of those that set the M-bit. Doing
+	    anything else when the type *is* known would be
+	    inconsistent.</p>
+          <p>
+	    OTP-11087 (R16B03) caused the M-bit on any unrecognized
+	    AVP to be regarded as an error, unrecognized being taken
+	    to mean "not explicitly defined as a member of its
+	    container". (That is, an AVP that can't be packed into a
+	    dedicated record field, which is slightly stronger than
+	    "not defined".) This fixed the original intention for
+	    top-level AVPs but broke the required leniency for
+	    Grouped AVPs whose type is known. This leniency is now
+	    restored.</p>
+          <p>
+	    Note that dictionary files need to be recompiled for the
+	    change to have effect.</p>
+          <p>
+	    Thanks to Rory McKeown for reporting the problem.</p>
+          <p>
+	    Own Id: OTP-11675 Aux Id: OTP-11087 </p>
+        </item>
+        <item>
+          <p>
+	    Fix pick_peer case clause failure.</p>
+          <p>
+	    In the case of {call_mutates_state, true} configuration
+	    on the service in question, any peer selection that
+	    failed to select a peer resulted in a case clause
+	    failure. This was noticed in the case of a peer failover
+	    in which an alternate peer wasn't available.</p>
+          <p>
+	    Own Id: OTP-11789</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Rename reconnect_timer to connect_timer.</p>
+          <p>
+	    The former is still accepted for backwards compatibility,
+	    but the name is misleading given the semantics of the
+	    timer.</p>
+          <p>
+	    Own Id: OTP-11168</p>
+        </item>
+        <item>
+          <p>
+	    Extend diameter_make(3).</p>
+          <p>
+	    Dictionaries can now be compiled from strings, not just
+	    filesystem paths, and results can be returned instead of
+	    written to the filesystem.</p>
+          <p>
+	    Own Id: OTP-11348</p>
+        </item>
+        <item>
+          <p>
+	    Remove hardcoding of diameter_base as @prefix on
+	    dictionaries for application id 0.</p>
+          <p>
+	    Own Id: OTP-11361</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix setting of End-to-End and Hop-by-Hop Identifiers in
+	    outgoing DWA.</p>
+          <p>
+	    Broken by OTP-11184, which caused the identifiers to be
+	    set anew, discarding the values from the incoming DWR.</p>
+          <p>
+	    Own Id: OTP-11367</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 5014, DIAMETER_INVALID_AVP_LENGTH.</p>
+          <p>
+	    The error was detected as 5004,
+	    DIAMETER_INVALID_AVP_VALUE, for some Diameter types, in
+	    which case an AVP length that pointed past the end of a
+	    message resulted in encode failure.</p>
+          <p>
+	    Own Id: OTP-11395</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix UTF8String encode.</p>
+          <p>
+	    Encode now accepts any nested list of codepoints and
+	    binaries. A list containing a binary was previously
+	    misinterpreted and the documentation was incomplete.</p>
+          <p>
+	    Own Id: OTP-11172</p>
+        </item>
+        <item>
+          <p>
+	    Ensure DWR isn't sent immediately after DWA.</p>
+          <p>
+	    This was possible if the timing was unfortunate. An
+	    incoming DWR now properly resets the watchdog timer.</p>
+          <p>
+	    Own Id: OTP-11184</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty encode of Failed-AVP</p>
+          <p>
+	    Reception of a CER, DWR or DPR that has decode failures
+	    caused encode of the corresponding answer message to
+	    fail.</p>
+          <p>
+	    Own Id: OTP-11293</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken service_opt() spawn_opt.</p>
+          <p>
+	    The option was ignored.</p>
+          <p>
+	    Own Id: OTP-11299</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of 5014 (INVALID_AVP_LENGTH) errors.</p>
+          <p>
+	    This was in some cases reported as 3009
+	    (INVALID_AVP_BITS).</p>
+          <p>
+	    Note that the correction is partially implemented in
+	    modules generated by diameterc(1): a dictionary file must
+	    be recompiled for the correction to apply to any messages
+	    it defines.</p>
+          <p>
+	    Own Id: OTP-11007</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty capitalization in release notes.</p>
+          <p>
+	    Diameter = the protocol.<br/> diameter = the Erlang
+	    application.</p>
+          <p>
+	    Own Id: OTP-11014</p>
+        </item>
+        <item>
+          <p>
+	    Fix watchdog memory leak.</p>
+          <p>
+	    Entries were not removed from a service-specific ets
+	    table, causing them to be orphaned at connection
+	    reestablishment for listening transports, and
+	    diameter:remove_transport/2 for both listening and
+	    connecting transports.</p>
+          <p>
+	    The fault was introduced by OTP-10692 in diameter-1.4.1
+	    (R16B).</p>
+          <p>
+	    Own Id: OTP-11019 Aux Id: OTP-10692 </p>
+        </item>
+        <item>
+          <p>
+	    Fix decode failure on AVP Length &lt; 8.</p>
+          <p>
+	    The failure caused the message in question to be
+	    discarded.</p>
+          <p>
+	    Own Id: OTP-11026</p>
+        </item>
+        <item>
+          <p>
+	    Respect Host-IP-Address configuration.</p>
+          <p>
+	    Addresses returned from a transport module were always
+	    used to populate Host-IP-Address AVP's in an outgoing
+	    CER/CEA, which precluded the sending of a VIP address.
+	    Transport addresses are now only used if Host-IP-Address
+	    is unspecified.</p>
+          <p>
+	    Own Id: OTP-11045</p>
+        </item>
+        <item>
+          <p>
+	    Fix mkdir race.</p>
+          <p>
+	    Install could fail if examples/code and examples/dict
+	    were created in parallel. Noticed on FreeBSD.</p>
+          <p>
+	    Own Id: OTP-11051</p>
+        </item>
+        <item>
+          <p>
+	    Fix recognition of 5001 on mandatory AVP's.</p>
+          <p>
+	    An AVP setting the M-bit was not regarded as erroneous if
+	    it was defined in the dictionary in question and its
+	    container (message or Grouped AVP) had an 'AVP' field.
+	    It's now regarded as a 5001 error (AVP_UNSUPPORTED), as
+	    in the case that the AVP is not defined.</p>
+          <p>
+	    Note that the correction is partially implemented in
+	    modules generated by diameterc(1): a dictionary file must
+	    be recompiled for the correction to apply to any messages
+	    it defines.</p>
+          <p>
+	    Own Id: OTP-11087</p>
+        </item>
+        <item>
+          <p>
+	    Fix setting of Failed-AVP on handle_request
+	    {answer_message, 5xxx} return.</p>
+          <p>
+	    Failed-AVP was never in the outgoing answer-message. It
+	    is now set with the AVP from the first entry with the
+	    specified Result-Code in the errors field of the incoming
+	    diameter_packet, if found.</p>
+          <p>
+	    Own Id: OTP-11092</p>
+        </item>
+        <item>
+          <p>
+	    Fix watchdog function_clause</p>
+          <p>
+	    A listening transport on a service that allowed multiple
+	    connections to the same peer could result in a
+	    function_clause error in module diameter_watchdog. The
+	    resulting crash was harmless but unseemly.</p>
+          <p>
+	    Thanks to Aleksander Nycz.</p>
+          <p>
+	    Own Id: OTP-11115</p>
+        </item>
+        <item>
+          <p>
+	    Fix population of Failed-AVP.</p>
+          <p>
+	    In cases in which diameter populated this AVP, many
+	    values were sent instead of one as suggested by RFC 6733.
+	    This was partially corrected by OTP-11007.</p>
+          <p>
+	    Own Id: OTP-11127 Aux Id: OTP-11007 </p>
+        </item>
+        <item>
+          <p>
+	    Fix list-valued Vendor-Specific-Application-Id config</p>
+          <p>
+	    R16B (specifically, OTP-10760) broke the handling of such
+	    configuration, resulting in a function clause error if
+	    the list was not of length 3, and faulty interpretation
+	    of the list's contents otherwise. Only record-valued
+	    configuration was properly interpreted.</p>
+          <p>
+	    Own Id: OTP-11165</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow peer connections to be shared between Erlang nodes
+	    for the purpose of sending outgoing requests.</p>
+          <p>
+	    A diameter_app(3) pick_peer/4 callback gets a list of
+	    remote candidates as argument, allowing a callback on one
+	    node to select a transport connection established on
+	    another node. The service_opt() share_peers controls the
+	    extent to which local connections are shared with remote
+	    nodes. The service_opt() use_shared_peers controls the
+	    extent to which connections shared from remote nodes are
+	    utilized on the local node.</p>
+          <p>
+	    Own Id: OTP-9610</p>
+        </item>
+        <item>
+          <p>
+	    Allow listening diameter_{tcp,sctp} transports to be
+	    configured with remote addresses.</p>
+          <p>
+	    Option 'accept' allows remote addresses to be configured
+	    as tuples or regular expressions. Remote addresses are
+	    matched against the configured values at connection
+	    establishment, any non-matching address causing the
+	    connection to be aborted.</p>
+          <p>
+	    Own Id: OTP-10893</p>
+        </item>
+        <item>
+          <p>
+	    Detect more transport_opt() configuration errors at
+	    diameter:add_transport/2.</p>
+          <p>
+	    Many errors would previously not be detected until
+	    transport start, diameter:add_transport/2 returning 'ok'
+	    but transport connections failing to be established. An
+	    error tuple is now returned.</p>
+          <p>
+	    Own Id: OTP-10972</p>
+        </item>
+        <item>
+          <p>
+	    Make explicit local address configuration optional in
+	    diameter_tcp:start/3.</p>
+          <p>
+	    The default address (as determined by gen_tcp) is now
+	    used when a local address is not explicitly configured.</p>
+          <p>
+	    Own Id: OTP-10986</p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of unrecognized service options.</p>
+          <p>
+	    Such options were silently ignored by
+	    diameter:start_service/2. An error tuple is now returned.</p>
+          <p>
+	    Own Id: OTP-11017</p>
+        </item>
+        <item>
+          <p>
+	    Don't send default Inband-Security-Id in CER/CEA.</p>
+          <p>
+	    RFC 6733 recommends against the use of
+	    Inband-Security-Id. Only send a value that differs from
+	    the default, NO_INBAND_SECURITY = 0.</p>
+          <p>
+	    Own Id: OTP-11050</p>
+        </item>
+        <item>
+          <p>
+	    Make spawn options for request processes configurable.</p>
+          <p>
+	    Own Id: OTP-11060</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken Vendor-Specific-Application-Id configuration.</p>
+          <p>
+	    RFC 6733 changed the definition of this Grouped AVP,
+	    changing the arity of Vendor-Id from 1* to 1. A component
+	    Vendor-Id can now be either list- or integer-valued in
+	    service and transport configuration, allowing it to be
+	    used with both RFC 3588 and RFC 6733 dictionaries.</p>
+          <p>
+	    Own Id: OTP-10942</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add transport_opt() watchdog_config to allow non-standard
+	    behaviour of the watchdog state machine.</p>
+          <p>
+	    This can be useful during test but should not be used on
+	    nodes that must conform to RFC 3539.</p>
+          <p>
+	    Own Id: OTP-10898</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erroneous watchdog transition from DOWN to INITIAL.</p>
+          <p>
+	    This transition took place when a peer connection was
+	    reestablished following a failed capabilities exchange.
+	    RFC 3539 requires DOWN to transition into REOPEN.</p>
+          <p>
+	    Own Id: OTP-10692</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add application_opt() request_errors to make the handling
+	    of incoming requests containing decode errors
+	    configurable.</p>
+          <p>
+	    The value 'callback' ensures that a handle_request
+	    callback takes place for all such requests, the default
+	    being for diameter to answer 3xxx series errors itself.</p>
+          <p>
+	    Own Id: OTP-10686</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() length_errors.</p>
+          <p>
+	    The value determines how messages received over the
+	    transport interface with an incorrect Message Length are
+	    dealt with.</p>
+          <p>
+	    Own Id: OTP-10687</p>
+        </item>
+        <item>
+          <p>
+	    Add commentary on RFC 6733 to Standards Compliance
+	    chapter of the User's Guide.</p>
+          <p>
+	    Own Id: OTP-10688</p>
+        </item>
+        <item>
+          <p>
+	    Allow a 5xxx result code in an answer-message on peer
+	    connections using the RFC 6733 common dictionary.</p>
+          <p>
+	    RFC 6733 allows this while RFC 3588 does not. A
+	    handle_request callback can return {answer_message,
+	    3000..3999|5000..5999} in the simplest case.</p>
+          <p>
+	    Own Id: OTP-10759</p>
+        </item>
+        <item>
+          <p>
+	    Add dictionaries for RFC 6733.</p>
+          <p>
+	    Both the common and accounting dictionaries differ from
+	    their RFC 3588 counterparts, which is reflected in
+	    generated record definitions. Application configuration
+	    on a service or transport determines the dictionary that
+	    will be used on a given peer connection.</p>
+          <p>
+	    Own Id: OTP-10760</p>
+        </item>
+        <item>
+          <p>
+	    Allow a handle_request callback to control diameter's
+	    setting of Result-Code and Failed-AVP.</p>
+          <p>
+	    Setting errors = false in a returned #diameter_packet{}
+	    disables the setting.</p>
+          <p>
+	    Own Id: OTP-10761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add registered server names to the app file.</p>
+          <p>
+	    Own Id: OTP-10442</p>
+        </item>
+        <item>
+          <p>
+	    Fix #diameter_header{} handling broken by OTP-10445.</p>
+          <p>
+	    The fault caused the the header of a [Header | Avps]
+	    request to be ignored if both end_to_end_id and
+	    hop_by_hop_id were undefined.</p>
+          <p>
+	    Own Id: OTP-10609</p>
+        </item>
+        <item>
+          <p>
+	    Fix error handling for handle_request callback.</p>
+          <p>
+	    A callback that returned a #diameter_packet{} would fail
+	    if the incoming request had decode errors.</p>
+          <p>
+	    Own Id: OTP-10614</p>
+        </item>
+        <item>
+          <p>
+	    Fix timing of service start event.</p>
+          <p>
+	    The event did not necessarily precede other events as
+	    documented.</p>
+          <p>
+	    Own Id: OTP-10618</p>
+        </item>
+        <item>
+          <p>
+	    Fix setting of header T flag at peer failover.</p>
+          <p>
+	    The flag is now set in the diameter_header record passed
+	    to a prepare_retransmit callback.</p>
+          <p>
+	    Own Id: OTP-10619</p>
+        </item>
+        <item>
+          <p>
+	    Fix sending of CER/CEA timeout event at capx_timeout.</p>
+          <p>
+	    The event was not sent as documented.</p>
+          <p>
+	    Own Id: OTP-10628</p>
+        </item>
+        <item>
+          <p>
+	    Fix improper setting of Application-ID in the Diameter
+	    header of an answer message whose E flag is set.</p>
+          <p>
+	    The value should be that of the request in question. The
+	    fault caused it always to be 0.</p>
+          <p>
+	    Own Id: OTP-10655</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty handling of AVP length errors.</p>
+          <p>
+	    An incorrect AVP length but no other errors caused an
+	    incoming request to fail.</p>
+          <p>
+	    Own Id: OTP-10693</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.3.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Fix function clause resulting from use of an eval
+	    callback.</p>
+          <p>
+	    Own Id: OTP-10685</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix faulty handling of Origin-State-Id and faulty config
+	    values.</p>
+          <p>
+	    The former was expected in a list despite the
+	    documentation requiring (correctly) an integer. A bare
+	    value for a list-valued capability was not handled.</p>
+          <p>
+	    Own Id: OTP-10440</p>
+        </item>
+        <item>
+          <p>
+	    Fix timing of up/down events.</p>
+          <p>
+	    Previously, a call to diameter:call/4 following a peer_up
+	    callback might incorrectly return {error, no_connection},
+	    depending on timing. Both events now follow the
+	    corresponding callbacks.</p>
+          <p>
+	    Own Id: OTP-10459</p>
+        </item>
+        <item>
+          <p>
+	    Make diameter:service_info/2 usable in peer_up, peer_down
+	    and pick_peer callbacks.</p>
+          <p>
+	    Except for in pick_peer when {call_mutates_state, false},
+	    it would previously hang indefinitely.</p>
+          <p>
+	    Own Id: OTP-10460</p>
+        </item>
+        <item>
+          <p>
+	    Verify that End-to-End and Hop-by-Hop Identifiers in an
+	    incoming CEA/DPA match those sent in the corresponding
+	    CER/DPR.</p>
+          <p>
+	    The values were previously ignored. Answers whose
+	    identifiers do not match are handled as unexpected.</p>
+          <p>
+	    Own Id: OTP-10565</p>
+        </item>
+        <item>
+          <p>
+	    Fix formatting problems in PDF documentation.</p>
+          <p>
+	    In particular, text corresponding to links in HTML was
+	    omitted in preformatted blocks. There are still issues
+	    with indentation but this is not diameter-specific.</p>
+          <p>
+	    Own Id: OTP-10583</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let prepare_request, prepare_retransmit and
+	    handle_request callbacks return a function to be invoked
+	    on outgoing messages after encode.</p>
+          <p>
+	    This allows encoded messages to be logged for example.</p>
+          <p>
+	    Own Id: OTP-10441</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() 'restrict_connections' to allow
+	    multiple transport connections with the same peer.</p>
+          <p>
+	    Own Id: OTP-10443</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() 'sequence' to allow the masking of a
+	    constant onto the topmost bits of End-to-End and
+	    Hop-by-Hop identifiers.</p>
+          <p>
+	    This allows the same service on different nodes to use
+	    distinct values in outgoing request messages.</p>
+          <p>
+	    Own Id: OTP-10445</p>
+        </item>
+        <item>
+          <p>
+	    Add diameter:service_info(PeerRef) to return the
+	    transport_ref() and transport_opt() list of the
+	    corresponding transport.</p>
+          <p>
+	    This allows easy access to these from diameter_app
+	    callbacks that only get peer_ref() as an argument.</p>
+          <p>
+	    Own Id: OTP-10470</p>
+        </item>
+        <item>
+          <p>
+	    Add reference pages diameter_codec(3) and
+	    diameter_make(3).</p>
+          <p>
+	    Own Id: OTP-10471</p>
+        </item>
+        <item>
+          <p>
+	    Add events for service start and stop.</p>
+          <p>
+	    Own Id: OTP-10492</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() 'disconnect_cb' to make the sending
+	    of DPR configurable.</p>
+          <p>
+	    Whether or not DPR should be sent at application stop,
+	    service stop or transport removal is determined by the
+	    value returned by the callback, as is the
+	    Disconnect-Cause and timeout if DPA is not received.</p>
+          <p>
+	    Own Id: OTP-10493</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() 'capx_timeout' for the timeout
+	    associated with non-reception of CER/CEA.</p>
+          <p>
+	    Own Id: OTP-10554</p>
+        </item>
+        <item>
+          <p>
+	    Allow a handle_request callback to return a
+	    #diameter_packet{}.</p>
+          <p>
+	    This allows an answer to set transport_data and header
+	    fields.</p>
+          <p>
+	    Own Id: OTP-10566</p>
+        </item>
+        <item>
+          <p>
+	    Update documentation for RFC 6733.</p>
+          <p>
+	    RFC 3588 is now obsolete.</p>
+          <p>
+	    Own Id: OTP-10568</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken Result-Code setting and Destination-Host/Realm
+	    extraction.</p>
+          <p>
+	    Result-Code was assumed to have arity 1 when setting this
+	    value in an answer to a request containing AVP decode
+	    errors. Destination-Host/Realm were only correctly
+	    extracted from messages in the common application.</p>
+          <p>
+	    Own Id: OTP-10202</p>
+        </item>
+        <item>
+          <p>
+	    Handle insufficient capabilities configuration more
+	    gracefully.</p>
+          <p>
+	    A transport that does not have sufficient capabilities
+	    configuration in order to encode CER/CEA will now emit an
+	    error report noting the configuration error and exit
+	    instead of failing. The error is not detected at
+	    diameter:add_transport/2 since there is no requirement
+	    that a service be configured before its transports.</p>
+          <p>
+	    Own Id: OTP-10203</p>
+        </item>
+        <item>
+          <p>
+	    Ensure a failing peer_up/down callback does not affect
+	    transport connections to other peers.</p>
+          <p>
+	    Such a failure would previously have taken down all of a
+	    service's connections.</p>
+          <p>
+	    Own Id: OTP-10215</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Statistics related to Diameter messages can be retrieved
+	    using diameter:service_info/2.</p>
+          <p>
+	    Both Diameter and socket-level statistics are available,
+	    for both incoming and outgoing messages.</p>
+          <p>
+	    Own Id: OTP-9608</p>
+        </item>
+        <item>
+          <p>
+	    Allow multiple transport_module/config to
+	    diameter:add_transport/2.</p>
+          <p>
+	    Multiple values are attempted in sequence until one
+	    results in an established connection. This provides a way
+	    for a connecting transport to specify configuration in
+	    order of preference. (For example, SCTP before TCP.)</p>
+          <p>
+	    Own Id: OTP-9885</p>
+        </item>
+        <item>
+          <p>
+	    Add events for state transitions in the RFC 3539 watchdog
+	    state machine.</p>
+          <p>
+	    The watchdog state is also available through
+	    diameter:service_info/2.</p>
+          <p>
+	    Own Id: OTP-10212</p>
+        </item>
+        <item>
+          <p>
+	    Add diameter:service_info(SvcName, connections).</p>
+          <p>
+	    This provides an alternative to
+	    diameter:service_info(SvcName, transport) that presents
+	    information per established connection instead of per
+	    transport reference.</p>
+          <p>
+	    Own Id: OTP-10213</p>
+        </item>
+        <item>
+          <p>
+	    Assorted documentation corrections/improvements.</p>
+          <p>
+	    Own Id: OTP-10216</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix fault in sending of 'closed' events.</p>
+          <p>
+	    The fault made it possible for the 'closed' event not to
+	    be sent following a failed capabilities exchange.</p>
+          <p>
+	    Own Id: OTP-9824</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty diameterc -name/-prefix.</p>
+          <p>
+	    A minor blunder when introducing the new dictionary
+	    parser in diameter-1.0 broke these options.</p>
+          <p>
+	    Own Id: OTP-9826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix faulty cleanup after diameter:remove_transport/2.</p>
+          <p>
+	    Removing a transport removed the configuration but did
+	    not prevent the transport process from being restarted.</p>
+          <p>
+	    Own Id: OTP-9756</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for TLS over TCP.</p>
+          <p>
+	    RFC 3588 requires that a Diameter server support TLS. In
+	    practice this seems to mean TLS over SCTP since there are
+	    limitations with running over SCTP: see RFC 6083 (DTLS
+	    over SCTP), which is a response to RFC 3436 (TLS over
+	    SCTP). The current RFC 3588 draft acknowledges this by
+	    equating TLS with TLS/TCP and DTLS/SCTP.</p>
+          <p>
+	    TLS handshaking can take place either following a CER/CEA
+	    that negotiates TLS using the Inband-Security-Id AVP (the
+	    method documented in RFC 3588) or immediately following
+	    connection establishment (the method added to the current
+	    draft).</p>
+          <p>
+	    Own Id: OTP-9605</p>
+        </item>
+        <item>
+          <p>
+	    Improvements to the dictionary parser.</p>
+          <p>
+	    The dictionary parser now emits useful error messages in
+	    case of faults in the input file, also identifying the
+	    line number at which the fault was detected. There are
+	    semantic checks that were missing in the previous parser,
+	    a fault in the interpretation of vendor id's in
+	    combination with @inherits has been fixed and @end can be
+	    used to terminate parsing explicitly instead of always
+	    parsing to end of file.</p>
+          <p>
+	    Own Id: OTP-9639</p>
+        </item>
+        <item>
+          <p>
+	    Improve dictionary reusability.</p>
+          <p>
+	    Reusing a dictionary just to get a different generated
+	    module name or prefix previously required taking a copy
+	    of the source, which may consist of several files if
+	    inheritance is used, just to edit a couple of lines which
+	    don't affect the semantics of the Diameter application
+	    being defined. Options --name, --prefix and --inherits
+	    have been added to diameterc to allow corresponding
+	    values to be set at compile time.</p>
+          <p>
+	    Own Id: OTP-9641</p>
+        </item>
+        <item>
+          <p>
+	    Add capabilities_cb transport option.</p>
+          <p>
+	    Its value is a function that's applied to the transport
+	    reference and capabilities record after capabilities
+	    exchange. If a callback returns anything but 'ok' then
+	    the connection is closed. In the case of an incoming CER,
+	    the callback can return a result code with which to
+	    answer. Multiple callbacks can be specified and are
+	    applied until either all return 'ok' or one doesn't.</p>
+          <p>
+	    This provides a way to reject a peer connection.</p>
+          <p>
+	    Own Id: OTP-9654</p>
+        </item>
+        <item>
+          <p>
+	    Add @codecs to dictionary format.</p>
+          <p>
+	    The semantics are similar to @custom_types but results in
+	    codec functions of the form TypeName(encode|decode,
+	    AvpName, Data) rather than AvpName(encode|decode,
+	    TypeName, Data). That is, the role of the AVP name and
+	    Diameter type name are reversed. This eliminates the need
+	    for exporting one function for each AVP sharing a common
+	    specialized encode/decode.</p>
+          <p>
+	    Own Id: OTP-9708 Aux Id: OTP-9639 </p>
+        </item>
+        <item>
+          <p>
+	    Add #diameter_callback{} for more flexible callback
+	    configuration.</p>
+          <p>
+	    The record allows individual functions to be configured
+	    for each of the diameter_app(3) callbacks, as well as a
+	    default callback.</p>
+          <p>
+	    Own Id: OTP-9777</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 0.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle #sctp_paddr_change and #sctp_pdapi_event from
+	    gen_sctp.</p>
+          <p>
+	    The events are enabled by default but diameter_sctp
+	    neither disabled nor dealt with them. Reception of such
+	    an event caused a transport process to crash.</p>
+          <p>
+	    Own Id: OTP-9538</p>
+        </item>
+        <item>
+          <p>
+	    Fix header folding bug.</p>
+          <p>
+	    A prepare_request callback from diameter can return a
+	    diameter_header record in order to set values in the
+	    header of an outgoing request. A fault in
+	    diameter_lib:fold_tuple/3 caused the subsequent encode of
+	    the outgoing request to fail.</p>
+          <p>
+	    Own Id: OTP-9577</p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs in sending of answer-message replies.</p>
+          <p>
+	    3001 (DIAMETER_COMMAND_UNSUPPORTED) was not sent since
+	    the decode placed the AVP list in the wrong field of the
+	    diameter_packet, causing the subsequent encode to fail.
+	    Session-Id was also set improperly, causing encode to
+	    fail even in this case.</p>
+          <p>
+	    Own Id: OTP-9578</p>
+        </item>
+        <item>
+          <p>
+	    Fix improper use of error_logger:info_report/2.</p>
+          <p>
+	    Function doesn't take a format string and arguments as it
+	    was called. Instead use error_logger:info_report/1 and
+	    use the same report format as used for warning and error
+	    reports.</p>
+          <p>
+	    Own Id: OTP-9579</p>
+        </item>
+        <item>
+          <p>
+	    Fix and clarify semantics of peer filters.</p>
+          <p>
+	    An eval filter returning a non-true value caused the call
+	    process to fail and the doc was vague on how an exception
+	    was treated. Clarify that the non-tuple host/realm
+	    filters assume messages of a certain form.</p>
+          <p>
+	    Own Id: OTP-9580</p>
+        </item>
+        <item>
+          <p>
+	    Fix and clarify relay behaviour.</p>
+          <p>
+	    Implicit filtering of the sending peer in relaying a
+	    request could cause loop detection to be preempted in a
+	    manner not specified by RFC3588. Reply with 3002
+	    (DIAMETER_UNABLE_TO_DELIVER) on anything but an answer to
+	    a relayed request.</p>
+          <p>
+	    Own Id: OTP-9583</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    @id required in dictionary files only when @messages is
+	    specified.</p>
+          <p>
+	    @id defines an application identifier and this is used
+	    only when sending or receiving messages. A dictionary can
+	    define only AVP's however, to be included by other
+	    dictionaries using @inherits, in which case it makes no
+	    sense to require @id.</p>
+          <p>
+	    Note that message definitions are not inherited with
+	    @inherits, only AVP's</p>
+          <p>
+	    Own Id: OTP-9467</p>
+        </item>
+        <item>
+          <p>
+	    Allow @enum when AVP is defined in an inherited
+	    dictionary.</p>
+          <p>
+	    3GPP standards (for one) extend the values allowed for
+	    RFC 3588 AVP's of type Enumerated. Previously, extending
+	    an AVP was only possible by completely redefining the
+	    AVP.</p>
+          <p>
+	    Own Id: OTP-9469</p>
+        </item>
+        <item>
+          <p>
+	    Migrate testsuites to pure common test and add both
+	    suites and testcases.</p>
+          <p>
+	    Own Id: OTP-9553</p>
+        </item>
+        <item>
+          <p>
+	    Requests of arbitrary form.</p>
+          <p>
+	    diameter:call/4 can be passed anything, as long as the
+	    subsequent prepare_request callback returns a term that
+	    can be encoded.</p>
+          <p>
+	    Own Id: OTP-9581</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+<title>diameter 0.9</title>
+
+<p>
+Initial release of the diameter application.</p>
+
+<p>
+Known issues or limitations:</p>
+
+<list>
+
+<item>
+<p>
+Some agent-related functionality is not entirely complete.
+In particular, support for proxy agents, that advertise specific
+Diameter applications but otherwise relay messages in much the same
+way as relay agents (for which a handle_request
+callback can return a <c>relay</c> tuple), will be completed in an
+upcoming release.
+There may also be more explicit support for redirect agents, although
+redirect behaviour can be implemented with the current
+functionality.</p>
+
+</item>
+
+<item>
+<p>
+There is some asymmetry in the treatment of messages sent as
+<c>diameter_header/avp</c> records and those sent in the "normal"
+fashion, and not all of this is documented.
+This is related to the previous point since this form of sending a
+message was introduced specifically to handle relay agent behaviour
+using the same callback interface as for client/server behaviour.</p>
+</item>
+
+<item>
+<p>
+The User's Guide is currently quite thin.
+The introductory chapter followed by the examples (in the application
+<c>examples</c> subdirectory) may be sufficient
+for those having some familiarity with the Diameter protocol but the
+intention is to provide more introductory text.
+The reference documentation is quite complete, although some points
+could likely be expanded upon.</p>
+</item>
+
+<item>
+<p>
+The function diameter:service_info/2
+can be used to retrieve information about a started service
+(statistics, information about connected peers, etc) but
+this is not yet documented and both the input and output may change
+in the next release.</p>
+</item>
+
+
+</list>
+
+<p>
+See <seealso marker="diameter_soc">Standards Compliance</seealso> for
+standards-related issues.</p>
+</section>
+
+</chapter>

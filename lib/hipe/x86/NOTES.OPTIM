@@ -1,0 +1,198 @@
+Partial x86 code optimisation guide
+===================================
+Priority should be given to P6 and P4, then K7,
+then P5, and last to K6.
+
+Rules that are blatantly obvious or irrelevant for HiPE are
+generally not listed. These includes things like alignment
+of basic data types, store-forwarding rules when alignment
+or sizes don't match, and partial register stalls.
+
+Intel P4
+--------
+The P6 4-1-1 insn decode template no longer applies.
+
+Simple insns (add/sub/cmp/test/and/or/xor/neg/not/mov/sahf)
+are twice as fast as in P6.
+
+Shifts are "movsx" (sign-extend) are slower than in P6.
+
+Always avoid "inc" and "dec", use "add" and "sub" instead,
+due to condition codes dependencies overhead.
+
+"fxch" is slightly more expensive than in P6, where it was free.
+
+Use "setcc" or "cmov" to eliminate unpredictable branches.
+
+For hot code executing out of the trace cache, alignment of
+branch targets is less of an issue compared to P6.
+
+Do use "fxch" to simulate a flat FP register file, but only
+for that purpose, not for manual scheduling for parallelism.
+
+Using "lea" is highly recommended.
+
+Eliminate redundant loads. Use regs as much as possible.
+
+Left shifts up to 3 have longer latencies than the equivalent
+sequence of adds.
+
+Do utilise the addressing modes, to save registers and trace
+cache bandwidth.
+
+"xor reg,reg" or "sub reg,reg" preferred over moving zero to reg.
+
+"test reg,reg" preferred over "cmp" with zero or "and".
+
+Avoid explicit cmp/test;jcc if the preceeding insn (alu, but not
+mov or lea) set the condition codes.
+
+Load-execute alu insns (mem src) are Ok.
+
+Add-reg-to-mem slightly better than add-mem-to-reg.
+
+Add-reg-to-mem is better than load;add;store.
+
+Intel P6
+--------
+4-1-1 instruction decoding template: can decode one semi-complex
+(max 4 uops) and two simple (1 uop) insns per clock; follow a
+complex insn by two simple ones, otherwise the decoders will stall.
+
+Load-execute (mem src) alu insns are 2 uops.
+Read-modify-write (mem dst) alu insns are 4 uops.
+
+Insns longer than 7 bytes block parallel decoding.
+Avoid insns longer than 7 bytes.
+
+Lea is useful.
+
+"movzx" is preferred for zero-extension; the xor;mov alternative
+causes a partial register stall.
+
+Use "test" instead of "cmp" with zero.
+
+Pull address calculations into load and store insn addressing modes.
+
+Clear a reg with "xor", not by moving zero to it.
+
+Many alu insns set the condition codes. Replace "alu;cmp;jcc"
+with "alu;jcc". This is not applicable for "mov" or "lea".
+
+For FP code, simulate a flat register file on the x87 stack by
+using fxch to reorder it.
+
+AMD K7
+------
+Select DirectPath insns. Avoid VectorPath insns due to slower decode.
+
+Alu insns with mem src are very efficient.
+Alu insns with mem dst are very efficient.
+
+Fetches from I-cache are 16-byte aligned. Align functions and frequently
+used labels at or near the start of 16-byte aligned blocks.
+
+"movzx" preferred over "xor;mov" for zero-extension.
+
+"push mem" preferred over "load;push reg".
+
+"xor reg,reg" preferred over moving zero to the reg.
+
+"test" preferred over "cmp".
+
+"pop" insns are VectorPath. "pop mem" has latency 3, "pop reg" has
+latency 4.
+
+"push reg" and "push imm" are DirectPath, "push mem" is VectorPath.
+The latency is 3 clocks.
+
+Intel P5
+--------
+If a loop header is less than 8 bytes away from a 16-byte
+boundary, align it to the 16-byte boundary.
+
+If a return address is less than 8 bytes away from a 16-byte
+boundary, align it to the 16-byte boundary.
+
+Align function entry points to 16-byte boundaries.
+
+Ensure that doubles are 64-bit aligned.
+
+Data cache line size is 32 bytes. The whole line is brought
+in on a read miss.
+
+"push mem" is not pairable; loading a temp reg and pushing
+the reg pairs better -- this is also faster on the 486.
+
+No conditional move instruction.
+
+Insns longer than 7 bytes can't go down the V-pipe or share
+the insn FIFO with other insns.
+Avoid insns longer than 7 bytes.
+
+Lea is useful when it replaces several other add/shift insns.
+Lea is not a good replacement for a single shl since a scaled
+index requires a disp32 (or base), making the insn longer.
+
+"movzx" is worse than the xor;mov alternative -- the opcode
+prefix causes a slowdown and it is not pariable.
+
+Use "test" instead of "cmp" with zero.
+
+"test eax,imm" and "test reg,reg" are pairable, other forms are not.
+
+Pull address calculations into load and store insn addressing modes.
+
+Clear a reg with "xor", not by moving zero to it.
+
+Many alu insns set the condition codes. Replace "alu;cmp;jcc"
+with "alu;jcc". This is not applicable for "mov" or "lea".
+
+For FP code, simulate a flat register file on the x87 stack by
+using fxch to reorder it.
+
+"neg" and "not" are not pairable. "test imm,reg" and "test imm,mem"
+are not pairable. Shifts by "cl" are not pairable. Shifts by "1" or
+"imm" are pairable but only execute in the U-pipe.
+
+AMD K6
+------
+The insn size predecoder has a 3-byte window. Insns with both prefix
+and SIB bytes cannot be short-decoded.
+
+Use short and simple insns, including mem src alu insns.
+
+Avoid insns longer than 7 bytes. They cannot be short-decoded.
+Short-decode: max 7 bytes, max 2 uops.
+Long-decode: max 11 bytes, max 4 uops.
+Vector-decode: longer than 11 bytes or more than 4 uops.
+
+Prefer read-modify-write alu insns (mem dst) over "load;op;store"
+sequences, for code density and register pressure reasons.
+
+Avoid the "(esi)" addressing mode: it forces the insn to be vector-decoded.
+Use a different reg or add an explicit zero displacement.
+
+"add reg,reg" preferred over a shl by 1, it parallelises better.
+
+"movzx" preferred over "xor;mov" for zero-extension.
+
+Moving zero to a reg preferred over "xor reg,reg" due to dependencies
+and condition codes overhead.
+
+"push mem" preferred over "load;push reg" due to code density and
+register pressure. (Page 64.)
+Explicit moves preferred when pushing args for fn calls, due to
+%esp dependencies and random access possibility. (Page 58.)
+[hmm, these two are in conflict]
+
+There is no penalty for seg reg prefix unless there are multiple prefixes.
+
+Align function entries and frequent branch targets to 16-byte boundaries.
+
+Shifts by imm only go down one of the pipes.
+
+"test reg,reg" preferred over "cmp" with zero.
+"test reg,imm" is a long-decode insn.
+
+No conditional move insn.

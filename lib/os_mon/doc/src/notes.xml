@@ -1,0 +1,1033 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>OS_Mon Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the OS_Mon application.</p>
+
+<section><title>Os_Mon 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typespec of <c>cpu_sup:util()</c>.</p>
+          <p>
+	    Own Id: OTP-15770 Aux Id: PR-2208 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The application otp_mibs has been removed from OTP. Some
+	    of its components (mibs) have been moved to other apps
+	    (snmp), or removed completely (os_mon).</p>
+          <p>
+	    Own Id: OTP-14984 Aux Id: OTP-15329 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Due to <c>/proc</c> restrictions in newer Android
+	    releases enforced by SELinux, cpu_sup is fixed so that it
+	    gets some basic CPU stats using the <c>sysinfo</c>
+	    syscall rather than reading <c>/proc/loadavg</c>.</p>
+          <p>
+	    Own Id: OTP-15387 Aux Id: PR-1966 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disksup</c> to handle mount paths with spaces in
+	    them.</p>
+          <p>
+	    Own Id: OTP-14513</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    On macOS 10.13 (High Sierra), disksup could not grab
+	    information for any disks that used the new APFS file
+	    system. That has been corrected.</p>
+          <p>
+	    Own Id: OTP-14560 Aux Id: ERL-461 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support s390x in os_mon.</p>
+          <p>
+	    Own Id: OTP-14161 Aux Id: PR-1309 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type specification for cpu_sup:util/1</p>
+          <p>
+	    Own Id: OTP-13526 Aux Id: PR-1029 </p>
+        </item>
+        <item>
+          <p>
+	    Fix strict compilation on SUN/SPARC</p>
+          <p>
+	    Own Id: OTP-13548 Aux Id: PR-1046 </p>
+        </item>
+        <item>
+          <p>
+	    Implement cpu_sup:util/0,1 on Mac OSX</p>
+          <p>
+	    Own Id: OTP-13597 Aux Id: PR-1049 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memsup:get_os_wordsize() on 64-bit FreeBSD and 64-bit
+	    Linux PPC</p>
+          <p>
+	    Own Id: OTP-13601 Aux Id: PR-1039 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    cpu_sup should use native sysctl/libkvm calls on BSD</p>
+          <p>
+	    This avoids forking off with os:cmd every time we just
+	    want to collect the load averages. riak does this every
+	    second, which results in a lot of unnecessary load.</p>
+          <p>
+	    Own Id: OTP-12730</p>
+        </item>
+        <item>
+          <p>
+	    Implement native cpu_sup:util/0,1 for FreeBSD</p>
+          <p>
+	    Own Id: OTP-12796</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not crash with badmatch when integer part of loadavg
+	    has more than 2 digits.</p>
+          <p>
+	    Own Id: OTP-12581</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation of memsup on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-12404</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds a new application parameter 'disksup_posix_only', to
+	    make diskup use only options defined in the POSIX
+	    standard.</p>
+          <p>
+	    Own Id: OTP-12053</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calls to erlang:open_port/2 with 'spawn' are updated to
+	    handle space in the command path.</p>
+          <p>
+	    Own Id: OTP-10842</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix incorrect reporting of memory on OS X via memsup.
+	    Thanks to Christopher Meiklejohn.</p>
+          <p>
+	    Own Id: OTP-11454</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use 'df -k -l' to query FreeBSD and OpenBSD about
+	    diskspace on local disks. Previously 'df' -k -t ufs' was
+	    used but this will not handle zfs or other disks. Just
+	    use '-l' instead of listing potential filesystems.</p>
+          <p>
+	    Own Id: OTP-11207</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation on Solaris. Thanks to Maciej Malecki.</p>
+          <p>
+	    Own Id: OTP-11213</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken cpu_sup:nprocs and others on Solaris 64-bit.
+	    Thanks to Simon Cornish.</p>
+          <p>
+	    Own Id: OTP-11298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compilation fixes for NetBSD. Thanks to YAMAMOTO Takashi.</p>
+          <p>
+	    Own Id: OTP-10941</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed disksup:get_disk_data for SUSv3, specifically OS X
+	    ML. Thanks to Sriram Melkote.</p>
+          <p>
+	    Own Id: OTP-10945</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed deprecated function calls to snmp</p>
+          <p>
+	    Own Id: OTP-10448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Infinity timeout added to internal calls in disksup to
+	    allow it to work properly under very heavy load.</p>
+          <p>
+	    Own Id: OTP-10100</p>
+        </item>
+        <item>
+	    <p>Clarify error messages from os_mon port programs</p>
+          <p>
+	    Own Id: OTP-10161</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix segmentation fault in memsup</p>
+          <p>
+	    when /proc/meminfo does not include information about
+	    buffers/cache (for instance inside OpenVZ container)
+	    (Thanks to Anton Vorobev)</p>
+          <p>
+	    Own Id: OTP-9913</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Remove misc. compiler warnings</p>
+          <p>
+	    Own Id: OTP-9542</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add NetBSD support to memsup and disksup (Thanks to
+	    Andrew Thompson)</p>
+          <p>
+	    Own Id: OTP-9216</p>
+        </item>
+        <item>
+          <p>
+	    Add support for DragonFlyBSD to memsup</p>
+          <p>
+	    DragonFly was partially supported by os_mon already but
+	    when trying to start the os_mon application it'd crash
+	    with an error about an unknown operating system in
+	    memsup. This patch changes memsup to use the FreeBSD
+	    sysctl method to get memory information when on
+	    DragonFly. (Thanks to Andrew Thompson )</p>
+          <p>
+	    Own Id: OTP-9217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cleanups suggested by tidier and modernization of types
+	    and specs.</p>
+          <p>
+	    Own Id: OTP-8455</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Memsup did not read memory correctly on MaxOSX
+	    Snowleopard. This has now been corrected. (Thanks to Joel
+	    Reymont)</p>
+          <p>
+	    Own Id: OTP-8211</p>
+        </item>
+        <item>
+          <p>
+	    Removed unused code in <c>cpu_sup.erl</c>.</p>
+          <p>
+	    Own Id: OTP-8226</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A missing define in <c>memsup.c</c> caused a build error
+	    on IRIX machines. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-8094</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    disksup:get_disk_data/0 returned disk volume in bytes
+	    instead of kbytes as stated in the documentation. The
+	    problem occurred on Windows only and is now corrected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7741</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An error in <c>memsup</c> could cause <c>os_mon</c> to
+	    report erroneous memory values on windows for ranges of
+	    memory between 2GB and 4GB. This have now been fixed.</p>
+          <p>
+	    Own Id: OTP-7944</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added support for dragonfly OS.</p>
+          <p>
+	    Own Id: OTP-7938</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A problem with <c>OTP-OS-MON-MIB.mib</c> for 64-bit
+	    environments has now been fixed. The mib has been
+	    extended with 64-bit memory retrieval
+	    counterparts.</p><p>In addition, a new function
+	    <c>get_os_wordsize/0</c> has been added in the
+	    <c>memsup</c> module</p>
+          <p>
+	    Own Id: OTP-7441</p>
+        </item>
+        <item>
+	    <p>An error in <c>memsup.c</c> caused the compilation to
+	    crash on bsd environments. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-7558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a build error that occurred on NetBSD (Thanks to
+	    Per Hedeland and Raphael Langerhorst)</p>
+          <p>
+	    Own Id: OTP-7505</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Memory information in
+	    <c>memsup:get_system_memory_data/0</c> now has additional
+	    entries in its property list for linux.</p>
+          <p>
+	    Own Id: OTP-7409 Aux Id: seq10984 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    System information retrieval on darwin platforms with
+	    environments locales not conforming to the C locale
+	    caused an error in <c>cpu_sup</c> resulting in process
+	    termination.</p>
+          <p>
+	    Own Id: OTP-7320</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.1.5</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    CPU utilization, on linux, is now measured via a port
+	    program instead of os:cmd in erlang. This should enhance
+	    performance.</p>
+          <p>
+	    Own Id: OTP-7108 Aux Id: OTP-6935 </p>
+        </item>
+      </list>
+    </section>
+</section>
+
+  <section><title>Os_Mon 2.1.3</title>
+    <section><title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+	    Extended memsup memory probing on linux to use a port
+	    program to probe memory usage. This is faster then the
+	    previous implementation.</p>
+          <p>
+	    Own Id: OTP-6860 Aux Id: seq10616 </p>
+        </item>
+      </list>
+    </section>
+   </section>
+
+
+  <section>
+    <title>Os_Mon 2.1.2.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 2.1.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When the <c>memsup_system_only</c> flag was set to
+            <c>true</c>, a <c>badmatch</c> exception occurred in the
+            function <c>os_mon_mib:get_load/1</c>.</p>
+          <p>Own Id: OTP-6351 Aux Id: seq10517</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 2.1.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Did not build on Mac OS X.</p>
+          <p>Added support for IRIX. (Thanks to Michel Urvoy and
+            Daniel Solaz.)</p>
+          <p>Own Id: OTP-6136</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p><c>disksup</c>: Now using <c>round(T*100)</c> instead of
+            <c>trunc(T*100)</c> when setting the threshold value
+            given a float <c>T</c>.</p>
+          <p>Own Id: OTP-6153</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Os_Mon 2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In 2.0, a call to <c>alarm_handler:get_alarms/0</c> was
+            introduced in <c>memsup</c> and <c>disksup</c>. This will
+            lead to problems if the default <c>alarm_handler</c>
+            event handler is not used, however, and the call has now
+            been removed. (Thanks to Serge Aleynikov for pointing
+            this out.)</p>
+          <p>Own Id: OTP-6029</p>
+        </item>
+        <item>
+          <p>A bug that in rare cases caused <c>cpu_sup</c> to crash
+            has been corrected.</p>
+          <p>Own Id: OTP-6102 Aux Id: seq10312 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 2.0</title>
+    <p>A note on backwards compatibility: The behaviour of OS_Mon 2.0 is
+      backwards compatible under normal operation, but has changed
+      somewhat in error situations: The services do not terminate
+      and the API functions do not raise exceptions in all cases where
+      they did before. Also, in the case where a service does terminate,
+      the exit reason may be different. See below for details.</p>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A call to a OS_Mon service (cpu_sup, disksup, ...) when
+            OS_Mon is not running, or when the service is not
+            available for the OS, or when the service is not started,
+            will no longer result in an exception. Instead a warning
+            is issued via error_logger and a dummy value is returned,
+            which one is specified in the man pages for the
+            respective service.</p>
+          <p>The reason is that it should not be necessary for a
+            service to be started on each and every node of a
+            distributed Erlang system for the OS-MON-MIB and other
+            OS_Mon users to work properly.</p>
+          <p>Own Id: OTP-4332 Aux Id: seq7358 </p>
+        </item>
+        <item>
+          <p>References to the obsolete EVA application in
+            OTP-OS-MON-MIB has been removed.</p>
+          <p>Own Id: OTP-5699</p>
+        </item>
+        <item>
+          <p>Setting the option <c>memsup_system_only</c> to
+            <c>true</c> did not work, but would crash the
+            <c>memsup</c> process.</p>
+          <p>Own Id: OTP-5890 Aux Id: seq10185 </p>
+        </item>
+        <item>
+          <p><c>cpu_sup:nprocs/0</c> returned 0 on FreeBsd.</p>
+          <p>Own Id: OTP-5901</p>
+        </item>
+        <item>
+          <p>If the OS_Mon service <c>disksup</c> or <c>memsup</c> was
+            restarted, the same alarm could be set twice. Also, set
+            alarms were not cleared when the application was stopped.</p>
+          <p>Own Id: OTP-5910</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Thresholds and time intervals in <c>disksup</c> and
+            <c>memsup</c> are now configurable in run-time.</p>
+          <p>Own Id: OTP-4246 Aux Id: Seq7230 </p>
+        </item>
+        <item>
+          <p><c>memsup</c> can now handle systems with more than 4GB
+            of RAM.</p>
+          <p>Own Id: OTP-5800 Aux Id: seq10130 </p>
+        </item>
+        <item>
+          <p>The entire OS_Mon application (code and documentation)
+            has been reviewed and consequently updated with the goal
+            to make the application more robust, homogeneous and
+            easier to configure.</p>
+          <p>The behaviour under normal operation is backwards
+            compatible. However, recoverable errors now no longer
+            terminate the affected service (and thus possible the
+            entire application), instead <c>error_logger</c> is used
+            to warn the user if/when such errors occurs. Also, in the
+            case of unrecoverable errors, the services have been made
+            more homogeneous with respect to behavior and exit
+            reasons. See below for more information and refer to the
+            man pages for details.</p>
+          <p>Port handling has been unified, meaning that if a port
+            program sends garbage or unexpectedly dies, this is now
+            handled the same way by all OS_Mon services, namely
+            immediate process termination with the exit reason
+            <c>{port_error,Garbage}</c> or <c>{port_died,Reason}</c>,
+            respectively.</p>
+          <p>Application configuration parameter handling has been
+            unified. Bad parameter values are no longer silently
+            ignored (<c>disksup</c>) or cause application termination
+            (<c>memsup</c>, <c>os_sup</c>). Instead a warning is
+            issued and the default value for the parameter is used.
+            Also, some cases where a bad parameter value accidentally
+            could be accepted have been corrected.</p>
+          <p>Message handling has been unified. Unknown
+            (<c>gen_server-</c>) calls cause process termination,
+            whereas unknown casts and messages are now ignored by all
+            OS_Mon services.</p>
+          <p>Own Id: OTP-5897</p>
+        </item>
+        <item>
+          <p>The following changes have been made to the <c>os_sup</c>
+            service:</p>
+          <p>It is now available on Windows, using <c>nteventlog</c>
+            as backend.</p>
+          <p>On Solaris, enabling the service (that is, installing a
+            new configuration file for <c>syslogd</c> etc.) can now
+            be done outside the <c>os_sup</c> process. The reason for
+            this is that the Erlang emulator should normally not be
+            run with <c>root</c> privileges, as is otherwise
+            required. The new application configuration parameter
+            <c>os_sup_config</c> must be set to <c>false</c>.</p>
+          <p>Also, <c>os_sup</c> can now be configured using a new
+            configuration parameter <c>os_sup_mfa</c> to call an
+            arbitrary Erlang function when a message is received from
+            the OS.</p>
+          <p>Own Id: OTP-5925</p>
+        </item>
+        <item>
+          <p>The <c>memsup</c> service has been rewritten, replacing
+            the supervised <c>memsup_helper</c> with a linked help
+            process. This gives the <c>memsup</c> process more
+            control and prevents a situation where it gets out of
+            synch with the received memory data and thus possibly
+            returns erroneous results.</p>
+          <p>Own Id: OTP-5927</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 1.8.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>cpu_sup:util/0</c> failed with error reason
+            <c>negative_diff</c> when called the first time on a
+            machine (hw) that had been up for a very long time.</p>
+          <p>Own Id: OTP-5869 Aux Id: seq10166</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 1.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The memsup part of the OS_Mon application has been made
+            more stable. If there are (possibly temporary) problems
+            collecting memory data, the interface functions
+            (<c>get_memory_data/0</c>,
+            <c>get_system_memory_data/0</c>) now do not fail, but
+            return the previously collected value, if any, or a dummy
+            value otherwise. Also, a warning message is printed.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5798</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 1.7.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected several problems in the error handling/error
+            recovery (especially when OS_Mon is starting up).</p>
+          <p>Own Id: OTP-5559</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 1.7.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p><c>memsup.c</c> will now compile on OpenBSD. (Thanks to
+            Geoff White and Jay Nelson.)</p>
+          <p>The <c>disksup</c> and <c>cpu_sup</c> modules now work on
+            Mac OS X (tested on Mac OS 10.3.8).</p>
+          <p>The <c>memsup</c> module should now work on Linux 2.6.* as
+            well as on older Linuxes. (<c>/proc/meminfo</c> has
+            slightly different formats in different releases of
+            Linux.)</p>
+          <p>Own Id: OTP-5421            <br></br>
+
+            Aux Id: OTP-5194, OTP-5228, OTP-5291 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>OS_Mon 1.7.2</title>
+    <p>This version is identical with 1.7.</p>
+  </section>
+</chapter>
+

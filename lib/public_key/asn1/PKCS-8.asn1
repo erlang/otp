@@ -1,0 +1,143 @@
+PKCS-8 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-8(8)
+        modules(1) pkcs-8(1)} 
+
+-- $Revision: 1.5 $
+
+-- This module has been checked for conformance with the ASN.1
+-- standard by the OSS ASN.1 Tools
+
+DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+-- EXPORTS All --
+-- All types and values defined in this module is exported for use in other
+-- ASN.1 modules.
+
+--IMPORTS
+
+-- informationFramework
+--        FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+--                                usefulDefinitions(0) 3} 
+
+--Attribute
+--        FROM InformationFramework informationFramework
+--        FROM InformationFramework;
+
+-- This import is really unnecessary since ALGORITHM-IDENTIFIER is defined as a 
+-- TYPE-IDENTIFIER
+-- Rename this import and replace all occurrences of ALGORITHM-IDENTIFIER with
+-- TYPE-IDENTIFIER as a workaround for weaknesses in the ASN.1 compiler
+--AlgorithmIdentifier, ALGORITHM-IDENTIFIER
+--        FROM PKCS5v2-0 {iso(1) member-body(2) us(840) rsadsi(113549)
+--        pkcs(1) pkcs-5(5) modules(16) pkcs-5(1)};
+
+-- Inlined from PKCS5v2-0 since it is the only thing imported from that module
+-- AlgorithmIdentifier { ALGORITHM-IDENTIFIER:InfoObjectSet } ::= 
+AlgorithmIdentifier { TYPE-IDENTIFIER:InfoObjectSet } ::= 
+SEQUENCE {
+--  algorithm ALGORITHM-IDENTIFIER.&id({InfoObjectSet}),
+  algorithm TYPE-IDENTIFIER.&id({InfoObjectSet}),
+--  parameters ALGORITHM-IDENTIFIER.&Type({InfoObjectSet}
+  parameters TYPE-IDENTIFIER.&Type({InfoObjectSet}
+    {@algorithm}) OPTIONAL }
+
+-- Private-key information syntax
+
+PrivateKeyInfo ::= SEQUENCE {
+  version Version,
+--  privateKeyAlgorithm AlgorithmIdentifier {{PrivateKeyAlgorithms}},
+  privateKeyAlgorithm AlgorithmIdentifier {{...}},
+  privateKey PrivateKey,
+  attributes [0] Attributes OPTIONAL }
+
+Version ::= INTEGER {v1(0)} (v1,...)
+
+PrivateKey ::= OCTET STRING
+
+-- Attributes ::= SET OF PKAttribute
+Attributes ::= SET OF PKAttribute {{...}}
+
+-- Encrypted private-key information syntax
+
+EncryptedPrivateKeyInfo ::= SEQUENCE {
+--    encryptionAlgorithm AlgorithmIdentifier {{KeyEncryptionAlgorithms}},
+    encryptionAlgorithm AlgorithmIdentifier {{...}},
+    encryptedData EncryptedData 
+}
+
+EncryptedData ::= OCTET STRING
+
+-- PrivateKeyAlgorithms ALGORITHM-IDENTIFIER ::= {
+PrivateKeyAlgorithms TYPE-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+-- KeyEncryptionAlgorithms ALGORITHM-IDENTIFIER ::= {
+KeyEncryptionAlgorithms TYPE-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+-- From InformationFramework
+PKAttribute{ATTRIBUTE:SupportedAttributes} ::= SEQUENCE {
+  type               ATTRIBUTE.&id({SupportedAttributes}),
+  values
+    SET SIZE (0..MAX) OF ATTRIBUTE.&Type({SupportedAttributes}{@type}),
+  valuesWithContext
+    SET SIZE (1..MAX) OF
+      SEQUENCE {value        ATTRIBUTE.&Type({SupportedAttributes}{@type}),
+                contextList  SET SIZE (1..MAX) OF Context} OPTIONAL
+}
+
+Context ::= SEQUENCE {
+  contextType    CONTEXT.&id({SupportedContexts}),
+  contextValues
+    SET SIZE (1..MAX) OF CONTEXT.&Type({SupportedContexts}{@contextType}),
+  fallback       BOOLEAN DEFAULT FALSE
+}
+-- Definition of the following information object set is deferred, perhaps to standardized
+-- profiles or to protocol implementation conformance statements. The set is required to
+-- specify a table constraint on the context specifications
+SupportedContexts CONTEXT ::=
+  {...}
+
+
+CONTEXT ::= CLASS {
+  &Type          ,
+  &DefaultValue  OPTIONAL,
+  &Assertion     OPTIONAL,
+  &absentMatch   BOOLEAN DEFAULT TRUE,
+  &id            OBJECT IDENTIFIER UNIQUE
+}
+  
+-- ATTRIBUTE information object class specification 
+ATTRIBUTE ::= CLASS {
+  &derivation            ATTRIBUTE OPTIONAL,
+  &Type                  OPTIONAL, -- either &Type or &derivation required 
+  &equality-match        MATCHING-RULE OPTIONAL,
+  &ordering-match        MATCHING-RULE OPTIONAL,
+  &substrings-match      MATCHING-RULE OPTIONAL,
+  &single-valued         BOOLEAN DEFAULT FALSE,
+  &collective            BOOLEAN DEFAULT FALSE,
+  &dummy                 BOOLEAN DEFAULT FALSE,
+  -- operational extensions 
+  &no-user-modification  BOOLEAN DEFAULT FALSE,
+  &usage                 AttributeUsage DEFAULT userApplications,
+  &id                    OBJECT IDENTIFIER UNIQUE
+}
+
+-- MATCHING-RULE information object class specification 
+MATCHING-RULE ::= CLASS {
+  &ParentMatchingRules   MATCHING-RULE OPTIONAL,
+  &AssertionType         OPTIONAL,
+  &uniqueMatchIndicator  ATTRIBUTE OPTIONAL,
+  &id                    OBJECT IDENTIFIER UNIQUE
+}
+
+AttributeUsage ::= ENUMERATED {
+  userApplications(0), directoryOperation(1), distributedOperation(2),
+  dSAOperation(3)}
+
+END
+
+

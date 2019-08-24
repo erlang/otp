@@ -1,0 +1,533 @@
+MAP-LCS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-LCS-DataTypes (25) version9 (9)}
+
+DEFINITIONS
+IMPLICIT TAGS
+::=
+BEGIN
+
+EXPORTS
+	RoutingInfoForLCS-Arg,
+	RoutingInfoForLCS-Res,
+	ProvideSubscriberLocation-Arg,
+	ProvideSubscriberLocation-Res,
+	SubscriberLocationReport-Arg,
+	SubscriberLocationReport-Res,
+	LocationType, 
+	DeferredLocationEventType,
+	LCSClientName,
+	LCS-QoS,
+	Horizontal-Accuracy,
+	ResponseTime,
+	Ext-GeographicalInformation,
+	SupportedGADShapes,
+	Add-GeographicalInformation,
+	LCSRequestorID, 
+	LCS-ReferenceNumber,
+	LCSCodeword,
+	AreaEventInfo
+;
+
+IMPORTS
+	AddressString,
+	ISDN-AddressString,
+	IMEI,
+	IMSI,
+	LMSI,
+	SubscriberIdentity,
+	AgeOfLocationInformation,
+	LCSClientExternalID,
+	LCSClientInternalID,
+	LCSServiceTypeID,
+	CellGlobalIdOrServiceAreaIdOrLAI
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+
+	USSD-DataCodingScheme,
+	USSD-String
+FROM MAP-SS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0) gsm-Network (1) modules (3)
+   map-SS-DataTypes (14) version9 (9)}
+
+	APN,
+	GSN-Address,
+	SupportedLCS-CapabilitySets
+FROM MAP-MS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-MS-DataTypes (11) version9 (9)}
+
+	Additional-Number
+FROM MAP-SM-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SM-DataTypes (16) version9 (9)}
+;
+
+
+RoutingInfoForLCS-Arg ::= SEQUENCE {
+	mlcNumber		[0] ISDN-AddressString,
+	targetMS		[1] SubscriberIdentity,
+	extensionContainer	[2] ExtensionContainer	OPTIONAL,
+	...}
+
+RoutingInfoForLCS-Res ::= SEQUENCE {
+	targetMS		[0] SubscriberIdentity,
+	lcsLocationInfo	[1] LCSLocationInfo,
+	extensionContainer	[2] ExtensionContainer	OPTIONAL,
+	...,
+	v-gmlc-Address	[3]	GSN-Address	OPTIONAL,
+	h-gmlc-Address	[4]	GSN-Address	OPTIONAL,
+	ppr-Address	[5]	GSN-Address	OPTIONAL,
+	additional-v-gmlc-Address	[6]	GSN-Address	OPTIONAL }
+
+LCSLocationInfo ::= SEQUENCE {
+	networkNode-Number	ISDN-AddressString,
+	-- NetworkNode-number can be either msc-number or sgsn-number
+	lmsi			[0] LMSI		OPTIONAL,
+	extensionContainer	[1] ExtensionContainer	OPTIONAL,
+	... ,
+	gprsNodeIndicator 	[2] NULL		OPTIONAL,
+	-- gprsNodeIndicator is set only if the SGSN number is sent as the Network Node Number
+	additional-Number	[3] Additional-Number	OPTIONAL,
+	supportedLCS-CapabilitySets	[4]	SupportedLCS-CapabilitySets	OPTIONAL,
+	additional-LCS-CapabilitySets	[5]	SupportedLCS-CapabilitySets	OPTIONAL
+	}
+
+ProvideSubscriberLocation-Arg ::= SEQUENCE {
+	locationType	LocationType,
+	mlc-Number	ISDN-AddressString,
+	lcs-ClientID	[0] LCS-ClientID	OPTIONAL,
+	privacyOverride	[1] NULL		OPTIONAL,
+	imsi			[2] IMSI		OPTIONAL,
+	msisdn		[3] ISDN-AddressString	OPTIONAL,
+	lmsi			[4] LMSI		OPTIONAL,
+	imei			[5] IMEI		OPTIONAL,
+	lcs-Priority	[6] LCS-Priority	OPTIONAL,
+	lcs-QoS		[7] LCS-QoS	OPTIONAL,
+	extensionContainer	[8] ExtensionContainer	OPTIONAL,
+	... ,
+	supportedGADShapes	[9]	SupportedGADShapes	OPTIONAL,
+	lcs-ReferenceNumber	[10]	LCS-ReferenceNumber	OPTIONAL,
+	lcsServiceTypeID	[11]	LCSServiceTypeID	OPTIONAL,
+	lcsCodeword	[12]	LCSCodeword	OPTIONAL,
+	lcs-PrivacyCheck	[13]	LCS-PrivacyCheck	OPTIONAL,
+	areaEventInfo	[14]	AreaEventInfo	OPTIONAL,
+	h-gmlc-Address	[15]	GSN-Address	OPTIONAL }
+
+	-- one of imsi or msisdn is mandatory
+	-- If a location estimate type indicates activate deferred location or cancel deferred 
+	-- location, a lcs-Reference number shall be included.
+
+LocationType ::= SEQUENCE {
+	locationEstimateType	[0] LocationEstimateType,
+	...,
+	deferredLocationEventType	[1] DeferredLocationEventType	OPTIONAL }
+
+LocationEstimateType ::= ENUMERATED {
+	currentLocation	(0),
+	currentOrLastKnownLocation	(1),
+	initialLocation	(2),
+	...,
+	activateDeferredLocation	(3),
+	cancelDeferredLocation	(4) }
+--	exception handling:
+--	a ProvideSubscriberLocation-Arg containing an unrecognized LocationEstimateType
+--	shall be rejected by the receiver with a return error cause of unexpected data value
+
+DeferredLocationEventType ::= BIT STRING {
+	msAvailable	(0) ,
+	enteringIntoArea	(1),
+	leavingFromArea	(2),
+	beingInsideArea	(3) } (SIZE (1..16)) 
+-- beingInsideArea is always treated as oneTimeEvent regardless of the possible value
+-- of occurrenceInfo inside areaEventInfo.
+-- exception handling:
+-- a ProvideSubscriberLocation-Arg containing other values than listed above in 
+-- DeferredLocationEventType shall be rejected by the receiver with a return error cause of 
+-- unexpected data value.
+
+LCS-ClientID ::= SEQUENCE {
+	lcsClientType	[0] LCSClientType,
+	lcsClientExternalID	[1] LCSClientExternalID	OPTIONAL,
+	lcsClientDialedByMS	[2] AddressString	OPTIONAL,
+	lcsClientInternalID	[3] LCSClientInternalID	OPTIONAL,
+	lcsClientName	[4] LCSClientName	OPTIONAL,
+	...,
+	lcsAPN		[5] APN		OPTIONAL,
+	lcsRequestorID	[6] LCSRequestorID	OPTIONAL }
+
+LCSClientType ::= ENUMERATED {
+	emergencyServices	(0),
+	valueAddedServices	(1),
+	plmnOperatorServices	(2),
+	lawfulInterceptServices	(3),
+	... }
+	--	exception handling:
+	--	unrecognized values may be ignored if the LCS client uses the privacy override
+	--	otherwise, an unrecognized value shall be treated as unexpected data by a receiver
+	--	a return error shall then be returned if received in a MAP invoke 
+
+LCSClientName ::= SEQUENCE {
+	dataCodingScheme	[0] USSD-DataCodingScheme,
+	nameString	[2] NameString,
+	...,
+	lcs-FormatIndicator	[3] LCS-FormatIndicator	OPTIONAL }
+
+-- The USSD-DataCodingScheme shall indicate use of the default alphabet through the
+-- following encoding
+--	bit	7 6 5 4 3 2 1 0
+--		0 0 0 0 1 1 1 1
+
+NameString ::= USSD-String (SIZE (1..maxNameStringLength))
+
+maxNameStringLength  INTEGER ::= 63
+
+LCSRequestorID ::= SEQUENCE {
+	dataCodingScheme	[0] USSD-DataCodingScheme,
+	requestorIDString	[1] RequestorIDString,
+	...,
+	lcs-FormatIndicator	[2] LCS-FormatIndicator	OPTIONAL }
+
+RequestorIDString ::= USSD-String (SIZE (1..maxRequestorIDStringLength))
+
+maxRequestorIDStringLength  INTEGER ::= 63
+
+LCS-FormatIndicator ::= ENUMERATED {
+	logicalName	(0),
+	e-mailAddress	(1),
+	msisdn		(2),
+	url			(3),
+	sipUrl		(4),
+	... }
+
+LCS-Priority ::= OCTET STRING (SIZE (1))
+	-- 0 = highest priority
+	-- 1 = normal priority
+	-- all other values treated as 1 
+
+LCS-QoS ::= SEQUENCE {
+	horizontal-accuracy	[0] Horizontal-Accuracy	OPTIONAL,
+	verticalCoordinateRequest	[1] NULL		OPTIONAL,
+	vertical-accuracy	[2] Vertical-Accuracy	OPTIONAL,	responseTime	[3] ResponseTime	OPTIONAL,
+	extensionContainer	[4] ExtensionContainer	OPTIONAL,
+	...}
+
+Horizontal-Accuracy ::= OCTET STRING (SIZE (1))
+	-- bit 8 = 0
+	-- bits 7-1 = 7 bit Uncertainty Code defined in 3GPP TS 23.032. The horizontal location 
+	-- error should be less than the error indicated by the uncertainty code with 67%
+	-- confidence.
+
+Vertical-Accuracy ::= OCTET STRING (SIZE (1))
+	-- bit 8 = 0
+	-- bits 7-1 = 7 bit Vertical Uncertainty Code defined in 3GPP TS 23.032. 
+	-- The vertical location error should be less than the error indicated 
+	-- by the uncertainty code with 67% confidence.
+
+ResponseTime ::= SEQUENCE {
+	responseTimeCategory	ResponseTimeCategory,
+	...}
+--	note: an expandable SEQUENCE simplifies later addition of a numeric response time.
+
+ResponseTimeCategory ::= ENUMERATED {
+	lowdelay  (0),
+	delaytolerant  (1),
+	... }
+--	exception handling:
+--	an unrecognized value shall be treated the same as value 1 (delaytolerant)
+
+SupportedGADShapes ::= BIT STRING {
+	ellipsoidPoint  (0),
+	ellipsoidPointWithUncertaintyCircle (1),
+	ellipsoidPointWithUncertaintyEllipse (2),
+	polygon (3),
+	ellipsoidPointWithAltitude (4),
+	ellipsoidPointWithAltitudeAndUncertaintyElipsoid (5),
+	ellipsoidArc  (6) } (SIZE (7..16))
+-- A node shall mark in the BIT STRING all Shapes defined in 3GPP TS 23.032 it supports.
+-- exception handling: bits 7 to 15 shall be ignored if received.
+
+LCS-ReferenceNumber::= OCTET STRING (SIZE(1))
+
+LCSCodeword ::= SEQUENCE {
+	dataCodingScheme	[0] USSD-DataCodingScheme,
+	lcsCodewordString	[1] LCSCodewordString,
+	...}
+
+LCSCodewordString ::= USSD-String (SIZE (1..maxLCSCodewordStringLength))
+
+maxLCSCodewordStringLength  INTEGER ::= 20
+
+LCS-PrivacyCheck ::= SEQUENCE {
+	callSessionUnrelated	[0] PrivacyCheckRelatedAction,
+	callSessionRelated	[1] PrivacyCheckRelatedAction	OPTIONAL,
+	...}
+
+PrivacyCheckRelatedAction ::= ENUMERATED {
+	allowedWithoutNotification (0),
+	allowedWithNotification (1),
+	allowedIfNoResponse (2),
+	restrictedIfNoResponse (3),
+	notAllowed (4),
+	...}
+--	exception handling:
+--	a ProvideSubscriberLocation-Arg containing an unrecognized PrivacyCheckRelatedAction
+--	shall be rejected by the receiver with a return error cause of unexpected data value
+
+AreaEventInfo ::= SEQUENCE {
+	areaDefinition	[0]	AreaDefinition,
+	occurrenceInfo	[1]	OccurrenceInfo	OPTIONAL,
+	intervalTime	[2]	IntervalTime	OPTIONAL,
+	...}
+
+AreaDefinition ::= SEQUENCE {
+	areaList		[0]	AreaList,
+	...}
+
+AreaList ::= SEQUENCE SIZE (1..maxNumOfAreas) OF Area
+
+maxNumOfAreas  INTEGER ::= 10
+
+Area ::= SEQUENCE {
+	areaType		[0]	AreaType,
+	areaIdentification	[1]	AreaIdentification,
+	...}
+
+AreaType ::= ENUMERATED {
+	countryCode	(0),
+	plmnId		(1),
+	locationAreaId	(2),
+	routingAreaId	(3),
+	cellGlobalId	(4),
+	...}
+
+AreaIdentification ::= OCTET STRING (SIZE (2..7))
+	-- The internal structure is defined as follows:
+	-- octet 1 bits 4321	Mobile Country Code 1st digit
+	--         bits 8765	Mobile Country Code 2nd digit
+	-- octet 2 bits 4321	Mobile Country Code 3rd digit
+	--         bits 8765	Mobile Network Code 3rd digit if 3 digit MNC included
+	--			or filler (1111)
+	-- octet 3 bits 4321	Mobile Network Code 1st digit
+	--         bits 8765	Mobile Network Code 2nd digit
+	-- octets 4 and 5	Location Area Code (LAC)
+	-- octet 6	Routing Area Code (RAC) for Routing Area Id
+	-- octets 6 and 7	Cell Identity (CI) for Cell Global Id
+
+OccurrenceInfo ::= ENUMERATED {
+	oneTimeEvent	(0),
+	multipleTimeEvent	(1),
+	...}
+
+IntervalTime ::= INTEGER (1..32767)
+	-- minimum interval time between area reports in seconds
+
+ProvideSubscriberLocation-Res ::= SEQUENCE {
+	locationEstimate	Ext-GeographicalInformation,
+	ageOfLocationEstimate	[0] AgeOfLocationInformation	OPTIONAL,
+	extensionContainer	[1] ExtensionContainer	OPTIONAL,
+	... ,
+	add-LocationEstimate	[2] Add-GeographicalInformation 	OPTIONAL,
+	deferredmt-lrResponseIndicator	[3] NULL		OPTIONAL,
+	geranPositioningData	[4] PositioningDataInformation	OPTIONAL,
+	utranPositioningData	[5] UtranPositioningDataInfo	OPTIONAL,
+	cellIdOrSai	[6] CellGlobalIdOrServiceAreaIdOrLAI	OPTIONAL,
+	sai-Present	[7] NULL		OPTIONAL }
+
+--	if deferredmt-lrResponseIndicator is set, locationEstimate is ignored.
+
+-- the add-LocationEstimate parameter shall not be sent to a node that did not indicate the
+-- geographic shapes supported in the ProvideSubscriberLocation-Arg
+-- The locationEstimate and the add-locationEstimate parameters shall not be sent if
+-- the supportedGADShapes parameter has been received in ProvideSubscriberLocation-Arg
+-- and the shape encoded in locationEstimate or add-LocationEstimate is not marked
+-- as supported in supportedGADShapes. In such a case ProvideSubscriberLocation
+-- shall be rejected with error FacilityNotSupported with additional indication
+-- shapeOfLocationEstimateNotSupported.
+-- sai-Present indicates that the cellIdOrSai parameter contains a Service Area Identity.
+
+Ext-GeographicalInformation ::= OCTET STRING (SIZE (1..maxExt-GeographicalInformation))
+	-- Refers to geographical Information defined in 3GPP TS 23.032.
+	-- This is composed of 1 or more octets with an internal structure according to
+	-- 3GPP TS 23.032
+	-- Octet 1: Type of shape, only the following shapes in 3GPP TS 23.032 are allowed:
+	--		(a) Ellipsoid point with uncertainty circle
+	--		(b) Ellipsoid point with uncertainty ellipse
+	--		(c) Ellipsoid point with altitude and uncertainty ellipsoid
+	--		(d) Ellipsoid Arc
+	--		(e) Ellipsoid Point
+	-- Any other value in octet 1 shall be treated as invalid
+	-- Octets 2 to 8 for case (a) - Ellipsoid point with uncertainty circle
+	--		Degrees of Latitude				3 octets
+	--		Degrees of Longitude				3 octets
+	--		Uncertainty code				1 octet
+	-- Octets 2 to 11 for case (b) - Ellipsoid point with uncertainty ellipse:
+	--		Degrees of Latitude				3 octets
+	--		Degrees of Longitude				3 octets
+	--		Uncertainty semi-major axis				1 octet
+	--		Uncertainty semi-minor axis				1 octet
+	--		Angle of major axis				1 octet
+	--		Confidence				1 octet
+	-- Octets 2 to 14 for case (c) - Ellipsoid point with altitude and uncertainty ellipsoid
+	--		Degrees of Latitude				3 octets
+	--		Degrees of Longitude				3 octets
+	--		Altitude				2 octets
+	--		Uncertainty semi-major axis				1 octet
+	--		Uncertainty semi-minor axis				1 octet
+	--		Angle of major axis				1 octet
+	--		Uncertainty altitude				1 octet
+	--		Confidence				1 octet
+	-- Octets 2 to 13 for case (d) - Ellipsoid Arc
+	--		Degrees of Latitude				3 octets
+	--		Degrees of Longitude				3 octets
+	--		Inner radius				2 octets
+	--		Uncertainty radius				1 octet
+	--		Offset angle				1 octet
+	--		Included angle				1 octet
+	--		Confidence				1 octet
+	-- Octets 2 to 7 for case (e) - Ellipsoid Point
+	--		Degrees of Latitude				3 octets
+	--		Degrees of Longitude				3 octets
+
+	--
+	-- An Ext-GeographicalInformation parameter comprising more than one octet and
+	-- containing any other shape or an incorrect number of octets or coding according
+	-- to 3GPP TS 23.032 shall be treated as invalid data by a receiver.
+	--
+	-- An Ext-GeographicalInformation parameter comprising one octet shall be discarded
+	-- by the receiver if an Add-GeographicalInformation parameter is received 
+	-- in the same message.
+	--
+	-- An Ext-GeographicalInformation parameter comprising one octet shall be treated as
+	-- invalid data by the receiver if an Add-GeographicalInformation parameter is not
+	-- received in the same message.
+
+maxExt-GeographicalInformation  INTEGER ::= 20
+	-- the maximum length allows for further shapes in 3GPP TS 23.032 to be included in later 
+	-- versions of 3GPP TS 29.002
+
+PositioningDataInformation ::= OCTET STRING (SIZE (2..maxPositioningDataInformation))
+	-- Refers to the Positioning Data defined in 3GPP TS 49.031.
+	-- This is composed of 2 or more octets with an internal structure according to
+	-- 3GPP TS 49.031. 
+
+maxPositioningDataInformation INTEGER ::= 10
+	-- 
+
+UtranPositioningDataInfo ::= OCTET STRING (SIZE (3..maxUtranPositioningDataInfo))
+	-- Refers to the Position Data defined in 3GPP TS 25.413.
+	-- This is composed of the positioningDataDiscriminator and the positioningDataSet
+	-- included in positionData as defined in 3GPP TS 25.413.
+
+maxUtranPositioningDataInfo INTEGER ::= 11
+	-- 
+
+Add-GeographicalInformation ::= OCTET STRING (SIZE (1..maxAdd-GeographicalInformation))
+	-- Refers to geographical Information defined in 3GPP TS 23.032.
+	-- This is composed of 1 or more octets with an internal structure according to 
+	-- 3GPP TS 23.032
+	-- Octet 1: Type of shape, all the shapes defined in 3GPP TS 23.032 are allowed:
+	-- Octets 2 to n (where n is the total number of octets necessary to encode the shape
+	-- according to 3GPP TS 23.032) are used to encode the shape itself in accordance with the
+	-- encoding defined in 3GPP TS 23.032
+	--
+	-- An Add-GeographicalInformation parameter, whether valid or invalid, received 
+	-- together with a valid Ext-GeographicalInformation parameter in the same message 
+	-- shall be discarded.
+	--
+	-- An Add-GeographicalInformation parameter containing any shape not defined in 
+	-- 3GPP TS 23.032 or an incorrect number of octets or coding according to 
+	-- 3GPP TS 23.032 shall be treated as invalid data by a receiver if not received 
+	-- together with a valid Ext-GeographicalInformation parameter in the same message.
+
+maxAdd-GeographicalInformation  INTEGER ::= 91
+	-- the maximum length allows support for all the shapes currently defined in 3GPP TS 23.032
+
+SubscriberLocationReport-Arg ::= SEQUENCE {
+	lcs-Event		LCS-Event,
+	lcs-ClientID	LCS-ClientID, 
+	lcsLocationInfo	LCSLocationInfo,
+	msisdn		[0] ISDN-AddressString	OPTIONAL,
+	imsi			[1] IMSI		OPTIONAL,
+	imei			[2] IMEI		OPTIONAL,
+	na-ESRD		[3] ISDN-AddressString	OPTIONAL,
+	na-ESRK		[4] ISDN-AddressString	OPTIONAL,
+	locationEstimate	[5] Ext-GeographicalInformation	OPTIONAL,
+	ageOfLocationEstimate	[6] AgeOfLocationInformation	OPTIONAL,
+	extensionContainer	[7] ExtensionContainer	OPTIONAL,
+	... ,
+	add-LocationEstimate	[8] Add-GeographicalInformation	OPTIONAL,
+	deferredmt-lrData	[9] Deferredmt-lrData	OPTIONAL, 
+	lcs-ReferenceNumber	[10] LCS-ReferenceNumber	OPTIONAL,
+	geranPositioningData	[11] PositioningDataInformation	OPTIONAL,
+	utranPositioningData	[12] UtranPositioningDataInfo	OPTIONAL,
+	na-ESRK-Request	[16]	NULL		OPTIONAL,
+	cellIdOrSai	[13]	CellGlobalIdOrServiceAreaIdOrLAI	OPTIONAL,
+	h-gmlc-Address	[14]	GSN-Address	OPTIONAL,
+	lcsServiceTypeID	[15]	LCSServiceTypeID	OPTIONAL,
+	sai-Present	[17] NULL		OPTIONAL }
+
+	-- one of msisdn or imsi is mandatory
+	-- a location estimate that is valid for the locationEstimate parameter should 
+	-- be transferred in this parameter in preference to the add-LocationEstimate.
+	-- the deferredmt-lrData parameter shall be included if and only if the lcs-Event
+	-- indicates a deferredmt-lrResponse.
+	-- if the lcs-Event indicates a deferredmt-lrResponse then the locationEstimate 
+	-- and the add-locationEstimate parameters shall not be sent if the 
+	-- supportedGADShapes parameter had been received in ProvideSubscriberLocation-Arg
+	-- and the shape encoded in locationEstimate or add-LocationEstimate was not marked
+	-- as supported in supportedGADShapes. In such a case terminationCause 
+	-- in deferredmt-lrData shall be present with value 
+	-- shapeOfLocationEstimateNotSupported. 
+	-- If a lcs event indicates deferred mt-lr response, the lcs-Reference number shall be 
+	-- included. 
+	-- sai-Present indicates that the cellIdOrSai parameter contains a Service Area Identity.
+
+Deferredmt-lrData ::= SEQUENCE {
+	deferredLocationEventType	DeferredLocationEventType,
+	terminationCause	[0] TerminationCause	OPTIONAL,
+	lcsLocationInfo	[1] LCSLocationInfo	OPTIONAL,
+	...}
+	-- lcsLocationInfo may be included only if a terminationCause is present 
+	-- indicating mt-lrRestart.
+
+LCS-Event ::= ENUMERATED {
+	emergencyCallOrigination  (0),
+	emergencyCallRelease  (1), 
+	mo-lr  (2),
+	...,
+	deferredmt-lrResponse  (3) }
+	--	exception handling:
+	--	a SubscriberLocationReport-Arg containing an unrecognized LCS-Event
+	--	shall be rejected by a receiver with a return error cause of unexpected data value
+
+TerminationCause ::= ENUMERATED {
+	normal  (0),
+	errorundefined  (1),
+	internalTimeout  (2),
+	congestion  (3),
+	mt-lrRestart  (4),
+	privacyViolation  (5),
+	...,
+	shapeOfLocationEstimateNotSupported (6) } 
+-- mt-lrRestart shall be used to trigger the GMLC to restart the location procedure, 
+-- either because the sending node knows that the terminal has moved under coverage 
+-- of another MSC or SGSN (e.g. Send Identification received), or because the subscriber
+-- has been deregistered due to a Cancel Location received from HLR.
+--
+-- exception handling
+-- an unrecognized value shall be treated the same as value 1 (errorundefined) 
+
+SubscriberLocationReport-Res ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL, 
+	..., 
+	na-ESRK		[0] ISDN-AddressString	OPTIONAL }
+
+
+END

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+     </legalnotice>
+    <title>Overview OTP DTDs</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>overview.xml</file>
+  </header>
+
+  <section>
+    <title>DTD Suite</title>
+
+    <p>Input is written as XML according to one of the DTDs and output
+      is corresponding HTML. Documentation for an Erlang/OTP application
+      is usually organized as follows:</p>
+    <taglist>
+      <tag><em>User's Guide</em></tag>
+      <item>
+	<p>(DTD:
+	  <seealso marker="user_guide_dtds#partDTD">part</seealso>)
+	  A collection of chapters
+	  (<seealso marker="user_guide_dtds#chapterDTD">chapter</seealso>).
+	</p>
+      </item> 
+
+      <tag><em>Reference Manual</em></tag>
+      <item>
+	<p>(DTD:
+	  <seealso marker="refman_dtds#applicationDTD">application</seealso>
+	  A collection of manual pages for modules
+	  (<seealso marker="refman_dtds#erlrefDTD">erlref</seealso>),
+	  applications
+	  (<seealso marker="refman_dtds#apprefDTD">appref</seealso>),
+	  commands
+	  (<seealso marker="refman_dtds#comrefDTD">comref</seealso>),
+	  C libraries
+	  (<seealso marker="refman_dtds#crefDTD">cref</seealso>) and
+	  files
+	  (<seealso marker="refman_dtds#filerefDTD">fileref</seealso>).
+	</p>
+      </item>
+
+      <tag><em>Release Notes</em></tag>
+      <item>
+	<p>Same structure as the User's Guide.</p>
+      </item>
+    </taglist>
+
+    <p>In some cases, one or more of the User's Guide, Reference Manual
+      and Release Notes are omitted. Also, it is possible to use either
+      the <c>application</c> or <c>part</c> DTD to write other types
+      of documentation for the application.</p>
+
+
+    <p>The structure of the different documents and the meaning of the 
+    tags are explained. There are numerous examples of documentation 
+    source code.</p>
+
+    <p>For readability and simplicity, the examples have been kept as
+      short as possible. For an example of what the generated HTML
+      will look like, it is recommended to look at the documentation of 
+      an OTP application.</p>
+
+  </section>
+
+  <section>
+    <title>Basic Tags</title>
+
+    <p>All DTDs in the OTP DTD suite share a basic set of tags.
+      An author can easily switch from one DTD to another and still use
+      the same basic tags. It is furthermore easy to copy pieces of
+      information from one document to another, even though they do not
+      use the same DTD.</p>
+
+    <p>The basic set of tags are divided into two categories:
+      <seealso marker="block_tags">block tags</seealso> and
+      <seealso marker="inline_tags">inline tags</seealso>. Block tags
+      typically define a separate block of information, like a
+      paragraph or a list. Inline tags are typically used within block
+      tags, for example a highlighted word within a paragraph.</p>
+  </section>
+
+</chapter>
+

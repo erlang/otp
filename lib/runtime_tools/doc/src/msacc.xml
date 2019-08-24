@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2014</year><year>2014</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>Microstate Accounting</title>
+    <prepared>Lukas Larsson</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>14-09-30</date>
+    <rev>A</rev>
+    <file>msacc.xml</file>
+  </header>
+  <module since="OTP 19.0">msacc</module>
+  <modulesummary>Convenience functions for microstate accounting</modulesummary>
+  <description>
+    <p>This module implements some convenience functions for analyzing
+    microstate accounting data. For details about how to use the basic api and
+    what the different states represent see
+    <seealso marker="erts:erlang#statistics_microstate_accounting"><c>
+    erlang:statistics(microstate_accounting)</c></seealso>.</p>
+    <marker id="msacc_print_example"></marker>
+    <p><em>Basic Scenario</em></p>
+    <pre>1> <input>msacc:start(1000).</input>
+ok
+2> <input>msacc:print().</input>
+Average thread real-time    : 1000513 us
+Accumulated system run-time :    2213 us
+Average scheduler run-time  :    1076 us
+
+        Thread      aux check_io emulator       gc    other     port    sleep
+
+Stats per thread:
+     async( 0)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+     async( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+       aux( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+ scheduler( 1)    0.00%    0.03%    0.13%    0.00%    0.01%    0.00%   99.82%
+ scheduler( 2)    0.00%    0.00%    0.00%    0.00%    0.03%    0.00%   99.97%
+
+Stats per type:
+         async    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+           aux    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+     scheduler    0.00%    0.02%    0.06%    0.00%    0.02%    0.00%   99.89%
+ok
+</pre>
+    <p>This first command enables microstate accounting for 1000 milliseconds.
+    See <seealso marker="#start-0"><c>start/0</c></seealso>,
+    <seealso marker="#stop-0"><c>stop/0</c></seealso>,
+    <seealso marker="#reset-0"><c>reset/0</c></seealso> and
+    <seealso marker="#start-1"><c>start/1</c></seealso> for more details.
+    The second command prints the statistics gathered during that time.
+    First three general statistics are printed.</p>
+    <taglist>
+      <tag>Average real-time</tag>
+      <item>The average time spent collecting data in the threads.
+      This should be close to the time which data was collected.
+      </item>
+      <tag>System run-time</tag>
+      <item>The total run-time of all threads in the system.
+      This is what you get if you call <c>msacc:stats(total_runtime,Stats).</c>
+      </item>
+      <tag>Average scheduler run-time</tag>
+      <item>The average run-time for the schedulers.
+      This is the average amount of time the schedulers did not sleep.</item>
+    </taglist>
+    <p>Then one column per state is printed with a the percentage of time this
+    thread spent in the state out of it's own real-time. After the thread
+    specific time, the accumulated time for each type of thread is printed in
+    a similar format.</p>
+    <p>Since we have the average real-time and the percentage spent in each
+    state we can easily calculate the time spent in each state by multiplying
+    <c>Average thread real-time</c> with <c>Thread state %</c>, i.e. to
+    get the time Scheduler 1 spent in the emulator state we do
+    <c>1000513us * 0.13% = 1300us</c>.</p>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="msacc_data"/>
+    </datatype>
+    <datatype>
+      <name name="msacc_data_thread"/>
+    </datatype>
+    <datatype>
+      <name name="msacc_data_counters"/>
+      <desc><p>A map containing the different microstate accounting states and
+      the number of microseconds spent in it.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="msacc_stats"/>
+    </datatype>
+    <datatype>
+      <name name="msacc_stats_thread"/>
+      <desc><p>A map containing information about a specific thread. The
+      percentages in the map can be either run-time or real-time depending
+      on if <c>runtime</c> or <c>realtime</c> was requested from
+      <seealso marker="#stats-2">stats/2</seealso>. <c>system</c> is the
+      percentage of total system time for this specific thread.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="msacc_stats_counters"/>
+      <desc><p>A map containing the different microstate accounting states. Each
+      value in the map contains another map with the percentage of time that
+      this thread has spent in the specific state. Both the percentage of
+      <c>system</c> time and the time for that specific <c>thread</c> is part of
+      the map.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="msacc_type"/>
+    </datatype>
+    <datatype>
+      <name name="msacc_id"/>
+    </datatype>
+    <datatype>
+      <name name="msacc_state"/>
+      <desc><p>The different states that a thread can be in. See
+      <seealso marker="erts:erlang#statistics_microstate_accounting">
+        erlang:statistics(microstate_accounting)</seealso> for details.
+      </p></desc>
+    </datatype>
+    <datatype>
+      <name name="msacc_print_options"/>
+      <desc><p>The different options that can be given to
+      <seealso marker="#print-2"><c>print/2</c></seealso>.
+      </p></desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="available" arity="0" since="OTP 19.0"/>
+      <fsummary>Check if microstate accounting is available</fsummary>
+      <desc>
+	<p>This function checks whether microstate accounting
+        is available or not.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="0" since="OTP 19.0"/>
+      <fsummary>Start microstate accounting.</fsummary>
+      <desc>
+        <p>Start microstate accounting. Returns whether it was
+        previously enabled or disabled.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="1" since="OTP 19.0"/>
+      <fsummary>Start microstate accounting for a time.</fsummary>
+      <desc>
+        <p>Resets all counters and then starts microstate accounting
+        for the given milliseconds.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stop" arity="0" since="OTP 19.0"/>
+      <fsummary>Stop microstate accounting.</fsummary>
+      <desc>
+        <p>Stop microstate accounting.
+        Returns whether is was previously enabled or disabled.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="reset" arity="0" since="OTP 19.0"/>
+      <fsummary>Reset microstate accounting counters</fsummary>
+      <desc>
+        <p>Reset microstate accounting counters.
+        Returns whether is was enabled or disabled.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="0" since="OTP 19.0"/>
+      <fsummary>Print microstate statistics</fsummary>
+      <desc>
+        <p>
+          Prints the current microstate accounting to standard out.
+          Same as
+          <seealso marker="#print-1">
+            <c>msacc:print(msacc:stats(),#{}).</c>
+          </seealso>
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="1" since="OTP 19.0"/>
+      <fsummary>Print microstate statistics</fsummary>
+      <desc>
+        <p>Print the given microstate statistics values to stdout.
+        Same as
+        <seealso marker="#print-1">
+          <c>msacc:print(DataOrStats,#{}).</c>
+        </seealso>
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="2" since="OTP 19.0"/>
+      <fsummary>Print microstate statistics</fsummary>
+      <desc>
+        <p>Print the given microstate statistics values to standard out.
+        With many states this can be quite verbose. See the top of this
+        reference manual for a brief description of what the fields mean.</p>
+        <p>It is possible to print more specific types of statistics by
+        first manipulating the <c>DataOrStats</c> using
+        <seealso marker="#stats-2"><c>stats/2</c></seealso>.
+        For instance if you want to print the percentage of run-time for each
+        thread you can do:</p>
+        <pre><input>msacc:print(msacc:stats(runtime,msacc:stats())).</input></pre>
+        <p>If you want to only print run-time per thread type you can do:</p>
+        <pre><input>msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</input></pre>
+        <p><em>Options</em></p>
+        <taglist>
+          <tag><c>system</c></tag><item>Print percentage of time spent in each
+          state out of system time as well as thread time.
+          Default: false.</item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="3" since="OTP 19.0"/>
+      <fsummary>Print microstate statistics</fsummary>
+      <desc>
+        <p>Print the given microstate statistics values to the given file
+        or device. The other arguments behave the same way as for
+        <seealso marker="#print-2"><c>print/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stats" arity="0" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a runtime system independent version of the microstate
+        statistics data presented by
+        <seealso marker="erts:erlang#statistics_microstate_accounting">
+        <c>erlang:statistics(microstate_accounting)</c></seealso>.
+        All counters have been normalized to be in microsecond resolution.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stats" arity="2" clause_i="1" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the system time for the given microstate statistics values.
+        System time is the accumulated time of all threads.</p>
+        <taglist>
+          <tag><c>realtime</c></tag>
+          <item>Returns all time recorded for all threads.</item>
+          <tag><c>runtime</c></tag>
+          <item>Returns all time spent doing work for all threads, i.e.
+          all time not spent in the <c>sleep</c> state.</item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="stats" arity="2" clause_i="2" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns fractions of real-time or run-time spent in the various
+        threads from the given microstate statistics values.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stats" arity="2" clause_i="3" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a list of microstate statistics values where the values
+        for all threads of the same type has been merged.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="to_file" arity="1" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Dumps the current microstate statistics counters to a file that can
+        be parsed with <seealso marker="kernel:file#consult/1">
+        file:consult/1</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="from_file" arity="1" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Read a file dump produced by <seealso marker="#to_file/1">
+        to_file(Filename)</seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

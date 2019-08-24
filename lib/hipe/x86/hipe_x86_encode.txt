@@ -1,0 +1,211 @@
+hipe_x86_encode USAGE GUIDE
+Revision 0.4, 2001-10-09
+
+This document describes how to use the hipe_x86_encode.erl module.
+
+Preliminaries
+-------------
+This is not a tutorial on the x86 architecture. The reader
+should be familiar with both the programming model and
+the general syntax of instructions and their operands.
+
+The hipe_x86_encode module follows the conventions in the
+"Intel Architecture Software Developer's Manual, Volume 2:
+Instruction Set Reference" document. In particular, the
+order of source and destination operands in instructions
+follows Intel's conventions: "add eax,edx" adds edx to eax.
+The GNU Assembler "gas" follows the so-called AT&T syntax
+which reverses the order of the source and destination operands.
+
+Basic Functionality
+-------------------
+The hipe_x86_encode module implements the mapping from symbolic x86
+instructions to their binary representation, as lists of bytes.
+
+Instructions and operands have to match actual x86 instructions
+and operands exactly. The mapping from "abstract" instructions
+to correct x86 instructions has to be done before the instructions
+are passed to the hipe_x86_encode module. (In HiPE, this mapping
+is done by the hipe_x86_assemble module.)
+
+The hipe_x86_encode module handles arithmetic operations on 32-bit
+integers, data movement of 8, 16, and 32-bit words, and most
+control flow operations. A 32-bit address and operand size process
+mode is assumed, which is what Unix and Linux systems use.
+
+Operations and registers related to floating-point, MMX, SIMD, 3dnow!,
+or operating system control are not implemented. Segment registers
+are supported minimally: a 'prefix_fs' pseudo-instruction can be
+used to insert an FS segment register override prefix.
+
+Instruction Syntax
+------------------
+The function hipe_x86_encode:insn_encode/1 takes an instruction in
+symbolic form and translates it to its binary representation,
+as a list of bytes.
+
+Symbolic instructions are Erlang terms in the following syntax:
+
+	Insn	::= {Op,Opnds}
+	Op	::= (an Erlang atom)
+	Opnds	::= {Opnd1,...,Opndn}	(n >= 0)
+	Opnd	::= eax | ax | al | 1 | cl
+	 	  | {imm32,Imm32} | {imm16,Imm16} | {imm8,Imm8}
+		  | {rm32,RM32} | {rm16,RM16} | {rm8,RM8}
+		  | {rel32,Rel32} | {rel8,Rel8}
+		  | {moffs32,Moffs32} | {moffs16,Moffs16} | {moffs8,Moffs8}
+		  | {cc,CC}
+		  | {reg32,Reg32} | {reg16,Reg16} | {reg8,Reg8}
+		  | {ea,EA}
+	Imm32	::= (a 32-bit integer; immediate value)
+	Imm16	::= (a 16-bit integer; immediate value)
+	Imm8	::= (an 8-bit integer; immediate value)
+	Rel32	::= (a 32-bit integer; jump offset)
+	Rel8	::= (an 8-bit integer; jump offset)
+	Moffs32	::= (a 32-bit integer; address of 32-bit word)
+	Moffs16	::= (a 32-bit integer; address of 16-bit word)
+	Moffs8	::= (a 32-bit integer; address of 8-bit word)
+	CC	::= (a 4-bit condition code)
+	Reg32	::= (a 3-bit register number of a 32-bit register)
+	Reg16	::= (same as Reg32, but the register size is 16 bits)
+	Reg8	::= (a 3-bit register number of an 8-bit register)
+	EA	::= (general operand; a memory cell)
+	RM32	::= (general operand; a 32-bit register or memory cell)
+	RM16	::= (same as RM32, but the operand size is 16 bits)
+	RM8	::= (general operand; an 8-bit register or memory cell)
+
+To construct these terms, the hipe_x86_encode module exports several
+helper functions:
+
+cc/1
+	Converts an atom to a 4-bit condition code.
+
+al/0, cl/0, dl/0, bl/0, ah/0, ch/0, dh/0, bh/0
+	Returns a 3-bit register number for an 8-bit register.
+
+eax/0, ecx/0, edx/0, ebx/0, esp/0, ebp/0, esi/0, edi/0
+	Returns a 3-bit register number for a 32- or 16-bit register.
+
+A general operand can be a register or a memory operand.
+An x86 memory operand is expressed as an "effective address":
+
+	Displacement(Base register,Index register,Scale)
+or
+	[base register] + [(index register) * (scale)] + [displacement]
+
+where the base register is any of the 8 integer registers,
+the index register in any of the 8 integer registers except ESP,
+scale is 0, 1, 2, or 3 (multiply index with 1, 2, 4, or 8),
+and displacement is an 8- or 32-bit offset.
+Most components are optional.
+
+An effective address is constructed by calling one of the following
+nine functions:
+
+ea_base/1
+	ea_base(Reg32), where Reg32 is not ESP or EBP,
+	constructs the EA "(Reg32)", i.e. Reg32.
+ea_disp32/1
+	ea_disp32(Disp32) construct the EA "Disp32"
+ea_disp32_base/2
+	ea_disp32(Disp32, Reg32), where Reg32 is not ESP,
+	constructs the EA "Disp32(Reg32)", i.e. Reg32+Disp32.
+ea_disp8_base/2
+	This is like ea_disp32_base/2, except the displacement
+	is 8 bits instead of 32 bits. The CPU will _sign-extend_
+	the 8-bit displacement to 32 bits before using it.
+ea_disp32_sindex/1
+	ea_disp32_sindex(Disp32) constructs the EA "Disp32",
+	but uses a longer encoding than ea_disp32/1.
+	Hint: Don't use this one.
+
+The last four forms use index registers with or without scaling
+factors and base registers, so-called "SIBs". To build these, call:
+
+sindex/2
+	sindex(Scale, Index), where scale is 0, 1, 2, or 3, and
+	Index is a 32-bit integer register except ESP, constructs
+	part of a SIB representing "Index * 2^Scale".
+sib/1
+	sib(Reg32) constructs a SIB containing only a base register
+	and no scaled index, "(Reg32)", i.e. "Reg32".
+sib/2
+	sib(Reg32, sindex(Scale, Index)) constructs a SIB
+	"(Reg32,Index,Scale)", i.e. "Reg32 + (Index * 2^Scale)".
+
+ea_sib/1
+	ea_sib(SIB), where SIB's base register is not EBP,
+	constructs an EA which is that SIB, i.e. "(Base)" or
+	"(Base,Index,Scale)".
+ea_disp32_sib/2
+	ea_disp32_sib(Disp32, SIB) constructs the EA "Disp32(SIB)",
+	i.e. "Base+Disp32" or "Base+(Index*2^Scale)+Disp32".
+ea_disp32_sindex/2
+	ea_disp32_sindex(Disp32, Sindex) constructs the EA
+	"Disp32(,Index,Scale)", i.e. "(Index*2^Scale)+Disp32".
+ea_disp8_sib/2
+	This is just like ea_disp32_sib/2, except the displacement
+	is 8 bits (with sign-extension).
+
+To construct a general operand, call one of these two functions:
+
+rm_reg/1
+	rm_reg(Reg) constructs a general operand which is that register.
+rm_mem/1
+	rm_mem(EA) constucts a general operand which is the memory
+	cell addressed by EA.
+
+A symbolic instruction with name "Op" and the n operands "Opnd1"
+to "Opndn" is represented as the tuple
+
+	{Op, {Opnd1, ..., Opndn}}
+
+Usage
+-----
+Once a symbolic instruction "Insn" has been constructed, it can be
+translated to binary by calling
+
+	insn_encode(Insn)
+
+which returns a list of bytes.
+
+Since x86 instructions have varying size (as opposed to most
+RISC machines), there is also a function
+
+	insn_sizeof(Insn)
+
+which returns the number of bytes the binary encoding will occupy.
+insn_sizeof(Insn) equals length(insn_encode(Insn)), but insn_sizeof
+is cheaper to compute. This is useful for two purposes: (1) when
+compiling to memory, one needs to know in advance how many bytes of
+memory to allocate for a piece of code, and (2) when computing the
+relative distance between a jump or call instruction and its target
+label.
+
+Examples
+--------
+1.	nop
+is constructed as
+	{nop, {}}
+
+2.	add eax,edx	(eax := eax + edx)
+can be constructed as
+	{add, {eax, {reg32, hipe_x86_encode:edx()}}}
+or as
+	Reg32 = {reg32, hipe_x86_encode:eax()},
+	RM32 = {rm32, hipe_x86_encode:rm_reg(hipe_x86_encode:edx())},
+	{add, {Reg32, RM32}}
+
+3.	mov edx,(eax)	(edx := MEM[eax])
+is constructed as
+	Reg32 = {reg32, hipe_x86_encode:edx()},
+	RM32 = {rm32, hipe_x86_encode:rm_reg(hipe_x86_encode:eax())},
+	{mov, {Reg32, RM32}}
+
+Addendum
+--------
+The hipe_x86_encode.erl source code is the authoritative reference
+for the hipe_x86_encode module.
+
+Please report errors in either hipe_x86_encode.erl or this guide
+to mikpe@it.uu.se.

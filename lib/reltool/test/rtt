@@ -1,0 +1,56 @@
+#! /bin/sh -f
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+# Usage: rtt [-cerl] <args to erlang startup script>
+
+emu=erl
+while [ $# -gt 0 ]; do
+    case "$1" in
+	"-cerl")
+	    shift
+	    emu="$ERL_TOP/bin/cerl"
+	    ;;
+	*)
+	    break
+	    ;;
+    esac
+done
+
+log=test_log_$$
+latest=test_log_latest
+args=${1+"$@"}
+
+erlcmd="$emu -sname test_server -smp -pa ../../reltool/ebin $p $args -reltool_test_verbose true -reltool_test_timeout"
+
+echo "Give the following command in order to see the outcome:"
+echo ""
+echo "	less $log"
+
+rm "$latest" 2>/dev/null
+ln -s "$log" "$latest"
+touch "$log"
+
+ostype=`uname -s`
+if [ "$ostype" = "SunOS" ] ; then 
+  /usr/openwin/bin/xterm -T "Testing reltool" -l -lf "$log" -e $erlcmd &
+else
+  xterm -T "Testing reltool" -e script -f -c "$erlcmd" "$log"  &
+fi
+
+tail -f "$log" | egrep 'Eval|<ERROR>|NYI'

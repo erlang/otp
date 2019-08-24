@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>STDLIB Reference Manual</title>
+    <prepared>OTP Team</prepared>
+    <docno></docno>
+    <date>1997-06-04</date>
+    <rev>1.3.1</rev>
+    <file>application.xml</file>
+  </header>
+  <description>
+  </description>
+  <xi:include href="stdlib_app.xml"/>
+  <xi:include href="array.xml"/>
+  <xi:include href="assert_hrl.xml"/>
+  <xi:include href="base64.xml"/>
+  <xi:include href="beam_lib.xml"/>
+  <xi:include href="binary.xml"/>
+  <xi:include href="c.xml"/>
+  <xi:include href="calendar.xml"/>
+  <xi:include href="dets.xml"/>
+  <xi:include href="dict.xml"/>
+  <xi:include href="digraph.xml"/>
+  <xi:include href="digraph_utils.xml"/>
+  <xi:include href="epp.xml"/>
+  <xi:include href="erl_anno.xml"/>
+  <xi:include href="erl_eval.xml"/>
+  <xi:include href="erl_expand_records.xml"/>
+  <xi:include href="erl_id_trans.xml"/>
+  <xi:include href="erl_internal.xml"/>
+  <xi:include href="erl_lint.xml"/>
+  <xi:include href="erl_parse.xml"/>
+  <xi:include href="erl_pp.xml"/>
+  <xi:include href="erl_scan.xml"/>
+  <xi:include href="erl_tar.xml"/>
+  <xi:include href="ets.xml"/>
+  <xi:include href="file_sorter.xml"/>
+  <xi:include href="filelib.xml"/>
+  <xi:include href="filename.xml"/>
+  <xi:include href="gb_sets.xml"/>
+  <xi:include href="gb_trees.xml"/>
+  <xi:include href="gen_event.xml"/>
+  <xi:include href="gen_fsm.xml"/>
+  <xi:include href="gen_server.xml"/>
+  <xi:include href="gen_statem.xml"/>
+  <xi:include href="io.xml"/>
+  <xi:include href="io_lib.xml"/>
+  <xi:include href="lists.xml"/>
+  <xi:include href="log_mf_h.xml"/>
+  <xi:include href="maps.xml"/>
+  <xi:include href="math.xml"/>
+  <xi:include href="ms_transform.xml"/>
+  <xi:include href="orddict.xml"/>
+  <xi:include href="ordsets.xml"/>
+  <xi:include href="pool.xml"/>
+  <xi:include href="proc_lib.xml"/>
+  <xi:include href="proplists.xml"/>
+  <xi:include href="qlc.xml"/>
+  <xi:include href="queue.xml"/>
+  <xi:include href="rand.xml"/>
+  <xi:include href="random.xml"/>
+  <xi:include href="re.xml"/>
+  <xi:include href="sets.xml"/>
+  <xi:include href="shell.xml"/>
+  <xi:include href="shell_default.xml"/>
+  <xi:include href="slave.xml"/>
+  <xi:include href="sofs.xml"/>
+  <xi:include href="string.xml"/>
+  <xi:include href="supervisor.xml"/>
+  <xi:include href="supervisor_bridge.xml"/>
+  <xi:include href="sys.xml"/>
+  <xi:include href="timer.xml"/>
+  <xi:include href="unicode.xml"/>
+  <xi:include href="uri_string.xml"/>
+  <xi:include href="win32reg.xml"/>
+  <xi:include href="zip.xml"/>
+</application>
+

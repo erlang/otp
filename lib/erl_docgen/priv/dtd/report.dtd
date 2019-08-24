@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson AB.
+ Portions created by Ericsson are Copyright 1999-2007, Ericsson AB.
+ All Rights Reserved.''
+ 
+     $Id$
+-->
+
+<!ENTITY % ISOlat1 SYSTEM "xhtml-lat1.ent" >
+%ISOlat1;
+
+<!ENTITY amp    "&#x0026;" >
+<!ENTITY gt     "&#x003E;" >
+<!ENTITY lt     "&#x003C;" >
+
+<!ENTITY % header             "title,prepared,responsible,docno,approved,
+                               checked,date,rev,file" >
+<!ENTITY % block              "p|pre|code|list|taglist|erlinclude|
+                               codeinclude|erleval" >
+<!ENTITY % inline             "#PCDATA|i|b|c|em|term|cite|br|path|seealso|
+                               url|marker" >
+
+<!-- Structure -->
+
+<!ELEMENT report              (header,section+) >
+<!ELEMENT header              (title,prepared,responsible?,docno,approved?,
+                               checked?,date,rev,file?) >
+<!ELEMENT title               (#PCDATA) >
+<!ELEMENT prepared            (#PCDATA) >
+<!ELEMENT responsible         (#PCDATA) >
+<!ELEMENT docno               (#PCDATA) >
+<!ELEMENT approved            (#PCDATA) >
+<!ELEMENT checked             (#PCDATA) >
+<!ELEMENT date                (#PCDATA) >
+<!ELEMENT rev                 (#PCDATA) >
+<!ELEMENT file                (#PCDATA) >
+
+<!ELEMENT section             (marker*,title,
+                               (%block;|quote|warning|note|dont|do|br|image|marker|
+                                table|section)*) >
+<!ELEMENT p                   (%inline;|index)* >
+<!ELEMENT pre                 (#PCDATA|seealso|url|input)* >
+<!ELEMENT input               (#PCDATA|seealso|url)* >
+<!ELEMENT code                (#PCDATA) >
+<!ATTLIST code                type (erl|c|none) "none" >
+<!ELEMENT quote               (p)* >
+<!ELEMENT warning             (%block;|quote|br|image|marker|table)* >
+<!ELEMENT note                (%block;|quote|br|image|marker|table)* >
+<!ELEMENT dont                (%block;|quote|br|image|marker|table)* >
+<!ELEMENT do                  (%block;|quote|br|image|marker|table)* >
+<!ELEMENT i                   (#PCDATA|b|c|em)* >
+<!ELEMENT b                   (#PCDATA|i|c|em)* >
+<!ELEMENT c                   (#PCDATA) >
+<!ELEMENT em                  (#PCDATA|i|b|c)* >
+<!ELEMENT term                (termdef?) >
+<!ATTLIST term                id CDATA #REQUIRED >
+<!ELEMENT termdef             (#PCDATA) >
+<!ELEMENT cite                (citedef?) >
+<!ATTLIST cite                id CDATA #REQUIRED >
+<!ELEMENT citedef             (ctitle,cauthor,chowpublished) >
+<!ELEMENT ctitle              (#PCDATA) >
+<!ELEMENT cauthor             (#PCDATA) >
+<!ELEMENT chowpublished       (#PCDATA) >
+<!ELEMENT br                  EMPTY >
+
+<!-- Path -->
+
+<!ELEMENT path                (#PCDATA) >
+<!ATTLIST path                unix CDATA ""
+                              windows CDATA "" >
+
+<!-- List -->
+
+<!ELEMENT list                (item+) >
+<!ATTLIST list                type (ordered|bulleted) "bulleted" >
+<!ELEMENT taglist             (tag,item)+ >
+<!ELEMENT tag                 (#PCDATA|i|b|c|em|seealso|url)* >
+<!ELEMENT item                (%inline;|%block;)* >
+
+<!-- Image -->
+
+<!ELEMENT image	              (icaption?) >
+<!ATTLIST image		      file CDATA #REQUIRED >
+<!ELEMENT icaption            (#PCDATA) >
+
+<!-- References -->
+
+<!ELEMENT seealso             (#PCDATA) >
+<!ATTLIST seealso             marker CDATA #REQUIRED >
+<!ELEMENT url                 (#PCDATA) >
+<!ATTLIST url                 href CDATA #REQUIRED >
+<!ELEMENT marker              EMPTY >
+<!ATTLIST marker              id CDATA #REQUIRED >
+
+<!-- Table -->
+
+<!ELEMENT table               (row+,tcaption?) >
+<!ATTLIST table               width CDATA "0"
+                              colspec CDATA "" >
+<!ELEMENT row                 (cell+) >
+<!ELEMENT cell                (%inline;)* >
+<!ATTLIST cell                align  (left|center|right) "left"
+                              valign (top|middle|bottom) "middle" >
+<!ELEMENT tcaption            (#PCDATA) >
+
+<!-- ErlInclude -->
+
+<!ELEMENT erlinclude          EMPTY >
+<!ATTLIST erlinclude          file CDATA #REQUIRED
+                              tag  CDATA #REQUIRED >
+
+<!-- CodeInclude -->
+
+<!ELEMENT codeinclude         EMPTY >
+<!ATTLIST codeinclude         file CDATA #REQUIRED
+                              tag  CDATA ""
+                              type (erl|c|none) "none" >
+
+<!-- ErlEval -->
+
+<!ELEMENT erleval             EMPTY >
+<!ATTLIST erleval             expr CDATA #REQUIRED >
+
+<!-- Index FOR COMPATIBILITY -->
+
+<!ELEMENT index               EMPTY >
+<!ATTLIST index               txt CDATA #REQUIRED >
+

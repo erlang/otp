@@ -1,0 +1,3259 @@
+<!DOCTYPE CHAPTER PUBLIC "-//Stork//DTD chapter//EN">
+<!-- 
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+ Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+ AB. All Rights Reserved.''
+ 
+     $Id$
+-->
+<CHAPTER><HEADER>
+<TITLE> The Erlang editing mode for Emacs </TITLE>
+
+<PREPARED>Anders Lindgren
+    <RESPONSIBLE>
+    <DOCNO>
+    <APPROVED>
+    <CHECKED>
+    <DATE>1998-04-20
+    <REV>C
+    <FILE>emacs-user.sgml</HEADER>
+
+<SECTION>
+<TITLE> Introduction </TITLE>
+
+
+<p>
+If you want to get started immediately, the chapters
+"<SEEALSO MARKER="#unix_dotemacs">An Example for UNIX</SEEALSO>"
+and
+"<SEEALSO MARKER="#win_dotemacs">An Example for Windows</SEEALSO>" 
+gives you examples of the configurations you need to make to use the
+Erlang Editing mode for Emacs.
+</P>
+
+
+<P>
+Emacs has been the text editor of choice for programmers in the UNIX
+community for many years.  Thanks to a continuing development process,
+Emacs is the most powerful editor available.  Today, Emacs runs under
+most operating systems including MS-Windows, OS/2, Macintosh, and
+several dialects of UNIX.
+</P>
+
+<P>
+Emacs has editing support for all major programming languages and
+quite a lot of minor and unknown languages are supported as well.
+</P>
+
+<P>
+Emacs is designed to be extendible.  In the unlikely event that you
+would miss a feature in Emacs you can add it yourself, or you might
+find it in the large number of add-on packages that people all over
+the world have written.
+</P>
+
+<P>
+This book is the documentation to the Emacs package <C> erlang.el</C>.
+It provides support for the programming language Erlang.  The package
+provides an editing mode with lots of bells and whistles, compilation
+support, and it makes it possible for the user to start Erlang shells
+that run inside Emacs.
+</P>
+
+<P>
+Emacs is written by the Free Software Foundation and is part of the
+GNU project.  Emacs, including the source code and documentation, is
+released under the GNU General Public License.
+</P>
+
+<SECTION>
+
+<TITLE>Overview of this Book</TITLE>
+
+
+<P>This book can be divided into the following sections:
+
+<LIST>
+<ITEM><EM> Introduction. </EM>  This part introduces Emacs, the Erlang
+editing mode, and this book.  In fact, this is the section you
+currently are reading.
+
+<ITEM><EM> The editing mode. </EM> Here the editing mode is described.
+The editing mode contains a whole series of features including
+indentation, syntax highlighting, electric commands, module name
+verification, comment support including paragraph filling, skeletons,
+tags support, and much more.
+
+<ITEM><EM> Erlang shells. </EM> How to start and use an Erlang shell
+that runs inside Emacs is described in this section.
+
+<ITEM><EM> Compilation support. </EM> This package is capable of
+starting compilations of Erlang module.  Should compilation errors
+occur Emacs is capable of placing the cursor on the erroneous lines.
+
+<ITEM><EM> Customization. </EM> The Erlang editing mode, like most
+Emacs packages, supports extensive customization.  In this chapter we
+demonstrate how you can bind your favorite functions to the hotkeys
+on the keyboard.  It also introduces the concept of "hooks", a general
+method for the user to add code that will be executed when a specific
+situation occur, for example when an Erlang file is loaded into Emacs.
+
+</LIST>
+
+<P>
+The terminology used in this book is the terminology used in the
+documentation to Emacs.  The chapter "<SEEALSO
+MARKER="#notation">Notation</SEEALSO>" contains a list of commonly
+used words and their meaning in the Emacs world.
+</P>
+
+<P>
+The intended readers of this book are Emacs users.  The book contains
+some examples on how to customize this package using the Emacs
+extension language Emacs Lisp.  You can safely skip those sections.
+</P>
+
+</SECTION>
+</SECTION>
+
+<SECTION>
+<TITLE>Emacs</TITLE>
+
+<P>
+The first component needed to get this package up and running is, of
+course, an Emacs editor.  You can use either the standard Emacs
+distribution from FSF or XEmacs, an alternative distribution.  Both
+brands have their advantages and disadvantages.
+</P>
+
+<P>
+Regardless of the brand, it is recommended to use a modern version.
+If an old version is used it is possible that some of the features
+provided by the editing mode cannot be used.
+</P>
+
+<P>
+The chapter "<SEEALSO MARKER="#distributions">Emacs
+Distributions</SEEALSO>" below contains a short summary on the
+differences between the Emacs brands, as well as instructions where to
+get the distributions and how to install them.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Installing the Erlang Support Packages</TITLE>
+
+<P>
+Once Emacs has been installed, it must be informed about the presence
+of the Erlang support packages.
+</P>
+
+<P>
+If you do not know if the packages have been installed open, an Erlang
+source file.  The mode line should contain the word "Erlang".  You can
+check the version of the installed package by selecting the "version"
+entry in the Erlang menu in Emacs.  Should no Erlang menu be present,
+or if the menu does not contain a "Version" item, you are using an old
+version.
+</P>
+
+<P>
+The packages can either be installed for all users by the system
+administrator, or each individual user can install it in their own
+Emacs setup.  The chapter "<SEEALSO
+MARKER="#installation">Installation of the Erlang Editing Mode</SEEALSO>"
+ contains a description
+on how to install the packages.
+</P>
+
+</SECTION>
+
+
+<SECTION>
+<TITLE> The Editing Mode </TITLE>
+
+<P>
+The Erlang editing for Emacs provides a number of features described
+in this and the following chapters.  The editing mode can work with
+either Erlang source mode or Mnesia database rules.  The Erlang
+editing mode for Emacs is in Emacs terminology a <EM> Major mode </EM>.
+</P>
+
+<P>
+When Erlang mode is correctly installed, it is automatically activated
+when a file ending in <C>.erl</C> or <C>.hrl</C> is opened in Emacs.
+It is possible to activate Erlang mode for other buffers as well.
+</P>
+
+<P>
+The editing mode provides a menu containing a selection of commands
+structured into logical subgroups.  The menu is designed to help new
+users get an overview of the features provided by the Erlang packages
+while still giving full power to more advanced users.
+</P>
+
+<P>
+Erlang mode has got a local key map that contains keyboard bindings
+for a number of commands.  In the chapter 
+"<SEEALSO MARKER="#key_bindings">Custom Key Bindings</SEEALSO>" below,
+we will demonstrate how the users can bind their favorite commands to
+the local Erlang key map.
+</P>
+
+<P>
+It is possible for the users to perform advanced customizations by
+adding their own functions to the "hook" variables provided by this
+package.  This will be described in the "<SEEALSO
+MARKER="#customization">Customization</SEEALSO>" chapter below.
+</P>
+
+
+<SECTION>
+<TITLE>The Mode</TITLE>
+
+<LIST>
+<ITEM><C>M-x erlang-mode RET</C><BR>
+
+<P>
+This command activates the Erlang major mode for the current buffer.
+When this mode is active the mode line contain the word "Erlang".
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>The Version</TITLE>
+
+<LIST>
+<ITEM><C>M-x erlang-version RET</C><BR>
+
+<P>
+This command displays the version number of the Erlang editing mode.
+Remember to always supply the version number when asking questions
+about Erlang mode.
+</P>
+
+<P>
+Should this command not be present in your setup (after Erlang mode
+has been activated) you probably have a very old version of the Erlang
+editing mode.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>Module Name Check</TITLE>
+
+<P>
+When a file is saved the name in the <C>-module().</C> line is checked
+against the file name.  Should they mismatch Emacs can change the
+module specifier so that it matches the file name.  By default, the user
+is asked before the change is performed.
+</P>
+
+
+<LIST>
+<ITEM> <EM> Variable: </EM> <C>erlang-check-module-name</C> (default <C>ask</C>)<BR>
+
+<P>
+This variable controls the behavior of the module name check system.
+When it is <C>t</C> Emacs changes the module specifier without asking
+the user, when it is bound to the atom <C>ask</C> the user is asked.
+Should it be <C>nil</C> the module name check mechanism is
+deactivated.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>Variables</TITLE>
+
+<P>
+There are several variables that control the behavior of the
+Erlang Editing mode.
+</P>
+
+<LIST>
+  <ITEM><EM> Variable: </EM> <C>erlang-mode-hook</C><BR>
+
+<P>
+Functions to run when the Erlang mode is activated.  See chapter
+"<SEEALSO MARKER="#customization">Customization</SEEALSO>" below for
+examples.
+</P>
+
+
+  <ITEM><EM> Variable: </EM> <C>erlang-new-file-hook</C><BR>
+
+<P>
+Functions to run when a new file is created.  See chapter "<SEEALSO
+MARKER="#customization">Customization</SEEALSO>" below for examples.
+</P>
+
+
+  <ITEM><EM> Variable: </EM> <C>erlang-mode-load-hook</C><BR>
+
+<P>
+Functions to run when the <C>erlang</C> package is loaded into Emacs.
+See chapter "<SEEALSO MARKER="#customization">Customization</SEEALSO>"
+below for examples.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+<!-- Chapter -->
+
+<SECTION>
+<TITLE>Indentation</TITLE>
+
+<P>
+The "Oxford Advanced Learners Dictionary of Current English" says the
+following about the word "indent":
+</P>
+
+<QUOTE>
+<P>
+   "start (a line of print or writing) farther from
+    the margin than the others".
+</P>
+</QUOTE>
+
+<P>
+Possibly the most important feature of an editor designed for
+programmers is the ability to indent a line of code in accordance
+with the structure of the programming language.
+</P>
+
+<P>
+The Erlang mode does, of course, provide this feature.  The layout
+used is based on the common use of the language.
+</P>
+
+<P>
+It is strongly recommend to use this feature and avoid to indent lines
+in a nonstandard way.  Some motivations are:
+</P>
+
+<LIST>
+
+  <ITEM> Code using the same layout is easy to read and maintain.
+
+  <ITEM> The indentation features can be used to reindent large sections of a
+file.  If some lines use nonstandard indentation they will be
+reindented.
+
+  <ITEM> Since several features of Erlang mode is based on the
+standard layout they might not work correctly if a nonstandard layout
+is used.  For example, the movement commands (described in chapter
+"<SEEALSO MARKER="#func_cmds">Function and clause commands</SEEALSO>"
+below) will not work unless the function headers start in the first
+column.
+
+</LIST>
+
+<SECTION>
+<TITLE>The Layout</TITLE>
+
+<P>
+The basic layout is that the clause headers start in the first column,
+and the bodies of clauses and complex expressions (e.g. "case" and
+"if") are indented more that the surrounding code.  For example:
+</P>
+
+<CODE>
+remove_bugs([]) ->
+    [];
+remove_bugs([X | Xs])
+    case X of
+        bug ->
+            test(Xs);
+        _ ->
+            [X | test(Xs)]
+    end.
+</CODE>
+
+
+<LIST>
+
+<ITEM> <EM> Variable: </EM> <C>erlang-indent-level</C><BR>
+
+<P>
+The depth of the indentation is controlled by the variable
+"erlang-indent-level", see section "<SEEALSO
+MARKER="#customization">Customization</SEEALSO>" below.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Indentation of comments</TITLE>
+
+<P>
+Lines containing comment are indented differently depending on the
+number of %-characters used:
+</P>
+
+<LIST>
+<ITEM> Lines with one %-character is indented to the right of the
+code.  The column is specified by the variable <C>comment-column</C>,
+by default column 48 is used.
+
+<ITEM> Lines with two %-characters will be indented to the same depth
+as code would have been in the same situation.
+
+<ITEM> Lines with three of more %-characters are indented to the left
+margin.
+
+</LIST>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<CODE>
+%%%
+%%% Function: remove_bugs
+%%%
+
+remove_bugs([]) ->
+    [];
+remove_bugs([X | Xs])
+    case X of
+        bug ->                                  % Oh no, a bug!
+                                                % Remove it.
+            test(Xs);
+        %% This element is not a bug, let's keep it.
+        _ ->
+            [X | test(Xs)]
+    end.
+</CODE>
+</SECTION>
+
+<SECTION>
+
+<TITLE>Indentation commands</TITLE>
+
+<P>The following command are directly available for indentation.</P>
+
+<LIST>
+<ITEM><C>TAB</C> (<C>erlang-indent-command</C>)<BR>
+
+<P>Indent the current line of code.</P>
+
+
+<ITEM><C>M-C-\</C> (<C>indent-region</C>)<BR>
+
+<P>Indent all lines in the region.</P>
+
+
+<ITEM><C>M-l</C> (<C>indent-for-comment</C>)<BR>
+
+<P>
+Insert a comment character to the right of the code on the line (if
+any).  The comment character is placed in the column specified by the
+variable "comment-column", by default column 48 is used.
+</P>
+
+
+<ITEM><C>C-c C-q</C> (<C>erlang-indent-function</C>)<BR>
+
+<P>
+Indent the current Erlang function.
+</P>
+
+
+<ITEM><C> M-x erlang-indent-clause RET</C><BR>
+
+<P>
+Indent the current Erlang clause.</P>
+
+
+<ITEM><C>M-x erlang-indent-current-buffer RET</C><BR>
+
+<P>
+Indent the entire buffer.
+</P>
+
+</LIST>
+
+</SECTION>
+<SECTION>
+<MARKER ID="customization">
+<TITLE>Customization</TITLE>
+
+<P>
+The most common customization of the indentation system is to bind the
+return key to <C>newline-and-indent</C>.  Please see the chapter
+"<SEEALSO MARKER="#key_bindings">Custom Key Bindings</SEEALSO>"
+below for an example.
+</P>
+
+<P>
+There are several Emacs variables that control the indentation system.
+</P>
+
+<LIST>
+
+<ITEM><EM> Variable: </EM> <C>erlang-indent-level</C>  (default 4)<BR>
+
+<P>
+The amount of indentation for normal Erlang functions and complex
+expressions.  Should, for example, the value of this variable be 2 the
+example above would be indented like:
+</P>
+
+<CODE>
+remove_bugs([]) ->
+  [];
+remove_bugs([X | Xs])
+  case X of
+    bug ->
+      test(Xs);
+    _ ->
+      [X | test(Xs)]
+  end.
+</CODE>
+
+
+<ITEM><EM> Variable: </EM> <C>erlang-indent-guard</C> (default 2)<BR>
+
+<P>The amount of indentation for Erlang guards.</P>
+
+
+<ITEM><EM> Variable: </EM> <C>erlang-argument-indent</C> (default 2)<BR>
+
+<P>The amount of indentation for function calls that span several lines.</P>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<CODE>
+foo() ->
+    a_very_long_function_name(
+      AVeryLongVariableName),
+</CODE>
+
+
+<ITEM><EM> Variable: </EM> <C>erlang-tab-always-indent</C>
+(default <C>t</C>)<BR>
+
+<P>
+When non-<C>nil</C> the <C>TAB</C> command always indents the line
+(this is the default).  When <C>nil</C>, the line will be indented
+only when the point is in the beginning of any text on the line,
+otherwise it will insert a tab character into the buffer.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+
+<!-- CHAPTER -->
+
+<SECTION>
+
+<TITLE> General Commands </TITLE>
+
+<P>
+This chapter contains a group of commands that are not found in any
+other category.  Unlike most other books we do not have a chapter named
+"Miscellaneous xxx" found at the end of most books.  This chapter is
+placed near the beginning to reflect the importance and usefulness of
+the commands.
+</P>
+
+<SECTION>
+
+<TITLE>Filling comments</TITLE>
+
+<P>
+How many times have you edited a section of text in a comment only to
+wind up with a unevenly formatted paragraph?  Or even worse, have you
+ever decided not to edit a comment just because the formatting would
+look bad?
+</P>
+
+<P>
+When editing normal text in text mode you can let Emacs reformat the
+text by the <C>fill-paragraph</C> command.  This command will not work
+for comments since it will treat the comment characters as words.
+</P>
+
+<P>
+The Erlang editing mode provides a command that known about the Erlang
+comment structure and can be used to fill text paragraphs in comments.
+</P>
+
+
+<LIST>
+<ITEM><C>M-q</C>  (<C>erlang-fill-paragraph</C>)<BR>
+
+Fill the text in an Erlang comment.  This command known about the
+Erlang comment characters.  The column to perform the word wrap is
+defined by the variable <C>fill-column</C>.
+
+</LIST>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<P>
+For the sake of this example, let's assume that <C>fill-column</C> is set
+to column 30.  Assume that we have an Erlang comment paragraph on the
+following form:
+</P>
+
+<CODE>
+%% This is just a test to show
+%% how the Erlang fill 
+%% paragraph command works.
+</CODE>
+
+<P>
+Assume that you would add the words "very simple" before the word
+"test":
+</P>
+
+<CODE>
+%% This is just a very simple test to show
+%% how the Erlang fill
+%% paragraph command works.
+</CODE>
+
+<P>
+Clearly, the text is badly formatted.  Instead of formatting this
+paragraph line by line, let's try <C>erlang-fill-paragraph</C> by
+pressing <C>M-q</C>.  The result is:
+</P>
+
+<CODE>
+%% This is just a very simple
+%% test to show how the Erlang
+%% fill paragraph command
+%% works.
+</CODE>
+
+<P>
+As you can see the paragraph is now evenly formatted.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE> Creating Comments </TITLE>
+
+<P>
+In Erlang it is possible to write comments to the right of the code.
+The indentation system described in the chapter "Indentation" above is
+able to indent lines containing only comments, and gives support for
+end-of-the-line comments.
+</P>
+
+<LIST>
+
+<ITEM><C>M-;</C> (<C>indent-for-comment</C>)<BR>
+
+This command will create, or reindent, a comment to the right of the
+code.  The variable <C>comment-column</C> controls the placement of the
+comment character.
+
+</LIST>
+</SECTION>
+
+<SECTION>
+
+<TITLE> Comment Region </TITLE>
+
+<P>
+The standard command <C>comment-region</C> can be used to comment out
+all lines in a region.  To uncomment the lines in a region precede
+this command with <C>C-u</C>.
+</P>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Syntax Highlighting</TITLE>
+
+<P>
+It is possible for Emacs to use colors when displaying a buffer.  By
+"syntax highlighting", we mean that syntactic components, for example
+keywords and function names, will be colored.
+</P>
+
+<P>
+The basic idea of syntax highlighting is to make the structure of a
+program clearer.  For example, the highlighting will make it easier to
+spot simple bugs.  Have not you ever written a variable in lower-case
+only?  With syntax highlighting a variable will colored while atoms
+will be shown with the normal text color.
+</P>
+
+<P>
+The syntax highlighting can be activated from the Erlang menu.  There
+are four different alternatives:
+</P>
+
+<LIST>
+
+<ITEM> Off: Normal black and white display.
+
+<ITEM> Level 1: Function headers, reserved words, comments, strings, quoted
+atoms, and character constants will be colored.
+
+<ITEM> Level 2: The above, attributes, Erlang bif:s, guards, and words
+in comments enclosed in single quotes will be colored.
+
+<ITEM> Level 3: The above, variables, records, and macros will be colored.
+(This level is also known as the Christmas tree level.)
+
+</LIST>
+
+
+<P>
+The syntax highlighting is based on the standard Emacs package
+"font-lock".  It is possible to use the font-lock commands and
+variables to enable syntax highlighting.  The commands in question
+are:
+</P>
+
+<LIST>
+<ITEM><C>M-x font-lock-mode RET</C><BR>
+
+<P>
+This command activates syntax highlighting for the current buffer.
+</P>
+
+
+<ITEM><C>M-x global-font-lock-mode RET</C><BR>
+
+<P>
+Activate syntax highlighting for all buffers.
+</P>
+
+</LIST>
+
+<P>
+The variable <C>font-lock-maximum-decoration</C> is used to specify
+the level of highlighting.  If the variable is bound to an integer,
+that level is used; if it is bound to <C>t</C> the highest possible
+level is used.  (It is possible to set different levels for different
+editing modes; please see the font-lock documentation for more
+information.)
+</P>
+
+<P>
+It is possible to change the color used.  It is even possible to use
+bold, underlined, and italic fonts in combination with colors.
+However, the method to do this differs between Emacs and XEmacs; and
+between different versions of Emacs.  For Emacs 19.34, the variable
+<C>font-lock-face-attributes</C> controls the colors.  For version 20 of
+Emacs and XEmacs, the faces can be defined in the interactive custom
+system.
+</P>
+
+<SECTION>
+<MARKER ID="font-lock">
+<TITLE>Customization</TITLE>
+
+<P>
+Font-lock mode is activated in different ways in different versions of
+Emacs.  For modern versions of GNU Emacs place the following lines in
+your <C>~/.emacs</C> file:
+</P>
+
+<CODE>
+(setq font-lock-maximum-decoration t)
+(global-font-lock-mode 1)
+</CODE>
+
+<!-- TODO: Check this -->
+<P>
+For modern versions of XEmacs the following code can be used:
+</P>
+
+<CODE>
+(setq auto-font-lock-mode 1)
+</CODE>
+
+<P>
+For older versions of Emacs and XEmacs, font-lock mode must be
+activated individually for each buffer.  The following will add a
+function to the Erlang mode hook that activates font-lock mode for all
+Erlang buffers.
+</P>
+
+<CODE>
+(defun my-erlang-font-lock-hook ()
+  (font-lock-mode 1))
+
+(add-hook 'erlang-mode-hook 'my-erlang-font-lock-hook)
+</CODE>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Known Problems</TITLE>
+
+<P>
+Emacs has one problem with the syntactic structure of Erlang, namely
+the <C>$</C> character.  The normal Erlang use of the $ character is
+to denote the ASCII value of a character, for example:
+</P>
+
+<CODE>
+ascii_value_of_a() -> $a.
+</CODE>
+
+<P>
+In order to get the font-lock mechanism to work for the next example,
+the $ character must be marked as an "escape" character that changes
+the ordinary Emacs interpretation of the following double-quote
+character.
+</P>
+
+<CODE>
+ascii_value_of_quote() -> $".
+</CODE>
+
+
+<P>
+The problem is that Emacs will also treat the <C>$</C> character as an
+"escape" character at the end of strings and quoted atoms.
+Practically, this means that Emacs will not detect the end of the
+following string:
+</P>
+      
+<CODE>
+the_id() -> "$id: $".
+</CODE>
+
+<P>
+Fortunately, there are ways around this.  From Erlang's point of view
+the following two strings are equal: <C>"test$"</C> and
+<C>"test\$"</C>.  The <C>\</C>-character is also marked as an Emacs "escape"
+character, hence it will change the Emacs interpretation of the
+<C>$</C>-character.
+</P>
+
+<P>
+This work-around cannot always be used. For example, when the string is
+used by an external version control program.  In this situation we can
+try to avoid placing the <C>$</C>-character at the end of the string, for
+example:
+</P>
+
+<CODE>
+-vsn(" $Revision: 1.1 $ ").
+</CODE>
+
+<P>
+Should this not be possible we can try to create an artificial end of
+the string by placing an extra quote sign in the file. We do this as a
+comment:
+</P>
+
+<CODE>
+-vsn("$Revision: 1.1 $").    % "
+</CODE>
+
+
+<P>
+The comment will be ignored by Erlang since it is a comment.  From
+Emacs point of view the comment character is part of the string.
+</P>
+
+<P>
+This problem is a generic problem for languages with similar syntax.
+For example, the major mode for Perl suffers from the same problem.
+</P>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Electric Commands</TITLE>
+
+<P>
+An "electric" command is a character that in addition to just
+inserting the character performs some type of action.  For example the
+";" character is typed in a situation where is ends a function clause
+a new function header is generated.
+</P>
+
+<P>
+Since some people find electric commands annoying they can be
+deactivated, see section "<SEEALSO MARKER="#unplug_elec">Unplugging
+the Electric Commands</SEEALSO>" below.
+</P>
+
+<SECTION>
+
+<TITLE>The Commands</TITLE>
+
+<LIST>
+<ITEM><C> ; </C> (<C>erlang-electric-semicolon</C>)<BR>
+
+<P>
+Insert a semicolon.  When ending a function or the body of a
+case clause, and the next few lines are empty, the special action will
+be performed.  For functions, a new function header will be generated
+and the point will be placed between the parentheses.  (See the
+command <C>erlang-clone-arguments</C>.)  For other clauses the string
+"<C> -&gt;</C>" will be inserted and the point will be placed in from of
+the arrow.
+</P>
+
+<ITEM><C> , </C> (<C>erlang-electric-comma</C>)<BR>
+
+<P>
+Insert a comma. If the point is at the end of the line
+and the next few lines are empty, a new indented line is created.
+</P>
+
+<ITEM><C> > </C> (<C>erlang-electric-arrow</C>)<BR>
+
+<P>
+Insert a <C>></C> character.  If it is inserted at the end of a line
+after a <C>-</C> character so that an arrow "<C>-></C>" is being
+formed, a new indented line is created. This requires that the next
+few lines are empty.
+
+<ITEM><C> RET </C> (<C>erlang-electric-newline</C>)<BR>
+
+<P>
+The special action of this command is normally off by default.  When
+bound to the return key the following line will be indented.  Should
+the current line contain a comment the initial comment characters will
+be copied to the new line.  For example, assume that the point is at
+the end of a line (denoted by "<C>&lt;point&gt</C>" below).
+</P>
+
+<CODE>
+    %% A comment<point>
+</CODE>
+
+<P>
+When pressing return (and <C>erlang-electric-newline</C> is active)
+the result will be:
+</P>
+
+<CODE>
+    %% A comment
+    %% <point>
+</CODE>
+
+<P>
+This command has a second feature.  When issued directly after another
+electric command that created a new line this command does nothing.
+The motivation is that it is in the fingers of many programmers to hit
+the return key just when they have, for example, finished a function
+clause with the <C>;</C> character.  Without this feature both the
+electric semicolon and this command would insert one line each which
+is probably not what the user wants.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<TITLE> Undo </TITLE>
+
+<P>
+All electric command will set an undo marker after the initial
+character has been inserted but before the special action has been
+performed.  By executing the undo command (<C>C-x u</C>) the effect of
+the special action will be undone while leaving the character.
+Execute undo a second time to remove the character itself.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE> Variables </TITLE>
+
+<P>
+The electric commands are controlled by a number of variables.
+</P>
+
+<LIST>
+  <ITEM><C>erlang-electric-commands</C><BR>
+
+<P>
+This variable controls if an electric command is active or not.  This
+variable should contain a list of electric commands to be active.  To
+activate all electric commands bind this variable to the atom
+<C>t</C>.
+</P>
+
+
+  <ITEM><C>erlang-electric-newline-inhibit</C><BR>
+
+<P>
+When non-<C>nil</C> when <C>erlang-electric-newline</C> should do
+nothing when preceded by a electric command that is member of the
+list <C>erlang-electric-newline-inhibit-list</C>.
+</P>
+
+
+  <ITEM><C>erlang-electric-newline-inhibit-list</C><BR>
+
+<P>
+A list of electric commands.  The command
+<C>erlang-electric-newline</C> will do nothing when preceded by a
+command in this list, and the variable
+<C>erlang-electric-newline-inhibit</C> is non-<C>nil</C>.
+</P>
+
+  <ITEM><C>erlang-electric-X-criteria</C><BR>
+
+<P>
+There is one variable of this form for each electric command.  The
+variable is used to decide if the special action of an electric
+command should be used.  The variable contains a list of criteria
+functions that are called in the order they appear in the list.
+			</p>
+<p>
+If a criteria function returns the atom <C>stop</C> the special
+action is not performed.
+
+If it returns a non-<C>nil</C> value the action is taken.
+
+If it returns <C>nil</C> the next function in the list is called.
+
+Should no function in the list return
+a non-<C>nil</C> value the special action will not be executed.
+
+Should the list contain the atom <C>t</C> the special action is performed
+(unless a previous function returned the atom <C>stop</C>).
+</P>
+
+
+  <ITEM><C>erlang-next-lines-empty-threshold</C> (default 2)<BR>
+
+<P>
+Should the function <C>erlang-next-lines-empty-p</C> be part of a
+criteria list of an electric command (currently semicolon, comma, and
+arrow), this variable controls the number of blank lines required.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<MARKER ID="unplug_elec">
+<TITLE> Unplugging the Electric Commands </TITLE>
+
+<P>
+To disable all electric commands set the variable
+<C>erlang-electric-commands</C> to the empty list.  In short, place the
+following line in your <C>~/.emacs</C> file:
+</P>
+
+<CODE>
+(setq erlang-electric-commands '())
+</CODE>
+
+</SECTION>
+
+<SECTION>
+
+<TITLE> Customizing the Electric Commands </TITLE>
+
+<P>
+To activate all electric commands, including
+<C>erlang-electric-newline</C>, add the following line to your
+<C>~/.emacs</C> file:
+</P>
+
+<CODE>
+(setq erlang-electric-commands t)
+</CODE>
+
+</SECTION>
+</SECTION>
+
+
+<!-- CHAPTER -->
+
+<SECTION>
+<MARKER ID="func_cmds">
+<TITLE> Function and Clause Commands </TITLE>
+
+<P>
+The Erlang editing mode has a set of commands that are aware of the
+Erlang functions and function clauses.  The commands can be used to
+move the point (cursor) to the end of, or to the beginning of Erlang
+functions, or to jump between functions.  The region can be placed
+around a function. Function headers can be cloned (copied).
+</P>
+
+
+<SECTION>
+<TITLE> Movement Commands </TITLE>
+
+<P>
+There is a set of commands that can be used to move the point to
+the beginning or the end of an Erlang clause or function.  The
+commands are also designed for movement between Erlang functions and
+clauses.
+</P>
+
+<LIST>
+
+  <ITEM><C> C-a M-a </C> (<C>erlang-beginning-of-function</C>)<BR>
+
+<P>
+Move the point to the beginning of the current or preceding Erlang
+function.  With an argument skip backwards over this many Erlang
+functions.  Should the argument be negative the point is moved to the
+beginning of a function below the current function.
+</P>
+
+<P>
+This function returns <C>t</C> if a function was found, <C>nil</C>
+otherwise.
+</P>
+
+
+  <ITEM><C> M-C-a </C>  (<C>erlang-beginning-of-clause</C>)<BR>
+
+<P>
+As above but move point to the beginning of the current or preceding
+Erlang clause.
+</P>
+
+<P>
+This function returns <c>t</c> if a clause was found, <C>nil</C> otherwise.
+</P>
+
+  <ITEM><C> C-a M-e </C> (<C>erlang-end-of-function</C>)<BR>
+
+<P>
+Move to the end of the current or following Erlang function.  With an
+argument to it that many times.  Should the argument be negative move
+to the end of a function above the current functions.
+</P>
+
+
+  <ITEM><C> M-C-e </C>  (<C>erlang-end-of-clause</C>)<BR>
+
+<P>
+As above but move point to the end of the current or following Erlang
+clause.
+</P>
+
+</LIST>
+
+<P>
+When one of the movement commands is executed and the point is already
+placed at the beginning or end of a function or clause, the point is
+moved to the previous/following function or clause.
+</P>
+
+<P>
+When the point is above the first or below the last function in the
+buffer, and an <c>erlang-beginning-of-</c>, or <c>erlang-end-of-</c>
+command is issued, the point is moved to the beginning or to the end
+of the buffer, respectively.
+<P>
+
+
+<SECTION>
+<TITLE> Development Tips </TITLE>
+
+<P>
+The functions described above can be used both as user commands and
+called as functions in programs written in Emacs Lisp.
+</P>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<P>
+The sequence below will move the point to the beginning of the current
+function even if the point should already be positioned at the
+beginning of the function:
+</P>
+
+<CODE>
+    (end-of-line)
+    (erlang-beginning-of-function)
+</CODE>
+
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<P>
+To repeat over all the function in a buffer the following code can be
+used.  It will first move the point to the beginning of the buffer,
+then it will locate the first Erlang function.  Should the buffer
+contain no functions at all the call to
+<C>erlang-beginning-of-function</C> will return <C>nil</C> and hence
+the loop will never be entered.
+</P>
+
+<CODE>
+    (goto-char (point-min))
+    (erlang-end-of-function 1)
+    (let ((found-func (erlang-beginning-of-function 1)))
+       (while found-func
+         ;; Do something with this function.
+         ;; Go to the beginning of the next function.
+         (setq found-func (erlang-beginning-of-function -1))))
+</CODE>
+
+</SECTION>
+</SECTION>
+
+<SECTION>
+
+<TITLE>Region Commands</TITLE>
+
+<LIST>
+
+  <ITEM><C> C-c M-h </C> (<C>erlang-mark-function</C>)<BR>
+
+<P>
+Put the region around the current Erlang function.  The point is
+placed in the beginning and the mark at the end of the function.
+</P>
+
+  <ITEM><C> M-C-h </C>  (<C>erlang-mark-clause</C>)<BR>
+
+<P>
+Put the region around the current Erlang clause.  The point is
+placed in the beginning and the mark at the end of the function.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+
+<TITLE>Function Header Commands</TITLE>
+
+<LIST>
+  <ITEM><C> C-c C-j </C> (<C>erlang-generate-new-clause</C>)<BR>
+
+<P>
+Create a new clause in the current Erlang function.  The point is
+placed between the parentheses of the argument list.
+</P>
+
+  <ITEM><C> C-c C-y </C> (<C>erlang-clone-arguments</C>)<BR>
+
+<P>
+Copy the function arguments of the preceding Erlang clause.  This
+command is useful when defining a new clause with almost the same
+argument as the preceding.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Limitations</TITLE>
+
+<P>
+Several clauses are considered to be part of the same Erlang function
+if they have the same name.  It is possible that in the future the
+arity of the function also will be checked.
+
+To avoid to perform a full parse of the entire buffer the functions
+described in the chapter only look at lines where the function starts
+in the first column.  This means that the commands does not work
+properly if the source code contain non-standardized indentation.
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+
+<TITLE>Skeletons</TITLE>
+
+<P>
+A skeleton is a piece of pre-written code that can be inserted into
+the buffer.  Erlang mode comes with a set of predefined skeletons
+ranging from simple <C>if</C> expressions to stand-alone applications.
+</P>
+
+<P>
+The skeletons can be accessed either from the Erlang menu of from
+commands named <C>tempo-template-erlang-</C>X.
+</P>
+
+<P>
+The skeletons is defined using the standard Emacs package "tempo".  It
+is possible to define new skeletons for your favorite erlang
+constructions.
+</P>
+
+<SECTION>
+
+<TITLE>Commands</TITLE>
+
+<LIST>
+
+  <ITEM><C> C-c M-f </C> (<C>tempo-forward-mark</C>)
+  <ITEM><C> C-c M-b </C> (<C>tempo-backward-mark</C>)
+
+<P>
+In a skeleton certain positions are marked.  These two commands
+move the point between such positions.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+
+<TITLE>Predefined Skeletons</TITLE>
+
+<LIST>
+
+  <ITEM>Simple skeletons: If, Case, Receive, Receive After, Receive Loop.
+
+  <ITEM>Header elements: Module, Author.
+
+<P>
+These commands inserts lines on the form <C>-module(</C>xxx<C>).</C> and
+<C>-author('my@home').</C>.  They can be used directly, but are also used
+as part of the full headers described below:
+</P>
+
+
+  <ITEM>Full Headers: Small, Medium, and Large Headers
+
+<P>
+These commands generate three variants of file headers.
+</P>
+
+</LIST>
+
+<P>
+The following skeletons will complete almost ready-to-run modules.
+
+<LIST>
+
+  <ITEM>Small Server
+
+  <ITEM>application
+
+  <ITEM>Supervisor
+
+  <ITEM>Supervisor Bridge
+
+  <ITEM>gen_server
+
+  <ITEM>gen_event
+
+  <ITEM>gen_fsm
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>Defining New Skeletons</TITLE>
+
+<P>
+It is possible to define new Erlang skeletons.  The skeletons are
+defined using the standard package "tempo".  The skeleton is described
+using the following variables:
+</P>
+
+<LIST>
+
+  <ITEM><C>erlang-skel-</C>X  (Where X is the name of this skeleton.)<BR>
+
+<P>
+Each skeleton is described by a variable.  It contains a list of Tempo
+rules.  See below for two examples of skeleton definitions.  See the
+Tempo Reference Manual for a complete description of tempo rules.
+</P>
+
+  <ITEM><C>erlang-skel</C><BR>
+
+<P>
+This variable describes all Erlang skeletons.  It is used to define
+the skeletons and to add them to the Erlang menu.  The variable is a
+list where is each entry is either the empty list, representing a
+vertical bar in the menu, or a list on the form:
+</P>
+
+<CODE>
+   (Menu-name tempo-name erlang-skel-X)
+</CODE>
+
+<P>
+The Menu-name is name to use in the menu.  A named function is created
+for each skeleton, it is <C>tempo-template-erlang-</C>tempo-name.
+Finally, <C>erlang-skel-</C>X is the name of the variable describing the
+skeleton.
+</P>
+
+<P>
+The best time to change this variable is right after the Erlang mode
+has been loaded but before it has been activated.  See the "Example"
+section below.
+</P>
+
+</LIST>
+
+<SECTION>
+
+<TITLE>Examples</TITLE>
+
+<P>
+Below is two example on skeletons and one example on how to add an
+entry to the <C>erlang-skel</C> variable.  Please see the Tempo
+reference manual for details about the format.
+</P>
+
+
+<P>
+<EM> Example 1: </EM>
+</P>
+
+<P>
+The "If" skeleton is defined by the following variable
+(slightly rearranged for pedagogical reasons):
+</P>
+
+<CODE>
+(defvar erlang-skel-if
+  '((erlang-skel-skip-blank)   ;;  1
+    o                          ;;  2
+    >                          ;;  3
+    "if"                       ;;  4
+    n>                         ;;  5
+    p                          ;;  6
+    " ->"                      ;;  7
+    n>                         ;;  8
+    p                          ;;  9
+    "ok"                       ;; 10
+    n>                         ;; 11
+    "end"                      ;; 12
+    p))                        ;; 13
+</CODE>
+
+<P>
+Each line describes an action to perform:
+</P>
+
+<LIST>
+
+  <ITEM> 1:  This is a normal function call.  Here we skip over any space
+characters after the point.  (If we do not they will end up after the
+skeleton.)
+
+  <ITEM> 2:  This means "Open Line", i.e. split the current line at the
+point, but leave the point on the end of the first line.
+
+  <ITEM> 3:  Indent Line.  This indents the current line.
+
+  <ITEM> 4:  Here we insert the string <C>if</C> into the buffer
+
+  <ITEM> 5, 8, 11:  Newline and indent.
+
+  <ITEM> 6, 9, 13: Mark these positions as special.  The point will be
+placed at the position of the first <C>p</C>.  The point can later be
+moved to the other by the <C>tempo-forward-mark</C> and
+<C>tempo-backward-mark</C> described above.
+
+  <ITEM> 7, 10, 12: These insert the strings "<C> -></C>",
+"<C>ok</C>", and "<C>end</C>", respectively.
+
+</LIST>
+
+<P>
+<EM> Example 2: </EM>
+</P>
+
+<P>
+This example contains very few entries.  Basically, what it does is to
+include other skeletons in the correct place.
+</P>
+
+<CODE>
+(defvar erlang-skel-small-header
+  '(o                                         ;; 1
+    (erlang-skel-include erlang-skel-module   ;; 2
+                         erlang-skel-author)
+    n                                         ;; 3
+    (erlang-skel-include erlang-skel-compile  ;; 4
+			 erlang-skel-export   ;; 5
+			 erlang-skel-vc)))    ;; 6
+</CODE>
+
+<P>
+The lines performs the following actions:
+</P>
+
+<LIST>
+  <ITEM> 1: "Open Line" (see example 1 above).
+
+  <ITEM> 2: Insert the skeletons <C>erlang-skel-module</C> and
+<C>erlang-skel-compile</C> into the buffer.
+
+  <ITEM> 3: Insert one empty line.
+
+  <ITEM> 4: Insert three more skeletons.
+
+</LIST>
+
+<P>
+<EM> Example 3: </EM>
+</P>
+
+<P>
+Here we assume that we have defined a new skeleton named
+<C>erlang-skel-example</C>.  The best time to add this skeleton to the
+variable <C>erlang-skel</C> is when Erlang mode has been loaded but
+before it has been activated.  We define a function that adds two
+entries to <C>erlang-skel</C>, the first is <C>()</C> that represent a
+divisor in the menu, the second is the entry for the <C>Example</C>
+skeleton.  We then add the function to the <C>erlang-load-hook</C>, a
+hook that is called when Erlang mode is loaded into Emacs.
+
+<CODE>
+(defun my-erlang-skel-hook ()
+  (setq erlang-skel
+	(append erlang-skel
+                '(()
+                  ("Example" "example" erlang-skel-example)))))
+
+(add-hook 'erlang-load-hook 'my-erlang-skel-hook)
+</CODE>
+
+</SECTION>
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+
+<TITLE>Manual Pages</TITLE>
+
+<P>
+The UNIX version of Erlang tools contain a set of manual pages that
+can be accessed by the standard UNIX command "man".  The Erlang mode
+place a list of all available manual pages in the "Erlang" menu.
+</P>
+
+<P>
+Unfortunately this feature is not available in the Windows version of
+the Erlang editing mode since the Erlang tools are not delivered with
+the manual pages.
+</P>
+
+<SECTION>
+<TITLE> The Menu </TITLE>
+
+<P>
+In the Erlang menu a list of all Erlang manual pages can be found.
+The menu item "Man Pages".  The sub-menu to this menu item contains a
+list of categories, normally "Man - Commands" and "Man - Modules".
+Under these is a menu containing the names of the man pages.
+Should this menu be to large it is split alphabetically into a number
+of sub-menus.
+</P>
+
+<P>
+The menu item "Man - Function" is capable of finding the man page of a
+named Erlang function.  This commands understands the
+<C>module:function</C> notation.  This command defaults to the name under
+the point.  Should the name not contain a module name the list of
+imported modules is searched.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Customization</TITLE>
+
+<P>
+The following variables control the manual page feature.
+</P>
+
+<LIST>
+
+  <ITEM><C>erlang-man-dirs</C><BR>
+
+<P>
+This variable is a list representing the sub-menu to the "Man Pages"
+menu item in the Erlang menu.  Each element is a list with three
+elements.  The first is the name of the menu, e.g. "Man - Modules" or
+"Man - Local Stuff".  The second is the name of a directory.  The
+third is a flag that control the interpretation of the directory.
+When <C>nil</C> the directory is treated as an absolute path, when
+non-<C>nil</C> it is taken as relative to the directory named in the
+variable <C>erlang-root-dir</C>.
+</P>
+
+
+  <ITEM><C>erlang-man-max-menu-size</C><BR>
+
+<P>
+The maximum number of menu items in a manual page menu.  If the number
+of manual pages would be more than this variable the menu will be
+split alphabetically into chunks each not larger than the value of
+this variable.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Tags</TITLE>
+
+<P>
+Tags is a standard Emacs package used to record information about
+source files in large development projects.  In addition to listing
+the files of a project, a tags file normally contains information
+about all functions and variables that are defined.  By far, the most
+useful command of the tags system is its ability to find the
+definition of functions in any file in the project.  However the Tags
+system is not limited to this feature, for example, it is possible to
+do a text search in all files in a project, or to perform a
+project-wide search and replace.
+</P>
+
+<SECTION>
+<TITLE>Creating a TAGS file</TITLE>
+
+<P>
+In order to use the Tags system a file named <C>TAGS</C> must be created.
+The file can be seen as a database over all functions, records, and
+macros in all files in the project.  The <C>TAGS</C> file can be created
+using to different methods for Erlang.  The first is the standard
+Emacs utility "etags", the second is by using the Erlang module
+<C>tags</C>.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE>The etags utility</TITLE>
+<!-- <TITLE>The <C>etags</C> utility</TITLE> -->
+
+<P>
+The <C>etags</C> is a program that is part of the Emacs distribution.  It
+is normally executed from a command line, like a unix shell or a DOS
+box.
+</P>
+
+<P>
+The <C>etags</C> program of fairly modern versions of Emacs and XEmacs
+has native support for Erlang.  To check if your version does include
+this support, issue the command <C>etags --help</C> at a the command
+line prompt.  At the end of the help text there is a list of supported
+languages.  Unless Erlang is a member of this list I suggest that you
+should upgrade to a newer version of Emacs.
+</P>
+
+<P>
+As seen in the help text -- unless you have not upgraded your Emacs yet
+(well, what are you waiting around here for?  Off you go and upgrade!)
+-- <C>etags</C> associate the file extensions <C>.erl</C> and
+<C>.hrl</C> with Erlang.
+</P>
+
+<P>
+Basically, the <C>etags</C> utility is runed using the following form:
+</P>
+
+<CODE>
+    etags file1.erl file2.erl
+</CODE>
+
+<P>
+This will create a file named <C>TAGS</C> in the current directory.
+</P>
+
+<P>
+The <C>etags</C> utility can also read a list of files from its standard
+input by supplying a single dash in place of the file names.  This
+feature is useful when a project consists of a large number of files.
+The standard UNIX command <C>find</C> can be used to generate the list of
+files, e.g:
+</P>
+
+<CODE>
+    file . -name "*.[he]rl" -print | etags -
+</CODE>
+
+<P>
+The above line will create a <C>TAGS</C> file covering all the Erlang
+source files in the current directory, and in the subdirectories
+below.
+</P>
+
+<P>
+Please see the GNU Emacs Manual and the etags man page for more info.
+</P>
+
+
+<P>
+The code implementing the Erlang support for the <C>etags</C> program has
+been donated to the Free Software Foundation by the company Anders
+Lindgren Development.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE>The tags Erlang module</TITLE>
+<!-- <TITLE>The <C>tags</C> Erlang module</TITLE> -->
+
+<P>
+One of the tools in the Erlang distribution is a module named
+<C>tags</C>.  This tool can create a <C>TAGS</C> file from Erlang
+source files.
+</P>
+
+<P>
+The following are examples of useful functions in this module.  Please
+see the reference manual on tags for details.
+</P>
+
+<LIST>
+
+  <ITEM><C>tags:file('foo.erl').</C><BR>
+
+<P>
+Create a <C>TAGS</C> file for the file "foo.erl".
+</P>
+
+  <ITEM><C>tags:subdir('src/project/', [{outfile, 'project.TAGS'}]).</C><BR>
+
+<P>
+Create a tags file containing all Erlang source files in the directory
+<C>"src/project/"</C>.  The option <C>outfile</C> specify the name of
+the created <C>TAGS</C> file.
+</P>
+
+  <ITEM><C>tags:root([{outdir, 'bar'}]).</C><BR>
+
+<P>
+Create a <C>TAGS</C> file of all the Erlang files in the Erlang
+distribution.  The <C>TAGS</C> file will be placed in the the directory
+<C>bar</C>.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Additional Erlang support</TITLE>
+
+<P>
+The standard Tags system has only support for simple names.  The
+naming convention <C>module:function</C> used by Erlang is not supported.
+</P>
+
+<P>
+The Erlang mode supplies an alternative set of Tags functions that is
+aware of the format <C>module:function</C>.  When selecting a the
+default search string for the commands the name under the point is
+first selected.  Should the name not contain a module name the
+<C>-import</C> list at the beginning of the buffer is scanned.
+</P>
+
+<SECTION>
+
+<TITLE>Limitations</TITLE>
+
+<P>
+Currently, the additional Erlang module name support is not compatible
+with the <C>etags.el</C> package that is part of XEmacs.
+</P>
+
+</SECTION>
+</SECTION>
+
+<SECTION>
+<TITLE>Useful Tags Commands</TITLE>
+
+<LIST>
+
+  <ITEM><C> M-. </C> (<C>erlang-find-tag</C>)<BR>
+
+<P>
+Find a function definition.  The default value is the function name
+under the point.  Should the function name lack the module specifier
+the <C>-import</C> list is searched for an appropriate candidate.
+</P>
+
+
+  <ITEM><C> C-u M-. </C> (<C>erlang-find-tag</C> with an argument)<BR>
+
+<P>
+The <C>find-tag</C> commands place the point on the first occurrence of
+a function that match the tag.  This command move the point to the
+next match.
+</P>
+
+
+  <ITEM><C> C-x 4 . </C> (<C>erlang-find-tag-other-window</C>)<BR>
+
+<P>
+As above, but the new file will be shown in another window in the same
+frame.
+</P>
+
+
+  <ITEM><C> C-x 5 . </C> (<C>erlang-find-tag-other-frame</C>)<BR>
+
+<P>
+As <C>erlang-find-tag</C> but the new file will be shown in a new frame.
+</P>
+
+  <ITEM><C> M-TAB </C> (<C>erlang-complete-tag</C>)<BR>
+
+<P>
+This command is used to fill in the end of a partially written
+function name.  For example, assume that the point is at the end of
+the string <C>a_long</C>, and the Tags file contain the function
+<C>a_long_function_name</C>.  By executing this command the string
+<C>a_long</C> will be expanded into <C>a_long_function_name</C>.
+</P>
+
+
+  <ITEM><C> M-x tags-search RET </C><BR>
+
+<P>
+This command will search through all the files in a project for a
+string.  (Actually, it search for a pattern described by a regular
+expression.)
+</P>
+
+
+  <ITEM><C> M-, </C> (<C>tags-loop-continue</C>)<BR>
+
+<P>
+Move the point to the next search match.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+<SECTION>
+<TITLE>IMenu</TITLE>
+
+<P>
+IMenu is a standard package of GNU Emacs.  With IMenu it is possible
+to get a menu in the menu bar containing all the functions in the
+buffer.  Erlang mode provides support for Erlang source files.
+</P>
+
+<!-- TODO
+<P>
+Unfortunately the IMenu package is not part of XEmacs.  In the future
+Erlang mode might get support for the XEmacs package "funcmenu" that
+provides similar support for XEmacs.
+</P>
+-->
+
+<SECTION>
+<TITLE>Starting IMenu</TITLE>
+
+<LIST>
+
+  <ITEM><C> M-x imenu-add-to-menubar RET</C><BR>
+
+<P>
+This command will create the IMenu menu containing all the functions
+in the current buffer.  The command will ask you for a suitable name
+for the menu.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>Customization</TITLE>
+
+<P>
+See chapter "<SEEALSO MARKER="#customization">Customization</SEEALSO>"
+below for a general description on how to customize the Erlang mode.
+</P>
+
+<P>
+To automatically create the IMenu menu for all Erlang buffers, place
+the lines below into the appropriate init file (e.g. ~/.emacs).  The
+function <C>my-erlang-imenu-hook</C> will be called each time an
+Erlang source file is read.  It will call the
+<C>imenu-add-to-menubar</C> function.  The menu will be named
+"Functions".
+</P>
+
+<CODE>
+(add-hook 'erlang-mode-hook 'my-erlang-imenu-hook)
+
+(defun my-erlang-imenu-hook ()
+  (if (and window-system (fboundp 'imenu-add-to-menubar))
+      (imenu-add-to-menubar "Functions")))
+</CODE>
+
+</SECTION>
+</SECTION>
+
+<!-- ---------------------------- Inferior Erlang -->
+
+<!-- - CHAPTER -->
+
+<SECTION>
+<TITLE>Running Erlang from Emacs</TITLE>
+
+<P>
+One of the strengths of Emacs is its ability to start slave processes.
+Since Emacs is extendible it is possible let Emacs be a part of a
+large application.  For example, Emacs could be used as the user
+interface for Erlang applications.
+</P>
+
+<P>
+The Erlang editing mode provides two simple, yet very useful,
+applications.  The first is to start an Erlang shell and use an Emacs
+buffer for input and output.  The second is a compile commands that
+makes it possible to compile Erlang modules and to locate the lines
+containing the compilation errors.
+</P>
+
+<P>
+The actual communication between Emacs and Erlang can be performed by
+different low-level techniques.  The Erlang editing mode provides a
+technique called "inferior" processes.  The add on package Erl'em
+supplies a technically much more advanced communication technique
+known as an Erl'em link.  All the commands that are provided by the
+editing mode can use either technique.  However, more advanced
+packages will probably need features only provided by the Erl'em
+package.
+</P>
+
+<SECTION>
+<TITLE>Inferior Erlang</TITLE>
+
+<P>
+The editing mode is capable of starting a so called "inferior" Erlang
+process.  This is a normal subprocess that use one Emacs buffer for
+input and output.  The effect is that a command line shell, or an
+Erlang shell, can be displayed inside Emacs.
+</P>
+
+<P>
+The big drawback with an inferior process is that the communication
+between Emacs and the process is limited to commands issued at the
+command line.  Since this is the interface that is used by the user it
+is difficult, to say the least, to write an Emacs application that
+communicate with the inferior process.  For example, the
+<C>erlang-compile</C> command described in the section "Compilation"
+below really stretch the capabilities of the inferior Erlang process.
+In fact, should the user have issued a command that would take some
+time to complete it is impossible for Emacs to perform the
+<C>erlang-compile</C> command.
+</P>
+
+</SECTION>
+
+
+<SECTION>
+<TITLE>The Erl'em Link</TITLE>
+
+<P>
+The Erl'em package established a low-level communication channel
+between Emacs and an Erlang node.  This communication channel can be
+used by Emacs to issue several independent Erlang commands, to start
+Erlang processes and to open several Erlang IO streams.  It is also
+possible for Erlang to call Emacs functions.
+</P>
+
+<P>
+In short the Erl'em package is designed to be the base of complex
+application that is partially implemented in Emacs and partially in
+Erlang.
+</P>
+
+<P>
+It is the hope of the author that the Erl'em link in the future will
+be used as the base for porting the user interface of the Erlang
+debugger to Emacs.  If this could be possible, Emacs could be used as
+an Integrated Debugger Environment (IDE) for Erlang.
+</P>
+
+<P>
+The structure of the Erl'em link and its programming interface is
+described in the text "Erl'em Developers Manual".
+</P>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Erlang Shell</TITLE>
+
+<P>
+It is possible to start an Erlang shell inside Emacs.  The shell will
+use an Emacs buffer for input and output.  Normal Emacs commands can
+be used to edit the command line and to recall lines from the command
+line history.
+</P>
+
+<P>
+The output will never be erased from the buffer so you will never risk
+letting important output fall over the top edge of the display.
+</P>
+
+<P>
+As discussed in the previous chapter there are two low-level
+methods for Emacs to communicate with Erlang.  The first is by
+starting an inferior process, the second is by using an Erl'em link.
+When using inferior processes each new shell will start a new Erlang
+node.  Should the Erl'em link be used it is possible to start several
+shells on the same node, a feature not normally available.
+</P>
+
+<SECTION>
+<TITLE>The shell</TITLE>
+
+<P>
+In this section we describe how to start a shell. In the next we cover
+how to use it once it has been started.
+</P>
+
+<LIST>
+  <ITEM><C> M-x erlang-shell RET </C><BR>
+
+<P>
+Start a new Erlang shell.  When an inferior process is used a new
+Erlang node is started for each shell.  Should the Erl'em link package
+be installed several shells can be started on the same Erlang node.
+</P>
+
+<P>
+A word of warning.  The Erlang function <C>halt().</C> will kill the
+current Erlang node, including all shells running on it.
+</P>
+
+
+  <ITEM><C> M-x erlang-shell-display RET </C><BR>
+
+<P>
+Display one Erlang shell.  If there are no Erlang shells active a new
+will be started.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+
+<TITLE>Command line history</TITLE>
+
+<P>
+The look and feel on an Erlang shell inside Emacs should be the same
+as in a normal Erlang shell.  There is just one major difference, the
+cursor keys will actually move the cursor around just like in any
+normal Emacs buffer.  The command line history can be accessed by the
+following commands:
+</P>
+
+<LIST>
+
+  <ITEM><C> C-up </C>  or <C> M-p </C>  (<C>comint-previous-input</C>)<BR>
+
+<P>
+Move to the previous line in the input history.
+</P>
+
+
+  <ITEM><C> C-down </C> or <C> M-n </C>  (<C>comint-next-input</C>)<BR>
+
+<P>
+Move to the next line in the input history.
+</P>
+
+</LIST>
+
+<P>
+If the Erlang shell buffer would be killed the command line history is
+saved to a file.  The command line history is automatically retrieved
+when a new Erlang shell is started.
+</P>
+
+</SECTION>
+
+<SECTION>
+
+<TITLE>The Erlang Shell Mode</TITLE>
+
+<P>
+The buffers that are used to run Erlang shells use the major mode
+<C>erlang-shell-mode</C>.  This major mode is based on the standard
+mode <C>comint-mode</C>.
+</P>
+
+<LIST>
+  <ITEM><C> erlang-shell-mode </C><BR>
+
+<P>
+Enter Erlang shell mode.  To operate correctly the buffer should be in
+Comint mode when this command is called. 
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+
+<TITLE>Variables</TITLE>
+
+<P>
+In this section we present the variables that control the behavior of
+the Erlang shell.  See also the next section "Inferior Erlang
+Variables".
+</P>
+
+<LIST>
+
+<ITEM> <EM>Variable: </EM> <C>erlang-shell-mode-hook</C>
+(default <C>()</C>)<BR>
+
+<P>
+Function to run when this mode is activated.  See chapter "<SEEALSO
+MARKER="#customization">Customization</SEEALSO>" below for examples.
+</P>
+
+
+<ITEM> <EM>Variable: </EM> <C>erlang-input-ring-file-name</C>
+(default "~/.erlang_history")<BR>
+
+<P>
+The file name used to save the command line history.
+</P>
+
+
+<ITEM> <EM>Variable: </EM> <C>erlang-shell-function</C>
+(default <C>inferior-erlang</C>)<BR>
+
+<P>
+This variable contain the low-level function to call to start an
+Erlang shell.  This variable will be changed by the Erl'em
+installation.
+</P>
+
+
+<ITEM> <EM>Variable: </EM> <C>erlang-shell-display-function</C>
+(default <C>inferior-erlang-run-or-select</C>)<BR>
+
+<P>
+This variable contain the low-level function to call when the
+<C>erlang-shell-display</C> is issued.  This variable will be changed by
+the Erl'em installation.
+</P>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<TITLE>Inferior Erlang Variables</TITLE>
+
+<P>
+The variables described in this chapter are only used when inferior
+Erlang processes are used.  They do not affect the behavior of the
+shell when using an Erl'em link.
+</P>
+
+<LIST>
+
+  <ITEM> <EM>Variable: </EM> 
+<C>inferior-erlang-display-buffer-any-frame</C> (default
+<C>nil</C>)<BR>
+
+<P>
+When this variable is <C>nil</C> the command
+<C>erlang-shell-display</C> will display the inferior process in the
+current frame.  When <C>t</C>, it will do nothing when it already is
+visible in another frame.  When it is bound to the atom <C>raise</C>
+the frame displaying the buffer will be raised.
+</P>
+
+  <ITEM> <EM>Variable: </EM> <C>inferior-erlang-shell-type</C>
+(default <C>newshell</C>)<BR>
+
+<P>
+There are two different variants of the Erlang shell, named the old
+and the new shell.  The old is a simple variant that does not provide
+command line editing facilities.  The new, on the other hand, provide
+full edition features.  Apart from this major difference, they differ
+on some subtle points.  Since Emacs itself takes care of the command
+line edition features you can switch between the two shell types if
+your shell behaves strange.
+</P>
+
+<P>
+To use the new or the old shell bind this variable to <C>newshell</C> or
+<C>oldshell</C>, respectively.
+</P>
+
+  <ITEM> <EM>Variable: </EM> <C>inferior-erlang-machine</C>
+(default <C>"erl"</C>)<BR>
+
+<P>
+The command name of the Erlang runtime system.
+</P>
+
+
+  <ITEM> <EM>Variable: </EM> <C>inferior-erlang-machine-options</C>
+(default <C>()</C>)<BR>
+
+<P>
+A list of strings containing command line options that is used when
+starting an inferior Erlang.
+</P>
+
+
+  <ITEM> <EM>Variable: </EM> <C>inferior-erlang-buffer-name</C>
+(default <C>"*erlang*"</C>)<BR>
+
+<P>
+The base name of the Erlang shell buffer.  Should several Erlang shell
+buffers be used they will be named <C>*erlang*<2></C>,
+<C>*erlang*<3></C> etc.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Compilation</TITLE>
+
+<P>
+The classic edit-compile-bugfix cycle for Erlang is to edit the source
+file in an editor, save it to a file and switch to an Erlang shell.
+In the shell the compilation command is given.  Should the compilation
+fail you have to bring out the editor and locate the correct line.
+</P>
+
+<P>
+With the Erlang editing mode the entire edit-compile-bugfix cycle can
+be performed without leaving Emacs.  Emacs can order Erlang to compile
+a file and it can parse the error messages to automatically place the
+point on the erroneous lines.
+</P>
+
+<SECTION>
+
+<TITLE>Commands</TITLE>
+
+<LIST>
+
+  <ITEM><C>C-c C-k</C> (<C>erlang-compile</C>)<BR>
+
+<P>
+This command compiles the file in the current buffer.
+</P>
+
+<P>
+The action performed by this command depend on the low-level
+communication method used.  Should an inferior Erlang process be used
+Emacs tries to issue a compile command at the Erlang shell prompt.
+The compilation output will be sent to the shell buffer.
+This command will fail if it is not possible to issue a command at the
+Erlang shell prompt.
+</P>
+
+<P>
+Should an Erl'em link be used the compile command sent to Erlang will
+be independent of any active shell.  The output will be sent to a
+dedicated buffer.
+</P>
+
+
+  <ITEM><C>C-x ` </C>  (<C>erlang-next-error</C>)<BR>
+
+<P>
+This command will place the point on the line where the first error
+was found.  Each successive use of this command will move the point to
+the next error.  The buffer displaying the compilation errors will be
+updated so that the current error will be visible.
+</P>
+
+<P>
+You can reparse the compiler output from the beginning by preceding
+this command by <C> C-u </C>.
+</P>
+
+  <ITEM><C>erlang-compile-display</C><BR>
+
+<P>
+Show the output generated by the compile command.
+</P>
+
+</LIST>
+</SECTION>
+
+<SECTION>
+<TITLE>Variables</TITLE>
+
+<LIST>
+
+  <ITEM> <EM>Variable: </EM> <C>erlang-compile-use-outdir</C>
+(default <C>t</C>)<BR>
+
+<P>
+In some versions of Erlang the <C>outdir</C> options contains a bug.
+Should the directory not be present in the current Erlang load path
+the object file will not be loaded.
+</P>
+
+<P>
+Should this variable be set to <C>nil</C> the <C>erlang-compile</C>
+command will use a workaround by change current directory, compile the
+file, and change back.
+</P>
+
+
+  <ITEM> <EM>Variable: </EM> <C>erlang-compile-function</C>
+(default <C>inferior-erlang-compile</C>)<BR>
+
+<P>
+The low-level function to use to compile an Erlang module.
+</P>
+
+
+  <ITEM> <EM>Variable: </EM> <C>erlang-compile-display-function</C>
+(default <C>inferior-erlang-run-or-select</C>)<BR>
+
+<P>
+The low-level function to call when the result of a compilation should
+be shown.
+</P>
+
+
+  <ITEM> <EM>Variable: </EM> <C>erlang-next-error-function</C>
+(default <C>inferior-erlang-next-error</C>)<BR>
+
+<P>
+The low-level function to use when <C>erlang-next-error</C> is used.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE>Customization</TITLE>
+
+<P>
+One of the strengths of Emacs is that users can fairly easy customize
+the behavior of almost every detail.  The Erlang editing mode is not
+an exception to this rule.
+</P>
+
+<P>
+Normally, Emacs is customized through the user and system init files,
+<C>~/.emacs</C> and <C>site-start.el</C>, respectively.  The content
+of the files are expressions written in the Emacs extension language
+Emacs Lisp.  The semantics of Lisp is fairly similar Erlang's.
+However, the syntax is very different.  Fortunately, most
+customizations require only very minor knowledge of the language.
+</P>
+
+<SECTION>
+
+<TITLE>Emacs Lisp</TITLE>
+
+<P>
+In this section we show the basic constructions of Emacs Lisp needed to
+perform customizations.
+</P>
+
+<P>
+In addition to placing the expressions in the init file, they can be
+evaluated while Emacs is started.  One method is to use the <C> M-:
+</C> (On older versions of Emacs this is bound to <C> ESC ESC</C>)
+function that evaluates Emacs Lisp expressions in the minibuffer.
+Another method is to write the expressions in the <C> *scratch* </C> buffer,
+place the point at the end of the line and press <C>C-j</C>.
+</P>
+
+<P>
+Below is a series of example that we use to demonstrate simple Emacs
+Lisp constructions.
+</P>
+
+<LIST>
+
+
+  <ITEM> <EM>Example 1:</EM> <BR>
+
+<P>
+In this example we set the variable <C>foo</C> to the value 10 added
+to the value of the variable <C>a</C>.  As we can see by this example,
+Emacs Lisp use prefix form for all function calls, including simple
+functions like <C>+</C>.
+</P>
+
+<CODE>
+(setq foo (+ 10 a))
+</CODE>
+
+
+  <ITEM> <EM>Example 2:</EM> <BR>
+
+<P>
+In this example we first define a function <C>bar</C> that sums the value
+of its four parameters.  Then we evaluated an expression that first
+calls <C>bar</C> then calls the standard Emacs function <C>message</C>.
+</P>
+
+<CODE>
+(defun bar (a b c d)
+  (+ a b c d))
+
+(message "The sum becomes %d" (bar 1 2 3 4))
+</CODE>
+
+
+  <ITEM> <EM>Example 3:</EM><BR>
+
+<P>
+Among the Emacs Lisp data types we have atoms.  However, in
+the following expressions we assign the variable <C>foo</C> the value of
+the variable <C>bar</C>.
+</P>
+
+<CODE>
+(setq foo bar)
+</CODE>
+
+<P>
+To assign the variable <C>foo</C> the atom <C>bar</C> we must quote
+the atom with a <C>'</C>-character.  Note the syntax, we should precede the
+expression (in this case <C>bar</C>) with the quote, not surround it.
+</P>
+
+<CODE>
+(setq foo 'bar)
+</CODE>
+
+</LIST>
+
+</SECTION>
+
+
+<SECTION>
+<TITLE>Hooks</TITLE>
+
+<P>
+A hook variable is a variable that contain a list of functions to
+run.  In Emacs there is a large number of hook variables, each is
+runed at a special situation.  By adding functions to hooks the user
+make Emacs automatically perform anything (well, almost).
+</P>
+
+<P>
+To add a function to a hook you must use the function <C>add-hook</C>.
+To remove it use <C>remove-hook</C>.
+</P>
+
+<P>
+See chapter "The Editing Mode" above for a list of hooks defined by
+the Erlang editing mode.
+</P>
+
+<LIST>
+  <ITEM> <EM> Example: </EM> <BR>
+
+<P>
+In this example we add <C>tempo-template-erlang-large-header</C> to
+the hook <C>erlang-new-file-hook</C>.  The effect is that whenever a
+new Erlang file is created a file header is immediately inserted.
+</P>
+
+<CODE>
+  (add-hook 'erlang-new-file-hook 'tempo-template-erlang-large-header)
+</CODE>
+
+<ITEM> <EM> Example: </EM> <BR>
+
+<P>
+Here we define a new function that sets a few variables when it is
+called.  We then add the function to the hook <C>erlang-mode-hook</C> that
+gets called every time Erlang mode is activated.
+</P>
+
+<CODE>
+(defun my-erlang-mode-hook ()
+  (setq erlang-electric-commands t))
+
+(add-hook 'erlang-mode-hook 'my-erlang-mode-hook)
+</CODE>
+
+</LIST>
+
+</SECTION>
+
+<SECTION>
+<MARKER ID="key_bindings">
+<TITLE>Custom Key Bindings</TITLE>
+
+<P>
+It is possible to bind keys to your favorite commands.  Emacs use a
+number of key-maps: the global key-map defines the default value of
+keys, local maps are used by the individual major modes, minor modes
+can have their own key map etc.
+</P>
+
+<P>
+The commands <C>global-set-key</C> and <C>local-set-key</C> defines
+keys in the global and in the current local key-map, respectively.
+</P>
+
+<P>
+If we would like to redefine a key in the Erlang editing mode we can
+do that by activating Erlang mode and call <C>local-set-key</C>.  To
+automate this we must define a function that calls
+<C>local-set-key</C>.  This function can then be added to the Erlang
+mode hook so that the correct local key map is active when the key is
+defined.
+</P>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<P>
+Here we bind <C> C-c C-c </C> to the command <C>erlang-compile</C>,
+the function key <C>f1</C> to <C>erlang-shell</C>, and <C> M-f1 </C>
+to <C> erlang-shell-display </C>.  The calls to <C> local-set-key </C>
+will not be performed when the init file is loaded, they will be
+called first when the functions in the hook <C>erlang-mode-hook</C> is
+called, i.e. when Erlang mode is started.
+</P>
+
+<CODE>
+(defun my-erlang-keymap-hook ()
+  (local-set-key (read-kbd-macro "C-c C-c") 'erlang-compile)
+  (local-set-key (read-kbd-macro "<f1>")    'erlang-shell)
+  (local-set-key (read-kbd-macro "M-<f1>")  'erlang-shell-display))
+(add-hook 'erlang-mode-hook 'my-erlang-keymap-hook)
+</CODE>
+
+<P>
+The function <C>read-kbd-macro</C> used in the above example converts
+a string of readable keystrokes into Emacs internal representation.
+</P>
+
+<P>
+<EM> Example: </EM>
+</P>
+
+<P>
+In Erlang mode the tags commands understand the Erlang module naming
+convention.  However, the normal tags commands does not.  This line
+will bind <C> M-. </C> in the global map to <C>erlang-find-tag</C>.
+</P>
+
+<CODE>
+(global-set-key (read-kbd-macro "M-." 'erlang-find-tag))
+</CODE>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<MARKER ID="distributions">
+<TITLE>Emacs Distributions</TITLE>
+
+<P>
+Today there are two major Emacs development streams.  The first is
+GNU Emacs from Free Software Foundation and the second is XEmacs.
+Both have advantages and disadvantages, you have to decide for
+yourself which Emacs you prefer.
+</P>
+
+<SECTION>
+
+<TITLE> GNU Emacs </TITLE>
+
+<P>
+This is the standard distribution from The Free Software Foundation,
+an organization lead by the original author of Emacs, Richard
+M. Stallman.
+</P>
+
+<P>
+The source code for the latest version of Emacs can be fetched from
+<C>http://www.gnu.org</C>.  A binary distribution for Window NT and 95
+can be found at
+<C>http://www.cs.washington.edu/homes/voelker/ntemacs.html</C>.
+</P>
+
+</SECTION>
+
+<SECTION>
+
+<TITLE> XEmacs </TITLE>
+
+<P>
+This is an alternative version of Emacs.  Historically XEmacs is based
+on Lucid Emacs that in turn was based on an early version of Emacs 19.
+The big advantage of XEmacs is that it can handle graphics much
+better.  One difference is a list of icons that contains a number of
+commonly used commands.  Another is the ability to display graphical
+images in the buffer.
+</P>
+
+<P>
+The major drawback is that when a new feature turns up in GNU Emacs,
+it will often take quite a long time before it will be incorporated
+into XEmacs.
+</P>
+
+<P>
+The latest distribution can be fetched from <C>http://www.xemacs.org</C>.
+</P>
+
+</SECTION>
+
+<SECTION>
+<TITLE> Installing Emacs </TITLE>
+
+<P>
+The source distributions usually comes in a tared and gzipped format.
+Unpack this with the following command:
+</P>
+
+<CODE>
+    tar zxvf <file>.tar.gz
+</CODE>
+
+<P>
+If your tar command do not know how to handle the "z" (unpack) option
+you can unpack it separately:
+</P>
+
+<CODE>
+    gunzip <file>.tar.gz
+    tar xvf <file>.tar
+</CODE>
+
+<P>
+The program <C>gunzip</C> is part of the <C>gzip</C> package that can
+be found on the <C>http://www.gnu.org</C> site.
+</P>
+
+<P>
+Next, read the file named <C>INSTALL</C>.  The build process is
+normally performed in three steps: in the first the build system
+performs a number of tests on your system, the next step is to
+actually build the Emacs executable, finally Emacs is installed.
+</P>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<MARKER ID="installation">
+<TITLE> Installation of the Erlang Editing Mode</TITLE>
+
+<P>
+In the OTP installation, the Erlang editing mode is already
+installed. All that is needed is that the system administrator or the
+individual user configures their Emacs Init files to use it.
+
+<P>
+If we assume that OTP has been installed in
+<em>OTP_ROOT</em>, the editing mode can be found in
+<em>OTP_ROOT</em><c>/misc/emacs</C>.
+
+<P>
+The <C>erlang.el</C> file found in the installation directory is already
+compiled. If it needs to be recompiled, the following command line
+should create a new <C>erlang.elc</C> file:
+
+<CODE>
+    emacs -batch -q -no-site-file -f batch-byte-compile erlang.el
+</CODE>
+
+<P>
+
+<SECTION>
+<TITLE>Editing the right Emacs Init file</TITLE>
+<P>
+System administrators edit <C>site-start.el</C>, individuals edit
+their <C>.emacs</C> files.
+
+<p>
+On UNIX systems, individuals should edit/create the file <c>.emacs</c>
+in their home directories.
+
+<p>
+On Windows NT/95, individuals should also edit/create their
+<c>.emacs</c> file, but the location of the file depends on the
+configuration of the system. 
+
+<p>
+<list>
+<item>
+If the <em>HOME</em> environment variable
+is set, Emacs will look for the <c>.emacs</c> file in the directory
+indicated by the <em>HOME</em> variable.
+
+			  
+<item>
+If <em>HOME</em> is not set,
+Emacs will look for the <c>.emacs</c> file in <c>C:\</c>.  
+</list>
+</section>
+
+
+<SECTION>
+<TITLE> Extending the load path</TITLE>
+<P>		
+The directory with the editing mode,
+<em>OTP_ROOT</em><c>/misc/emacs</C>, must be in the load path for Emacs.
+
+<P>
+Add the following line to the selected initialization file (replace
+<C> OTP_ROOT </C> with the name of the installation
+directory for OTP, keep the quote characters):
+</P>
+<CODE>
+	(setq load-path (cons "OTP_ROOT/misc/emacs" load-path))
+</CODE>
+
+
+<P>
+Note: When running under Windows, use <C> / </C> or <C> \\ </C> as
+separator in pathnames in the Emacs configuration files.  Using a single
+<C> \ </C> in strings does not work, as it is interpreted by Emacs as
+an escape character.
+</P>
+
+
+</section>
+
+<section>
+<TITLE> Specifying the OTP installation directory</TITLE>
+
+<P>
+Some functions in the Erlang editing mode require that the OTP
+installation directory is known.  The following is an example where we
+assume that they are installed in the directory <C>OTP_ROOT</C>,
+change this to reflect the location on your system.
+</P>
+
+<CODE>
+	(setq erlang-root-dir "OTP_ROOT")
+</CODE>
+
+</section>
+
+<section>
+<title>Extending the execution path</title>
+
+<p>
+To use inferior Erlang Shells, you need to do the following
+configuration. If your <em>PATH</em> environment variable already
+includes the location of the <c>erl</c> or <c>erl.exe</c> executable
+this configuration is not necessary.
+
+<p>
+You can either extend the <em>PATH</em> environment variable with the
+location of the  <c>erl</c>/<c>erl.exe</c> executable. Please refer to
+instructions for setting environment variables on your particular
+platform for details.	    
+
+<p>
+You can also extend the execution path for Emacs as described
+below. If the executable is located in <c>OTP_ROOT/bin</c> then you
+add the following line to you Emacs Init file:
+
+<code>
+	(setq exec-path (cons "OTP_ROOT/bin" exec-path))
+
+</code>
+</section>
+
+<section>
+<TITLE>Final setup</TITLE>
+<P>
+Finally, add the following line to the init file:
+</P>
+
+<CODE>
+	(require 'erlang-start)
+</CODE>
+
+<P>
+This will inform Emacs that the Erlang editing mode is available.  It
+will associate the file extensions <C> .erl </C> and <C> .hrl </C>
+with Erlang mode.  Also it will make sure that files with the
+extension <C> .beam </C> will be ignored when using file name
+completion.
+</P>
+
+</SECTION>
+
+<SECTION>
+<MARKER ID="unix_dotemacs">
+<TITLE> An Example for UNIX </TITLE>
+
+<P>
+Below is a complete example of what should be added to a user's
+<c>.emacs</c> provided that OTP is installed in the directory
+<C>/usr/local/otp</C>:
+
+<CODE>
+(setq load-path (cons  "/usr/local/otp/misc/emacs"
+                       load-path))
+(setq erlang-root-dir "/usr/local/otp")
+(setq exec-path (cons "/usr/local/otp/bin" exec-path))
+(require 'erlang-start)
+</CODE>
+
+<P>
+Any additional user configurations can be added after this.  See for
+instance section "<SEEALSO
+MARKER="#font-lock">Customization</SEEALSO>" for some useful
+customizations.
+		    
+
+</section>
+
+<SECTION>
+<MARKER ID="win_dotemacs">
+<TITLE> An Example for Windows </TITLE>
+
+<P>
+Below is a complete example of what should be added to a user's
+<c>.emacs</c> provided that OTP is installed in the directory
+<C>C:\Program Files\erl-4.7</C>:
+
+<CODE>
+(setq load-path (cons  "C:/Program Files/erl-4.7/misc/emacs"
+                       load-path))
+(setq erlang-root-dir "C:/Program Files/erl-4.7")
+(setq exec-path (cons "C:/Program Files/erl-4.7/bin" exec-path))
+(require 'erlang-start)
+</CODE>
+
+<P>
+Any additional user configurations can be added after this.  See for
+instance section "<SEEALSO
+MARKER="#font-lock">Customization</SEEALSO>" for some useful
+customizations.
+
+
+
+</section>
+
+
+<SECTION>
+<TITLE> Check the Installation </TITLE>
+
+<P>
+Restart the Emacs and load or create an Erlang file (with the <C>.erl</C>
+extension).  If the installation was performed correctly the mode line
+should contain the word "Erlang".  Select the "Version" menu item in
+the "Erlang" menu, check that the version number matches the version in
+found in the files in <c>OTP_ROOT/misc/emacs</c>.
+</P>
+
+</SECTION>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<MARKER ID="notation">
+<TITLE> Notation </TITLE>
+
+<P>
+In this book we use the same terminology used in the Emacs
+documentation.  This chapter contain a short glossary of words and
+their meaning in the Emacs world.
+</P>
+
+<LIST>
+
+  <ITEM><EM> Buffer </EM> 
+
+<P>
+A buffer is used by Emacs to handle text.  When editing a file the
+content is loaded into a buffer.  However buffers can contain other
+things as well.  For example, a buffer can contain a list of files in
+a directory, it can contain generated help texts, or it is possible to
+start processes that use a buffer in Emacs for input and output.  A
+buffer need not be visible, but if it is, it is shown in a window.
+</P>
+
+  <ITEM><EM> Emacs Lisp </EM>
+
+<P>
+Emacs is written in two languages.  The Emacs core is written in C.
+The major part, as well as most add-on packages, are written in Emacs
+Lisp.  This is also the language used by the init files.
+</P>
+
+  <ITEM><EM> Frame  </EM>
+
+<P>
+This is what most other systems refer to as a <EM> window </EM>.
+Emacs use frame since the word window was used for another feature
+long before window systems were invented.
+</P>
+
+  <ITEM><EM> init file  </EM>
+
+<P>
+Files read by Emacs at startup.  The user startup file is named
+<C>~/.emacs</C>.  The init files are used to customize Emacs, for
+example to add new packages like <C>erlang</C>.  The language used in
+the startup files is Emacs Lisp.
+</P>
+
+  <ITEM><EM> Major mode </EM>
+
+<P>
+A major mode provides support for edit text of a particular sort.  For
+example, the Erlang editing mode is a major mode.  Each buffer have
+exactly one major mode active.
+</P>
+
+  <ITEM><EM> Minor mode  </EM>
+
+<P>
+A minor mode provides some additional support.  Each buffer can have
+several minor modes active at the same time.  One example is
+<C>font-lock-mode</C> that activates syntax highlighting, another is
+<C>follow-mode</C> that make two side-by-side windows act like one
+tall window.
+</P>
+
+  <ITEM><EM> Mode line  </EM>
+
+<P>
+The line at the bottom of each Emacs window that contain information
+about the buffer.  E.g. the name of the buffer, the line number, and
+the name of the the current major mode.
+</P>
+
+  <ITEM><C> nil </C> 
+
+<P>
+The value used in Emacs Lisp to represent false.  True can be
+represented by any non-<C>nil</C> value, but it is preferred to use
+<C>t</C>.
+</P>
+
+  <ITEM><EM> Point </EM> 
+<P>
+The point can be seen as the position of the cursor.  More precisely,
+the point is the position between two characters while the cursor is
+drawn over the character following the point.
+</P>
+
+  <ITEM><C> t </C>
+
+<P>
+The value <C>t</C> is used by flags in Emacs Lisp to represent true.
+See also <C>nil</C>.
+</P>
+
+  <ITEM><EM> Window </EM>
+
+<P>
+An area where text is visible in Emacs.  A <EM>frame</EM> (which is a
+window in non-Emacs terminology) can contain one or more windows.  New
+windows can be created by splitting windows either vertically or
+horizontally.
+</P>
+
+</LIST>
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE> Keys </TITLE>
+
+<LIST>
+
+  <ITEM><C> C- </C> The control key.
+
+  <ITEM><C> M- </C> The meta key.  Normally this is the left ALT key.
+Alternatively the escape key can be used (with the difference that the
+escape key should be pressed and released while the ALT key work just
+like the control key.)
+
+  <ITEM><C> M-C- </C> Press both meta and control at the same time.  (Or press the
+escape key, release it, and then press the control key.)
+
+  <ITEM><C> RET  </C> The return key.
+
+</LIST>
+
+<P>
+All commands in Emacs have names.  A named command can be executed by
+pressing <C> M-x</C>, typing the name of the command, and hitting <C>
+RET </C>.
+</P>
+
+</SECTION>
+
+<!-- CHAPTER -->
+
+<SECTION>
+<TITLE> Further reading </TITLE>
+
+<P>
+In this chapter I present some references to material on Emacs.  They
+are divided into the two categories "Usage" and "Development".  The
+first is for normal Emacs users who would like to know how to get more
+power out of their editor.  The second is for people who would like
+to develop their own applications in Emacs Lisp.
+</P>
+
+<P>
+Personally, I would recommend the series of books from the Free
+Software Foundation, they are written by the people that wrote Emacs
+and they form a coherent series useful for everyone from beginners to
+experienced Emacs Lisp developers.
+</P>
+
+<SECTION>
+<TITLE> Usage </TITLE>
+
+<LIST>
+
+
+  <ITEM> Richard M. Stallman. GNU Emacs Manual.  Free Software
+Foundation, 1995. <BR>
+
+<P>
+This is the Bible on using Emacs.  It is written by the principle
+author of Emacs.  An on-line version of this manual is part of the
+standard Emacs distribution, see the "Help->Browse Manuals" menu.
+</P>
+
+
+  <ITEM> "comp.emacs", News Group on Usenet. <BR>
+
+<P>
+General Emacs group, everything is discussed here from beginners to
+complex development issues.
+</P>
+
+
+  <ITEM> "comp.emacs.xemacs", News Group on Usenet. <BR>
+
+<P>
+This group cover XEmacs only.
+</P>
+
+
+  <ITEM> "gnu.emacs.help", News Group on Usenet.  <BR>
+
+<P>
+This group is like "comp.emacs" except that the topic only should
+cover GNU Emacs, not XEmacs or any other Emacs derivate.
+</P>
+
+
+  <ITEM> "gnu.emacs.sources", News Group on Usenet. <BR>
+
+<P>
+In this group a lot of interesting Emacs packages are posted.  In fact
+only source code is permitted, questions should be redirected to one of
+the other Emacs groups.
+</P>
+
+
+  <ITEM> "gnu.emacs.bugs", News Group on Usenet. <BR>
+
+<P>
+If you have found a bug in Emacs you should post it here.  Do not post
+bug reports on packages that are nor part of the standard Emacs
+distribution, they should be sent to the maintainer of the package.
+</P>
+
+</LIST>
+</SECTION>
+
+
+<SECTION>
+<TITLE> Development </TITLE>
+
+<LIST>
+
+  <ITEM> Robert J. Chassell.  Programming in Emacs Lisp: an Introduction.
+Free Software Foundation, 1995. <BR>
+
+<P>
+This a good introduction to Lisp in general and Emacs Lisp in
+particular.  Just like the other books form FSF, this book is free and
+can be downloaded from <C> http://www.gnu.org </C>.
+</P>
+
+
+  <ITEM> Bil Lewis et.al. The GNU Emacs Lisp Reference Manual. Free Software
+Foundation, 1995. <BR>
+
+<P>
+This is the main source of information for any serious Emacs
+developer.  This manual covers every aspect of Emacs Lisp.  This
+manual, like Emacs itself, is free.  The manuscript can be downloaded
+from <C> http://www.gnu.org </C> and can either be converted into printable
+form or be converted into a hypertext on-line manual.
+</P>
+
+
+  <ITEM> Bob Glickstein.  Writing GNU Emacs Extensions. O'Reilly, 1997. <BR>
+
+<P>
+This is a good tutorial on how to write Emacs packages.
+</P>
+
+
+  <ITEM> Anders Lindgren. Erl'em Developers Manual. Ericsson, 1998. <BR>
+
+<P>
+This text covers the architecture of the Erl'em communication link and
+the application programmers interface to it.
+</P>
+
+<!--  <ITEM> David K&aring;gedal. Tempo Manual. -->
+
+<!-- TODO: the url -->
+
+<P>
+The tempo package is presented in this manual.  The latest version can
+be found at <C> http://www.lysator.liu.se </C>.
+</P>
+
+</LIST>
+
+</SECTION>
+</SECTION>
+
+
+<!-- TODO -->
+<!-- Known Bugs -->
+
+<!-- Arity -->
+
+<SECTION>
+
+<TITLE> Reporting Bugs </TITLE>
+
+<P>
+Please send bug reports to the following email address:
+</P>
+
+<CODE>
+     support@erlang.ericsson.se
+</CODE>
+
+<P>
+Please state as accurate as possible:
+</P>
+
+<LIST>
+  <ITEM> Version number of the Erlang editing mode (see the menu), Emacs,
+Erlang, and of any other relevant software.
+
+  <ITEM> What the expected result was.
+
+  <ITEM> What you did, preferably in a repeatable step-by-step form.
+
+  <ITEM> A description of the unexpected result.
+
+  <ITEM> Relevant pieces of Erlang code causing the problem.
+
+  <ITEM> Personal Emacs customizations, if any.
+</LIST>
+
+<P>
+Should the Emacs generate an error, please set the emacs variable
+<C>debug-on-error</C> to <C>t</C>.  Repeat the error and enclose the
+debug information in your bug-report.
+</P>
+
+<P>
+To set the variable you can use the following command:
+</P>
+
+<CODE>
+    M-x set-variable RET debug-on-error RET t RET
+</CODE>
+
+</SECTION>
+
+</CHAPTER>

@@ -1,0 +1,32 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROGS = port_test@exe@ echo_args@exe@ dead_port@exe@
+DRIVERS = echo_drv@dll@ exit_drv@dll@ failure_drv@dll@ sleep_failure_drv@dll@
+
+all: $(PROGS) $(DRIVERS) port_test.@EMULATOR@
+
+port_test@exe@: port_test@obj@
+	$(LD) $(CROSSLDFLAGS) -o port_test port_test@obj@ @LIBS@
+
+port_test@obj@: port_test.c
+	$(CC) -c -o port_test@obj@ $(CFLAGS) port_test.c
+
+echo_args@exe@: echo_args@obj@
+	$(LD) $(CROSSLDFLAGS) -o echo_args echo_args@obj@ @LIBS@
+
+echo_args@obj@: echo_args.c
+	$(CC) -c -o echo_args@obj@ $(CFLAGS) echo_args.c
+
+dead_port@exe@: dead_port@obj@
+	$(LD) $(CROSSLDFLAGS) -o dead_port dead_port@obj@ @LIBS@
+
+dead_port@obj@: dead_port.c
+	$(CC) -c -o dead_port@obj@ $(CFLAGS) dead_port.c
+
+port_test.@EMULATOR@:		port_test.erl
+	@erl_name@ -compile port_test
+
+@SHLIB_RULES@

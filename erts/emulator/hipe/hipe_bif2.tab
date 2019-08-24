@@ -1,0 +1,35 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2001-2018. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+# HiPE level 2 bifs: miscellaneous add-ons
+#
+# bif hipe_bifs:name/arity
+
+bif hipe_bifs:show_estack/1
+bif hipe_bifs:show_heap/1
+bif hipe_bifs:show_nstack/1
+bif hipe_bifs:nstack_used_size/0
+bif hipe_bifs:show_pcb/1
+bif hipe_bifs:show_term/1
+bif hipe_bifs:in_native/0
+bif hipe_bifs:modeswitch_debug_on/0
+bif hipe_bifs:modeswitch_debug_off/0
+bif hipe_bifs:debug_native_called/2
+bif hipe_bifs:llvm_fix_pinned_regs/0
+bif hipe_bifs:build_stacktrace/1

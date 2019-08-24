@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>atomics</title>
+  </header>
+  <module since="OTP 21.2">atomics</module>
+  <modulesummary>Atomic Functions</modulesummary>
+  <description>
+    <p>This module provides a set of functions to do atomic operations towards
+    mutable atomic variables. The implementation utilizes only
+    atomic hardware instructions without any software level locking, which makes
+    it very efficient for concurrent access. The atomics are organized into
+    arrays with the following semantics:</p>
+    <list type="bulleted">
+      <item>
+	<p>Atomics are 64 bit integers.</p>
+      </item>
+      <item>
+	<p>Atomics can be represented as either signed or unsigned.</p>
+      </item>
+      <item>
+	<p>Atomics wrap around at overflow and underflow operations.</p>
+      </item>
+      <item>
+	<p>All operations guarantee atomicity. No intermediate results can be
+	seen. The result of one mutation can only be the input to one
+	following mutation.</p>
+      </item>
+      <item>
+	<p>All atomic operations are mutually ordered. If atomic B is updated
+	<em>after</em> atomic A, then that is how it will appear to any
+	concurrent readers. No one can read the new value of B and then read the
+	old value of A.</p>
+      </item>
+      <item>
+	<p>Indexes into atomic arrays are one-based. An atomic array of
+	arity N contains N atomics with index from 1 to N.</p>
+      </item>
+    </list>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="atomics_ref"/>
+      <desc><p>Identifies an atomic array returned from
+        <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="new" arity="2" since="OTP 21.2"/>
+      <fsummary>Create atomic array</fsummary>
+      <desc>
+        <p>Create a new atomic array of <c><anno>Arity</anno></c> atomics.</p>
+	<p>Argument <c><anno>Opts</anno></c> is a list of the following possible
+	options:</p>
+	<taglist>
+	  <tag><c>{signed, boolean()}</c></tag>
+	  <item><p>Indicate if the elements of the array will be treated
+	  as signed or unsigned integers. Default is <c>true</c> (signed).</p>
+	  <p>The integer interval for signed atomics are from <c>-(1 bsl 63)</c>
+	  to <c>(1 bsl 63)-1</c> and for unsigned atomics from <c>0</c> to <c>(1
+	  bsl 64)-1</c>.</p>
+	  </item>
+	</taglist>
+        <p>Atomics are not tied to the current process and are automatically
+        garbage collected when they are no longer referenced.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="put" arity="3" since="OTP 21.2"/>
+      <fsummary>Set atomic value</fsummary>
+      <desc>
+        <p>Set atomic to <c><anno>Value</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since="OTP 21.2"/>
+      <fsummary>Read atomic value</fsummary>
+      <desc>
+        <p>Read atomic value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add" arity="3" since="OTP 21.2"/>
+      <fsummary>Add to atomic</fsummary>
+      <desc>
+        <p>Add <c><anno>Incr</anno></c> to atomic.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_get" arity="3" since="OTP 21.2"/>
+      <fsummary>Atomic add and get</fsummary>
+      <desc>
+        <p>Atomic addition and return of the result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub" arity="3" since="OTP 21.2"/>
+      <fsummary>Subtract from atomic</fsummary>
+      <desc>
+        <p>Subtract <c><anno>Decr</anno></c> from atomic.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub_get" arity="3" since="OTP 21.2"/>
+      <fsummary>Atomic sub and get</fsummary>
+      <desc>
+        <p>Atomic subtraction and return of the result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="exchange" arity="3" since="OTP 21.2"/>
+      <fsummary>Atomic exchange.</fsummary>
+      <desc>
+        <p>Atomically replaces the value of the atomic with
+	<c><anno>Desired</anno></c> and returns the value it held
+	previously.</p>
+      </desc>
+    </func>
+    
+    <func>
+    <name name="compare_exchange" arity="4" since="OTP 21.2"/>
+       <fsummary>Atomic compare and exchange.</fsummary>
+       <desc>
+         <p>Atomically compares the atomic with <c><anno>Expected</anno></c>,
+ 	and if those are equal, set atomic to <c><anno>Desired</anno></c>.
+ 	Returns <c>ok</c> if <c><anno>Desired</anno></c> was written. Returns
+ 	the actual atomic value if not equal to <c><anno>Expected</anno></c>.</p>
+       </desc>
+    </func>
+    
+    <func>
+      <name name="info" arity="1" since="OTP 21.2"/>
+      <fsummary>Get information about atomic array.</fsummary>
+      <desc>
+        <p>Return information about an atomic array in a map. The map
+	has the following keys:</p>
+	<taglist>
+	  <tag><c>size</c></tag>
+	  <item><p>The number of atomics in the array.</p></item>
+	  <tag><c>max</c></tag>
+	  <item><p>The highest possible value an atomic in this array can
+	  hold.</p></item>
+	  <tag><c>min</c></tag>
+	  <item><p>The lowest possible value an atomic in this array can
+	  hold.</p></item>
+	  <tag><c>memory</c></tag>
+	  <item><p>Approximate memory consumption for the array in
+	  bytes.</p></item>
+	</taglist>
+      </desc>
+    </func>
+
+ </funcs>
+</erlref>

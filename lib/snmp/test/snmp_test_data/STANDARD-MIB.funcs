@@ -1,0 +1,8 @@
+{sysUpTime, {snmp_standard_mib, sys_up_time, []}}.
+{sysDescr, {snmp_generic, variable_func, [{sysDescr, permanent}]}}.
+{sysObjectID, {snmp_generic, variable_func, [{sysObjectID, permanent}]}}.
+{sysContact, {snmp_generic, variable_func, [{sysContact, permanent}]}}.
+{sysName, {snmp_generic, variable_func, [{sysName, permanent}]}}.
+{sysLocation, {snmp_generic, variable_func, [{sysLocation, permanent}]}}.
+{sysServices, {snmp_generic, variable_func, [{sysServices, permanent}]}}.
+{snmpEnableAuthenTraps, {snmp_standard_mib, snmp_enable_authen_traps, []}}.

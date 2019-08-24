@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Event Tracer (ET) Release Notes</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the <c>Event Tracer
+  (ET)</c> system from version to version. The intention of this
+  document is to list all incompatibilities as well as all
+  enhancements and bugfixes for every release of <c>Event Tracer
+  (ET)</c>. Each release of <c>Event Tracer (ET) </c> thus constitutes
+  one section in this document. The title of each section is the
+  version number of <c>Event Tracer (ET)</c>.</p>
+
+<section><title>ET 1.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The scroll bar of the et_viewer window could not be
+	    dragged all the way to the top of the window. It would
+	    always stop at the second event. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15463 Aux Id: ERL-780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update selector to utilize new garbage collection trace
+	    tags.</p>
+          <p>
+	    Own Id: OTP-13545</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>et</c> application must continue to use
+	    <c>erlang:now/0</c> in order to obtain timestamps that
+	    are consistent with timestamps obtained from tracing. The
+	    application has been updated to suppress the warning for
+	    <c>erlang:now/0</c>.</p>
+          <p>
+	    Own Id: OTP-12780</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed gs based applications and gs based backends. The
+	    <c>observer</c> application replaces the removed
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10915</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use erlang:demonitor(Ref, [flush]) where applicable.
+	    Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11039</p>
+        </item>
+        <item>
+          <p>
+	    Rename and document lists:zf/2 as lists:filtermap/2.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typo in ET doc (Thanks to Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-10119</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The GS applications is now deprecated and will be
+	    removed in the R16 release. The following GS-based
+	    applications have been superseded by the Observer
+	    application and will removed in R16: Appmon, Pman,
+	    Tv.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9907</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Dialyzer warnings have been fixed. </p>
+          <p>
+	    Own Id: OTP-9470</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The popup window 'contents viewer' did not display
+	    properly on Windows.</p>
+          <p>
+	    Own Id: OTP-9238</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix error when module et was used in et_selector
+	    trace patterns. </p>
+          <p>
+	    Own Id: OTP-8904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed broken links in the documentation. </p>
+          <p>
+	    Own Id: OTP-8796</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed gui crash on windows.</p>
+          <p>
+	    Own Id: OTP-8830</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>Thanks to Olle Mattsson the GUI parts are rewritten to
+          use <c>wxWidgets</c>. For the time being it is still
+          possible to use the old <c>GS</c> based version of the tool,
+          but it is deprecated. The <c>wxWidgets</c> based version is
+          started by default.</p>
+
+          <p>A print function has been added, in order to enable
+          printing of sequence charts.</p>
+
+	  <p>A new tutorial has been added to the documentation. It is
+	  based on <c>Jayson Vantuyl's</c> article
+	  <c>http://souja.net/2009/04/making-sense-of-erlangs-event-tracer.html</c>.</p>
+
+	  <p>The functions <c>et:trace_me/4</c> and
+	  <c>et:trace_me/5</c> has been introduced in order to replace
+	  the deprecated functions <c>et:report_event/4</c> and
+	  <c>et:report_event/5</c>. Hopefully the new names makes it a
+	  little more obvious what the intended usage of the functions
+	  are.</p>
+
+	  <p>The <c>max_events</c> configuration parameter to
+	  <c>et_viewer</c> is not used any more. Now the event cache
+	  in the <c>Viewer</c> only contains those events that
+	  actually are displayed in the GUI.</p>
+
+          <p>Own Id: OTP-8058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the HTML frames are removed.</p>
+          <p>
+            Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The start module in the app file has been corrected.</p>
+          <p>
+            Own Id: OTP-8078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Changed copyright</p>
+          <p>
+            Own Id: OTP-7830</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Adjusted copyright</p>
+          <p>
+            Own Id: OTP-6985</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>ET 1.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Document source changed from SGML to XML.</p>
+          <p>Own Id: OTP-6774</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ET 1.0.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Event Tracer (ET) 1.0</title>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>This is the first release of the <c>Event Tracer (ET)</c> as
+      a stand-alone application separated from the Megaco application.</p>
+    </section>
+  </section>
+</chapter>
+

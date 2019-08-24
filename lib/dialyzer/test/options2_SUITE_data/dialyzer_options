@@ -1,0 +1,1 @@
+{dialyzer_options, [{indent_opt, false}, {defines, [{'vsn', 4}]}, {warnings, [unknown, no_return]}]}.

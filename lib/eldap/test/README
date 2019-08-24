@@ -1,0 +1,36 @@
+
+This works for me on Ubuntu.
+
+To run thoose test you need
+   1) some certificates
+   2) a running ldap server, for example OpenLDAPs slapd. See http://www.openldap.org/doc/admin24
+
+1)-------
+To generate certificates:
+erl
+> make_certs:all("/dev/null", "eldap_basic_SUITE_data/certs").
+
+2)-------
+To start slapd:
+   sudo slapd -f $ERL_TOP/lib/eldap/test/ldap_server/slapd.conf -F /tmp/slapd/slapd.d -h "ldap://localhost:9876 ldaps://localhost:9877"
+
+This will however not work, since slapd is guarded by apparmor that checks that slapd does not access other than allowed files...
+
+To make a local extension of allowed operations:
+    sudo emacs /etc/apparmor.d/local/usr.sbin.slapd
+
+and, after the change (yes, at least on Ubuntu it is right to edit ../local/.. but run with another file):
+
+    sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.slapd
+
+
+The local file looks like this for me:
+
+# Site-specific additions and overrides for usr.sbin.slapd.
+# For more details, please see /etc/apparmor.d/local/README.
+
+/etc/pkcs11/** r,
+/usr/lib/x86_64-linux-gnu/** rm,
+
+/ldisk/hans_otp/otp/lib/eldap/test/** rw,
+/tmp/slapd/** rwk,

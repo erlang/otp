@@ -1,0 +1,6 @@
+
+crash_1.erl:45: Record construction #targetlist{list::[]} violates the declared type of field list::crash_1:target()
+crash_1.erl:48: The call crash_1:get_using_branch2(Branch::maybe_improper_list(),L::crash_1:target()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),maybe_improper_list())
+crash_1.erl:50: The pattern <_Branch, []> can never match the type <maybe_improper_list(),crash_1:target()>
+crash_1.erl:52: The pattern <Branch, [H = {'target', _, _} | _T]> can never match the type <maybe_improper_list(),crash_1:target()>
+crash_1.erl:54: The pattern <Branch, [{'target', _, _} | T]> can never match the type <maybe_improper_list(),crash_1:target()>

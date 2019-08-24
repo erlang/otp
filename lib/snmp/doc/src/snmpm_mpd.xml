@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpm_mpd</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpm_mpd.xml</file>
+  </header>
+  <module since="">snmpm_mpd</module>
+  <modulesummary>Message Processing and Dispatch module for the SNMP manager</modulesummary>
+  <description>
+    <p>The module <c>snmpm_mpd</c> implements the version independent
+      Message Processing and Dispatch functionality in SNMP for the manager. 
+      It is supposed to be used from a Network Interface process 
+      (<seealso marker="snmp_manager_netif">Definition of Manager Net if</seealso>).
+      </p>
+
+    <p>Legacy API function <c>process_msg/7</c> that has got separate
+      <c>IpAddr</c> and <c>PortNumber</c> arguments still works as before
+      for backwards compatibility reasons.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">init_mpd(Vsns) -> mpd_state()</name>
+      <fsummary>Initialize the MPD module</fsummary>
+      <type>
+        <v>Vsns = [Vsn]</v>
+        <v>Vsn = v1 | v2 | v3</v>
+      </type>
+      <desc>
+        <p>This function can be called from the net_if process at start-up.
+          The options list defines which versions to use.
+          </p>
+        <p>It also initializes some SNMP counters.
+                    <marker id="process_msg"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <fsummary>Process a message received from the network</fsummary>
+      <type>
+        <v>Msg = binary()</v>
+        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+        <v>State = mpd_state()</v>
+        <v>NoteStore = pid()</v>
+        <v>Logger = function()</v>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>Pdu = #pdu</v>
+        <v>PduMs = integer()</v>
+        <v>MsgData = term()</v>
+      </type>
+      <desc>
+        <p>Processes an incoming message. Performs authentication and 
+          decryption as necessary. The return values should be passed the
+          manager server.
+          </p>
+        <p><c>NoteStore</c> is the <c>pid()</c> of the note-store process.</p>
+        <p><c>Logger</c> is the function used for audit trail logging.
+          </p>
+        <p>In the case when the pdu type is <c>report</c>, <c>MsgData</c> is 
+          either <c>ok</c> or <c>{error, ReqId, Reason}</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <fsummary>Generate a request message to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>NoteStore = pid()</v>
+        <v>Pdu = #pdu</v>
+        <v>MsgData = term()</v>
+        <v>Logger = function()</v>
+        <v>Packet = binary()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted packet to be sent to the network.
+          </p>
+        <p><c>NoteStore</c> is the <c>pid()</c> of the note-store process.
+          </p>
+        <p><c>MsgData</c> is the message specific data used in the SNMP 
+          message. In SNMPv1 and SNMPv2c, this message data is the community 
+          string. In SNMPv3, it is the context information.
+          </p>
+        <p><c>Logger</c> is the function used for audit trail logging.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <fsummary>Generate a response packet to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>Pdu = #pdu</v>
+        <v>MsgData = term()</v>
+        <v>Logger = function()</v>
+        <v>Packet = binary()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted response packet to be sent to the
+          network.
+          </p>
+        <p><c>MsgData</c> is the message specific data used in the SNMP 
+          message. This value is received from the 
+          <seealso marker="snmpm_mpd#process_msg">process_msg</seealso> 
+          function.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

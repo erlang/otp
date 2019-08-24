@@ -1,0 +1,72 @@
+#!/bin/sh
+
+# ./create-image openssh 7.3p1 openssl 1.0.2m
+
+set -x
+
+case $1 in
+    openssh)
+	FAMssh=openssh
+	VERssh=$2
+	PFX=https://ftp.eu.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-
+	SFX=.tar.gz
+	TMP=tmp.tar.gz
+	;;
+    *)
+	echo "Unsupported: $1"
+	exit
+esac
+
+FAMssl=$3
+VERssl=$4
+
+VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}
+
+# This way of fetching the tar-file separate from the docker commands makes
+# http-proxy handling way easier. The wget command handles the $https_proxy
+# variable while the docker command must have /etc/docker/something changed
+# and the docker server restarted. That is not possible without root access.
+
+# Make a Dockerfile. This method simplifies env variable handling considerably:
+cat - > TempDockerFile <<EOF
+
+    FROM  ssh_compat_suite-${FAMssl}:${VERssl}
+
+    LABEL openssh-version=${VER}
+
+    WORKDIR /buildroot
+
+    COPY ${TMP} .
+    RUN  tar xf ${TMP}
+
+    # Build and install
+
+    WORKDIR ${FAMssh}-${VERssh}
+
+    # Probably VERY OpenSSH dependent...:
+    RUN ./configure --without-pie \
+                    --prefix=/buildroot/ssh \
+                    --with-ssl-dir=/buildroot/ssl \
+                    --with-pam \
+                    LDFLAGS=-Wl,-R/buildroot/ssl/lib
+    RUN  make
+    RUN  make install
+    RUN  echo UsePAM yes >> /buildroot/ssh/etc/sshd_config
+
+    RUN echo Built ${VER}
+
+    # Start the daemon, but keep it in foreground to avoid killing the container
+    CMD /buildroot/ssh/sbin/sshd -D -p 1234
+
+EOF
+
+# Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
+# but then we hit the proxy problem...
+wget -O $TMP $PFX$VERssh$SFX
+
+# Build the image:
+docker build -t  ssh_compat_suite-ssh:$VER -f ./TempDockerFile .
+
+# Cleaning
+rm -fr ./TempDockerFile $TMP
+

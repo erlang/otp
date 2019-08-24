@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>global</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <docno></docno>
+    <date>1997-11-17</date>
+    <rev></rev>
+  </header>
+  <module since="">global</module>
+  <modulesummary>A global name registration facility.</modulesummary>
+  <description>
+    <p>This module consists of the following services:</p>
+    <list type="bulleted">
+      <item>Registration of global names</item>
+      <item>Global locks</item>
+      <item>Maintenance of the fully connected network</item>
+    </list>
+    <p>These services are controlled through the process
+      <c>global_name_server</c> that exists on every node. The global
+      name server starts automatically when a node is started.
+      With the term <em>global</em> is meant over a system consisting
+      of many Erlang nodes.</p>
+    <p>The ability to globally register names is a central concept in
+      the programming of distributed Erlang systems. In this module,
+      the equivalent of the <c>register/2</c> and <c>whereis/1</c>
+      BIFs (for local name registration) are provided, but for a
+      network of Erlang nodes. A registered name is an alias for a
+      process identifier (pid). The global name server monitors
+      globally registered pids. If a process terminates, the name is
+      also globally unregistered.</p>
+    <p>The registered names are stored in replica global name tables on
+      every node. There is no central storage point. Thus,
+      the translation of a name to a pid is fast, as it is always done
+      locally. For any action resulting in a change to the global name table,
+      all tables on other nodes are automatically updated.</p>
+    <p>Global locks have lock identities and are set on a specific
+      resource. For example, the specified resource can be a pid.
+      When a global lock is set, access to the locked resource is
+      denied for all resources other than the lock requester.</p>
+    <p>Both the registration and lock services are atomic.
+      All nodes involved in these actions have the same view of
+      the information.</p>
+    <p>The global name server also performs the critical task of
+      continuously monitoring changes in node configuration. If a node
+      that runs a globally registered process goes down, the name
+      is globally unregistered. To this end, the global name
+      server subscribes to <c>nodeup</c> and <c>nodedown</c> messages
+      sent from module <c>net_kernel</c>. Relevant Kernel
+      application variables in this context are <c>net_setuptime</c>,
+      <c>net_ticktime</c>, and <c>dist_auto_connect</c>. See also
+      <seealso marker="kernel_app#net_setuptime"><c>kernel(6)</c></seealso>.</p>
+    <p>The name server also maintains a fully connected network. For
+      example, if node <c>N1</c> connects to node <c>N2</c> (which is
+      already connected to <c>N3</c>), the global name servers on the
+      nodes <c>N1</c> and <c>N3</c> ensure that also <c>N1</c>
+      and <c>N3</c> are connected. If this is not desired,
+      command-line flag <c>-connect_all false</c> can be used (see also
+      <seealso marker="erts:erl#connect_all"><c>erl(1)</c></seealso>).
+      In this case, the name registration service cannot be used, but the
+      lock mechanism still works.</p>
+    <p>If the global name server fails to connect nodes (<c>N1</c> and
+      <c>N3</c> in the example), a warning event is sent to the
+      error logger. The presence of such an event does not exclude the
+      nodes to connect later (you can, for
+      example, try command <c>rpc:call(N1, net_adm, ping, [N2])</c> in
+      the Erlang shell), but it indicates a network problem.</p>
+    <note>
+      <p>If the fully connected network is not set up properly, try
+        first to increase the value of <c>net_setuptime</c>.</p>
+    </note>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="id"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="del_lock" arity="1" since=""/>
+      <name name="del_lock" arity="2" since=""/>
+      <fsummary>Delete a lock.</fsummary>
+      <desc>
+        <p>Deletes the lock <c><anno>Id</anno></c> synchronously.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="notify_all_name" arity="3" since=""/>
+      <fsummary>Name resolving function that notifies both pids.</fsummary>
+      <desc>
+        <p>Can be used as a name resolving function for
+          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          and
+          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+        <p>The function unregisters both pids and sends the message
+          <c>{global_name_conflict, <anno>Name</anno>, OtherPid}</c> to both
+          processes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="random_exit_name" arity="3" since=""/>
+      <fsummary>Name resolving function that kills one pid.</fsummary>
+      <desc>
+        <p>Can be used as a name resolving function for
+          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          and
+          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+        <p>The function randomly selects one of the pids for registration and
+          kills the other one.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="random_notify_name" arity="3" since=""/>
+      <fsummary>Name resolving function that notifies one pid.</fsummary>
+      <desc>
+        <p>Can be used as a name resolving function for
+          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          and
+          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+        <p>The function randomly selects one of the pids for registration, and
+          sends the message <c>{global_name_conflict, <anno>Name</anno>}</c> to
+          the other pid.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="re_register_name" arity="2" since=""/>
+      <name name="re_register_name" arity="3" since=""/>
+      <fsummary>Atomically re-register a name.</fsummary>
+      <type name="method"/>
+      <type_desc name="method">{<c>Module</c>, <c>Function</c>}
+        is also allowed.
+      </type_desc>
+      <desc>
+        <p>Atomically changes the registered name <c><anno>Name</anno></c> on
+          all nodes to refer to <c><anno>Pid</anno></c>.</p>
+        <p>Function <c><anno>Resolve</anno></c> has the same behavior as in
+          <seealso marker="#register_name/2"><c>register_name/2,3</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="register_name" arity="2" since=""/>
+      <name name="register_name" arity="3" since=""/>
+      <fsummary>Globally register a name for a pid.</fsummary>
+      <type name="method"/>
+      <type_desc name="method">{<c>Module</c>, <c>Function</c>} is also
+        allowed for backward compatibility, but its use is deprecated.
+      </type_desc>
+      <desc>
+        <p>Globally associates name <c><anno>Name</anno></c> with a pid, that
+          is, globally notifies all nodes of a new global name in a network
+          of Erlang nodes.</p>
+        <p>When new nodes are added to the network, they are informed
+          of the globally registered names that already exist.
+          The network is also informed of any global names in newly
+          connected nodes. If any name clashes are discovered,
+          function <c><anno>Resolve</anno></c> is called. Its purpose is to
+          decide which pid is correct. If the function crashes, or
+          returns anything other than one of the pids, the name is
+          unregistered. This function is called once for each name
+          clash.</p>
+	<warning>
+	  <p>If you plan to change code without restarting your system,
+	  you must use an external fun (<c>fun Module:Function/Arity</c>)
+	  as function <c><anno>Resolve</anno></c>. If you use a
+	  local fun, you can never replace the code for the module that
+	  the fun belongs to.</p>
+	</warning>
+        <p>Three predefined resolve functions exist:
+          <c>random_exit_name/3</c>, <c>random_notify_name/3</c>, and
+          <c>notify_all_name/3</c>. If no <c><anno>Resolve</anno></c> function
+          is defined, <c>random_exit_name</c> is used. This means that one
+          of the two registered processes is selected as correct
+          while the other is killed.</p>
+        <p>This function is completely synchronous, that is,
+          when this function returns, the name is either registered on
+          all nodes or none.</p>
+        <p>The function returns <c>yes</c> if successful, <c>no</c> if
+          it fails. For example, <c>no</c> is returned if an attempt
+          is made to register an already registered process or to
+          register a process with a name that is already in use.</p>
+        <note>
+          <p>Releases up to and including Erlang/OTP R10 did not check if the
+            process was already registered. The global name table could
+            therefore become inconsistent. The old
+            (buggy) behavior can be chosen by giving the Kernel
+            application variable <c>global_multi_name_action</c> the
+            value <c>allow</c>.</p>
+        </note>
+        <p>If a process with a registered name dies, or the node goes
+          down, the name is unregistered on all nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="registered_names" arity="0" since=""/>
+      <fsummary>All globally registered names.</fsummary>
+      <desc>
+        <p>Returns a list of all globally registered names.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="2" since=""/>
+      <fsummary>Send a message to a globally registered pid.</fsummary>
+      <desc>
+        <p>Sends message <c><anno>Msg</anno></c> to the pid globally registered
+          as <c><anno>Name</anno></c>.</p>
+        <p>If <c><anno>Name</anno></c> is not a globally registered
+          name, the calling function exits with reason
+          <c>{badarg, {<anno>Name</anno>, <anno>Msg</anno>}}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_lock" arity="1" since=""/>
+      <name name="set_lock" arity="2" since=""/>
+      <name name="set_lock" arity="3" since=""/>
+      <fsummary>Set a lock on the specified nodes.</fsummary>
+      <type name="id"/>
+      <type name="retries"/>
+      <desc>
+        <p>Sets a lock on the specified nodes (or on all nodes if none
+          are specified) on <c><anno>ResourceId</anno></c> for
+          <c><anno>LockRequesterId</anno></c>. If a lock already exists on
+          <c><anno>ResourceId</anno></c> for another requester than
+          <c><anno>LockRequesterId</anno></c>, and <c><anno>Retries</anno></c>
+          is not equal to <c>0</c>, the process sleeps for a while and tries
+          to execute the action later. When <c><anno>Retries</anno></c>
+          attempts have been made, <c>false</c> is returned, otherwise
+          <c>true</c>. If <c><anno>Retries</anno></c> is <c>infinity</c>,
+          <c>true</c> is eventually returned (unless the lock is never
+          released).</p>
+        <p>If no value for <c><anno>Retries</anno></c> is specified,
+          <c>infinity</c> is used.</p>
+        <p>This function is completely synchronous.</p>
+        <p>If a process that holds a lock dies, or the node goes
+          down, the locks held by the process are deleted.</p>
+        <p>The global name server keeps track of all processes sharing
+          the same lock, that is, if two processes set the same lock,
+          both processes must delete the lock.</p>
+        <p>This function does not address the problem of a deadlock. A
+          deadlock can never occur as long as processes only lock one
+          resource at a time. A deadlock can occur if some processes
+          try to lock two or more resources. It is up to the
+          application to detect and rectify a deadlock.</p>
+        <note>
+          <p>Avoid the following values of <c><anno>ResourceId</anno></c>,
+            otherwise Erlang/OTP does not work properly:</p>
+          <list type="bulleted">
+            <item><c>dist_ac</c></item>
+            <item><c>global</c></item>
+            <item><c>mnesia_adjust_log_writes</c></item>
+            <item><c>mnesia_table_lock</c></item>
+            <item><c>pg2</c></item>
+          </list>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sync" arity="0" since=""/>
+      <fsummary>Synchronize the global name server.</fsummary>
+      <desc>
+        <p>Synchronizes the global name server with all nodes known to
+          this node. These are the nodes that are returned from
+          <c>erlang:nodes()</c>. When this function returns,
+          the global name server receives global information from
+          all nodes. This function can be called when new nodes are
+          added to the network.</p>
+        <p>The only possible error reason <c>Reason</c> is
+          <c>{"global_groups definition error", Error}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="trans" arity="2" since=""/>
+      <name name="trans" arity="3" since=""/>
+      <name name="trans" arity="4" since=""/>
+      <fsummary>Micro transaction facility.</fsummary>
+      <type name="retries"/>
+      <type name="trans_fun"/>
+      <desc>
+        <p>Sets a lock on <c><anno>Id</anno></c> (using
+          <seealso marker="#set_lock/3"><c>set_lock/3</c></seealso>).
+          If this succeeds, <c><anno>Fun</anno>()</c> is evaluated and the
+          result <c><anno>Res</anno></c>
+          is returned. Returns <c>aborted</c> if the lock attempt fails.
+          If <c><anno>Retries</anno></c> is set to <c>infinity</c>,
+          the transaction does not abort.</p>
+        <p><c>infinity</c> is the default setting and is used if
+          no value is specified for <c><anno>Retries</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unregister_name" arity="1" since=""/>
+      <fsummary>Remove a globally registered name for a pid.</fsummary>
+      <desc>
+        <p>Removes the globally registered name <c><anno>Name</anno></c> from
+          the network of Erlang nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="whereis_name" arity="1" since=""/>
+      <fsummary>Get the pid with a specified globally registered name.</fsummary>
+      <desc>
+        <p>Returns the pid with the globally registered name
+          <c><anno>Name</anno></c>. Returns <c>undefined</c> if the name is not
+          globally registered.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="global_group"><c>global_group(3)</c></seealso>,
+      <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso></p>
+  </section>
+</erlref>
+

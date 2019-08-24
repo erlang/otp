@@ -1,0 +1,2191 @@
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>crypto</title>
+  </header>
+  <module since="">crypto</module>
+  <modulesummary>Crypto Functions</modulesummary>
+  <description>
+    <p>This module provides a set of cryptographic functions.
+      </p>
+      <taglist>
+	<tag>Hash functions</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>SHA1, SHA2</tag>
+	    <item>
+	      <url href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf">
+		Secure Hash Standard [FIPS PUB 180-4]
+	      </url>
+	    </item>
+	    <tag>SHA3</tag>
+	      <item>
+		<url href="https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061">
+		  SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions [FIPS PUB 202]
+		</url>		
+	      </item>
+            <tag>BLAKE2</tag>
+              <item>
+                <url href="https://blake2.net/">BLAKE2 — fast secure hashing</url>
+              </item>
+	    <tag>MD5</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc1321.txt">The MD5 Message Digest Algorithm [RFC 1321]</url>
+	    </item>
+	    <tag>MD4</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm [RFC 1320]</url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>MACs - Message Authentication Codes</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>Hmac functions</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc2104.txt">
+		Keyed-Hashing for Message Authentication [RFC 2104]
+	      </url>
+	    </item>
+	    <tag>Cmac functions</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc4493.txt">
+		The AES-CMAC Algorithm [RFC 4493]
+	      </url>
+	    </item>
+	    <tag>POLY1305</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Symmetric Ciphers</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+            <tag>DES, 3DES and AES</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/projects/block-cipher-techniques">Block Cipher Techniques [NIST]</url>
+	    </item>
+	    <tag>Blowfish</tag>
+	    <item>
+	      <url href="https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html">
+		Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204.
+	      </url>
+	    </item>
+	    <tag>Chacha20</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	    <tag>Chacha20_poly1305</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Modes</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>ECB, CBC, CFB, OFB and CTR</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/publications/detail/sp/800-38a/final">
+		Recommendation for Block Cipher Modes of Operation: Methods and Techniques [NIST SP 800-38A]
+	      </url>
+	    </item>
+	    <tag>GCM</tag>
+	    <item>
+              <url href="https://csrc.nist.gov/publications/detail/sp/800-38d/final">
+		Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC [NIST SP 800-38D]
+	      </url>
+	    </item>
+	    <tag>CCM</tag>
+	    <item>
+	      <url href="https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf">
+		Recommendation for Block Cipher Modes of Operation:
+		The CCM Mode for Authentication and Confidentiality [NIST SP 800-38C]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Asymetric Ciphers - Public Key Techniques</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>RSA</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc3447.txt">
+		PKCS #1: RSA Cryptography Specifications [RFC 3447]
+	      </url>
+	    </item>
+	    <tag>DSS</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/publications/detail/fips/186/4/final">
+		Digital Signature Standard (DSS) [FIPS 186-4]
+	      </url>
+	    </item>
+	    <tag>ECDSA</tag>
+	    <item>
+	      <url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf">
+		Elliptic Curve Digital Signature Algorithm [ECDSA]
+	      </url>
+	    </item>
+	    <tag>SRP</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc2945.txt">
+		The SRP Authentication and Key Exchange System [RFC 2945]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+      </taglist>
+
+    <note>
+      <p>The actual supported algorithms and features depends on their availability in the actual libcrypto used.
+      See the <seealso marker="crypto:crypto_app">crypto (App)</seealso> about dependencies.
+      </p>
+      <p>Enabling FIPS mode will also disable algorithms and features.
+      </p>
+    </note>
+
+    <p>The <seealso marker="users_guide">CRYPTO User's Guide</seealso> has more information on
+    FIPS, Engines and Algorithm Details like key lengths.
+    </p>
+  </description>
+
+  <datatypes>
+    <datatype_title>Ciphers, new API</datatype_title>
+    <datatype>
+      <name name="cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cipher_no_iv"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cipher_iv"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cipher_aead"/>
+      <desc>
+	<p>Ciphers known by the CRYPTO application when using the
+	<seealso marker="crypto:new_api#the-new-api">new API</seealso>.</p>
+	<p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Ciphers, old API</datatype_title>
+    <datatype>
+      <name name="block_cipher_with_iv"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="block_cipher_without_iv"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="stream_cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="aead_cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cbc_cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cfb_cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ctr_cipher"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ecb_cipher"/>
+      <desc>
+	<p>Ciphers known by the CRYPTO application when using the
+	<seealso marker="crypto:new_api#the-old-api">old API</seealso>.</p>
+	<p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="retired_cbc_cipher_aliases"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="retired_cfb_cipher_aliases"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="retired_ctr_cipher_aliases"/>
+      <desc>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="retired_ecb_cipher_aliases"/>
+      <desc>
+	<p>Alternative, old names of ciphers known by the CRYPTO application when using the
+	<seealso marker="crypto:new_api#the-old-api">old API</seealso>.
+	See <seealso marker="crypto:new_api#retired-cipher-names">Retired cipher names</seealso> for names to
+	use instead to be prepared for an easy convertion to the
+	<seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	</p>
+	<p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Digests and hash</datatype_title>
+    <datatype>
+      <name name="hash_algorithm"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="hmac_hash_algorithm"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="cmac_cipher_algorithm"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="rsa_digest_type"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="dss_digest_type"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ecdsa_digest_type"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sha1"/>
+      <name name="sha2"/>
+      <name name="sha3"/>
+      <name name="blake2"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="compatibility_only_hash"/>
+      <desc>
+	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Elliptic Curves</datatype_title>
+    <datatype>
+      <name name="ec_named_curve"/>
+      <name name="edwards_curve_dh"/>
+      <name name="edwards_curve_ed"/>
+      <desc>
+	<p>Note that some curves are disabled if FIPS is enabled.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ec_explicit_curve"/>
+      <name name="ec_field"/>
+      <name name="ec_curve"/>
+      <desc>
+	<p>Parametric curve definition.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ec_prime_field"/>
+      <name name="ec_characteristic_two_field"/>
+      <name name="ec_basis"/>
+      <desc>
+	<p>Curve definition details.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Keys</datatype_title>
+    <datatype>
+      <name name="key"/>
+      <name name="des3_key"/>
+      <desc>
+	<p>For keylengths, iv-sizes and blocksizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+	<p>A key for des3 is a list of three iolists</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="key_integer"/>
+      <desc>
+	<p>Always <c>binary()</c> when used as return value</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Public/Private Keys</datatype_title>
+    <datatype>
+      <name name="rsa_public"/>
+      <name name="rsa_private"/>
+      <name name="rsa_params"/>
+      <desc>
+	<code>rsa_public() = [E, N]</code>
+	<code>rsa_private() = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</code>
+	<p>Where E is the public exponent, N is public modulus and D is
+	the private exponent. The longer key format contains redundant
+	information that will make the calculation faster. P1,P2 are first
+	and second prime factors. E1,E2 are first and second exponents. C
+	is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="dss_public"/>
+      <name name="dss_private"/>
+      <desc>
+	<code>dss_public() = [P, Q, G, Y] </code>
+	<p>Where P, Q and G are the dss parameters and Y is the public key.</p>
+
+	<code>dss_private() = [P, Q, G, X] </code>
+	<p>Where P, Q and G are the dss parameters and X is the private key.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ecdsa_public"/>
+      <name name="ecdsa_private"/>
+      <name name="ecdsa_params"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="eddsa_public"/>
+      <name name="eddsa_private"/>
+      <name name="eddsa_params"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="srp_public"/>
+      <name name="srp_private"/>
+      <desc>
+	<code>srp_public() = key_integer() </code>
+	<p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
+	
+	<code>srp_private() = key_integer() </code>
+	<p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="srp_gen_params"/>
+      <name name="srp_comp_params"/>
+      <desc>
+	<marker id="type-srp_user_gen_params"/>
+	<code>srp_user_gen_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom()]</code>
+	<marker id="type-srp_host_gen_params"/>
+	<code>srp_host_gen_params() = [Verifier::binary(), Prime::binary(), Version::atom() ]</code>
+	<marker id="type-srp_user_comp_params"/>
+	<code>srp_user_comp_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | ScramblerArg::list()]</code>
+	<marker id="type-srp_host_comp_params"/>
+	<code>srp_host_comp_params() = [Verifier::binary(), Prime::binary(), Version::atom() | ScramblerArg::list()]</code>
+	<p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
+	<c>u</c> (optional will be generated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	Version = '3' |  '6' |  '6a'
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Public Key Ciphers</datatype_title>
+
+    <datatype>
+      <name name="pk_encrypt_decrypt_algs"/>
+      <desc>
+	<p>Algorithms for public key encrypt/decrypt. Only RSA is supported.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pk_encrypt_decrypt_opts"/>
+      <name name="rsa_opt"/>
+      <name name="rsa_padding"/>
+      <desc>
+	<p>Options for public key encrypt/decrypt. Only RSA is supported.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="rsa_compat_opts"/>
+      <desc>
+	<p>Those option forms are kept only for compatibility and should not be used in new code.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Public Key Sign and Verify</datatype_title>
+
+    <datatype>
+      <name name="pk_sign_verify_algs"/>
+      <desc>
+	<p>Algorithms for sign and verify.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pk_sign_verify_opts"/>
+      <name name="rsa_sign_verify_opt"/>
+      <name name="rsa_sign_verify_padding"/>
+      <desc>
+	<p>Options for sign and verify.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
+      </desc>
+    </datatype>
+
+    <datatype_title>Diffie-Hellman Keys and parameters</datatype_title>
+    <datatype>
+      <name name="dh_public"/>
+      <name name="dh_private"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="dh_params"/>
+      <desc>
+	<code>dh_params() = [P, G] | [P, G, PrivateKeyBitLength]</code>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ecdh_public"/>
+      <name name="ecdh_private"/>
+      <name name="ecdh_params"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype_title>Types for Engines</datatype_title>
+
+    <datatype>
+      <name name="engine_key_ref"/>
+      <name name="engine_ref"/>
+      <desc>
+	<p>The result of a call to <seealso marker="#engine_load-3">engine_load/3</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="key_id"/>
+      <desc>
+	<p>Identifies the key to be used. The format depends on the loaded engine. It is passed to
+	the <c>ENGINE_load_(private|public)_key</c> functions in libcrypto.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="password"/>
+      <desc>
+	<p>The password of the key stored in an engine.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="engine_method_type"/>
+    </datatype>
+
+    <datatype>
+      <name name="engine_cmnd"/>
+      <desc>
+	<p>Pre and Post commands for <seealso marker="#engine_load-3">engine_load/3 and /4</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Internal data types</datatype_title>
+
+    <datatype>
+      <name name="crypto_state"/>
+      <name name="hash_state"/>
+      <name name="hmac_state"/>
+      <name name="mac_state"/>
+      <name name="stream_state"/>
+      <desc>
+	<p>Contexts with an internal state that should not be manipulated but passed between function calls.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Error types</datatype_title>
+
+    <datatype>
+      <name name="run_time_error"/>
+      <desc>
+	<p>The exception <c>error:badarg</c> signifies that one or more arguments are of wrong data type,
+	or are otherwise badly formed.
+	</p>
+	<p>The exception <c>error:notsup</c> signifies that the algorithm is known but is not supported
+	by current underlying libcrypto or explicitly disabled when building that.
+	</p>
+	<p>For a list of supported algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="descriptive_error"/>
+      <desc>
+	<p>This is a more developed variant of the older
+	<seealso marker="#type-run_time_error">run_time_error()</seealso>.
+	</p>
+	<p>The exception is:</p>
+	<pre>
+	  {Tag, {C_FileName,LineNumber}, Description}
+
+	   Tag = badarg | notsup | error
+	   C_FileName = string()
+	   LineNumber = integer()
+	   Description = string()
+	</pre>
+
+	<p>It is like the older type an exception of the <c>error</c> class. In addition they contain
+	a descriptive text in English. That text is targeted to a developer. Examples are "Bad key size"
+	or "Cipher id is not an atom".
+	</p>
+	<p>The exception tags are:</p>
+	<taglist>
+	  <tag><c>badarg</c></tag>
+	  <item><p>Signifies that one or more arguments are of wrong data type or are otherwise badly formed.</p>
+	  </item>
+
+	  <tag><c>notsup</c></tag>
+	  <item><p>Signifies that the algorithm is known but is not supported by current underlying libcrypto
+	  or explicitly disabled when building that one.</p>
+	  </item>
+
+	  <tag><c>error</c></tag>
+	  <item><p>An error condition that should not occur, for example a memory allocation failed or
+	  the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
+	  Thoose text usually needs searching the C-code to be understood.</p>
+	  </item>
+	</taglist>
+	<p>To catch the exception, use for example:</p>
+	<code>
+	  try crypto:crypto_init(Ciph, Key, IV, true)
+	  catch
+	      error:{Tag, {C_FileName,LineNumber}, Description} ->
+	              do_something(......)
+	      .....
+	  end
+	</code>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+  <!--================ FUNCTIONS ================-->
+  <section>
+    <title>New API</title>
+  </section>
+
+  <funcs>
+    <func>
+      <name name="crypto_init" arity="3" since="OTP 22.0"/>
+      <fsummary>Initializes a series of encryptions or decryptions</fsummary>
+      <desc>
+	<p>As <seealso marker="#crypto_init/4">crypto_init/4</seealso> but for ciphers without IVs.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_init" arity="4" since="OTP 22.0"/>
+      <fsummary>Initializes a series of encryptions or decryptions</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	Initializes a series of encryptions or decryptions and creates an internal state
+	with a reference that is returned.
+	The actual encryption or decryption is done by
+	<seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
+	</p>
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	</p>
+	<p>See <seealso marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_update" arity="2" since="OTP 22.0"/>
+      <fsummary>Do an actual crypto operation on a part of the full text</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	It does an actual crypto operation on a part of the full text. If the part is less
+	than a number of full blocks, only the full blocks (possibly none) are encrypted 
+	or decrypted and the remaining bytes are saved to the next <c>crypto_update</c> operation.
+	The <c>State</c> should be created with
+	<seealso marker="crypto#crypto_init/3">crypto_init/3</seealso>
+	or
+	<seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>.
+	</p>
+	<p>See <seealso marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_dyn_iv_init" arity="3" since="OTP 22.0"/>
+      <fsummary>Initializes a series of encryptions or decryptions where the IV is provided later</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	Initializes a series of encryptions or decryptions where the IV is provided later.
+	The actual encryption or decryption is done by
+	<seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso>.
+	</p>
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_dyn_iv_update" arity="3" since="OTP 22.0"/>
+      <fsummary>Do an actual crypto operation on a part of the full text and the IV is supplied for each part</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	Do an actual crypto operation on a part of the full text and the IV is supplied for each part.
+	The <c>State</c> should be created with
+	<seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_one_time" arity="4" since="OTP 22.0"/>
+      <fsummary>Do a complete encrypt or decrypt of the full text</fsummary>
+      <desc>
+	<p>As <seealso marker="#crypto_one_time/5">crypto_one_time/5</seealso> but for ciphers without IVs.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_one_time" arity="5" since="OTP 22.0"/>
+      <fsummary>Do a complete encrypt or decrypt of the full text</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	Do a complete encrypt or decrypt of the full text in the argument <c>Data</c>.
+	</p>
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	</p>
+	<p>See <seealso marker="crypto:new_api#example-of-crypto_one_time-5">examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_one_time_aead" arity="6" since="OTP 22.0"/>
+      <name name="crypto_one_time_aead" arity="7" since="OTP 22.0"/>
+      <fsummary>Do a complete encrypt or decrypt with an AEAD cipher of the full text</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	Do a complete encrypt or decrypt with an AEAD cipher of the full text.
+	</p>
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c> and set the <c>TagOrTagLength</c>
+	to the wanted size of the tag, that is, the tag length.  If the default length is wanted, the
+	<c>crypto_aead/6</c> form may be used.
+	</p>
+	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
+	in the argument	<c>TagOrTagLength</c>.
+	</p>
+	<p>See <seealso marker="crypto:new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="supports" arity="1" since="OTP 22.0"/>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+        <p> Can be used to determine which crypto algorithms that are supported
+	by the underlying libcrypto library</p>
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac" arity="3" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#mac-4">mac(Type, undefined, Key, Data)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac" arity="4" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Computes a MAC (Message Authentication Code) of type <c>Type</c> from <c>Data</c>.
+	</p>
+
+	<p><c>SubType</c> depends on the MAC <c>Type</c>:
+	</p>
+	<list>
+	  <item>For <c>hmac</c> it is a hash algorithm, see
+	  <seealso marker="algorithm_details#hmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac, see
+	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
+	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	</list>
+
+	<p><c>Key</c> is the authentication key with a length according to the
+	<c>Type</c> and <c>SubType</c>.
+	The key length could be found with the
+	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	functions. For <c>poly1305</c> the key length is 32 bytes. Note that
+	the cryptographic quality of the key is not checked.
+	</p>
+
+	<p>The <c>Mac</c> result will have a default length depending on the <c>Type</c> and <c>SubType</c>.
+	To set a shorter length, use <seealso marker="#macN-4">macN/4</seealso> or
+	<seealso marker="#macN-5">macN/5</seealso> instead.
+	The default length is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="macN" arity="4" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#macN-5">macN(Type, undefined, Key, Data, MacLength)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="macN" arity="5" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Computes a MAC (Message Authentication Code)
+	as <seealso marker="#mac-3">mac/3</seealso> and <seealso marker="#mac-4">mac/4</seealso> but
+	<c>MacLength</c> will limit the size of the resultant <c>Mac</c> to
+	at most <c>MacLength</c> bytes.
+	Note that if <c>MacLength</c> is greater than the actual number of
+	bytes returned from the underlying hash, the returned hash will have
+	that shorter length instead.
+	</p>
+	<p>The max <c>MacLength</c> is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_init" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#mac_init-3">mac_init(Type, undefined, Key)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_init" arity="3" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Initializes the context for streaming MAC operations.
+	</p>
+	<p><c>Type</c> determines which mac algorithm to use in the MAC operation.
+	</p>
+
+	<p><c>SubType</c> depends on the MAC <c>Type</c>:
+	</p>
+	<list>
+	  <item>For <c>hmac</c> it is a hash algorithm, see
+	  <seealso marker="algorithm_details#hmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac, see
+	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
+	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	</list>
+
+	<p><c>Key</c> is the authentication key with a length according to the
+	<c>Type</c> and <c>SubType</c>.
+	The key length could be found with the
+	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	functions. For <c>poly1305</c> the key length is 32 bytes.  Note that
+	the cryptographic quality of the key is not checked.
+	</p>
+
+	<p>The returned <c>State</c> should be used in one or more subsequent calls to
+	<seealso marker="#mac_update-2">mac_update/2</seealso>.
+	The MAC value is finally returned by calling
+	<seealso marker="#mac_final-1">mac_final/1</seealso> or
+	<seealso marker="#mac_finalN-2">mac_finalN/2</seealso>.
+	</p>
+
+	<p>See <seealso marker="crypto:new_api#example-of-mac_init-mac_update-and-mac_final">
+	examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_update" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Updates the MAC represented by <c>State0</c> using the given <c>Data</c> which
+	could be of any length.
+	</p>
+	<p>The <c>State0</c> is the State value originally from a MAC init function, that is
+	<seealso marker="#mac_init-2">mac_init/2</seealso>,
+	<seealso marker="#mac_init-3">mac_init/3</seealso> or
+	a previous call of <c>mac_update/2</c>.
+	The value <c>State0</c> is returned unchanged by the function as <c>State</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_final" arity="1" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Finalizes the MAC operation referenced by <c>State</c>. The <c>Mac</c> result will have
+	a default length depending on the <c>Type</c> and <c>SubType</c> in the
+	<seealso marker="#mac_init-3">mac_init/2,3</seealso> call.
+	To set a shorter length, use <seealso marker="#mac_finalN-2">mac_finalN/2</seealso> instead.
+	The default length is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_finalN" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Finalizes the MAC operation referenced by <c>State</c>.
+	</p>
+	<p><c>Mac</c> will be a binary with at most <c>MacLength</c> bytes.
+	Note that if <c>MacLength</c> is greater than the actual number of
+	bytes returned from the underlying hash, the returned hash will have
+	that shorter length instead.
+	</p>
+	<p>The max <c>MacLength</c> is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
+	</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>API kept from previous versions</title>
+  </section>
+
+  <funcs>
+    <func>
+      <name name="bytes_to_integer" arity="1" since="OTP R16B01"/>
+      <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
+      <desc>
+        <p>Convert binary representation, of an integer, to an Erlang integer.
+         </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="compute_key" arity="4" since="OTP R16B01"/>
+      <fsummary>Computes the shared secret</fsummary>
+      <desc>
+	<p>Computes the shared secret from the private key and the other party's public key.
+	 See also <seealso marker="public_key:public_key#compute_key-2">public_key:compute_key/2</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="exor" arity="2" since=""/>
+      <fsummary>XOR data</fsummary>
+      <desc>
+	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name name="generate_key" arity="2" since="OTP R16B01"/>
+      <name name="generate_key" arity="3" since="OTP R16B01"/>
+      <fsummary>Generates a public key of type <c>Type</c></fsummary>
+      <desc>
+	<p>Generates a public key of type <c>Type</c>.
+	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>.
+	May raise exception:
+        </p>
+        <list type="bulleted">
+          <item><c>error:badarg</c>: an argument is of wrong type or has an illegal value,</item>
+	  <item><c>error:low_entropy</c>: the random generator failed due to lack of secure "randomness",</item>
+          <item><c>error:computation_failed</c>: the computation fails of another reason than <c>low_entropy</c>.</item>
+        </list>
+	<note>
+	  <p>RSA key generation is only available if the runtime was
+	  built with dirty scheduler support. Otherwise, attempting to
+	  generate an RSA key will raise exception <c>error:notsup</c>.</p>
+	</note>
+      </desc>
+    </func>
+
+     <func>
+      <name name="hash" arity="2" since="OTP R15B02"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_init" arity="1" since="OTP R15B02"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Initializes the context for streaming hash operations. <c>Type</c> determines
+        which digest to use. The returned context should be used as argument
+	to <seealso marker="#hash_update-2">hash_update</seealso>.</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_update" arity="2" since="OTP R15B02"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using <seealso marker="#hash_init-1">hash_init</seealso>
+	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hash_update</c>
+	or <seealso marker="#hash_final-1">hash_final</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_final" arity="1" since="OTP R15B02"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Finalizes the hash operation referenced by <c>Context</c> returned
+	from a previous call to <seealso marker="#hash_update-2">hash_update</seealso>.
+	The size of <c>Digest</c> is determined by the type of hash
+	function used to generate it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info_fips" arity="0" since="OTP 20.0"/>
+      <fsummary>Provides information about the FIPS operating status.</fsummary>
+      <desc>
+        <p>Provides information about the FIPS operating status of
+        crypto and the underlying libcrypto library. If crypto was built
+        with FIPS support this can be either <c>enabled</c> (when
+        running in FIPS mode) or <c>not_enabled</c>. For other builds
+        this value is always <c>not_supported</c>.
+	</p>
+	<p>See <seealso marker="#enable_fips_mode-1">enable_fips_mode/1</seealso> about how to enable
+	FIPS mode.
+	</p>
+        <warning>
+          <p>In FIPS mode all non-FIPS compliant algorithms are
+          disabled and raise exception <c>error:notsup</c>. Check
+          <seealso marker="#supports-0">supports</seealso> that in
+          FIPS mode returns the restricted list of available
+          algorithms.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="enable_fips_mode" arity="1" since="OTP 21.1"/>
+      <fsummary>Change FIPS mode.</fsummary>
+      <desc>
+        <p>Enables (<c>Enable = true</c>) or disables (<c>Enable = false</c>) FIPS mode. Returns <c>true</c> if
+	the operation was successful or <c>false</c> otherwise.
+	</p>
+	<p>Note that to enable FIPS mode succesfully, OTP must be built with the configure option <c>--enable-fips</c>,
+	and the underlying libcrypto must also support FIPS.
+	</p>
+	<p>See also <seealso marker="#info_fips-0">info_fips/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info_lib" arity="0" since=""/>
+      <fsummary>Provides information about the libraries used by crypto.</fsummary>
+      <desc>
+        <p>Provides the name and version of the libraries used by crypto.</p>
+        <p><c>Name</c> is the name of the library. <c>VerNum</c> is
+        the numeric version according to the library's own versioning
+        scheme. <c>VerStr</c> contains a text variant of the version.</p>
+        <pre>
+> <input>info_lib().</input>
+[{&lt;&lt;"OpenSSL"&gt;&gt;,269484095,&lt;&lt;"OpenSSL 1.1.0c  10 Nov 2016""&gt;&gt;}]
+        </pre>
+	<note><p>
+	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
+	  <em>header files</em> (<c>openssl/opensslv.h</c>) used when crypto was compiled.
+	  The text variant represents the libcrypto library used at runtime.
+	  In earlier OTP versions both numeric and text was taken from the library.
+	</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported hash algorithms.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, size and possibly other properties of the
+	hash algorithm in question.
+	</p>
+	<p>For a list of supported hash algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cipher_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported ciphers.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
+	cipher algorithm in question.
+	</p>
+        <note>
+	  <p>The ciphers <c>aes_cbc</c>, <c>aes_cfb8</c>, <c>aes_cfb128</c>, <c>aes_ctr</c>,
+	  <c>aes_ecb</c>, <c>aes_gcm</c> and <c>aes_ccm</c>
+	  has no keylength in the <c>Type</c> as opposed to for example <c>aes_128_ctr</c>. They adapt to the length of
+	  the key provided in the encrypt and decrypt function. Therefor it is impossible to return a valid keylength
+	  in the map.</p>
+	  <p>Always use a <c>Type</c> with an explicit key length,
+	  </p>
+	</note>
+	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mod_pow" arity="3" since="OTP R16B01"/>
+      <fsummary>Computes the function: N^P mod M</fsummary>
+      <desc>
+	<p>Computes the function <c>N^P mod M</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next_iv" arity="2" since="OTP R16B01"/>
+      <name name="next_iv" arity="3" since="OTP R16B01"/>
+      <fsummary></fsummary>
+      <desc>
+	<p>Returns the initialization vector to be used in the next
+	iteration of encrypt/decrypt of type <c>Type</c>. <c>Data</c> is the
+	encrypted data from the previous iteration step. The <c>IVec</c>
+	argument is only needed for <c>des_cfb</c> as the vector used
+	in the previous iteration step.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="private_decrypt" arity="4" since="OTP R16B01"/>
+      <fsummary>Decrypts CipherText using the private Key.</fsummary>
+      <desc>
+	<p>Decrypts the <c>CipherText</c>, encrypted with
+	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
+	  using the <c>PrivateKey</c>, and returns the
+	  plaintext (message digest). This is a low level signature  verification operation
+	used for instance by older versions of the SSL protocol.
+	  See also <seealso marker="public_key:public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="private_encrypt" arity="4" since="OTP R16B01"/>
+      <fsummary>Encrypts PlainText using the private Key.</fsummary>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
+	and returns the ciphertext. This is a low level signature operation
+	used for instance by older versions of the SSL protocol. See
+	also <seealso
+	marker="public_key:public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="public_decrypt" arity="4" since="OTP R16B01"/>
+      <fsummary>Decrypts CipherText using the public Key.</fsummary>
+      <desc>
+	<p>Decrypts the <c>CipherText</c>, encrypted with
+	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
+	  using the <c>PrivateKey</c>, and returns the
+	  plaintext (message digest). This is a low level signature verification operation
+	  used for instance by older versions of the SSL protocol.
+	  See also <seealso marker="public_key:public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="public_encrypt" arity="4" since="OTP R16B01"/>
+      <fsummary>Encrypts PlainText using the public Key.</fsummary>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
+	and returns the <c>CipherText</c>. This is a low level signature operation
+	used for instance by older versions of the SSL protocol. See also <seealso
+	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rand_seed" arity="1" since="OTP 17.0"/>
+      <fsummary>Set the seed for random bytes generation</fsummary>
+      <desc>
+        <p>Set the seed for PRNG to the given binary. This calls the
+        RAND_seed function from openssl. Only use this if the system
+        you are running on does not have enough "randomness" built in.
+        Normally this is when
+        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>
+        raises <c>error:low_entropy</c></p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">rand_uniform(Lo, Hi) -> N</name>
+      <fsummary>Generate a random number</fsummary>
+      <type>
+        <v>Lo, Hi, N = integer()</v>
+      </type>
+      <desc>
+        <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
+	<c>crypto</c> library pseudo-random number generator.
+	<c>Hi</c> must be larger than <c>Lo</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="0" since=""/>
+      <fsummary> Equivalent to application:start(crypto). </fsummary>
+      <desc>
+        <p> Equivalent to application:start(crypto).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" since=""/>
+      <fsummary> Equivalent to application:stop(crypto).</fsummary>
+      <desc>
+        <p> Equivalent to application:stop(crypto).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strong_rand_bytes" arity="1" since="OTP R14B03"/>
+      <fsummary>Generate a binary of random bytes</fsummary>
+      <desc>
+        <p>Generates N bytes randomly uniform 0..255, and returns the
+        result in a binary. Uses a cryptographically secure prng seeded and
+        periodically mixed with operating system provided entropy. By default
+        this is the <c>RAND_bytes</c> method from OpenSSL.</p>
+	<p>May raise exception <c>error:low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rand_seed" arity="0" since="OTP 20.0"/>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strong random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>),
+          and saves it in the process dictionary before returning it as well.
+          See also
+	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso> and
+	  <seealso marker="#rand_seed_s-0">rand_seed_s/0</seealso>.
+	</p>
+	<p>
+	  When using the state object from this function the
+	  <seealso marker="stdlib:rand">rand</seealso> functions using it
+	  may raise exception <c>error:low_entropy</c> in case the random generator
+	  failed due to lack of secure "randomness".
+	</p>
+        <p><em>Example</em></p>
+        <pre>
+_ = crypto:rand_seed(),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rand_seed_s" arity="0" since="OTP 20.0"/>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strongly random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>).
+          See also
+	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	</p>
+	<p>
+	  When using the state object from this function the
+	  <seealso marker="stdlib:rand">rand</seealso> functions using it
+	  may raise exception <c>error:low_entropy</c> in case the random generator
+	  failed due to lack of secure "randomness".
+	</p>
+	<note>
+	  <p>
+	    The state returned from this function cannot be used
+	    to get a reproducable random sequence as from
+	    the other
+	    <seealso marker="stdlib:rand">rand</seealso>
+	    functions,
+	    since reproducability does not match cryptographically safe.
+	  </p>
+	  <p>
+	    The only supported usage is to generate one distinct
+	    random sequence from this start state.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">rand_seed_alg(Alg) -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <type>
+        <v>Alg = crypto | crypto_cache</v>
+      </type>
+      <desc>
+	<marker id="rand_seed_alg-1" />
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strong random numbers,
+          and saves it in the process dictionary before returning it as well.
+          See also
+	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso> and
+	  <seealso marker="#rand_seed_alg_s-1">rand_seed_alg_s/1</seealso>.
+	</p>
+	<p>
+	  When using the state object from this function the
+	  <seealso marker="stdlib:rand">rand</seealso> functions using it
+	  may raise exception <c>error:low_entropy</c> in case the random generator
+	  failed due to lack of secure "randomness".
+	</p>
+        <p><em>Example</em></p>
+        <pre>
+_ = crypto:rand_seed_alg(crypto_cache),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-22.0">rand_seed_alg(Alg, Seed) -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <type>
+        <v>Alg = crypto_aes</v>
+      </type>
+      <desc>
+	<marker id="rand_seed_alg-2" />
+	<p>
+          Creates a state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically unpredictable random numbers,
+          and saves it in the process dictionary before returning it as well.
+          See also
+	  <seealso marker="#rand_seed_alg_s-2">rand_seed_alg_s/2</seealso>.
+	</p>
+        <p><em>Example</em></p>
+        <pre>
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % [1; 42]
+FloatValue = rand:uniform(),     % [0.0; 1.0[
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % Same values
+FloatValue = rand:uniform().     % again
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">rand_seed_alg_s(Alg) -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <type>
+        <v>Alg = crypto | crypto_cache</v>
+      </type>
+      <desc>
+	<marker id="rand_seed_alg_s-1" />
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strongly random numbers.
+          See also
+	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	</p>
+	<p>
+	  If <c>Alg</c> is <c>crypto</c> this function behaves exactly like
+	  <seealso marker="#rand_seed_s-0">rand_seed_s/0</seealso>.
+	</p>
+	<p>
+	  If <c>Alg</c> is <c>crypto_cache</c> this function
+	  fetches random data with OpenSSL's <c>RAND_bytes</c>
+	  and caches it for speed using an internal word size
+	  of 56 bits that makes calculations fast on 64 bit machines.
+	</p>
+	<p>
+	  When using the state object from this function the
+	  <seealso marker="stdlib:rand">rand</seealso> functions using it
+	  may raise exception <c>error:low_entropy</c> in case the random generator
+	  failed due to lack of secure "randomness".
+	</p>
+	<p>
+	  The cache size can be changed from its default value using the
+	  <seealso marker="crypto_app">
+	    crypto app's
+	  </seealso> configuration parameter <c>rand_cache_size</c>.
+	</p>
+	<p>
+	  When using the state object from this function the
+	  <seealso marker="stdlib:rand">rand</seealso> functions using it
+	  may throw exception <c>low_entropy</c> in case the random generator
+	  failed due to lack of secure "randomness".
+	</p>
+	<note>
+	  <p>
+	    The state returned from this function cannot be used
+	    to get a reproducable random sequence as from
+	    the other
+	    <seealso marker="stdlib:rand">rand</seealso>
+	    functions,
+	    since reproducability does not match cryptographically safe.
+	  </p>
+	  <p>
+	    In fact since random data is cached some numbers may
+	    get reproduced if you try, but this is unpredictable.
+	  </p>
+	  <p>
+	    The only supported usage is to generate one distinct
+	    random sequence from this start state.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 22.0">rand_seed_alg_s(Alg, Seed) -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <type>
+        <v>Alg = crypto_aes</v>
+      </type>
+      <desc>
+	<marker id="rand_seed_alg_s-2" />
+	<p>
+          Creates a state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically unpredictable random numbers.
+          See also
+	  <seealso marker="#rand_seed_alg-1">rand_seed_alg/1</seealso>.
+	</p>
+	<p>
+	  To get a long period the Xoroshiro928 generator from the
+	  <seealso marker="stdlib:rand">rand</seealso>
+	  module is used as a counter (with period 2^928 - 1)
+	  and the generator states are scrambled through AES
+	  to create 58-bit pseudo random values.
+	</p>
+	<p>
+	  The result should be statistically completely unpredictable
+	  random values, since the scrambling is cryptographically strong
+	  and the period is ridiculously long.  But the generated numbers
+	  are not to be regarded as cryptographically strong since
+	  there is no re-keying schedule.
+	</p>
+	<list type="bulleted">
+	  <item>
+	    <p>
+	      If you need cryptographically strong random numbers use
+	      <seealso marker="#rand_seed_alg_s-1">rand_seed_alg_s/1</seealso>
+	      with <c>Alg =:= crypto</c> or <c>Alg =:= crypto_cache</c>.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      If you need to be able to repeat the sequence use this function.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      If you do not need the statistical quality of this function,
+	      there are faster algorithms in the
+	      <seealso marker="stdlib:rand">rand</seealso>
+	      module.
+	    </p>
+	  </item>
+	</list>
+	<p>
+	  Thanks to the used generator the state object supports the
+	  <seealso marker="stdlib:rand#jump-0"><c>rand:jump/0,1</c></seealso>
+	  function with distance 2^512.
+	</p>
+	<p>
+	  Numbers are generated in batches and cached for speed reasons.
+	  The cache size can be changed from its default value using the
+	  <seealso marker="crypto_app">
+	    crypto app's
+	  </seealso> configuration parameter <c>rand_cache_size</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ec_curves" arity="0" since="OTP 17.0"/>
+      <fsummary>Provide a list of available named elliptic curves.</fsummary>
+      <desc>
+        <p>Can be used to determine which named elliptic curves are supported.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ec_curve" arity="1" since="OTP 17.0"/>
+      <fsummary>Get the defining parameters of a elliptic curve.</fsummary>
+      <desc>
+        <p>Return the defining parameters of a elliptic curve.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sign" arity="4" since="OTP R16B01"/>
+      <name name="sign" arity="5" since="OTP 20.1"/>
+      <fsummary> Create digital signature.</fsummary>
+      <desc>
+	<p>Creates a digital signature.</p>
+	<p>The msg is either the binary "cleartext" data to be
+	signed or it is the hashed value of "cleartext" i.e. the
+	digest (plaintext).</p>
+	<p>Algorithm <c>dss</c> can only be used together with digest type
+	<c>sha</c>.</p>
+	<p>See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verify" arity="5" since="OTP R16B01"/>
+      <name name="verify" arity="6" since="OTP 20.1"/>
+      <fsummary>Verifies a digital signature.</fsummary>
+      <desc>
+	<p>Verifies a digital signature</p>
+	<p>The msg is either the binary "cleartext" data to be
+	signed or it is the hashed value of "cleartext" i.e. the
+	digest (plaintext).</p>
+	<p>Algorithm <c>dss</c> can only be used together with digest type
+	<c>sha</c>.</p>
+
+	<p>See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>.</p>
+      </desc>
+    </func>
+
+  </funcs>
+    <section>
+      <title>Engine API</title>
+    </section>
+
+  <funcs>
+    <!-- Engine functions -->
+    <func>
+      <name name="privkey_to_pubkey" arity="2" since="OTP 20.2"/>
+      <fsummary>Fetches a public key from an Engine stored private key.</fsummary>
+      <desc>
+	<p>Fetches the corresponding public key from a private key stored in an Engine.
+	The key must be of the type indicated by the Type parameter.
+	</p>	
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_get_all_methods" arity="0" since="OTP 20.2"/>
+      <fsummary>Return list of all possible engine methods</fsummary>
+      <desc>
+	<p>
+	  Returns a list of all possible engine methods.
+	</p>
+	<p>
+	  May raise exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_load" arity="3" since="OTP 20.2"/>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
+	  an engine handle. This function is the same as calling <c>engine_load/4</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods.  An error tuple is
+	  returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_load" arity="4" since="OTP 20.2"/>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
+	  an engine handle. An error tuple is returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_unload" arity="1" since="OTP 20.2"/>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <desc>
+	<p>
+	  Unloads the OpenSSL engine given by <c>Engine</c>.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameter is in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_by_id" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Get a reference to an already loaded engine</fsummary>
+      <desc>
+	<p>
+	  Get a reference to an already loaded engine with <c>EngineId</c>.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameter is in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_ctrl_cmd_string" arity="3" since="OTP 20.2"/>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  This function is the same as calling <c>engine_ctrl_cmd_string/4</c> with
+	  <c>Optional</c> set to <c>false</c>.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_ctrl_cmd_string" arity="4" since="OTP 20.2"/>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  <c>Optional</c> is a boolean argument that can relax the semantics of the function.
+	  If set to <c>true</c> it will only return failure if the ENGINE supported the given
+	  command name but failed while executing it, if the ENGINE doesn't support the command
+	  name it will simply return success without doing anything. In this case we assume
+	  the user is only supplying commands specific to the given ENGINE so we set this to
+	  <c>false</c>.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_add" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Add engine to OpenSSL internal list</fsummary>
+      <desc>
+	<p>Add the engine to OpenSSL's internal list.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_remove" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Remove engine to OpenSSL internal list</fsummary>
+      <desc>
+	<p>Remove the engine from OpenSSL's internal list.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_get_id" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Fetch engine ID</fsummary>
+      <desc>
+	<p>Return the ID for the engine, or an empty binary if there is no id set.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_get_name" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Fetch engine name</fsummary>
+      <desc>
+	<p>Return the name (eg a description) for the engine, or an empty binary if there is no name set.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_list" arity="0" since="OTP 20.2"/>
+      <fsummary>List the known engine ids</fsummary>
+      <desc>
+	<p>List the id's of all engines in OpenSSL's internal list.</p>
+	<p>
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+	<p>
+	  May raise exception <c>error:notsup</c> in case engine functionality is not supported by the underlying
+	  OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ensure_engine_loaded" arity="2" since="OTP 21.0.6"/>
+      <fsummary>Ensure encryption engine just loaded once</fsummary>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> and the path to the dynamic library
+	  implementing the engine. This function is the same as calling <c>ensure_engine_loaded/3</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods. An error tuple is
+	  returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ensure_engine_loaded" arity="3" since="OTP 21.0.6"/>
+      <fsummary>Ensure encryption engine just loaded once</fsummary>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> and the path to the dynamic library
+	  implementing the engine. This function differs from the normal engine_load in that sense it
+	  also add the engine id to the internal list in OpenSSL. Then in the following calls to the function
+	  it just fetch the reference to the engine instead of loading it again.
+	  An error tuple is returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ensure_engine_unloaded" arity="1" since="OTP 21.0.6"/>
+      <fsummary>Unload an engine loaded with the ensure function</fsummary>
+      <desc>
+	<p>
+	  Unloads an engine loaded with the <c>ensure_engine_loaded</c> function.
+	  It both removes the label from the OpenSSL internal engine list and unloads the engine.
+	  This function is the same as calling <c>ensure_engine_unloaded/2</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods. An error tuple is
+	  returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ensure_engine_unloaded" arity="2" since="OTP 21.0.6"/>
+      <fsummary>Unload an engine loaded with the ensure function</fsummary>
+      <desc>
+	<p>
+	  Unloads an engine loaded with the <c>ensure_engine_loaded</c> function.
+	  It both removes the label from the OpenSSL internal engine list and unloads the engine.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+ </funcs>
+
+<section>
+  <title>Old API</title>
+</section>
+
+ <funcs>
+    <func>
+      <name name="block_encrypt" arity="3" since="OTP 18.0"/>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the-new-api</seealso>.</p></dont>
+	<p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+	<p>For keylengths and blocksizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="block_decrypt" arity="3" since="OTP 18.0"/>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+	<p>For keylengths and blocksizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText | Error</name>
+      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag} | Error</name>
+      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag} | Error </name>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
+	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
+        <v>PlainText = iodata()</v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+        <v>TagLength = 1..16</v>
+	<v>Error = <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
+      </type>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
+	<c>PlainText</c>according to <c>Type</c> block cipher and calculate
+	<c>CipherTag</c> that also authenticates the <c>AAD</c> (Associated Authenticated Data).</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+	<p>For keylengths, iv-sizes and blocksizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText | Error</name>
+      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | Error</name>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
+	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
+        <v>PlainText = iodata()</v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+	<v>Error = BadTag | <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
+	<v>BadTag = error</v>
+      </type>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+        <p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
+	<c>CipherText</c>according to <c>Type</c> block cipher and check the authenticity
+	the <c>PlainText</c> and <c>AAD</c> (Associated Authenticated Data) using the
+	<c>CipherTag</c>. May return <c>error</c> if the decryption or validation fail's</p>
+	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying libcrypto implementation.</p>
+	<p>For keylengths, iv-sizes and blocksizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stream_init" arity="2" since="OTP R16B01"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p>Initializes the state for use in RC4 stream encryption
+        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso></p>
+	<p>For keylengths see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+   <func>
+      <name name="stream_init" arity="3" since="OTP R16B01"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bits long. <c>IVec</c> is
+        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
+        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
+	<p>For keylengths and iv-sizes see the
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stream_encrypt" arity="2" since="OTP R16B01"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>Text</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init-2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stream_decrypt" arity="2" since="OTP R16B01"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init-2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_decrypt</c>.</p>
+      </desc>
+    </func>
+
+   <func>
+      <name name="supports" arity="0" since="OTP R16B01"/>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	<seealso marker="crypto#supports-1">supports/1</seealso> in
+	<seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p> Can be used to determine which crypto algorithms that are supported
+	by the underlying libcrypto library</p>
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac" arity="3" since="OTP R16B"/>
+      <name name="hmac" arity="4" since="OTP R16B"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-4">mac/4</seealso> or
+	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_init" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_init-3">mac_init/3</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
+        which hash function to use in the HMAC operation. <c>Key</c> is the authentication
+        key. The key can be any length.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_update" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_update-2">mac_update/2</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using an HMAC init function (such as
+        <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hmac_update</c>
+	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
+	</p>
+	<warning><p>Do not use a <c>Context</c> as argument in more than one
+	call to	hmac_update or hmac_final. The semantics of reusing old contexts
+	in any way is undefined and could even crash the VM in earlier releases.
+	The reason for this limitation is a lack of support in the underlying
+	libcrypto	API.</p></warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_final" arity="1" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_final-1">mac_final/1</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
+        determined by the type of hash function used to generate it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_final_n" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
+        zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cmac" arity="3" since="OTP 20.0"/>
+      <name name="cmac" arity="4" since="OTP 20.0"/>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-4">mac/4</seealso> or
+	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="poly1305" arity="2" since="OTP 21.1"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-3">mac/3</seealso> or
+	      <seealso marker="crypto#macN-4">macN/4</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+
+</erlref>

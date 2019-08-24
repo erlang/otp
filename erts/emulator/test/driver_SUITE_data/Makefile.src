@@ -1,0 +1,39 @@
+
+MISC_DRVS =		outputv_drv@dll@ \
+			timer_drv@dll@ \
+			queue_drv@dll@ \
+			io_ready_exit_drv@dll@ \
+			chkio_drv@dll@ \
+			monitor_drv@dll@ \
+			ioq_exit_drv@dll@ \
+			peek_non_existing_queue_drv@dll@ \
+			otp_6879_drv@dll@ \
+			caller_drv@dll@ \
+			many_events_drv@dll@ \
+			missing_callback_drv@dll@ \
+			thr_alloc_drv@dll@ \
+			otp_9302_drv@dll@ \
+			thr_free_drv@dll@ \
+			async_blast_drv@dll@ \
+			thr_msg_blast_drv@dll@ \
+			consume_timeslice_drv@dll@ \
+			env_drv@dll@
+
+SYS_INFO_DRVS = 	sys_info_base_drv@dll@ \
+			sys_info_prev_drv@dll@ \
+			sys_info_curr_drv@dll@
+
+VSN_MISMATCH_DRVS =	zero_extended_marker_garb_drv@dll@ \
+			invalid_extended_marker_drv@dll@ \
+			larger_major_vsn_drv@dll@ \
+			larger_minor_vsn_drv@dll@ \
+			smaller_major_vsn_drv@dll@ \
+			smaller_minor_vsn_drv@dll@
+
+all: $(MISC_DRVS) $(SYS_INFO_DRVS) $(VSN_MISMATCH_DRVS)
+
+@SHLIB_RULES@
+
+$(SYS_INFO_DRVS): sys_info_drv_impl.h sys_info_drv_impl.c
+$(VSN_MISMATCH_DRVS): vsn_mismatch_drv_impl.c
+

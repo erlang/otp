@@ -1,0 +1,7 @@
+
+fun_app.erl:37: Fun application will fail since F :: 
+          fun((_, _, _) -> 'ok' | 'true') is not a function of arity 1
+fun_app.erl:38: Fun application will fail since F :: 
+          fun((_, _, _) -> 'ok' | 'true') is not a function of arity 2
+fun_app.erl:40: Fun application will fail since F :: 
+          fun((_, _, _) -> 'ok' | 'true') is not a function of arity 4

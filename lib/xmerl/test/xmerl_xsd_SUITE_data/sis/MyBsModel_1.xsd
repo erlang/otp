@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ericsson.com/is/isco/MyBsModel_1" xmlns="http://www.ericsson.com/is/isco/MyBsModel_1" xmlns:nc="http://www.ericsson.com/is/isco/nc" xmlns:IsTypes="http://www.ericsson.com/is/isco/IsTypes">
+  <xsd:annotation>
+    <xsd:appinfo>
+      <mim file="myTest_mim.xml" version="/main/R2A/10"/>
+      <mim file="other_mim.xml" version=""/>
+    </xsd:appinfo>
+  </xsd:annotation>
+  <xsd:import schemaLocation="nc.xsd" namespace="http://www.ericsson.com/is/isco/nc"/>
+  <xsd:import schemaLocation="IsTypes.xsd" namespace="http://www.ericsson.com/is/isco/IsTypes"/>
+  <xsd:complexType name="uselessStruct">
+    <xsd:sequence>
+      <xsd:element name="field1">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType4">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="field2" type="myInteger"/>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="myNamedStruct">
+    <xsd:annotation>
+      <xsd:documentation>
+        Struct description
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="counter">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType5">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="state" type="stateType"/>
+      <xsd:element name="dummyStructRef" type="uselessStruct"/>
+      <xsd:element name="dummySequence">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="item" type="uselessStruct" minOccurs="3" maxOccurs="unbounded"/>
+          </xsd:sequence>
+          <xsd:attribute ref="nc:operation"/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="inlineStruct">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="a" type="InternalImport"/>
+            <xsd:element name="b">
+              <xsd:complexType>
+                <xsd:simpleContent>
+                  <xsd:extension base="ccsHelperType6">
+                    <xsd:attribute ref="nc:operation"/>
+                  </xsd:extension>
+                </xsd:simpleContent>
+              </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="c">
+              <xsd:complexType>
+                <xsd:simpleContent>
+                  <xsd:extension base="ccsHelperType7">
+                    <xsd:attribute ref="nc:operation"/>
+                  </xsd:extension>
+                </xsd:simpleContent>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+          <xsd:attribute ref="nc:operation"/>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="myInteger">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType8">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="namedMoRefType">
+    <xsd:annotation>
+      <xsd:documentation>
+        A named type which is an MO Reference pointing to
+          * MyClass
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType9">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="stateType">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType10">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="blippName">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType11">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="yesNoEnum">
+    <xsd:annotation>
+      <xsd:documentation>
+        Enum which can be yes or no
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType12">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="uselessEnum">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType13">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="InternalImport">
+    <xsd:simpleContent>
+      <xsd:extension base="xsd:integer">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_SeqType3">
+    <xsd:sequence>
+      <xsd:element name="item" type="MyClass_InternalType" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_myDateAndTimeType">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType0">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_SeqType2">
+    <xsd:sequence>
+      <xsd:element name="item" type="uselessStruct" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_InternalType">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType1">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_classInternalEnum">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType2">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="MyClass_SeqType1">
+    <xsd:sequence>
+      <xsd:element name="item" minOccurs="3" maxOccurs="3">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType3">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:element name="model">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="Blipp" minOccurs="0" maxOccurs="2">
+          <xsd:annotation>
+            <xsd:documentation>
+              This is a class which can be assigned as an attribute of ChildClass.
+              Key attribute is 'id'.
+              
+              Key attributes: [id]
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="id" type="blippName"/>
+              <xsd:element minOccurs="0" name="truefalse" type="uselessEnum"/>
+              <xsd:element minOccurs="0" name="ipAddress" type="IsTypes:IpAddress"/>
+              <xsd:element minOccurs="0" name="macAddress" type="IsTypes:MacAddress"/>
+              <xsd:element minOccurs="0" name="moAttributeDeep">
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="ccsHelperType14">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="MyClass" minOccurs="0" maxOccurs="unbounded">
+          <xsd:annotation>
+            <xsd:documentation>
+              My Test Class
+              The class hierarky looks like this:
+              
+                   +==========+
+                   |MountPoint|
+                   +==========+
+                       / \
+                      /   \
+              +=======+   +=======+
+              | Blipp |   |MyClass|
+              +=======+   +=======+
+                              |
+                              |
+              	 +==========+
+              	 |ChildClass|
+              	 +==========+
+              
+              Key attributes: [id1,id2]
+              
+              Possible children:
+              ChildClass:
+                Definition of children under MyClass
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="id1">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Test class identifyer - part1
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="ccsHelperType15">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="id2">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Test class identifyer - part2
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="ccsHelperType16">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="date">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Date
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="ccsHelperType17">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="date2" type="MyClass_myDateAndTimeType">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Date2 - named type
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="list">
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="item" minOccurs="3" maxOccurs="3">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType3">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="list2" type="MyClass_SeqType2"/>
+              <xsd:element minOccurs="0" name="list3" type="MyClass_SeqType3"/>
+              <xsd:element minOccurs="0" name="yesNo" type="yesNoEnum"/>
+              <xsd:element minOccurs="0" name="commonStruct" type="myNamedStruct">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Attribute description.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="dummyInternal" type="MyClass_InternalType"/>
+              <xsd:element minOccurs="0" name="trueOrFalse">
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="ccsHelperType7">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="ChildClass" minOccurs="0" maxOccurs="2">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Child of MyClass
+                    
+                    Key attributes: [id]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="id">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType18">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="moAttribute">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType19">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="moAttributeNamed" type="namedMoRefType"/>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute ref="nc:operation"/>
+    </xsd:complexType>
+  </xsd:element>
+  <xsd:simpleType name="ccsHelperType19">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:pattern value="((/IntegratedSite:model/)|((\.\./)+)|((\./)(\.\./)*)|())((([A-Z][a-zA-Z0-9]+:model)|([A-Z][a-zA-Z0-9]+(\[[a-z][a-zA-Z0-9]*='[^\]]+'\])*))/)*Blipp\[id='[^\]]+'\]"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType18">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:minLength value="1"/>
+      <xsd:maxLength value="20"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType17">
+    <xsd:restriction base="xsd:dateTime">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:minInclusive value="2006-03-08T00:00:00.567Z"/>
+      <xsd:maxInclusive value="2006-03-08T23:59:59Z"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType16">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="1"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType15">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="Obj"/>
+      <xsd:enumeration value="MO"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType14">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:pattern value="((/IntegratedSite:model/)|((\.\./)+)|((\./)(\.\./)*)|())((([A-Z][a-zA-Z0-9]+:model)|([A-Z][a-zA-Z0-9]+(\[[a-z][a-zA-Z0-9]*='[^\]]+'\])*))/)*ChildClass\[id='[^\]]+'\]"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType13">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="true"/>
+      <xsd:enumeration value="false"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType12">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="yes"/>
+      <xsd:enumeration value="no"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType11">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="name1"/>
+      <xsd:enumeration value="name2"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType10">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="locked"/>
+      <xsd:enumeration value="active"/>
+      <xsd:enumeration value="idle"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType9">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:pattern value="((/IntegratedSite:model/)|((\.\./)+)|((\./)(\.\./)*)|())((([A-Z][a-zA-Z0-9]+:model)|([A-Z][a-zA-Z0-9]+(\[[a-z][a-zA-Z0-9]*='[^\]]+'\])*))/)*MyClass\[id1='[^\]]+'\]\[id2='[^\]]+'\]"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType8">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="1"/>
+      <xsd:maxInclusive value="100"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType7">
+    <xsd:restriction base="xsd:boolean">
+      <xsd:pattern value="(true|false)"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType6">
+    <xsd:restriction base="xsd:float">
+      <xsd:minInclusive value="0.00"/>
+      <xsd:maxInclusive value="1.00"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType5">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType4">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:maxLength value="20"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType3">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxInclusive value="3"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType2">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="a"/>
+      <xsd:enumeration value="b"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType1">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="hei"/>
+      <xsd:enumeration value="hopp"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType0">
+    <xsd:restriction base="xsd:dateTime">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:minInclusive value="2006-03-15T00:00:00.567Z"/>
+      <xsd:maxInclusive value="2006-03-15T23:59:59Z"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

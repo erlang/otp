@@ -1,0 +1,54 @@
+<!--
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson AB.
+ Portions created by Ericsson are Copyright 1999-2007, Ericsson AB.
+ All Rights Reserved.''
+ 
+     $Id$
+-->
+<!-- This file contains common stuff for the *ref.dtd files.
+     Note that `name' is defined in each *ref.dtd. --> 
+
+<!ENTITY % common SYSTEM "common.dtd" >
+%common;
+<!ENTITY % common.header SYSTEM "common.header.dtd" >
+%common.header;
+
+<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ATTLIST description          ghlink CDATA #IMPLIED>
+<!ELEMENT funcs               (func)+ >
+<!ELEMENT func                (name+,fsummary,(type|type_desc)*,desc?) >
+<!ATTLIST func                 ghlink CDATA #IMPLIED>
+<!-- ELEMENT name is defined in each ref dtd -->
+<!ELEMENT fsummary            (#PCDATA|c|i|em|anno)* >
+<!ELEMENT type                (v,d?)* >
+<!ATTLIST type                 variable CDATA #IMPLIED
+                               name CDATA #IMPLIED
+                               name_i CDATA #IMPLIED>
+<!ELEMENT v                   (#PCDATA|seealso)* >
+<!ELEMENT d                   (#PCDATA|seealso|c|i|em)* >
+<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ELEMENT authors             (aname,email)+ >
+<!ELEMENT aname               (#PCDATA) >
+<!ELEMENT email               (#PCDATA) >
+<!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
+                               warning|note|dont|do|section)*) >
+<!ATTLIST section              ghlink CDATA #IMPLIED>
+<!ELEMENT datatypes           (datatype_title?,datatype)+ >
+<!ELEMENT datatype_title      (#PCDATA) >
+<!ELEMENT datatype            (name+,desc?) >
+<!ATTLIST datatype             ghlink CDATA #IMPLIED>
+<!ELEMENT type_desc           (#PCDATA|anno|c|seealso)* >
+<!ATTLIST type_desc            variable CDATA #IMPLIED
+                               name CDATA #IMPLIED>

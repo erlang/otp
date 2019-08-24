@@ -1,0 +1,51 @@
+For each ASN1 types SET and SEQUENCE a record is generated in the .hrl
+file with the same name as the corresponding type.
+A decoded value is also returned as a record with the appropriate name.
+An internally defined type as the type in component 'a' in the
+following example will result in a record with name 'Seq_a':
+
+Seq ::= SEQUENCE{
+    a	SEQUENCE{
+	b INTEGER
+	}
+}
+
+For each further internally defined type in a SET/SEQUENCE a
+'_componentname' is added.
+
+If an internally defined type is an CHOICE alternative the record name
+will get the alternative name as a unique part of the name.
+
+Seq ::= SEQUENCE{
+    a	CHOICE{
+	b SEQUENCE {
+	   c  INTEGER
+	   }
+	}
+}
+
+This will produece a record 'Seq_a_b'.
+
+If an component is a SEQUENCE OF a SEQUENCE as in:
+Seq ::= SEQUENCE {
+    a SEQUENCE OF SEQUENCE {
+	       b
+	       }
+    c SET OF SEQUENCE {
+	     d
+	     }
+}
+There will be a record 'Seq_a_SEQOF' and 'Seq_c_SETOF'
+
+A parameterized type should be considered as an internally defined
+type. Each time a such type is referenced an instance of it is
+defined. Thus in the following example a record 'Seq_b' is generated
+in .hrl and used in .erl by decode.
+
+Seq ::= SEQUENCE {
+    b PType{INTEGER}
+}
+
+PType{T} ::= SEQUENCE{
+    id T
+}

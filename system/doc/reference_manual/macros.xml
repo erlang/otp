@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Preprocessor</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>macros.xml</file>
+  </header>
+
+    <section>
+      <title>File Inclusion</title>
+      <p>A file can be included as follows:</p>
+      <pre>
+-include(File).
+-include_lib(File).</pre>
+      <p><c>File</c>, a string, is to point out a file. The contents of
+        this file are included as is, at the position of the directive.</p>
+      <p>Include files are typically used for record and macro
+        definitions that are shared by several modules. It is
+        recommended to use the file name extension <c>.hrl</c> for
+        include files.</p>
+      <p><c>File</c> can start with a path component <c>$VAR</c>, for
+        some string <c>VAR</c>. If that is the case, the value of
+        the environment variable <c>VAR</c> as returned by
+        <c>os:getenv(VAR)</c> is substituted for <c>$VAR</c>. If
+        <c>os:getenv(VAR)</c> returns <c>false</c>, <c>$VAR</c> is left
+        as is.</p>
+      <p>If the filename <c>File</c> is absolute (possibly after
+        variable substitution), the include file with that name is
+        included. Otherwise, the specified file is searched for
+	in the following directories, and in this order:</p>
+	<list type="ordered">
+	  <item>The current working directory</item>
+	  <item>The directory where the module is being compiled</item>
+	  <item>The directories given by the <c>include</c> option</item>
+	</list>
+	<p>For details, see the
+          <seealso marker="erts:erlc">erlc(1)</seealso> manual page
+           in ERTS and
+           <seealso marker="compiler:compile">compile(3)</seealso>
+           manual page in Compiler.</p>
+      <p><em>Examples:</em></p>
+      <pre>
+-include("my_records.hrl").
+-include("incdir/my_records.hrl").
+-include("/home/user/proj/my_records.hrl").
+-include("$PROJ_ROOT/my_records.hrl").</pre>
+      <p><c>include_lib</c> is similar to <c>include</c>, but is not to
+        point out an absolute file. Instead, the first path component
+        (possibly after variable substitution) is assumed to be
+        the name of an application.</p>
+	<p><em>Example:</em></p>
+      <pre>
+-include_lib("kernel/include/file.hrl").</pre>
+      <p>The code server uses <c>code:lib_dir(kernel)</c> to find
+        the directory of the current (latest) version of Kernel, and
+        then the subdirectory <c>include</c> is searched for the file
+        <c>file.hrl</c>.</p>
+    </section>
+
+  <section>
+    <title>Defining and Using Macros</title>
+    <p>A macro is defined as follows:</p>
+    <code type="none">
+-define(Const, Replacement).
+-define(Func(Var1,...,VarN), Replacement).</code>
+    <p>A macro definition can be placed anywhere among the attributes
+      and function declarations of a module, but the definition must
+      come before any usage of the macro.</p>
+    <p>If a macro is used in several modules, it is recommended that
+      the macro definition is placed in an include file.</p>
+    <p>A macro is used as follows:</p>
+    <code type="none">
+?Const
+?Func(Arg1,...,ArgN)</code>
+    <p>Macros are expanded during compilation. A simple macro
+      <c>?Const</c> is replaced with <c>Replacement</c>.</p>
+      <p><em>Example:</em></p>
+    <code type="none">
+-define(TIMEOUT, 200).
+...
+call(Request) ->
+    server:call(refserver, Request, ?TIMEOUT).</code>
+    <p>This is expanded to:</p>
+    <code type="none">
+call(Request) ->
+    server:call(refserver, Request, 200).</code>
+    <p>A macro <c>?Func(Arg1,...,ArgN)</c> is replaced with
+      <c>Replacement</c>, where all occurrences of a variable <c>Var</c>
+      from the macro definition are replaced with the corresponding
+      argument <c>Arg</c>.</p>
+      <p><em>Example:</em></p>
+    <code type="none">
+-define(MACRO1(X, Y), {a, X, b, Y}).
+...
+bar(X) ->
+    ?MACRO1(a, b),
+    ?MACRO1(X, 123)</code>
+    <p>This is expanded to:</p>
+    <code type="none">
+bar(X) ->
+    {a,a,b,b},
+    {a,X,b,123}.</code>
+    <p>It is good programming practice, but not mandatory, to ensure
+      that a macro definition is a valid Erlang syntactic form.</p>
+    <p>To view the result of macro expansion, a module can be compiled
+      with the <c>'P'</c> option. <c>compile:file(File, ['P'])</c>.
+      This produces a listing of the parsed code after preprocessing
+      and parse transforms, in the file <c>File.P</c>.</p>
+  </section>
+
+  <section>
+    <title>Predefined Macros</title>
+    <p>The following macros are predefined:</p>
+    <taglist>
+      <tag><c>?MODULE</c></tag>
+      <item>The name of the current module.</item>
+      <tag><c>?MODULE_STRING</c>.</tag>
+      <item>The name of the current module, as a string.</item>
+      <tag><c>?FILE</c>.</tag>
+      <item>The file name of the current module.</item>
+      <tag><c>?LINE</c>.</tag>
+      <item>The current line number.</item>
+      <tag><c>?MACHINE</c>.</tag>
+      <item>The machine name, <c>'BEAM'</c>.</item>
+      <tag><c>?FUNCTION_NAME</c></tag>
+      <item>The name of the current function.</item>
+      <tag><c>?FUNCTION_ARITY</c></tag>
+      <item>The arity (number of arguments) for the current function.</item>
+      <tag><c>?OTP_RELEASE</c></tag>
+      <item>The OTP release that the currently executing ERTS
+        application is part of, as an integer. For details, see
+        <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seealso>.
+        This macro was introduced in OTP release 21.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Macros Overloading</title>
+    <p>It is possible to overload macros, except for predefined
+      macros. An overloaded macro has more than one definition,
+      each with a different number of arguments.</p>
+    <p>The feature was added in Erlang 5.7.5/OTP R13B04.</p>
+    <p>A macro <c>?Func(Arg1,...,ArgN)</c> with a (possibly empty)
+      list of arguments results in an error message if there is at
+      least one definition of <c>Func</c> with arguments, but none
+      with N arguments.</p>
+    <p>Assuming these definitions:</p>
+    <code type="none">
+-define(F0(), c).
+-define(F1(A), A).
+-define(C, m:f).</code>
+    <p>the following does not work:</p>
+    <code type="none">
+f0() ->
+    ?F0. % No, an empty list of arguments expected.
+
+f1(A) ->
+    ?F1(A, A). % No, exactly one argument expected.</code>
+    <p>On the other hand,</p>
+    <code>
+f() ->
+    ?C().</code>
+    <p>is expanded to</p>
+    <code>
+f() ->
+    m:f().</code>
+  </section>
+
+  <section>
+    <title>Flow Control in Macros</title>
+    <p>The following macro directives are supplied:</p>
+    <taglist>
+      <tag><c>-undef(Macro).</c></tag>
+      <item>Causes the macro to behave as if it had never been defined.</item>
+      <tag><c>-ifdef(Macro).</c></tag>
+      <item>Evaluate the following lines only if <c>Macro</c> is
+       defined.</item>
+      <tag><c>-ifndef(Macro).</c></tag>
+      <item>Evaluate the following lines only if <c>Macro</c> is not
+       defined.</item>
+      <tag><c>-else.</c></tag>
+      <item>Only allowed after an <c>ifdef</c> or <c>ifndef</c>
+       directive. If that condition is false, the lines following
+      <c>else</c> are evaluated instead.</item>
+      <tag><c>-endif.</c></tag>
+      <item>Specifies the end of an <c>ifdef</c>, an <c>ifndef</c>
+       directive, or the end of an <c>if</c> or <c>elif</c> directive.</item>
+      <tag><c>-if(Condition).</c></tag>
+      <item>Evaluates the following lines only if <c>Condition</c>
+       evaluates to true.</item>
+      <tag><c>-elif(Condition).</c></tag>
+      <item>Only allowed after an <c>if</c> or another <c>elif</c> directive.
+       If the preceding <c>if</c> or <c>elif</c> directives do not
+       evaluate to true, and the <c>Condition</c> evaluates to true,
+       the lines following the <c>elif</c> are evaluated instead.</item>
+    </taglist>
+    <note>
+      <p>The macro directives cannot be used inside functions.</p>
+    </note>
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(m).
+...
+
+-ifdef(debug).
+-define(LOG(X), io:format("{~p,~p}: ~p~n", [?MODULE,?LINE,X])).
+-else.
+-define(LOG(X), true).
+-endif.
+
+...</code>
+    <p>When trace output is desired, <c>debug</c> is to be defined
+      when the module <c>m</c> is compiled:</p>
+    <pre>
+% <input>erlc -Ddebug m.erl</input>
+
+or
+
+1> <input>c(m, {d, debug}).</input>
+{ok,m}</pre>
+    <p><c>?LOG(Arg)</c> is then expanded to a call to <c>io:format/2</c>
+      and provide the user with some simple trace output.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(m)
+...
+-ifdef(OTP_RELEASE).
+  %% OTP 21 or higher
+  -if(?OTP_RELEASE >= 22).
+    %% Code that will work in OTP 22 or higher
+  -elif(?OTP_RELEASE >= 21).
+    %% Code that will work in OTP 21 or higher
+  -endif.
+-else.
+  %% OTP 20 or lower.
+-endif.
+...</code>
+    <p>The code uses the <c>OTP_RELEASE</c> macro to conditionally
+    select code depending on release.</p>
+  </section>
+
+  <section>
+    <title>-error() and -warning() directives</title>
+
+    <p>The directive <c>-error(Term)</c> causes a compilation error.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(t).
+-export([version/0]).
+
+-ifdef(VERSION).
+version() -> ?VERSION.
+-else.
+-error("Macro VERSION must be defined.").
+version() -> "".
+-endif.</code>
+
+    <p>The error message will look like this:</p>
+
+    <pre>
+% <input>erlc t.erl</input>
+t.erl:7: -error("Macro VERSION must be defined.").</pre>
+
+    <p>The directive <c>-warning(Term)</c> causes a compilation warning.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(t).
+-export([version/0]).
+
+-ifndef(VERSION).
+-warning("Macro VERSION not defined -- using default version.").
+-define(VERSION, "0").
+-endif.
+version() -> ?VERSION.</code>
+
+    <p>The warning message will look like this:</p>
+
+    <pre>
+% <input>erlc t.erl</input>
+t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre>
+
+  <p>The <c>-error()</c> and <c>-warning()</c> directives were added
+  in OTP 19.</p>
+
+  </section>
+
+  <section>
+    <title>Stringifying Macro Arguments</title>
+    <p>The construction <c>??Arg</c>, where <c>Arg</c> is a macro
+      argument, is expanded to a string containing the tokens of
+      the argument. This is similar to the <c>#arg</c> stringifying
+      construction in C.</p>
+    <p><em>Example:</em></p>
+    <code type="none">
+-define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
+
+?TESTCALL(myfunction(1,2)),
+?TESTCALL(you:function(2,1)).</code>
+    <p>results in</p>
+    <code type="none">
+io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
+io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code>
+    <p>That is, a trace output, with both the function called and
+      the resulting value.</p>
+  </section>
+
+</chapter>
+

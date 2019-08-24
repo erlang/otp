@@ -1,0 +1,230 @@
+<!--
+ 3GPP TS 32.615 v4.5 Bulk CM IRP
+  Configuration data file Generic Network Resources IRP NRM XML schema
+   -->
+<schema targetNamespace="genericNrm.xsd" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:un="utranNrm.xsd" xmlns:gn="geranNrm.xsd" xmlns:xn="genericNrm.xsd" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+	<import namespace="geranNrm.xsd" schemaLocation="geranNrm.xsd"/>
+	<import namespace="utranNrm.xsd" schemaLocation="utranNrm.xsd"/>
+	
+	<!-- Abstract base type for all NRM class associated XML elements -->
+	<complexType name="NrmClassXmlType" abstract="true">
+		<attribute name="id" type="string" use="required"/>
+		<attribute name="modifier" use="optional">
+			<simpleType>
+				<restriction base="string">
+					<enumeration value="create"/>
+					<enumeration value="delete"/>
+					<enumeration value="update"/>
+				</restriction>
+			</simpleType>
+		</attribute>
+	</complexType>
+	
+	<!-- Generic Network Resources IRP NRM class associated XML elements -->
+	<element name="SubNetwork">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="userDefinedNetworkType" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:SubNetwork"/>
+							<element ref="xn:ManagedElement"/>
+							<element ref="xn:MeContext"/>
+							<element ref="xn:ManagementNode"/>
+							<element ref="xn:IRPAgent"/>
+							<element ref="un:ExternalUtranCell"/>
+							<element ref="gn:ExternalGsmCell"/>
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="ManagedElement">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="managedElementType" minOccurs="0"/>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="vendorName" minOccurs="0"/>
+									<element name="userDefinedState" minOccurs="0"/>
+									<element name="locationName" minOccurs="0"/>
+									<element name="swVersion" minOccurs="0"/>
+									<element name="managedBy" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="un:RncFunction"/>
+							<element ref="un:NodeBFunction"/>
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="MeContext">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:ManagedElement"/>
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="ManagementNode">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="vendorName" minOccurs="0"/>
+									<element name="userDefinedState" minOccurs="0"/>
+									<element name="locationName" minOccurs="0"/>
+									<element name="manages" minOccurs="0"/>
+									<element name="swVersion" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+							<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:IRPAgent"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="IRPAgent">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="systemDN" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:NotificationIRP"/>
+							<element ref="xn:AlarmIRP"/>
+							<element ref="xn:BulkCmIRP"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="NotificationIRP">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="irpVersion" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="AlarmIRP">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="irpVersion" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="BulkCmIRP">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="irpVersion" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	
+	<element name="VsDataContainer">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="vsDataType" minOccurs="0"/>
+									<element name="vsDataFormatVersion" minOccurs="0"/>
+									<element ref="xn:vsData" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<complexType name="vsData" abstract="true"/>
+	<!-- VsDataContainer NRM class vsData attribute associated empty XML element -->
+	<element name="vsData" type="xn:vsData" abstract="true"/>
+</schema>

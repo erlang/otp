@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>tags</title>
+    <prepared>Anders Lindgren</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <date>98-03-11</date>
+    <rev>A</rev>
+    <file>tags.sgml</file>
+  </header>
+  <module since="">tags</module>
+  <modulesummary>Generate Emacs TAGS file from Erlang source files</modulesummary>
+  <description>
+    <p>A <c>TAGS</c> file is used by Emacs to find function and variable
+      definitions in any source file in large projects.  This module can
+      generate a <c>TAGS</c> file from Erlang source files.  It recognises
+      functions, records, and macro definitions.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">file(File [, Options])</name>
+      <fsummary>Create a <c>TAGS</c>file for the file <c>File</c>.</fsummary>
+      <desc>
+        <p>Create a <c>TAGS</c> file for the file <c>File</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">files(FileList [, Options])</name>
+      <fsummary>Create a TAGS file for the files in the list<c>FileList</c>.</fsummary>
+      <desc>
+        <p>Create a TAGS file for the files in the list
+          <c>FileList</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dir(Dir [, Options])</name>
+      <fsummary>Create a TAGS file for all files in directory<c>Dir</c>.</fsummary>
+      <desc>
+        <p>Create a TAGS file for all files in directory
+          <c>Dir</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dirs(DirList [, Options])</name>
+      <fsummary>Create a TAGS file for all files in any directory in<c>DirList</c>.</fsummary>
+      <desc>
+        <p>Create a TAGS file for all files in any directory in
+          <c>DirList</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">subdir(Dir [, Options])</name>
+      <fsummary>Descend recursively down the directory <c>Dir</c>and create a <c>TAGS</c>file based on all files found.</fsummary>
+      <desc>
+        <p>Descend recursively down the directory <c>Dir</c> and
+          create a <c>TAGS</c> file based on all files found.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">subdirs(DirList [, Options])</name>
+      <fsummary>Descend recursively down all the directories in<c>DirList</c>and create a <c>TAGS</c>file based on all files found.</fsummary>
+      <desc>
+        <p>Descend recursively down all the directories in
+          <c>DirList</c> and create a <c>TAGS</c> file based on all
+          files found.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">root([Options])</name>
+      <fsummary>Create a <c>TAGS</c>file covering all files in the Erlang distribution.</fsummary>
+      <desc>
+        <p>Create a <c>TAGS</c> file covering all files in
+          the Erlang distribution.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>OPTIONS</title>
+    <p>The functions above have an optional argument, <c>Options</c>.  It is a
+      list which can contain the following elements:</p>
+    <list type="bulleted">
+      <item><c>{outfile, NameOfTAGSFile}</c> Create a <c>TAGS</c> file named
+      <c>NameOfTAGSFile</c>.
+      </item>
+      <item><c>{outdir, NameOfDirectory}</c> Create a file named
+      <c>TAGS</c> in the directory <c>NameOfDirectory</c>.</item>
+    </list>
+    <p>The default behaviour is to create a file named <c>TAGS</c> in the current
+      directory.</p>
+  </section>
+
+  <section>
+    <title>Examples</title>
+    <list type="bulleted">
+      <item>
+        <p><c>tags:root([{outfile, "root.TAGS"}]).</c>          <br></br>
+</p>
+        <p>This command will create a file named <c>root.TAGS</c> in the current
+          directory.  The file will contain references to all Erlang source
+          files in the Erlang distribution.</p>
+      </item>
+      <item>
+        <p><c>tags:files(["foo.erl", "bar.erl", "baz.erl"], [{outdir, "../projectdir"}]). </c>          <br></br>
+</p>
+        <p>Here we create file named <c>TAGS</c> placed it in the directory
+          <c>../projectdir</c>.  The file contains information about the
+          functions, records, and macro definitions of the three files.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <list type="bulleted">
+      <item>Richard M. Stallman.  GNU Emacs Manual, chapter "Editing Programs",
+       section "Tag Tables".  Free Software Foundation, 1995.
+      </item>
+      <item>Anders Lindgren.  The Erlang editing mode for Emacs. Ericsson,
+       1998.</item>
+    </list>
+  </section>
+</erlref>
+

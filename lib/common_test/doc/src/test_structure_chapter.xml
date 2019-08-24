@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Test Structure</title>
+    <prepared>Siri Hansen, Kenneth Lundin</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>test_structure_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>General</title>
+
+    <p>A test is performed by running one or more test suites. A test suite
+    consists of test cases, configuration functions, and information 
+    functions. Test cases can be grouped in so called test case groups. 
+    A test suite is an Erlang module and test cases are implemented as 
+    Erlang functions. Test suites are stored in test directories.</p>
+
+  </section>
+
+  <section>
+    <marker id="skipping_test_cases"></marker>
+    <title>Skipping Test Cases</title>
+
+    <p>Certain test cases can be skipped, for example, if you
+    know beforehand that a specific test case fails. The reason can be
+    functionality that is not yet implemented, a bug that is known but
+    not yet fixed, or some functionality that does not work or is not
+    applicable on a specific platform.</p>
+
+    <p>Test cases can be skipped in the following ways:</p>
+    <list type="bulleted">
+
+      <item>Using <c>skip_suites</c> and <c>skip_cases</c>
+      terms in 
+      <seealso marker="run_test_chapter#test_specifications">test specifications</seealso>.
+      </item>
+
+      <item>Returning <c>{skip,Reason}</c> from function
+      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso> or 
+      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>.</item>
+
+      <item>Returning <c>{skip,Reason}</c> from the execution clause
+      of the test case. The execution clause is called, so the author 
+      must ensure that the test case does not run.</item>
+
+    </list>
+
+    <p>When a test case is skipped, it is noted as <c>SKIPPED</c>
+    in the HTML log.</p>
+
+  </section>
+
+  <section>
+    <title>Definition of Terms</title>
+    
+    <taglist>
+
+      <tag><em>Auto-skipped test case</em></tag>
+      <item>
+        <p>When a configuration function fails (that is, terminates unexpectedly), 
+	the test cases depending on the configuration function are
+	skipped automatically by <c>Common Test</c>. The status of the test cases 
+	is then "auto-skipped".	Test cases are also "auto-skipped" by
+	<c>Common Test</c> if the required configuration data is unavailable at
+	runtime.</p>
+      </item>
+
+      <tag><em>Configuration function</em></tag>
+      <item>
+        <p>A function in a test suite that is meant to be used for
+	setting up, cleaning up, and/or verifying the state and 
+	environment on the System Under Test (SUT) and/or the <c>Common Test</c> 
+	host node, so that a test case (or a set of test cases) can 
+	execute correctly.</p>     
+      </item>
+
+      <tag><em>Configuration file</em></tag>
+      <item>
+        <p>A file containing data related to a test and/or an SUT,
+	for example, protocol server addresses, client
+	login details, and hardware interface addresses. That is, any data
+	that is to be handled as variable in the suite and not
+	be hard-coded.</p>   
+      </item>
+
+      <tag><em>Configuration variable</em></tag>
+      <item>
+        <p>A name (an Erlang atom) associated with a data value read from
+	a configuration file.</p>
+      </item>
+
+      <tag><c>data_dir</c></tag>
+      <item>
+	<p>Data directory for a test suite. This directory contains
+	any files used by the test suite, for example, extra Erlang
+	modules, binaries, or data files.</p>
+      </item>
+
+      <tag><em>Information function</em></tag>
+      <item>
+        <p>A function in a test suite that returns a list of properties
+	(read by the <c>Common Test</c> server) that describes the conditions 
+	for executing the test cases in the suite.</p>
+      </item>
+      
+      <tag><em>Major log file</em></tag>
+      <item>
+	<p>An overview and summary log file for one or more test suites.</p>
+      </item>
+
+      <tag><em>Minor log file</em></tag>
+      <item>
+	<p>A log file for one particular test case. Also called the 
+	test case log file.</p>
+      </item>
+
+      <tag><c>priv_dir</c></tag>
+      <item>
+	<p>Private directory for a test suite. This directory is to
+	be used when the test suite needs to write to files.</p>
+      </item>
+
+      <tag><c>ct_run</c></tag>
+      <item>
+        <p>The name of an executable program that can be
+	used as an interface for specifying and running
+	tests with <c>Common Test</c>.</p>
+      </item>
+
+      <tag><em>Test case</em></tag>
+      <item>
+	<p>A single test included in a test suite. A test case is
+	implemented as a function in a test suite module.</p>
+      </item>
+
+      <tag><em>Test case group</em></tag>
+      <item>
+        <p>A set of test cases sharing configuration functions and 
+	execution properties. The execution properties specify if 
+	the test cases in the group are to be executed in random order,
+	in parallel, or in sequence, and if the execution of the group 
+        is be repeated. Test case groups can also be nested. That is, 
+	a group can, besides test cases, contain subgroups.</p>
+      </item>
+      
+      <tag><em>Test suite</em></tag>
+      <item>
+	<p>An Erlang module containing a collection of test cases for
+	a specific functional area.</p>
+      </item>
+
+      <tag><em>Test directory</em></tag>
+      <item>
+	<p>A directory containing one or more test suite modules,
+	that is, a group of test suites.</p>
+      </item>
+
+      <tag><em>Argument</em> <c>Config</c></tag>
+      <item>
+        <p>A list of key-value tuples (that is, a property list) containing
+	runtime configuration data passed from the configuration
+	functions to the test cases.</p>
+      </item>
+
+      <tag><em>User-skipped test case</em></tag>
+      <item>
+        <p>The status of a test case explicitly skipped in any of 
+	the ways described in section
+	<seealso marker="#skipping_test_cases">Skipping Test Cases</seealso>.
+	</p>
+      </item>
+
+
+    </taglist>
+    
+  </section>
+
+
+</chapter>
+

@@ -1,0 +1,112 @@
+INAPv2extract DEFINITIONS
+
+EXPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXTENSION ::= CLASS {
+  &ExtensionType  ,
+  &criticality    CriticalityType DEFAULT ignore,
+  &id             Code
+}
+WITH SYNTAX {
+  EXTENSION-SYNTAX &ExtensionType
+  [CRITICALITY &criticality]
+  IDENTIFIED BY &id
+}
+
+CriticalityType ::= ENUMERATED {ignore(0), abort(1)}
+
+Code ::= CHOICE {local   INTEGER,
+                 global  OBJECT IDENTIFIER
+}
+
+--3b parameteriserad object set
+SupportedExtensions{PARAMETERS-BOUND:bound} EXTENSION ::= 
+{firstExtension | 
+ boundedExtension {bound}, --4a instans av parameteriserat object
+ ...
+}
+
+firstExtension EXTENSION ::= {
+  EXTENSION-SYNTAX  NULL
+  CRITICALITY       ignore
+  IDENTIFIED BY     local:1
+}
+
+--4b parameteriserat object
+boundedExtension{PARAMETERS-BOUND:bound} EXTENSION ::= {
+  EXTENSION-SYNTAX  BoundedExtensionSyntax {bound} --5a instans av parameteriserad typ
+  CRITICALITY       ignore
+  IDENTIFIED BY     local:2
+}
+
+--1b parameteriserad typ
+InitialDPArg{PARAMETERS-BOUND:bound} ::= SEQUENCE {
+  dialledDigits  [1]  CalledPartyNumber{bound} OPTIONAL, --2a instans av parameteriserad typ
+  extensions     [15]  SEQUENCE SIZE (1..bound.&numOfExtensions) OF ExtensionField{ {SupportedExtensions  {bound}}} OPTIONAL --3a instans av parameteriserad objectset
+}
+
+ExtensionField{EXTENSION:SupportedExtensions} ::= SEQUENCE {
+  type         EXTENSION.&id({SupportedExtensions}),
+  -- shall identify the value of an EXTENSION type
+  criticality  CriticalityType DEFAULT ignore,
+  value        [1]  EXTENSION.&ExtensionType({SupportedExtensions}{@type})
+}
+
+--2b parameteriserad typ
+CalledPartyNumber{PARAMETERS-BOUND:bound} ::=
+  OCTET STRING
+    (SIZE (bound.&minCalledPartyNumberLength..bound.&maxCalledPartyNumberLength))
+
+--5b parameteriserad typ
+BoundedExtensionSyntax{PARAMETERS-BOUND:bound} ::= SEQUENCE { --5
+  digits  OCTET STRING(SIZE (bound.&minDigitsLength..bound.&maxDigitsLength))
+}
+
+PARAMETERS-BOUND ::= CLASS {
+  &minAChBillingChargingLength     INTEGER,
+  &maxAChBillingChargingLength     INTEGER,
+  &minAttributesLength             INTEGER,
+  &maxAttributesLength             INTEGER,
+  &minBackwardGVNSLength           INTEGER,
+  &minDigitsLength                 INTEGER,
+  &maxDigitsLength                 INTEGER,
+  &minCalledPartyNumberLength      INTEGER,
+  &maxCalledPartyNumberLength      INTEGER,
+  &numOfExtensions                 INTEGER
+}
+WITH SYNTAX {
+  MINIMUM-FOR-ACH-BILLING-CHARGING &minAChBillingChargingLength
+  MAXIMUM-FOR-ACH-BILLING-CHARGING &maxAChBillingChargingLength
+  MINIMUM-FOR-ATTRIBUTES &minAttributesLength
+  MAXIMUM-FOR-ATTRIBUTES &maxAttributesLength
+  MINIMUM-FOR-BACKWARD-GVNS &minBackwardGVNSLength
+  MINIMUM-FOR-DIGITS &minDigitsLength
+  MAXIMUM-FOR-DIGITS &maxDigitsLength
+  MINIMUM-FOR-CALLED-PARTY-NUMBER &minCalledPartyNumberLength
+  MAXIMUM-FOR-CALLED-PARTY-NUMBER &maxCalledPartyNumberLength
+  NUM-OF-EXTENSIONS &numOfExtensions
+  }
+
+--1a instans av parameteriserad typ
+ActivityTest2 ::= InitialDPArg{networkSpecificBoundSet}
+
+networkSpecificBoundSet PARAMETERS-BOUND ::= {
+  MINIMUM-FOR-ACH-BILLING-CHARGING        1 -- example value
+  MAXIMUM-FOR-ACH-BILLING-CHARGING        5 -- example value
+  MINIMUM-FOR-ATTRIBUTES                  1 -- example value
+  MAXIMUM-FOR-ATTRIBUTES                  5 -- example value
+  MINIMUM-FOR-BACKWARD-GVNS               1
+  MINIMUM-FOR-DIGITS                      1
+  MAXIMUM-FOR-DIGITS                      5
+  MINIMUM-FOR-CALLED-PARTY-NUMBER         1 -- example value
+  MAXIMUM-FOR-CALLED-PARTY-NUMBER         5 -- example value
+  NUM-OF-EXTENSIONS                       1 -- example value
+}
+
+
+
+END

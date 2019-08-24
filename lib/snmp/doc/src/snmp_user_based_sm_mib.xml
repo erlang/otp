@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_user_based_sm_mib</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_user_based_sm_mib.xml</file>
+  </header>
+  <module since="">snmp_user_based_sm_mib</module>
+  <modulesummary>Instrumentation Functions for SNMP-USER-BASED-SM-MIB</modulesummary>
+  <description>
+    <p>The module <c>snmp_user_based_sm_mib</c> implements the instrumentation 
+      functions for the SNMP-USER-BASED-SM-MIB, and functions for configuring 
+      the database.
+      </p>
+    <p>The configuration files are described in the SNMP User's Manual.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">configure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-USER-BASED-SM-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>This function is called from the supervisor at system
+          start-up.
+          </p>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old rows with StorageType
+          <c>volatile</c>.  The rows created from the configuration file
+          will have StorageType <c>nonVolatile</c>.
+          </p>
+        <p>All <c>snmp</c> counters are set to zero.
+          </p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function <c>config_err/2</c> of the error
+          report module, and the function fails with the reason 
+          <c>configuration_error</c>.
+          </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found.
+          </p>
+        <p>The configuration file read is: <c>usm.conf</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name since="">reconfigure(ConfDir) -> void()</name>
+      <fsummary>Configure the SNMP-USER-BASED-SM-MIB</fsummary>
+      <type>
+        <v>ConfDir = string()</v>
+      </type>
+      <desc>
+        <p>Inserts all data in the configuration files into the
+          database and destroys all old data, including the rows with
+          StorageType <c>nonVolatile</c>.  The rows created from the
+          configuration file will have StorageType <c>nonVolatile</c>.
+          </p>
+        <p>Thus, the data in the SNMP-USER-BASED-SM-MIB, after this
+          function has been called, is the data from the configuration
+          files.
+          </p>
+        <p>All <c>snmp</c> counters are set to zero.
+          </p>
+        <p>If an error is found in the configuration file, it is
+          reported using the function <c>config_err/2</c> of the error
+          report module, and the function fails with the reason 
+          <c>configuration_error</c>.
+          </p>
+        <p><c>ConfDir</c> is a string which points to the directory
+          where the configuration files are found.
+          </p>
+        <p>The configuration file read is: <c>usm.conf</c>.
+                    <marker id="add_user"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret</name>
+      <fsummary>Add one user</fsummary>
+      <type>
+        <v>EngineID = string()</v>
+        <v>Name = string()</v>
+        <v>SecName = string()</v>
+        <v>Clone = zeroDotZero | [integer()]</v>
+        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol</v>
+        <v>AuthKeyC = string()</v>
+        <v>OwnAuthKeyC = string()</v>
+        <v>PrivP = usmNoPrivProtocol | usmDESPrivProtocol</v>
+        <v>PrivKeyC = string()</v>
+        <v>OwnPrivKeyC = string()</v>
+        <v>Public = string()</v>
+        <v>AuthKey = string()</v>
+        <v>PrivKey = string()</v>
+        <v>Ret = {ok, Key} | {error, Reason}</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a USM security data (user) to the agent config. 
+          Equivalent to one line in the <c>usm.conf</c> file.</p>
+        <marker id="delete_user"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">delete_user(Key) -> Ret</name>
+      <fsummary>Delete one user</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Ret = ok | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a USM security data (user) from the agent config.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

@@ -1,0 +1,132 @@
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+# 
+# Author: Patrik Winroth
+#
+# This sed program file is intended to be used when creating Makefiles
+# for vxworks from the generic Makefile.in that is found in a number
+# of directories (see configure.vxworks).
+#
+# This is the general part that is common for all architectures.
+#
+
+# Size of data types.
+s|^#undef SIZEOF_CHAR|#define SIZEOF_CHAR 1|
+s|^#undef SIZEOF_SHORT|#define SIZEOF_SHORT 2|
+s|^#undef SIZEOF_INT|#define SIZEOF_INT 4|
+s|^#undef SIZEOF_LONG_LONG|#define SIZEOF_LONG_LONG 8|
+s|^#undef SIZEOF_LONG$|#define SIZEOF_LONG 4|
+s|^#undef SIZEOF_VOID_P$|#define SIZEOF_VOID_P 4|
+
+# General stuff.
+s|@erts_rootdir@|/clearcase/otp/erts|
+
+s|@LIBOBJS@|$(OBJDIR)/elib_malloc.o|
+s|@DLOAD_LIB@||
+s|@LDFLAGS@||
+# FIXME: A bit strange to clear out remaining DED_*
+s|@DED_LDFLAGS@||
+s|@DED_CFLAGS@||
+s|@DED_EMU_THR_DEFS@||
+s|@DED_THR_DEFS@||
+s|@DED_SYS_INCLUDE@||
+s|@WERRORFLAGS@||
+s|@DED_STATIC_CFLAGS@||
+s|@STATIC_CFLAGS@||
+s|@GCCLIB@|libgcc.a|
+s|@DEFS@||
+s|@DEXPORT@||
+s|@DCFLAGS@||
+s|@THR_DEFS@||
+s|@THR_LIBS@||
+s|@THR_LIB_NAME@||
+s|@THR_X_LIBS@||
+s|@ETHR_X_LIBS@||
+s|@ETHR_LIBS@||
+s|@ETHR_LIB_NAME@||
+s|@ETHR_DEFS@||
+s|@ETHR_THR_LIB_BASE@||
+s|@ETHR_THR_LIB_BASE_DIR@||
+s|@SYSTEMD_DAEMON_LIBS@||
+s|@EMU_THR_DEFS@||
+s|@EMU_THR_LIBS@||
+s|@EMU_THR_LIB_NAME@|ethread|
+s|@ERTS_ENABLE_KERNEL_POLL@|no|
+s|@ERTS_INTERNAL_X_LIBS@||
+s|@cc_root@|/clearcase/otp/|
+# Define VxWorks even though cross-compiling. 
+s|@CROSS_COMPILING|yes|
+
+s|@HCFLAGS@|-DVXWORKS|
+s|@HCLIBS@||
+s|@ENABLE_ALLOC_TYPE_VARS@||
+s|@TERMCAP_LIB@||
+s|@ERTS_BUILD_SMP_EMU@|no|
+s|@HAVE_VALGRIND@|no|
+s|@EXEEXT@||
+s|@WITH_SCTP@||
+
+# HiPE
+s|@HIPE_ENABLED@||
+
+# m4
+s|@OPSYS@|noopsys|
+
+# Conditional inclusion of applications
+s|@HIPE_APP@||
+s|@SSL_APP@|ssl|
+s|@CRYPTO_APP@|crypto|
+s|@SSH_APP@|ssh|
+
+# The target tools prefix, prepended to all cc,ld,as etc commands
+s|@TTPREFIX@|GCC_EXEC_PREFIX=@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/host/@HOST_TYPE@/bin/|
+
+# Install programs etc
+s|@PERL@|perl|
+s|@INSTALL_PROGRAM@|${INSTALL}|
+s|@INSTALL_SCRIPT@|${INSTALL}|
+s|@INSTALL_DATA@|${INSTALL} -m 644|
+s|@INSTALL_DIR@|$(INSTALL) -d|
+s|@MKDIR@|/bin/mkdir|
+s|@ERLANG_OSTYPE@|vxworks|
+s|@vxworks_reclaim@|reclaim.h|
+s|@os_mon_programs@||
+s|@erlexec@|erl.exec|
+s|@EMU_LIBOBJS@||
+
+# General CFLAGS
+s|@GENERAL_CFLAGS@|@ENV_CFLAGS@ -DHAVE_LOCALTIME_R -DHAVE_GMTIME_R -DENABLE_ELIB_MALLOC -DELIB_HEAP_USER -DELIB_SORTED_BLOCKS -DWORDS_BIGENDIAN -DELIB_DONT_INITIALIZE -DSIZEOF_CHAR=1 -DSIZEOF_SHORT=2 -DSIZEOF_INT=4 -DSIZEOF_LONG=4 -DSIZEOF_LONG_LONG=8 -DSIZEOF_VOID_P=4 -DERTS_USE_PORT_TASKS=1|g
+s|@WFLAGS@||
+
+# Thread flags for eidefs.mk (erl_interface)
+s|@EI_THREADS@|false|
+
+# Make java code compile although we don't test it on VxWorks (no license)
+s|@JAVAC@|javac|
+
+# What is this anyway?
+# Disable it and see what breaks.
+#s|@ded_soname@||
+
+# Only variable substituted directly
+s|$(LDFLAGS)|-r -d|
+s|@LIBRT@||
+# XXX What is EFFLAGS? Not used in the emulator Makefile.in anyway.
+s|$(EFLAGS)|-DENABLE_ELIB_MALLOC -DELIB_HEAP_USER -DELIB_SORTED_BLOCKS|
+

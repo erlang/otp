@@ -1,0 +1,65 @@
+SetOfTag DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSetNT, XSetImp, XSetExp FROM External;
+
+SetTagNt ::= [APPLICATION 20] SET {
+	nt SET OF NT}
+
+SetTagNtI ::= [APPLICATION 20] SET {
+	imp SET OF Imp}
+
+SetTagNtE ::= [APPLICATION 20] SET {
+	exp SET OF Exp }
+
+SetTagI ::= [APPLICATION 21] SET {
+	nt [0] SET OF NT}
+
+SetTagII ::= [APPLICATION 21] SET {
+	imp [1] SET OF Imp}
+
+SetTagIE ::= [APPLICATION 21] SET {
+	exp [2] SET OF Exp}
+
+SetTagE ::= [APPLICATION 22] SET {
+	nt [0] EXPLICIT SET OF NT}
+
+SetTagEI ::= [APPLICATION 22] SET {
+	imp [1] EXPLICIT SET OF Imp}
+
+SetTagEE ::= [APPLICATION 22] SET {
+	exp [2] EXPLICIT SET OF Exp}
+
+SetTagXNt ::= [APPLICATION 30] SET {
+	xnt SET OF XSetNT}
+
+SetTagXI ::= [APPLICATION 30] SET {
+	ximp SET OF XSetImp}
+
+SetTagXE ::= [APPLICATION 30] SET {
+	xexp SET OF XSetExp }
+
+SetTagImpX ::= [APPLICATION 31] SET {
+	xnt [3] SET OF XSetNT,
+	ximp [4] SET OF XSetImp,
+	xexp [5] SET OF XSetExp }
+
+SetTagExpX ::= [APPLICATION 32] SET {
+	xnt [3] EXPLICIT SET OF XSetNT,
+	ximp [4] EXPLICIT SET OF XSetImp,
+	xexp [5] EXPLICIT SET OF XSetExp }
+
+
+
+NT ::= SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [21] SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [22] EXPLICIT SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+END

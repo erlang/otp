@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>Drivers</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2009-11-16</date>
+    <rev></rev>
+    <file>drivers.xml</file>
+  </header>
+
+  <p>This section provides a brief overview on how to write efficient
+  drivers.</p>
+  <p>It is assumed that you have a good understanding of drivers.</p>
+
+  <section>
+    <title>Drivers and Concurrency</title>
+
+    <p>The runtime system always takes a lock before running
+    any code in a driver.</p>
+
+    <p>By default, that lock is at the driver level, that is,
+    if several ports have been opened to the same driver, only code for
+    one port at the same time can be running.</p>
+
+    <p>A driver can be configured to have one lock for each port instead.</p>
+
+    <p>If a driver is used in a functional way (that is, holds no state,
+    but only does some heavy calculation and returns a result), several
+    ports with registered names can be opened beforehand, and the port to
+    be used can be chosen based on the scheduler ID as follows:</p>
+
+    <code type="none">
+-define(PORT_NAMES(),
+	{some_driver_01, some_driver_02, some_driver_03, some_driver_04,
+	 some_driver_05, some_driver_06, some_driver_07, some_driver_08,
+	 some_driver_09, some_driver_10, some_driver_11, some_driver_12,
+	 some_driver_13, some_driver_14, some_driver_15, some_driver_16}).
+
+client_port() ->
+    element(erlang:system_info(scheduler_id) rem tuple_size(?PORT_NAMES()) + 1,
+	    ?PORT_NAMES()).</code>
+
+    <p>As long as there are no more than 16 schedulers, there will never
+    be any lock contention on the port lock for the driver.</p>	    
+
+  </section>
+
+  <section>
+    <title>Avoiding Copying Binaries When Calling a Driver</title>
+
+    <p>There are basically two ways to avoid copying a binary that is
+    sent to a driver:</p>
+
+    <list type="bulleted">
+      <item><p>If the <c>Data</c> argument for
+      <seealso marker="erts:erlang#port_control/3">port_control/3</seealso>
+      is a binary, the driver will be passed a pointer to the contents of
+      the binary and the binary will not be copied. If the <c>Data</c>
+      argument is an iolist (list of binaries and lists), all binaries in
+      the iolist will be copied.</p>
+
+      <p>Therefore, if you want to send both a pre-existing binary and some
+      extra data to a driver without copying the binary, you must call
+      <c>port_control/3</c> twice; once with the binary and once with the
+      extra data. However, that will only work if there is only one
+      process communicating with the port (because otherwise another process
+      can call the driver in-between the calls).</p></item>
+
+      <item><p>Implement an <c>outputv</c> callback (instead of an
+      <c>output</c> callback) in the driver. If a driver has an
+      <c>outputv</c> callback, refc binaries passed in an iolist
+      in the <c>Data</c> argument for
+      <seealso marker="erts:erlang#port_command/2">port_command/2</seealso>
+      will be passed as references to the driver.</p></item>
+    </list>
+  </section>
+
+  <section>
+    <title>Returning Small Binaries from a Driver</title>
+
+    <p>The runtime system can represent binaries up to 64 bytes as
+    heap binaries. They are always copied when sent in messages,
+    but they require less memory if they are not sent to another
+    process and garbage collection is cheaper.</p>
+
+    <p>If you know that the binaries you return are always small, you
+    are advised to use driver API calls that do not require a pre-allocated
+    binary, for example,
+    <seealso marker="erts:erl_driver#driver_output">driver_output()</seealso>
+    or
+    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>,
+    using the <c>ERL_DRV_BUF2BINARY</c> format,
+    to allow the runtime to construct a heap binary.</p>
+
+  </section>
+
+  <section>
+    <title>Returning Large Binaries without Copying from a Driver</title>
+
+    <p>To avoid copying data when a large binary is sent or returned from
+    the driver to an Erlang process, the driver must first allocate the
+    binary and then send it to an Erlang process in some way.</p>
+    
+    <p>Use
+    <seealso marker="erts:erl_driver#driver_alloc_binary">driver_alloc_binary()</seealso>
+    to allocate a binary.</p>
+
+    <p>There are several ways to send a binary created with
+    <c>driver_alloc_binary()</c>:</p>
+
+    <list type="bulleted">
+    <item>From the <c>control</c> callback, a binary can be returned if
+    <seealso marker="erts:erl_driver#set_port_control_flags">set_port_control_flags()</seealso>
+    has been called with the flag value <c>PORT_CONTROL_FLAG_BINARY</c>.</item>
+
+    <item>A single binary can be sent with
+    <seealso marker="erts:erl_driver#driver_output_binary">driver_output_binary()</seealso>.</item>
+
+    <item>Using
+    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>
+    or
+    <seealso marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seealso>,
+    a binary can be included in an Erlang term.</item>
+    </list>
+
+  </section>
+</chapter>

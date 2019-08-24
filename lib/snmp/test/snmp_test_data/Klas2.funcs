@@ -1,0 +1,3 @@
+{friendsTable2, {snmp_generic, table_func, [{friendsTable2, mnesia}]}}.
+{kompissTable2, {snmp_generic, table_func, [{kompissTable2, mnesia}]}}.
+{fname2, {snmp_generic, variable_func, [{fname2, mnesia}]}}.

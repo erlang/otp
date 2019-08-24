@@ -1,0 +1,74 @@
+The ECN specification (X.692) describes how to make encodings
+different from the standardised methods, BER and PER with variants.
+
+ECN has a system with inter-working modules including ordinary ASN1
+specs. There are any number of EDM (Encoding Definition Module)
+modules. And always one ELM (Encoding Link Module).
+
+The EDMs contains definitions of encoding classes, encoding objects
+and encoding object sets. They may also have IMPORTS and EXPORTS
+clauses. Encoding classes tells the structure of the encoding. Besides
+classes corresponding to types there are classes that define
+determinants for length and presence. The objects tell how the actual
+type that will be mapped to this object is encoded.
+
+The ELM is the module that links (applies) the various encodings,
+defined in the EDMs, to the types in the ASN1 specs.
+
+The ASN1 specs are not affected by being part of an ECN application.
+
+The following requirements must be wholly or partly fulfilled to
+enable the use of ECN in the OTP ASN1 compiler.
+       - Parsing of EDM and ELM modules.
+       - Extend the format of the abstract syntax tree or in other way
+       pass encoding information to code generation.
+       - Make possible to generate code with different encoding
+       methods.
+       - Unaligned PER backend. Often seems the unaligned PER encoding
+       as the prefferred main method in ECN applications. One of the
+       goals with ECN is to use less space for encoding to decrease
+       the use of bandwith in transmission. This goal is highly
+       supported by unaligned PER.
+
+
+Parsing of EDM and ELM modules:
+This should be done in a different parser than by the ASN1
+asn1ct_parser2.erl. The ECN syntax is quite extensive. A deeper
+investigation must be done here.
+
+Extend format of abstract syntax:
+To derive this format one has to consider both the explicit and
+implicit defined encoding structures.
+This addition of information should maybe be done after the check
+phase of the ASN1 syntax.
+
+Code generation:
+Initially one can just generate call-back functions when the encoding
+differs from the default method. Nevertheless the information must be
+present in the sytax tree so far. When the full functionality is
+implemented one has to enable a finer granularity in the use of the
+encoding rules. And also enable control of encoding on bit level.
+
+Unaligned PER backend:
+Often in examples this variant of PER is used. It shouldn't be that
+much work to add this encoding. Probably this will benefit the use of
+the driver.
+
+
+ECN can be used in for instance:
+    - Protocol systems that is not an ASN1 protocol.
+    - Specialized ASN1 protocols.
+
+
+Need for ECN?
+
+Among the ASN1 systems that have been enabled for ECN are:
+UMTS,
+Bluetooth,
+GPRS,
+CAMEL phase 3 stage 2,
+SS7,
+SCCP,
+and others.
+
+Inswitch has asked for it.

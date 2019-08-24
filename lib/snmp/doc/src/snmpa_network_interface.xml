@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_network_interface</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_network_interface.xml</file>
+  </header>
+  <module since="">snmpa_network_interface</module>
+  <modulesummary>Behaviour module for the SNMP agent network interface.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the agent network
+      interface. A <c>snmpa_network_interface</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#start_link">start_link/4</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#info">info/1</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#get_log_type">get_log_type/1</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#set_log_type">set_log_type/2</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#verbosity">verbosity/2</seealso></p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+    <p>But this is not enough. There is also a set of <em>mandatory</em>
+      messages which the network interface entity must be able to 
+      receive and be able to send. This is described in chapter
+      <seealso marker="snmp_agent_netif">snmp_agent_netif</seealso>.
+      </p>
+
+     <marker id="start_link"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">start_link(Prio, NoteStore, MasterAgent, Opts) -> {ok, Pid} | {error, Reason}</name>
+      <fsummary>Start-link the network interface process</fsummary>
+      <type>
+        <v>Prio        = priority()</v>
+        <v>NoteStore   = pid()</v>
+        <v>MasterAgent = pid()</v>
+        <v>Opts        = [opt()]</v>
+        <v>opt()       = {verbosity, verbosity()} | {versions, versions()} | term()</v>
+        <v>versions()  = [version()]</v>
+        <v>version()   = v1 | v2 | v3</v>
+      </type>
+      <desc>
+        <p>Start-link the network interface process.</p>
+        <p><c>NoteStore</c> is the pid of the note-store process and 
+          <c>MasterAgent</c> is the pid of the master-agent process.</p>
+        <p><c>Opts</c> is an (basically) implementation dependent list of 
+          options to the network interface process. There are however
+          a number of options which <em>must</em> be handled: 
+          <c>versions</c> and <c>verbosity</c>.</p>
+
+        <marker id="info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">info(Pid) -> [{Key, Value}]</name>
+      <fsummary>Return information about the running network interface process</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>The info returned is basically up to the implementer to decide. 
+          This implementation provided by the application provides info about 
+          memory allocation and various socket information.</p>
+        <p>The info returned by this function is returned together with other 
+          info collected by the agent when the 
+          <seealso marker="snmpa#info">info</seealso> function is called 
+          (tagged with with the key <c>net_if</c>).</p>
+
+        <marker id="verbosity"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">verbosity(Pid, Verbosity) -> void()</name>
+      <fsummary>Change the verbosity of a running network interface process</fsummary>
+      <type>
+        <v>Pid       = pid()</v>
+        <v>Verbosity = verbosity()</v>
+      </type>
+      <desc>
+        <p>Change the verbosity of a running network interface process.</p>
+
+        <marker id="get_log_type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_log_type(Pid) -> {ok, LogType} | {error, Reason}</name>
+      <fsummary>Get the Audit Trail Log type</fsummary>
+      <type>
+        <v>Pid     = pid()</v>
+        <v>LogType = atl_type()</v>
+        <v>Reason  = term()</v>
+      </type>
+      <desc>
+        <p>The Audit Trail Log is managed by the network interface process. 
+          So, it is this process that has to retrieve the actual log-type. </p>
+<!--
+        <p>See 
+          <seealso marker="snmpa#get_log_type">get_log_type</seealso>
+          for more info. </p>
+-->
+
+        <marker id="set_log_type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_log_type(Pid, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <fsummary>Change the Audit Trail Log type</fsummary>
+      <type>
+        <v>Pid     = pid()</v>
+        <v>NewType = OldType = atl_type()</v>
+        <v>Reason  = term()</v>
+      </type>
+      <desc>
+        <p>The Audit Trail Log is managed by the network interface process. 
+          So, it is this process that has to do the actual changing of the 
+          type. </p>
+        <p>See 
+          <seealso marker="snmpa#set_log_type">set_log_type</seealso>
+          for more info. </p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  
+</erlref>
+

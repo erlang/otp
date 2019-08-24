@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>counters</title>
+  </header>
+  <module since="OTP 21.2">counters</module>
+  <modulesummary>Counter Functions</modulesummary>
+  <description>
+    <p>This module provides a set of functions to do operations towards
+    shared mutable counter variables. The implementation does not utilize any
+    software level locking, which makes it very efficient for concurrent
+    access. The counters are organized into arrays with the following
+    semantics:</p>
+    <list type="bulleted">
+      <item>
+	<p>Counters are 64 bit signed integers.</p>
+      </item>
+      <item>
+	<p>Counters wrap around at overflow and underflow operations.</p>
+      </item>
+      <item><p>Counters are initialized to zero and can then only be written to
+        by adding or subtracting.</p>
+      </item>
+      <item>
+	<p>Write operations guarantee atomicity. No intermediate results can be
+	seen from a single write operation.</p>
+      </item>
+      <item>
+	<p>Two types of counter arrays can be created with options <c>atomics</c> or
+	<c>write_concurrency</c>. The <c>atomics</c> counters have good allround
+	performance with nice consistent semantics while
+	<c>write_concurrency</c> counters offers even better concurrent
+	write performance at the expense of some potential read
+	inconsistencies. See <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+      </item>
+      <item>
+	<p>Indexes into counter arrays are one-based. A counter array of
+	size N contains N counters with index from 1 to N.</p>
+      </item>
+    </list>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="counters_ref"/>
+      <desc><p>Identifies a counter array returned from
+        <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="new" arity="2" since="OTP 21.2"/>
+      <fsummary>Create counter array</fsummary>
+      <desc>
+        <p>Create a new counter array of <c><anno>Size</anno></c> counters.</p>
+	<p>Argument <c><anno>Opts</anno></c> is a list of the following possible
+	options:</p>
+	<taglist>
+	  <tag><c>atomics</c> (Default)</tag>
+	  <item><p>Counters will be sequentially consistent. If write
+	  operation A is done sequentially before write operation B, then a concurrent reader
+	  may see none of them, only A, or both A and B. It cannot see only B.</p>
+	  </item>
+	  <tag><c>write_concurrency</c></tag>
+	  <item><p>This is an optimization to achieve very efficient concurrent
+	  <seealso marker="#add/3"><c>add</c></seealso> and <seealso
+	  marker="#sub/3"><c>sub</c></seealso> operations at the expense of potential read
+	  inconsistency and memory consumption per counter.</p>
+	  <p>Read operations may see sequentially inconsistent results with
+	  regard to concurrent write operations. Even if write operation A is done
+	  sequentially before write operation B, a concurrent reader may see any
+	  combination of A and B, including only B. A read operation is only
+	  guaranteed to see all writes done sequentially before the read. No writes
+	  are ever lost, but will eventually all be seen.</p>
+	  <p>The typical use case for <c>write_concurrency</c> is when
+	  concurrent calls to <seealso marker="#add/3"><c>add</c></seealso> and
+	  <seealso marker="#sub/3"><c>sub</c></seealso> toward the same counters
+	  are very frequent, while calls to <seealso marker="#get/2"><c>get</c>
+	  </seealso> and <seealso marker="#put/3"><c>put</c></seealso> are much
+	  less frequent. The lack of absolute read consistency must also be
+	  acceptable.</p>
+	  </item>
+	</taglist>
+        <p>Counters are not tied to the current process and are automatically
+        garbage collected when they are no longer referenced.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since="OTP 21.2"/>
+      <fsummary>Read counter value</fsummary>
+      <desc>
+        <p>Read counter value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add" arity="3" since="OTP 21.2"/>
+      <fsummary>Add to counter</fsummary>
+      <desc>
+        <p>Add <c><anno>Incr</anno></c> to counter at index
+	<c><anno>Ix</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub" arity="3" since="OTP 21.2"/>
+      <fsummary>Subtract from counter</fsummary>
+      <desc>
+        <p>Subtract <c><anno>Decr</anno></c> from counter at index
+	<c><anno>Ix</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="put" arity="3" since="OTP 21.2"/>
+      <fsummary>Set counter to value</fsummary>
+      <desc>
+        <p>Write <c><anno>Value</anno></c> to counter at index
+	<c><anno>Ix</anno></c>.</p>
+	<note>
+	  <p>Despite its name, the <c>write_concurrency</c> optimization does not
+	  improve <c>put</c>. A call to <c>put</c> is a relatively heavy
+	  operation compared to the very lightweight and scalable <seealso
+	  marker="#add/3"><c>add</c></seealso> and <seealso marker="#sub/3">
+	  <c>sub</c></seealso>. The cost for a <c>put</c> with
+	  <c>write_concurrency</c> is like a <seealso marker="#get/2"><c>get</c>
+	  </seealso> plus a <c>put</c> without <c>write_concurrency</c>.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info" arity="1" since="OTP 21.2"/>
+      <fsummary>Get information about counter array.</fsummary>
+      <desc>
+        <p>Return information about a counter array in a map. The map
+	has the following keys (at least):</p>
+	<taglist>
+	  <tag><c>size</c></tag>
+	  <item><p>The number of counters in the array.</p></item>
+	  <tag><c>memory</c></tag>
+	  <item><p>Approximate memory consumption for the array in
+	  bytes.</p></item>
+	</taglist>
+      </desc>
+    </func>
+
+ </funcs>
+</erlref>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>dyntrace</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved>ETX/B/SFP (Kenneth Lundin)</approved>
+    <checked></checked>
+    <date>12-03-20</date>
+    <rev>A</rev>
+    <file>dyntrace.xml</file>
+  </header>
+  <module since="OTP R15B01">dyntrace</module>
+  <modulesummary>Interface to dynamic tracing</modulesummary>
+  <description>
+    <p>This module implements interfaces to dynamic tracing, should such be compiled into the virtual machine. For a standard and/or commercial build, no dynamic tracing is available, in which case none of the functions in this module is usable or give any effect.</p>
+    <p>Should dynamic tracing be enabled in the current build, either by configuring with <c>./configure --with-dynamic-trace=dtrace</c> or with  <c>./configure --with-dynamic-trace=systemtap</c>, the module can be used for two things:</p>
+    <list type="bulleted">
+      <item>Trigger the user-probe <c>user_trace_i4s4</c> in the NIF library <c>dyntrace.so</c> by calling <c>dyntrace:p/{1,2,3,4,5,6,7,8}</c>.</item>
+      <item>Set a user specified tag that will be present in the trace messages of both the <c>efile_drv</c> and the user-probe mentioned above.</item>
+    </list>
+      <p>Both building with dynamic trace probes and using them is experimental and unsupported by Erlang/OTP. It is included as an option for the developer to trace and debug performance issues in their systems.</p>
+      <p>The original implementation is mostly done by Scott Lystiger Fritchie as an Open Source Contribution and it should be viewed as such even though the source for dynamic tracing as well as this module is included in the main distribution. However, the ability to use dynamic tracing of the virtual machine is a very valuable contribution which OTP has every intention to maintain as a tool for the developer.</p>
+      <p>How to write <c>d</c> programs or <c>systemtap</c> scripts can be learned from books and from a lot of pages on the Internet. This manual page does not include any documentation about using the dynamic trace tools of respective platform. The <c>examples</c> directory of the <c>runtime_tools</c> application however contains comprehensive examples of both <c>d</c> and <c>systemtap</c> programs that will help you get started. Another source of information is the <seealso marker="DTRACE">dtrace</seealso> and <seealso marker="SYSTEMTAP">systemtap</seealso> chapters in the Runtime Tools Users' Guide.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="OTP R15B01">available() -> boolean()</name>
+      <fsummary>Check if dynamic tracing is available</fsummary>
+      <desc>
+	<p>This function uses the NIF library to determine if dynamic
+	tracing is available. Usually calling <seealso
+	marker="erts:erlang#system_info/1">erlang:system_info/1</seealso>
+	is a better indicator of the availability of dynamic
+	tracing.</p>
+	<p>The function will throw an exception if the <c>dyntrace</c> NIF library could not be loaded by the on_load function of this module.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p() -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message only containing the user tag and zeroes/empty strings in all other fields.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p(integer() | string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer or string parameter in the first integer/string field.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters. I.e. <c>p(1,"Hello")</c> is ok, as is <c>p(1,1)</c> and <c>p("Hello","Again")</c>, but not <c>p("Hello",1)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">p(integer(), integer() | string(), integer() | string(), integer() | string(), string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
+	<p>There can be no more than four parameters of any type (integer() or string()), so the first parameter has to be an integer() and the last a string().</p> 
+      </desc>
+    </func>
+     <func>
+      <name since="OTP R15B01">p(integer(), integer(), integer() | string(), integer() | string(), string(), string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
+	<p>There can be no more than four parameters of any type (integer() or string()), so the first two parameters has to be integer()'s and the last two string()'s.</p> 
+      </desc>
+    </func>
+     <func>
+      <name since="OTP R15B01">p(integer(), integer(), integer(), integer() | string(), string(), string(), string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
+	<p>There can be no more than four parameters of any type (integer() or string()), so the first three parameters has to be integer()'s and the last three string()'s.</p> 
+      </desc>
+    </func>
+     <func>
+      <name since="OTP R15B01">p(integer(), integer(), integer(), integer(), string(), string(), string(), string()) -> true | false | error | badarg</name>
+      <fsummary>Trigger the user trace probe.</fsummary>
+      <desc>
+        <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing all the integer()'s and string()'s provided, as well as any user tag set in the current process.</p> 
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">get_tag() -> binary() | undefined</name>
+      <fsummary>Get the user tag set in the process.</fsummary>
+      <desc>
+	<p>This function returns the user tag set in the current
+	process. If no tag is set or dynamic tracing is not available,
+	it returns <c>undefined</c></p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">get_tag() -> binary() | undefined</name>
+      <fsummary>Get the user tag set in the process or sent to the process.</fsummary>
+      <desc>
+	<p>This function returns the user tag set in the current
+	process or, if no user tag is present, the last user tag sent
+	to the process together with a message (in the same way as
+	<seealso marker="kernel:seq_trace">sequential trace
+	tokens</seealso> are spread to other processes together with
+	messages. For an explanation of how user tags can be spread
+	together with messages, see <seealso
+	marker="#spread_tag/1">spread_tag/1</seealso>. If no tag is
+	found or dynamic tracing is not available, it returns
+	<c>undefined</c></p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R15B01">put_tag(Item) -> binary() | undefined </name>
+      <fsummary>Set the user tag of the current process.</fsummary>
+      <type>
+        <v>Item = iodata()</v>
+      </type>
+      <desc>
+        <p>This function sets the user tag of the current process. The user tag is a binary(), but can be specified as any iodata(), which is automatically converted to a binary by this function.</p>
+	<p>The user tag is provided to the user probes triggered by calls top <c>dyntrace:p/{1,2,3,4,5,6,7,8}</c> as well as probes in the efile_driver. In the future, user tags might be added to more probes.</p>
+	<p>The old user tag (if any) is returned, or <c>undefined</c> if no user tag was present or dynamic tracing is not enabled.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">spread_tag(boolean()) -> TagData</name>
+      <fsummary>Start or stop spreading dynamic trace user tags with the next message.</fsummary>
+      <type>
+        <v>TagData = opaque data that can be used as parameter to <seealso marker="#restore_tag/1">restore_tag/1</seealso></v>
+      </type>
+      <desc>
+        <p>This function controls if user tags are to be spread to other processes with the next message. Spreading of user tags work like spreading of sequential trace tokens, so that a received user tag will be active in the process until the next message arrives (if that message does not also contain the user tag.</p>
+	<p>This functionality is used when a client process communicates with a file i/o-server to spread the user tag to the I/O-server and then down to the efile_drv driver. By using <c>spread_tag/1</c> and <c>restore_tag/1</c>, one can enable or disable spreading of user tags to other processes and then restore the previous state of the user tag. The TagData returned from this call contains all previous information so the state (including any previously spread user tags) will be completely restored by a later call to <c>restore_tag/1</c>.</p> 
+	<p>The <seealso marker="kernel:file">file</seealso> module already spread's tags, so there is noo need to manually call these function to get user tags spread to the efile driver through that module.</p>
+	<p>The most use of this function would be if one for example uses the <seealso marker="stdlib:io">io</seealso> module to communicate with an I/O-server for a regular file, like in the following example:</p>
+<pre>
+f() ->
+   {ok, F} = file:open("test.tst",[write]),
+   Saved = dyntrace:spread_tag(true),
+   io:format(F,"Hello world!",[]),
+   dyntrace:restore_tag(Saved),
+   file:close(F).
+</pre>
+          <p>In this example, any user tag set in the calling process will be spread to the I/O-server when the io:format call is done.</p>
+      </desc>
+    </func>
+    <func>
+    <name since="OTP R15B01">restore_tag(TagData) -> true</name>
+      <fsummary>Restore to a previous state of user tag spreading.</fsummary>
+      <type>
+        <v>TagData = opaque data returned by <seealso marker="#spread_tag/1">spread_tag/1</seealso></v>
+      </type>
+      <desc>
+	<p>Restores the previous state of user tags and their spreading as it was before a call to <seealso marker="#spread_tag/1">spread_tag/1</seealso>. Note that the restoring is not limited to the same process, one can utilize this to turn off spreding in one process and restore it in a newly created, the one that actually is going to send messages:</p>
+<pre>
+f() ->
+    TagData=dyntrace:spread_tag(false),
+    spawn(fun() ->
+             dyntrace:restore_tag(TagData),
+             do_something()
+          end),
+    do_something_else(),
+    dyntrace:restore_tag(TagData).
+</pre>
+        <p>Correctly handling user tags and their spreading might take some effort, as Erlang programs tend to send and receive messages so that sometimes the user tag gets lost due to various things, like double receives or communication with a port (ports do not handle user tags, in the same way as they do not handle regular sequential trace tokens).</p>
+      </desc>
+    </func>
+  </funcs>
+ </erlref>
+

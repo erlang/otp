@@ -1,0 +1,906 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>How to Implement a Driver</title>
+    <prepared>Jakob C</prepared>
+    <docno></docno>
+    <date>2000-11-28</date>
+    <rev>PA1</rev>
+    <file>driver.xml</file>
+  </header>
+  <note>
+    <p>This section was written a long time ago. Most of it is still
+      valid, as it explains important concepts, but this was
+      written for an older driver interface so the examples do not
+      work anymore. The reader is encouraged to read the
+      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
+      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      documentation also.</p>
+  </note>
+
+  <section>
+    <title>Introduction</title>
+    <p>This section describes how to build your own driver for Erlang.</p>
+
+    <p>A driver in Erlang is a library written in C, which is linked to
+      the Erlang emulator and called from Erlang. Drivers can be used
+      when C is more suitable than Erlang, to speed up things, or to
+      provide access to OS resources not directly accessible from Erlang.</p>
+
+    <p>A driver can be dynamically loaded, as a shared library (known as
+      a DLL on Windows), or statically loaded, linked with the emulator
+      when it is compiled and linked. Only dynamically loaded drivers
+      are described here, statically linked drivers are beyond the scope
+      of this section.</p>
+
+    <warning>
+      <p>When a driver is loaded it is executed in the context of the
+        emulator, shares the same memory and the same thread. This means
+        that all operations in the driver must be non-blocking, and that
+        any crash in the driver brings the whole emulator down. In short,
+        be careful.</p>
+    </warning>
+  </section>
+
+  <section>
+    <title>Sample Driver</title>
+    <p>This section describes a simple driver for accessing a postgres
+      database using the libpq C client library. Postgres
+      is used because it is free and open source. For information on postgres,
+      see <url href="http://www.postgres.org">www.postgres.org</url>.</p>
+
+    <p>The driver is synchronous, it uses the synchronous calls of
+      the client library. This is only for simplicity, but not good, as it
+      halts the emulator while waiting for the database.
+      This is improved below with an asynchronous sample driver.</p>
+
+    <p>The code is straightforward: all
+      communication between Erlang and the driver
+      is done with <c><![CDATA[port_control/3]]></c>, and the
+      driver returns data back using the <c><![CDATA[rbuf]]></c>.</p>
+
+    <p>An Erlang driver only exports one function: the driver
+      entry function. This is defined with a macro,
+      <c><![CDATA[DRIVER_INIT]]></c>, which returns a pointer to a
+      C <c><![CDATA[struct]]></c> containing the entry points that are
+      called from the emulator. The <c><![CDATA[struct]]></c> defines the
+      entries that the emulator calls to call the driver, with
+      a <c><![CDATA[NULL]]></c> pointer for entries that are not defined
+      and used by the driver.</p>
+
+    <p>The <c><![CDATA[start]]></c> entry is called when the driver
+      is opened as a port with <c><![CDATA[open_port/2]]></c>. Here
+      we allocate memory for a user data structure.
+      This user data is passed every time the emulator
+      calls us. First we store the driver handle, as it
+      is needed in later calls. We allocate memory for
+      the connection handle that is used by LibPQ. We also
+      set the port to return allocated driver binaries, by
+      setting flag <c><![CDATA[PORT_CONTROL_FLAG_BINARY]]></c>, calling
+      <c><![CDATA[set_port_control_flags]]></c>. (This is because
+      we do not know if our data will fit in the
+      result buffer of <c><![CDATA[control]]></c>, which has a default size,
+      64 bytes, set up by the emulator.)</p>
+
+    <p>An entry <c><![CDATA[init]]></c> is called when
+      the driver is loaded. However, we do not use this, as
+      it is executed only once, and we want to have the
+      possibility of several instances of the driver.</p>
+
+    <p>The <c><![CDATA[stop]]></c> entry is called when the port
+      is closed.</p>
+
+    <p>The <c><![CDATA[control]]></c> entry is called from the emulator
+      when the Erlang code calls <c><![CDATA[port_control/3]]></c>,
+      to do the actual work. We have defined a simple set of
+      commands: <c><![CDATA[connect]]></c> to log in to the database,
+      <c><![CDATA[disconnect]]></c> to log out, and <c><![CDATA[select]]></c>
+      to send a SQL-query and get the result.
+      All results are returned through <c><![CDATA[rbuf]]></c>.
+      The library <c><![CDATA[ei]]></c> in <c><![CDATA[erl_interface]]></c> is
+      used to encode data in binary term format. The result is returned
+      to the emulator as binary terms, so <c><![CDATA[binary_to_term]]></c>
+      is called in Erlang to convert the result to term form.</p>
+
+    <p>The code is available in <c><![CDATA[pg_sync.c]]></c> in the
+      <c><![CDATA[sample]]></c> directory of <c><![CDATA[erts]]></c>.</p>
+
+    <p>The driver entry contains the functions that
+      will be called by the emulator. In this example,
+      only <c><![CDATA[start]]></c>, <c><![CDATA[stop]]></c>,
+      and <c><![CDATA[control]]></c> are provided:</p>
+
+    <code type="none"><![CDATA[
+/* Driver interface declarations */
+static ErlDrvData start(ErlDrvPort port, char *command);
+static void stop(ErlDrvData drv_data);
+static int control(ErlDrvData drv_data, unsigned int command, char *buf, 
+                   int len, char **rbuf, int rlen); 
+
+static ErlDrvEntry pq_driver_entry = {
+    NULL,                        /* init */
+    start,
+    stop,
+    NULL,                        /* output */
+    NULL,                        /* ready_input */
+    NULL,                        /* ready_output */
+    "pg_sync",                   /* the name of the driver */
+    NULL,                        /* finish */
+    NULL,                        /* handle */
+    control,
+    NULL,                        /* timeout */
+    NULL,                        /* outputv */
+    NULL,                        /* ready_async */
+    NULL,                        /* flush */
+    NULL,                        /* call */
+    NULL                         /* event */
+};
+    ]]></code>
+
+    <p>We have a structure to store state needed by the driver,
+      in this case we only need to keep the database connection:</p>
+
+    <code type="none"><![CDATA[
+typedef struct our_data_s {
+    PGconn* conn;
+} our_data_t;
+    ]]></code>
+
+    <p>The control codes that we have defined are as follows:</p>
+
+    <code type="none"><![CDATA[
+/* Keep the following definitions in alignment with the
+ * defines in erl_pq_sync.erl
+ */
+
+#define DRV_CONNECT             'C'
+#define DRV_DISCONNECT          'D'
+#define DRV_SELECT              'S'
+    ]]></code>
+
+    <p>This returns the driver structure. The macro
+      <c><![CDATA[DRIVER_INIT]]></c> defines the only exported function.
+      All the other functions are static, and will not be exported
+      from the library.</p>
+
+    <code type="none"><![CDATA[
+/* INITIALIZATION AFTER LOADING */
+
+/* 
+ * This is the init function called after this driver has been loaded.
+ * It must *not* be declared static. Must return the address to 
+ * the driver entry.
+ */
+
+DRIVER_INIT(pq_drv)
+{
+    return &pq_driver_entry;
+}
+    ]]></code>
+
+    <p>Here some initialization is done, <c><![CDATA[start]]></c> is called from
+      <c><![CDATA[open_port]]></c>. The data will be passed to
+      <c><![CDATA[control]]></c> and <c><![CDATA[stop]]></c>.</p>
+
+    <code type="none"><![CDATA[
+/* DRIVER INTERFACE */
+static ErlDrvData start(ErlDrvPort port, char *command)
+{ 
+    our_data_t* data;
+
+    data = (our_data_t*)driver_alloc(sizeof(our_data_t));
+    data->conn = NULL;
+    set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
+    return (ErlDrvData)data;
+}
+    ]]></code>
+
+    <p>We call disconnect to log out from the database.
+      (This should have been done from Erlang, but just in case.)</p>
+
+    <code type="none"><![CDATA[
+static int do_disconnect(our_data_t* data, ei_x_buff* x);
+
+static void stop(ErlDrvData drv_data)
+{
+    our_data_t* data = (our_data_t*)drv_data;
+
+    do_disconnect(data, NULL);
+    driver_free(data);
+}
+    ]]></code>
+
+    <p>We use the binary format only to return data to the emulator;
+      input data is a string parameter for <c><![CDATA[connect]]></c> and
+      <c><![CDATA[select]]></c>. The returned data consists of Erlang terms.</p>
+
+    <p>The functions <c><![CDATA[get_s]]></c> and
+      <c><![CDATA[ei_x_to_new_binary]]></c> are utilities that are used to
+      make the code shorter. <c><![CDATA[get_s]]></c>
+      duplicates the string and zero-terminates it, as the
+      postgres client library wants that. <c><![CDATA[ei_x_to_new_binary]]></c>
+      takes an <c><![CDATA[ei_x_buff]]></c> buffer, allocates a binary, and
+      copies the data there. This binary is returned in
+      <c><![CDATA[*rbuf]]></c>.
+      (Notice that this binary is freed by the emulator, not by us.)</p>
+
+    <code type="none"><![CDATA[
+static char* get_s(const char* buf, int len);
+static int do_connect(const char *s, our_data_t* data, ei_x_buff* x);
+static int do_select(const char* s, our_data_t* data, ei_x_buff* x);
+
+/* As we are operating in binary mode, the return value from control
+ * is irrelevant, as long as it is not negative.
+ */
+static int control(ErlDrvData drv_data, unsigned int command, char *buf, 
+                   int len, char **rbuf, int rlen)
+{
+    int r;
+    ei_x_buff x;
+    our_data_t* data = (our_data_t*)drv_data;
+    char* s = get_s(buf, len);
+    ei_x_new_with_version(&x);
+    switch (command) {
+        case DRV_CONNECT:    r = do_connect(s, data, &x);  break;
+        case DRV_DISCONNECT: r = do_disconnect(data, &x);  break;
+        case DRV_SELECT:     r = do_select(s, data, &x);   break;
+        default:             r = -1;        break;
+    }
+    *rbuf = (char*)ei_x_to_new_binary(&x);
+    ei_x_free(&x);
+    driver_free(s);
+    return r;
+}
+    ]]></code>
+
+    <p><c><![CDATA[do_connect]]></c> is where we log in to the database. If the
+      connection was successful, we store the connection handle in the driver
+      data, and return <c>'ok'</c>. Otherwise, we return the error message
+      from postgres and store <c><![CDATA[NULL]]></c> in the driver data.</p>
+
+    <code type="none"><![CDATA[
+static int do_connect(const char *s, our_data_t* data, ei_x_buff* x)
+{
+    PGconn* conn = PQconnectdb(s);
+    if (PQstatus(conn) != CONNECTION_OK) {
+        encode_error(x, conn);
+        PQfinish(conn);
+        conn = NULL;
+    } else {
+        encode_ok(x);
+    }
+    data->conn = conn;
+    return 0;
+}
+    ]]></code>
+
+    <p>If we are connected (and if the connection handle is not
+      <c><![CDATA[NULL]]></c>),
+      we log out from the database. We need to check if we should
+      encode an <c>'ok'</c>, as we can get here from function
+      <c><![CDATA[stop]]></c>, which does not return data to the emulator:</p>
+
+    <code type="none"><![CDATA[
+static int do_disconnect(our_data_t* data, ei_x_buff* x)
+{
+    if (data->conn == NULL)
+        return 0;
+    PQfinish(data->conn);
+    data->conn = NULL;
+    if (x != NULL)
+        encode_ok(x);
+    return 0;
+}
+    ]]></code>
+
+    <p>We execute a query and encode the result. Encoding is done in
+      another C module, <c><![CDATA[pg_encode.c]]></c>, which is also provided
+      as sample code.</p>
+
+    <code type="none"><![CDATA[
+static int do_select(const char* s, our_data_t* data, ei_x_buff* x)
+{
+   PGresult* res = PQexec(data->conn, s);
+    encode_result(x, res, data->conn);
+    PQclear(res);
+    return 0;
+}
+    ]]></code>
+
+    <p>Here we check the result from postgres.
+      If it is data, we encode it as lists of lists with
+      column data. Everything from postgres is C strings,
+      so we use <c><![CDATA[ei_x_encode_string]]></c> to send
+      the result as strings to Erlang. (The head of the list
+      contains the column names.)</p>
+
+    <code type="none"><![CDATA[
+void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
+{
+    int row, n_rows, col, n_cols;
+    switch (PQresultStatus(res)) {
+    case PGRES_TUPLES_OK: 
+        n_rows = PQntuples(res); 
+        n_cols = PQnfields(res); 
+        ei_x_encode_tuple_header(x, 2);
+        encode_ok(x);
+        ei_x_encode_list_header(x, n_rows+1);
+        ei_x_encode_list_header(x, n_cols);
+        for (col = 0; col < n_cols; ++col) {
+            ei_x_encode_string(x, PQfname(res, col));
+        }
+        ei_x_encode_empty_list(x); 
+        for (row = 0; row < n_rows; ++row) {
+            ei_x_encode_list_header(x, n_cols);
+            for (col = 0; col < n_cols; ++col) {
+                ei_x_encode_string(x, PQgetvalue(res, row, col));
+            }
+            ei_x_encode_empty_list(x);
+        }
+        ei_x_encode_empty_list(x); 
+        break; 
+    case PGRES_COMMAND_OK:
+        ei_x_encode_tuple_header(x, 2);
+        encode_ok(x);
+        ei_x_encode_string(x, PQcmdTuples(res));
+        break;
+    default:
+        encode_error(x, conn);
+        break;
+    }
+}
+    ]]></code>
+  </section>
+
+  <section>
+    <title>Compiling and Linking the Sample Driver</title>
+    <p>The driver is to be compiled and linked to a shared
+      library (DLL on Windows). With gcc, this is done with
+      link flags <c><![CDATA[-shared]]></c> and <c><![CDATA[-fpic]]></c>.
+      As we use the <c><![CDATA[ei]]></c> library, we should include
+      it too. There are several versions of <c><![CDATA[ei]]></c>, compiled
+      for debug or non-debug and multi-threaded or single-threaded.
+      In the makefile for the samples, the <c><![CDATA[obj]]></c> directory
+      is used for the <c><![CDATA[ei]]></c> library, meaning that we use
+      the non-debug, single-threaded version.</p>
+  </section>
+
+  <section>
+    <title>Calling a Driver as a Port in Erlang</title>
+    <p>Before a driver can be called from Erlang, it must be
+      loaded and opened. Loading is done using the <c><![CDATA[erl_ddll]]></c>
+      module (the <c><![CDATA[erl_ddll]]></c> driver that loads dynamic
+      driver is actually a driver itself). If loading is successful,
+      the port can be opened with <c><![CDATA[open_port/2]]></c>. The port
+      name must match the name of the shared library and
+      the name in the driver entry structure.</p>
+
+    <p>When the port has been opened, the driver can be called. In
+      the <c><![CDATA[pg_sync]]></c> example, we do not have any data from
+      the port, only the return value from the
+      <c><![CDATA[port_control]]></c>.</p>
+
+    <p>The following code is the Erlang part of the synchronous
+      postgres driver, <c><![CDATA[pg_sync.erl]]></c>:</p>
+
+    <code type="none"><![CDATA[
+-module(pg_sync).
+
+-define(DRV_CONNECT, 1).
+-define(DRV_DISCONNECT, 2).
+-define(DRV_SELECT, 3).
+
+-export([connect/1, disconnect/1, select/2]).
+
+connect(ConnectStr) ->
+    case erl_ddll:load_driver(".", "pg_sync") of
+        ok -> ok;
+        {error, already_loaded} -> ok;
+        E -> exit({error, E})
+    end,
+    Port = open_port({spawn, ?MODULE}, []),
+    case binary_to_term(port_control(Port, ?DRV_CONNECT, ConnectStr)) of
+        ok -> {ok, Port};
+        Error -> Error
+    end.
+
+disconnect(Port) ->
+    R = binary_to_term(port_control(Port, ?DRV_DISCONNECT, "")),
+    port_close(Port),
+    R.
+
+select(Port, Query) ->
+    binary_to_term(port_control(Port, ?DRV_SELECT, Query)).
+    ]]></code>
+
+    <p>The API is simple:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c><![CDATA[connect/1]]></c> loads the driver, opens it,
+          and logs on to the database, returning the Erlang port
+          if successful.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[select/2]]></c> sends a query to the driver
+          and returns the result.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[disconnect/1]]></c> closes the database
+          connection and the driver. (However, it does not unload it.)</p>
+      </item>
+    </list>
+
+    <p>The connection string is to be a connection string for postgres.</p>
+
+    <p>The driver is loaded with <c><![CDATA[erl_ddll:load_driver/2]]></c>.
+      If this is successful, or if it is already loaded,
+      it is opened. This will call the <c><![CDATA[start]]></c> function
+      in the driver.</p>
+
+    <p>We use the <c><![CDATA[port_control/3]]></c> function for all
+      calls into the driver. The result from the driver is
+      returned immediately and converted to terms by calling
+      <c><![CDATA[binary_to_term/1]]></c>. (We trust that the terms returned
+      from the driver are well-formed, otherwise the
+      <c><![CDATA[binary_to_term]]></c> calls could be contained in a
+      <c><![CDATA[catch]]></c>.)</p>
+  </section>
+
+  <section>
+    <title>Sample Asynchronous Driver</title>
+    <p>Sometimes database queries can take a long time to
+      complete, in our <c><![CDATA[pg_sync]]></c> driver, the emulator
+      halts while the driver is doing its job. This is
+      often not acceptable, as no other Erlang process
+      gets a chance to do anything. To improve on our
+      postgres driver, we re-implement it using the asynchronous
+      calls in LibPQ.</p>
+
+    <p>The asynchronous version of the driver is in the sample files
+      <c><![CDATA[pg_async.c]]></c> and <c><![CDATA[pg_asyng.erl]]></c>.</p>
+
+    <code type="none"><![CDATA[
+/* Driver interface declarations */
+static ErlDrvData start(ErlDrvPort port, char *command);
+static void stop(ErlDrvData drv_data);
+static int control(ErlDrvData drv_data, unsigned int command, char *buf, 
+                   int len, char **rbuf, int rlen); 
+static void ready_io(ErlDrvData drv_data, ErlDrvEvent event);
+
+static ErlDrvEntry pq_driver_entry = {
+    NULL,                     /* init */
+    start, 
+    stop, 
+    NULL,                     /* output */
+    ready_io,                 /* ready_input */
+    ready_io,                 /* ready_output */ 
+    "pg_async",               /* the name of the driver */
+    NULL,                     /* finish */
+    NULL,                     /* handle */
+    control, 
+    NULL,                     /* timeout */
+    NULL,                     /* outputv */
+    NULL,                     /* ready_async */
+    NULL,                     /* flush */
+    NULL,                     /* call */
+    NULL                      /* event */
+};
+
+typedef struct our_data_t {
+    PGconn* conn;
+    ErlDrvPort port;
+    int socket;
+    int connecting;
+} our_data_t;
+    ]]></code>
+
+    <p>Some things have changed from <c><![CDATA[pg_sync.c]]></c>: we use
+      the entry <c><![CDATA[ready_io]]></c> for <c><![CDATA[ready_input]]></c>
+      and <c><![CDATA[ready_output]]></c>, which is called from the emulator
+      only when there is input to be read from the socket. (Actually, the
+      socket is used in a <c><![CDATA[select]]></c> function inside
+      the emulator, and when the socket is signaled,
+      indicating there is data to read, the <c><![CDATA[ready_input]]></c>
+      entry is called. More about this below.)</p>
+
+    <p>Our driver data is also extended, we keep track of the
+      socket used for communication with postgres, and also
+      the port, which is needed when we send data to the port with
+      <c><![CDATA[driver_output]]></c>. We have a flag
+      <c><![CDATA[connecting]]></c> to tell
+      whether the driver is waiting for a connection or waiting
+      for the result of a query. (This is needed, as the entry
+      <c><![CDATA[ready_io]]></c> is called both when connecting and
+      when there is a query result.)</p>
+
+    <code type="none"><![CDATA[
+static int do_connect(const char *s, our_data_t* data)
+{
+    PGconn* conn = PQconnectStart(s);
+    if (PQstatus(conn) == CONNECTION_BAD) {
+        ei_x_buff x;
+        ei_x_new_with_version(&x);
+        encode_error(&x, conn);
+        PQfinish(conn);
+        conn = NULL;
+        driver_output(data->port, x.buff, x.index);
+        ei_x_free(&x);
+    }
+    PQconnectPoll(conn);
+    int socket = PQsocket(conn);
+    data->socket = socket;
+    driver_select(data->port, (ErlDrvEvent)socket, DO_READ, 1);
+    driver_select(data->port, (ErlDrvEvent)socket, DO_WRITE, 1);
+    data->conn = conn;
+    data->connecting = 1;
+    return 0;
+}
+    ]]></code>
+
+    <p>The <c><![CDATA[connect]]></c> function looks a bit different too. We
+      connect using the asynchronous <c><![CDATA[PQconnectStart]]></c> function.
+      After the connection is started, we retrieve the socket for the connection
+      with <c><![CDATA[PQsocket]]></c>. This socket is used with the
+      <c><![CDATA[driver_select]]></c> function to wait for connection. When
+      the socket is ready for input or for output, the
+      <c><![CDATA[ready_io]]></c> function is called.</p>
+
+    <p>Notice that we only return data (with <c><![CDATA[driver_output]]></c>)
+      if there
+      is an error here, otherwise we wait for the connection to be completed,
+      in which case our <c><![CDATA[ready_io]]></c> function is called.</p>
+
+    <code type="none"><![CDATA[
+static int do_select(const char* s, our_data_t* data)
+{
+    data->connecting = 0;
+    PGconn* conn = data->conn;
+    /* if there's an error return it now */
+    if (PQsendQuery(conn, s) == 0) {
+        ei_x_buff x;
+        ei_x_new_with_version(&x);
+        encode_error(&x, conn);
+        driver_output(data->port, x.buff, x.index);
+        ei_x_free(&x);
+    }
+    /* else wait for ready_output to get results */
+    return 0;
+}
+    ]]></code>
+
+    <p>The <c><![CDATA[do_select]]></c> function initiates a select, and returns
+      if there is no immediate error. The result is returned
+      when <c><![CDATA[ready_io]]></c> is called.</p>
+
+    <code type="none"><![CDATA[
+static void ready_io(ErlDrvData drv_data, ErlDrvEvent event)
+{
+    PGresult* res = NULL;
+    our_data_t* data = (our_data_t*)drv_data;
+    PGconn* conn = data->conn;
+    ei_x_buff x;
+    ei_x_new_with_version(&x);
+    if (data->connecting) {
+        ConnStatusType status;
+        PQconnectPoll(conn);
+        status = PQstatus(conn);
+        if (status == CONNECTION_OK)
+            encode_ok(&x);
+        else if (status == CONNECTION_BAD)
+            encode_error(&x, conn);
+    } else {
+        PQconsumeInput(conn);
+        if (PQisBusy(conn))
+            return;
+        res = PQgetResult(conn);
+        encode_result(&x, res, conn);
+        PQclear(res);
+        for (;;) {
+            res = PQgetResult(conn);
+            if (res == NULL)
+                break;
+            PQclear(res);
+        }
+    }
+    if (x.index > 1) {
+        driver_output(data->port, x.buff, x.index);
+        if (data->connecting) 
+            driver_select(data->port, (ErlDrvEvent)data->socket, DO_WRITE, 0);
+    }
+    ei_x_free(&x);
+}
+    ]]></code>
+
+    <p>The <c><![CDATA[ready_io]]></c> function is called when the socket
+      we got from postgres is ready for input or output. Here
+      we first check if we are connecting to the database. In that
+      case, we check connection status and return OK if the 
+      connection is successful, or error if it is not. If the
+      connection is not yet established, we simply return;
+      <c><![CDATA[ready_io]]></c> is called again.</p>
+
+    <p>If we have a result from a connect, indicated by having data in
+      the <c><![CDATA[x]]></c> buffer, we no longer need to select on
+      output (<c><![CDATA[ready_output]]></c>), so we remove this by calling
+      <c><![CDATA[driver_select]]></c>.</p>
+
+    <p>If we are not connecting, we wait for results from a
+      <c><![CDATA[PQsendQuery]]></c>, so we get the result and return it. The
+      encoding is done with the same functions as in the earlier
+      example.</p>
+
+    <p>Error handling is to be added here, for example, checking
+      that the socket is still open, but this is only a simple example.</p>
+
+    <p>The Erlang part of the asynchronous driver consists of the
+      sample file <c><![CDATA[pg_async.erl]]></c>.</p>
+
+    <code type="none"><![CDATA[
+-module(pg_async).
+
+-define(DRV_CONNECT, $C).
+-define(DRV_DISCONNECT, $D).
+-define(DRV_SELECT, $S).
+
+-export([connect/1, disconnect/1, select/2]).
+
+connect(ConnectStr) ->
+    case erl_ddll:load_driver(".", "pg_async") of
+        ok -> ok;
+        {error, already_loaded} -> ok;
+        _ -> exit({error, could_not_load_driver})
+    end,
+    Port = open_port({spawn, ?MODULE}, [binary]),
+    port_control(Port, ?DRV_CONNECT, ConnectStr),
+    case return_port_data(Port) of
+        ok -> 
+            {ok, Port};
+        Error ->
+            Error
+    end.    
+
+disconnect(Port) ->
+    port_control(Port, ?DRV_DISCONNECT, ""),
+    R = return_port_data(Port),
+    port_close(Port),
+    R.
+
+select(Port, Query) ->
+    port_control(Port, ?DRV_SELECT, Query),
+    return_port_data(Port).
+
+return_port_data(Port) ->
+    receive
+        {Port, {data, Data}} ->
+            binary_to_term(Data)
+    end.
+    ]]></code>
+
+    <p>The Erlang code is slightly different, as we do not
+      return the result synchronously from <c><![CDATA[port_control]]></c>,
+      instead we get it from <c><![CDATA[driver_output]]></c> as data in the
+      message queue. The function <c><![CDATA[return_port_data]]></c> above
+      receives data from the port. As the data is in
+      binary format, we use <c><![CDATA[binary_to_term/1]]></c> to convert
+      it to an Erlang term. Notice that the driver is opened in
+      binary mode (<c><![CDATA[open_port/2]]></c> is called with option
+      <c><![CDATA[[binary]]]></c>). This means that data sent from the driver
+      to the emulator is sent as binaries. Without option
+      <c><![CDATA[binary]]></c>, they would have been lists of integers.</p>
+  </section>
+
+  <section>
+    <title>An Asynchronous Driver Using driver_async</title>
+    <p>As a final example we demonstrate the use of
+      <c><![CDATA[driver_async]]></c>.
+      We also use the driver term interface. The driver is written
+      in C++. This enables us to use an algorithm from STL. We use
+      the <c><![CDATA[next_permutation]]></c> algorithm to get the next
+      permutation of a list of integers. For large lists (&gt; 100,000
+      elements), this takes some time, so we perform this
+      as an asynchronous task.</p>
+
+    <p>The asynchronous API for drivers is complicated. First,
+      the work must be prepared. In the example, this is done in
+      <c><![CDATA[output]]></c>. We could have used <c><![CDATA[control]]></c>,
+      but we want some variation in the examples. In our driver, we allocate
+      a structure that contains anything that is needed for the asynchronous
+      task to do the work. This is done in the main emulator thread.
+      Then the asynchronous function is called from a driver thread,
+      separate from the main emulator thread. Notice that the driver functions
+      are not re-entrant, so they are not to be used.
+      Finally, after the function is completed, the driver callback
+      <c><![CDATA[ready_async]]></c> is called from the main emulator thread,
+      this is where we return the result to Erlang. (We cannot
+      return the result from within the asynchronous function, as
+      we cannot call the driver functions.)</p>
+
+    <p>The following code is from the sample file
+      <c><![CDATA[next_perm.cc]]></c>. The driver entry looks like before,
+      but also contains the callback <c><![CDATA[ready_async]]></c>.</p>
+
+    <code type="none"><![CDATA[
+static ErlDrvEntry next_perm_driver_entry = {
+    NULL,                        /* init */
+    start,
+    NULL,                        /* stop */
+    output,
+    NULL,                        /* ready_input */
+    NULL,                        /* ready_output */ 
+    "next_perm",                 /* the name of the driver */
+    NULL,                        /* finish */
+    NULL,                        /* handle */
+    NULL,                        /* control */
+    NULL,                        /* timeout */
+    NULL,                        /* outputv */
+    ready_async,
+    NULL,                        /* flush */
+    NULL,                        /* call */
+    NULL                         /* event */
+};
+    ]]></code>
+
+    <p>The <c><![CDATA[output]]></c> function allocates the work area of the
+      asynchronous function. As we use C++, we use a struct,
+      and stuff the data in it. We must copy the original data,
+      it is not valid after we have returned from the <c><![CDATA[output]]></c>
+      function, and the <c><![CDATA[do_perm]]></c> function is called
+      later, and from another thread. We return no data here, instead it
+      is sent later from the <c><![CDATA[ready_async]]></c> callback.</p>
+
+    <p>The <c><![CDATA[async_data]]></c> is passed to the
+      <c><![CDATA[do_perm]]></c> function. We do not use a
+      <c><![CDATA[async_free]]></c> function (the last argument to
+      <c><![CDATA[driver_async]]></c>), it is only used if the task is cancelled
+      programmatically.</p>
+
+    <code type="none"><![CDATA[
+struct our_async_data {
+    bool prev;
+    vector<int> data;
+    our_async_data(ErlDrvPort p, int command, const char* buf, int len);
+};
+
+our_async_data::our_async_data(ErlDrvPort p, int command,
+                               const char* buf, int len)
+    : prev(command == 2),
+      data((int*)buf, (int*)buf + len / sizeof(int))
+{
+}
+
+static void do_perm(void* async_data);
+
+static void output(ErlDrvData drv_data, char *buf, int len)
+{
+    if (*buf < 1 || *buf > 2) return;
+    ErlDrvPort port = reinterpret_cast<ErlDrvPort>(drv_data);
+    void* async_data = new our_async_data(port, *buf, buf+1, len);
+    driver_async(port, NULL, do_perm, async_data, do_free);
+}
+    ]]></code>
+
+    <p>In the <c><![CDATA[do_perm]]></c> we do the work, operating
+      on the structure that was allocated in <c><![CDATA[output]]></c>.</p>
+
+    <code type="none"><![CDATA[
+static void do_perm(void* async_data)
+{
+    our_async_data* d = reinterpret_cast<our_async_data*>(async_data);
+    if (d->prev)
+        prev_permutation(d->data.begin(), d->data.end());
+    else
+        next_permutation(d->data.begin(), d->data.end());
+}
+    ]]></code>
+
+    <p>In the <c><![CDATA[ready_async]]></c> function the output is sent back
+      to the
+      emulator. We use the driver term format instead of <c><![CDATA[ei]]></c>.
+      This is the only way to send Erlang terms directly to a driver, without
+      having the Erlang code to call <c><![CDATA[binary_to_term/1]]></c>. In
+      the simple example this works well, and we do not need to use
+      <c><![CDATA[ei]]></c> to handle the binary term format.</p>
+
+    <p>When the data is returned, we deallocate our data.</p>
+
+    <code type="none"><![CDATA[
+static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
+{
+    ErlDrvPort port = reinterpret_cast<ErlDrvPort>(drv_data);
+    our_async_data* d = reinterpret_cast<our_async_data*>(async_data);
+    int n = d->data.size(), result_n = n*2 + 3;
+    ErlDrvTermData *result = new ErlDrvTermData[result_n], *rp = result;
+    for (vector<int>::iterator i = d->data.begin();
+         i != d->data.end(); ++i) {
+        *rp++ = ERL_DRV_INT;
+        *rp++ = *i;
+    }
+    *rp++ = ERL_DRV_NIL;
+    *rp++ = ERL_DRV_LIST;
+    *rp++ = n+1;
+    driver_output_term(port, result, result_n);    
+    delete[] result;
+    delete d;
+}
+    ]]></code>
+
+    <p>This driver is called like the others from Erlang. However, as
+      we use <c><![CDATA[driver_output_term]]></c>, there is no need to call
+      <c>binary_to_term</c>. The Erlang code is in the sample file
+      <c><![CDATA[next_perm.erl]]></c>.</p>
+
+    <p>The input is changed into a list of integers and sent to
+      the driver.</p>
+
+    <code type="none"><![CDATA[
+-module(next_perm).
+
+-export([next_perm/1, prev_perm/1, load/0, all_perm/1]).
+
+load() ->
+    case whereis(next_perm) of
+        undefined ->
+            case erl_ddll:load_driver(".", "next_perm") of
+                ok -> ok;
+                {error, already_loaded} -> ok;
+                E -> exit(E)
+            end,
+            Port = open_port({spawn, "next_perm"}, []),
+            register(next_perm, Port);
+        _ ->
+            ok
+    end.
+
+list_to_integer_binaries(L) ->
+    [<<I:32/integer-native>> || I <- L].
+
+next_perm(L) ->
+    next_perm(L, 1).
+
+prev_perm(L) ->
+    next_perm(L, 2).
+
+next_perm(L, Nxt) ->
+    load(),
+    B = list_to_integer_binaries(L),
+    port_control(next_perm, Nxt, B),
+    receive
+        Result ->
+            Result
+    end.
+
+all_perm(L) ->
+    New = prev_perm(L),
+    all_perm(New, L, [New]).
+
+all_perm(L, L, Acc) ->
+    Acc;
+all_perm(L, Orig, Acc) ->
+    New = prev_perm(L),
+    all_perm(New, Orig, [New | Acc]).
+    ]]></code>
+  </section>
+</chapter>
+

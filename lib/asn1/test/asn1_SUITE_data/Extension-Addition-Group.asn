@@ -1,0 +1,141 @@
+--
+-- %CopyrightBegin%
+--
+-- Copyright Ericsson AB 2001-2016. All Rights Reserved.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+-- 
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
+-- %CopyrightEnd%
+
+Extension-Addition-Group DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+-- fetched from ITU-T Rec. X691 (07/2002)
+
+Ax ::= SEQUENCE {
+    a INTEGER (250..253),
+    b BOOLEAN,
+    c CHOICE {
+        d INTEGER,
+	...,
+
+	[[
+	    e BOOLEAN,
+	    f IA5String
+	]],
+	...
+    },
+    ...,
+    [[
+        g NumericString (SIZE(3)),
+	h BOOLEAN OPTIONAL
+    ]]
+,
+    ...,
+    i BMPString OPTIONAL,
+    j PrintableString OPTIONAL
+
+}
+
+-- valAx Ax ::= { a 253, b TRUE, c e: TRUE, g "123", h TRUE }
+
+Ax2 ::= SEQUENCE {
+    a INTEGER (250..253),
+    b BOOLEAN,
+    ...,
+    ug NumericString
+
+}
+
+-- The value { a 253, b TRUE, c e: TRUE, g "123", h TRUE }
+-- is encoded in PER as
+-- Hexadecimal view
+-- 9E000180 010291A4
+
+-- is encoded in Unaligned PER as
+-- 9E000600 040A4690
+
+Ax3 ::= SEQUENCE {
+    a INTEGER (250..253),
+    b BOOLEAN,
+    s SEQUENCE {
+        sa INTEGER,
+	sb BOOLEAN,
+	...,
+	[[
+	    sextaddgroup INTEGER OPTIONAL
+	]]
+    }
+}
+
+-- { a 253, b TRUE, s {sa 17, sb TRUE, sextaddgroup 11}}
+
+-- This is to test the case with more than one ExtensionAdditionGroup
+-- which did not work before
+
+AS-Config ::=				SEQUENCE {
+        a INTEGER,
+        b BOOLEAN,
+        c OCTET STRING,
+	...,
+	[[	sourceSystemInformationBlockType1Ext	OCTET STRING OPTIONAL,
+		sourceOtherConfig-r9			INTEGER
+	]],
+	[[	sourceSCellConfigList-r10	OCTET STRING OPTIONAL
+	]]
+}
+
+SystemInformationBlockType2 ::= SEQUENCE {
+  timeAlignmentTimerCommon TimeAlignmentTimer,
+  ...,
+  lateNonCriticalExtension OCTET STRING OPTIONAL,
+  [[ ssac-BarringForMMTEL-Voice-r9 AC-BarringConfig OPTIONAL,
+     ssac-BarringForMMTEL-Video-r9 AC-BarringConfig OPTIONAL
+  ]],
+  [[ ac-BarringForCSFB-r10 AC-BarringConfig OPTIONAL
+  ]]
+}
+
+TimeAlignmentTimer ::= ENUMERATED {
+  sf500, sf750, sf1280, sf1920, sf2560, sf5120,
+  sf10240, infinity}
+
+AC-BarringConfig ::= SEQUENCE {
+  ac-BarringFactor ENUMERATED {
+    p00, p05, p10, p15, p20, p25, p30, p40,
+    p50, p60, p70, p75, p80, p85, p90, p95},
+  ac-BarringTime ENUMERATED {s4, s8, s16, s32, s64, s128, s256, s512},
+  ac-BarringForSpecialAC BIT STRING (SIZE(5))
+}
+
+InlinedSeq ::= SEQUENCE {
+     ...,
+     [[
+        s SEQUENCE {
+	   a INTEGER,
+	   b BOOLEAN
+        }
+     ]]
+}
+
+-- 'ExtAddGroup1' is used internally to represent fake sequences for
+-- extension addition groups. Make sure that a real sequence with that
+-- name at the top-level doesn't cause a problem.
+
+ExtAddGroup1 ::= SEQUENCE {
+    x INTEGER,
+    y INTEGER
+}
+
+END

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2019</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>            
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>erl_pp</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-24</date>
+    <rev>B</rev>
+    <file>erl_pp.xml</file>
+  </header>
+  <module since="">erl_pp</module>
+  <modulesummary>The Erlang pretty printer.</modulesummary>
+  <description>
+    <p>The functions in this module are used to generate
+      aesthetically attractive representations of abstract
+      forms, which are suitable for printing.
+      All functions return (possibly deep)
+      lists of characters and generate an error if the form is wrong.</p>
+
+    <p>All functions can have an optional argument, which specifies a hook
+      that is called if an attempt is made to print an unknown form.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="hook_function"/>
+      <desc>
+        <p>Optional argument <marker id="hook_function"/><c>HookFunction</c>,
+          shown in the functions described in this module, defines a function
+          that is called when an unknown form occurs where there
+          is to be a valid expression. If <c>HookFunction</c> is equal to
+          <c>none</c>, there is no hook function.</p>
+        <p>The called hook function is to return a (possibly deep) list of
+          characters. Function <seealso marker="#expr/4"><c>expr/4</c></seealso>
+          is useful in a hook.</p>
+        <p>If <c><anno>CurrentIndentation</anno></c> is negative, there are no
+          line breaks and only a space is used as a separator.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+      <desc>
+        <p>The option <c>quote_singleton_atom_types</c>
+          is used to add quotes to all singleton atom types.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="options"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="attribute" arity="1" since=""/>
+      <name name="attribute" arity="2" since=""/>
+      <fsummary>Pretty print an attribute.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#form/1"><c>form/1,2</c></seealso>,
+          but only for attribute <c><anno>Attribute</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="expr" arity="1" since=""/>
+      <name name="expr" arity="2" since=""/>
+      <name name="expr" arity="3" since=""/>
+      <name name="expr" arity="4" since=""/>
+      <fsummary>Pretty print one <c>Expression</c>.</fsummary>
+      <desc>
+        <p>Prints one expression. It is useful for implementing hooks (see
+          section
+          <seealso marker="#knownlimitations">Known Limitations</seealso>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="exprs" arity="1" since=""/>
+      <name name="exprs" arity="2" since=""/>
+      <name name="exprs" arity="3" since=""/>
+      <fsummary>Pretty print <c>Expressions</c>.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#form/1"><c>form/1,2</c></seealso>,
+          but only for the sequence of
+          expressions in <c><anno>Expressions</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="form" arity="1" since=""/>
+      <name name="form" arity="2" since=""/>
+      <fsummary>Pretty print a form.</fsummary>
+      <desc>
+        <p>Pretty prints a
+          <c><anno>Form</anno></c>, which is an abstract form of a type that is
+          returned by <seealso marker="erl_parse#parse_form/1">
+          <c>erl_parse:parse_form/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="function" arity="1" since=""/>
+      <name name="function" arity="2" since=""/>
+      <fsummary>Pretty print a function.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#form/1"><c>form/1,2</c></seealso>,
+          but only for function <c><anno>Function</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="guard" arity="1" since=""/>
+      <name name="guard" arity="2" since=""/>
+      <fsummary>Pretty print a guard.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#form/1"><c>form/1,2</c></seealso>,
+          but only for the guard test <c><anno>Guard</anno></c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="knownlimitations"/>
+    <title>Known Limitations</title>
+    <p>It is not possible to have hook functions for unknown forms
+      at other places than expressions.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_eval"><c>erl_eval(3)</c></seealso>,
+      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
+      <seealso marker="io"><c>io(3)</c></seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,49 @@
+module 'reversed_annos' ['reversed_annos'/0]
+    attributes []
+'reversed_annos'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      case apply 't'/1
+		       (['a']) of
+		<'ok'> when 'true' ->
+		    let <_cor2> =
+			apply 't'/1
+			    (['a'|['b']])
+		    in
+			case _cor2 of
+			  <'ok'> when 'true' ->
+			      ( _cor2
+				-| ['compiler_generated'] )
+			  ( <_cor1> when 'true' ->
+				primop 'match_fail'
+				    ({'badmatch',_cor1})
+			    -| ['compiler_generated'] )
+			end
+		( <_cor0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_cor0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'reversed_annos',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'t'/1 =
+    fun (_cor0) ->
+	case _cor0 of
+	  <[_cor2|_cor3]> when 'true' ->
+	      'ok'
+	  %% Cover v3_kernel:get_line/1.
+	  ( <['a']> when 'true' ->
+	      'error'
+            -| [{'file',"reversed_annos.erl"},11] )
+	  ( <_cor1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor1})
+		  -| [{'function_name',{'t',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end

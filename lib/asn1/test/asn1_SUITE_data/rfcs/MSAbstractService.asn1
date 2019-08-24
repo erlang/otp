@@ -1,0 +1,1085 @@
+-- Module MSAbstractService (X.413:06/1999)
+MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0) abstract-service(1)
+  version-1999(1)} DEFINITIONS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything
+IMPORTS
+  -- MTS information object classes
+  operationObject1, ABSTRACT-ERROR, ABSTRACT-OPERATION, EXTENSION, MHS-OBJECT,
+    PORT,
+    -- MTS objects and ports
+    administration, delivery, mts-user,
+    submission,
+    -- MTS abstract-operations and abstract-errors
+    cancel-deferred-delivery, element-of-service-not-subscribed,
+    inconsistent-request, new-credentials-unacceptable,
+    old-credentials-incorrectly-specified, originator-invalid,
+    recipient-improperly-specified, remote-bind-error, security-error,
+    submission-control, submission-control-violated,
+    unsupported-critical-function,
+    -- MTS abstract-service data-types
+    CertificateSelectors, Credentials, InitiatorCredentials,
+    MessageSubmissionArgument, MessageSubmissionResult, MessageToken,
+    ORAddressAndOrDirectoryName, ProbeSubmissionArgument,
+    ProbeSubmissionResult, ResponderCredentials, SecurityContext, SecurityLabel
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- MTS abstract-service 1988 ports
+  administration-88
+    --==
+    FROM MTSAbstractService88 {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1988(1988)}
+  -- MTS abstract-service upper bounds
+  ub-content-types, ub-encoded-information-types, ub-labels-and-redirections
+    --==
+    FROM MTSUpperBounds {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      upper-bounds(3) version-1999(1)}
+  -- MS X413ATTRIBUTE table
+  AttributeTable
+    --==
+    FROM MSGeneralAttributeTypes {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-attribute-types(2) version-1999(1)}
+  -- MS matching rule table
+  MatchingRuleTable
+    --==
+    FROM MSMatchingRules {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-matching-rules(5) version-1999(1)}
+  -- MS auto-action-table and auto-action-error table
+  AutoActionTable, AutoActionErrorTable
+    --==
+    FROM MSGeneralAutoActionTypes {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-auto-action-types(3) version-1994(0)}
+  -- MS object-identifiers
+  id-cp-ms-connection, id-crt-ms-access-88, id-crt-ms-access-94,
+    id-ext-modify-capability, id-ext-modify-retrieval-status-capability,
+    id-ext-originator-token, id-ext-originator-certificate-selectors-override,
+    id-ext-protected-change-credentials,
+    id-ext-protected-change-credentials-capability, id-ot-ms, id-ot-ms-user,
+    id-pt-retrieval-88, id-pt-retrieval-94, id-pt-ms-submission
+    --==
+    FROM MSObjectIdentifiers {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- MS Access abstract-operation and error codes
+  err-attribute-error, err-auto-action-request-error, err-ms-extension-error,
+    err-delete-error, err-entry-class-error, err-fetch-restriction-error,
+    err-invalid-parameters-error, err-message-group-error, err-modify-error,
+    err-range-error, err-security-error, err-sequence-number-error,
+    err-service-error, err-register-ms-error, op-alert, op-delete, op-fetch,
+    op-list, op-modify, op-ms-message-submission, op-ms-probe-submission,
+    op-register-ms, op-summarize
+    --==
+    FROM MSAccessProtocol {joint-iso-itu-t mhs(6) protocols(0) modules(0)
+      ms-access-protocol(2) version-1999(1)}
+  -- MS abstract-service upper bounds
+  ub-attributes-supported, ub-attribute-values, ub-auto-action-errors,
+    ub-auto-actions, ub-auto-registrations, ub-default-registrations,
+    ub-entry-classes, ub-error-reasons, ub-extensions, ub-group-depth,
+    ub-group-descriptor-length, ub-group-part-length, ub-matching-rules,
+    ub-message-groups, ub-messages, ub-modifications, ub-per-entry,
+    ub-per-auto-action, ub-service-information-length, ub-summaries,
+    ub-supplementary-info-length, ub-ua-registration-identifier-length,
+    ub-ua-registrations, ub-restrictions
+    --==
+    FROM MSUpperBounds {joint-iso-itu-t mhs(6) ms(4) modules(0) upper-bounds(4)
+      version-1994(0)}
+  -- MATCHING-RULE information object class
+  MATCHING-RULE
+    --==
+    FROM InformationFramework
+      
+  -- Remote Operations
+  CONTRACT, CONNECTION-PACKAGE
+    --==
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  emptyUnbind
+    FROM Remote-Operations-Useful-Definitions {joint-iso-itu-t
+      remote-operations(4) useful-definitions(7) version1(0)};
+
+-- MS Abstract Objects
+ms MHS-OBJECT ::= {
+  IS        {mts-user}
+  RESPONDS  {ms-access-contract-88 | ms-access-contract-94}
+  ID        id-ot-ms
+}
+
+ms-user MHS-OBJECT ::= {
+  INITIATES  {ms-access-contract-88 | ms-access-contract-94}
+  ID         id-ot-ms-user
+}
+
+-- Contracts
+ms-access-contract-94 CONTRACT ::= {
+  CONNECTION             ms-connect
+  INITIATOR CONSUMER OF  {retrieval | ms-submission | administration}
+  ID                     id-crt-ms-access-94
+}
+
+ms-access-contract-88 CONTRACT ::= {
+  CONNECTION             ms-connect -- with all 1994 extensions omitted 
+  INITIATOR CONSUMER OF  {retrieval-88 | submission | administration-88}
+  ID                     id-crt-ms-access-88
+}
+
+-- Connection-package
+ms-connect CONNECTION-PACKAGE ::= {
+  BIND    ms-bind
+  UNBIND  ms-unbind
+  ID      id-cp-ms-connection
+}
+
+-- MS Ports
+retrieval PORT ::= {
+  OPERATIONS        {operationObject1, ...}
+  CONSUMER INVOKES
+    {summarize | list | fetch | delete | register-MS,
+      ... -- 1994 extension addition --, modify}
+  SUPPLIER INVOKES  {alert}
+  ID                id-pt-retrieval-94
+}
+
+retrieval-88 PORT ::= {
+  -- With all 1994 extensions to the abstract-operations absent 
+  OPERATIONS        {operationObject1, ...}
+  CONSUMER INVOKES  {summarize | list | fetch | delete | register-MS}
+  SUPPLIER INVOKES  {alert}
+  ID                id-pt-retrieval-88
+}
+
+ms-submission PORT ::= {
+  OPERATIONS        {operationObject1, ...}
+  CONSUMER INVOKES
+    {ms-message-submission | ms-probe-submission | ms-cancel-deferred-delivery}
+  SUPPLIER INVOKES  {ms-submission-control}
+  ID                id-pt-ms-submission
+}
+
+-- X413ATTRIBUTE information object class
+X413ATTRIBUTE ::= CLASS {
+  &id               AttributeType UNIQUE,
+  &Type             ,
+  &equalityMatch    MATCHING-RULE OPTIONAL,
+  &substringsMatch  MATCHING-RULE OPTIONAL,
+  &orderingMatch    MATCHING-RULE OPTIONAL,
+  &numeration       ENUMERATED {single-valued(0), multi-valued(1)},
+  -- 1994 extension 
+  &OtherMatches     MATCHING-RULE OPTIONAL
+}
+WITH SYNTAX {
+  WITH ATTRIBUTE-SYNTAX &Type,
+  [EQUALITY MATCHING-RULE &equalityMatch,]
+  [SUBSTRINGS MATCHING-RULE &substringsMatch,]
+  [ORDERING MATCHING-RULE &orderingMatch,]
+  [OTHER MATCHING-RULES &OtherMatches,]
+  NUMERATION &numeration,
+  ID &id
+}
+
+Attribute ::= SEQUENCE {
+  attribute-type    X413ATTRIBUTE.&id({AttributeTable}),
+  attribute-values
+    SEQUENCE SIZE (1..ub-attribute-values) OF
+      X413ATTRIBUTE.&Type({AttributeTable}{@attribute-type})
+}
+
+AttributeType ::= OBJECT IDENTIFIER
+
+-- AUTO-ACTION information object class
+AUTO-ACTION ::= CLASS {
+  &id                     AutoActionType UNIQUE,
+  &RegistrationParameter  OPTIONAL,
+  &Errors                 AUTO-ACTION-ERROR OPTIONAL
+}
+WITH SYNTAX {
+  [REGISTRATION PARAMETER IS &RegistrationParameter]
+  [ERRORS &Errors]
+  IDENTIFIED BY &id
+}
+
+AutoActionType ::= OBJECT IDENTIFIER
+
+AutoActionRegistration ::= SEQUENCE {
+  auto-action-type         AUTO-ACTION.&id({AutoActionTable}),
+  registration-identifier  [0]  INTEGER(1..ub-per-auto-action) DEFAULT 1,
+  registration-parameter
+    [1]  AUTO-ACTION.&RegistrationParameter
+           ({AutoActionTable}{@auto-action-type}) OPTIONAL
+}
+
+-- AUTO-ACTION-ERROR information object class
+AUTO-ACTION-ERROR ::=
+  ABSTRACT-ERROR
+
+AutoActionError ::= SET {
+  error-code       [0]  AUTO-ACTION-ERROR.&errorCode({AutoActionErrorTable}),
+  error-parameter
+    [1]  AUTO-ACTION-ERROR.&ParameterType({AutoActionErrorTable}{@error-code})
+      OPTIONAL
+}
+
+-- MS-EXTENSION information object class
+MS-EXTENSION ::= TYPE-IDENTIFIER
+
+MSExtensionItem ::= INSTANCE OF MS-EXTENSION
+
+MSExtensions ::= SEQUENCE SIZE (1..ub-extensions) OF MSExtensionItem
+
+-- Common data-types related to the information model
+EntryClass ::= INTEGER {
+  delivery(0),
+  -- 1994 extensions 
+  submission(1), draft(2), stored-message(3), delivery-log(4),
+  submission-log(5), message-log(6), auto-action-log(7)}(0..ub-entry-classes)
+
+EntryType ::= INTEGER {
+  delivered-message(0), delivered-report(1),
+  returned-content(2),
+  -- 1994 extensions 
+  submitted-message(3), submitted-probe(4), draft-message(5),
+  auto-action-event(6)}
+
+SequenceNumber ::= INTEGER(0..ub-messages)
+
+RetrievalStatus ::= INTEGER {new(0), listed(1), processed(2)}
+
+MessageGroupName ::= SEQUENCE SIZE (1..ub-group-depth) OF GroupNamePart
+
+GroupNamePart ::= GeneralString(SIZE (1..ub-group-part-length))
+
+-- MS-bind abstract-operation
+ms-bind ABSTRACT-OPERATION ::= {
+  ARGUMENT  MSBindArgument
+  RESULT    MSBindResult
+  ERRORS    {ms-bind-error}
+}
+
+MSBindArgument ::= SET {
+  initiator-name              ORAddressAndOrDirectoryName,
+  initiator-credentials       [2]  InitiatorCredentials,
+  security-context            [3] IMPLICIT SecurityContext OPTIONAL,
+  fetch-restrictions          [4]  Restrictions OPTIONAL -- default is none--,
+  ms-configuration-request    [5]  BOOLEAN DEFAULT FALSE,
+  -- 1994 extensions 
+  ua-registration-identifier  [6]  RegistrationIdentifier OPTIONAL,
+  bind-extensions             [7]  MSExtensions OPTIONAL
+}
+
+Restrictions ::= SET {
+  allowed-content-types
+    [0]  SET SIZE (1..ub-content-types) OF OBJECT IDENTIFIER OPTIONAL--default is no restriction--,
+  allowed-EITs              [1]  MS-EITs OPTIONAL --default is no restriction--,
+  maximum-attribute-length  [2]  INTEGER OPTIONAL --default is no restriction--
+}
+
+MS-EITs ::= SET SIZE (1..ub-encoded-information-types) OF MS-EIT
+
+MS-EIT ::= OBJECT IDENTIFIER
+
+RegistrationIdentifier ::=
+  PrintableString(SIZE (1..ub-ua-registration-identifier-length))
+
+MSBindResult ::= SET {
+  responder-credentials         [2]  ResponderCredentials,
+  available-auto-actions
+    [3]  SET SIZE (1..ub-auto-actions) OF AUTO-ACTION.&id({AutoActionTable})
+      OPTIONAL,
+  available-attribute-types
+    [4]  SET SIZE (1..ub-attributes-supported) OF
+           X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+  alert-indication              [5]  BOOLEAN DEFAULT FALSE,
+  content-types-supported
+    [6]  SET SIZE (1..ub-content-types) OF OBJECT IDENTIFIER OPTIONAL,
+  -- 1994 extensions 
+  entry-classes-supported
+    [7]  SET SIZE (1..ub-entry-classes) OF EntryClass OPTIONAL,
+  matching-rules-supported
+    [8]  SET SIZE (1..ub-matching-rules) OF OBJECT IDENTIFIER OPTIONAL,
+  bind-result-extensions        [9]  MSExtensions OPTIONAL,
+  message-group-depth           [10]  INTEGER(1..ub-group-depth) OPTIONAL,
+  auto-action-error-indication  [11]  AutoActionErrorIndication OPTIONAL,
+  unsupported-extensions
+    [12]  SET SIZE (1..ub-extensions) OF OBJECT IDENTIFIER OPTIONAL,
+  ua-registration-id-unknown    [13]  BOOLEAN DEFAULT FALSE,
+  service-information
+    [14]  GeneralString(SIZE (1..ub-service-information-length)) OPTIONAL
+}
+
+modify-capability MS-EXTENSION ::= {
+  NULL
+  IDENTIFIED BY  id-ext-modify-capability
+}
+
+modify-retrieval-status-capability MS-EXTENSION ::= {
+  NULL
+  IDENTIFIED BY  id-ext-modify-retrieval-status-capability
+}
+
+protected-change-credentials-capability MS-EXTENSION ::= {
+  ChangeCredentialsAlgorithms
+  IDENTIFIED BY  id-ext-protected-change-credentials-capability
+}
+
+ChangeCredentialsAlgorithms ::= SET OF OBJECT IDENTIFIER
+
+AutoActionErrorIndication ::= CHOICE {
+  indication-only        [0]  NULL,
+  auto-action-log-entry  [1]  SequenceNumber
+}
+
+ms-bind-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    CHOICE {unqualified-error  BindProblem,
+            -- 1994 extension 
+            qualified-error
+              SET {bind-problem               [0]  BindProblem,
+                   supplementary-information
+                     [1]  GeneralString(SIZE (1..ub-supplementary-info-length))
+                       OPTIONAL,
+                   bind-extension-errors
+                     [2]  SET SIZE (1..ub-extensions) OF OBJECT IDENTIFIER
+                       OPTIONAL}}
+}
+
+BindProblem ::= ENUMERATED {
+  authentication-error(0), unacceptable-security-context(1),
+  unable-to-establish-association(2), ... -- 1994 extension addition --, 
+  bind-extension-problem(3), inadequate-association-confidentiality(4)
+}
+
+-- MS Unbind abstract-operation
+ms-unbind ABSTRACT-OPERATION ::= emptyUnbind
+
+-- Common data-types
+Range ::= CHOICE {
+  sequence-number-range  [0]  NumberRange,
+  creation-time-range    [1]  TimeRange
+}
+
+NumberRange ::= SEQUENCE {
+  from  [0]  SequenceNumber OPTIONAL -- omitted means no lower bound--,
+  to    [1]  SequenceNumber OPTIONAL -- omitted means no upper bound--
+}
+
+TimeRange ::= SEQUENCE {
+  from  [0]  CreationTime OPTIONAL -- omitted means no lower bound--,
+  to    [1]  CreationTime OPTIONAL -- omitted means no upper bound--
+}
+
+CreationTime ::= UTCTime
+
+Filter ::= CHOICE {
+  item  [0]  FilterItem,
+  and   [1]  SET OF Filter,
+  or    [2]  SET OF Filter,
+  not   [3]  Filter
+}
+
+FilterItem ::= CHOICE {
+  equality           [0]  AttributeValueAssertion,
+  substrings
+    [1]  SEQUENCE {type     X413ATTRIBUTE.&id({AttributeTable}),
+                   strings
+                     SEQUENCE OF
+                       CHOICE {initial
+                                 [0]  X413ATTRIBUTE.&Type
+                                        ({AttributeTable}{@substrings.type}),
+                               any
+                                 [1]  X413ATTRIBUTE.&Type
+                                        ({AttributeTable}{@substrings.type}),
+                               final
+                                 [2]  X413ATTRIBUTE.&Type
+                                        ({AttributeTable}{@substrings.type})
+                       }},
+  greater-or-equal   [2]  AttributeValueAssertion,
+  less-or-equal      [3]  AttributeValueAssertion,
+  present            [4]  X413ATTRIBUTE.&id({AttributeTable}),
+  approximate-match  [5]  AttributeValueAssertion,
+  -- 1994 extension 
+  other-match        [6]  MatchingRuleAssertion
+}
+
+MatchingRuleAssertion ::= SEQUENCE {
+  matching-rule   [0]  MATCHING-RULE.&id({MatchingRuleTable}),
+  attribute-type  [1]  X413ATTRIBUTE.&id,
+  match-value
+    [2]  MATCHING-RULE.&AssertionType({MatchingRuleTable}{@matching-rule})
+}
+
+AttributeValueAssertion ::= SEQUENCE {
+  attribute-type   X413ATTRIBUTE.&id({AttributeTable}),
+  attribute-value  X413ATTRIBUTE.&Type({AttributeTable}{@attribute-type})
+}
+
+Selector ::= SET {
+  child-entries  [0]  BOOLEAN DEFAULT FALSE,
+  range          [1]  Range OPTIONAL -- default is unbounded --,
+  filter
+    [2]  Filter
+      OPTIONAL -- default is all entries within the specified range --,
+  limit          [3]  INTEGER(1..ub-messages) OPTIONAL,
+  override       [4]  OverrideRestrictions OPTIONAL -- by default, --
+  -- any fetch-restrictions in force apply
+}
+
+OverrideRestrictions ::= BIT STRING {
+  override-content-types-restriction(0), override-EITs-restriction(1),
+  override-attribute-length-restriction(2)}(SIZE (1..ub-restrictions))
+
+EntryInformationSelection ::= SET SIZE (0..ub-per-entry) OF AttributeSelection
+
+AttributeSelection ::= SET {
+  type   X413ATTRIBUTE.&id({AttributeTable}),
+  from
+    [0]  INTEGER(1..ub-attribute-values)
+      OPTIONAL --used if type is multi valued--,
+  count
+    [1]  INTEGER(0..ub-attribute-values)
+      OPTIONAL --used if type is multi valued--
+}
+
+EntryInformation ::= SEQUENCE {
+  sequence-number       SequenceNumber,
+  attributes            SET SIZE (1..ub-per-entry) OF Attribute OPTIONAL,
+  -- 1994 extension 
+  value-count-exceeded
+    [0]  SET SIZE (1..ub-per-entry) OF AttributeValueCount OPTIONAL
+}
+
+AttributeValueCount ::= SEQUENCE {
+  type   [0]  X413ATTRIBUTE.&id({AttributeTable}),
+  total  [1]  INTEGER
+}
+
+MSSubmissionOptions ::= SET {
+  object-entry-class
+    [0]  EntryClass(submission | submission-log | draft) OPTIONAL,
+  disable-auto-modify       [1]  BOOLEAN DEFAULT FALSE,
+  add-message-group-names
+    [2]  SET SIZE (1..ub-message-groups) OF MessageGroupName OPTIONAL,
+  ms-submission-extensions  [3]  MSExtensions OPTIONAL
+}
+
+originator-token MS-EXTENSION ::= {
+  OriginatorToken
+  IDENTIFIED BY  id-ext-originator-token
+}
+
+OriginatorToken ::=
+  MessageToken
+    (CONSTRAINED BY {
+       
+       -- Must contain an asymmetric-token with an encrypted-data component --})
+
+originator-certificate-selectors-override MS-EXTENSION ::= {
+  CertificateSelectors
+    (WITH COMPONENTS {
+       ...,
+       message-origin-authentication  ABSENT
+     })
+  IDENTIFIED BY  id-ext-originator-certificate-selectors-override
+}
+
+CommonSubmissionResults ::= SET {
+  created-entry                    [0]  SequenceNumber OPTIONAL,
+  auto-action-error-indication     [1]  AutoActionErrorIndication OPTIONAL,
+  ms-submission-result-extensions  [2]  MSExtensions OPTIONAL
+}
+
+-- Retrieval Port abstract-operations
+summarize ABSTRACT-OPERATION ::= {
+  ARGUMENT  SummarizeArgument
+  RESULT    SummarizeResult
+  ERRORS
+    {attribute-error | invalid-parameters-error | range-error | security-error
+      | service-error, ... -- 1994 extension additions --, entry-class-error |
+      ms-extension-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-summarize
+}
+
+SummarizeArgument ::= SET {
+  entry-class           [0]  EntryClass DEFAULT delivery,
+  selector              [1]  Selector,
+  summary-requests
+    [2]  SEQUENCE SIZE (1..ub-summaries) OF X413ATTRIBUTE.&id({AttributeTable})
+      OPTIONAL -- absent if no summaries are requested--,
+  -- 1994 extension 
+  summarize-extensions  [3]  MSExtensions OPTIONAL
+}
+
+SummarizeResult ::= SET {
+  next                         [0]  SequenceNumber OPTIONAL,
+  count
+    [1]  INTEGER(0..ub-messages)-- of the entries selected-- ,
+  span                         [2]  Span OPTIONAL -- of the entries selected,---- omitted if count is zero --,
+  summaries
+    [3]  SEQUENCE SIZE (1..ub-summaries) OF Summary OPTIONAL,
+  -- 1994 extension 
+  summarize-result-extensions  [4]  MSExtensions OPTIONAL
+}
+
+Span ::= SEQUENCE {lowest   [0]  SequenceNumber,
+                   highest  [1]  SequenceNumber
+}
+
+Summary ::= SET {
+  absent
+    [0]  INTEGER(1..ub-messages)
+      OPTIONAL --count of entries where X413ATTRIBUTE is absent--,
+  present
+    [1]  SET SIZE (1..ub-attribute-values)
+           OF--one for each X413ATTRIBUTE value present--
+           SEQUENCE {type   X413ATTRIBUTE.&id({AttributeTable}),
+                     value  X413ATTRIBUTE.&Type({AttributeTable}{@.type}),
+                     count  INTEGER(1..ub-messages)} OPTIONAL
+}
+
+-- 
+list ABSTRACT-OPERATION ::= {
+  ARGUMENT  ListArgument
+  RESULT    ListResult
+  ERRORS
+    {attribute-error | invalid-parameters-error | range-error | security-error
+      | service-error, ... -- 1994 extension additions --, entry-class-error |
+      ms-extension-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-list
+}
+
+ListArgument ::= SET {
+  entry-class           [0]  EntryClass DEFAULT delivery,
+  selector              [1]  Selector,
+  requested-attributes  [3]  EntryInformationSelection OPTIONAL,
+  -- 1994 extension 
+  list-extensions       [4]  MSExtensions OPTIONAL
+}
+
+ListResult ::= SET {
+  next                    [0]  SequenceNumber OPTIONAL,
+  requested
+    [1]  SEQUENCE SIZE (1..ub-messages) OF EntryInformation OPTIONAL--omitted if none found--,
+  -- 1994 extension 
+  list-result-extensions  [2]  MSExtensions OPTIONAL
+}
+
+-- 
+fetch ABSTRACT-OPERATION ::= {
+  ARGUMENT  FetchArgument
+  RESULT    FetchResult
+  ERRORS
+    {attribute-error | fetch-restriction-error | invalid-parameters-error |
+      range-error | security-error | sequence-number-error | service-error,
+      ... -- 1994 extension additions --, entry-class-error |
+      ms-extension-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-fetch
+}
+
+FetchArgument ::= SET {
+  entry-class           [0]  EntryClass DEFAULT delivery,
+  item
+    CHOICE {search   [1]  Selector,
+            precise  [2]  SequenceNumber},
+  requested-attributes  [3]  EntryInformationSelection OPTIONAL,
+  -- 1994 extension 
+  fetch-extensions      [4]  MSExtensions OPTIONAL
+}
+
+FetchResult ::= SET {
+  entry-information
+    [0]  EntryInformation OPTIONAL --if an entry was selected--,
+  list
+    [1]  SEQUENCE SIZE (1..ub-messages) OF SequenceNumber OPTIONAL,
+  next                     [2]  SequenceNumber OPTIONAL,
+  -- 1994 extension 
+  fetch-result-extensions  [3]  MSExtensions OPTIONAL
+}
+
+-- 
+delete ABSTRACT-OPERATION ::= {
+  ARGUMENT  DeleteArgument
+  RESULT    DeleteResult
+  ERRORS
+    {delete-error | invalid-parameters-error | range-error | security-error |
+      sequence-number-error | service-error,
+      ... -- 1994 extension additions --, entry-class-error |
+      ms-extension-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-delete
+}
+
+DeleteArgument ::= SET {
+  entry-class        [0]  EntryClass DEFAULT delivery,
+  items
+    CHOICE {selector          [1]  Selector,
+            sequence-numbers  [2]  SET SIZE (1..ub-messages) OF SequenceNumber
+  },
+  -- 1994 extension
+  delete-extensions  [3]  MSExtensions OPTIONAL
+}
+
+DeleteResult ::= CHOICE {
+  delete-result-88  NULL,
+  -- 1994 extension 
+  delete-result-94
+    SET {entries-deleted
+           [0]  SEQUENCE SIZE (1..ub-messages) OF SequenceNumber OPTIONAL,
+         delete-result-extensions  [1]  MSExtensions OPTIONAL}
+}
+
+-- 
+register-MS ABSTRACT-OPERATION ::= {
+  ARGUMENT  Register-MSArgument
+  RESULT    Register-MSResult
+  ERRORS
+    {attribute-error | auto-action-request-error | invalid-parameters-error |
+      security-error | service-error | old-credentials-incorrectly-specified |
+      new-credentials-unacceptable, ... -- 1994 extension additions --,
+      message-group-error | ms-extension-error | register-ms-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-register-ms
+}
+
+Register-MSArgument ::= SET {
+  auto-action-registrations
+    [0]  SET SIZE (1..ub-auto-registrations) OF AutoActionRegistration OPTIONAL,
+  auto-action-deregistrations
+    [1]  SET SIZE (1..ub-auto-registrations) OF AutoActionDeregistration
+      OPTIONAL,
+  list-attribute-defaults
+    [2]  SET SIZE (0..ub-default-registrations) OF
+           X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+  fetch-attribute-defaults
+    [3]  SET SIZE (0..ub-default-registrations) OF
+           X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+  change-credentials
+    [4]  SEQUENCE {old-credentials
+                     [0]  Credentials(WITH COMPONENTS {
+                                        simple  
+                                      }),
+                   new-credentials
+                     [1]  Credentials(WITH COMPONENTS {
+                                        simple  
+                                      })} OPTIONAL,
+  user-security-labels
+    [5]  SET SIZE (1..ub-labels-and-redirections) OF SecurityLabel OPTIONAL,
+  -- 1994 extensions
+  ua-registrations
+    [6]  SET SIZE (1..ub-ua-registrations) OF UARegistration OPTIONAL,
+  submission-defaults          [7]  MSSubmissionOptions OPTIONAL,
+  message-group-registrations  [8]  MessageGroupRegistrations OPTIONAL,
+  registration-status-request  [9]  RegistrationTypes OPTIONAL,
+  register-ms-extensions       [10]  MSExtensions OPTIONAL
+}
+
+AutoActionDeregistration ::= SEQUENCE {
+  auto-action-type         AUTO-ACTION.&id({AutoActionTable}),
+  registration-identifier  [0]  INTEGER(1..ub-per-auto-action) DEFAULT 1
+}
+
+UARegistration ::= SET {
+  ua-registration-identifier   [0]  RegistrationIdentifier,
+  ua-list-attribute-defaults
+    [1]  SET SIZE (0..ub-default-registrations) OF
+           X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+  ua-fetch-attribute-defaults
+    [2]  SET SIZE (0..ub-default-registrations) OF
+           X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+  ua-submission-defaults       [3]  MSSubmissionOptions OPTIONAL,
+  content-specific-defaults    [4]  MSExtensions OPTIONAL
+}
+
+MessageGroupRegistrations ::=
+  SEQUENCE SIZE (1..ub-default-registrations) OF
+    CHOICE {register-group      [0]  MessageGroupNameAndDescriptor,
+            deregister-group    [1]  MessageGroupName,
+            change-descriptors  [2]  MessageGroupNameAndDescriptor}
+
+MessageGroupNameAndDescriptor ::= SET {
+  message-group-name        [0]  MessageGroupName,
+  message-group-descriptor
+    [1]  GeneralString(SIZE (1..ub-group-descriptor-length)) OPTIONAL
+}
+
+RegistrationTypes ::= SET {
+  registrations
+    [0]  BIT STRING {auto-action-registrations(0), list-attribute-defaults(1),
+                     fetch-attribute-defaults(2), ua-registrations(3),
+                     submission-defaults(4), message-group-registrations(5)}
+      OPTIONAL,
+  extended-registrations   [1]  SET OF MS-EXTENSION.&id OPTIONAL,
+  restrict-message-groups  [2]  MessageGroupsRestriction OPTIONAL
+}
+
+MessageGroupsRestriction ::= SET {
+  parent-group                [0]  MessageGroupName OPTIONAL,
+  immediate-descendants-only  [1]  BOOLEAN DEFAULT TRUE,
+  omit-descriptors            [2]  BOOLEAN DEFAULT TRUE
+}
+
+protected-change-credentials MS-EXTENSION ::= {
+  ProtectedChangeCredentials
+  IDENTIFIED BY  id-ext-protected-change-credentials
+}
+
+ProtectedChangeCredentials ::= SEQUENCE {
+  algorithm-identifier  [0] IMPLICIT OBJECT IDENTIFIER,
+  old-credentials
+    InitiatorCredentials(WITH COMPONENTS {
+                           protected  PRESENT
+                         }),
+  password-delta        [2] IMPLICIT BIT STRING
+}
+
+Register-MSResult ::= CHOICE {
+  no-status-information   NULL,
+  -- 1994 extension 
+  registered-information
+    SET {auto-action-registrations
+           [0]  SET SIZE (1..ub-auto-registrations) OF AutoActionRegistration
+             OPTIONAL,
+         list-attribute-defaults
+           [1]  SET SIZE (1..ub-default-registrations) OF
+                  X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+         fetch-attribute-defaults
+           [2]  SET SIZE (1..ub-default-registrations) OF
+                  X413ATTRIBUTE.&id({AttributeTable}) OPTIONAL,
+         ua-registrations
+           [3]  SET SIZE (1..ub-ua-registrations) OF UARegistration OPTIONAL,
+         submission-defaults            [4]  MSSubmissionOptions OPTIONAL,
+         message-group-registrations
+           [5]  SET SIZE (1..ub-message-groups) OF
+                  MessageGroupNameAndDescriptor OPTIONAL,
+         register-ms-result-extensions  [6]  MSExtensions OPTIONAL}
+}
+
+-- 
+alert ABSTRACT-OPERATION ::= {
+  ARGUMENT  AlertArgument
+  RESULT    AlertResult
+  ERRORS    {security-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-alert
+}
+
+AlertArgument ::= SET {
+  alert-registration-identifier  [0]  INTEGER(1..ub-auto-actions),
+  new-entry                      [2]  EntryInformation OPTIONAL
+}
+
+AlertResult ::= NULL
+
+-- 
+modify ABSTRACT-OPERATION ::= {
+  ARGUMENT  ModifyArgument
+  RESULT    ModifyResult
+  ERRORS
+    {attribute-error | invalid-parameters-error | security-error |
+      sequence-number-error | service-error | modify-error |
+      message-group-error | entry-class-error | ms-extension-error,
+      ... -- For future extension additions --}
+  LINKED    {operationObject1, ...}
+  CODE      op-modify
+}
+
+ModifyArgument ::= SET {
+  entry-class        [0]  EntryClass DEFAULT delivery,
+  entries
+    CHOICE {selector          [1]  Selector,
+            specific-entries
+              [2]  SEQUENCE SIZE (1..ub-messages) OF SequenceNumber},
+  modifications
+    [3]  SEQUENCE SIZE (1..ub-modifications) OF EntryModification,
+  modify-extensions  [4]  MSExtensions OPTIONAL
+}
+
+EntryModification ::= SET {
+  strict        [0]  BOOLEAN DEFAULT FALSE,
+  modification
+    CHOICE {add-attribute     [1]  Attribute,
+            remove-attribute  [2]  X413ATTRIBUTE.&id({AttributeTable}),
+            add-values        [3]  OrderedAttribute,
+            remove-values     [4]  OrderedAttribute}
+}
+
+OrderedAttribute ::= SEQUENCE {
+  attribute-type    X413ATTRIBUTE.&id({AttributeTable}),
+  attribute-values
+    SEQUENCE SIZE (1..ub-attribute-values) OF
+      SEQUENCE {-- at least one must be specified 
+                value
+                  [0]  X413ATTRIBUTE.&Type({AttributeTable}{@attribute-type})
+                    OPTIONAL,
+                position  [1]  INTEGER(1..ub-attribute-values) OPTIONAL
+      }
+}
+
+ModifyResult ::= SET {
+  entries-modified
+    [0]  SEQUENCE SIZE (1..ub-messages) OF SequenceNumber OPTIONAL,
+  modify-result-extensions  [1]  MSExtensions OPTIONAL
+}
+
+-- MS-submission Port abstract-operations
+ms-message-submission ABSTRACT-OPERATION ::= {
+  ARGUMENT  MSMessageSubmissionArgument
+  RESULT    MSMessageSubmissionResult
+  ERRORS
+    {submission-control-violated | element-of-service-not-subscribed |
+      originator-invalid | recipient-improperly-specified |
+      inconsistent-request | security-error | unsupported-critical-function |
+      remote-bind-error, ... -- 1994 extension additions --, ms-extension-error
+      | message-group-error | entry-class-error | service-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-ms-message-submission
+}
+
+MSMessageSubmissionArgument ::= SEQUENCE {
+  COMPONENTS OF
+    MessageSubmissionArgument -- This imported type has IMPLICIT tags --,
+  -- 1994 extension 
+  submission-options  [4]  MSSubmissionOptions OPTIONAL
+}
+
+forwarding-request EXTENSION ::= {
+  SequenceNumber,
+  IDENTIFIED BY  standard-extension:36
+}
+
+MSMessageSubmissionResult ::= CHOICE {
+  mts-result
+    SET {COMPONENTS OF
+           MessageSubmissionResult-- This imported type has IMPLICIT tags -- ,
+         -- 1994 extension 
+         ms-message-result  [4]  CommonSubmissionResults OPTIONAL},
+  -- 1994 extension 
+  store-draft-result  [4]  CommonSubmissionResults
+}
+
+-- 
+ms-probe-submission ABSTRACT-OPERATION ::= {
+  ARGUMENT  MSProbeSubmissionArgument
+  RESULT    MSProbeSubmissionResult
+  ERRORS
+    {submission-control-violated | element-of-service-not-subscribed |
+      originator-invalid | recipient-improperly-specified |
+      inconsistent-request | security-error | unsupported-critical-function |
+      remote-bind-error, ... -- 1994 extension additions --, ms-extension-error
+      | message-group-error | entry-class-error | service-error}
+  LINKED    {operationObject1, ...}
+  CODE      op-ms-probe-submission
+}
+
+MSProbeSubmissionArgument ::= SET {
+  COMPONENTS OF
+    ProbeSubmissionArgument -- This imported type has IMPLICIT tags --,
+  -- 1994 extension 
+  submission-options  [4]  MSSubmissionOptions OPTIONAL
+}
+
+MSProbeSubmissionResult ::= SET {
+  COMPONENTS OF
+    ProbeSubmissionResult -- This imported type has IMPLICIT tags --,
+  -- 1994 extension 
+  ms-probe-result  [4]  CommonSubmissionResults OPTIONAL
+}
+
+ms-cancel-deferred-delivery ABSTRACT-OPERATION ::= cancel-deferred-delivery
+
+ms-submission-control ABSTRACT-OPERATION ::= submission-control
+
+-- Abstract-errors
+attribute-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problems
+           [0]  SET SIZE (1..ub-per-entry) OF
+                  SET {problem  [0]  AttributeProblem,
+                       type     [1]  X413ATTRIBUTE.&id({AttributeTable}),
+                       value
+                         [2]  X413ATTRIBUTE.&Type({AttributeTable}{@.type})
+                           OPTIONAL}}
+  CODE       err-attribute-error
+}
+
+AttributeProblem ::= INTEGER {
+  invalid-attribute-value(0), unavailable-attribute-type(1),
+  inappropriate-matching(2), attribute-type-not-subscribed(3),
+  inappropriate-for-operation(4),
+  -- 1994 extensions 
+  inappropriate-modification(5), single-valued-attribute(6)
+}(0..ub-error-reasons)
+
+-- 
+auto-action-request-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problems
+           [0]  SET SIZE (1..ub-auto-registrations) OF
+                  SET {problem  [0]  AutoActionRequestProblem,
+                       type     [1]  AUTO-ACTION.&id({AutoActionTable})
+                  }}
+  CODE       err-auto-action-request-error
+}
+
+AutoActionRequestProblem ::= INTEGER {
+  unavailable-auto-action-type(0),
+  auto-action-type-not-subscribed(1),
+  -- 1994 extension 
+  not-willing-to-perform(2)}(0..ub-error-reasons)
+
+-- 
+delete-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problems
+           [0]  SET SIZE (1..ub-messages) OF
+                  SET {problem          [0]  DeleteProblem,
+                       sequence-number  [1]  SequenceNumber},
+         -- 1994 extension 
+         entries-deleted
+           [1]  SET SIZE (1..ub-messages) OF SequenceNumber OPTIONAL}
+  CODE       err-delete-error
+}
+
+DeleteProblem ::= INTEGER {
+  child-entry-specified(0),
+  delete-restriction-problem(1),
+  -- 1994 extensions 
+  new-entry-specified(2), entry-class-restriction(3), stored-message-exists(4)
+}(0..ub-error-reasons)
+
+-- 
+fetch-restriction-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problems
+           [0]  SET SIZE (1..ub-default-registrations) OF
+                  SET {problem      [3]  FetchRestrictionProblem,
+                       restriction
+                         CHOICE {content-type      [0]  OBJECT IDENTIFIER,
+                                 eit               [1]  MS-EITs,
+                                 attribute-length  [2]  INTEGER}}}
+  CODE       err-fetch-restriction-error
+}
+
+FetchRestrictionProblem ::= INTEGER {
+  content-type-problem(1), eit-problem(2), maximum-length-problem(3)
+}(0..ub-error-reasons)
+
+-- 
+invalid-parameters-error ABSTRACT-ERROR ::= {
+  PARAMETER  NULL
+  CODE       err-invalid-parameters-error
+}
+
+-- 
+range-error ABSTRACT-ERROR ::= {
+  PARAMETER  SET {problem  [0]  RangeProblem}
+  CODE       err-range-error
+}
+
+RangeProblem ::= INTEGER {reversed(0)}(0..ub-error-reasons)
+
+-- 
+sequence-number-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problems
+           [1]  SET SIZE (1..ub-messages) OF
+                  SET {problem          [0]  SequenceNumberProblem,
+                       sequence-number  [1]  SequenceNumber}}
+  CODE       err-sequence-number-error
+}
+
+SequenceNumberProblem ::= INTEGER {no-such-entry(0)}(0..ub-error-reasons)
+
+-- 
+service-error ABSTRACT-ERROR ::= {
+  PARAMETER  ServiceErrorParameter
+  CODE       err-service-error
+}
+
+ServiceErrorParameter ::= SET {
+  problem                    [0]  ServiceProblem,
+  -- 1994 extension 
+  supplementary-information
+    [1]  GeneralString(SIZE (1..ub-supplementary-info-length)) OPTIONAL
+}
+
+ServiceProblem ::= INTEGER {busy(0), unavailable(1), unwilling-to-perform(2)
+}(0..ub-error-reasons)
+
+-- 
+message-group-error ABSTRACT-ERROR ::= {
+  PARAMETER  MessageGroupErrorParameter
+  CODE       err-message-group-error
+}
+
+MessageGroupErrorParameter ::= SET {
+  problem  [0]  MessageGroupProblem,
+  name     [1]  MessageGroupName
+}
+
+MessageGroupProblem ::= INTEGER {
+  name-not-registered(0), name-already-registered(1), parent-not-registered(2),
+  group-not-empty(3), name-in-use(4), child-group-registered(5),
+  group-depth-exceeded(6)}(0..ub-error-reasons)
+
+-- 
+ms-extension-error ABSTRACT-ERROR ::= {
+  PARAMETER  MSExtensionErrorParameter
+  CODE       err-ms-extension-error
+}
+
+MSExtensionErrorParameter ::= CHOICE {
+  ms-extension-problem  [0]  MSExtensionItem,
+  unknown-ms-extension  [1]  OBJECT IDENTIFIER
+}
+
+-- 
+register-ms-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    SET {problem            [0]  RegistrationProblem,
+         registration-type  [1]  RegistrationTypes}
+  CODE       err-register-ms-error
+}
+
+RegistrationProblem ::= ENUMERATED {
+  registration-not-supported(0), registration-improperly-specified(1),
+  registration-limit-exceeded(2), ... -- For future extension additions --
+  }
+
+-- 
+modify-error ABSTRACT-ERROR ::= {
+  PARAMETER  ModifyErrorParameter
+  CODE       err-modify-error
+}
+
+ModifyErrorParameter ::= SET {
+  entries-modified
+    [0]  SEQUENCE SIZE (1..ub-messages) OF SequenceNumber OPTIONAL,
+  failing-entry        [1]  SequenceNumber,
+  modification-number  [2]  INTEGER,
+  problem              [3]  ModifyProblem
+}
+
+ModifyProblem ::= INTEGER {
+  attribute-not-present(0), value-not-present(1),
+  attribute-or-value-already-exists(2), invalid-position(3),
+  modify-restriction-problem(4)}(0..ub-error-reasons)
+
+-- 
+entry-class-error ABSTRACT-ERROR ::= {
+  PARAMETER  EntryClassErrorParameter
+  CODE       err-entry-class-error
+}
+
+EntryClassErrorParameter ::= SET {
+  entry-class  [0]  EntryClass,
+  problem
+    [1]  BIT STRING {unsupported-entry-class(0), entry-class-not-subscribed(1),
+                     inappropriate-entry-class(2)}
+}
+
+END -- of MS Abstract Service
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

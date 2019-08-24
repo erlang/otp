@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_snmp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_snmp.xml</file>
+  </header>
+  <module since="">ct_snmp</module>
+  <modulesummary>Common Test user interface module for the SNMP application.</modulesummary>
+
+  <description>
+
+    <p><c>Common Test</c> user interface module for the <c>SNMP</c>
+      application.</p>
+
+    <p>The purpose of this module is to simplify SNMP configuration for the
+      test case writer. Many test cases can use default values for common
+      operations and then no SNMP configuration files need to be supplied.
+      When it is necessary to change particular configuration parameters, a
+      subset of the relevant SNMP configuration files can be passed to
+      <c>ct_snmp</c> by <c>Common Test</c> configuration files. For more
+      specialized configuration parameters, a simple SNMP configuration file
+      can be placed in the test suite data directory. To simplify the test
+      suite, <c>Common Test</c> keeps track of some of the SNMP manager
+      information. This way the test suite does not have to handle as many
+      input parameters as if it had to interface wthe OTP SNMP manager
+      directly.</p>
+
+    <p><em>Configurable SNMP Manager and Agent Parameters:</em></p>
+
+    <p>Manager configuration:</p>
+
+    <taglist>
+      <tag><c>[{start_manager, boolean()}</c></tag>
+        <item><p>Optional. Default is <c>true</c>.</p></item>
+      <tag><c>{users, [{user_name(), [call_back_module(), user_data()]}]}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{usm_users, [{usm_user_name(), [usm_config()]}]}</c></tag>
+        <item><p>Optional. SNMPv3 only.</p></item>
+      <tag><c>{managed_agents,[{agent_name(), [user_name(), agent_ip(), agent_port(), [agent_config()]]}]}</c></tag>
+        <item><p><c>managed_agents</c> is optional.</p></item>
+      <tag><c>{max_msg_size, integer()}</c></tag>
+        <item><p>Optional. Default is <c>484</c>.</p></item>
+      <tag><c>{mgr_port, integer()}</c></tag>
+        <item><p>Optional. Default is <c>5000</c>.</p></item>
+      <tag><c>{engine _id, string()}</c></tag>
+        <item><p>Optional. Default is <c>"mgrEngine"</c>.</p></item>
+    </taglist>
+
+    <p>Agent configuration:</p>
+
+    <taglist>
+      <tag><c>{start_agent, boolean()}</c></tag>
+        <item><p>Optional. Default is <c>false</c>.</p></item>
+      <tag><c>{agent_sysname, string()}</c></tag>
+        <item><p>Optional. Default is <c>"ct_test"</c>.</p></item>
+      <tag><c>{agent_manager_ip, manager_ip()}</c></tag>
+        <item><p>Optional. Default is <c>localhost</c>.</p></item>
+      <tag><c>{agent_vsns, list()}</c></tag>
+        <item><p>Optional. Default is <c>[v2]</c>.</p></item>
+      <tag><c>{agent_trap_udp, integer()}</c></tag>
+        <item><p>Optional. Default is <c>5000</c>.</p></item>
+      <tag><c>{agent_udp, integer()}</c></tag>
+        <item><p>Optional. Default is <c>4000</c>.</p></item>
+      <tag><c>{agent_notify_type, atom()}</c></tag>
+        <item><p>Optional. Default is <c>trap</c>.</p></item>
+      <tag><c>{agent_sec_type, sec_type()}</c></tag>
+        <item><p>Optional. Default is <c>none</c>.</p></item>
+      <tag><c>{agent_passwd, string()}</c></tag>
+        <item><p>Optional. Default is <c>""</c>.</p></item>
+      <tag><c>{agent_engine_id, string()}</c></tag>
+        <item><p>Optional. Default is <c>"agentEngine"</c>.</p></item>
+      <tag><c>{agent_max_msg_size, string()}</c></tag>
+        <item><p>Optional. Default is <c>484</c>.</p></item>
+    </taglist>
+
+    <p>The following parameters represents the SNMP configuration files
+      <c>context.conf</c>, <c>standard.conf</c>, <c>community.conf</c>,
+      <c>vacm.conf</c>, <c>usm.conf</c>, <c>notify.conf</c>,
+      <c>target_addr.conf</c>, and <c>target_params.conf</c>. Notice that
+      all values in <c>agent.conf</c> can be modified by the parameters
+      listed above. All these configuration files have default values set by
+      the <c>SNMP</c> application. These values can be overridden by suppling
+      a list of valid configuration values or a file located in the test
+      suites data directory, which can produce a list of valid configuration
+      values if you apply function <c>file:consult/1</c> to the file.</p>
+
+    <taglist>
+      <tag><c>{agent_contexts, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_community, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_sysinfo,  [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_vacm, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_usm, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_notify_def, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_target_address_def, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      <tag><c>{agent_target_param_def, [term()] | {data_dir_file, rel_path()}}</c></tag>
+        <item><p>Optional.</p></item>
+      </taglist>
+
+    <p>Parameter <c>MgrAgentConfName</c> in the functions is to be a name
+      you allocate in your test suite using a <c>require</c> statement.
+      Example (where <c>MgrAgentConfName = snmp_mgr_agent</c>):</p>
+
+    <pre>
+ suite() -&gt; [{require, snmp_mgr_agent, snmp}].</pre>
+
+    <p>or</p>
+
+    <pre>
+ ct:require(snmp_mgr_agent, snmp).</pre>
+
+    <p>Notice that USM users are needed for SNMPv3 configuration and are
+      not to be confused with users.</p>
+
+    <p>SNMP traps, inform, and report messages are handled by the user
+      callback module. For details, see the
+      <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
+
+    <p>It is recommended to use the <c>.hrl</c> files created by the
+      Erlang/OTP MIB compiler to define the Object Identifiers (OIDs).
+      For example, to get the Erlang node name from <c>erlNodeTable</c>
+      in the OTP-MIB:</p>
+
+    <pre>
+ Oid = ?erlNodeEntry ++ [?erlNodeName, 1]</pre>
+
+    <p>Furthermore, values can be set for <c>SNMP</c> application configuration
+      parameters, <c>config</c>, <c>server</c>, <c>net_if</c>, and so on (for
+      a list of valid parameters and types, see the  <seealso marker="snmp:users_guide"><c>User's Guide for the SNMP application</c></seealso>). This is
+      done by defining a configuration data variable on the following form:</p>
+
+    <pre>
+ {snmp_app, [{manager, [snmp_app_manager_params()]},
+             {agent, [snmp_app_agent_params()]}]}.</pre>
+
+    <p>A name for the data must be allocated in the suite using
+      <c>require</c> (see the example above). Pass this name as argument
+      <c>SnmpAppConfName</c> to
+      <seealso marker="#start-3"><c>ct_snmp:start/3</c></seealso>.
+      <c>ct_snmp</c> specifies default values for some <c>SNMP</c> application
+      configuration parameters (such as <c>{verbosity,trace}</c> for parameter
+      <c>config</c>). This set of defaults is merged with the parameters
+      specified by the user. The user values override <c>ct_snmp</c>
+      defaults.</p>
+
+  </description>
+
+  <section>
+    <title>Data Types</title>
+    <marker id="types"/>
+    <taglist>
+      <tag><c>agent_config() = {Item, Value}</c></tag>
+      <item><marker id="type-agent_config"/> </item>
+      <tag><c>agent_ip() = ip()</c></tag>
+      <item><marker id="type-agent_ip"/> </item>
+      <tag><c>agent_name() = atom()</c></tag>
+      <item><marker id="type-agent_name"/> </item>
+      <tag><c>agent_port() = integer()</c></tag>
+      <item><marker id="type-agent_port"/> </item>
+      <tag><c>call_back_module() = atom()</c></tag>
+      <item><marker id="type-call_back_module"/> </item>
+      <tag><c>error_index() = integer()</c></tag>
+      <item><marker id="type-error_index"/> </item>
+      <tag><c>error_status() = noError | atom()</c></tag>
+      <item><marker id="type-error_status"/> </item>
+      <tag><c>ip() = string() | {integer(), integer(), integer(), integer()}</c></tag>
+      <item><marker id="type-ip"/> </item>
+      <tag><c>manager_ip() = ip()</c></tag>
+      <item><marker id="type-manager_ip"/> </item>
+      <tag><c>oid() = [byte()]</c></tag>
+      <item><marker id="type-oid"/> </item>
+      <tag><c>oids() = [oid()]</c></tag>
+      <item><marker id="type-oids"/> </item>
+      <tag><c>rel_path() = string()</c></tag>
+      <item><marker id="type-rel_path"/> </item>
+      <tag><c>sec_type() = none | minimum | semi</c></tag>
+      <item><marker id="type-sec_type"/> </item>
+      <tag><c>snmp_app_agent_params() = term()</c></tag>
+      <item><marker id="type-snmp_app_agent_params"/> </item>
+      <tag><c>snmp_app_manager_params() = term()</c></tag>
+      <item><marker id="type-snmp_app_manager_params"/> </item>
+      <tag><c>snmpreply() = {error_status(), error_index(), varbinds()}</c></tag>
+      <item><marker id="type-snmpreply"/> </item>
+      <tag><c>user_data() = term()</c></tag>
+      <item><marker id="type-user_data"/> </item>
+      <tag><c>user_name() = atom()</c></tag>
+      <item><marker id="type-user_name"/> </item>
+      <tag><c>usm_config() = {Item, Value}</c></tag>
+      <item><marker id="type-usm_config"/> </item>
+      <tag><c>usm_user_name() = string()</c></tag>
+      <item><marker id="type-usm_user_name"/> </item>
+      <tag><c>value_type() = o('OBJECT IDENTIFIER') | i('INTEGER') | u('Unsigned32') | g('Unsigned32') | s('OCTET STRING')</c></tag>
+      <item><marker id="type-value_type"/> </item>
+      <tag><c>var_and_val() = {oid(), value_type(), value()}</c></tag>
+      <item><marker id="type-var_and_val"/> </item>
+      <tag><c>varbind() = term()</c></tag>
+      <item><marker id="type-varbind"/> </item>
+      <tag><c>varbinds() = [varbind()]</c></tag>
+      <item><marker id="type-varbinds"/> </item>
+      <tag><c>varsandvals() = [var_and_val()]</c></tag>
+      <item><marker id="type-varsandvals"/> </item>
+    </taglist>
+    <p>These data types are described in the documentation for
+      the <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">get_next_values(Agent, Oids, MgrAgentConfName) -&gt; SnmpReply</name>
+      <fsummary>Issues a synchronous SNMP get next request.</fsummary>
+      <type>
+        <v>Agent = agent_name()</v>
+        <v>Oids = oids()</v>
+        <v>MgrAgentConfName = atom()</v>
+        <v>SnmpReply = snmpreply()</v>
+      </type>
+      <desc><marker id="get_next_values-3"/>
+        <p>Issues a synchronous SNMP <c>get next</c> request.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_values(Agent, Oids, MgrAgentConfName) -&gt; SnmpReply</name>
+      <fsummary>Issues a synchronous SNMP get request.</fsummary>
+      <type>
+        <v>Agent = agent_name()</v>
+        <v>Oids = oids()</v>
+        <v>MgrAgentConfName = atom()</v>
+        <v>SnmpReply = snmpreply()</v>
+      </type>
+      <desc><marker id="get_values-3"/>
+        <p>Issues a synchronous SNMP <c>get</c> request.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">load_mibs(Mibs) -&gt; ok | {error, Reason}</name>
+      <fsummary>Loads the MIBs into agent snmp_master_agent.</fsummary>
+      <type>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="load_mibs-1"/>
+        <p>Loads the MIBs into agent <c>snmp_master_agent</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_agents(MgrAgentConfName, ManagedAgents) -&gt; ok | {error, Reason}</name>
+      <fsummary>Explicitly instructs the manager to handle this
+        agent.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>ManagedAgents = [agent()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="register_agents-2"/>
+        <p>Explicitly instructs the manager to handle this agent. Corresponds
+          to making an entry in <c>agents.conf</c>.</p>
+
+        <p>This function tries to register the specified managed agents, without
+          checking if any of them exist. To change a registered managed agent,
+          the agent must first be unregistered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_users(MgrAgentConfName, Users) -&gt; ok | {error, Reason}</name>
+      <fsummary>Registers the manager entity (=user) responsible for specific
+        agent(s).</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Users = [user()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="register_users-2"/>
+        <p>Registers the manager entity (=user) responsible for specific
+          agent(s). Corresponds to making an entry in <c>users.conf</c>.</p>
+
+        <p>This function tries to register the specified users, without checking
+          if any of them exist. To change a registered user, the user must
+          first be unregistered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok | {error, Reason}</name>
+      <fsummary>Explicitly instructs the manager to handle this USM user.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>UsmUsers = [usm_user()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="register_usm_users-2"/>
+        <p>Explicitly instructs the manager to handle this USM user.
+          Corresponds to making an entry in <c>usm.conf</c>.</p>
+
+        <p>This function tries to register the specified users, without checking
+          if any of them exist. To change a registered user, the user must
+          first be unregistered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_info(Config) -&gt; [{Agent, OldVarsAndVals, NewVarsAndVals}]</name>
+      <fsummary>Returns a list of all successful set requests performed in the
+        test case in reverse order.</fsummary>
+      <type>
+        <v>Config = [{Key, Value}]</v>
+        <v>Agent = agent_name()</v>
+        <v>OldVarsAndVals = varsandvals()</v>
+        <v>NewVarsAndVals = varsandvals()</v>
+      </type>
+      <desc><marker id="set_info-1"/>
+        <p>Returns a list of all successful <c>set</c> requests performed in
+          the test case in reverse order. The list contains the involved user
+          and agent, the value before <c>set</c>, and the new value. This is
+          intended to simplify the cleanup in function <c>end_per_testcase</c>,
+          that is, the undoing of the <c>set</c> requests and their possible
+          side-effects.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -&gt; SnmpReply</name>
+      <fsummary>Issues a synchronous SNMP set request.</fsummary>
+      <type>
+        <v>Agent = agent_name()</v>
+        <v>Oids = oids()</v>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Config = [{Key, Value}]</v>
+        <v>SnmpReply = snmpreply()</v>
+      </type>
+      <desc><marker id="set_values-4"/>
+        <p>Issues a synchronous SNMP <c>set</c> request.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start(Config, MgrAgentConfName) -&gt; ok</name>
+      <fsummary>Equivalent to start(Config, MgrAgentConfName,
+        undefined).</fsummary>
+      <desc><marker id="start-2"/>
+        <p>Equivalent to
+          <seealso marker="#start-3"><c>ct_snmp:start(Config, MgrAgentConfName,
+          undefined)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start(Config, MgrAgentConfName, SnmpAppConfName) -&gt; ok</name>
+      <fsummary>Starts an SNMP manager and/or agent.</fsummary>
+      <type>
+        <v>Config = [{Key, Value}]</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+        <v>MgrAgentConfName = atom()</v>
+        <v>SnmpConfName = atom()</v>
+      </type>
+      <desc><marker id="start-3"/>
+        <p>Starts an SNMP manager and/or agent. In the manager case,
+          registrations of users and agents, as specified by the configuration
+          <c>MgrAgentConfName</c>, are performed. When using SNMPv3, called
+          USM users are also registered. Users, <c>usm_users</c>, and
+          managed agents can also be registered later using
+          <seealso marker="#register_users-2"><c>ct_snmp:register_users/2</c></seealso>,
+          <seealso marker="#register_agents-2"><c>ct_snmp:register_agents/2</c></seealso>,
+          and
+          <seealso marker="#register_usm_users-2"><c>ct_snmp:register_usm_users/2</c></seealso>.</p>
+
+        <p>The agent started is called <c>snmp_master_agent</c>. Use
+          <seealso marker="#load_mibs-1"><c>ct_snmp:load_mibs/1</c></seealso>
+          to load MIBs into the agent.</p>
+
+        <p>With <c>SnmpAppConfName</c> SNMP applications can be configured
+          with parameters <c>config</c>, <c>mibs</c>, <c>net_if</c>, and so on.
+          The values are merged with (and possibly override) default values
+          set by <c>ct_snmp</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">stop(Config) -&gt; ok</name>
+      <fsummary>Stops the SNMP manager and/or agent, and removes all files
+        created.</fsummary>
+      <type>
+        <v>Config = [{Key, Value}]</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc><marker id="stop-1"/>
+        <p>Stops the SNMP manager and/or agent, and removes all files
+          created.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">unload_mibs(Mibs) -&gt; ok | {error, Reason}</name>
+      <fsummary>Unloads the MIBs from agent snmp_master_agent.</fsummary>
+      <type>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unload_mibs-1"/>
+        <p>Unloads the MIBs from agent <c>snmp_master_agent</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_agents(MgrAgentConfName) -&gt; ok</name>
+      <fsummary>Unregisters all managed agents.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unregister_agents-1"/>
+        <p>Unregisters all managed agents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">unregister_agents(MgrAgentConfName, ManagedAgents) -&gt; ok</name>
+      <fsummary>Unregisters the specified managed agents.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>ManagedAgents = [agent_name()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unregister_agents-2"/>
+        <p>Unregisters the specified managed agents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_users(MgrAgentConfName) -&gt; ok</name>
+      <fsummary>Unregisters all users.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Reason = term()</v>
+     </type>
+     <desc><marker id="unregister_users-1"/>
+       <p>Unregisters all users.</p>
+     </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">unregister_users(MgrAgentConfName, Users) -&gt; ok</name>
+      <fsummary>Unregisters the specified users.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Users = [user_name()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unregister_users-2"/>
+        <p>Unregisters the specified users.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">unregister_usm_users(MgrAgentConfName) -&gt; ok</name>
+      <fsummary>Unregisters all USM users.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unregister_usm_users-1"/>
+        <p>Unregisters all USM users.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">unregister_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok</name>
+        <fsummary>Unregisters the specified USM users.</fsummary>
+      <type>
+        <v>MgrAgentConfName = atom()</v>
+        <v>UsmUsers = [usm_user_name()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="unregister_usm_users-2"/>
+        <p>Unregisters the specified USM users.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

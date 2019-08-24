@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ssl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ssl_app.sgml</file>
+  </header>
+  <app>ssl</app>
+  <appsummary>The ssl application provides secure communication over
+  sockets.</appsummary>
+
+  <description>
+    <p>
+      The ssl application is an implementation of the SSL, TLS and DTLS protocols in Erlang.
+    </p>
+    <p>For current statement of standards compliance see the <seealso marker="standards_compliance">User's Guide</seealso>.</p>
+  </description>
+
+  <section>
+    <title>DEPENDENCIES</title>
+    <p>The SSL application uses the <c>public_key</c>, <c>asn1</c> and
+    Crypto application to handle public keys and encryption, hence
+    these applications must be loaded for the SSL application to work. 
+    In an embedded environment this means they must be started with
+    <c>application:start/[1,2]</c> before the SSL application is 
+    started.</p>
+  </section>
+
+  <section>
+    <title>CONFIGURATION</title>
+    <p>The application environment configuration parameters in this section 
+    are defined for the SSL application. For more information 
+    about configuration parameters, see the 
+    <seealso marker="kernel:application">application(3)</seealso>
+    manual page in Kernel.</p>
+
+    <p>The environment parameters can be set on the command line,
+    for example:</p>
+
+    <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
+
+    <taglist>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:ssl_tls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      TLS protocols currently supported by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
+
+      <tag><c>dtls_protocol_version = </c><seealso marker="ssl#type-protocol">ssl:dtls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      DTLS protocols currently supported by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
+      
+      <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
+      <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
+      recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However
+      sessions may be invalidated earlier due to the maximum limitation of the session cache table.
+      </p></item>
+
+      <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
+      <item><p>Name of the session cache callback module that implements
+      the <c>ssl_session_cache_api</c> behavior. Defaults to
+      <c>ssl_session_cache</c>.</p></item>
+
+      <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
+
+      <item><p>List of extra user-defined arguments to the <c>init</c> function
+      in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/></tag>
+      <item><p>Limits the growth of the clients session cache, that is
+      how many sessions towards servers that are cached to be used by
+      new client connections.  If the maximum number of sessions is
+      reached, the current cache entries will be invalidated
+      regardless of their remaining lifetime. Defaults to
+      1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
+
+      <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <item><p>Limits the growth of the servers session cache, that is
+      how many client sessions are cached by the server. If the
+      maximum number of sessions is reached, the current cache entries
+      will be invalidated regardless of their remaining
+      lifetime. Defaults to 1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
+      
+      <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
+	</p>
+	<seealso
+	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
+	
+      </item>
+
+      <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
+      <item>
+	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
+	Can be used as a workaround for the PEM-cache bottleneck
+	before ssl-8.1.1. Defaults to false.
+	</p>
+      </item>
+      
+      <tag><c><![CDATA[alert_timeout = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of milliseconds between sending of a fatal alert and
+	  closing the connection. Waiting a little while improves the
+	  peers chances to properly receiving the alert so it may
+	  shutdown gracefully. Defaults to 5000 milliseconds.   
+	</p>
+      </item>
+
+      <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
+        <item>
+	<p>
+	  For TLS connections this value is used to handle the
+	  internal socket. As the implementation was changed from an
+	  active once to an active N behavior (N = 100), for
+	  performance reasons, this option exist for possible tweaking
+	  or restoring of the old behavior (internal_active_n = 1) in
+	  unforeseen scenarios.  The option will not affect erlang
+	  distribution over TLS that will always run in active N mode.
+	  Added in ssl-9.1 (OTP-21.2).
+	</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>ERROR LOGGER AND EVENT HANDLERS</title>
+    <p>The SSL application uses the default <seealso
+    marker="kernel:error_logger">OTP error logger</seealso> to log
+    unexpected errors and TLS/DTLS alerts. The logging of TLS/DTLS alerts may be
+    turned off with the <c>log_alert</c> option. </p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+	<p><seealso marker="kernel:application">application(3)</seealso></p>
+  </section>
+  
+</appref>

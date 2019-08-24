@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>OTP team</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>introduction.xml</file>
+  </header>
+  <p>SSH is a protocol for secure remote logon and
+    other secure network services over an insecure network.</p>
+  <section>
+    <title>Scope and Purpose</title>
+
+    <p>SSH provides a single, full-duplex, and byte-oriented connection between
+    client and server. The protocol also provides privacy, integrity,
+    server authentication, and man-in-the-middle protection.</p>
+
+    <p>The <c>ssh</c> application is an implementation of the SSH Transport, Connection and Authentication
+    Layer Protocols in Erlang. It provides the following:</p>
+    <list type="bulleted">
+      <item>API functions to write customized SSH clients and servers applications</item>
+      <item>The Erlang shell available over SSH</item>
+      <item>An SFTP client (<seealso marker="ssh_sftp">ssh_sftp</seealso>)
+      and server (<seealso marker="ssh_sftp">ssh_sftpd</seealso>)</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang programming language,
+    concepts of <em>OTP</em>, and has a basic understanding of <em>public keys</em>.</p>
+  </section>
+
+<section>
+    <title>SSH Protocol Overview</title>
+
+    <p>Conceptually, the SSH protocol can be partitioned into four
+    layers:</p>
+
+    <image file="SSH_protocols.png">
+      <icaption>SSH Protocol Architecture</icaption>
+    </image>
+
+    <section>
+      <title>Transport Protocol</title>
+
+      <p>The SSH Transport Protocol is a secure, low-level transport.
+      It provides strong encryption, cryptographic host
+      authentication, and integrity protection. A minimum of
+      Message Authentication Code (MAC) and encryption
+      algorithms are supported. For details, see the
+      <seealso marker="ssh">ssh(3)</seealso> manual page in <c>ssh</c>.</p>
+    </section>
+
+    <section>
+      <title>Authentication Protocol</title>
+
+      <p>The SSH Authentication Protocol is a general-purpose user
+      authentication protocol run over the SSH Transport Layer
+      Protocol. The <c>ssh</c> application supports user authentication as follows:
+      </p>
+      <list type="bulleted">
+	<item>
+	  Using public key technology. RSA and DSA, X509-certificates
+	  are not supported.
+	</item>
+	<item>
+	  Using keyboard-interactive authentication.
+	  This is suitable for interactive authentication methods
+	  that do not need any special software support on the client side.
+	  Instead, all authentication data is entered from the keyboard.
+	</item>
+	<item>
+	  Using a pure password-based authentication scheme.
+	  Here, the plain text password is encrypted before sent
+	  over the network.
+	</item>
+      </list>
+      <p>Several configuration options for
+      authentication handling are available in
+      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
+      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</p>
+      <p>
+      The public key handling can be customized by implementing
+      the following behaviours from <c>ssh</c>:</p>
+      <list type="bulleted">
+	<item>Module
+      <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso>.
+	</item>
+	<item>Module
+      <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+	</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Connection Protocol</title>
+
+      <p>The SSH Connection Protocol provides application-support
+      services over the transport pipe, for example, channel multiplexing,
+      flow control, remote program execution, signal propagation, and
+      connection forwarding. Functions for handling the SSH
+      Connection Protocol can be found in the module <seealso
+      marker="ssh_connection">ssh_connection</seealso> in <c>ssh</c>.
+      </p>
+    </section>
+
+    <section>
+      <title>Channels</title>
+
+      <p>All terminal sessions, forwarded connections, and so on, are
+      channels. Multiple channels are multiplexed into a single
+      connection. All channels are flow-controlled. This means that no
+      data is sent to a channel peer until a message is received to
+      indicate that window space is available.
+      The <em>initial window size</em> specifies how many bytes of channel
+      data that can be sent to the channel peer without adjusting the
+      window. Typically, an SSH client opens a channel, sends data (commands),
+      receives data (control information), and then closes the channel.
+      The <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behaviour
+      handles generic parts of SSH channel management. This makes it easy
+      to write your own SSH client/server processes that use flow-control
+      and thus opens for more focus on the application logic.
+      </p>
+
+      <p>Channels come in the following three flavors:</p>
+
+      <list type="bulleted">
+	<item><em>Subsystem</em> - Named services that can be run as
+	part of an SSH server, such as SFTP <seealso
+	marker="ssh_sftpd">(ssh_sftpd)</seealso>, that is built into the
+	SSH daemon (server) by default, but it can be disabled. The Erlang <c>ssh</c>
+	daemon can be configured to run any Erlang-
+	implemented SSH subsystem.
+	</item>
+	<item><em>Shell</em> - Interactive shell. By default the
+	Erlang daemon runs the Erlang shell. The shell can be customized by
+	providing your own read-eval-print loop. You can also provide your
+	own Command-Line Interface (CLI) implementation,
+	but that is much more work.
+	</item>
+	<item><em>Exec</em> - One-time remote execution of commands. See function
+	<seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+	for more information.</item>
+      </list>
+    </section>
+
+
+
+  </section>
+
+  <section>
+    <title>Where to Find More Information</title>
+    <p>
+      For detailed information about the SSH protocol, refer to the
+      following Request for Comments(RFCs):
+    </p>
+
+    <list type="bulleted">
+      <item><url href="http://www.ietf.org/rfc/rfc4250.txt">RFC 4250</url> -
+      Protocol Assigned Numbers</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4251.txt">RFC 4251</url> -
+      Protocol Architecture</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4252.txt">RFC 4252</url> -
+      Authentication Protocol</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4253.txt">RFC 4253</url> -
+      Transport Layer Protocol</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> -
+      Connection Protocol</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</url> -
+      Transport Layer Encryption Modes</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</url> -
+      Public Key File Format</item>
+    </list>
+  </section>
+</chapter>

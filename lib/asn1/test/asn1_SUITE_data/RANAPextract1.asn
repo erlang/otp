@@ -1,0 +1,142 @@
+RANAPextract1 DEFINITIONS ::=
+BEGIN
+
+
+RANAP-ELEMENTARY-PROCEDURE ::= CLASS {
+	&InitiatingMessage				,
+	&SuccessfulOutcome				OPTIONAL,
+	&UnsuccessfulOutcome				OPTIONAL,
+	&Outcome					OPTIONAL,
+	&procedureCode			ProcedureCode 	UNIQUE,
+	&criticality			Criticality 	DEFAULT ignore
+}
+WITH SYNTAX {
+	INITIATING MESSAGE		&InitiatingMessage
+	[SUCCESSFUL OUTCOME		&SuccessfulOutcome]
+	[UNSUCCESSFUL OUTCOME		&UnsuccessfulOutcome]
+	[OUTCOME			&Outcome]
+	PROCEDURE CODE				&procedureCode
+	[CRITICALITY			&criticality]
+}
+
+RANAP-PDU ::= CHOICE {
+	initiatingMessage	InitiatingMessage,
+--	successfulOutcome	SuccessfulOutcome,
+--	unsuccessfulOutcome	UnsuccessfulOutcome,
+--	outcome			Outcome,
+	...
+}
+
+InitiatingMessage  ::= SEQUENCE {
+    procedureCode  RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+    criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+    value	RANAP-ELEMENTARY-PROCEDURE.&InitiatingMessage	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+    }
+
+
+InitiatingMessage2  ::= SEQUENCE {
+  procedureCode RANAP-ELEMENTARY-PROCEDURE.&procedureCode ({RANAP-ELEMENTARY-PROCEDURES-2}),
+  criticality RANAP-ELEMENTARY-PROCEDURE.&criticality ({RANAP-ELEMENTARY-PROCEDURES-2}{@procedureCode}),
+  value	RANAP-ELEMENTARY-PROCEDURE.&InitiatingMessage ({RANAP-ELEMENTARY-PROCEDURES-2}{@procedureCode})
+}
+
+iu-Release RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-Iu-Release
+    CRITICALITY		ignore
+}
+
+relocationPreparation RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-RelocationPreparation
+    CRITICALITY		notify
+}
+
+object3 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage Iu-ReleaseCommand,
+    &SuccessfulOutcome Iu-ReleaseComplete,
+    &procedureCode     id-Iu-Release-3,
+    &criticality       reject
+    }
+
+
+-- OTP-5466
+testObject RANAP-ELEMENTARY-PROCEDURE ::= {
+  INITIATING MESSAGE	Iu-ReleaseCommand
+  SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+  PROCEDURE CODE	id-test
+  CRITICALITY		notify
+}
+
+testObject2 RANAP-ELEMENTARY-PROCEDURE ::= {
+  INITIATING MESSAGE	Iu-ReleaseCommand
+  SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+  PROCEDURE CODE	id-test2
+  CRITICALITY		notify
+}
+-- OTP-5466
+
+
+
+RANAP-ELEMENTARY-PROCEDURES RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release         |
+    relocationPreparation ,
+    ...
+    }
+
+-- additional definition R-E-P and change in RANAP-ELEMENTARY-PROCEDURES-2
+-- from RANAP-ELEMENTARY-PROCEDURE to R-E-P to test OTP-4441
+
+R-E-P ::= RANAP-ELEMENTARY-PROCEDURE
+
+-- add for RANAP-ELEMENTARY-PROCEDURES-2 and object3 OTP-4275
+RANAP-ELEMENTARY-PROCEDURES-2 RANAP-ELEMENTARY-PROCEDURE ::= {
+  iu-Release         |
+  relocationPreparation ,
+  ...,
+  object3
+}
+
+
+-- OTP-5466
+RANAP-ELEMENTARY-PROCEDURES-3 RANAP-ELEMENTARY-PROCEDURE ::= {
+  {INITIATING MESSAGE	Iu-ReleaseCommand
+  SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+  PROCEDURE CODE	id-test
+  CRITICALITY		notify}
+} 
+
+RANAP-ELEMENTARY-PROCEDURES-4 RANAP-ELEMENTARY-PROCEDURE ::= {
+  iu-Release|
+  testObject,
+  ...,
+  relocationPreparation |
+  testObject2
+}
+-- OTP-5466
+
+
+
+
+Iu-ReleaseCommand  ::= SEQUENCE {
+    first     INTEGER,
+    second    BOOLEAN
+    }
+
+Iu-ReleaseComplete ::= INTEGER (1..510)
+
+ProcedureCode      ::= INTEGER (0..255)
+Criticality        ::= ENUMERATED { reject, ignore, notify }
+id-Iu-Release				INTEGER ::= 1
+id-RelocationPreparation                INTEGER ::= 2
+id-Iu-Release-3      INTEGER ::= 3
+-- OTP-5466
+id-test   INTEGER ::= 4
+id-test2   INTEGER ::= 5
+-- OTP-5466
+
+END
+
+

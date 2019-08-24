@@ -1,0 +1,128 @@
+DoubleEllipses DEFINITIONS AUTOMATIC TAGS ::=
+
+
+BEGIN
+
+
+Seq ::= SEQUENCE
+ {
+   a  INTEGER,
+   ...,
+   ...,
+   c  BOOLEAN
+ }
+
+SeqV1 ::= SEQUENCE
+ {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...
+ }
+
+
+SeqV2 ::= SEQUENCE
+ {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...,
+   c  BOOLEAN
+ }
+
+
+SeqAlt ::= SEQUENCE
+ {
+   a INTEGER,
+   d INTEGER,
+   ...,
+   b BIT STRING,
+   e BOOLEAN,
+   ...,
+   c BOOLEAN,
+   f INTEGER,
+   g INTEGER
+ }
+
+SeqAltV2 ::= SEQUENCE
+ {
+   a INTEGER,
+   d INTEGER,
+   ...,
+   b BIT STRING,
+   e BOOLEAN,
+   h PrintableString,
+   i INTEGER,
+   ...,
+   c BOOLEAN,
+   f INTEGER,
+   g INTEGER
+ }
+
+SeqDoubleEmpty1 ::= SEQUENCE {
+   ...,
+   ...
+}
+
+SeqDoubleEmpty2 ::= SEQUENCE {
+   a BOOLEAN,
+   b INTEGER OPTIONAL,
+   ...,
+   ...
+}
+
+Set ::= SET {
+   a  INTEGER,
+   ...,
+   ...,
+   c  BOOLEAN
+ }
+
+
+SetV1 ::= SET {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...
+ }
+
+SetV2 ::= SET
+ {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...,
+   c  BOOLEAN
+ }
+
+
+SetAlt ::= SET
+ {
+   a INTEGER,
+   d INTEGER,
+   ...,
+   b BIT STRING,
+   e BOOLEAN,
+   ...,
+   c BOOLEAN,
+   f INTEGER,
+   g INTEGER
+ }
+
+SetAltV2 ::= SET
+ {
+   a INTEGER,
+   d INTEGER,
+   ...,
+   b BIT STRING,
+   e BOOLEAN,
+   h PrintableString,
+   i INTEGER,
+   ...,
+   c BOOLEAN,
+   f INTEGER,
+   g INTEGER
+ }
+
+
+END

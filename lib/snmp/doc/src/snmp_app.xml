@@ -1,0 +1,935 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>snmp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp.xml</file>
+  </header>
+  <app>snmp</app>
+  <appsummary>The SNMP Application</appsummary>
+  <description>
+    <p>This chapter describes the <c>snmp</c>
+    application in OTP.  The SNMP application provides the following
+    services:</p>
+    <list type="bulleted">
+      <item>
+        <p>a multilingual extensible SNMP agent</p>
+      </item>
+      <item>
+        <p>a SNMP manager</p>
+      </item>
+      <item>
+        <p>a MIB compiler</p>
+      </item>
+    </list>
+
+  </description>
+
+  <section>
+    <marker id="configuration_params"></marker>
+    <title>Configuration</title>
+    <p>The following configuration parameters are defined for the SNMP
+      application. Refer to application(3) for more information about
+      configuration parameters.
+      </p>
+
+    <p>The snmp part of the config file specifying the configuration 
+      parameters is basically the following tuple:</p>
+    <pre>
+      {snmp, snmp_components_config()}
+    </pre>
+
+    <p>A minimal config file for starting a node with both a manager 
+      and an agent:</p>
+    <pre>
+      [{snmp, 
+        [{agent, [{db_dir, "/tmp/snmp/agent/db"},
+                  {config, [{dir, "/tmp/snmp/agent/conf"}]}]},
+         {manager, [{config, [{dir, "/tmp/snmp/manager/conf"},
+                              {db_dir, "/tmp/snmp/manager/db"}]}]}]}
+        ]
+       }
+      ].
+    </pre>
+
+
+    <!-- 
+	 ********************************************************
+
+	 The info below is also found in the snmp_config.xml file 
+
+	 ********************************************************
+    -->
+
+
+    <p>Each snmp component has its own set of configuration parameters,
+      even though some of the types are common to both components. </p>
+
+    <pre>
+      snmp_components_config() -> [snmp_component_config()]
+      snmp_component_config() -> {agent, agent_options()} | {manager, manager_options()}
+      agent_options() = [agent_option()]
+      agent_option() = {restart_type,     restart_type()}     | 
+                       {agent_type,       agent_type()}       |  
+                       {agent_verbosity,  verbosity()}        |  
+                       {discovery,        agent_discovery()}  |  
+                       {versions,         versions()}         |  
+                       {gb_max_vbs,       gb_max_vbs()}       |  
+                       {priority,         priority()}         |  
+                       {multi_threaded,   multi_threaded()}   |  
+                       {db_dir,           db_dir()}           |  
+                       {db_init_error,    db_init_error()}    |  
+                       {local_db,         local_db()}         |  
+                       {net_if,           agent_net_if()}     |  
+                       {mibs,             mibs()}             |  
+                       {mib_storage,      mib_storage()}      |  
+                       {mib_server,       mib_server()}       |  
+                       {audit_trail_log,  audit_trail_log()}  |  
+                       {error_report_mod, error_report_mod()} |  
+                       {note_store,       note_store()}       |  
+                       {symbolic_store,   symbolic_store()}   |  
+                       {target_cache,     target_cache()}     |  
+                       {config,           agent_config()}
+      manager_options() = [manager_option()]
+      manager_option() = {restart_type,             restart_type()}    | 
+                         {net_if,                   manager_net_if()}  |  
+                         {server,                   server()}          | 
+                         {note_store,               note_store()}      | 
+                         {config,                   manager_config()}  |  
+                         {inform_request_behaviour, manager_irb()}     | 
+                         {mibs,                     manager_mibs()}    | 
+                         {priority,                 priority()}        |  
+                         {audit_trail_log,          audit_trail_log()} | 
+                         {versions,                 versions()}        | 
+                         {def_user_mod,             def_user_module()  | 
+                         {def_user_data,            def_user_data()}
+    </pre>
+
+    <marker id="agent_opts_and_types"></marker>
+    <p>Agent specific config options and types:</p>
+    <taglist>
+      <tag><marker id="agent_type"></marker>
+        <c><![CDATA[agent_type() = master | sub <optional>]]></c></tag>
+      <item>
+        <p>If <c>master</c>, one master agent is
+          started. Otherwise, no agents are started. </p>
+        <p>Default is <c>master</c>.</p>
+      </item>
+
+      <tag><marker id="agent_disco"></marker>
+        <c><![CDATA[agent_discovery() = [agent_discovery_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>agent_discovery_opt() = 
+          {terminating, agent_terminating_discovery_opts()} | 
+          {originating, agent_originating_discovery_opts()}</c></p>
+        <p>The <c>terminating</c> options effects discovery initiated by 
+          a manager. </p>
+        <p>The <c>originating</c> options effects discovery initiated 
+          by this agent. </p>
+        <p>For defaults see the options in <c>agent_discovery_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_term_disco_opts"></marker>
+        <c><![CDATA[agent_terminating_discovery_opts() = [agent_terminating_discovery_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>agent_terminating_discovery_opt() = 
+          {enable, boolean()} | 
+          {stage2, discovery | plain} | 
+          {trigger_username, string()}</c></p>
+        <p>These are options effecting discovery <c>terminating</c> in this
+          agent (i.e. initiated by a manager). </p>
+        <p>The default values for the <c>terminating</c> 
+          discovery options are: </p>
+        <list type="bulleted">
+          <item>enable: <c>true</c></item>
+          <item>stage2: <c>discovery</c></item>
+          <item>trigger_username: <c>""</c></item>
+        </list>
+      </item>
+
+      <tag><marker id="agent_orig_disco_opts"></marker>
+        <c><![CDATA[agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>agent_originating_discovery_opt() = 
+          {enable, boolean()}</c></p>
+        <p>These are options effecting discovery <c>originating</c> in this
+          agent. </p>
+        <p>The default values for the <c>originating</c> 
+          discovery options are: </p>
+        <list type="bulleted">
+          <item>enable: <c>true</c></item>
+        </list>
+      </item>
+
+      <tag><marker id="agent_mt"></marker>
+        <c><![CDATA[multi_threaded() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If <c>true</c>, the agent is multi-threaded, with one
+          thread for each get request. </p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+
+      <tag><marker id="agent_data_dir"></marker>
+        <c><![CDATA[db_dir() = string() <mandatory>]]></c></tag>
+      <item>
+        <p>Defines where the SNMP agent internal db files are stored.</p>
+      </item>
+
+      
+      <tag><marker id="agent_gb_max_vbs"></marker>
+        <c><![CDATA[gb_max_vbs() = pos_integer() | infinity <optional>]]></c></tag>
+      <item>
+        <p>Defines the maximum number of varbinds allowed 
+	in a Get-BULK response.</p>
+        <p>Default is <c>1000</c>.</p>
+      </item>
+
+      <tag><marker id="agent_local_db"></marker>
+        <c><![CDATA[local_db() = [local_db_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>local_db_opt() = {repair, agent_repair()} | {auto_save, agent_auto_save()} |   {verbosity, verbosity()}</c></p>
+        <p>Defines options specific for the SNMP agent local database.</p>
+        <p>For defaults see the options in <c>local_db_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ldb_repair"></marker>
+        <c><![CDATA[agent_repair() = false | true | force <optional>]]></c></tag>
+      <item>
+        <p>When starting snmpa_local_db it always tries to open an
+          existing database. If <c>false</c>, and some errors occur, a new
+          database is created instead. If <c>true</c>, an existing file
+          will be repaired. If <c>force</c>, the table will be repaired
+          even if it was properly closed. </p>
+        <p>Default is <c>true</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ldb_auto_save"></marker>
+        <c><![CDATA[agent_auto_save() = integer() | infinity <optional>]]></c></tag>
+      <item>
+        <p>The auto save interval. The table is flushed to disk
+          whenever not accessed for this amount of time.</p>
+        <p>Default is <c>5000</c>.</p>
+      </item>
+
+      <tag><marker id="agent_net_if"></marker>
+        <c><![CDATA[agent_net_if() = [agent_net_if_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>agent_net_if_opt() = {module, agent_net_if_module()} |  {verbosity, verbosity()} |  {options, agent_net_if_options()}</c></p>
+        <p>Defines options specific for the SNMP agent network interface 
+          entity. </p>
+        <p>For defaults see the options in <c>agent_net_if_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_module"></marker>
+        <c><![CDATA[agent_net_if_module() = atom() <optional>]]></c></tag>
+      <item>
+        <p>Module which handles the network interface part for the
+          SNMP agent. Must implement the 
+          <seealso marker="snmpa_network_interface">snmpa_network_interface</seealso> behaviour.</p>
+        <p>Default is <c>snmpa_net_if</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_opts"></marker>
+        <c><![CDATA[agent_net_if_options() = [agent_net_if_option()] <optional>]]></c></tag>
+      <item>
+        <p><c>agent_net_if_option() = {bind_to, bind_to()} |  
+            {sndbuf, sndbuf()} |  
+            {recbuf, recbuf()} |  
+            {no_reuse, no_reuse()} |  
+	    {req_limit, req_limit()} |
+            {filter, agent_net_if_filter_options()}</c></p>
+        <p>These options are actually specific to the used module.
+          The ones shown here are applicable to the default 
+          <c>agent_net_if_module()</c>.</p>
+        <p>For defaults see the options in <c>agent_net_if_option()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_req_limit"></marker>
+        <c><![CDATA[req_limit() = integer() | infinity <optional>]]></c></tag>
+      <item>
+        <p>Max number of simultaneous requests handled by the agent.</p>
+        <p>Default is <c>infinity</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_filter_opts"></marker>
+        <c><![CDATA[agent_net_if_filter_options() = [agent_net_if_filter_option()] <optional>]]></c></tag>
+      <item>
+	<p><c>agent_net_if_filter_option() = {module, agent_net_if_filter_module()}</c></p>
+	<p>These options are actually specific to the used module.
+	  The ones shown here are applicable to the default 
+	  <c><![CDATA[agent_net_if_filter_module()]]></c>.</p>
+	<p>For defaults see the options in 
+          <c>agent_net_if_filter_option()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ni_filter_module"></marker>
+        <c><![CDATA[agent_net_if_filter_module() = atom() <optional>]]></c></tag>
+      <item>
+	<p>Module which handles the network interface filter part for the
+	  SNMP agent. Must implement the 
+	  <seealso marker="snmpa_network_interface_filter">snmpa_network_interface_filter</seealso> behaviour.</p>
+	<p>Default is <c>snmpa_net_if_filter</c>.</p>
+      </item>
+
+      <tag><marker id="agent_mibs"></marker>
+        <c><![CDATA[agent_mibs() = [string()] <optional>]]></c></tag>
+      <item>
+        <p>Specifies a list of MIBs (including path) that defines which MIBs
+          are initially loaded into the SNMP master agent. </p>
+        <p>Note that the following mibs will always be loaded:</p>
+        <list type="bulleted">
+          <item>version v1: <c>STANDARD-MIB</c></item>
+          <item>version v2: <c>SNMPv2</c></item>
+          <item>version v3: <c>SNMPv2</c>, <c>SNMP-FRAMEWORK-MIB</c> 
+           and <c>SNMP-MPD-MIB</c></item>
+        </list>
+        <p>Default is <c>[]</c>.</p>
+      </item>
+
+      <tag><marker id="agent_mib_storage"></marker>
+        <c><![CDATA[mib_storage() = [mib_storage_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>mib_storage_opt() = {module, mib_storage_module()} |  {options, mib_storage_options()}</c></p>
+        <p>This option specifies how basic mib data is stored. 
+	This option is used by two parts of the snmp agent: 
+	The mib-server and the symbolic-store. </p>
+        <p>Default is <c>[{module, snmpa_mib_storage_ets}]</c>. </p>
+      </item>
+
+      <tag><marker id="agent_mst_module"></marker>
+        <c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()]]></c></tag>
+      <item>
+        <p>Defines the mib storage module of the SNMP agent as defined by the 
+	<seealso marker="snmpa_mib_storage">snmpa_mib_storage</seealso> 
+	behaviour. </p>
+	<p>Several entities (<c>mib-server</c> via the its data module and 
+	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
+	of miscelaneous mib related data retrieved while loading a mib. </p>
+	<p>There are several implementations provided with the agent: 
+	<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and 
+	<c>snmpa_mib_storage_mnesia</c>. </p>
+        <p>Default module is <c>snmpa_mib_storage_ets</c>. </p>
+      </item>
+
+      <tag><marker id="agent_mst_options"></marker>
+        <c><![CDATA[mib_storage_options() = list() <optional>]]></c></tag>
+      <item>
+        <p>This is implementattion depended. That is, it depends on the 
+	module. For each module a specific set of options are valid. 
+	For the module provided with the app, these options are supported: </p>
+        <list type="bulleted">
+          <item>
+	    <p><c>snmpa_mib_storage_ets</c>: <c>{dir, filename()} | {action, keep | clear}, {checksum, boolean()}</c></p>
+	    <list>
+	      <item>
+		<p><c>dir</c> - If present, points to a directory where a file 
+		to which all data in the ets table is "synced". </p>
+		<p>Also, when a table is opened this file is read, 
+		if it exists. </p>
+		<p>By default, this will <em>not</em> be used. </p> 
+	      </item>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty 
+		file is found: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>checksum</c> - Defines if the file is checksummed 
+		or not. </p>
+		<p>Default is <c>false</c>. </p> 
+	      </item>
+	    </list>
+	  </item>
+          <item>
+	    <p><c>snmpa_mib_storage_dets</c>: <c>{dir, filename()} | {action, keep | clear}, {auto_save, default | pos_integer()} | {repair, force | boolean()}</c></p>
+	    <list>
+	      <item>
+		<p><c>dir</c> - This <em>mandatory</em> option points to a 
+		directory where to place the file of a dets table. </p>
+	      </item>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty 
+		file is found: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>auto_save</c> - Defines the dets auto-save frequency. </p>
+		<p>Default is <c>default</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>repair</c> - Defines the dets repair behaviour. </p>
+		<p>Default is <c>false</c>. </p> 
+	      </item>
+	    </list>
+	  </item>
+          <item>
+	    <p><c>snmpa_mib_storage_mnesia</c>: <c>{action, keep | clear}, {nodes, [node()]}</c></p>
+	    <list>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty, 
+		already existing, table: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p>
+	      </item>
+	      <item>
+		<p><c>nodes</c> - A list of node names (or an atom 
+		describing a list of nodes) defining where to open the table. 
+		Its up to the user to ensure that mnesia is actually running 
+		on the specified nodes. </p>
+		<p>The following distinct values are recognised: </p>
+		<list>
+		  <item>
+		    <p><c>[]</c> - Translated into a list of the own node: <c>[node()]</c></p>
+		  </item>
+		  <item>
+		    <p><c>all</c> - <c>erlang:nodes()</c></p>
+		  </item>
+		  <item>
+		    <p><c>visible</c> - <c>erlang:nodes(visible)</c></p>
+		  </item>
+		  <item>
+		    <p><c>connected</c> - <c>erlang:nodes(connected)</c></p>
+		  </item>
+		  <item>
+		    <p><c>db_nodes</c> - <c>mnesia:system_info(db_nodes)</c></p>
+		  </item>
+		</list>
+		
+		<p>Default is the result of the call: <c>erlang:nodes()</c>. </p>
+	      </item>
+	    </list>
+	  </item>
+        </list>
+      </item>
+
+      <tag><marker id="agent_mib_server"></marker>
+        <c><![CDATA[mib_server() = [mib_server_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()} | {data_module, mib_server_data_module()}</c></p>
+        <p>Defines options specific for the SNMP agent mib server. </p>
+        <p>For defaults see the options in <c>mib_server_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ms_meo"></marker>
+        <c><![CDATA[mibentry_override() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If this value is false, then when loading a mib each mib-
+          entry is checked prior to installation of the mib. 
+          The purpose of the check is to prevent that the same symbolic 
+          mibentry name is used for different oid's.</p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ms_teo"></marker>
+        <c><![CDATA[trapentry_override() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If this value is false, then when loading a mib each trap
+          is checked prior to installation of the mib. 
+          The purpose of the check is to prevent that the same symbolic 
+          trap name is used for different trap's.</p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+
+<!--
+      <tag><marker id="agent_ms_data_module"></marker>
+        <c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | snmpa_mib_data_ttln | module() <optional>]]></c></tag>
+-->
+      <tag><marker id="agent_ms_data_module"></marker>
+        <c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | module() <optional>]]></c></tag>
+      <item>
+        <p>Defines the backend data module of the SNMP agent mib-server as 
+	defined by the 
+	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	behaviour. </p>
+	<p>At present only the default module is provided with the agent,  
+	<c>snmpa_mib_data_tttn</c>. </p>
+<!--
+	<p>Two modules is provided with the agent 
+	<c>snmpa_mib_data_tttn</c> (this is the old implementation) and 
+	<c>snmpa_mib_data_ttln</c> (for a mib tree with many holes, 
+	this algorithm can be more price efficient). </p>
+-->
+        <p>Default module is <c>snmpa_mib_data_tttn</c>. </p>
+      </item>
+
+      <tag><marker id="agent_ms_cache"></marker>
+        <c><![CDATA[mibs_cache() = bool() | mibs_cache_opts() <optional>]]></c></tag>
+      <item>
+        <p>Shall the agent utilize the mib server lookup cache or not.</p>
+        <p>Default is <c>true</c> (in which case the <c>mibs_cache_opts()</c> 
+          default values apply).</p>
+      </item>
+
+      <tag><marker id="agent_ms_cache_opts"></marker>
+        <c><![CDATA[mibs_cache_opts() = [mibs_cache_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>mibs_cache_opt() = {autogc, mibs_cache_autogc()} | {gclimit, mibs_cache_gclimit()} | {age, mibs_cache_age()}</c></p>
+        <p>Defines options specific for the SNMP agent mib server cache. </p>
+        <p>For defaults see the options in <c>mibs_cache_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ms_cache_autogc"></marker>
+        <c><![CDATA[mibs_cache_autogc() = bool() <optional>]]></c></tag>
+      <item>
+        <p>Defines if the mib server shall perform cache gc automatically or 
+	leave it to the user (see 
+	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+        <p>Default is <c>true</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ms_cache_age"></marker>
+        <c><![CDATA[mibs_cache_age() = integer() > 0 <optional>]]></c></tag>
+      <item>
+        <p>Defines how old the entries in the cache will be allowed 
+	to become before they are GC'ed (assuming GC is performed). 
+	Each entry in the cache is "touched" whenever it is accessed. </p>
+	<p>The age is defined in milliseconds. </p>
+	<p>Default is <c>10 timutes</c>.</p>
+      </item>
+
+      <tag><marker id="agent_ms_cache_gclimit"></marker>
+        <c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
+      <item>
+        <p>When performing a GC, this is the max number of cache entries 
+	that will be deleted from the cache. </p>
+        <p>The reason for having this limit is that if the cache is 
+	large, the GC can potentially take a long time, during which 
+	the agent is locked. </p>
+	<p>Default is <c>100</c>.</p>
+      </item>
+
+      <tag><marker id="agent_error_report_mod"></marker>
+        <c><![CDATA[error_report_mod() = atom() <optional>]]></c></tag>
+      <item>
+        <p>Defines an error report module, implementing the 
+          <seealso marker="snmpa_error_report">snmpa_error_report</seealso> 
+          behaviour. Two modules are provided with the toolkit: 
+          <c>snmpa_error_logger</c> and <c>snmpa_error_io</c>.</p>
+        <p>Default is <c>snmpa_error_logger</c>.</p>
+      </item>
+
+      <tag><marker id="agent_symbolic_store"></marker>
+        <c>symbolic_store() = [symbolic_store_opt()]</c></tag>
+      <item>
+        <p><c>symbolic_store_opt() = {verbosity, verbosity()}</c></p>
+        <p>Defines options specific for the SNMP agent symbolic store. </p>
+        <p>For defaults see the options in <c>symbolic_store_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_target_cache"></marker>
+        <c>target_cache() = [target_cache_opt()]</c></tag>
+      <item>
+        <p><c>target_cache_opt() = {verbosity, verbosity()}</c></p>
+        <p>Defines options specific for the SNMP agent target cache. </p>
+        <p>For defaults see the options in <c>target_cache_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_config"></marker>
+        <c><![CDATA[agent_config() = [agent_config_opt()] <mandatory>]]></c></tag>
+      <item>
+        <p><c>agent_config_opt() = {dir, agent_config_dir()} |  {force_load, force_load()} | {verbosity, verbosity()}</c></p>
+        <p>Defines specific config related options for the SNMP agent. </p>
+        <p>For defaults see the options in <c>agent_config_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="agent_config_dir"></marker>
+        <c><![CDATA[agent_config_dir = dir() <mandatory>]]></c></tag>
+      <item>
+        <p>Defines where the SNMP agent configuration files are stored.</p>
+      </item>
+
+      <tag><marker id="agent_force_load"></marker>
+        <c><![CDATA[force_load() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If <c>true</c> the configuration files are re-read
+          during start-up, and the contents of the configuration 
+          database ignored.  Thus, if <c>true</c>, changes to 
+          the configuration database are lost upon reboot of the 
+          agent. </p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+    </taglist>
+
+    <marker id="manager_opts_and_types"></marker>
+    <p>Manager specific config options and types:</p>
+    <taglist>
+      <tag><marker id="manager_server"></marker>
+        <c><![CDATA[server() = [server_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>server_opt() = {timeout, server_timeout()} |  {verbosity, verbosity()}</c></p>
+        <p>Specifies the options for the manager server process.</p>
+        <p>Default is <c>silence</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_timeout"></marker>
+        <c><![CDATA[server_timeout() = integer() <optional>]]></c></tag>
+      <item>
+        <p>Asynchronous request cleanup time. For every requests,
+          some info is stored internally, in order to be able to 
+          deliver the reply (when it arrives) to the proper destination.
+          If the reply arrives, this info will be deleted. But if
+          there is no reply (in time), the info has to be deleted
+          after the <em>best before</em> time has been passed.
+          This cleanup will be performed at regular intervals, defined 
+          by the <c>server_timeout()</c> time.
+          The information will have an <em>best before</em> time,
+          defined by the <c>Expire</c> time given when calling the
+          request function (see 
+          <seealso marker="snmpm#async_get">async_get</seealso>,
+          <seealso marker="snmpm#async_get_next">async_get_next</seealso> and 
+          <seealso marker="snmpm#async_set">async_set</seealso>).</p>
+        <p>Time in milli-seconds.</p>
+        <p>Default is <c>30000</c>.</p>
+      </item>
+
+      <tag><marker id="manager_config"></marker>
+        <c><![CDATA[manager_config() = [manager_config_opt()] <mandatory>]]></c></tag>
+      <item>
+        <p><c>manager_config_opt() = {dir, manager_config_dir()} |  {db_dir, manager_db_dir()} |  {db_init_error, db_init_error()} |  {repair, manager_repair()} |  {auto_save, manager_auto_save()} |  {verbosity, verbosity()}</c></p>
+        <p>Defines specific config related options for the SNMP manager. </p>
+        <p>For defaults see the options in <c>manager_config_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="manager_config_dir"></marker>
+        <c><![CDATA[manager_config_dir = dir() <mandatory>]]></c></tag>
+      <item>
+        <p>Defines where the SNMP manager configuration files are stored.</p>
+      </item>
+
+      <tag><marker id="manager_config_db_dir"></marker>
+        <c><![CDATA[manager_db_dir = dir() <mandatory>]]></c></tag>
+      <item>
+        <p>Defines where the SNMP manager store persistent data.</p>
+      </item>
+
+      <tag><marker id="manager_config_repair"></marker>
+        <c><![CDATA[manager_repair() = false | true | force <optional>]]></c></tag>
+      <item>
+        <p>Defines the repair option for the persistent database (if 
+          and how the table is repaired when opened). </p>
+        <p>Default is <c>true</c>.</p>
+      </item>
+
+      <tag><marker id="manager_config_auto_save"></marker>
+        <c><![CDATA[manager_auto_save() = integer() | infinity <optional>]]></c></tag>
+      <item>
+        <p>The auto save interval. The table is flushed to disk
+          whenever not accessed for this amount of time.</p>
+        <p>Default is <c>5000</c>.</p>
+      </item>
+
+      <tag><marker id="manager_irb"></marker>
+        <c><![CDATA[manager_irb() = auto | user | {user, integer()} <optional>]]></c></tag>
+      <item>
+        <p>This option defines how the manager will handle the sending of 
+          response (acknowledgment) to received inform-requests. </p>
+        <list type="bulleted">
+          <item>
+            <p><c>auto</c> - The manager will autonomously send response
+              (acknowledgment&gt; to inform-request messages.</p>
+          </item>
+          <item>
+            <p><c>{user, integer()}</c> - The manager will send response
+              (acknowledgment) to inform-request messages when the 
+              <seealso marker="snmpm_user#handle_inform">handle_inform</seealso> 
+              function completes. The integer is the time, in milli-seconds, 
+              that the manager will consider the stored inform-request info 
+              valid.</p>
+          </item>
+          <item>
+            <p><c>user</c> - Same as <c>{user, integer()}</c>, except that 
+              the default time, 15 seconds (15000), is used.</p>
+          </item>
+        </list>
+        <p>See 
+          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso>, 
+          <seealso marker="snmpm_user">handle_inform</seealso> and 
+          <seealso marker="snmp_manager_netif">definition of the manager net if</seealso> for more info.</p>
+        <p>Default is <c>auto</c>.</p>
+      </item>
+
+      <tag><marker id="manager_mibs"></marker>
+        <c><![CDATA[manager_mibs() = [string()] <optional>]]></c></tag>
+      <item>
+        <p>Specifies a list of MIBs (including path) and defines which MIBs
+          are initially loaded into the SNMP manager. </p>
+        <p>Default is <c>[]</c>.</p>
+      </item>
+
+      <tag><marker id="manager_net_if"></marker>
+        <c><![CDATA[manager_net_if() = [manager_net_if_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>manager_net_if_opt() = {module, manager_net_if_module()} | 
+          {verbosity, verbosity()} | 
+          {options, manager_net_if_options()}</c></p>
+        <p>Defines options specific for the SNMP manager network interface 
+          entity. </p>
+        <p>For defaults see the options in <c>manager_net_if_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="manager_ni_opts"></marker>
+        <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
+      <item>
+        <p><c>manager_net_if_option() = {bind_to, bind_to()} | 
+          {sndbuf, sndbuf()} |  
+          {recbuf, recbuf()} | 
+          {no_reuse, no_reuse()} |
+          {filter, manager_net_if_filter_options()} </c></p>
+        <p>These options are actually specific to the used module.
+	The ones shown here are applicable to the default 
+	<c>manager_net_if_module()</c>.</p>
+        <p>For defaults see the options in <c>manager_net_if_option()</c>.</p>
+      </item>
+
+      <tag><marker id="manager_ni_module"></marker>
+        <c><![CDATA[manager_net_if_module() = atom() <optional>]]></c></tag>
+      <item>
+        <p>The module which handles the network interface part for the
+          SNMP manager. It must implement the 
+          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour.</p>
+        <p>Default is <c>snmpm_net_if</c>.</p>
+      </item>
+
+      <tag><marker id="manager_ni_filter_opts"></marker>
+        <c><![CDATA[manager_net_if_filter_options() = [manager_net_if_filter_option()] <optional>]]></c></tag>
+      <item>
+	<p><c>manager_net_if_filter_option() = {module, manager_net_if_filter_module()}</c></p>
+	<p>These options are actually specific to the used module.
+	  The ones shown here are applicable to the default 
+	  <c><![CDATA[manager_net_if_filter_module()]]></c>.</p>
+	<p>For defaults see the options in 
+          <c>manager_net_if_filter_option()</c>.</p>
+      </item>
+
+      <tag><marker id="manager_ni_filter_module"></marker>
+        <c><![CDATA[manager_net_if_filter_module() = atom() <optional>]]></c></tag>
+      <item>
+	<p>Module which handles the network interface filter part for the
+	  SNMP manager. Must implement the 
+	  <seealso marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seealso> behaviour.</p>
+	<p>Default is <c>snmpm_net_if_filter</c>.</p>
+      </item>
+
+      <tag><marker id="manager_def_user_module"></marker>
+        <c><![CDATA[def_user_module() = atom() <optional>]]></c></tag>
+      <item>
+        <p>The module implementing the default user. See the 
+          <seealso marker="snmpm_user">snmpm_user</seealso> behaviour.</p>
+        <p>Default is <c>snmpm_user_default</c>.</p>
+      </item>
+
+      <tag><marker id="manager_def_user_data"></marker>
+        <c><![CDATA[def_user_data() = term() <optional>]]></c></tag>
+      <item>
+        <p>Data for the default user. Passed to the user module when 
+          calling the callback functions.</p>
+        <p>Default is <c>undefined</c>.</p>
+      </item>
+    </taglist>
+
+    <marker id="common_types"></marker>
+    <p>Common config types:</p>
+    <taglist>
+      <tag><marker id="restart_type"></marker>
+        <c>restart_type() = permanent | transient | temporary</c></tag>
+      <item>
+        <p>See <seealso marker="stdlib:supervisor#child_spec">supervisor</seealso> 
+          documentation for more info.</p>
+        <p>Default is <c>permanent</c> for the agent and <c>transient</c>
+          for the manager.</p>
+      </item>
+
+      <tag><marker id="db_init_error"></marker>
+        <c>db_init_error() = terminate | create | create_db_and_dir</c></tag>
+      <item>
+        <p>Defines what to do if the agent or manager is unable to open an
+          existing database file. <c>terminate</c> means that the
+          agent/manager will terminate and <c>create</c> means that the 
+          agent/manager will remove the faulty file(s) and create new ones,
+          and <c>create_db_and_dir</c> means that the agent/manager will
+          create the database file along with any missing parent directories
+          for the database file.</p>
+        <p>Default is <c>terminate</c>.</p>
+      </item>
+
+      <tag><marker id="prio"></marker>
+        <c><![CDATA[priority() = atom() <optional>]]></c></tag>
+      <item>
+        <p>Defines the Erlang priority for all SNMP processes.</p>
+        <p>Default is <c>normal</c>.</p>
+      </item>
+
+      <tag><marker id="versions"></marker>
+        <c><![CDATA[versions() = [version()] <optional>]]></c></tag>
+      <item>
+        <p><c>version() = v1 | v2 | v3</c></p>
+        <p>Which SNMP versions shall be accepted/used.</p>
+        <p>Default is <c>[v1,v2,v3]</c>.</p>
+      </item>
+
+      <tag><marker id="verbosity"></marker>
+        <c><![CDATA[verbosity() = silence | info | log | debug | trace <optional>]]></c></tag>
+      <item>
+        <p>Verbosity for a SNMP process. This specifies now much debug info
+          is printed.</p>
+        <p>Default is <c>silence</c>.</p>
+      </item>
+
+      <tag><marker id="bind_to"></marker>
+        <c><![CDATA[bind_to() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If <c>true</c>, net_if binds to the IP address.
+          If <c>false</c>, net_if listens on any IP address on the host
+          where it is running. </p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+
+      <tag><marker id="no_reuse"></marker>
+        <c><![CDATA[no_reuse() = bool() <optional>]]></c></tag>
+      <item>
+        <p>If <c>true</c>, net_if does not specify that the IP
+          and port address should be reusable. If <c>false</c>, 
+          the address is set to reusable. </p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+
+      <tag><marker id="recbuf"></marker>
+        <c><![CDATA[recbuf() = integer() <optional>]]></c></tag>
+      <item>
+        <p>Receive buffer size. </p>
+        <p>Default value is defined by <c>gen_udp</c>.</p>
+      </item>
+
+      <tag><marker id="sndbuf"></marker>
+        <c><![CDATA[sndbuf() = integer() <optional>]]></c></tag>
+      <item>
+        <p>Send buffer size. </p>
+        <p>Default value is defined by <c>gen_udp</c>.</p>
+      </item>
+
+      <tag><marker id="note_store"></marker>
+        <c><![CDATA[note_store() = [note_store_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>note_store_opt() = {timeout, note_store_timeout()} |  {verbosity, verbosity()}</c></p>
+        <p>Specifies the start-up verbosity for the SNMP note store.</p>
+        <p>For defaults see the options in <c>note_store_opt()</c>.</p>
+      </item>
+
+      <tag><marker id="ns_timeout"></marker>
+        <c><![CDATA[note_store_timeout() = integer() <optional>]]></c></tag>
+      <item>
+        <p>Note cleanup time. When storing a note in the note store,
+          each note is given lifetime. Every <c>timeout</c> the note_store
+          process performs a GC to remove the expired note's. Time in
+          milli-seconds.</p>
+        <p>Default is <c>30000</c>.</p>
+
+      </item>
+
+      <tag><marker id="audit_trail_log"></marker>
+        <c><![CDATA[audit_trail_log() = [audit_trail_log_opt()] <optional>]]></c></tag>
+      <item>
+        <p><c>audit_trail_log_opt() = {type, atl_type()} | {dir, atl_dir()} |  {size, atl_size()} |  {repair, atl_repair()} | {seqno, atl_seqno()}</c></p>
+        <p>If present, this option specifies the options for the 
+          audit trail logging. The <c>disk_log</c> module is used 
+          to maintain a wrap log. If present, the <c>dir</c> and 
+          <c>size</c> options are mandatory.</p>
+        <p>If not present, audit trail logging is not used.</p>
+      </item>
+
+      <tag><marker id="atl_type"></marker>
+        <c><![CDATA[atl_type() = read | write | read_write <optional>]]></c></tag>
+      <item>
+        <p>Specifies what type of an audit trail log should be used. 
+          The effect of the type is actually different for the the agent
+          and the manager. </p>
+        <p>For the agent:</p>
+        <list type="bulleted">
+          <item>If <c>write</c> is specified, only set requests are logged.  </item>
+          <item>If <c>read</c> is specified, only get requests are logged.  </item>
+          <item>If <c>read_write</c>, all requests are logged.  </item>
+        </list>
+        <p>For the manager:</p>
+        <list type="bulleted">
+          <item>If <c>write</c> is specified, only sent messages are logged.  </item>
+          <item>If <c>read</c> is specified, only received messages are logged.  </item>
+          <item>If <c>read_write</c>, both outgoing and incoming messages are 
+           logged.  </item>
+        </list>
+        <p>Default is <c>read_write</c>.</p>
+      </item>
+
+      <tag><marker id="atl_dir"></marker>
+        <c><![CDATA[atl_dir = dir() <mandatory>]]></c></tag>
+      <item>
+        <p>Specifies where the audit trail log should be stored.</p>
+        <p>If <c>audit_trail_log</c> specifies that logging should take
+          place, this parameter <em>must</em> be defined.</p>
+      </item>
+
+      <tag><marker id="atl_size"></marker>
+        <c><![CDATA[atl_size() = {integer(), integer()} <mandatory>]]></c></tag>
+      <item>
+        <p>Specifies the size of the audit
+          trail log.  This parameter is sent to <c>disk_log</c>.  </p>
+        <p>If <c>audit_trail_log</c> specifies that logging should 
+          take place, this parameter <em>must</em> be defined.</p>
+      </item>
+
+      <tag><marker id="atl_repair"></marker>
+        <c><![CDATA[atl_repair() = true | false | truncate | snmp_repair <optional>]]></c></tag>
+      <item>
+        <p>Specifies if and how the audit trail log shall be repaired
+          when opened. Unless this parameter has the value <c>snmp_repair</c>
+          it is sent to <c>disk_log</c>. If, on the other hand, the value is
+          <c>snmp_repair</c>, snmp attempts to handle certain faults on its
+          own. And even if it cannot repair the file, it does not truncate it 
+          directly, but instead <em>moves it aside</em> for later off-line 
+          analysis.</p>
+        <p>Default is <c>true</c>.</p>
+      </item>
+
+      <tag><marker id="atl_seqno"></marker>
+        <c><![CDATA[atl_seqno() = true | false <optional>]]></c></tag>
+      <item>
+        <p>Specifies if the audit trail log entries will be (sequence)
+          numbered or not. The range of the sequence numbers are according
+          to RFC 5424, i.e. 1 through 2147483647. </p>
+        <p>Default is <c>false</c>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>application(3), disk_log(3)</p>
+  </section>
+  
+</appref>
+

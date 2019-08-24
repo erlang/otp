@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>megaco_codec_transform</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_codec_transform.xml</file>
+  </header>
+  <module since="">megaco_codec_transform</module>
+  <modulesummary>Megaco message transformation utility.</modulesummary>
+
+  <description>
+    <p>This module implements a simple megaco message transformation utility.</p>
+    <p><em>Note</em> that this module is <em>not</em> included in the
+       runtime part of the application.</p>
+
+    <marker id="export_messages"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">export_messages() -> void()</name>
+      <name since="">export_messages(MessagePackage) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackage = atom()</v>
+      </type>
+      <desc>
+        <p>Export the messages in the <c>MessagePackage</c> (default 
+          is <c>time_test</c>). </p>
+        <p>The output produced by this function is a directory structure 
+          with the following structure: </p>
+        <code type="none"><![CDATA[
+<message package>/pretty/<message-files>
+                  compact/<message-files>
+                  per/<message-files>
+                  ber/<message-files>
+                  erlang/<message-files>
+        ]]></code>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

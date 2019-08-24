@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding = 'ISO-8859-1' ?>
+<People>
+  <!-- This is a real comment -->
+  <comment>
+	This is a comment
+  </comment>
+  <Person Type = "Personal">
+  </Person>
+</People>

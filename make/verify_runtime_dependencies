@@ -1,0 +1,314 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2014. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+%%%-------------------------------------------------------------------
+%%% @author Rickard Green <rickard@erlang.org>
+%%% @copyright (C) 2014, Rickard Green
+%%% @doc
+%%%    Verify runtime dependencies when patching OTP applications.
+%%% @end
+%%% Created :  4 Mar 2014 by Rickard Green <rickard@erlang.org>
+%%%-------------------------------------------------------------------
+
+-mode(compile).
+
+-export([main/1]).
+
+main(Args) ->
+    {Force, Release, SourceDir, TargetDir, AppList} = parse_args(Args,
+								 false,
+								 [],
+								 [],
+								 [],
+								 []),
+    SourceAppInfo = read_source_app_info(AppList, SourceDir),
+    AppVsnsTab0 = current_target_app_vsns(TargetDir, Release),
+    AppVsnsTab1 = add_source_app_vsns(SourceAppInfo, AppVsnsTab0),
+    case verify_runtime_deps(SourceAppInfo, AppVsnsTab1, true) of
+	true ->
+	    ok;
+	false ->
+	    case Force of
+		true ->
+		    warn("Your OTP development system was updated with "
+			 "unfulfilled runtime dependencies. The system "
+			 "may not be working as expected.", []);
+		false ->
+		    err("Unfulfilled runtime dependencies. "
+			"See warnings above.~n", [])
+	    end
+    end,
+    halt(0).
+
+parse_args(["-force" | Args], _, Release, SourceDir, TargetDir, Apps) ->
+    parse_args(Args, true, Release, SourceDir, TargetDir, Apps);
+parse_args(["-release", Release | Args], Force, _, SourceDir, TargetDir, Apps) ->
+    parse_args(Args, Force, Release, SourceDir, TargetDir, Apps);
+parse_args(["-source", SourceDir | Args], Force, Release, _, TargetDir, Apps) ->
+    parse_args(Args, Force, Release, SourceDir, TargetDir, Apps);
+parse_args(["-target", TargetDir | Args], Force, Release, SourceDir, _, Apps) ->
+    parse_args(Args, Force, Release, SourceDir, TargetDir, Apps);
+parse_args([App | Args], Force, Release, SourceDir, TargetDir, OldApps) ->
+    parse_args(Args, Force, Release, SourceDir, TargetDir, [App | OldApps]);
+parse_args([], _, [], _, _, _) ->
+    err("Missing release~n", []);
+parse_args([], _, _, [], _, _) ->
+    err("Missing source directory~n", []);
+parse_args([], _, _, _, [], _) ->
+    err("Missing target directory~n", []);
+parse_args([], _, _, _, _, []) ->
+    err("Missing applications~n");
+parse_args([], Force, Release, SourceDir, TargetDir, Apps) ->
+    {Force, Release, SourceDir, TargetDir, Apps}.
+
+
+%warn(Format) ->
+%    warn(Format, []).
+
+warn(Format, Args) ->
+    io:format(standard_error, "WARNING: " ++ Format, Args).
+
+err(Format) ->
+    err(Format, []).
+
+err(Format, Args) ->
+    io:format(standard_error, "ERROR: " ++ Format, Args),
+    halt(1).
+
+read_file(FileName) ->
+    case file:read_file(FileName) of
+	{ok, Content} ->
+	    binary_to_list(Content);
+	{error, Error} ->
+	    err("Failed to read ~s: ~p~n", [FileName, Error])
+    end.
+
+consult_file(FileName) ->
+    case file:consult(FileName) of
+	{ok, Terms} ->
+	    Terms;
+	{error, Error} ->
+	    err("Failed to consult ~s: ~p~n", [FileName, Error])
+    end.
+
+current_target_app_vsns(TargetDir, Release) ->
+    IAV = read_file(filename:join([TargetDir, "releases", Release,
+				   "installed_application_versions"])),
+    DirList = string:tokens(IAV, "\n\r\t "),
+    LibDir = filename:join(TargetDir, "lib"),
+    make_app_vsns_tab(DirList, LibDir, gb_trees:empty()).
+
+make_app_vsns_tab([], _LibDir, GBT) ->
+    GBT;
+make_app_vsns_tab([AppVer | AppVsns], LibDir, GBT0) ->
+    GBT1 = try
+	       case file:read_file_info(filename:join(LibDir, AppVer)) of
+		   {ok, _FInfo} ->
+		       [App, Vsn] = string:tokens(AppVer, "-"),
+		       add_app_vsn(App, Vsn, GBT0);
+		   _ ->
+		       GBT0
+	       end
+	   catch
+	       _:_ ->
+		   warn("Unexpected directory: ~p~n",
+			[filename:join(LibDir, AppVer)]),
+		   GBT0
+	   end,
+    make_app_vsns_tab(AppVsns, LibDir, GBT1).
+
+add_app_vsn(App, VsnList, GBT) when is_atom(App) ->
+    Vsn = parse_vsn(VsnList),
+    case gb_trees:lookup(App, GBT) of
+	none ->
+	    gb_trees:insert(App, [Vsn], GBT);
+	{value, Vsns} ->
+	    gb_trees:update(App, [Vsn | Vsns], GBT)
+    end;
+add_app_vsn(AppStr, VsnList, GBT) ->
+    add_app_vsn(list_to_atom(AppStr), VsnList, GBT).
+    
+add_source_app_vsns([], AppVsnsTab) ->
+    AppVsnsTab;
+add_source_app_vsns([{App, Vsn, _IReqs} | AI], AppVsnsTab) ->
+    add_source_app_vsns(AI, add_app_vsn(App, Vsn, AppVsnsTab)).
+
+read_source_app_info([], _SourceDir) ->
+    [];
+read_source_app_info([App | Apps], SourceDir) ->
+    AppFile = case App of
+		  "erts" ->
+		      filename:join([SourceDir, "erts", "preloaded", "ebin",
+				     "erts.app"]);
+		  _ ->
+		      filename:join([SourceDir, "lib", App, "ebin",
+				     App ++ ".app"])
+	      end,
+    AppAtom = list_to_atom(App),
+    case consult_file(AppFile) of
+	[{application, AppAtom, InfoList}] ->
+	    Vsn = case lists:keyfind(vsn, 1, InfoList) of
+		      {vsn, V} ->
+			  V;
+		      _ ->
+			  err("Missing vsn in ~p~n", AppFile)
+		  end,
+	    AI = case lists:keyfind(runtime_dependencies, 1, InfoList) of
+		     {runtime_dependencies, IReqs} ->
+			 case parse_inst_reqs(IReqs) of
+			     error ->
+				 err("Failed to parse runtime_dependencies in ~p~n",
+				     [AppFile]);
+			     ParsedIReqs ->
+				 {AppAtom, Vsn, ParsedIReqs}
+			 end;
+		     _ ->
+			 {AppAtom, Vsn, []}
+		 end,
+	    [AI | read_source_app_info(Apps, SourceDir)];
+	_ ->
+	    err("Failed to parse ~p~n", [AppFile])
+    end.
+
+parse_vsn(VsnStr) ->
+    list_to_tuple(lists:map(fun (IL) ->
+				    list_to_integer(IL)
+			    end, string:tokens(VsnStr, "."))).
+
+parse_inst_reqs(InstReqs) ->
+    try
+	parse_inst_reqs_aux(InstReqs)
+    catch
+	_ : _ ->
+	    error
+    end.
+
+parse_inst_reqs_aux([]) ->
+    [];
+parse_inst_reqs_aux([IR | IRs]) ->
+    [App, VsnStr] = string:tokens(IR, "-"),
+    [{list_to_atom(App), parse_vsn(VsnStr)} | parse_inst_reqs_aux(IRs)].
+
+make_app_vsn_str({App, VsnTup}) ->
+    make_app_vsn_str(tuple_to_list(VsnTup), [atom_to_list(App), $-]).
+
+make_app_vsn_str([I], Acc) ->
+    lists:flatten([Acc, integer_to_list(I)]);
+make_app_vsn_str([I | Is], Acc) ->
+    make_app_vsn_str(Is, [Acc, integer_to_list(I), $.]).
+
+missing_min_req(App, AppVsn, IReq) ->
+    warn("Unfulfilled runtime dependency for application ~p-~s: ~s~n",
+	 [App, AppVsn, make_app_vsn_str(IReq)]).
+
+verify_runtime_deps([], _AppVsnsTab, Res) ->
+    Res;
+verify_runtime_deps([{App, Vsn, IReqs} | SAIs], AppVsnsTab, Res0) ->
+    Res = lists:foldl(
+	    fun ({IRApp, IRMinVsn} = InstReq, AccRes) ->
+		    case gb_trees:lookup(IRApp, AppVsnsTab) of
+			none ->
+			    missing_min_req(App, Vsn, InstReq),
+			    false;
+			{value, AppVsns} ->
+			    try
+				lists:foreach(
+				  fun (AppVsn) ->
+					  case meets_min_req(AppVsn, IRMinVsn) of
+					      true ->
+						  throw(true);
+					      false ->
+						  false
+					  end
+				  end,
+				  AppVsns),
+				missing_min_req(App, Vsn, InstReq),
+				false
+			    catch
+				throw : true ->
+				    AccRes
+			    end
+		    end
+	    end,
+	    Res0,
+	    IReqs),
+    verify_runtime_deps(SAIs, AppVsnsTab, Res).
+
+meets_min_req(Vsn, Vsn) ->
+    true;
+meets_min_req({X}, VsnReq) ->
+    meets_min_req({X, 0, 0}, VsnReq);
+meets_min_req({X, Y}, VsnReq) ->
+    meets_min_req({X, Y, 0}, VsnReq);
+meets_min_req(Vsn, {X}) ->
+    meets_min_req(Vsn, {X, 0, 0});
+meets_min_req(Vsn, {X, Y}) ->
+    meets_min_req(Vsn, {X, Y, 0});
+meets_min_req({X, _Y, _Z}, {XReq, _YReq, _ZReq}) when X > XReq ->
+    true;
+meets_min_req({X, Y, _Z}, {X, YReq, _ZReq}) when Y > YReq ->
+    true;
+meets_min_req({X, Y, Z}, {X, Y, ZReq}) when Z > ZReq ->
+    true;
+meets_min_req({_X, _Y, _Z}, {_XReq, _YReq, _ZReq}) ->
+    false;
+meets_min_req(Vsn, VsnReq) ->
+    gp_meets_min_req(mk_gp_vsn_list(Vsn), mk_gp_vsn_list(VsnReq)).
+
+gp_meets_min_req([X, Y, Z | _Vs], [X, Y, Z]) ->
+    true;
+gp_meets_min_req([X, Y, Z | _Vs], [XReq, YReq, ZReq]) ->
+    meets_min_req({X, Y, Z}, {XReq, YReq, ZReq});
+gp_meets_min_req([X, Y, Z | Vs], [X, Y, Z | VReqs]) ->
+    gp_meets_min_req_tail(Vs, VReqs);
+gp_meets_min_req(_Vsn, _VReq) ->
+    %% Versions on different version branches, i.e., the minimum
+    %% required functionality is not included in Vsn.
+    false.
+
+gp_meets_min_req_tail([V | Vs], [V | VReqs]) ->
+    gp_meets_min_req_tail(Vs, VReqs);
+gp_meets_min_req_tail([], []) ->
+    true;
+gp_meets_min_req_tail([_V | _Vs], []) ->
+    true;
+gp_meets_min_req_tail([V | _Vs], [VReq]) when V > VReq ->
+    true;
+gp_meets_min_req_tail(_Vs, _VReqs) ->
+    %% Versions on different version branches, i.e., the minimum
+    %% required functionality is not included in Vsn.
+    false.
+
+mk_gp_vsn_list(Vsn) ->
+    [X, Y, Z | Tail] = tuple_to_list(Vsn),
+    [X, Y, Z | remove_trailing_zeroes(Tail)].
+
+remove_trailing_zeroes([]) ->
+    [];
+remove_trailing_zeroes([0 | Vs]) ->
+    case remove_trailing_zeroes(Vs) of
+	[] -> [];
+	NewVs -> [0 | NewVs]
+    end;
+remove_trailing_zeroes([V | Vs]) ->
+    [V | remove_trailing_zeroes(Vs)].

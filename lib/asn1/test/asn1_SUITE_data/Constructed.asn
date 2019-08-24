@@ -1,0 +1,23 @@
+Constructed DEFINITIONS ::=
+BEGIN
+
+S ::= [UNIVERSAL 8] IMPLICIT SEQUENCE {
+	b BOOLEAN
+      }
+
+I ::= [8] IMPLICIT INTEGER
+
+S2 ::= [UNIVERSAL 8] SEQUENCE { b BOOLEAN}
+
+C ::= CHOICE {
+	a S,
+	b S3
+}
+
+S3 ::= SEQUENCE {i INTEGER}
+
+S3ext ::= SEQUENCE {i INTEGER, ...}
+
+OS ::= OCTET STRING
+
+END

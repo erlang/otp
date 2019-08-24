@@ -1,0 +1,1713 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+    <title>ssl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ssl.xml</file>
+  </header>
+  <module since="">ssl</module>
+  <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
+  <description>
+    <p>
+      This module contains interface functions for the SSL/TLS/DTLS protocol.
+      For detailed information about the supported standards see 
+      <seealso marker="ssl_app">ssl(6)</seealso>.
+    </p>
+  </description>
+
+  <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
+
+  <datatypes>
+    <datatype_title>Types used in SSL/TLS/DTLS</datatype_title>
+
+    
+    <datatype>
+      <name name="socket"/>
+    </datatype>
+    
+    <datatype>
+      <name name="sslsocket"/>
+      <desc>
+	<p>An opaque reference to the TLS/DTLS connection, may be used for equality matching.</p>
+	</desc>
+    </datatype>
+
+    <datatype>
+      <name name="tls_option"/>
+    </datatype>
+        
+    <datatype>
+      <name name="tls_client_option"/>
+    </datatype>
+    
+    <datatype>
+      <name name="tls_server_option"/>
+    </datatype>
+   
+    
+    <datatype>
+      <name name="socket_option"/>
+      <desc>
+	<p>The default socket options are
+	<c>[{mode,list},{packet, 0},{header, 0},{active, true}]</c>.</p>
+	<p>For valid options, see the
+	<seealso marker="kernel:inet">inet(3)</seealso>,
+	<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> and
+	<seealso marker="kernel:gen_tcp">gen_udp(3)</seealso> 
+	manual pages in Kernel. Note that stream oriented options such as packet
+	are only relevant for SSL/TLS and not DTLS</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="active_msgs"/>
+      <desc>
+      <p>When a TLS/DTLS socket is in active mode (the default), data from the
+      socket is delivered to the owner of the socket in the form of
+      messages as described above.</p>
+      <p>The <c>ssl_passive</c> message is sent only when the socket is in
+      <c>{active, N}</c> mode and the counter dropped to 0. It indicates
+      that the socket has transitioned to passive (<c>{active, false}</c>) mode.</p>
+      </desc>
+    </datatype>
+      
+    <datatype>
+      <name name="transport_option"/>
+      <desc>
+	<p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error,
+	tcp_passive}</c> for TLS (for backward compatibility a four
+	tuple will be converted to a five tuple with the last element
+	"second_element"_passive) and <c>{gen_udp, udp, udp_closed,
+	udp_error}</c> for DTLS (might also be changed to five tuple in
+	the future). Can be used to customize the transport layer. The
+	tag values should be the values used by the underlying
+	transport in its active mode messages. For TLS the callback
+	module must implement a reliable transport protocol, behave as
+	<c>gen_tcp</c>, and have functions corresponding to
+	<c>inet:setopts/2</c>, <c>inet:getopts/2</c>,
+	<c>inet:peername/1</c>, <c>inet:sockname/1</c>, and
+	<c>inet:port/1</c>.  The callback <c>gen_tcp</c> is treated
+	specially and calls <c>inet</c> directly. For DTLS this
+	feature must be considered exprimental.
+	</p>
+      </desc>
+    </datatype>
+  
+     <datatype>
+      <name name="host"/>
+     </datatype>
+
+     <datatype>
+      <name name="hostname"/>
+     </datatype>
+
+     <datatype>
+      <name name="ip_address"/>
+     </datatype>
+
+     <datatype>
+       <name name="protocol_version"/>
+     </datatype>
+
+     <datatype>
+       <name name="tls_version"/>
+     </datatype>
+
+     <datatype>
+       <name name="dtls_version"/>
+     </datatype>
+
+     <datatype>
+       <name name="tls_legacy_version"/>
+     </datatype>
+
+     <datatype>
+       <name name="dtls_legacy_version"/>
+     </datatype>
+
+     <datatype>
+       <name name="prf_random"/>
+     </datatype>
+     
+      <datatype>
+       <name name="verify_type"/>
+     </datatype>
+       
+     <datatype>
+       <name name="ciphers"/>
+     </datatype>
+     
+      <datatype>
+       <name name="erl_cipher_suite"/>
+     </datatype>
+     
+     <datatype>
+       <name name="cipher"/>
+     </datatype>
+    
+     <datatype>
+       <name name="legacy_cipher"/>
+     </datatype>
+    
+     <datatype>
+       <name name="cipher_filters"/>
+     </datatype>
+ 
+       <datatype>
+       <name name="hash"/>
+     </datatype>
+
+     <datatype>
+       <name name="sha2"/>
+     </datatype>
+
+     <datatype>
+       <name name="legacy_hash"/>
+     </datatype>
+
+    <datatype>
+       <name name="old_cipher_suite"/>
+     </datatype>
+     
+     <datatype>
+      <name name="signature_algs"/>
+     </datatype>
+
+     <datatype>
+      <name name="sign_algo"/>
+     </datatype>
+     
+     <datatype>
+       <name name="sign_scheme"/>
+     </datatype>
+
+     <datatype>
+       <name name="group"/>
+     </datatype>
+     
+     <datatype>
+      <name name="kex_algo"/>
+     </datatype>
+
+     <datatype>
+      <name name="algo_filter"/>
+     </datatype>
+
+     <datatype>
+      <name name="named_curve"/>
+     </datatype>
+
+     <datatype>
+       <name name="psk_identity"/>
+     </datatype>
+
+     <datatype>
+       <name name="srp_identity"/>
+     </datatype>
+
+     <datatype>
+      <name name="srp_param_type"/>
+     </datatype>
+     
+     <datatype>
+       <name name="app_level_protocol"/>
+     </datatype>
+
+     <datatype>
+      <name name="protocol_extensions"/>
+     </datatype>
+
+     <datatype>
+      <name name="error_alert"/>
+     </datatype>
+
+     <datatype>
+      <name name="tls_alert"/>
+     </datatype>
+
+     <datatype>
+      <name name="reason"/>
+     </datatype>
+
+    <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
+    
+    <datatype>
+      <name name="common_option"/>
+    </datatype>
+    
+    <datatype>
+      <name since="OTP 20" name="protocol"/>
+      <desc>
+	<p>Choose TLS or DTLS protocol for the transport layer security.
+	Defaults to <c>tls</c>. For DTLS other transports than UDP are not yet supported.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="handshake_completion"/>
+      <desc>
+	<p>Defaults to <c>full</c>. If hello is specified the handshake will
+	pause after the hello message and give the user a possibility make decisions
+	based on hello extensions before continuing or aborting the handshake by calling
+	<seealso marker="#handshake_continue-3"> handshake_continue/3</seealso> or
+	<seealso marker="#handshake_cancel-1"> handshake_cancel/1</seealso></p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="cert"/>
+      <desc>
+	<p>The DER-encoded users certificate. If this option
+	is supplied, it overrides option <c>certfile</c>.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="cert_pem"/>
+      <desc>
+	<p>Path to a file containing the user certificate on PEM format.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="key"/>
+      <desc>
+	<p>The DER-encoded user's private key or a map refering to a crypto
+	engine and its key reference that optionally can be password protected,
+	seealso <seealso marker="crypto:crypto#engine_load-4"> crypto:engine_load/4
+	</seealso> and  <seealso marker="crypto:engine_load"> Crypto's Users Guide</seealso>. If this option 
+	is supplied, it overrides option <c>keyfile</c>.</p>
+      </desc>
+    </datatype>
+    
+     <datatype>
+       <name name="key_pem"/>
+       <desc>
+	<p>Path to the file containing the user's
+	private PEM-encoded key. As PEM-files can contain several
+	entries, this option defaults to the same file as given by
+	option <c>certfile</c>.</p>
+       </desc>
+     </datatype>
+     
+    <datatype>
+      <name name="key_password"/>
+      <desc>
+	<p>String containing the user's password. Only used if the 
+	private keyfile is password-protected.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="cipher_suites"/>
+      <desc>
+	<p>Supported cipher suites. The function
+	<c>cipher_suites/2</c> can be used to find all ciphers that
+	are supported by default. <c>cipher_suites(all, 'tlsv1.2')</c> can be
+	called to find all available cipher suites. Pre-Shared Key
+	(<url href="http://www.ietf.org/rfc/rfc4279.txt">RFC
+	4279</url> and <url
+	href="http://www.ietf.org/rfc/rfc5487.txt">RFC 5487</url>),
+	Secure Remote Password (<url
+	href="http://www.ietf.org/rfc/rfc5054.txt">RFC 5054</url>),
+	RC4, 3DES, DES cipher suites, and anonymous cipher suites only work if
+	explicitly enabled by this option; they are supported/enabled
+	by the peer also.  Anonymous cipher suites are supported for
+	testing purposes only and are not be used when security
+	matters.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="signature_schemes"/>
+      <desc>
+	  <p>
+	    In addition to the signature_algorithms extension from TLS 1.2,
+	    <url href="http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3">TLS 1.3
+	    (RFC 5246 Section 4.2.3)</url>adds the signature_algorithms_cert extension
+	    which enables having special requirements on the signatures used in the
+	    certificates that differs from the requirements on digital signatures as a whole.
+	    If this is not required this extension is not needed.
+	  </p>
+	  <p>
+	    The client will send a signature_algorithms_cert extension (ClientHello),
+	    if TLS version 1.3 or later is used, and the signature_algs_cert option is
+	    explicitly specified. By default, only the signature_algs extension is sent.
+	  </p>
+	  <p>
+	    The signature schemes shall be ordered according to the client's preference
+	    (favorite choice first).
+	  </p>
+      </desc>
+     </datatype>
+
+     <datatype>
+       <name name="supported_groups"/>
+       <desc>
+	 <p>TLS 1.3 introduces the "supported_groups" extension that is used for negotiating
+	 the Diffie-Hellman parameters in a TLS 1.3 handshake. Both client and server
+	 can specify a list of parameters that they are willing to use.
+	 </p>
+	 <p> If it is not specified it will use a default list ([x25519, x448, secp256r1, secp384r1]) that
+	 is filtered based on the installed crypto library version.
+	 </p>
+      </desc>
+     </datatype>
+
+    <datatype>
+      <name name="secure_renegotiation"/>
+      <desc><p>Specifies if to reject renegotiation attempt that does
+      not live up to <url
+      href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.  By
+      default <c>secure_renegotiate</c> is set to <c>true</c>, that
+      is, secure renegotiation is enforced. If set to <c>false</c>
+      secure renegotiation will still be used if possible, but it
+      falls back to insecure renegotiation if the peer does not
+      support <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC
+      5746</url>.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="allowed_cert_chain_length"/>
+      <desc><p>Maximum number of non-self-issued
+      intermediate certificates that can follow the peer certificate 
+      in a valid certification path. So, if depth is 0 the PEER must 
+      be signed by the trusted ROOT-CA directly; if 1 the path can 
+      be PEER, CA, ROOT-CA; if 2 the path can be PEER, CA, CA, 
+      ROOT-CA, and so on. The default value is 1.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="custom_verify"/>
+      <desc>
+	<p>The verification fun is to be defined as follows:</p>
+
+	<code>
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
+             {revoked, atom()}} |
+	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
+	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+	</code>
+
+	<p>The verification fun is called during the X509-path
+	validation when an error or an extension unknown to the SSL
+	application is encountered. It is also called when a
+	certificate is considered valid by the path validation to
+	allow access to each certificate in the path to the user
+	application. It differentiates between the peer certificate
+	and the CA certificates by using <c>valid_peer</c> or
+	<c>valid</c> as second argument to the verification fun. See
+	the <seealso marker="public_key:public_key_records">public_key
+	User's Guide</seealso> for definition of
+	<c>#'OTPCertificate'{}</c> and <c>#'Extension'{}</c>.</p>
+
+	<list type="bulleted">
+	  <item><p>If the verify callback fun returns <c>{fail,
+	  Reason}</c>, the verification process is immediately
+	  stopped, an alert is sent to the peer, and the TLS/DTLS
+	  handshake terminates.</p></item>
+	  <item><p>If the verify callback fun returns <c>{valid, UserState}</c>,
+	  the verification process continues.</p></item> 
+	  <item><p>If the verify callback fun always returns
+	  <c>{valid, UserState}</c>, the TLS/DTLS handshake does not
+	  terminate regarding verification failures and the connection is
+	  established.</p></item>
+	  <item><p>If called with an extension unknown to the user application,
+	  return value <c>{unknown, UserState}</c> is to be used.</p>
+
+	  <p>Note that if the fun returns <c>unknown</c> for an extension marked
+	  as critical, validation will fail.</p>
+	  </item>
+	</list>
+
+	<p>Default option <c>verify_fun</c> in <c>verify_peer mode</c>:</p>
+
+      <code>
+{fun(_,{bad_cert, _} = Reason, _) ->
+	 {fail, Reason};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+      </code>
+
+      <p>Default option <c>verify_fun</c> in mode <c>verify_none</c>:</p>
+
+       <code>
+{fun(_,{bad_cert, _}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, #'Extension'{critical = true}}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+      </code>
+
+      <p>The possible path validation errors are given on form
+      <c>{bad_cert, Reason}</c> where <c>Reason</c> is:</p>
+
+      <taglist>
+	<tag><c>unknown_ca</c></tag>
+	<item><p>No trusted CA was found in the trusted store. The
+	trusted CA is normally a so called ROOT CA, which is a
+	self-signed certificate. Trust can be claimed for an
+	intermediate CA (trusted anchor does not have to be
+	self-signed according to X-509) by using option
+	<c>partial_chain</c>.</p>
+	</item>
+
+	<tag><c>selfsigned_peer</c></tag>
+	<item><p>The chain consisted only of one self-signed certificate.</p></item>
+
+	<tag><c>PKIX X-509-path validation error</c></tag>
+	<item><p>For possible reasons, see <seealso
+marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+	</p></item>
+      </taglist>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="crl_check"/>
+      <desc>
+	<p>Perform CRL (Certificate Revocation List) verification
+	<seealso marker="public_key:public_key#pkix_crls_validate-3">
+	(public_key:pkix_crls_validate/3)</seealso> on all the
+	certificates during the path validation <seealso
+	marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
+	</seealso>
+	of the certificate chain. Defaults to <c>false</c>.</p>
+	
+	<taglist>
+	  <tag><c>peer</c></tag>
+	  <item>check is only performed on the peer certificate.</item>
+
+	  <tag><c>best_effort</c></tag>
+	  <item>if certificate revocation status cannot be determined
+	  it will be accepted as valid.</item>
+	</taglist>
+	
+	<p>The CA certificates specified for the connection will be used to 
+	construct the certificate chain validating the CRLs.</p>
+ 	
+	<p>The CRLs will be fetched from a local or external cache. See
+	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="crl_cache_opts"/>
+      <desc>
+    	<p>Specify how to perform lookup and caching of certificate revocation lists.
+    	<c>Module</c> defaults to <seealso marker="ssl:ssl_crl_cache">ssl_crl_cache</seealso>
+    	with <c> DbHandle </c> being <c>internal</c> and an
+    	empty argument list.</p>
+	
+    	<p>There are two implementations available:</p>
+	
+    	<taglist>
+    	  <tag><c>ssl_crl_cache</c></tag>
+    	  <item>
+    	    <p>This module maintains a cache of CRLs.  CRLs can be
+    	    added to the cache using the function <seealso
+    	    marker="ssl:ssl_crl_cache#insert-1">ssl_crl_cache:insert/1</seealso>,
+    	    and optionally automatically fetched through HTTP if the
+    	    following argument is specified:</p>
+	    
+    	    <taglist>
+    	      <tag><c>{http, timeout()}</c></tag>
+    	      <item><p>
+    		Enables fetching of CRLs specified as http URIs in<seealso
+    		marker="public_key:public_key_records">X509 certificate extensions</seealso>.
+    		Requires the OTP inets application.</p>
+    	      </item>
+    	    </taglist>
+    	  </item>
+	  
+    	  <tag><c>ssl_crl_hash_dir</c></tag>
+    	  <item>
+    	    <p>This module makes use of a directory where CRLs are
+    	    stored in files named by the hash of the issuer name.</p>
+
+    	    <p>The file names consist of eight hexadecimal digits
+    	    followed by <c>.rN</c>, where <c>N</c> is an integer,
+    	    e.g. <c>1a2b3c4d.r0</c>.  For the first version of the
+    	    CRL, <c>N</c> starts at zero, and for each new version,
+    	    <c>N</c> is incremented by one.  The OpenSSL utility
+    	    <c>c_rehash</c> creates symlinks according to this
+    	    pattern.</p>
+
+    	    <p>For a given hash value, this module finds all
+    	    consecutive <c>.r*</c> files starting from zero, and those
+    	    files taken together make up the revocation list.  CRL
+    	    files whose <c>nextUpdate</c> fields are in the past, or
+    	    that are issued by a different CA that happens to have the
+    	    same name hash, are excluded.</p>
+	    
+    	    <p>The following argument is required:</p>
+
+    	    <taglist>
+    	      <tag><c>{dir, string()}</c></tag>
+    	      <item><p>Specifies the directory in which the CRLs can be found.</p></item>
+    	    </taglist>
+    	  </item>
+	  </taglist>
+	</desc>
+    </datatype>
+
+    <datatype>
+      <name name="root_fun"/>
+      <desc>
+	<code>
+fun(Chain::[public_key:der_encoded()]) ->
+	{trusted_ca, DerCert::public_key:der_encoded()} | unknown_ca}
+	</code>
+	<p>Claim an intermediate CA in the chain as trusted. TLS then
+	performs <seealso
+	marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+	with the selected CA as trusted anchor and the rest of the chain.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="protocol_versions"/>
+      <desc><p>TLS protocol versions supported by started clients and servers.
+      This option overrides the application environment option
+      <c>protocol_version</c> and  <c>dtls_protocol_version</c>. If the environment option is not set, it defaults
+      to all versions, except SSL-3.0, supported by the SSL application.
+      See also <seealso marker="ssl:ssl_app">ssl(6).</seealso></p>
+      </desc>
+    </datatype>
+
+
+      <datatype>
+      <name name="custom_user_lookup"/>
+      <desc><p>The lookup fun is to defined as follows:</p>
+
+	<code>
+fun(psk, PSKIdentity ::string(), UserState :: term()) ->
+	{ok, SharedSecret :: binary()} | error;
+fun(srp, Username :: string(), UserState :: term()) ->
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(),
+	      DerivedKey :: binary()}} | error.
+	</code>
+
+	<p>For Pre-Shared Key (PSK) cipher suites, the lookup fun is
+	called by the client and server to determine the shared
+	secret. When called by the client, <c>PSKIdentity</c> is set to the
+	hint presented by the server or to undefined. When called by the
+	server, <c>PSKIdentity</c> is the identity presented by the client.</p>
+
+	<p>For Secure Remote Password (SRP), the fun is only used by the server to
+	obtain parameters that it uses to generate its session keys.
+	<c>DerivedKey</c> is to be derived according to
+	<url href="http://tools.ietf.org/html/rfc2945#section-3"> RFC 2945</url> and
+	<url href="http://tools.ietf.org/html/rfc5054#section-2.4"> RFC 5054</url>:
+	<c>crypto:sha([Salt, crypto:sha([Username, &lt;&lt;$:&gt;&gt;, Password])])</c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="session_id"/>
+      <desc>
+	<p>Identifies a TLS session.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>    
+      <name name="log_alert"/> 
+      <desc><p>If set to <c>false</c>, error reports are not displayed.
+      Deprecated in OTP 22, use {log_level, <seealso marker="#type-logging_level">logging_level()</seealso>} instead.</p> 
+      </desc> 
+    </datatype> 
+
+    <datatype>    
+      <name name="logging_level"/> 
+      <desc><p>Specifies the log level for TLS/DTLS. At verbosity level <c>notice</c> and above error reports are
+      displayed in TLS/DTLS. The level <c>debug</c> triggers verbose logging of TLS/DTLS protocol
+      messages.</p>
+      </desc> 
+    </datatype> 
+    
+    <datatype>    
+    <name name="hibernate_after"/> 
+    <desc><p>When an integer-value is specified, <c>TLS/DTLS-connection</c> 
+    goes into hibernation after the specified number of milliseconds 
+    of inactivity, thus reducing its memory footprint. When
+    <c>undefined</c> is specified (this is the default), the process 
+    never goes into hibernation.</p> 
+    </desc> 
+    </datatype> 
+
+    <datatype>
+      <name name="handshake_size"/>
+      <desc>
+    	<p>Integer (24 bits unsigned). Used to limit the size of
+    	valid TLS handshake packets to avoid DoS attacks.
+    	Defaults to 256*1024.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="padding_check"/>
+      <desc><p>Affects TLS-1.0 connections only.
+      If set to <c>false</c>, it disables the block cipher padding check
+      to be able to interoperate with legacy software.</p>
+      <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
+	vulnerable to the Poodle attack.</p></warning>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="beast_mitigation"/>
+      <desc><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
+       mitigation strategy to interoperate with legacy software.
+       Defaults to <c>one_n_minus_one</c>.</p>
+
+      <p><c>one_n_minus_one</c> - Perform 1/n-1 BEAST mitigation.</p>
+
+      <p><c>zero_n</c> - Perform 0/n BEAST mitigation.</p>
+
+      <p><c>disabled</c> - Disable BEAST mitigation.</p>
+
+      <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL-3.0 or TLS-1.0
+        vulnerable to the BEAST attack.</p></warning>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="ssl_imp"/>
+        <desc><p>Deprecated since OTP-17, has no affect.</p></desc>
+    </datatype>
+    
+    <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - CLIENT</datatype_title>
+    
+    <datatype>
+      <name name="client_option"/>
+    </datatype>
+   
+     <datatype>
+      <name name="client_verify_type"/>
+      <desc><p>In mode <c>verify_none</c> the default behavior is to allow
+      all x509-path validation errors. See also option  <seealso marker="#type-custom_verify">verify_fun</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="client_reuse_session"/>
+      <desc>
+	<p>Reuses a specific session earlier saved with the option
+	<c>{reuse_sessions, save} since OTP-21.3 </c>
+      </p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="client_reuse_sessions"/>
+      <desc>
+	<p>When <c>save</c> is specified a new connection will be negotiated
+      and saved for later reuse. The session ID can be fetched with 
+      <seealso marker="#connection_information-2">connection_information/2</seealso>
+      and used with the client option <seealso marker="#type-client_reuse_session">reuse_session</seealso>
+      The boolean value true specifies that if possible, automatized session reuse will
+      be performed. If a new session is created, and is unique in regard 
+      to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="client_cacerts"/>
+      <desc>
+	<p>The DER-encoded trusted certificates. If this option
+      is supplied it overrides option <c>cacertfile</c>.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="client_cafile"/>
+      <desc>
+	<p>Path to a file containing PEM-encoded CA certificates. The CA
+      certificates are used during server authentication and when building the
+      client certificate chain.</p>
+      </desc>
+    </datatype>
+    
+    <datatype>
+      <name name="client_alpn"/>
+      <desc>
+	<p>The list of protocols supported by the client to be sent to the
+	server to be used for an Application-Layer Protocol Negotiation (ALPN).
+	If the server supports ALPN then it will choose a protocol from this
+	list; otherwise it will fail the connection with a "no_application_protocol"
+	alert. A server that does not support ALPN will ignore this value.</p>
+	
+	<p>The list of protocols must not contain an empty binary.</p>
+	
+	<p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
+      </desc>
+    </datatype>
+    
+   <datatype>
+      <name name="client_preferred_next_protocols"/>
+      <desc>
+	<p>Indicates that the client is to try to perform Next Protocol
+	Negotiation.</p>
+	
+	<p>If precedence is server, the negotiated protocol is the
+	first protocol to be shown on the server advertised list, which is
+	also on the client preference list.</p>
+	
+	<p>If precedence is client, the negotiated protocol is the
+	first protocol to be shown on the client preference list, which is
+	also on the server advertised list.</p>
+	
+	<p>If the client does not support any of the server advertised
+	protocols or the server does not advertise any protocols, the
+	client falls back to the first protocol in its list or to the
+	default protocol (if a default is supplied). If the
+	server does not support Next Protocol Negotiation, the
+	connection terminates if no default protocol is supplied.</p>
+      </desc>
+   </datatype>
+   
+   <datatype>
+      <name name="client_psk_identity"/>
+      <desc>
+	<p>Specifies the identity the client presents to the server.
+	The matching secret is found by calling <c>user_lookup_fun</c></p>
+      </desc>
+      </datatype>
+
+      <datatype>
+	<name name="client_srp_identity"/>
+	<desc>
+	  <p>Specifies the username and password to use to authenticate
+	  to the server.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+      <name name="sni"/>
+      <desc>
+	<p>Specify the hostname to be used in TLS Server Name Indication extension.
+	If not specified it will default to the <c>Host</c> argument of <seealso marker="#connect-3">connect/[3,4]</seealso>
+	unless it is of type inet:ipaddress().</p>
+	<p>
+	  The <c>HostName</c> will also be used in the hostname verification of the peer certificate using
+	  <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+	</p>
+	<p> The special value <c>disable</c> prevents the Server Name Indication extension from being sent and
+	disables the hostname verification check
+	<seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> </p>
+      </desc>
+      </datatype>
+         
+      <datatype>
+	<name name="customize_hostname_check"/>
+	<desc>
+	  <p> Customizes the hostname verification of the peer certificate, as different protocols that use
+	  TLS such as HTTP or LDAP may want to do it differently, for possible options see
+	  <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> </p>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="fallback"/>
+	<desc>
+	  <p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.
+	  Defaults to false</p>
+	  <warning><p>Note this option is not needed in normal TLS usage and should not be used
+	  to implement new clients. But legacy clients that retries connections in the following manner</p>
+	  
+	  <p><c> ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1', 'sslv3']}])</c></p>
+	  <p><c>  ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1', 'sslv3']}, {fallback, true}])</c></p>
+	  <p><c>  ssl:connect(Host, Port, [...{versions, ['tlsv1', 'sslv3']}, {fallback, true}]) </c></p>
+	  <p><c>  ssl:connect(Host, Port, [...{versions, ['sslv3']}, {fallback, true}]) </c></p>
+	  
+	  <p>may use it to avoid undesired TLS version downgrade. Note that TLS_FALLBACK_SCSV must also
+	  be supported by the server for the prevention to work.
+	  </p></warning>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="client_signature_algs"/>
+	<desc>
+	  <p>In addition to the algorithms negotiated by the cipher
+	suite used for key exchange, payload encryption, message
+	authentication and pseudo random calculation, the TLS signature
+	algorithm extension <url
+	href="http://www.ietf.org/rfc/rfc5246.txt">Section 7.4.1.4.1 in RFC 5246</url> may be
+	used, from TLS 1.2, to negotiate which signature algorithm to use during the
+	TLS handshake. If no lower TLS versions than 1.2 are supported,
+	the client will send a TLS signature algorithm extension
+	with the algorithms specified by this option.
+	Defaults to</p>
+	
+	<code>[
+%% SHA2
+{sha512, ecdsa},
+{sha512, rsa},
+{sha384, ecdsa},
+{sha384, rsa},
+{sha256, ecdsa},
+{sha256, rsa},
+{sha224, ecdsa},
+{sha224, rsa},
+%% SHA
+{sha, ecdsa},
+{sha, rsa},
+{sha, dsa},
+]</code>
+<p>
+	The algorithms should be in the preferred order.
+	Selected signature algorithm can restrict which hash functions
+	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
+	</p>
+	</desc>
+      </datatype>
+      
+      <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER </datatype_title>
+
+
+      <datatype>
+	<name name="server_option"/>
+      </datatype>
+     
+      <datatype>
+	<name name="server_cacerts"/>
+	<desc><p>The DER-encoded trusted certificates. If this option
+      is supplied it overrides option <c>cacertfile</c>.</p>
+	</desc>
+      </datatype>
+            
+      <datatype>
+	<name name="server_cafile"/>
+	<desc><p>Path to a file containing PEM-encoded CA
+	certificates. The CA certificates are used to build the server
+	certificate chain and for client authentication. The CAs are
+	also used in the list of acceptable client CAs passed to the
+	client when a certificate is requested. Can be omitted if
+	there is no need to verify the client and if there are no
+	intermediate CAs for the server certificate.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="dh_der"/>
+	<desc><p>The DER-encoded Diffie-Hellman parameters. If
+	specified, it overrides option <c>dhfile</c>.</p>
+	<warning><p>The <c>dh_der</c> option is not supported by TLS 1.3. Use the
+	<c>supported_groups</c> option instead.</p></warning>
+	</desc>
+      </datatype>
+    
+      <datatype>
+	<name name="dh_file"/>
+	<desc><p>Path to a file containing PEM-encoded Diffie Hellman
+	parameters to be used by the server if a cipher suite using
+	Diffie Hellman key exchange is negotiated. If not specified,
+	default parameters are used.</p>
+	<warning><p>The <c>dh_file</c> option is not supported by TLS 1.3. Use the
+	<c>supported_groups</c> option instead.</p></warning>
+	</desc>
+      </datatype>
+
+    <datatype>
+	<name name="server_verify_type"/>
+	<desc><p>A server only does x509-path validation in mode
+	<c>verify_peer</c>, as it then sends a certificate request to
+	the client (this message is not sent if the verify option is
+	<c>verify_none</c>).  You can then also want to specify option
+	<c>fail_if_no_peer_cert</c>. </p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="fail_if_no_peer_cert"/>
+	<desc><p>Used together with <c>{verify, verify_peer}</c> by an
+	TLS/DTLS server.  If set to <c>true</c>, the server fails if
+	the client does not have a certificate to send, that is, sends
+	an empty certificate. If set to <c>false</c>, it fails only if
+	the client sends an invalid certificate (an empty certificate
+	is considered valid). Defaults to false.</p>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="server_reuse_sessions"/>
+	<desc><p>The boolean value true specifies that the server will
+	agree to reuse sessions. Setting it to false will result in an empty
+	session table, that is no sessions will be reused. 
+	See also option <seealso marker="#type-server_reuse_session">reuse_session</seealso>
+      </p>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="server_reuse_session"/>
+	<desc><p>Enables the TLS/DTLS server to have a local policy
+	for deciding if a session is to be reused or not.  Meaningful
+	only if <c>reuse_sessions</c> is set to <c>true</c>.
+	<c>SuggestedSessionId</c> is a <c>binary()</c>,
+	<c>PeerCert</c> is a DER-encoded certificate,
+	<c>Compression</c> is an enumeration integer, and
+	<c>CipherSuite</c> is of type <c>ciphersuite()</c>.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="server_alpn"/>
+	<desc>  
+	  <p>Indicates the server will try to perform
+	  Application-Layer Protocol Negotiation (ALPN).</p>
+	  
+	  <p>The list of protocols is in order of preference. The
+	  protocol negotiated will be the first in the list that
+	  matches one of the protocols advertised by the client. If no
+	  protocol matches, the server will fail the connection with a
+	  "no_application_protocol" alert.</p>
+	  
+	  <p>The negotiated protocol can be retrieved using the
+	  <c>negotiated_protocol/1</c> function.</p>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="server_next_protocol"/>
+	<desc><p>List of protocols to send to the client if the client
+	indicates that it supports the Next Protocol extension. The
+	client can select a protocol that is not on this list. The
+	list of protocols must not contain an empty binary. If the
+	server negotiates a Next Protocol, it can be accessed using
+	the <c>negotiated_next_protocol/1</c> method.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="server_psk_identity"/>
+	<desc>
+	  <p>Specifies the server identity hint, which the server presents to
+	  the client.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="honor_cipher_order"/>
+	<desc>
+	  <p>If set to <c>true</c>, use the server preference for cipher
+	  selection. If set to <c>false</c> (the default), use the client
+	  preference.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="sni_hosts"/>
+	<desc><p>If the server receives a SNI (Server Name Indication) from the client
+	matching a host listed in the <c>sni_hosts</c> option, the specific options for
+	that host will override previously specified options.
+	
+	The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="sni_fun"/>
+	<desc>
+	  <p>If the server receives a SNI (Server Name Indication)
+	  from the client, the given function will be called to
+	  retrieve <seealso marker="#type-server_option">[server_option()] </seealso> for the indicated server.
+	  These options will be merged into predefined
+	  <seealso marker="#type-server_option">[server_option()] </seealso> list.
+	  
+	  The function should be defined as:
+          fun(ServerName :: string()) -> <seealso marker="#type-server_option">[server_option()] </seealso>
+	  and can be specified as a fun or as named <c>fun module:function/1</c>
+	  
+	  The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="client_renegotiation"/>
+	<desc><p>In protocols that support client-initiated
+	renegotiation, the cost of resources of such an operation is
+	higher for the server than the client. This can act as a
+	vector for denial of service attacks. The SSL application
+	already takes measures to counter-act such attempts, but
+	client-initiated renegotiation can be strictly disabled by
+	setting this option to <c>false</c>. The default value is
+	<c>true</c>.  Note that disabling renegotiation can result in
+	long-lived connections becoming unusable due to limits on the
+	number of messages the underlying cipher suite can
+	encipher.</p>
+	</desc>
+      </datatype>
+      
+      <datatype>
+	<name name="honor_cipher_order"/>
+	<desc><p>If true, use the server's preference for cipher
+	selection. If false (the default), use the client's
+	preference.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="honor_ecc_order"/>
+	<desc><p>If true, use the server's preference for ECC curve
+	selection. If false (the default), use the client's
+	preference.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="server_signature_algs"/>
+	<desc><p> The algorithms specified by this option will be the
+	ones accepted by the server in a signature algorithm
+	negotiation, introduced in TLS-1.2. The algorithms will also
+	be offered to the client if a client certificate is
+	requested. For more details see the <seealso
+	marker="#type-client_signature_algs">corresponding client
+	option</seealso>.
+      </p>
+	</desc>
+      </datatype>
+    </datatypes>
+
+<!--
+    ================================================================
+    =  Function definitions                                        =
+    ================================================================
+-->
+
+  <funcs>
+
+    <func>
+      <name name="append_cipher_suites" arity="2" since="OTP 20.3"/>
+      <fsummary></fsummary>
+      <desc><p>Make <c>Deferred</c> suites become the least preferred
+      suites, that is put them at the end of the cipher suite list
+      <c>Suites</c> after removing them from <c>Suites</c> if
+      present. <c>Deferred</c> may be a list of cipher suits or a
+      list of filters in which case the filters are use on  <c>Suites</c> to
+      extract the Deferred cipher list.</p> 
+      </desc>
+    </func>
+    
+    <func>
+      <name name="cipher_suites" arity="0" since="OTP R14B"/>
+      <name name="cipher_suites" arity="1" since="OTP R14B"/>
+      <fsummary>Returns a list of supported cipher suites.</fsummary>
+      <desc>
+	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">cipher_suites/2</seealso> instead.</p>
+      </desc>
+    </func>
+    
+   <func>
+      <name name="cipher_suites" arity="2" since="OTP 20.3"/>
+      <fsummary>Returns a list of all default or
+      all supported cipher suites.</fsummary>
+      <desc><p>Returns all default or all supported (except anonymous),
+      or all anonymous cipher suites for a
+      TLS version</p>
+    </desc>
+    </func>
+
+    <func>
+      <name name="cipher_suites" arity="3" since="OTP 22.0"/>
+      <fsummary>Returns a list of RFC or OpenSSL names</fsummary>
+      <desc><p>Same as <seealso marker="#cipher_suites-2">cipher_suites/2</seealso>
+      but lists RFC or OpenSSL string names instead of <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+    </p>
+    </desc>
+    </func>
+    
+    <func>
+      <name name="eccs" arity="0" since="OTP 19.2"/>
+      <name name="eccs" arity="1" since="OTP 19.2"/>
+      <fsummary>Returns a list of supported ECCs.</fsummary>
+      <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
+      is equivalent to calling <c>eccs(Protocol)</c> with all
+      supported protocols and then deduplicating the output.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="clear_pem_cache" arity="0" since="OTP 17.5"/>
+      <fsummary> Clears the pem cache</fsummary>
+      <desc><p>PEM files, used by ssl API-functions, are cached. The
+      cache is regularly checked to see if any cache entries should be
+      invalidated, however this function provides a way to
+      unconditionally clear the whole cache.
+      </p>
+      </desc>
+    </func>
+   
+    <func>
+      <name name="connect" arity="2" since="OTP R14B"/>
+      <name name="connect" arity="3" clause_i="1" since=""/>
+      <fsummary>Upgrades a <c>gen_tcp</c>, or
+	equivalent, connected socket to an TLS socket.</fsummary>
+      <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
+	  connected socket to an TLS socket, that is, performs the
+	  client-side TLS handshake.</p>
+	  
+	  <note><p>If the option <c>verify</c> is set to
+	  <c>verify_peer</c> the option <c>server_name_indication</c>
+	  shall also be specified, if it is not no Server Name
+	  Indication extension will be sent, and <seealso
+	  marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>
+	  will be called with the IP-address of the connection as
+	  <c>ReferenceID</c>, which is proably not what you want.</p>
+	  </note>
+
+	  <p> If the option <c>{handshake, hello}</c> is used the
+	  handshake is paused after receiving the server hello message
+	  and the success response is <c>{ok, SslSocket, Ext}</c>
+	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake
+	  is continued or canceled by calling <seealso
+	  marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  </p>
+	  
+	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	  the process owning the sslsocket will receive messages of type 
+	  <seealso marker="#type-active_msgs"> active_msgs() </seealso>
+	  </p>
+    </desc>
+    </func>
+
+    <func>
+      <name since="" name="connect" arity="3" clause_i="2"/>
+      <name since="" name="connect" arity="4"/>
+      <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
+      <desc><p>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
+      
+      <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
+      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
+      will be performed in addition to the usual x509-path validation checks. If the check fails the error {bad_cert, hostname_check_failed} will
+      be propagated to the path validation fun <seealso marker="#type-custom_verify">verify_fun</seealso>, where it is possible to do customized
+      checks by using the full possibilities of the <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> API.
+      
+      When the option <c>server_name_indication</c> is provided, its value (the DNS name) will be used as <c>ReferenceID</c>
+      to <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+      When no <c>server_name_indication</c> option is given, the <c>Host</c> argument will be used as
+      Server Name Indication extension. The <c>Host</c> argument will also be used for the
+      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> check and if the <c>Host</c>
+      argument is an <c>inet:ip_address()</c> the <c>ReferenceID</c> used for the check will be <c>{ip, Host}</c> otherwise
+      <c>dns_id</c> will be assumed with a fallback to <c>ip</c> if that fails. </p>
+      <note><p>According to good practices certificates should not use IP-addresses as "server names". It would
+      be very surprising if this happen outside a closed network. </p></note> 
+
+
+      <p> If the option <c>{handshake, hello}</c> is used the
+	  handshake is paused after receiving the server hello message
+	  and the success response is <c>{ok, SslSocket, Ext}</c>
+	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake is continued or
+	  canceled by calling <seealso marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  </p>
+
+	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	  the process owning the sslsocket will receive messages of type 
+	  <seealso marker="#type-active_msgs"> active_msgs() </seealso>
+	  </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="close" arity="1" />
+      <fsummary>Closes an TLS/DTLS connection.</fsummary>
+      <desc><p>Closes an TLS/DTLS connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.1" name="close" arity="2"/>
+      <fsummary>Closes an TLS connection.</fsummary>
+      <desc><p>Closes or downgrades an TLS connection. In the latter case the transport
+      connection will be handed over to the <c>NewController</c> process after receiving
+      the TLS close alert from the peer. The returned transport socket will have
+      the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="controlling_process" arity="2" />
+	<fsummary>Assigns a new controlling process to the
+	TLS/DTLS socket.</fsummary>
+	<desc><p>Assigns a new controlling process to the SSL socket. A
+	controlling process is the owner of an SSL socket, and receives
+	all messages from the socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0" name="connection_information" arity="1"/>
+      <fsummary>Returns all the connection information.
+      </fsummary>
+      <desc><p>Returns the most relevant information about the connection, ssl options that
+      are undefined will be filtered out. Note that values that affect the security of the
+      connection will only be returned if explicitly requested by connection_information/2.</p>
+      <note><p>The legacy <c>Item = cipher_suite</c> is still supported
+        and returns the cipher suite on its (undocumented) legacy format.
+        It should be replaced by <c>selected_cipher_suite</c>.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0" name="connection_information" arity="2"/>
+      <fsummary>Returns the requested connection information.
+      </fsummary>
+      <desc><p>Returns the requested information items about the connection,
+      if they are defined.</p>
+      <p>Note that client_random, server_random  and master_secret are values
+      that affect the security of connection. Meaningful atoms, not specified
+      above, are the ssl option names.</p>
+
+      <note><p>If only undefined options are requested the
+      resulting list can be empty.</p></note>
+      </desc>
+    </func>
+
+      <func>
+      <name since="OTP 20.3" name="filter_cipher_suites" arity="2" />
+      <fsummary></fsummary>
+      <desc><p>Removes cipher suites if any of the filter functions
+      returns false for any part of the cipher suite. This function
+      also calls default filter functions to make sure the cipher
+      suites are supported by crypto. If no filter function is supplied for some
+      part the default behaviour is fun(Algorithm) -> true.</p>
+    </desc>
+    </func>
+    
+    <func>
+      <name since="" name="format_error" arity="1" />
+      <fsummary>Returns an error string.</fsummary>
+      <desc>
+        <p>Presents the error returned by an SSL function as a printable string.</p>
+      </desc>
+    </func>
+   
+    <func>
+      <name since="" name="getopts" arity="2" />
+      <fsummary>Gets the values of the specified options.</fsummary>
+      <desc>
+	<p>Gets the values of the specified socket options.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.0" name="getstat" arity="1" />
+      <name since="OTP 19.0" name="getstat" arity="2" />
+      <fsummary>Get one or more statistic options for a socket</fsummary>
+      <desc>
+        <p>Gets one or more statistic options for the underlying TCP socket.</p>
+        <p>See inet:getstat/2 for statistic options description.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0" name="handshake" arity="1" />
+      <name since="OTP 21.0" name="handshake" arity="2" clause_i="1" />
+      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <desc>
+        <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
+	<p>Returns a new TLS/DTLS socket if the handshake is successful.</p>
+
+	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	the process owning the sslsocket will receive messages of type 
+	<seealso marker="#type-active_msgs"> active_msgs() </seealso>
+	</p>	
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0" name="handshake" arity="2" clause_i="2" />
+      <name since="OTP 21.0" name="handshake" arity="3" />
+      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
+      <desc>
+        <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
+	or equivalent, socket to an SSL socket, that is, performs
+        the SSL/TLS server-side handshake and returns a TLS socket.</p>
+
+	<warning><p>The <c>Socket</c> shall be in passive mode ({active,
+	false}) before calling this function or else the behavior of this function
+	is undefined.
+	</p></warning>
+	
+	<p>If <c>Socket</c> is an 
+	<seealso marker="#type-sslsocket"> sslsocket() </seealso>: provides extra SSL/TLS/DTLS
+	options to those specified in
+	<seealso marker="#listen-2">listen/2 </seealso> and then performs
+	the SSL/TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
+		
+	<p>
+	  If option <c>{handshake, hello}</c> is specified the handshake is
+	  paused after receiving the client hello message and the
+	  success response is <c>{ok, SslSocket, Ext}</c>  instead of <c>{ok,
+	  SslSocket}</c>. Thereafter the handshake is continued or
+	  canceled by calling <seealso marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	</p>
+	
+	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	the process owning the sslsocket will receive messages of type 
+	<seealso marker="#type-active_msgs"> active_msgs() </seealso>
+	</p>
+	
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0" name="handshake_cancel" arity="1" />
+      <fsummary>Cancel handshake with a fatal alert</fsummary>
+      <desc>
+        <p>Cancel the handshake with a fatal <c>USER_CANCELED</c> alert.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0" name="handshake_continue" arity="2" />
+      <name since="OTP 21.0" name="handshake_continue" arity="3" />
+      <fsummary>Continue the SSL/TLS handshake.</fsummary>
+      <desc>
+        <p>Continue the SSL/TLS handshake possiby with new, additional or changed options.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="listen" arity="2" />
+      <fsummary>Creates an SSL listen socket.</fsummary>
+      <desc>
+	<p>Creates an SSL listen socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0" name="negotiated_protocol" arity="1" />
+      <fsummary>Returns the protocol negotiated through ALPN or NPN extensions.</fsummary>
+      <desc>
+        <p>
+          Returns the protocol negotiated through ALPN or NPN extensions.
+        </p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="peercert" arity="1" />
+      <fsummary>Returns the peer certificate.</fsummary>
+      <desc>
+        <p>The peer certificate is returned as a DER-encoded binary.
+	  The certificate can be decoded with
+	  <seealso marker="public_key:public_key#pkix_decode_cert-2">public_key:pkix_decode_cert/2</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="peername" arity="1" />
+      <fsummary>Returns the peer address and port.</fsummary>
+      <desc>
+        <p>Returns the address and port number of the peer.</p>
+      </desc>
+    </func>
+    
+      <func>
+      <name since="OTP 20.3" name="prepend_cipher_suites" arity="2" />
+      <fsummary></fsummary>
+      <desc><p>Make <c>Preferred</c> suites become the most preferred
+      suites that is put them at the head of the cipher suite list
+      <c>Suites</c> after removing them from <c>Suites</c> if
+      present. <c>Preferred</c> may be a list of cipher suits or a
+      list of filters in which case the filters are use on <c>Suites</c> to
+      extract the preferred cipher list. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01" name="prf" arity="5" />
+      <fsummary>Uses a session Pseudo-Random Function to generate key material.</fsummary>
+      <desc>
+        <p>Uses the Pseudo-Random Function (PRF) of a TLS session to generate
+	  extra key material. It either takes user-generated values for
+	  <c>Secret</c> and <c>Seed</c> or atoms directing it to use a specific
+	  value from the session security parameters.</p>
+        <p>Can only be used with TLS/DTLS connections; <c>{error, undefined}</c>
+	  is returned for SSLv3 connections.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="recv" arity="2" />
+      <name since="" name="recv" arity="3" />
+      <fsummary>Receives data on a socket.</fsummary>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+	in ERTS.
+      </type_desc>
+      <desc>
+        <p>Receives a packet from a socket in passive
+          mode. A closed socket is indicated by return value
+          <c>{error, closed}</c>.</p>
+        <p>Argument <c>Length</c> is meaningful only when
+          the socket is in mode <c>raw</c> and denotes the number of
+          bytes to read. If <c>Length</c> = 0, all available bytes are
+          returned. If <c>Length</c> &gt; 0, exactly <c>Length</c>
+          bytes are returned, or an error; possibly discarding less
+          than <c>Length</c> bytes of data when the socket gets closed
+          from the other side.</p>
+        <p>Optional argument <c>Timeout</c> specifies a time-out in
+          milliseconds. The default value is <c>infinity</c>.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R14B" name="renegotiate" arity="1" />
+      <fsummary>Initiates a new handshake.</fsummary>
+      <desc><p>Initiates a new handshake. A notable return value is
+      <c>{error, renegotiation_rejected}</c> indicating that the peer
+      refused to go through with the renegotiation, but the connection
+      is still active using the previously negotiated session.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="send" arity="2" />
+      <fsummary>Writes data to a socket.</fsummary>
+      <desc>
+        <p>Writes <c>Data</c> to <c>SslSocket</c>.</p>
+        <p>A notable return value is <c>{error, closed}</c> indicating that
+          the socket is closed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="setopts" arity="2" />
+      <fsummary>Sets socket options.</fsummary>
+      <desc>
+        <p>Sets options according to <c>Options</c> for socket
+          <c>SslSocket</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B" name="shutdown" arity="2" />
+      <fsummary>Immediately closes a socket.</fsummary>
+      <desc>
+        <p>Immediately closes a socket in one or two directions.</p>
+        <p><c>How == write</c> means closing the socket for writing,
+          reading from it is still possible.</p>
+        <p>To be able to handle that the peer has done a shutdown on
+          the write side, option <c>{exit_on_close, false}</c>
+          is useful.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="ssl_accept" arity="1" />
+      <name since="" name="ssl_accept" arity="2" />
+      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <desc>
+	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">handshake/[1,2]</seealso> instead.</p>
+	<note><p>handshake/[1,2] always returns a new socket.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B" name="ssl_accept" arity="3" />
+      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
+      <desc>
+	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">handshake/[2,3]</seealso> instead.</p>
+	<note><p>handshake/[2,3] always returns a new socket.</p></note>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="sockname" arity="1" />
+      <fsummary>Returns the local address and port.</fsummary>
+      <desc>
+        <p>Returns the local address and port number of socket
+          <c>SslSocket</c>.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R14B" name="start" arity="0" />
+      <name since="OTP R14B">start(Type) -> ok | {error, Reason}</name>
+      <fsummary>Starts the SSL application.</fsummary>
+      <desc>
+        <p>Starts the SSL application. Default type
+          is <c>temporary</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B" name="stop" arity="0" />
+      <fsummary>Stops the SSL application.</fsummary>
+      <desc>
+        <p>Stops the SSL application.</p>
+      </desc>
+    </func>
+  
+    <func>
+      <name since="OTP 22.0" name="str_to_suite" arity="1" />
+      <fsummary>Converts an RFC or OpenSSL name string to an erlang cipher suite format</fsummary>
+      <desc>
+        <p>Converts an RFC or OpenSSL name string to an
+	<seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	Returns an error if the cipher suite is not supported or the name is not a valid cipher suite name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 22.0" name="suite_to_openssl_str" arity="1" />
+      <fsummary>Converts erlang cipher suite format to an OpenSSL name string.
+      </fsummary>
+      <desc>
+        <p>Converts <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	to OpenSSL name string. </p>
+	
+	<p>PRE TLS-1.3 these names differ for RFC names</p>
+	
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
+      <fsummary>Converts an erlang cipher suite to an RFC name string.</fsummary>
+      <desc>
+        <p>Converts <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	to RFC name string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="transport_accept" arity="1" />
+      <name since="" name="transport_accept" arity="2" />
+      <fsummary>Accepts an incoming connection and
+	prepares for <c>ssl_accept</c>.</fsummary>
+      <desc>
+        <p>Accepts an incoming connection request on a listen socket.
+	<c>ListenSocket</c> must be a socket returned from
+	<seealso marker="#listen-2"> listen/2</seealso>.
+	The socket returned is to be passed to
+	<seealso marker="#handshake-2"> handshake/[2,3]</seealso>
+	to complete handshaking, that is,
+	establishing the SSL/TLS/DTLS connection.</p>
+        <warning>
+          <p>Most API functions require that the TLS/DTLS 
+          connection is established to work as expected.
+	  </p>
+        </warning>
+        <p>The accepted socket inherits the options set for
+	<c>ListenSocket</c> in
+	<seealso marker="#listen-2"> listen/2</seealso>.</p>
+	<p>The default
+	value for <c>Timeout</c> is <c>infinity</c>. If
+	<c>Timeout</c> is specified and no connection is accepted
+	within the given time, <c>{error, timeout}</c> is
+	returned.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R14B" name="versions" arity="0" />
+      <fsummary>Returns version information relevant for the
+	SSL application.</fsummary>
+      <desc>
+	<p>Returns version information relevant for the SSL
+	application.</p>
+	<taglist>
+	  <tag><c>app_vsn</c></tag>
+	  <item>The application version of the SSL application.</item>
+
+	  <tag><c>supported</c></tag>
+	  <item>SSL/TLS versions supported by default.
+	  Overridden by a version option on
+	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
+	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
+	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
+	  For the negotiated SSL/TLS version, see <seealso
+	  marker="#connection_information-1">connection_information/1
+	  </seealso>.</item>
+	  
+	  <tag><c>supported_dtls</c></tag>
+	  <item>DTLS versions supported by default.
+	  Overridden by a version option on
+	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
+	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
+	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
+	  For the negotiated DTLS version, see <seealso
+	  marker="#connection_information-1">connection_information/1
+	  </seealso>.</item>
+
+	  <tag><c>available</c></tag>
+	  <item>All SSL/TLS versions supported by the SSL application.
+	  TLS 1.2 requires sufficient support from the Crypto
+	  application.</item>
+
+	  <tag><c>available_dtls</c></tag>
+	  <item>All DTLS versions supported by the SSL application.
+	  DTLS 1.2 requires sufficient support from the Crypto
+	  application.</item>
+	  
+	</taglist>
+      </desc>
+    </func>
+   
+  </funcs> 
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="kernel:inet">inet(3)</seealso> and
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>
+      <seealso marker="kernel:gen_udp">gen_udp(3)</seealso>
+    </p>
+  </section>
+
+</erlref>

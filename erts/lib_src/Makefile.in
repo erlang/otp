@@ -1,0 +1,664 @@
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2004-2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+include $(ERL_TOP)/make/output.mk
+include $(ERL_TOP)/make/target.mk
+include ../include/internal/$(TARGET)/ethread.mk
+
+OMIT_OMIT_FP=no
+
+
+CC=@CC@
+LD=@LD@
+AR=@AR@
+RANLIB=@RANLIB@
+MKDIR=@MKDIR@
+INSTALL=@INSTALL@
+INSTALL_DIR=@INSTALL_DIR@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+
+ERLANG_OSTYPE=@ERLANG_OSTYPE@
+
+OMIT_FP=false
+CFLAGS=$(subst O2,O3, @CFLAGS@)
+
+ifeq ($(TYPE),debug)
+CFLAGS=@DEBUG_CFLAGS@ -DDEBUG
+TYPE_SUFFIX=.debug
+ifeq ($(USING_VC),yes)
+LD_FLAGS += -g
+endif
+PRE_LD=
+
+else
+
+ifeq ($(TYPE),purify)
+CFLAGS=@DEBUG_CFLAGS@ -DPURIFY
+TYPE_SUFFIX=.purify
+PRE_LD=purify $(PURIFY_BUILD_OPTIONS)
+else
+ifeq ($(TYPE),quantify)
+CFLAGS += -DQUANTIFY
+TYPE_SUFFIX=.quantify
+PRE_LD=quantify $(QUANTIFY_BUILD_OPTIONS)
+else
+ifeq ($(TYPE),purecov)
+CFLAGS=@DEBUG_CFLAGS@ -DPURECOV
+TYPE_SUFFIX=.purecov
+PRE_LD=purecov $(PURECOV_BUILD_OPTIONS)
+else
+ifeq ($(TYPE),gcov)
+CFLAGS=@DEBUG_CFLAGS@ -DGCOV -fprofile-arcs -ftest-coverage -O0
+TYPE_SUFFIX=.gcov
+PRE_LD=
+else
+ifeq ($(TYPE),valgrind)
+CFLAGS=@DEBUG_CFLAGS@ -DVALGRIND
+TYPE_SUFFIX=.valgrind
+PRE_LD=
+else
+ifeq ($(TYPE),gprof)
+CFLAGS += -DGPROF -pg
+TYPE_SUFFIX=.gprof
+PRE_LD=
+else
+ifeq ($(TYPE),lcnt)
+TYPE_SUFFIX = .lcnt
+CFLAGS += -DERTS_ENABLE_LOCK_COUNT
+OMIT_FP=true
+PRE_LD=
+else
+ifeq ($(TYPE),frmptr)
+TYPE_SUFFIX = .frmptr
+CFLAGS += -DERTS_FRMPTR
+OMIT_OMIT_FP=yes
+PRE_LD=
+else
+ifeq ($(TYPE),icount)
+TYPE_SUFFIX = .icount
+CFLAGS += -DERTS_OPCODE_COUNTER_SUPPORT
+PRE_LD=
+else
+override TYPE=opt
+OMIT_FP=true
+TYPE_SUFFIX=
+PRE_LD=
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+
+OPSYS=@OPSYS@
+sol2CFLAGS=
+linuxCFLAGS=
+darwinCFLAGS=-DDARWIN
+noopsysCFLAGS=
+OPSYSCFLAGS=$($(OPSYS)CFLAGS)
+ARCH=@ARCH@
+ultrasparcCFLAGS=-Wa,-xarch=v8plusa
+ARCHCFLAGS=$($(ARCH)CFLAGS)
+
+ifeq ($(OMIT_OMIT_FP),yes)
+CFLAGS += -fno-omit-frame-pointer
+OMIT_FP=false
+endif
+
+CREATE_DIRS=
+
+ifeq ($(CC)-$(OMIT_FP), gcc-true)
+CFLAGS += -fomit-frame-pointer
+endif
+
+CFLAGS += @WFLAGS@ @DEFS@ $(ARCHCFLAGS)
+
+ifeq ($(findstring -D_GNU_SOURCE,$(CFLAGS)),)
+THR_DEFS = $(ETHR_DEFS)
+else
+# Remove duplicate -D_GNU_SOURCE
+THR_DEFS = $(filter-out -D_GNU_SOURCE%, $(ETHR_DEFS))
+endif
+
+LIBS=@LIBS@
+
+TT_DIR=$(TARGET)/$(TYPE)
+
+ERTS_INCL=../include
+ERTS_INCL_INT=../include/internal
+
+INCLUDES=-I$(ERTS_INCL) -I$(ERTS_INCL)/$(TARGET) -I$(ERTS_INCL_INT) -I$(ERTS_INCL_INT)/$(TARGET)
+INCLUDES += -I../emulator/beam -I../emulator/sys/$(ERLANG_OSTYPE)
+
+USING_MINGW=@MIXED_CYGWIN_MINGW@
+USING_VC=@MIXED_VC@
+
+ifeq ($(USING_VC),yes)
+LIB_SUFFIX=.lib
+LIB_PREFIX=
+else
+LIB_SUFFIX=.a
+LIB_PREFIX=lib
+endif
+
+OBJS_ROOT_DIR=obj
+OBJ_DIR=$(OBJS_ROOT_DIR)/$(TT_DIR)
+
+CREATE_DIRS += $(OBJ_DIR)
+
+ERTS_LIBS=
+
+ifeq ($(findstring -D_GNU_SOURCE,$(CFLAGS)),)
+THR_DEFS = $(ETHR_DEFS)
+else
+# Remove duplicate -D_GNU_SOURCE
+THR_DEFS = $(filter-out -D_GNU_SOURCE%, $(ETHR_DEFS))
+endif
+
+#
+# erts (public) library
+#
+
+ERTS_LIB_SRCS =	common/erl_memory_trace_parser.c
+
+ERTS_LIB_DIR=../lib/$(TARGET)
+CREATE_DIRS += $(ERTS_LIB_DIR)
+
+ifeq ($(USING_VC),yes)
+# Windows obj dir
+MD_OBJ_DIR=$(OBJ_DIR)/MD
+MDd_OBJ_DIR=$(OBJ_DIR)/MDd
+MT_OBJ_DIR=$(OBJ_DIR)/MT
+MTd_OBJ_DIR=$(OBJ_DIR)/MTd
+
+CREATE_DIRS +=	$(MD_OBJ_DIR) \
+		$(MDd_OBJ_DIR) \
+		$(MT_OBJ_DIR) \
+		$(MTd_OBJ_DIR)
+
+ERTS_MD_LIB_OBJS=$(addprefix $(MD_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+ERTS_MDd_LIB_OBJS=$(addprefix $(MDd_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+ERTS_MT_LIB_OBJS=$(addprefix $(MT_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+ERTS_MTd_LIB_OBJS=$(addprefix $(MTd_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+
+else # --- Not windows ---
+
+# Reentrant obj dir
+ifneq ($(strip $(ETHR_LIB_NAME)),)
+r_OBJ_DIR = $(OBJ_DIR)/r
+CREATE_DIRS += $(r_OBJ_DIR)
+ERTS_r_LIB_OBJS=$(addprefix $(r_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+endif
+ERTS_LIB_OBJS=$(addprefix $(OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+
+endif
+
+ifeq ($(USING_VC),yes)
+ERTS_MD_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MD$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_MDd_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MDd$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_MT_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MT$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_MTd_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MTd$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_LIBS += \
+	$(ERTS_MD_LIB) \
+	$(ERTS_MDd_LIB) \
+	$(ERTS_MT_LIB) \
+	$(ERTS_MTd_LIB)
+else
+
+ERTS_LIB = $(ERTS_LIB_DIR)/$(LIB_PREFIX)erts$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_LIBS += $(ERTS_LIB)
+
+ifneq ($(strip $(ETHR_LIB_NAME)),)
+ERTS_r_LIB = $(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_r$(TYPE_SUFFIX)$(LIB_SUFFIX)
+ERTS_LIBS += $(ERTS_r_LIB)
+endif
+
+endif
+
+#
+# erts_internal library
+#
+
+ERTS_LIB_INTERNAL_DIR=../lib/internal/$(TARGET)
+CREATE_DIRS += $(ERTS_LIB_INTERNAL_DIR)
+
+ERTS_INTERNAL_LIBS=
+
+ERTS_INTERNAL_LIB_SRCS = \
+	common/erl_printf_format.c \
+	common/erl_printf.c \
+	common/erl_misc_utils.c
+
+ERTS_INTERNAL_LIB_NAME=erts_internal$(TYPE_SUFFIX)
+
+ifeq ($(USING_VC),yes)
+ifeq ($(TYPE),debug)
+ERTS_INTERNAL_LIB_OBJS = \
+	$(addprefix $(MTd_OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+else
+ERTS_INTERNAL_LIB_OBJS = \
+	$(addprefix $(MT_OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+endif
+else
+ERTS_INTERNAL_LIB_OBJS = \
+	$(addprefix $(OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+endif
+
+ERTS_INTERNAL_LIB=$(ERTS_LIB_INTERNAL_DIR)/$(LIB_PREFIX)$(ERTS_INTERNAL_LIB_NAME)$(LIB_SUFFIX)
+
+ERTS_INTERNAL_LIBS += $(ERTS_INTERNAL_LIB)
+
+ifneq ($(strip $(ETHR_LIB_NAME)),)
+ERTS_INTERNAL_r_LIB_NAME=erts_internal_r$(TYPE_SUFFIX)
+
+ifeq ($(USING_VC),yes)
+ifeq ($(TYPE),debug)
+ERTS_INTERNAL_r_LIB_OBJS = \
+	$(addprefix $(MDd_OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+else
+ERTS_INTERNAL_r_LIB_OBJS = \
+	$(addprefix $(MD_OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+endif
+else
+ERTS_INTERNAL_r_LIB_OBJS = \
+	$(addprefix $(r_OBJ_DIR)/,$(notdir $(ERTS_INTERNAL_LIB_SRCS:.c=.o)))
+endif
+
+ERTS_INTERNAL_r_LIB=$(ERTS_LIB_INTERNAL_DIR)/$(LIB_PREFIX)$(ERTS_INTERNAL_r_LIB_NAME)$(LIB_SUFFIX)
+
+ERTS_INTERNAL_LIBS += $(ERTS_INTERNAL_r_LIB)
+
+endif
+
+#
+# ethread library
+#
+ETHR_THR_LIB_BASE_DIR=@ETHR_THR_LIB_BASE_DIR@
+ifneq ($(strip $(ETHR_LIB_NAME)),)
+ETHREAD_LIB_SRC=common/ethr_aux.c \
+		common/ethr_atomics.c \
+		common/ethr_mutex.c \
+		common/ethr_cbf.c \
+		$(ETHR_THR_LIB_BASE_DIR)/ethread.c \
+		$(ETHR_THR_LIB_BASE_DIR)/ethr_event.c
+ETHR_X86_SSE2_ASM=@ETHR_X86_SSE2_ASM@
+ifeq ($(ETHR_X86_SSE2_ASM),yes)
+ETHREAD_LIB_SRC += pthread/ethr_x86_sse2_asm.c
+endif
+ETHREAD_LIB_NAME=ethread$(TYPE_SUFFIX)
+
+ifeq ($(USING_VC),yes)
+ifeq ($(TYPE),debug)
+ETHREAD_LIB_OBJS = \
+	$(addprefix $(MDd_OBJ_DIR)/,$(notdir $(ETHREAD_LIB_SRC:.c=.o)))
+else
+ETHREAD_LIB_OBJS = \
+	$(addprefix $(MD_OBJ_DIR)/,$(notdir $(ETHREAD_LIB_SRC:.c=.o)))
+endif
+else
+ETHREAD_LIB_OBJS = \
+	$(addprefix $(r_OBJ_DIR)/,$(notdir $(ETHREAD_LIB_SRC:.c=.o)))
+endif
+
+ETHREAD_LIB=$(ERTS_LIB_INTERNAL_DIR)/$(LIB_PREFIX)$(ETHREAD_LIB_NAME)$(LIB_SUFFIX)
+
+else
+
+ETHREAD_LIB_SRC=
+ETHREAD_LIB_NAME=
+ETHREAD_LIB_OBJS=
+ETHREAD_LIB=
+
+endif
+
+ifneq ($(strip $(CREATE_DIRS)),)
+_create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
+
+#
+# Everything to build
+#
+.PHONY: all
+all: $(OBJ_DIR)/MADE
+
+$(OBJ_DIR)/MADE: $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+	$(gen_verbose)
+ifeq ($(OMIT_OMIT_FP),yes)
+	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
+	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
+	@echo '* *                                                         * *'
+	@echo '* * NOTE: Omit frame pointer optimization has been omitted  * *'
+	@echo '* *                                                         * *'
+	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
+	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
+endif
+	$(V_at)echo $? > $(OBJ_DIR)/MADE
+
+#
+# The libs ...
+#
+ifeq ($(USING_VC),yes)
+AR_OUT=-out:
+AR_FLAGS=
+else
+AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
+AR_FLAGS=rcv
+endif
+endif
+
+ifndef RANLIB
+RANLIB=true
+endif
+
+$(ETHREAD_LIB): $(ETHREAD_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ETHREAD_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_INTERNAL_LIB): $(ERTS_INTERNAL_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_INTERNAL_r_LIB): $(ERTS_INTERNAL_r_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_r_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_MD_LIB): $(ERTS_MD_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MD_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_MDd_LIB): $(ERTS_MDd_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MDd_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_MT_LIB): $(ERTS_MT_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MT_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_MTd_LIB): $(ERTS_MTd_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MTd_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_r_LIB): $(ERTS_r_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_r_LIB_OBJS)
+	$(V_RANLIB) $@
+
+$(ERTS_LIB): $(ERTS_LIB_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_LIB_OBJS)
+	$(V_RANLIB) $@
+
+#
+# Object files
+#
+
+$(r_OBJ_DIR)/ethr_x86_sse2_asm.o: pthread/ethr_x86_sse2_asm.c
+	$(V_CC) -msse2 $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(r_OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(r_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# Win32 specific
+
+$(MD_OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
+
+$(MD_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
+
+$(MDd_OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
+
+$(MDd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
+
+$(MT_OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
+
+$(MT_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
+
+$(MTd_OBJ_DIR)/%.o: common/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
+
+$(MTd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
+
+#
+# Install
+#
+
+include $(ERL_TOP)/make/otp_release_targets.mk
+include ../vsn.mk
+RELSYSDIR = $(RELEASE_PATH)/erts-$(VSN)
+
+RELEASE_INCLUDES= \
+	$(ERTS_INCL)/erl_memory_trace_parser.h \
+	$(ERTS_INCL)/$(TARGET)/erl_int_sizes_config.h \
+	$(ERTS_INCL)/erl_fixed_size_int_types.h
+RELEASE_LIBS=$(ERTS_LIBS)
+
+INTERNAL_RELEASE_INCLUDES= \
+	$(ERTS_INCL_INT)/README \
+	$(ERTS_INCL_INT)/ethread.h \
+	$(ERTS_INCL_INT)/ethread_inline.h \
+	$(ERTS_INCL_INT)/ethr_mutex.h \
+	$(ERTS_INCL_INT)/ethr_optimized_fallbacks.h \
+	$(ERTS_INCL_INT)/ethr_atomics.h \
+	$(ERTS_INCL_INT)/$(TARGET)/ethread.mk \
+	$(ERTS_INCL_INT)/$(TARGET)/erts_internal.mk \
+	$(ERTS_INCL_INT)/$(TARGET)/ethread_header_config.h \
+	$(ERTS_INCL_INT)/erl_printf.h \
+	$(ERTS_INCL_INT)/erl_printf_format.h \
+	$(ERTS_INCL_INT)/erl_memory_trace_protocol.h \
+	$(ERTS_INCL_INT)/erl_misc_utils.h \
+	$(ERTS_INCL_INT)/erl_errno.h
+
+INTERNAL_X_RELEASE_INCLUDE_DIRS= \
+        i386 x86_64 ppc32 sparc32 sparc64 tile gcc pthread win libatomic_ops
+
+INTERNAL_RELEASE_LIBS= \
+	../lib/internal/README \
+	$(ETHREAD_LIB) \
+	$(ERTS_INTERNAL_LIBS)
+
+.PHONY: release_spec
+release_spec: all
+ifneq ($(strip $(RELEASE_INCLUDES)),)
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
+	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELEASE_PATH)/usr/include"
+endif
+ifneq ($(strip $(INTERNAL_RELEASE_INCLUDES)),)
+	$(INSTALL_DIR) "$(RELSYSDIR)/include/internal"
+	$(INSTALL_DATA) $(INTERNAL_RELEASE_INCLUDES) "$(RELSYSDIR)/include/internal"
+endif
+ifneq ($(strip $(INTERNAL_X_RELEASE_INCLUDE_DIRS)),)
+	for xdir in $(INTERNAL_X_RELEASE_INCLUDE_DIRS); do \
+		$(INSTALL_DIR) "$(RELSYSDIR)/include/internal/$$xdir"; \
+		$(INSTALL_DATA) $(ERTS_INCL_INT)/$$xdir/*.h \
+			"$(RELSYSDIR)/include/internal/$$xdir"; \
+	done
+endif
+ifneq ($(strip $(RELEASE_LIBS)),)
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
+	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELSYSDIR)/lib"
+	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELEASE_PATH)/usr/lib"
+endif
+ifneq ($(strip $(INTERNAL_RELEASE_LIBS)),)
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib/internal"
+	$(INSTALL_DATA) $(INTERNAL_RELEASE_LIBS) "$(RELSYSDIR)/lib/internal"
+endif
+
+.PHONY: docs
+docs: 
+
+.PHONY: release_docs_spec
+release_docs_spec:
+
+#
+# Cleanup
+#
+.PHONY: clean
+clean:
+	$(RM) -r ../lib/internal/$(TARGET)/*
+	$(RM) -r ../lib/$(TARGET)/*
+	$(RM) -r obj/$(TARGET)/*
+
+#
+# Make dependencies
+#
+
+ifeq ($(USING_VC),yes)
+# VC++ used for compiling. We undef __GNUC__ since if __GNUC__ is defined
+# we will include other headers than when compiling which will result in
+# faulty dependencies.
+#DEP_CC=@EMU_CC@ -U__GNUC__
+DEP_CC=$(CC)
+else
+DEP_CC=$(CC)
+endif
+
+#SED_REPL_WIN_DRIVE=s|\([ 	]\)\([A-Za-z]\):|\1/cygdrive/\2|g;s|^\([A-Za-z]\):|/cygdrive/\1|g
+SED_REPL_O=s|^\([^:]*\)\.o:|$$(OBJ_DIR)/\1.o:|g
+SED_REPL_r_O=s|^\([^:]*\)\.o:|$$(r_OBJ_DIR)/\1.o:|g
+SED_REPL_MD_O=s|^\([^:]*\)\.o:|$$(MD_OBJ_DIR)/\1.o:|g
+SED_REPL_MDd_O=s|^\([^:]*\)\.o:|$$(MDd_OBJ_DIR)/\1.o:|g
+SED_REPL_MT_O=s|^\([^:]*\)\.o:|$$(MT_OBJ_DIR)/\1.o:|g
+SED_REPL_MTd_O=s|^\([^:]*\)\.o:|$$(MTd_OBJ_DIR)/\1.o:|g
+SED_REPL_TT_DIR=s|$(TT_DIR)/|$$(TT_DIR)/|g
+SED_REPL_TARGET=s|$(TARGET)/|$$(TARGET)/|g
+
+ifeq ($(TARGET),win32)
+#SED_PREFIX=$(SED_REPL_WIN_DRIVE);
+SED_PREFIX=
+DEP_FLAGS=$(subst -O3,,$(subst -O2,,$(CFLAGS))) $(INCLUDES)
+else
+SED_PREFIX=
+DEP_FLAGS=$(CFLAGS) $(INCLUDES)
+endif
+
+SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+SED_r_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_r_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+SED_MD_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MD_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+SED_MDd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MDd_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+SED_MT_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MT_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+SED_MTd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MTd_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
+
+DEPEND_MK=$(OBJ_DIR)/depend.mk
+
+.PHONY: depend
+depend: $(DEPEND_MK)
+$(DEPEND_MK):
+	$(gen_verbose)
+	$(V_colon)@echo "Generating dependency file $(DEPEND_MK)..."
+	@echo "# Generated dependency rules" > $(DEPEND_MK);
+	@echo "# " >> $(DEPEND_MK);
+ifneq ($(strip $(ETHREAD_LIB_SRC)),)
+	@echo "# ethread lib objects..." >> $(DEPEND_MK);
+ifeq ($(USING_VC),yes)
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
+else
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+		| $(SED_r_DEPEND) >> $(DEPEND_MK)
+endif
+endif
+ifneq ($(strip $(ERTS_INTERNAL_LIB_SRCS)),)
+ifneq ($(strip $(ETHREAD_LIB_SRC)),)
+	@echo "# erts_internal_r lib objects..." >> $(DEPEND_MK);
+ifeq ($(USING_VC),yes)
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
+else
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_r_DEPEND) >> $(DEPEND_MK)
+endif
+endif
+	@echo "# erts_internal lib objects..." >> $(DEPEND_MK);
+ifeq ($(USING_VC),yes)
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
+else
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_DEPEND) >> $(DEPEND_MK)
+endif
+endif
+ifneq ($(strip $(ERTS_LIB_SRCS)),)
+ifeq ($(USING_VC),yes)
+	@echo "# erts_MD lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
+	@echo "# erts_MDd lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
+	@echo "# erts_MT lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_MT_DEPEND) >> $(DEPEND_MK)
+	@echo "# erts_MTd lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_MTd_DEPEND) >> $(DEPEND_MK)
+	@echo "# erts_internal_r lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
+	@echo "# erts_internal_r.debug lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
+else
+ifneq ($(strip $(ETHREAD_LIB_SRC)),)
+	@echo "# erts_r lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_r_DEPEND) >> $(DEPEND_MK)
+endif
+	@echo "# erts lib objects..." >> $(DEPEND_MK);
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+		| $(SED_DEPEND) >> $(DEPEND_MK)
+endif
+endif
+	@echo "# EOF" >> $(DEPEND_MK);
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPEND_MK)
+endif
+
+# eof

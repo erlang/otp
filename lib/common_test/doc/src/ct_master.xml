@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_master</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_master.xml</file>
+  </header>
+  <module since="">ct_master</module>
+  <modulesummary>Distributed test execution control for Common Test.</modulesummary>
+
+<description>
+
+    <p>Distributed test execution control for <c>Common Test</c>.</p>
+
+    <p>This module exports functions for running <c>Common Test</c> nodes on
+      multiple hosts in parallel.</p>
+
+</description>
+
+  <funcs>
+    <func>
+      <name since="">abort() -&gt; ok</name>
+      <fsummary>Stops all running tests.</fsummary>
+      <desc><marker id="abort-0"/>
+        <p>Stops all running tests.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">abort(Nodes) -&gt; ok</name>
+      <fsummary>Stops tests on specified nodes.</fsummary>
+      <type>
+        <v>Nodes = atom() | [atom()]</v>
+      </type>
+      <desc><marker id="abort-1"/>
+        <p>Stops tests on specified nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">basic_html(Bool) -&gt; ok</name>
+      <fsummary>If set to true, the ct_master logs are written on a primitive
+        HTML format, not using the <c>Common Test</c> CSS style sheet.</fsummary>
+      <type>
+        <v>Bool = true | false</v>
+      </type>
+      <desc><marker id="basic_html-1"/>
+        <p>If set to <c>true</c>, the <c>ct_master logs</c> are written on a
+          primitive HTML format, not using the <c>Common Test</c> CSS style
+          sheet.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; MasterEvMgrRef</name>
+      <fsummary>Gets a reference to the <c>Common Test</c> master event
+        manager.</fsummary>
+      <type>
+        <v>MasterEvMgrRef = atom()</v>
+      </type>
+      <desc><marker id="get_event_mgr_ref-0"/>
+        <p>Gets a reference to the <c>Common Test</c> master event manager.
+          The reference can be used to, for example, add a user-specific
+          event handler while tests are running.</p>
+
+        <p><em>Example:</em></p>
+
+        <pre>
+ gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">progress() -&gt; [{Node, Status}]</name>
+      <fsummary>Returns test progress.</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Status = finished_ok | ongoing | aborted | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="progress-0"/>
+        <p>Returns test progress. If <c>Status</c> is <c>ongoing</c>, tests
+          are running on the node and are not yet finished.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run(TestSpecs) -&gt; ok</name>
+      <fsummary>Equivalent to run(TestSpecs, false, [], []).</fsummary>
+      <type>
+        <v>TestSpecs = string() | [SeparateOrMerged]</v>
+      </type>
+      <desc><marker id="run-1"/>
+        <p>Equivalent to <seealso marker="#run-4"><c>ct_master:run(TestSpecs,
+          false, [], [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run(TestSpecs, InclNodes, ExclNodes) -&gt; ok</name>
+      <fsummary>Equivalent to run(TestSpecs, false, InclNodes, ExclNodes).
+      </fsummary>
+      <type>
+        <v>TestSpecs = string() | [SeparateOrMerged]</v>
+        <v>SeparateOrMerged = string() | [string()]</v>
+        <v>InclNodes = [atom()]</v>
+        <v>ExclNodes = [atom()]</v>
+      </type>
+      <desc><marker id="run-3"/>
+        <p>Equivalent to <seealso marker="#run-4"><c>ct_master:run(TestSpecs,
+          false, InclNodes, ExclNodes)</c></seealso>.</p>
+      </desc>
+     </func>
+
+     <func>
+       <name since="">run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -&gt; ok</name>
+       <fsummary>Tests are spawned on the nodes as specified in TestSpecs.
+       </fsummary>
+       <type>
+         <v>TestSpecs = string() | [SeparateOrMerged]</v>
+         <v>SeparateOrMerged = string() | [string()]</v>
+         <v>AllowUserTerms = bool()</v>
+         <v>InclNodes = [atom()]</v>
+         <v>ExclNodes = [atom()]</v>
+      </type>
+      <desc><marker id="run-4"/>
+        <p>Tests are spawned on the nodes as specified in <c>TestSpecs</c>.
+          Each specification in <c>TestSpec</c> is handled separately.
+          However, it is also possible to specify a list of specifications to
+          be merged into one specification before the tests are executed. Any
+          test without a particular node specification is also executed on
+          the nodes in <c>InclNodes</c>. Nodes in the <c>ExclNodes</c> list
+          are excluded from the test.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_on_node(TestSpecs, Node) -&gt; ok</name>
+      <fsummary>Equivalent to run_on_node(TestSpecs, false, Node).</fsummary>
+      <type>
+        <v>TestSpecs = string() | [SeparateOrMerged]</v>
+        <v>SeparateOrMerged = string() | [string()]</v>
+        <v>Node = atom()</v>
+      </type>
+      <desc><marker id="run_on_node-2"/>
+        <p>Equivalent to
+          <seealso marker="#run_on_node-3"><c>ct_master:run_on_node(TestSpecs,
+          false, Node)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_on_node(TestSpecs, AllowUserTerms, Node) -&gt; ok</name>
+      <fsummary>Tests are spawned on Node according to TestSpecs.</fsummary>
+      <type>
+        <v>TestSpecs = string() | [SeparateOrMerged]</v>
+        <v>SeparateOrMerged = string() | [string()]</v>
+        <v>AllowUserTerms = bool()</v>
+        <v>Node = atom()</v>
+      </type>
+      <desc><marker id="run_on_node-3"/>
+        <p>Tests are spawned on <c>Node</c> according to <c>TestSpecs</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_test(Node, Opts) -&gt; ok</name>
+      <fsummary>Tests are spawned on Node using ct:run_test/1.</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Opts = [OptTuples]</v>
+        <v>OptTuples = {config, CfgFiles} | {dir, TestDirs} | {suite, Suites} | {testcase, Cases} | {spec, TestSpecs} | {allow_user_terms, Bool} | {logdir, LogDir} | {event_handler, EventHandlers} | {silent_connections, Conns} | {cover, CoverSpecFile} | {cover_stop, Bool} | {userconfig, UserCfgFiles}</v>
+        <v>CfgFiles = string() | [string()]</v>
+        <v>TestDirs = string() | [string()]</v>
+        <v>Suites = atom() | [atom()]</v>
+        <v>Cases = atom() | [atom()]</v>
+        <v>TestSpecs = string() | [string()]</v>
+        <v>LogDir = string()</v>
+        <v>EventHandlers = EH | [EH]</v>
+        <v>EH = atom() | {atom(), InitArgs} | {[atom()], InitArgs}</v>
+        <v>InitArgs = [term()]</v>
+        <v>Conns = all | [atom()]</v>
+      </type>
+      <desc><marker id="run_test-2"/>
+        <p>Tests are spawned on <c>Node</c> using
+          <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso></p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

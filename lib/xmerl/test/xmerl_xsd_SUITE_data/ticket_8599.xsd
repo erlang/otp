@@ -1,0 +1,17 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="persons"  type="p"/>
+
+  <xs:complexType name="p">
+    <xs:sequence>
+      <xs:element name="person" type="string" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+
+  <xs:simpleType name="string">
+    <xs:restriction base="xs:string">
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

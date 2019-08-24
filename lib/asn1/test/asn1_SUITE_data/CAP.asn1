@@ -1,0 +1,41 @@
+CAP {ccitt(0) identified-organization(4) etsi(0) mobileDomain(0) umts-network(1) modules(3) cap-datatypes(52) version3(2)}
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+EXTENSION ::= CLASS {
+  &ExtensionType,
+  &criticality    CriticalityType DEFAULT ignore,
+  &id        Code
+  }
+WITH SYNTAX {
+  EXTENSION-SYNTAX    &ExtensionType
+  CRITICALITY        &criticality
+  IDENTIFIED BY        &id
+  }
+
+ExtensionField     ::= SEQUENCE {
+  type        EXTENSION.&id    ({SupportedExtensions }),
+  criticality    CriticalityType        DEFAULT ignore,
+  value        [1] EXTENSION.&ExtensionType    ({SupportedExtensions }{@type}),
+  ...}
+
+SupportedExtensions  EXTENSION ::= {firstExtension, ...}
+
+firstExtension EXTENSION ::= {
+      EXTENSION-SYNTAX    NULL
+  CRITICALITY              ignore
+  IDENTIFIED BY        global : {itu-t(0) identified-organization(4) organisation(0) gsm(1)
+                      capextension(2)}}
+
+CriticalityType  ::= ENUMERATED {
+      ignore    (0),
+      abort     (1)
+      }
+
+Code ::= CHOICE {local   INTEGER,
+               global  OBJECT IDENTIFIER}
+
+
+END

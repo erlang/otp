@@ -1,0 +1,184 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+//
+// Define a regular expression that will match instructions that
+// perform GC.  That will allow beam_makeops to check for instructions
+// that don't use $REFRESH_GEN_DEST() when they should.
+//
+
+GC_REGEXP=erts_garbage_collect|erts_gc|GcBifFunction;
+
+// $Offset is relative to the start of the instruction (not to the
+// location of the failure label reference). Since combined
+// instructions may increment the instruction pointer (e.g. in
+// 'increment') for some of the instructions in the group, we actually
+// use a virtual start position common to all instructions in the
+// group. To calculate the correct virtual position, we will need to
+// add $IP_ADJUSTMENT to the offset. ($IP_ADJUSTMENT will usually be
+// zero, except in a few bit syntax instructions.)
+
+SET_I_REL(Offset) {
+    ASSERT(VALID_INSTR(*(I + ($Offset) + $IP_ADJUSTMENT)));
+    I += $Offset + $IP_ADJUSTMENT;
+}
+
+SET_CP_I_ABS(Target) {
+    c_p->i = $Target;
+    ASSERT(VALID_INSTR(*c_p->i));
+}
+
+SET_REL_I(Dst, Offset) {
+    $Dst = I + ($Offset);
+    ASSERT(VALID_INSTR(*$Dst));
+}
+
+FAIL(Fail) {
+    //| -no_prefetch
+    $SET_I_REL($Fail);
+    Goto(*I);
+}
+
+JUMP(Fail) {
+    //| -no_next
+    $SET_I_REL($Fail);
+    Goto(*I);
+}
+
+GC_SWAPOUT() {
+    //
+    // Since a garbage collection is expensive anyway, we can afford
+    // to save the instruction counter so that the correct function will
+    // be pointed in the crash dump if the garbage collection fails
+    // because of insufficient memory.
+    //
+    SWAPOUT;
+    c_p->i = I;
+}
+
+GC_TEST(Ns, Nh, Live) {
+    Uint need = $Nh + $Ns;
+    if (ERTS_UNLIKELY(E - HTOP < need)) {
+       $GC_SWAPOUT();
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       SWAPIN;
+    }
+    HEAP_SPACE_VERIFIED($Nh);
+}
+
+GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
+    Uint need = $NeedHeap;
+    if (ERTS_UNLIKELY(E - HTOP < need)) {
+       $GC_SWAPOUT();
+       reg[$Live] = $PreserveTerm;
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live+1, FCALLS);
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       $PreserveTerm = reg[$Live];
+       SWAPIN;
+    }
+    HEAP_SPACE_VERIFIED($NeedHeap);
+}
+
+
+// Make sure that there are NeedStack + NeedHeap + 1 words available
+// on the combined heap/stack segment, then allocates NeedHeap + 1
+// words on the stack and saves CP.
+AH(NeedStack, NeedHeap, Live) {
+    unsigned needed = $NeedStack + 1;
+    $GC_TEST(needed, $NeedHeap, $Live);
+    E -= needed;
+    *E = make_cp(c_p->cp);
+    c_p->cp = 0;
+}
+
+NEXT0() {
+    //| -no_next
+    SET_I((BeamInstr *) $NEXT_INSTRUCTION);
+    Goto(*I);
+}
+
+NEXT(Addr) {
+    //| -no_next
+    SET_I((BeamInstr *) $Addr);
+    Goto(*I);
+}
+
+FAIL_BODY() {
+    //| -no_prefetch
+    goto find_func_info;
+}
+
+FAIL_HEAD_OR_BODY(Fail) {
+    //| -no_prefetch
+
+    /*
+     * In a correctly working program, we expect failures in
+     * guards to be more likely than failures in bodies.
+     */
+
+    if (ERTS_LIKELY($Fail)) {
+        $FAIL($Fail);
+    }
+    goto find_func_info;
+}
+
+BADARG(Fail) {
+    c_p->freason = BADARG;
+    $FAIL_HEAD_OR_BODY($Fail);
+}
+
+BADARITH0() {
+    c_p->freason = BADARITH;
+    goto find_func_info;
+}
+
+SYSTEM_LIMIT(Fail) {
+    c_p->freason = SYSTEM_LIMIT;
+    $FAIL_HEAD_OR_BODY($Fail);
+}
+
+BIF_ERROR_ARITY_1(Fail, BIF, Op1) {
+    //| -no_prefetch
+    if (ERTS_LIKELY($Fail)) {
+        $FAIL($Fail);
+    }
+    reg[0] = $Op1;
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    goto post_error_handling;
+}
+
+BIF_ERROR_ARITY_2(Fail, BIF, Op1, Op2) {
+    //| -no_prefetch
+    if (ERTS_LIKELY($Fail)) {
+        $FAIL($Fail);
+    }
+    reg[0] = $Op1;
+    reg[1] = $Op2;
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    goto post_error_handling;
+}

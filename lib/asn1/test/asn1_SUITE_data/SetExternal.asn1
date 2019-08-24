@@ -1,0 +1,68 @@
+SetExternal DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSeq1, XSetNT, XSetImp, XSetExp FROM External;
+
+
+
+SetXSeq1 ::= SET 
+{
+  seq  XSeq1,
+  bool  BOOLEAN,
+  int  INTEGER
+}
+
+
+SetXSeq2 ::= SET 
+{
+  bool  BOOLEAN,
+  seq  XSeq1,
+  int  INTEGER
+}
+
+
+SetXSeq3 ::= SET 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  seq  XSeq1
+}
+
+
+NT ::= SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [11] SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [12] EXPLICIT SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+NTNT ::= NT
+ImpNT ::= [3] NT
+ExpNT ::= [4] EXPLICIT NT
+
+NTImp ::= Imp
+ImpImp ::= [5] Imp
+ExpImp ::= [6] EXPLICIT Imp
+
+NTExp ::= Exp
+ImpExp ::= [7] Exp
+ExpExp ::= [8] EXPLICIT Exp
+
+XNTNT ::= XSetNT
+XImpNT ::= [3] XSetNT
+XExpNT ::= [4] EXPLICIT XSetNT
+
+XNTImp ::= XSetImp
+XImpImp ::= [5] XSetImp
+XExpImp ::= [6] EXPLICIT XSetImp
+
+XNTExp ::= XSetExp
+XImpExp ::= [7] XSetExp
+XExpExp ::= [8] EXPLICIT XSetExp
+
+
+END

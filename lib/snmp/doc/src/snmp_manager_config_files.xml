@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Definition of Manager Configuration Files</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_manager_config_files.xml</file>
+  </header>
+  <p>Configuration data may be included in configuration files
+    that is located in the configuration directory. The name of this
+    directory is given in the <c>config_dir</c> configuration
+    parameter. These files are read at start-up.
+    </p>
+  <p>The directory where the configuration files are found is given as
+    a parameter to the manager.
+    </p>
+  <p>The entry format in all files are Erlang terms, separated by a
+    '<em>.</em>' and a <em>newline</em>. In the following sections, the
+    formats of these terms are described. Comments may be specified as
+    ordinary Erlang comments.
+    </p>
+  <p>If syntax errors are discovered in these files they are reported with the
+    function <c>config_err/2</c> of the 
+    <seealso marker="snmpa_error_report">error report module</seealso>  
+    at start-up.
+    </p>
+
+  <section>
+    <marker id="manager"></marker>
+    <marker id="manager_information"></marker>
+    <title>Manager Information</title>
+    <p>The manager information should be stored in a file called
+      <c>manager.conf</c>.
+      </p>
+    <p>Each entry is a tuple of size two:
+      </p>
+    <p><c>{Variable, Value}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>Variable</c> is one of the following:</p>
+        <list type="bulleted">
+	  <item>
+	    <p><c>transports</c> - which defines the transport domains
+	    and their addresses for the manager. <em>Mandatory</em>
+	    </p>
+	    <p><c>Value</c> is a list of <c>{Domain, Addr}</c> tuples
+	    or <c>Domain</c> atoms.
+	    </p>
+	    <list type="bulleted">
+	      <item>
+		<p><c>Domain</c> is one of <c>transportDomainUdpIpv4</c>
+		or <c>transportDomainUdpIpv6</c>.</p>
+	      </item>
+	      <item>
+		<p><c>Addr</c> is for the currently supported domains
+		either an <c>IpAddr</c> or an <c>{IpAddr, IpPort}</c>
+		tuple.<c>IpAddr</c> is either a regular Erlang/OTP
+		<seealso marker="kernel:inet#type-ip_address">
+		<c>ip_address()</c></seealso> or a traditional SNMP integer list
+		and <c>IpPort</c> is an integer.
+		</p>
+		<p>When <c>Addr</c> does not contain a port number,
+		the value of <c>port</c> is used.
+		</p>
+		<p>When a <c>Addr</c> is not specified i.e by
+		using only a <c>Domain</c> atom, the host's name
+		is resolved to find the IP address, and the value of
+		<c>port</c> is used.
+		</p>
+	      </item>
+	    </list>
+	  </item>
+          <item>
+            <p><c>port</c> - which defines which UDP port the manager uses
+              for communicating with agents.
+	    <em>Mandatory</em> if <c>transports</c> does not define
+	    a port number for every transport.</p>
+          </item>
+          <item>
+            <p><c>engine_id</c> - The <c>SnmpEngineID</c> as defined in 
+              SNMP-FRAMEWORK-MIB. <em>Mandatory</em>.</p>
+          </item>
+          <item>
+            <p><c>max_message_size</c> - The <c>snmpEngineMaxMessageSize</c> as
+              defined in SNMP-FRAMEWORK-MIB. <em>Mandatory</em>.</p>
+          </item>
+        </list>
+      </item>
+      <item>
+        <p><c>Value</c> is the value for the variable.
+          </p>
+      </item>
+    </list>
+    <p>The legacy and intermediate variables <c>address</c> and <c>domain</c>
+    are still supported so old configurations will work.</p>
+    <p>The following example shows a <c>manager.conf</c> file: 
+      </p>
+    <pre>
+{transports,       [{transportDomainUdpIpv4, {{141,213,11,24}, 5000}},
+                    {transportDomainUdpIpv6, {{0,0,0,0,0,0,0,1}, 5000}}]}.
+{engine_id,        "mgrEngine"}.
+{max_message_size, 484}.
+    </pre>
+    <p>The value of <c>engine_id</c> is a string, which should have a 
+      very specific structure. See RFC 2271/2571 for details.
+      </p>
+  </section>
+
+  <section>
+    <marker id="users"></marker>
+    <title>Users</title>
+    <p>For each <em>manager user</em>, the manager needs some information.
+      This information is either added in the <c>users.conf</c> config 
+      file or by calling the 
+      <seealso marker="snmpm#register_user">register_user</seealso> 
+      function in run-time.
+      </p>
+    <p>Each row defines a <em>manager user</em> of the manager. 
+      </p>
+    <p>Each entry is a tuple of size four:
+      </p>
+    <!-- <p><c>{UserId, UserMod, UserData}.</c></p> -->
+    <p><c>{UserId, UserMod, UserData, DefaultAgentConfig}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>UserId</c> is any term (used to uniquely identify the user).</p>
+      </item>
+      <item>
+        <p><c>UserMod</c> is the user callback module (atom).</p>
+      </item>
+      <item>
+        <p><c>UserData</c> is any term (passed on to the user when calling the
+          <c>UserMod</c>.
+          </p>
+      </item>
+      <item>
+        <p><c>DefaultAgentConfig</c> is a list of default agent config's. 
+          These values are used as default values when this user registers 
+          agents.
+          </p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="agents"></marker>
+    <title>Agents</title>
+    <p>The information needed to handle agents should be stored in a 
+      file called <c>agents.conf</c>. It is also possible to add agents
+      in run-time by calling the 
+      <seealso marker="snmpm#register_agent">register_agent</seealso>.
+      </p>
+    <p>Each entry is a tuple:
+      </p>
+    <p><c>{UserId,  TargetName, Comm, Domain, Addr, EngineID, Timeout,  MaxMessageSize, Version, SecModel, SecName, SecLevel}.</c></p>
+    <list type="bulleted">
+      <item>
+        <p><c>UserId</c> is the identity of the <em>manager user</em>
+          responsible for this agent (term).
+          </p>
+      </item>
+      <item>
+        <p><c>TargetName</c> is a <em>unique</em> <em>non-empty</em> string.</p>
+      </item>
+      <item>
+        <p><c>Comm</c> is the community string (string).</p>
+      </item>
+      <item>
+	<p><c>Domain</c> is the transport domain, either
+	<c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>.</p>
+      </item>
+      <item>
+	<p><c>Addr</c> is the address in the transport domain,
+	either an <c>{IpAddr, IpPort}</c> tuple or a traditional SNMP
+	integer list containing port number. <c>IpAddr</c> is either
+	a regular Erlang/OTP
+	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	or a traditional SNMP integer list not containing port number,
+	and <c>IpPort</c> is an integer.</p>
+      </item>
+      <item>
+        <p><c>EngineID</c> is the engine-id of the agent (string).</p>
+      </item>
+      <item>
+        <p><c>Timeout</c> is re-transmission timeout 
+          (<c>infinity</c> | integer).</p>
+      </item>
+      <item>
+        <p><c>MaxMessageSize</c> is the max message size for outgoing messages 
+          to this agent (integer).</p>
+      </item>
+      <item>
+        <p><c>Version</c> is the version (v1 | v2 | v3).</p>
+      </item>
+      <item>
+        <p><c>SecModel</c> is the security model (any | v1 | v2c | usm).</p>
+      </item>
+      <item>
+        <p><c>SecName</c> is the security name (string).</p>
+      </item>
+      <item>
+        <p><c>SecLevel</c> is security level (noAuthNoPriv | authNoPriv | 
+          authPriv).</p>
+      </item>
+    </list>
+    <p>Legacy configurations using tuples without <c>Domain</c> element,
+    as well as with all <c>TDomain</c>, <c>Ip</c> and <c>Port</c> elements
+    still work.</p>
+  </section>
+
+  <section>
+    <marker id="usm"></marker>
+    <marker id="usm_user"></marker>
+    <title>Security data for USM</title>
+    <p>The information about Security data for USM should be stored in a 
+      file called <c>usm.conf</c>, which must be present if the manager
+      wishes to use SNMPv3 when communicating with agents. It is also 
+      possible to add usm data in run-time by calling the 
+      <seealso marker="snmpm#register_usm_user">register_usm_user</seealso>.
+      </p>
+    <p>The corresponding table is <c>usmUserTable</c> in the
+      SNMP-USER-BASED-SM-MIB.
+      </p>
+    <p>Each entry is a term:
+      </p>
+    <p><c>{EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.</c>      <br></br>
+<c>{EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.</c></p>
+    <p>The first case is when we have the identity-function 
+      (<c>SecName</c> = <c>UserName</c>).
+      </p>
+    <list type="bulleted">
+      <item>
+        <p><c>EngineID</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>UserName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>SecName</c> is a string.</p>
+      </item>
+      <item>
+        <p><c>AuthP</c> is a <c>usmNoAuthProtocol</c>,
+          <c>usmHMACMD5AuthProtocol</c> or <c>usmHMACSHAAuthProtocol</c>.</p>
+      </item>
+      <item>
+        <p><c>AuthKey</c> is a list (of integer). This is the User's 
+          secret localized authentication key. It is not visible in the MIB. 
+          The length of this key needs to be 16 if 
+          <c>usmHMACMD5AuthProtocol</c> is used and 20 if 
+          <c>usmHMACSHAAuthProtocol</c> is used.</p>
+      </item>
+      <item>
+        <p><c>PrivP</c> is a <c>usmNoPrivProtocol</c>, 
+          <c>usmDESPrivProtocol</c> or <c>usmAesCfb128Protocol</c>.</p>
+      </item>
+      <item>
+        <p><c>PrivKey</c> is a list (of integer). This is the User's secret
+          localized encryption key.  It is not visible in the MIB. The length
+          of this key needs to be 16 if <c>usmDESPrivProtocol</c> 
+          or <c>usmAesCfb128Protocol</c> is used.</p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

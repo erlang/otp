@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Inet Configuration</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date>2004-03-02</date>
+    <rev>PA1</rev>
+    <file>inet_cfg.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>This section describes how the Erlang runtime system is configured
+      for IP communication. It also explains how you can configure it
+      for your needs by a configuration file.
+      The information is primarily intended for users with special
+      configuration needs or problems. There is normally no need
+      for specific settings for Erlang to function properly on a correctly
+      IP-configured platform.</p>
+
+    <p>When Erlang starts up it reads the Kernel variable
+      <c><![CDATA[inetrc]]></c>, which, if defined, is to specify the location
+      and name of a user configuration file. Example:</p>
+
+    <code type="none"><![CDATA[
+% erl -kernel inetrc '"./cfg_files/erl_inetrc"']]></code>
+
+    <p>Notice that the use of an <c><![CDATA[.inetrc]]></c> file, which was
+      supported in earlier Erlang/OTP versions, is now obsolete.</p>
+
+    <p>A second way to specify the configuration file is to set
+      environment variable <c><![CDATA[ERL_INETRC]]></c> to the full name of
+      the file. Example (bash):</p>
+
+    <code type="none"><![CDATA[
+% export ERL_INETRC=./cfg_files/erl_inetrc]]></code>
+
+    <p>Notice that the Kernel variable <c><![CDATA[inetrc]]></c>
+      overrides this environment variable.</p>
+
+    <p>If no user configuration file is specified and Erlang is started
+      in non-distributed or short name distributed mode, Erlang uses
+      default configuration settings and a native lookup method that
+      works correctly under most circumstances. Erlang reads no
+      information from system <c>inet</c> configuration files (such as 
+      <c>/etc/host.conf</c> and <c>/etc/nsswitch.conf</c>) in these modes,
+      except for <c>/etc/resolv.conf</c> and <c>/etc/hosts</c> that is read and
+      monitored for changes on Unix platforms for the internal DNS client
+      <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.</p>
+
+    <p>If Erlang is started in long name distributed mode, it needs to
+      get the domain name from somewhere and reads system <c>inet</c>
+      configuration files for this information. Any hosts and resolver
+      information found is also recorded, but not
+      used as long as Erlang is configured for native lookups. The
+      information becomes useful if the lookup method is changed to 
+      <c><![CDATA['file']]></c> or <c><![CDATA['dns']]></c>, see below.</p>
+
+    <p>Native lookup (system calls) is always the default resolver method.
+      This is true for all platforms, except VxWorks and OSE Delta where
+      <c><![CDATA['file']]></c> or <c><![CDATA['dns']]></c> is used (in that
+      priority order).</p>
+
+    <p>On Windows platforms, Erlang searches the system registry rather than
+      looks for configuration files when started in long name distributed
+      mode.</p>
+  </section>
+
+  <section>
+    <title>Configuration Data</title>
+    <p>Erlang records the following data in a local database if found in system 
+      <c>inet</c> configuration files (or system registry):</p>
+
+   <list type="bulleted">
+      <item>Hostnames and host addresses</item>
+      <item>Domain name</item>
+      <item>Nameservers</item>
+      <item>Search domains</item>
+      <item>Lookup method</item>
+    </list>
+
+    <p>This data can also be specified explicitly in the user
+      configuration file. This file is to contain lines
+      of configuration parameters (each terminated with a full stop).
+      Some parameters add data to the configuration (such as host
+      and nameserver), others overwrite any previous settings
+      (such as domain and lookup). The user configuration file is always
+      examined last in the configuration process, making it possible
+      for the user to override any default values or previously made
+      settings. Call <c><![CDATA[inet:get_rc()]]></c> to view the state of the
+      <c>inet</c> configuration database.</p>
+
+    <p>The valid configuration parameters are as follows:</p>
+
+    <taglist>
+      <tag><c><![CDATA[{file, Format, File}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Format = atom()]]></c></p>
+        <p><c><![CDATA[File = string()]]></c></p>
+        <p>Specify a system file that Erlang is to read configuration data from.
+          <c><![CDATA[Format]]></c> tells the parser how the file is to be
+          interpreted:</p>
+        <list type="bulleted">
+          <item><c><![CDATA[resolv]]></c> (Unix resolv.conf)</item>
+          <item><c><![CDATA[host_conf_freebsd]]></c> (FreeBSD host.conf)</item>
+          <item><c><![CDATA[host_conf_bsdos]]></c> (BSDOS host.conf)</item>
+          <item><c><![CDATA[host_conf_linux]]></c> (Linux host.conf)</item>
+          <item><c><![CDATA[nsswitch_conf]]></c> (Unix nsswitch.conf)</item>
+          <item><c><![CDATA[hosts]]></c> (Unix hosts)</item>
+        </list>
+        <p><c><![CDATA[File]]></c> is to specify the filename with full
+          path.</p>
+      </item>
+      <tag><c><![CDATA[{resolv_conf, File}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[File = string()]]></c></p>
+        <p>Specify a system file that Erlang is to read resolver
+          configuration from for the internal DNS client
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>,
+          and monitor for changes, even if it does not exist.
+          The path must be absolute.</p>
+        <p>This can override the configuration parameters
+          <c><![CDATA[nameserver]]></c> and
+          <c><![CDATA[search]]></c> depending on the contents
+          of the specified file. They can also change any time in the future
+          reflecting the file contents.</p>
+        <p>If the file is specified as an empty string <c>""</c>,
+          no file is read or monitored in the future. This emulates
+          the old behavior of not configuring the DNS client when
+          the node is started in short name distributed mode.</p>
+        <p>If this parameter is not specified, it defaults to
+          <c><![CDATA[/etc/resolv.conf]]></c> unless environment variable
+          <c><![CDATA[ERL_INET_ETC_DIR]]></c> is set, which defines
+          the directory for this file to some maybe other than
+          <c><![CDATA[/etc]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[{hosts_file, File}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[File = string()]]></c></p>
+        <p>Specify a system file that Erlang is to read resolver
+          configuration from for the internal hosts file resolver,
+          and monitor for changes, even if it does not exist.
+          The path must be absolute.</p>
+        <p>These host entries are searched after all added with
+          <c>{file, hosts, File}</c> above or
+          <c>{host, IP, Aliases}</c> below when lookup option
+          <c>file</c> is used.</p>
+        <p>If the file is specified as an empty string <c>""</c>,
+          no file is read or monitored in the future. This emulates
+          the old behavior of not configuring the DNS client when
+          the node is started in short name distributed mode.</p>
+        <p>If this parameter is not specified, it defaults to
+          <c><![CDATA[/etc/hosts]]></c> unless environment variable
+          <c><![CDATA[ERL_INET_ETC_DIR]]></c> is set, which defines
+          the directory for this file to some maybe other than
+          <c><![CDATA[/etc]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[{registry, Type}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Type = atom()]]></c></p>
+        <p>Specify a system registry that Erlang is to read configuration
+          data from. <c><![CDATA[win32]]></c> is the only valid option.</p>
+      </item>
+      <tag><c><![CDATA[{host, IP, Aliases}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[IP = tuple()]]></c></p>
+        <p><c><![CDATA[Aliases = [string()]]]></c></p>
+        <p>Add host entry to the hosts table.</p>
+      </item>
+      <tag><c><![CDATA[{domain, Domain}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Domain = string()]]></c></p>
+        <p>Set domain name.</p>
+      </item>
+      <tag><c><![CDATA[{nameserver, IP [,Port]}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[IP = tuple()]]></c></p>
+        <p><c><![CDATA[Port = integer()]]></c></p>
+        <p>Add address (and port, if other than default) of the primary
+          nameserver to use for
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+        </p>
+      </item>
+      <tag><c><![CDATA[{alt_nameserver, IP [,Port]}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[IP = tuple()]]></c></p>
+        <p><c><![CDATA[Port = integer()]]></c></p>
+        <p>Add address (and port, if other than default) of the secondary
+          nameserver for
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+        </p>
+      </item>
+      <tag><c><![CDATA[{search, Domains}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Domains = [string()]]]></c></p>
+        <p>Add search domains for
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+        </p>
+      </item>
+      <tag><c><![CDATA[{lookup, Methods}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Methods = [atom()]]]></c></p>
+        <p>Specify lookup methods and in which order to try them.
+          The valid methods are as follows:</p>
+        <list type="bulleted">
+          <item><c><![CDATA[native]]></c> (use system calls)</item>
+          <item><c><![CDATA[file]]></c> (use host data retrieved from system
+            configuration files and/or the user configuration file)</item>
+          <item><c><![CDATA[dns]]></c> (use the Erlang DNS client
+            <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+            for nameserver queries)</item>
+        </list>
+	<p>The lookup method <c><![CDATA[string]]></c> tries to
+	  parse the hostname as an IPv4 or IPv6 string and return
+	  the resulting IP address. It is automatically tried
+	  first when <c><![CDATA[native]]></c> is <em>not</em>
+	  in the <c><![CDATA[Methods]]></c> list. To skip it in this case,
+	  the pseudo lookup method <c><![CDATA[nostring]]></c> can be
+	  inserted anywhere in the <c><![CDATA[Methods]]></c> list.</p>
+      </item>
+      <tag><c><![CDATA[{cache_size, Size}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Size = integer()]]></c></p>
+        <p>Set the resolver cache size. Defaults to 100 DNS records.</p>
+      </item>
+      <tag><c><![CDATA[{cache_refresh, Time}.]]></c></tag>
+        <item>
+        <p><c><![CDATA[Time = integer()]]></c></p>
+        <p>Set how often (in milliseconds) the resolver cache for
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          is refreshed (that is, expired DNS records are deleted).
+          Defaults to 1 hour.</p>
+      </item>
+      <tag><c><![CDATA[{timeout, Time}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Time = integer()]]></c></p>
+        <p>Set the time to wait until retry (in milliseconds) for DNS queries
+          made by
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+          Defaults to 2 seconds.</p>
+      </item>
+      <tag><c><![CDATA[{retry, N}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[N = integer()]]></c></p>
+        <p>Set the number of DNS queries
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          will try before giving up. Defaults to 3.</p>
+      </item>
+      <tag><c><![CDATA[{inet6, Bool}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Bool = true | false]]></c></p>
+        <p>Tells the DNS client
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          to look up IPv6 addresses. Defaults to <c>false</c>.</p>
+      </item>
+      <tag><c><![CDATA[{usevc, Bool}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Bool = true | false]]></c></p>
+        <p>Tells the DNS client
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          to use TCP (Virtual Circuit) instead of UDP. Defaults to
+          <c>false</c>.</p>
+      </item>
+      <tag><c><![CDATA[{edns, Version}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Version = false | 0]]></c></p>
+        <p>Sets the EDNS version that
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          will use. The only allowed version is zero. Defaults to <c>false</c>,
+          which means not to use EDNS.</p>
+      </item>
+      <tag><c><![CDATA[{udp_payload_size, Size}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[N = integer()]]></c></p>
+        <p>Sets the allowed UDP payload size
+          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          will advertise in EDNS queries. Also sets the limit
+          when the DNS query will be deemed too large for UDP
+          forcing a TCP query instead; this  is not entirely
+          correct, as the advertised UDP payload size of the
+          individual nameserver is what is to be used,
+          but this simple strategy will do until a more intelligent
+          (probing, caching) algorithm needs to be implemented.
+          Default to 1280, which stems from the standard Ethernet MTU size.</p>
+      </item>
+      <tag><c><![CDATA[{udp, Module}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Module = atom()]]></c></p>
+        <p>Tell Erlang to use another primitive UDP module than
+          <c>inet_udp</c>.</p>
+      </item>
+      <tag><c><![CDATA[{tcp, Module}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Module = atom()]]></c></p>
+        <p>Tell Erlang to use another primitive TCP module than
+          <c>inet_tcp</c>.</p>
+      </item>
+      <tag><c><![CDATA[clear_hosts.]]></c></tag>
+      <item>
+        <p>Clear the hosts table.</p>
+      </item>
+      <tag><c><![CDATA[clear_ns.]]></c></tag>
+      <item>
+        <p>Clear the list of recorded nameservers (primary and secondary).</p>
+      </item>
+      <tag><c><![CDATA[clear_search.]]></c></tag>
+      <item>
+        <p>Clear the list of search domains.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>User Configuration Example</title>
+    <p>Assume that a user does not want Erlang to use the native lookup method,
+      but wants Erlang to read all information necessary from start and use
+      that for resolving names and addresses. If lookup fails, Erlang
+      is to request the data from a nameserver (using the Erlang
+      DNS client, set to use EDNS allowing larger responses).
+      The resolver configuration is updated when
+      its configuration file changes. Also, DNS records
+      are never to be cached. The user configuration file
+      (in this example named <c><![CDATA[erl_inetrc]]></c>, stored
+      in directory <c><![CDATA[./cfg_files]]></c>) can then look as follows
+      (Unix):</p>
+
+    <pre>
+%% -- ERLANG INET CONFIGURATION FILE --
+%% read the hosts file
+{file, hosts, "/etc/hosts"}.
+%% add a particular host
+{host, {134,138,177,105}, ["finwe"]}.
+%% do not monitor the hosts file
+{hosts_file, ""}.
+%% read and monitor nameserver config from here
+{resolv_conf, "/usr/local/etc/resolv.conf"}.
+%% enable EDNS
+{edns,0}.
+%% disable caching
+{cache_size, 0}.
+%% specify lookup method
+{lookup, [file, dns]}.</pre>
+
+    <p>And Erlang can, for example, be started as follows:</p>
+
+    <code type="none"><![CDATA[
+% erl -sname my_node -kernel inetrc '"./cfg_files/erl_inetrc"']]></code>
+  </section>
+</chapter>
+

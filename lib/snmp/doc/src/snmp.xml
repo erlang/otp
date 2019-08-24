@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp.xml</file>
+  </header>
+  <module since="">snmp</module>
+  <modulesummary>Interface functions to the SNMP toolkit</modulesummary>
+  <description>
+    <p>The module <c>snmp</c> contains interface functions to the 
+      SNMP toolkit.</p>
+  </description>
+
+  <section>
+    <title>Common Data Types</title>
+    <p>The following data-types are used in the functions below: </p>
+    <list type="bulleted">
+      <item>
+        <p><c>datetime() = {date(), time()}</c></p>
+        <p>See <seealso marker="stdlib:calendar">calendar</seealso> 
+          for more info.</p>
+      </item>
+
+    </list>
+    
+    <marker id="config"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">config() -> ok | {error, Reason}</name>
+      <fsummary>Configure with a simple interactive tool</fsummary>
+      <desc>
+        <p>A simple interactive configuration tool. Simple
+          configuration files can be generated, but more complex
+          configurations still have to be edited manually.
+          </p>
+        <p>The tool is a textual based tool that asks some questions
+          and generates <c>sys.config</c> and <c>*.conf</c> files.
+          </p>
+        <p><em>Note</em> that if the application shall support version 3, 
+          then the crypto app must be started before running this function 
+          (password generation).</p>
+        <p><em>Note</em> also that some of the configuration files for the 
+          agent and manager share the same names. This means that 
+          they have to be stored in <em>different</em> directories!</p>
+
+        <marker id="start"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start() -> ok | {error, Reason}</name>
+      <name since="">start(Type) -> ok | {error, Reason}</name>
+      <fsummary>Start the SNMP application</fsummary>
+      <type>
+        <v>Type = start_type()</v>
+      </type>
+      <desc>
+        <p>Starts the SNMP application.</p>
+        <p>See <seealso marker="kernel:application">application</seealso> for more info.</p>
+
+        <marker id="start_agent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_agent() -> ok | {error, Reason}</name>
+      <name since="">start_agent(Type) -> ok | {error, Reason}</name>
+      <fsummary>Start the agent part of the SNMP application</fsummary>
+      <type>
+        <v>Type = start_type()</v>
+      </type>
+      <desc>
+        <p>The SNMP application consists of several entities, of which the
+          agent is one. This function starts the agent entity of the 
+          application. 
+          </p>
+        <p>Note that the only way to actually start the agent in this way is
+          to add the agent related config after starting the application (e.g
+          it cannot be part of the normal application config; sys.config).
+          This is done by calling: 
+          <c>application:set_env(snmp, agent, Conf)</c>.
+          </p>
+        <p>The default value for <c>Type</c> is <c>normal</c>.</p>
+	
+	<marker id="start_manager"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_manager() -> ok | {error, Reason}</name>
+      <name since="">start_manager(Type) -> ok | {error, Reason}</name>
+      <fsummary>Start the manager part of the SNMP application</fsummary>
+      <type>
+        <v>Type = start_type()</v>
+      </type>
+      <desc>
+        <p>The SNMP application consists of several entities, of which the
+          manager is one. This function starts the manager entity of the 
+          application. 
+          </p>
+        <p>Note that the only way to actually start the manager in this way is
+          to add the manager related config after starting the application (e.g
+          it cannot be part of the normal application config; sys.config).
+          This is done by calling: 
+          <c>application:set_env(snmp, manager, Conf)</c>.
+          </p>
+        <p>The default value for <c>Type</c> is <c>normal</c>.</p>
+
+        <marker id="dat"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">date_and_time() -> DateAndTime</name>
+      <fsummary>Return the current date and time as an OCTET STRING</fsummary>
+      <type>
+        <v>DateAndTime = [int()]</v>
+      </type>
+      <desc>
+        <p>Returns current date and time as the data type DateAndTime,
+          as specified in RFC1903. This is an OCTET STRING.</p>
+	  
+	<marker id="dat2ut_dst"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">date_and_time_to_universal_time_dst(DateAndTime) -> [utc()]</name>
+      <fsummary>Convert a DateAndTime value to a list of possible utc()</fsummary>
+      <type>
+        <v>DateAndTime = [int()]</v>
+        <v>utc() = {{Y,Mo,D},{H,M,S}}</v>
+      </type>
+      <desc>
+        <p>Converts a DateAndTime list to a list of possible universal 
+          time(s). The universal time value on the same format as defined in
+          calendar(3). </p>
+
+	<marker id="dat2s"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">date_and_time_to_string(DateAndTime) -> string()</name>
+      <name since="">date_and_time_to_string(DateAndTime, Validate) -> string()</name>
+      <fsummary>Convert a DateAndTime value to a string</fsummary>
+      <type>
+        <v>DateAndTime = [int()]</v>
+	<v>Validate = fun(Kind, Data) -> boolean()</v>
+      </type>
+      <desc>
+        <p>Converts a DateAndTime list to a printable string, according
+          to the DISPLAY-HINT definition in RFC2579.</p>
+
+        <p>The validation fun,  <c>Validate</c>, allows for a more "flexible" 
+          validation of the <c>DateAndTime</c> argument. Whenever the data 
+          is found to not follow RFC2579, the fun is called to allow a more
+          "lax" validation. 
+          See the <seealso marker="#vdat">validate_date_and_time/2</seealso> 
+          function for more info on the <c>Validate</c> fun. </p>
+
+	<marker id="dat2s2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">date_and_time_to_string2(DateAndTime) -> string()</name>
+      <fsummary>Convert a DateAndTime value to a string</fsummary>
+      <type>
+        <v>DateAndTime = [int()]</v>
+      </type>
+      <desc>
+	<p>Converts a DateAndTime list to a printable string, according
+	  to the DISPLAY-HINT definition in RFC2579, with the extension 
+          that it also allows the values "hours from UTC" = 14 together with 
+          "minutes from UTC" = 0. </p>
+
+	<marker id="lt2dat_dst"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">local_time_to_date_and_time_dst(Local) -> [DateAndTime]</name>
+      <fsummary>Convert a Local time value to a list of possible DateAndTime(s)</fsummary>
+      <type>
+        <v>Local = {{Y,Mo,D},{H,M,S}}</v>
+        <v>DateAndTime = [int()]</v>
+      </type>
+      <desc>
+        <p>Converts a local time value to a list of possible DateAndTime 
+          list(s). The local time value on the same format as defined in 
+          calendar(3).</p>
+
+	<marker id="ut2dat"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">universal_time_to_date_and_time(UTC) -> DateAndTime</name>
+      <fsummary>Convert a UTC value to DateAndTime</fsummary>
+      <type>
+        <v>UTC = {{Y,Mo,D},{H,M,S}}</v>
+        <v>DateAndTime = [int()]</v>
+      </type>
+      <desc>
+        <p>Converts a universal time value to a DateAndTime list.  The
+          universal time value on the same format as defined in calendar(3).</p>
+
+        <marker id="vdat"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">validate_date_and_time(DateAndTime) -> bool()</name>
+      <name since="">validate_date_and_time(DateAndTime, Validate) -> bool()</name>
+      <fsummary>Check if a DateAndTime value is correct</fsummary>
+      <type>
+        <v>DateAndTime = term()</v>
+	<v>Validate = fun(Kind, Data) -> boolean()</v>
+      </type>
+      <desc>
+        <p>Checks if <c>DateAndTime</c> is a correct DateAndTime
+          value, as specified in RFC2579.  This function can be used in
+          instrumentation functions to validate a DateAndTime value.</p>
+
+
+        <p>The validation fun,  <c>Validate</c>, allows for a more "flexible" 
+          validation of the <c>DateAndTime</c> argument. Whenever the data 
+          is found to not follow RFC2579, the fun is called to allow a more
+          "lax" validation. 
+          The input to the validation fun looks like this: </p>
+
+        <pre>
+          Kind             Data
+          --------------   ----------------------
+          year             {Year1, Year2}
+          month            Month
+          day              Day
+          hour             Hour
+          minute           Minute
+          seconds          Seconds
+          deci_seconds     DeciSeconds
+          diff             [Sign, Hour, Minute]
+          valid_date       {Year, Month, Day}
+	</pre>
+
+        <marker id="passwd2localized_key"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">passwd2localized_key(Alg, Passwd, EngineID) -> Key</name>
+      <fsummary>Generates an localized key</fsummary>
+      <type>
+        <v>Alg = algorithm()</v>
+        <v>algorithm() = md5 | sha</v>
+        <v>Passwd = string()</v>
+        <v>EngineID = string()</v>
+        <v>Key = list()</v>
+      </type>
+      <desc>
+        <p>Generates a key that can be used as an authentication
+          or privacy key using MD5 och SHA.  The key is
+          localized for EngineID.</p>
+
+        <marker id="octet_string_to_bits"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">octet_string_to_bits(S) -> Val</name>
+      <fsummary>Convert an OCTET-STRING to BITS</fsummary>
+      <type>
+        <v>Val = bits()</v>
+      </type>
+      <desc>
+        <p>Utility function for converting a value of type 
+          <c>OCTET-STRING</c> to <c>BITS</c>. </p>
+
+        <marker id="bits_to_octet_string"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">bits_to_octet_string(B) -> Val</name>
+      <fsummary>Convert an OCTET-STRING to BITS</fsummary>
+      <type>
+        <v>Val = octet_string()</v>
+      </type>
+      <desc>
+        <p>Utility function for converting a value of type <c>BITS</c> 
+          to <c>OCTET-STRING</c>. </p>
+
+        <marker id="read_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">read_mib(FileName) -> {ok, mib()} | {error, Reason}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>FileName = string()</v>
+        <v>mib() = #mib{}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Read a compiled mib.</p>
+
+        <marker id="log_to_txt"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>OutFile = string()</v>
+        <v>MibName = string()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Block = boolean()</v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>Converts an Audit Trail Log to a readable text file, where
+	each item has a trailing TAB character, and any TAB
+	character in the body of an item has been replaced by ESC
+	TAB. </p>
+        <p>The function can be used on a running system, or by copying
+	the entire log directory and calling this function. SNMP
+	must be running in order to provide MIB information. </p>
+        <p><c>LogDir</c> is the name of the directory where the audit
+	trail log is stored. 
+	<c>Mibs</c> is a list of Mibs to be used. The function uses 
+	the information in the Mibs to convert for example object 
+	identifiers to their symbolic name. 
+	<c>OutFile</c> is the name of the generated text-file.
+	<c>LogName</c> is the name of the log, 
+	<c>LogFile</c> is the name of the log file. 
+	<c>Start</c> is the start (first) date and time from which 
+	log events will be converted and 
+	<c>Stop</c> is the stop (last) date and time to which log 
+	events will be converted.
+	The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. 
+	</p>
+	<p>The format of an audit trail log text item is as follows: </p>
+	<p><c>Tag Addr - Community [TimeStamp] Vsn</c><br></br>
+	<c>PDU</c></p>
+	<p>where <c>Tag</c> is <c>request</c>, <c>response</c>, 
+	<c>report</c>, <c>trap</c> or <c>inform</c>; Addr is 
+	<c>IP:Port</c> (or comma space separated list of such);
+	<c>Community</c> is the community parameter (SNMP version
+	v1 and v2), or <c>SecLevel:"AuthEngineID":"UserName"</c>
+	(SNMP v3); <c>TimeStamp</c> is a date and time stamp,
+	and <c>Vsn</c> is the SNMP version. <c>PDU</c> is a textual
+	version of the protocol data unit. There is a new line
+	between <c>Vsn</c> and <c>PDU</c>.</p>
+
+	<p>If the entire log is successfully converted, the function 
+	will return <c>ok</c>. 
+	If one of more entries fail to convert, the function will instead
+	return <c>{ok, {NumOK, NumERR}}</c>, where the counters indicate
+	how many valid and erroneous entries where found. 
+	If instead <c>{error, Reason}</c> is returned, the conversion 
+	encountered a fatal error and where either never done of aborted
+	midway. </p>
+	
+        <marker id="log_to_io"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable format and 
+	prints it on stdio. See 
+	<seealso marker="snmp#log_to_txt">log_to_txt</seealso> 
+	above for more info.</p>
+
+        <marker id="change_log_size"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">change_log_size(LogName, NewSize) -> ok | {error, Reason}</name>
+      <fsummary>Change the size of the Audit Trail Log</fsummary>
+      <type>
+        <v>LogName = string()</v>
+        <v>NewSize = {MaxBytes, MaxFiles}</v>
+        <v>MaxBytes = integer()</v>
+        <v>MaxFiles = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the log size of the Audit Trail Log.  The
+          application must be configured to use the audit trail log
+          function. Please refer to disk_log(3) in Kernel Reference 
+          Manual for a description of how to change the log size.
+          </p>
+        <p>The change is permanent, as long as the log is not deleted. 
+          That means, the log size is remembered across reboots.</p>
+
+	<marker id="print_version_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">print_version_info() -> void()</name>
+      <name since="">print_version_info(Prefix) -> void()</name>
+      <fsummary>Formatted print of result of the versions functions</fsummary>
+      <type>
+        <v>Prefix = string() | integer()</v>
+      </type>
+      <desc>
+        <p>Utility function(s) to produce a formatted printout of the versions
+          info generated by the <c>versions1</c> function</p>
+        <p>This is the same as doing, e.g.: </p>
+        <pre>
+           {ok, V} = snmp:versions1(), 
+           snmp:print_versions(V).
+        </pre>
+
+	<marker id="versions1"></marker>
+	<marker id="versions2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">versions1() -> {ok, Info} | {error, Reason}</name>
+      <name since="">versions2() -> {ok, Info} | {error, Reason}</name>
+      <fsummary>Retrieve various system and application info</fsummary>
+      <type>
+        <v>Info = [info()]</v>
+        <v>info() = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Utility functions used to retrieve some system and
+          application info.</p>
+        <p>The difference between the two functions is in how they get
+          the modules to check. <c>versions1</c> uses the app-file and
+          <c>versions2</c> uses the function <c>application:get_key</c>.</p>
+
+        <marker id="print_versions"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">print_versions(VersionInfo) -> void()</name>
+      <name since="">print_versions(Prefix, VersionInfo) -> void()</name>
+      <fsummary>Formatted print of result of the versions functions</fsummary>
+      <type>
+        <v>VersionInfo = [version_info()]</v>
+        <v>version_info() = term()</v>
+        <v>Prefix = string() | integer()</v>
+      </type>
+      <desc>
+        <p>Utility function to produce a formatted printout of the versions
+          info generated by the <c>versions1</c> and <c>versions2</c>
+          functions</p>
+        <p>Example: </p>
+        <pre>
+           {ok, V} = snmp:versions1(), 
+           snmp:print_versions(V).
+        </pre>
+
+        <marker id="enable_trace"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">enable_trace() -> void()</name>
+      <fsummary>Starts a tracer</fsummary>
+      <!--
+      <type>
+        <v>Prefix = string() | integer()</v>
+      </type>
+      -->
+      <desc>
+        <p>Starts a dbg tracer that prints trace events to stdout (using
+          plain io:format after a minor formatting). </p>
+
+        <marker id="disable_trace"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">disable_trace() -> void()</name>
+      <fsummary>Stop the tracer</fsummary>
+      <!--
+      <type>
+        <v>Prefix = string() | integer()</v>
+      </type>
+      -->
+      <desc>
+        <p>Stop the tracer. </p>
+
+        <marker id="set_trace1"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_trace(Targets) -> void()</name>
+      <fsummary>Set trace target</fsummary>
+      <type>
+        <v>Targets = target() | targets()</v>
+        <v>target() = module()</v>
+        <v>module() = atom()</v>
+        <v>targets() = [target() | {target(), target_options()}]</v>
+        <v>target_options() = [target_option()]</v>
+        <v>target_option() = {return_trace, boolean()} | {scope, scope()}</v>
+        <v>scope() = all_functions | exported_functions | function_name() | {function_name(), function_arity()}</v>
+        <v>function_name() = atom()</v>
+        <v>function_arity() = integer() >= 0</v>
+      </type>
+      <desc>
+        <p>This function is used to set up default trace on function(s) 
+          for the given module or modules. The scope of the trace will be 
+          all <em>exported</em> functions (both the call info and the return 
+	  value). Timestamp info will also be included. </p>
+
+        <marker id="reset_trace"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">reset_trace(Targets) -> void()</name>
+      <fsummary>Reset trace target</fsummary>
+      <type>
+        <v>Targets = module() | modules()</v>
+        <v>modules() = [module()]</v>
+        <v>module() = atom()</v>
+      </type>
+      <desc>
+        <p>This function is used to reset (disable) trace for the 
+	  given module(s). </p>
+      
+	<marker id="set_trace2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_trace(Targets, Opts) -> void()</name>
+      <fsummary>Set trace target</fsummary>
+      <type>
+        <v>Targets = target() | targets()</v>
+        <v>target() = module()</v>
+        <v>module() = atom()</v>
+        <v>targets() = [target() | {target(), target_options()}]</v>
+        <v>target_options() = [target_option()]</v>
+        <v>target_option() = {return_trace, boolean()} | {scope, scope()}</v>
+        <v>scope() = all_functions | exported_functions | function_name() | {function_name(), function_arity()}</v>
+        <v>function_name() = atom()</v>
+        <v>function_arity() = integer() >= 0</v>
+        <v>Opts = disable | trace_options()</v>
+        <v>trace_options() = [trace_option()]</v>
+        <v>trace_option() = {timestamp, boolean()} | target_option()</v>
+      </type>
+      <desc>
+        <p>This function is used to set up trace on function(s) for the given
+	  module or modules. </p>
+
+	<p>The example below sets up trace on the exported functions (default) 
+	  of module <c>snmp_generic</c> and all functions of module 
+	  <c>snmp_generic_mnesia</c>. With return values (which is default)
+          and timestamps in both cases (which is also default): </p>
+
+	<pre>
+	  snmp:enable_trace(),
+	  snmp:set_trace([snmp_generic, 
+                          {snmp_generic_mnesia, [{scope, all_functions}]}]),
+	  .
+	  .
+	  .
+          snmp:set_trace(snmp_generic, disable),
+	  .
+	  .
+	  .
+	  snmp:disable_trace(),
+	</pre>
+
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>calendar(3)
+      </p>
+  </section>
+  
+</erlref>
+

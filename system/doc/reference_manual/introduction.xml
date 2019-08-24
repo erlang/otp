@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>introduction.xml</file>
+  </header>
+  <marker id="erlang ref manual"></marker>
+
+  <p>This section is the Erlang reference manual. It describes the
+    Erlang programming language. </p>
+
+  <section>
+    <title>Purpose</title>
+    <p>The focus of the Erlang reference manual is on the language itself,
+      not the implementation of it. The language constructs are described in
+      text and with examples rather than formally specified. This is
+      to make the manual more readable.
+      The Erlang reference manual is not intended as a tutorial.</p>
+    <p>Information about implementation of Erlang can, for example, be found,
+      in the following:</p>
+    <list type="bulleted">
+      <item><p><seealso marker="doc/system_principles:system_principles">
+      System Principles</seealso></p>
+      <p>Starting and stopping, boot scripts, code loading,
+      <seealso marker="doc/system_principles:error_logging">
+      logging</seealso>,
+      <seealso marker="doc/system_principles:create_target">
+      creating target systems</seealso></p>
+      </item>
+      <item><p><seealso marker="doc/efficiency_guide:advanced">
+      Efficiency Guide</seealso></p>
+      <p>Memory consumption, system limits</p>
+      </item>
+      <item><p>ERTS User's Guide</p>
+      <p><seealso marker="erts:crash_dump">Crash dumps</seealso>,
+      <seealso marker="erts:driver">drivers</seealso></p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader has done some programming and
+      is familiar with concepts such as data types and programming
+      language syntax.</p>
+  </section>
+
+  <section>
+    <title>Document Conventions</title>
+    <p>In this section, the following terminology is used:</p>
+    <list type="bulleted">
+      <item>A <em>sequence</em> is one or more items. For example, a
+       clause body consists of a sequence of expressions. This
+       means that there must be at least one expression.</item>
+      <item>A <em>list</em> is any number of items. For example,
+       an argument list can consist of zero, one, or more arguments.</item>
+    </list>
+    <p>If a feature has been added in R13A or later,
+    this is mentioned in the text.</p>
+  </section>
+
+  <section>
+    <title>Complete List of BIFs</title>
+    <p>For a complete list of BIFs, their arguments and return values,
+      see <seealso marker="erts:erlang">erlang(3)</seealso>
+      manual page in ERTS.</p>
+  </section>
+
+  <section>
+    <title>Reserved Words</title>
+    <p>The following are reserved words in Erlang:</p>
+    <p><c>after and andalso band begin bnot bor bsl bsr bxor case catch
+      cond div end fun if let not of or orelse receive rem try
+      when xor</c></p>
+  </section>
+
+</chapter>
+

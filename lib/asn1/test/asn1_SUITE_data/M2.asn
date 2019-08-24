@@ -1,0 +1,29 @@
+M2 DEFINITIONS ::=
+
+BEGIN
+
+IMPORTS
+   
+   Type5
+    FROM M1
+   ;
+
+Type1 ::= INTEGER (1..8)
+
+Type2 ::= ENUMERATED {one,two,three}
+
+Type3 ::= BOOLEAN
+
+Type4 ::= SEQUENCE {
+  a   Type1,
+  b   BOOLEAN,
+  c   Type2,
+  d   Type5
+}
+
+Type6 ::= SET {
+  a Type1,
+  b Type5
+}
+
+END

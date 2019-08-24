@@ -1,0 +1,166 @@
+#!/usr/bin/env perl 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+use File::Basename;
+
+# This program generates driver_tab.c which holds the driver_tab
+# array.  Since the contents of driver_tab will depend on which
+# drivers we wish to include it has to be generated.
+
+# usage: make_driver_tab [-o filename] drivers...
+
+my $file = "";
+my $nif = "";
+my @emu_drivers = ();
+my @emu_nifs = ();
+my @static_drivers = ();
+my @static_nifs = ();
+my $mode = 1;
+
+while (@ARGV) {
+    my $d = shift;
+    if ( $d =~ /^-o$/ ) {
+	$file = shift or die("-o requires argument");
+	next;
+    }
+    if ( $d =~ /^-nifs$/ ) {
+	$mode = 2;
+	next;
+    }
+    if ( $d =~ /^-drivers$/ ) {
+	$mode = 1;
+	next;
+    }
+    if ( $d =~ /^.*\.a$/ ) {
+	$d = basename $d;
+	$d =~ s/\.a$//;	# strip .a
+	if ($mode == 1) {
+	    push(@static_drivers, $d);
+	}
+	if ($mode == 2) {
+	    push(@static_nifs, $d);
+	}
+	next;
+    } elsif ($mode == 2) {
+        $d = basename $d;
+        $d =~ s/_nif(\..*|)$//; # strip nif.* or just nif
+        push(@emu_nifs, $d);
+        next;
+    }
+    $d = basename $d;
+    $d =~ s/drv(\..*|)$//;	# strip drv.* or just drv
+    push(@emu_drivers, $d);
+}
+
+# Did we want output to a file?
+if ( $file ) {
+    open(STDOUT, ">$file") or die("can't open $file for writing");
+}
+
+print <<EOF;
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif /* HAVE_CONFIG_H */
+#include <stdio.h>
+#include "global.h"
+
+
+EOF
+
+# "extern" declarations
+foreach (@emu_drivers) {
+    print "extern ErlDrvEntry ${_}driver_entry;\n";
+}
+
+foreach (@static_drivers) {
+    print "ErlDrvEntry *${_}_driver_init(void);\n";
+}
+
+# The array itself
+print "\nErtsStaticDriver driver_tab[] =\n{\n";
+
+foreach (@emu_drivers) {
+    print "    {&${_}driver_entry, 0},\n";
+}
+
+foreach (@static_drivers) {
+    print "    {NULL, 1}, /* ${_} */\n";
+}
+print "    {NULL}\n};\n";
+
+print "void erts_init_static_drivers() {\n";
+
+my $index = 0;
+foreach (@static_drivers) {
+    print "    driver_tab[".(scalar @emu_drivers+$index)."].de = ${_}_driver_init();\n";
+    $index++;
+}
+
+print "}\n";
+
+# prototypes
+foreach (@emu_nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "void *".$d."_nif_init(void);\n";
+}
+foreach (@static_nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "void *".$d."_nif_init(void);\n";
+}
+
+# The array itself
+print "static ErtsStaticNifEntry static_nif_tab[] =\n{\n";
+
+foreach (@emu_nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "    {\"${_}\", &".$d."_nif_init, 0},\n";
+}
+foreach (@static_nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "    {\"${_}\", &".$d."_nif_init, 1},\n";
+}
+
+print "    {NULL,NULL}\n};\n";
+
+print <<EOF;
+ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len) {
+    ErtsStaticNifEntry* p;
+    for (p = static_nif_tab; p->nif_name != NULL; p++)
+        if (strncmp(p->nif_name, name, len) == 0 && p->nif_name[len] == 0)
+            return p;
+    return NULL;
+}
+
+int erts_is_static_nif(void *handle) {
+    ErtsStaticNifEntry* p;
+    for (p = static_nif_tab; p->nif_name != NULL; p++)
+        if (((void*)p->nif_init) == handle)
+            return 1;
+    return 0;
+}
+
+EOF
+
+# That's it

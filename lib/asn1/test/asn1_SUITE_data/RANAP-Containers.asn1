@@ -1,0 +1,206 @@
+-- RANAP-Containers.asn
+--
+-- Taken from 3GPP TS 25.413 V8.2.1 (2009-03)
+-- http://www.3gpp.org/ftp/Specs/archive/25_series/25.413/25413-821.zip
+--
+-- 9.3.7	Container Definitions
+--
+-- $Id$
+--
+
+-- **************************************************************
+--
+-- Container definitions
+--
+-- **************************************************************
+
+RANAP-Containers {
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) ranap (0) version1 (1) ranap-Containers (5) }
+
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- **************************************************************
+--
+-- IE parameter types from other modules.
+--
+-- **************************************************************
+
+IMPORTS
+	Criticality,
+	Presence,
+	PrivateIE-ID,
+	ProtocolExtensionID,
+	ProtocolIE-ID
+FROM RANAP-CommonDataTypes
+
+	maxPrivateIEs,
+	maxProtocolExtensions,
+	maxProtocolIEs
+FROM RANAP-Constants;
+
+-- **************************************************************
+--
+-- Class Definition for Protocol IEs
+--
+-- **************************************************************
+
+RANAP-PROTOCOL-IES ::= CLASS {
+	&id				ProtocolIE-ID 					UNIQUE,
+	&criticality			Criticality,
+	&Value,
+	&presence			Presence
+}
+WITH SYNTAX {
+	ID				&id
+	CRITICALITY			&criticality
+	TYPE				&Value
+	PRESENCE			&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Protocol IEs
+--
+-- **************************************************************
+
+RANAP-PROTOCOL-IES-PAIR ::= CLASS {
+	&id				ProtocolIE-ID 					UNIQUE,
+	&firstCriticality		Criticality,
+	&FirstValue,
+	&secondCriticality		Criticality,
+	&SecondValue,
+	&presence			Presence
+}
+WITH SYNTAX {
+	ID				&id
+	FIRST CRITICALITY 		&firstCriticality
+	FIRST TYPE			&FirstValue
+	SECOND CRITICALITY 		&secondCriticality
+	SECOND TYPE			&SecondValue
+	PRESENCE			&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Protocol Extensions
+--
+-- **************************************************************
+
+RANAP-PROTOCOL-EXTENSION ::= CLASS {
+	&id				ProtocolExtensionID 				UNIQUE,
+	&criticality			Criticality,
+	&Extension,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID				&id
+	CRITICALITY			&criticality
+	EXTENSION			&Extension
+	PRESENCE		&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Private IEs
+--
+-- **************************************************************
+
+RANAP-PRIVATE-IES ::= CLASS {
+	&id				PrivateIE-ID,
+	&criticality			Criticality,
+	&Value,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID				&id
+	CRITICALITY			&criticality
+	TYPE			&Value
+	PRESENCE		&presence
+}
+
+-- **************************************************************
+--
+-- Container for Protocol IEs
+--
+-- **************************************************************
+
+ProtocolIE-Container {RANAP-PROTOCOL-IES : IEsSetParam} ::= 
+	SEQUENCE (SIZE (0..maxProtocolIEs)) OF
+	ProtocolIE-Field {{IEsSetParam}}
+
+ProtocolIE-Field {RANAP-PROTOCOL-IES : IEsSetParam} ::= SEQUENCE {
+	id				RANAP-PROTOCOL-IES.&id				({IEsSetParam}),
+	criticality			RANAP-PROTOCOL-IES.&criticality			({IEsSetParam}{@id}),
+	value				RANAP-PROTOCOL-IES.&Value			({IEsSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container for Protocol IE Pairs
+--
+-- **************************************************************
+
+ProtocolIE-ContainerPair {RANAP-PROTOCOL-IES-PAIR : IEsSetParam} ::= 
+	SEQUENCE (SIZE (0..maxProtocolIEs)) OF
+	ProtocolIE-FieldPair {{IEsSetParam}}
+
+ProtocolIE-FieldPair {RANAP-PROTOCOL-IES-PAIR : IEsSetParam} ::= SEQUENCE {
+	id						RANAP-PROTOCOL-IES-PAIR.&id						({IEsSetParam}),
+	firstCriticality		RANAP-PROTOCOL-IES-PAIR.&firstCriticality		({IEsSetParam}{@id}),
+	firstValue				RANAP-PROTOCOL-IES-PAIR.&FirstValue				({IEsSetParam}{@id}),
+	secondCriticality		RANAP-PROTOCOL-IES-PAIR.&secondCriticality		({IEsSetParam}{@id}),
+	secondValue				RANAP-PROTOCOL-IES-PAIR.&SecondValue			({IEsSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container Lists for Protocol IE Containers
+--
+-- **************************************************************
+
+ProtocolIE-ContainerList {INTEGER : lowerBound, INTEGER : upperBound, RANAP-PROTOCOL-IES : IEsSetParam} ::=
+	SEQUENCE (SIZE (lowerBound..upperBound)) OF
+	ProtocolIE-Container {{IEsSetParam}}
+
+ProtocolIE-ContainerPairList {INTEGER : lowerBound, INTEGER : upperBound, RANAP-PROTOCOL-IES-PAIR : IEsSetParam} ::=
+	SEQUENCE (SIZE (lowerBound..upperBound)) OF
+	ProtocolIE-ContainerPair {{IEsSetParam}}
+
+-- **************************************************************
+--
+-- Container for Protocol Extensions
+--
+-- **************************************************************
+
+ProtocolExtensionContainer {RANAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= 
+	SEQUENCE (SIZE (1..maxProtocolExtensions)) OF
+	ProtocolExtensionField {{ExtensionSetParam}}
+
+ProtocolExtensionField {RANAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= SEQUENCE {
+	id				RANAP-PROTOCOL-EXTENSION.&id			({ExtensionSetParam}),
+	criticality			RANAP-PROTOCOL-EXTENSION.&criticality		({ExtensionSetParam}{@id}),
+	extensionValue			RANAP-PROTOCOL-EXTENSION.&Extension		({ExtensionSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container for Private IEs
+--
+-- **************************************************************
+
+PrivateIE-Container {RANAP-PRIVATE-IES : IEsSetParam } ::= 
+	SEQUENCE (SIZE (1.. maxPrivateIEs)) OF
+	PrivateIE-Field {{IEsSetParam}}
+
+PrivateIE-Field {RANAP-PRIVATE-IES : IEsSetParam} ::= SEQUENCE {
+	id				RANAP-PRIVATE-IES.&id			({IEsSetParam}),
+	criticality			RANAP-PRIVATE-IES.&criticality		({IEsSetParam}{@id}),
+	value			RANAP-PRIVATE-IES.&Value		({IEsSetParam}{@id})
+}
+
+END
+
+

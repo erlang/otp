@@ -1,0 +1,9 @@
+{merge_tests,true}.
+{config, "../config1/cfg12"}.
+{suites, "../tests1", t11_SUITE}.
+{suites, "../tests2", t21_SUITE}.
+{suites, "../tests1", t12_SUITE}.
+{suites, "../tests2", t22_SUITE}.
+
+{specs, separate, "../specs1/flat_spec1"}.
+{specs, join, "../specs2/flat_spec2"}.

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>start_erl</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1998-08-05</date>
+    <rev></rev>
+    <file>start_erl.xml</file>
+  </header>
+  <com>start_erl</com>
+  <comsummary>Start Erlang for embedded systems on Windows systems.</comsummary>
+  <description>
+    <p>The <c><![CDATA[start_erl]]></c> program is specific to
+      Windows NT/2000/XP (and later versions of Windows).
+      Although there are programs with the same name on other
+      platforms, their functionality is different.</p>
+
+    <p>This program is distributed both in compiled
+      form (under &lt;Erlang root&gt;\\erts-&lt;version&gt;\\bin) and
+      in source form (under &lt;Erlang root&gt;\\erts-&lt;version&gt;\\src).
+      The purpose of the source code is to ease customization of the
+      program for local needs, such as cyclic restart
+      detection. There is also a "make"-file, written for the
+      <c><![CDATA[nmake]]></c> program distributed with Microsoft Visual
+      C++. This program can, however, be compiled with
+      any Win32 C compiler (possibly with minor modifications).</p>
+
+    <p>This program aids release handling on Windows systems.
+      The program is to be called by the
+      <c><![CDATA[erlsrv]]></c> program, read up the release data file
+      <c>start_erl.data</c>, and start Erlang. Some options to
+      <c>start_erl</c> are added and removed by the release handler
+      during upgrade with emulator restart (more specifically option
+      <c><![CDATA[-data]]></c>).</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>start_erl [&lt;erl options>] ++ [&lt;start_erl options>]</name>
+      <fsummary>Start the Erlang emulator with the correct release data.
+      </fsummary>
+      <desc>
+        <p>The <c><![CDATA[start_erl]]></c> program in its original form
+          recognizes the following options:</p>
+        <taglist>
+          <tag><c>++</c></tag>
+          <item>
+            <p>Mandatory. Delimits <c>start_erl</c> options from normal Erlang
+              options. Everything on the command line <em>before</em>
+              <c><![CDATA[++]]></c> is interpreted as options to be sent to the
+              <c><![CDATA[erl]]></c> program. Everything <em>after</em>
+              <c><![CDATA[++]]></c> is interpreted as options to
+              <c><![CDATA[start_erl]]></c> itself.</p>
+          </item>
+          <tag><c>-reldir &lt;release root&gt;</c></tag>
+          <item>
+            <p>Mandatory if environment variable
+              <c><![CDATA[RELDIR]]></c> is not specified and no
+              <c>-rootdir</c> option is specified. Tells <c>start_erl</c> where
+              the root of the release tree is located in the file system
+              (typically &lt;Erlang root&gt;\\releases). The
+              <c><![CDATA[start_erl.data]]></c> file is expected to be
+              located in this directory (unless otherwise specified). If
+              only option <c>-rootdir</c> is specified, the directory is
+              assumed to be &lt;Erlang root&gt;\\releases.</p>
+          </item>
+          <tag><c>-rootdir &lt;Erlang root directory&gt;</c></tag> 
+          <item>
+            <p>Mandatory if <c>-reldir</c> is not specified and no
+              <c><![CDATA[RELDIR]]></c> exists in the environment. This
+              specifies the Erlang installation root directory (under
+              which the <c>lib</c>, <c>releases</c>, and
+              <c>erts-&lt;Version&gt;</c> directories are located). If only
+              <c>-reldir</c> (or environment variable <c><![CDATA[RELDIR]]></c>)
+              is specified, the Erlang root is assumed to
+              be the directory exactly one level above the release
+              directory.</p>
+          </item>
+          <tag><c>-data &lt;data file name&gt;</c></tag>
+          <item>
+            <p>Optional. Specifies another data file than <c>start_erl.data</c>
+              in the &lt;release root&gt;. It is specified relative to the
+              &lt;release root&gt; or absolute (including drive letter, and so
+              on). This option is used by the release handler during
+              upgrade and is not to be used during normal
+              operation. Normally the release data file is not to be
+              named differently.</p>
+          </item>
+          <tag><c>-bootflags &lt;boot flags file name&gt;</c></tag>
+          <item>
+            <p>Optional. Specifies a file name relative to the release
+              directory (that is, the subdirectory of &lt;release root&gt;
+              where the <c><![CDATA[.boot]]></c> file and others are located).
+              The contents of this file is appended to the command line
+              when Erlang is started. This makes it easy to start the
+              emulator with different options for different releases.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes</title>
+    <list type="bulleted">
+      <item>
+        <p>As the source code is distributed, it can easily be modified to
+          accept other options. The program must still accept option
+          <c><![CDATA[-data]]></c> with the semantics described above for the
+          release handler to work correctly.</p>
+      </item>
+      <item>
+        <p>The Erlang emulator is found by examining the registry keys for
+          the emulator version specified in the release data file. The new
+          emulator must be properly installed before the upgrade for
+          this to work.</p>
+      </item>
+      <item>
+        <p>Although the program is located together with files specific to the
+          emulator version, it is not expected to be specific to the
+          emulator version. The release handler does <em>not</em> change option
+          <c><![CDATA[-machine]]></c> to <c><![CDATA[erlsrv]]></c> during
+          emulator restart. Locate the (possibly customized)
+          <c><![CDATA[start_erl]]></c> program so that it is not overwritten
+          during upgrade.</p>
+      </item>
+      <item>
+        <p>The default options of the <c><![CDATA[erlsrv]]></c> program are not
+          sufficient for release handling. The machine started by
+          <c><![CDATA[erlsrv]]></c> is be specified as the
+          <c><![CDATA[start_erl]]></c> program and the arguments are to contain
+          <c><![CDATA[++]]></c> followed by the desired options.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erlsrv"><c>erlsrv(1)</c></seealso>,
+      <seealso marker="sasl:release_handler">
+      <c>release_handler(3)</c></seealso></p>
+  </section>
+</comref>
+

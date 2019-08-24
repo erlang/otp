@@ -1,0 +1,45 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+-mode(compile).
+
+-export([main/1]).
+
+main([BeamFile,AbstrFile]) ->
+    {ok,_,Chunks0} = beam_lib:all_chunks(BeamFile),
+    {ok,Abstr} = file:consult(AbstrFile),
+    {"CInf",CInf0} = lists:keyfind("CInf", 1, Chunks0),
+    {CInf, COpts} = fix_options(CInf0),
+    Chunks1 = lists:keyreplace("CInf", 1, Chunks0, {"CInf",CInf}),
+    Chunks2 = lists:keyreplace("Dbgi", 1, Chunks1,
+                   {"Dbgi",term_to_binary({debug_info_v1,erl_abstract_code,{Abstr, COpts}})}),
+    {ok,Module} = beam_lib:build_module(Chunks2),
+    ok = file:write_file(BeamFile, Module),
+    init:stop().
+
+fix_options(CInf0) ->
+    CInf1 = binary_to_term(CInf0),
+    {options,Opts0} = lists:keyfind(options, 1, CInf1),
+    Opts = Opts0 -- [from_asm],
+    CInf = lists:keyreplace(options, 1, CInf1, {options,Opts}),
+    {term_to_binary(CInf), Opts}.

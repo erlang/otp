@@ -1,0 +1,12 @@
+OpenType DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Stype ::= SEQUENCE {
+	a INTEGER,
+	b BOOLEAN 
+}
+Ot ::= TYPE-IDENTIFIER.&Type (Stype)
+
+END
+

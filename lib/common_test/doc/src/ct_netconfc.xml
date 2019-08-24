@@ -1,0 +1,868 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_netconfc</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_netconfc.xml</file>
+  </header>
+  <module since="OTP R15B02">ct_netconfc</module>
+  <modulesummary>NETCONF client module.</modulesummary>
+
+  <description>
+
+    <p>NETCONF client module.</p>
+
+    <p>The NETCONF client is compliant with RFC 4741 NETCONF Configuration
+      Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
+      Secure SHell (SSH).</p>
+
+    <marker id="Connecting"/>
+    <p><em>Connecting to a NETCONF server</em></p>
+
+    <p>NETCONF sessions can either be opened by a single call
+      to <seealso marker="#open-1"><c>open/1,2</c></seealso> or by a call
+      to <seealso marker="#connect-1"><c>connect/1,2</c></seealso> followed
+      by one or more calls to
+      <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+
+    <p>The properties of the sessions will be exactly the same, except
+      that when
+      using <seealso marker="#connect-1"><c>connect/1,2</c></seealso>, you
+      may start multiple sessions over the same SSH connection. Each
+      session is implemented as an SSH channel.</p>
+
+    <p><seealso marker="#open-1"><c>open/1,2</c></seealso> will establish one
+      SSH connection with one SSH channel implementing one NETCONF
+      session. You may start mutiple sessions by
+      calling <seealso marker="#open-1"><c>open/1,2</c></seealso> multiple
+      times, but then a new SSH connection will be established for each
+      session.</p>
+
+    <p>For each server to test against, the following entry can be added to a
+      configuration file:</p>
+
+    <pre>
+ {server_id(),options()}.</pre>
+
+    <p>The <seealso marker="#type-server_id"><c>server_id()</c></seealso>
+      or an associated
+      <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
+      must then be used in calls to
+      <seealso marker="#connect-2"><c>connect/2</c></seealso>
+      or <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
+
+    <p>If no configuration exists for a server,
+      use <seealso marker="#connect-1"><c>connect/1</c></seealso>
+      or <seealso marker="#open-1"><c>open/1</c></seealso> instead,
+      and specify all necessary options in the <c>Options</c> parameter.</p>
+
+    <marker id="Logging"/>
+    <p><em>Logging</em></p>
+
+    <p>The NETCONF server uses <c>error_logger</c> for logging of NETCONF
+      traffic. A special purpose error handler is implemented in
+      <c>ct_conn_log_h</c>. To use this error handler, add the
+      <c>cth_conn_log</c> hook in the test suite, for example:</p>
+
+    <pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
+
+    <p><c>conn_log_mod()</c> is the name of the <c>Common Test</c> module
+      implementing the connection protocol, for example, <c>ct_netconfc</c>.</p>
+
+    <p>Hook option <c>log_type</c> specifies the type of logging:</p>
+
+    <taglist>
+      <tag><c>raw</c></tag>
+      <item><p>The sent and received NETCONF data is logged to a separate
+        text file "as is" without any formatting. A link to the file is
+        added to the test case HTML log.</p></item>
+
+      <tag><c>pretty</c></tag>
+      <item><p>The sent and received NETCONF data is logged to a separate
+        text file with XML data nicely indented. A link to the file is
+        added to the test case HTML log.</p></item>
+
+      <tag><c>html (default)</c></tag>
+      <item><p>The sent and received NETCONF traffic is pretty printed
+        directly in the test case HTML log.</p></item>
+
+      <tag><c>silent</c></tag>
+      <item><p>NETCONF traffic is not logged.</p></item>
+    </taglist>
+
+    <p>By default, all NETCONF traffic is logged in one single log file.
+      However, different connections can be logged in separate files.
+      To do this, use hook option <c>hosts</c> and list the names of the
+      servers/connections to be used in the suite. The connections
+      must be named for this to work, that is, they must be opened with
+      <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
+
+    <p>Option <c>hosts</c> has no effect if <c>log_type</c> is set to
+      <c>html</c> or <c>silent</c>.</p>
+
+    <p>The hook options can also be specified in a configuration file with
+      configuration variable <c>ct_conn_log</c>:</p>
+
+    <pre>
+ {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
+
+    <p>For example:</p>
+
+    <pre>
+ {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
+                             {hosts,[<seealso marker="ct#type-key_or_name"><c>ct:key_or_name()</c></seealso>]}]}]}</pre>
+
+    <note>
+      <p>Hook options specified in a configuration file overwrite the
+        hard-coded hook options in the test suite.</p>
+    </note>
+
+    <p><em>Logging Example 1:</em></p>
+    <marker id="Logging_example_1"/>
+
+    <p>The following <c>ct_hooks</c> statement causes pretty printing of
+      NETCONF traffic to separate logs for the connections named
+      <c>nc_server1</c> and <c>nc_server2</c>. Any other connections are
+      logged to default NETCONF log.</p>
+
+    <pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
+                                               {hosts,[nc_server1,nc_server2]}]}
+                                ]}]}].</pre>
+
+    <p>Connections must be opened as follows:</p>
+
+    <pre>
+ open(nc_server1,[...]),
+ open(nc_server2,[...]).</pre>
+
+    <p><em>Logging Example 2:</em></p>
+    <marker id="Logging_example_2"/>
+
+    <p>The following configuration file causes raw logging of all NETCONF 
+      traffic in to one single text file:</p>
+
+    <pre>
+ {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.</pre>
+
+    <p>The <c>ct_hooks</c> statement must look as follows:</p>
+
+    <pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, []}]}].</pre>
+
+    <p>The same <c>ct_hooks</c> statement without the configuration file
+      would cause HTML logging of all NETCONF connections in to the test
+      case HTML log.</p>
+
+    <marker id="Notifications"/>
+    <p><em>Notifications</em></p>
+
+    <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
+      Notifications, which defines a mechanism for an asynchronous message 
+      notification delivery service for the NETCONF protocol.</p>
+
+    <p>Specific functions to support this are
+      <seealso marker="#create_subscription-1"><c>create_subscription/1-6</c></seealso>
+      and
+      <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.</p>
+
+    <marker id="Default_timeout"/>
+    <p><em>Default Timeout</em></p>
+
+    <p>Most of the functions in this module have one variant with
+      a <c>Timeout</c> parameter, and one without. If nothing else is
+      specified, the default value <c>infinity</c> is used when
+      the <c>Timeout</c> parameter is not given.</p>
+
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="client"/>
+    </datatype>
+    <datatype>
+      <name name="error_reason"/>
+    </datatype>
+    <datatype>
+      <name name="event_time"/>
+    </datatype>
+    <datatype>
+      <name name="handle"/>
+      <desc>
+	<p>Opaque reference for a connection to a NETCONF server or a
+	  NETCONF session.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="host"/>
+    </datatype>
+    <datatype>
+      <name name="netconf_db"/>
+    </datatype>
+    <datatype>
+      <name name="notification"/>
+    </datatype>
+    <datatype>
+      <name name="notification_content"/>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+      <desc>
+        <p><c>SshConnectOption</c> is any valid option to
+          <seealso marker="ssh:ssh#connect-3"><c>ssh:connect/3,4</c></seealso>.
+	  Common options used are <c>user</c>, <c>password</c>
+	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
+	  verfied by the SSH application.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="options"/>
+      <desc>
+	<p>Options used for setting up an SSH connection to a NETCONF
+          server.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="server_id"/>
+      <desc>
+        <p>The identity of a server, specified in a configuration
+          file.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="simple_xml"/>
+      <desc>
+	<p>This type is further described in application
+          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="stream_data"/>
+      <desc>
+	<p>For details about the data format for the string values, see
+          "XML Schema for Event Notifications" in RFC 5277.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="stream_name"/>
+    </datatype>
+    <datatype>
+      <name name="streams"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attribute_tag"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attribute_value"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attributes"/>
+    </datatype>
+    <datatype>
+      <name name="xml_content"/>
+    </datatype>
+    <datatype>
+      <name name="xml_tag"/>
+    </datatype>
+    <datatype>
+      <name name="xpath"/>
+    </datatype>
+    <datatype>
+      <name name="xs_datetime"/>
+      <desc>
+	<p>This date and time identifier has the same format as the XML type
+          <c>dateTime</c> and is compliant with RFC 3339 Date and Time on
+          the Internet Timestamps. The format is as follows:</p>
+	<pre>
+ [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="action" arity="2" since="OTP R15B02"/>
+      <name name="action" arity="3" since="OTP R15B02"/>
+      <fsummary>Executes an action.</fsummary>
+      <desc>
+        <p>Executes an action. If the return type is void, <c>ok</c> is
+          returned instead of <c>{ok,[simple_xml()]}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="close_session" arity="1" since="OTP R15B02"/>
+      <name name="close_session" arity="2" since="OTP R15B02"/>
+      <fsummary>Requests graceful termination of the session associated with
+        the client.</fsummary>
+      <desc>
+        <p>Requests graceful termination of the session associated with the
+          client.</p>
+
+        <p>When a NETCONF server receives a <c>close-session</c> request, it
+          gracefully closes the session.  The server releases any locks and
+          resources associated with the session and gracefully closes any
+          associated connections. Any NETCONF requests received after a
+          <c>close-session</c> request are ignored.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="1" since="OTP 20.0"/>
+      <fsummary>Opens an SSH connection to a NETCONF server.</fsummary>
+      <desc>
+        <p>Opens an SSH connection to a NETCONF server.</p>
+
+        <p>If the server options are specified in a configuration file, use
+          <seealso marker="#connect-2"><c>connect/2</c></seealso>
+          instead.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function is required as connection identifier when opening
+          sessions over this connection, see
+          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="2" since="OTP 20.0"/>
+      <fsummary>Opens an SSH connection to a named NETCONF server.</fsummary>
+      <desc>
+        <p>Open an SSH connection to a named NETCONF server.</p>
+
+        <p>If <c><anno>KeyOrName</anno></c> is a
+          configured <c>server_id()</c> or a
+          <c>target_name()</c> associated with such an Id, then the options
+          for this server are fetched from the configuration file.</p>
+
+        <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
+          options found in the configuration file. If the same options
+          are specified, the values from the configuration file
+          overwrite <c><anno>ExtraOptions</anno></c>.</p>
+
+        <p>If the server is not specified in a configuration file, use
+          <seealso marker="#connect-1"><c>connect/1</c></seealso>
+          instead.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function can be used as connection identifier when opening
+          sessions over this connection, see
+          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.
+          However, if <c><anno>KeyOrName</anno></c> is a
+          <c>target_name()</c>, that is, if the server is named through a
+          call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement in the test suite, then this name can
+          be used instead of
+	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="copy_config" arity="3" since="OTP R15B02"/>
+      <name name="copy_config" arity="4" since="OTP R15B02"/>
+      <fsummary>Copies configuration data.</fsummary>
+      <desc>
+        <p>Copies configuration data.</p>
+
+        <p>Which source and target options that can be issued depends on the
+          capabilities supported by the server. That is, <c>:candidate</c>
+          and/or <c>:startup</c> are required.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">create_subscription(Client) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream, Filter) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
+      <name name="create_subscription" arity="5" clause_i="2" since="OTP R15B02"/>
+      <name name="create_subscription" arity="6" since="OTP R15B02"/>
+      <fsummary>Creates a subscription for event notifications.</fsummary>
+      <desc>
+        <p>Creates a subscription for event notifications.</p>
+
+        <p>This function sets up a subscription for NETCONF event
+          notifications of the specified stream type, matching the specified
+          filter. The calling process receives notifications as messages of
+          type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
+
+	<p>Only a subset of the function clauses are show above. The
+	  full set of valid combinations of input parameters is as
+	  follows:</p>
+
+<pre>create_subscription(Client)
+
+create_subscription(Client, Timeout)
+create_subscription(Client, Stream)
+create_subscription(Client, Filter)
+
+create_subscription(Client, Stream, Timeout)
+create_subscription(Client, Filter, Timeout)
+create_subscription(Client, Stream, Filter)
+create_subscription(Client, StartTime, StopTime)
+
+create_subscription(Client, Stream, Filter, Timeout)
+create_subscription(Client, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, StartTime, StopTime)
+create_subscription(Client, Filter, StartTime, StopTime)
+
+create_subscription(Client, Stream, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, Filter, StartTime, StopTime)
+create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
+
+        <taglist>
+          <tag><c><anno>Stream</anno></c></tag>
+          <item><p>Optional parameter that indicates which stream of event
+            is of interest. If not present, events in the default NETCONF
+            stream are sent.</p></item>
+          <tag><c><anno>Filter</anno></c></tag>
+          <item><p>Optional parameter that indicates which subset of all
+            possible events is of interest. The parameter format is the
+            same as that of the filter parameter in the NETCONF protocol
+            operations. If not present, all events not precluded by other
+            parameters are sent.</p></item>
+          <tag><c><anno>StartTime</anno></c></tag>
+          <item><p>Optional parameter used to trigger the replay feature and
+              indicate that the replay is to start at the time specified.
+              If <c><anno>StartTime</anno></c> is not present, this is not a
+	      replay subscription.</p>
+            <p>It is not valid to specify start times that are later than
+              the current time. If <c><anno>StartTime</anno></c> is specified
+	      earlier than the log can support, the replay begins with the
+	      earliest available notification.</p>
+            <p>This parameter is of type <c>dateTime</c> and compliant to
+              RFC 3339. Implementations must support time zones.</p></item>
+          <tag><c><anno>StopTime</anno></c></tag>
+          <item><p>Optional parameter used with the optional replay feature
+              to indicate the newest notifications of interest. If
+              <c><anno>StopTime</anno></c> is not present, the notifications
+	      continues until the subscription is terminated.</p>
+            <p>Must be used with and be later than <c>StartTime</c>. Values
+              of <c><anno>StopTime</anno></c> in the future are valid. This
+	      parameter is of type <c>dateTime</c> and compliant to RFC 3339.
+              Implementations must support time zones.</p></item>
+        </taglist>
+
+        <p>For more details about the event notification mechanism, see
+          RFC 5277.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_config" arity="2" since="OTP R15B02"/>
+      <name name="delete_config" arity="3" since="OTP R15B02"/>
+      <fsummary>Deletes configuration data.</fsummary>
+      <desc>
+        <p>Deletes configuration data.</p>
+
+        <p>The running configuration cannot be deleted and <c>:candidate</c>
+          or <c>:startup</c> must be advertised by the server.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name name="disconnect" arity="1" since="OTP 20.0"/>
+      <fsummary>Closes the given SSH connection.</fsummary>
+      <desc>
+	<p>Closes the given SSH connection.</p>
+
+	<p>If there are open NETCONF sessions on the connection, these
+	  will be brutally aborted. To avoid this, close each session
+	  with <seealso marker="#close_session-1"><c>close_session/1,2</c></seealso></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="edit_config" arity="3" since="OTP R15B02"/>
+      <name name="edit_config" arity="4" clause_i="1" since="OTP 18.0"/>
+      <name name="edit_config" arity="4" clause_i="2" since="OTP R15B02"/>
+      <name name="edit_config" arity="5" since="OTP 18.0"/>
+      <fsummary>Edits configuration data.</fsummary>
+      <desc>
+        <p>Edits configuration data.</p>
+
+        <p>By default only the running target is available, unless the server
+          includes <c>:candidate</c> or <c>:startup</c> in its list of
+          capabilities.</p>
+
+        <p><c>OptParams</c> can be used for specifying optional parameters
+          (<c>default-operation</c>, <c>test-option</c>, or
+          <c>error-option</c>) to be added to the <c>edit-config</c>
+          request. The value must be a list containing valid simple XML,
+          for example:</p>
+
+        <pre>
+ [{'default-operation', ["none"]},
+  {'error-option', ["rollback-on-error"]}]</pre>
+
+	<p>If <c><anno>OptParams</anno></c> is not given, the default
+	  value <c>[]</c> is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since="OTP R15B02"/>
+      <name name="get" arity="3" since="OTP R15B02"/>
+      <fsummary>Gets data.</fsummary>
+      <desc>
+        <p>Gets data.</p>
+ 
+        <p>This operation returns both configuration and state data from the
+          server.</p>
+
+        <p>Filter type <c>xpath</c> can be used only if the server supports
+          <c>:xpath</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_capabilities" arity="1" since="OTP R15B02"/>
+      <name name="get_capabilities" arity="2" since="OTP R15B02"/>
+      <fsummary>Returns the server side capabilities.</fsummary>
+      <desc>
+        <p>Returns the server side capabilities.</p>
+
+        <p>The following capability identifiers, defined in RFC 4741 NETCONF
+          Configuration Protocol, can be returned:</p>
+
+        <list>
+          <item><p><c>"urn:ietf:params:netconf:base:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:writable-running:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:candidate:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:confirmed-commit:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:rollback-on-error:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:startup:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:url:1.0"</c></p></item>
+          <item><p><c>"urn:ietf:params:netconf:capability:xpath:1.0"</c></p></item>
+        </list>
+ 
+        <p>More identifiers can exist, for example, server-side namespace.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_config" arity="3" since="OTP R15B02"/>
+      <name name="get_config" arity="4" since="OTP R15B02"/>
+      <fsummary>Gets configuration data.</fsummary>
+      <desc>
+        <p>Gets configuration data.</p>
+
+        <p>To be able to access another source than <c>running</c>, the
+          server must advertise <c>:candidate</c> and/or <c>:startup</c>.</p>
+
+        <p>Filter type <c>xpath</c> can be used only if the server supports
+          <c>:xpath</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_event_streams" arity="1" since="OTP 20.0"/>
+      <name name="get_event_streams" arity="2" clause_i="1" since="OTP R15B02"/>
+      <name name="get_event_streams" arity="2" clause_i="2" since="OTP 20.0"/>
+      <name name="get_event_streams" arity="3" since="OTP R15B02"/>
+      <fsummary>Sends a request to get the specified event streams.</fsummary>
+      <desc>
+        <p>Sends a request to get the specified event streams.</p>
+
+        <p><c>Streams</c> is a list of stream names. The following filter is
+          sent to the NETCONF server in a <c>get</c> request:</p>
+
+        <pre>
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName1&lt;/name&gt;
+     &lt;/stream&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName2&lt;/name&gt;
+     &lt;/stream&gt;
+     ...
+   &lt;/streams&gt;
+ &lt;/netconf&gt;</pre>
+
+        <p>If <c>Streams</c> is an empty list, <em>all</em> streams are
+          requested by sending the following filter:</p>
+
+        <pre>
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams/&gt;
+ &lt;/netconf&gt;</pre>
+
+        <p>If more complex filtering is needed, use
+          <seealso marker="#get-2"><c>ct_netconfc:get/2,3</c></seealso> and
+          specify the exact filter according to "XML Schema for Event
+          Notifications" in RFC 5277.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_session_id" arity="1" since="OTP R15B02"/>
+      <name name="get_session_id" arity="2" since="OTP R15B02"/>
+      <fsummary>Returns the session Id associated with the specified
+        client.</fsummary>
+      <desc>
+        <p>Returns the session Id associated with the specified client.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hello" arity="1" since="OTP R15B02"/>
+      <name name="hello" arity="2" since="OTP R15B02"/>
+      <name name="hello" arity="3" since="OTP 17.5.3"/>
+      <fsummary>Exchanges hello messages with the server.</fsummary>
+      <desc>
+        <p>Exchanges <c>hello</c> messages with the server.</p>
+
+        <p>Adds optional capabilities and sends a <c>hello</c> message to the
+          server and waits for the return.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="kill_session" arity="2" since="OTP R15B02"/>
+      <name name="kill_session" arity="3" since="OTP R15B02"/>
+      <fsummary>Forces termination of the session associated with the supplied
+        session Id.</fsummary>
+      <desc>
+        <p>Forces termination of the session associated with the supplied
+          session Id.</p>
+
+        <p>The server side must abort any ongoing operations, release any
+          locks and resources associated with the session, and close any
+          associated connections.</p>
+
+        <p>Only if the server is in the confirmed commit phase, the
+          configuration is restored to its state before entering the confirmed
+          commit phase. Otherwise, no configuration rollback is performed.</p>
+
+         <p>If the specified <c>SessionId</c> is equal to the current session
+           Id, an error is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lock" arity="2" since="OTP R15B02"/>
+      <name name="lock" arity="3" since="OTP R15B02"/>
+      <fsummary>Locks the configuration target.</fsummary>
+      <desc>
+        <p>Locks the configuration target.</p>
+
+        <p>Which target parameters that can be used depends on if
+          <c>:candidate</c> and/or <c>:startup</c> are supported by the
+          server. If successfull, the configuration system of the device is
+          unavailable to other clients (NETCONF, CORBA, SNMP, and so on).
+          Locks are intended to be short-lived.</p>
+
+         <p>Operation
+           <seealso marker="#kill_session-2"><c>kill_session/2,3</c></seealso>
+           can be used to force the release of a lock owned by another NETCONF
+           session. How this is achieved by the server side is
+           implementation-specific.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="only_open" arity="1" since="OTP R15B02"/>
+      <fsummary>Opens a NETCONF session, but does not send hello.</fsummary>
+      <desc>
+        <p>Opens a NETCONF session, but does not send <c>hello</c>.</p>
+
+        <p>As <seealso marker="#open-1"><c>open/1</c></seealso>, but
+          does not send a <c>hello</c> message.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="only_open" arity="2" since="OTP R15B02"/>
+      <fsummary>Opens a named NETCONF session, but does not send hello.</fsummary>
+      <desc>
+        <p>Opens a named NETCONF session, but does not send <c>hello</c>.</p>
+
+        <p>As <seealso marker="#open-2"><c>open/2</c></seealso>, but
+          does not send a <c>hello</c> message.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="1" since="OTP R15B02"/>
+      <fsummary>Opens a NETCONF session and exchanges hello messages.</fsummary>
+      <desc>
+        <p>Opens a NETCONF session and exchanges <c>hello</c> messages.</p>
+
+        <p>If the server options are specified in a configuration file,
+          or if a named client is needed for logging purposes (see section
+          <seealso marker="#Logging">Logging</seealso> in this module), use
+          <seealso marker="#open-2"><c>open/2</c></seealso>
+          instead.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function is required as client identifier when calling any other
+          function in this module.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection and when waiting for the <c>hello</c> message from
+          the server. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="2" since="OTP R15B02"/>
+      <fsummary>Opens a named NETCONF session and exchanges hello
+        messages.</fsummary>
+      <desc>
+        <p>Opens a named NETCONF session and exchanges <c>hello</c>
+          messages.</p>
+
+         <p>If <c><anno>KeyOrName</anno></c> is a
+           configured <c>server_id()</c> or a
+           <c>target_name()</c> associated with such an Id, then the options
+           for this server are fetched from the configuration file.</p>
+
+         <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
+           options found in the configuration file. If the same
+           options are specified, the values from the configuration
+           file overwrite <c><anno>ExtraOptions</anno></c>.</p>
+
+         <p>If the server is not specified in a configuration file, use
+           <seealso marker="#open-1"><c>open/1</c></seealso>
+           instead.</p>
+
+         <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	   reference returned from this
+           function can be used as client identifier when calling any other
+           function in this module. However, if <c><anno>KeyOrName</anno></c> is a
+           <c>target_name()</c>, that is, if the server is named through a
+           call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+           or a <c>require</c> statement in the test suite, then this name can
+           be used instead of
+	   <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection and when waiting for the <c>hello</c> message from
+          the server. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+
+         <p>See also
+           <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="2" since="OTP R16B02"/>
+      <name name="send" arity="3" since="OTP R16B02"/>
+      <fsummary>Sends an XML document to the server.</fsummary>
+      <desc>
+        <p>Sends an XML document to the server.</p>
+
+        <p>The specified XML document is sent "as is" to the server. This
+          function can be used for sending XML documents that cannot be
+          expressed by other interface functions in this module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_rpc" arity="2" since="OTP R16B02"/>
+      <name name="send_rpc" arity="3" since="OTP R16B02"/>
+      <fsummary>Sends a NETCONF rpc request to the server.</fsummary>
+      <desc>
+        <p>Sends a NETCONF <c>rpc</c> request to the server.</p>
+
+        <p>The specified XML document is wrapped in a valid NETCONF <c>rpc</c>
+          request and sent to the server. The <c>message-id</c> and namespace
+          attributes are added to element <c>rpc</c>.</p>
+
+        <p>This function can be used for sending <c>rpc</c> requests that
+          cannot be expressed by other interface functions in this module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="session" arity="1" since="OTP 20.0"/>
+      <name name="session" arity="2" clause_i="1" since="OTP 20.0"/>
+      <name name="session" arity="2" clause_i="2" since="OTP 20.0"/>
+      <name name="session" arity="3" since="OTP 20.0"/>
+      <fsummary>Opens a NETCONF session as a channel on the given SSH
+	connection, and exchanges hello messages with the
+	server.</fsummary>
+      <type name="session_options"/>
+      <type name="session_option"/>
+      <desc>
+	<p>Opens a NETCONF session as a channel on the given SSH
+          connection, and exchanges hello messages with the server.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function can be used as client identifier when calling any
+          other function in this module. However, if <c><anno>KeyOrName</anno></c>
+          is used and it is a <c>target_name()</c>, that is, if the
+          server is named through a call
+          to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement in the test suite, then this
+          name can be used instead of
+	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="unlock" arity="2" since="OTP R15B02"/>
+      <name name="unlock" arity="3" since="OTP R15B02"/>
+      <fsummary>Unlocks the configuration target.</fsummary>
+      <desc>
+        <p>Unlocks the configuration target.</p>
+
+        <p>If the client earlier has acquired a lock through
+          <seealso marker="#lock-2"><c>lock/2,3</c></seealso>, this
+          operation releases the associated lock. To access another target
+          than <c>running</c>, the server must support <c>:candidate</c>
+          and/or <c>:startup</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>net_adm</title>
+    <prepared>Claes Wikstrom</prepared>
+    <docno>1</docno>
+    <date>1996-09-10</date>
+    <rev>A</rev>
+  </header>
+  <module since="">net_adm</module>
+  <modulesummary>Various Erlang net administration routines.</modulesummary>
+  <description>
+    <p>This module contains various network utility functions.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="dns_hostname" arity="1" since=""/>
+      <fsummary>Official name of a host.</fsummary>
+      <desc>
+        <p>Returns the official name of <c><anno>Host</anno></c>, or
+          <c>{error, <anno>Host</anno>}</c> if no such name is found. See also
+          <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="host_file" arity="0" since=""/>
+      <fsummary>Read file <c>.hosts.erlang</c>.</fsummary>
+      <desc>
+        <p>Reads file <c>.hosts.erlang</c>, see section
+          <seealso marker="#files">Files</seealso>. Returns the hosts in this
+          file as a list. Returns <c>{error, <anno>Reason</anno>}</c> if the
+          file cannot be read or the Erlang terms on the file cannot be
+          interpreted.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="localhost" arity="0" since=""/>
+      <fsummary>Name of the local host.</fsummary>
+      <desc>
+        <p>Returns the name of the local host. If Erlang was started
+          with command-line flag <c>-name</c>, <c><anno>Name</anno></c> is
+          the fully qualified name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="names" arity="0" since=""/>
+      <name name="names" arity="1" since=""/>
+      <fsummary>Names of Erlang nodes at a host.</fsummary>
+      <desc>
+        <p>Similar to <c>epmd -names</c>, see
+          <seealso marker="erts:epmd"><c>erts:epmd(1)</c></seealso>.
+          <c><anno>Host</anno></c> defaults to the local host. Returns the
+          names and associated port numbers of the Erlang nodes that
+          <c>epmd</c> registered at the specified host. Returns
+          <c>{error, address}</c> if <c>epmd</c> is not operational.</p>
+        <p><em>Example:</em></p>
+        <pre>
+(arne@dunn)1> <input>net_adm:names().</input>
+{ok,[{"arne",40262}]}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ping" arity="1" since=""/>
+      <fsummary>Set up a connection to a node.</fsummary>
+      <desc>
+        <p>Sets up a connection to <c><anno>Node</anno></c>. Returns
+          <c>pong</c> if it is successful, otherwise <c>pang</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="world" arity="0" since=""/>
+      <name name="world" arity="1" since=""/>
+      <fsummary>Lookup and connect to all nodes at all hosts in
+        <c>.hosts.erlang</c>.</fsummary>
+      <type name="verbosity"/>
+      <desc>
+        <p>Calls <c>names(Host)</c> for all hosts that
+          are specified in the Erlang host file <c>.hosts.erlang</c>,
+          collects the replies, and then evaluates <c>ping(Node)</c> on
+          all those nodes. Returns the list of all nodes that are
+          successfully pinged.</p>
+        <p><c><anno>Arg</anno></c> defaults to <c>silent</c>.
+          If <c><anno>Arg</anno> == verbose</c>, the function writes
+          information about which nodes it is pinging to <c>stdout</c>.</p>
+        <p>This function can be useful when a node is started, and
+          the names of the other network nodes are not initially known.</p>
+        <p>Returns <c>{error, Reason}</c> if <c>host_file()</c>
+          returns <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="world_list" arity="1" since=""/>
+      <name name="world_list" arity="2" since=""/>
+      <fsummary>Lookup and connect to all nodes at specified hosts.</fsummary>
+      <type name="verbosity"/>
+      <desc>
+        <p>Same as <seealso marker="#world/1"><c>world/0,1</c></seealso>,
+          but the hosts are specified as argument
+          instead of being read from <c>.hosts.erlang</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Files</title>
+    <marker id="files"/>
+    <p>File <c>.hosts.erlang</c> consists of a number of host names
+      written as Erlang terms. It is looked for in the current work
+      directory, the user's home directory, and <c>$OTP_ROOT</c>
+      (the root directory of Erlang/OTP), in that order.</p>
+    <p>The format of file <c>.hosts.erlang</c> must be one host
+      name per line. The host names must be within quotes.</p>
+    <p><em>Example:</em></p>
+    <pre>
+'super.eua.ericsson.se'.
+'renat.eua.ericsson.se'.
+'grouse.eua.ericsson.se'.
+'gauffin1.eua.ericsson.se'.
+^ (new line)</pre>
+  </section>
+</erlref>
+

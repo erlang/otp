@@ -1,0 +1,97 @@
+Date: Sun, 13 Nov 2016 10:11:11 +0100
+Subject: [PATCH] Fix invalid variable names
+
+---
+ test/lfe_andor_SUITE.core | 16 ++++++++--------
+ test/lfe_guard_SUITE.core | 14 +++++++-------
+ 2 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/test/lfe_andor_SUITE.core b/test/lfe_andor_SUITE.core
+index 96ff765..df58b39 100644
+--- a/test/lfe_andor_SUITE.core
++++ b/test/lfe_andor_SUITE.core
+@@ -288,19 +288,19 @@ module 'lfe_andor_SUITE' ['$handle_undefined_function'/2,
+ 			       'lc$^0'/1 =
+ 				   fun (_2) ->
+ 				       case <_2> of
+-					 <[_x|_|-0-|]> when 'true' ->
++					 <[_x|_lfe0]> when 'true' ->
+ 					     letrec
+ 						 'lc$^1'/1 =
+ 						     fun (_3) ->
+ 							 case <_3> of
+-							   <[_y|_|-1-|]> when 'true' ->
++							   <[_y|_lfe1]> when 'true' ->
+ 							       let <_4> =
+ 								   apply 'lc$^1'/1
+-								       (_|-1-|)
++								       (_lfe1)
+ 							       in  [{_x,_y}|_4]
+ 							   <[]> when 'true' ->
+ 							       apply 'lc$^0'/1
+-								   (_|-0-|)
++								   (_lfe0)
+ 							   ( <_5> when 'true' ->
+ 								 ( primop 'match_fail'
+ 								       ({'function_clause',_5})
+@@ -455,19 +455,19 @@ module 'lfe_andor_SUITE' ['$handle_undefined_function'/2,
+ 			       'lc$^2'/1 =
+ 				   fun (_2) ->
+ 				       case <_2> of
+-					 <[_x|_|-2-|]> when 'true' ->
++					 <[_x|_lfe2]> when 'true' ->
+ 					     letrec
+ 						 'lc$^3'/1 =
+ 						     fun (_3) ->
+ 							 case <_3> of
+-							   <[_y|_|-3-|]> when 'true' ->
++							   <[_y|_lfe3]> when 'true' ->
+ 							       let <_4> =
+ 								   apply 'lc$^3'/1
+-								       (_|-3-|)
++								       (_lfe3)
+ 							       in  [{_x,_y}|_4]
+ 							   <[]> when 'true' ->
+ 							       apply 'lc$^2'/1
+-								   (_|-2-|)
++								   (_lfe2)
+ 							   ( <_5> when 'true' ->
+ 								 ( primop 'match_fail'
+ 								       ({'function_clause',_5})
+diff --git a/test/lfe_guard_SUITE.core b/test/lfe_guard_SUITE.core
+index 38f1d99..920be82 100644
+--- a/test/lfe_guard_SUITE.core
++++ b/test/lfe_guard_SUITE.core
+@@ -2857,22 +2857,22 @@ module 'lfe_guard_SUITE' ['$handle_undefined_function'/2,
+ 		    'false' ->
+ 	      case <_t> of
+ 		<{_a,_b,_c,_d}> when 'true' ->
+-		    let <_|-0-|> =
++		    let <_lfe0> =
+ 			<_a>
+-		    in  let <_|-1-|> =
++		    in  let <_lfe1> =
+ 			    <_b>
+-			in  let <_|-2-|> =
++			in  let <_lfe2> =
+ 				<_c>
+-			    in  let <_|-3-|> =
++			    in  let <_lfe3> =
+ 				    <_d>
+ 				in  let <_4> =
+ 					let <_3> =
+ 					    call 'erlang':'+'
+-						(_|-0-|, _|-1-|)
++						(_lfe0, _lfe1)
+ 					in  call 'erlang':'+'
+-						(_3, _|-2-|)
++						(_3, _lfe2)
+ 				    in  call 'erlang':'+'
+-					    (_4, _|-3-|)
++					    (_4, _lfe3)
+ 		( <_5> when 'true' ->
+ 		      primop 'match_fail'
+ 			  ({'badmatch',{_5}})
+-- 
+2.7.4 (Apple Git-66)
+

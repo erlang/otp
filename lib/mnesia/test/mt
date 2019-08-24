@@ -1,0 +1,83 @@
+#! /bin/sh -f
+# ``Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+# AB. All Rights Reserved.''
+# 
+#     $Id$
+#
+#
+# Author: Hakan Mattsson <hakan@erix.ericsson.se>
+# Purpose: Simplified execution of the test suite
+#    
+# Usage: mt <args to erlang startup script>
+
+#top=".."
+top="$ERL_TOP/lib/mnesia"
+h=`hostname`
+p="-pa $top/examples -pa $top/ebin -pa $top/test -mnesia_test_verbose true"
+log=test_log$$
+latest=test_log_latest
+args=${1+"$@"}
+erlcmd="erl -sname a $p $args -mnesia_test_timeout"
+erlcmd1="erl -sname a1 $p $args"
+erlcmd2="erl -sname a2 $p $args"
+
+if test z"$MT_TERM" = z ; then
+    MT_TERM=xterm
+fi
+
+case $MT_TERM in
+    xterm)
+	geom0="-geometry 142x40+0+0"
+	geom1="-geometry 70x20+0+550"
+	geom2="-geometry 70x20+480+550"
+	title="-T"
+	exec="-e"
+	;;
+    gnome-terminal)
+	geom0="--geometry 142x40+0+0"
+	geom1="--geometry 70x20+0+740"
+	geom2="--geometry 70x20+700+740"
+	title="--title"
+	exec="--hide-menubar --"
+	;;
+    *rxvt)
+	geom0="-geometry 142x40+0+0"
+	geom1="-geometry 70x20+0+680"
+	geom2="-geometry 70x20+630+680"
+	title="-title"
+	exec="-e"
+esac
+
+$MT_TERM $geom1 $title a1 $exec $erlcmd1 &
+$MT_TERM $geom2 $title a2 $exec $erlcmd2 &
+
+rm "$latest" 2>/dev/null
+ln -s "$log" "$latest"
+touch "$log"
+
+echo "$erlcmd1"
+echo ""
+echo "$erlcmd2"
+echo ""
+echo "$erlcmd"
+echo ""
+echo "Give the following command in order to see the outcome from node a@$h"":"
+echo ""
+echo "	less test_log$$"
+
+$MT_TERM $geom0 $title a $exec script -f -c "$erlcmd" "$log"  &
+tail -f "$log" | egrep 'Eval|<>ERROR|NYI'
+

@@ -1,0 +1,321 @@
+-- Module MTSAccessProtocol (X.419:06/1999)
+
+MTSAccessProtocol {joint-iso-itu-t mhs(6) protocols(0) modules(0)
+  mts-access-protocol(1) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+--	Prologue
+IMPORTS
+  -- MTS Abstract Service
+  administration, delivery, mts-access-contract, mts-connect,
+    mts-forced-access-contract, submission
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- MTS Abstract Service (1988)
+  administration-88, delivery-88, mts-access-contract-88,
+    mts-forced-access-contract-88
+    --==
+    FROM MTSAbstractService88 {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1988(1988)}
+  -- Remote Operations
+  APPLICATION-CONTEXT
+    --==
+    FROM Remote-Operations-Information-Objects-extensions {joint-iso-itu-t
+      remote-operations(4) informationObjects-extensions(8) version1(0)}
+  Code
+    --==
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  Bind{}, InvokeId, Unbind{}
+    --==
+    FROM Remote-Operations-Generic-ROS-PDUs {joint-iso-itu-t
+      remote-operations(4) generic-ROS-PDUs(6) version1(0)}
+  ROS-SingleAS{}
+    --==
+    FROM Remote-Operations-Useful-Definitions {joint-iso-itu-t
+      remote-operations(4) useful-definitions(7) version1(0)}
+  acse, association-by-RTSE, pData, transfer-by-RTSE
+    --==
+    FROM Remote-Operations-Realizations {joint-iso-itu-t remote-operations(4)
+      realizations(9) version1(0)}
+  acse-abstract-syntax
+    --==
+    FROM Remote-Operations-Abstract-Syntaxes {joint-iso-itu-t
+      remote-operations(4) remote-operations-abstract-syntaxes(12) version1(0)}
+  -- Reliable Transfer
+   RTORQapdu, RTOACapdu, RTORJapdu 
+    FROM Reliable-Transfer-APDU {joint-iso-itu-t reliable-transfer(3) apdus(0)}
+  -- Object Identifiers
+  id-ac-mts-access-88, id-ac-mts-access-94, id-ac-mts-forced-access-88,
+    id-ac-mts-forced-access-94, id-ac-mts-forced-reliable-access-88,
+    id-ac-mts-forced-reliable-access-94, id-ac-mts-reliable-access-88,
+    id-ac-mts-reliable-access-94, id-as-mase-88, id-as-mase-94, id-as-mdse-88,
+    id-as-mdse-94, id-as-msse, id-as-mts, id-as-mts-rtse
+    --==
+    FROM MHSProtocolObjectIdentifiers {joint-iso-itu-t mhs(6) protocols(0)
+      modules(0) object-identifiers(0) version-1994(0)};
+
+RTSE-apdus ::= CHOICE {
+  rtorq-apdu  [16] IMPLICIT RTORQapdu,
+  rtoac-apdu  [17] IMPLICIT RTOACapdu,
+  rtorj-apdu  [18] IMPLICIT RTORJapdu,
+  rttp-apdu   RTTPapdu,
+  rttr-apdu   RTTRapdu,
+  rtab-apdu   [22] IMPLICIT RTABapdu
+}
+
+RTTPapdu ::= -- priority-- INTEGER
+
+RTTRapdu ::= OCTET STRING
+
+RTABapdu ::= SET {
+  abortReason         [0] IMPLICIT AbortReason OPTIONAL,
+  reflectedParameter  [1] IMPLICIT BIT STRING OPTIONAL,
+  -- 8 bits maximum, only if abortReason is invalidParameter
+  userdataAB
+    [2]  TYPE-IDENTIFIER.&Type
+      OPTIONAL -- only in normal mode and if abortReason--
+  -- is userError 
+}
+
+AbortReason ::= INTEGER {
+  localSystemProblem(0),
+  invalidParameter(1), -- reflectedParameter supplied
+  unrecognizedActivity(2),
+  temporaryProblem(3),
+  -- the RTSE cannot accept a session for a period of time
+  protocolError(4), -- RTSE level protocol error
+  permanentProblem(5), --provider-abort solely in normal mode 
+  userError(6), -- user-abort solely in normal mode
+  transferCompleted(7) -- activity can't be discarded--}
+
+--	APPLICATION CONTEXTS
+--	1994 Application Contexts omitting RTSE
+--	MTS-user initiated
+mts-access-94 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-access-contract
+  ESTABLISHED BY            acse
+  INFORMATION TRANSFER BY   pData
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax |
+      message-administration-abstract-syntax-94 |
+      mts-bind-unbind-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-access-94
+}
+
+--	MTS initiated
+mts-forced-access-94 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-forced-access-contract
+  ESTABLISHED BY            acse
+  INFORMATION TRANSFER BY   pData
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax |
+      message-administration-abstract-syntax-94 |
+      mts-bind-unbind-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-forced-access-94
+}
+
+--	1994 Application Contexts including RTSE in normal mode
+--	MTS-user initiated
+mts-reliable-access-94 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-access-contract
+  ESTABLISHED BY            association-by-RTSE
+  INFORMATION TRANSFER BY   transfer-by-RTSE
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax |
+      message-administration-abstract-syntax-94 |
+      mts-bind-unbind-rtse-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-reliable-access-94
+}
+
+--	MTS initiated
+mts-forced-reliable-access-94 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-forced-access-contract
+  ESTABLISHED BY            association-by-RTSE
+  INFORMATION TRANSFER BY   transfer-by-RTSE
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax |
+      message-administration-abstract-syntax-94 |
+      mts-bind-unbind-rtse-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-forced-reliable-access-94
+}
+
+--	1988 Application Contexts omitting RTSE
+--	MTS-user initiated
+mts-access-88 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-access-contract-88
+  ESTABLISHED BY            acse
+  INFORMATION TRANSFER BY   pData
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax-88 |
+      message-administration-abstract-syntax-88 |
+      mts-bind-unbind-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-access-88
+}
+
+--	MTS initiated
+mts-forced-access-88 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-forced-access-contract-88
+  ESTABLISHED BY            acse
+  INFORMATION TRANSFER BY   pData
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax-88 |
+      message-administration-abstract-syntax-88 |
+      mts-bind-unbind-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-forced-access-88
+}
+
+--	1988 Application Contexts including RTSE in normal mode
+--	MTS-user initiated
+mts-reliable-access-88 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-access-contract-88
+  ESTABLISHED BY            association-by-RTSE
+  INFORMATION TRANSFER BY   transfer-by-RTSE
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax-88 |
+      message-administration-abstract-syntax-88 |
+      mts-bind-unbind-rtse-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-reliable-access-88
+}
+
+--	MTS initiated
+mts-forced-reliable-access-88 APPLICATION-CONTEXT ::= {
+  CONTRACT                  mts-forced-access-contract-88
+  ESTABLISHED BY            association-by-RTSE
+  INFORMATION TRANSFER BY   transfer-by-RTSE
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | message-submission-abstract-syntax |
+      message-delivery-abstract-syntax-88 |
+      message-administration-abstract-syntax-88 |
+      mts-bind-unbind-rtse-abstract-syntax}
+  APPLICATION CONTEXT NAME  id-ac-mts-forced-reliable-access-88
+}
+
+--	ABSTRACT-SYNTAXES
+--	Abstract Syntax for MTS-Bind and MTS-Unbind
+mts-bind-unbind-abstract-syntax ABSTRACT-SYNTAX ::= {
+  MTSBindUnbindPDUs
+  IDENTIFIED BY  id-as-mts
+}
+
+MTSBindUnbindPDUs ::= CHOICE {
+  bind    Bind{mts-connect.&bind},
+  unbind  Unbind{mts-connect.&unbind}
+}
+
+--	Abstract Syntax for MTS-Bind and MTS-Unbind with RTSE
+mts-bind-unbind-rtse-abstract-syntax ABSTRACT-SYNTAX ::= {
+  RTSE-apdus -- With MTS Bind and MTS Unbind --
+  IDENTIFIED BY  id-as-mts-rtse
+}
+
+--	Abstract Syntax for Message Submission Service Element
+message-submission-abstract-syntax ABSTRACT-SYNTAX ::= {
+  MessageSubmissionPDUs
+  IDENTIFIED BY  id-as-msse
+}
+
+MessageSubmissionPDUs ::= ROS-SingleAS{{MTSInvokeIds}, submission}
+
+MTSInvokeIds ::= InvokeId(ALL EXCEPT absent:NULL)
+
+--	Remote Operations
+op-message-submission Code ::= local:3
+
+op-probe-submission Code ::= local:4
+
+op-cancel-deferred-delivery Code ::= local:7
+
+op-submission-control Code ::= local:2
+
+--	Remote Errors
+err-submission-control-violated Code ::= local:1
+
+err-element-of-service-not-subscribed Code ::= local:4
+
+err-deferred-delivery-cancellation-rejected Code ::= local:8
+
+err-originator-invalid Code ::= local:2
+
+err-recipient-improperly-specified Code ::= local:3
+
+err-message-submission-identifier-invalid Code ::= local:7
+
+err-inconsistent-request Code ::= local:11
+
+err-security-error Code ::= local:12
+
+err-unsupported-critical-function Code ::= local:13
+
+err-remote-bind-error Code ::= local:15
+
+--	Abstract Syntax for Message Delivery Service Element 1994
+message-delivery-abstract-syntax ABSTRACT-SYNTAX ::= {
+  MessageDeliveryPDUs
+  IDENTIFIED BY  id-as-mdse-94
+}
+
+MessageDeliveryPDUs ::= ROS-SingleAS{{MTSInvokeIds}, delivery}
+
+--	Abstract Syntax for Message Delivery Service Element 1988
+message-delivery-abstract-syntax-88 ABSTRACT-SYNTAX ::= {
+  MessageDeliveryPDUs88
+  IDENTIFIED BY  id-as-mdse-88
+}
+
+MessageDeliveryPDUs88 ::= ROS-SingleAS{{MTSInvokeIds}, delivery-88}
+
+--	Remote Operations
+op-message-delivery Code ::= local:5
+
+op-report-delivery Code ::= local:6
+
+op-delivery-control Code ::= local:2
+
+--	Remote Errors
+err-delivery-control-violated Code ::= local:1
+
+err-control-violates-registration Code ::= local:14
+
+err-operation-refused Code ::= local:16
+
+--	Abstract Syntax for Message Administration Service Element 1994
+message-administration-abstract-syntax-94 ABSTRACT-SYNTAX ::= {
+  MessageAdministrationPDUs
+  IDENTIFIED BY  id-as-mase-94
+}
+
+MessageAdministrationPDUs ::= ROS-SingleAS{{MTSInvokeIds}, administration}
+
+--	Abstract Syntax for Message Administration Service Element 1988
+message-administration-abstract-syntax-88 ABSTRACT-SYNTAX ::= {
+  MessageAdministrationPDUs88
+  IDENTIFIED BY  id-as-mase-88
+}
+
+MessageAdministrationPDUs88 ::= ROS-SingleAS{{MTSInvokeIds}, administration-88}
+
+--	Remote Operations
+op-register Code ::= local:1
+
+op-change-credentials Code ::= local:8
+
+--	Remote Errors
+err-register-rejected Code ::= local:10
+
+err-new-credentials-unacceptable Code ::= local:6
+
+err-old-credentials-incorrectly-specified Code ::= local:5
+
+END -- of MTSAccessProtocol
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>erl_boot_server</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">erl_boot_server</module>
+  <modulesummary>Boot server for other Erlang machines.</modulesummary>
+  <description>
+    <p>This server is used to assist diskless Erlang nodes that fetch
+      all Erlang code from another machine.</p>
+    <p>This server is used to fetch all code, including the start
+      script, if an Erlang runtime system is started with
+      command-line flag <c>-loader inet</c>. All hosts specified
+      with command-line flag <c>-hosts Host</c> must have one
+      instance of this server running.</p>
+    <p>This server can be started with the Kernel configuration
+      parameter <c>start_boot_server</c>.</p>
+    <p>The <c>erl_boot_server</c> can read regular files and
+      files in archives. See <seealso marker="code"><c>code(3)</c></seealso>
+      and
+    <seealso marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>
+    in ERTS.</p>
+    <warning><p>The support for loading code from archive files is
+     experimental. It is released before it is ready
+     to obtain early feedback. The file format, semantics,
+     interfaces, and so on, can be changed in a future release.</p></warning>
+  </description>
+  <funcs>
+    <func>
+      <name name="add_slave" arity="1" since=""/>
+      <fsummary>Add a slave to the list of allowed slaves.</fsummary>
+      <desc>
+        <p>Adds a <c><anno>Slave</anno></c> node to the list of allowed slave hosts.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="delete_slave" arity="1" since=""/>
+      <fsummary>Delete a slave from the list of allowed slaves.</fsummary>
+      <desc>
+        <p>Deletes a <c><anno>Slave</anno></c> node from the list of allowed slave
+          hosts.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="1" since=""/>
+      <fsummary>Start the boot server.</fsummary>
+      <desc>
+        <p>Starts the boot server. <c><anno>Slaves</anno></c> is a list of
+          IP addresses for hosts, which are allowed to use this server as a
+          boot server.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start_link" arity="1" since=""/>
+      <fsummary>Start the boot server and link to the the caller.</fsummary>
+      <desc>
+        <p>Starts the boot server and links to the caller. This function
+          is used to start the server if it is included in a supervision
+          tree.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="which_slaves" arity="0" since=""/>
+      <fsummary>Return the current list of allowed slave hosts.</fsummary>
+      <desc>
+        <p>Returns the current list of allowed slave hosts.</p>
+      </desc>
+    </func>
+  </funcs>
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="erts:init"><c>erts:init(3)</c></seealso>,
+      <seealso marker="erts:erl_prim_loader"><c>erts:erl_prim_loader(3)</c></seealso></p>
+  </section>
+</erlref>
+
+

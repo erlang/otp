@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>app</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>app</file>
+  <filesummary>Application resource file.</filesummary>
+  <description>
+    <p>The <em>application resource file</em> specifies the resources an
+      application uses, and how the application is started. There must
+      always be one application resource file called
+      <c>Application.app</c> for each application <c>Application</c> in
+      the system.</p>
+    <p>The file is read by the application controller when an
+      application is loaded/started. It is also used by the functions in
+      <c>systools</c>, for example when generating start scripts.</p>
+  </description>
+
+  <section>
+    <title>File Syntax</title>
+    <p>The application resource file is to be called
+      <c>Application.app</c>, where <c>Application</c> is the
+      application name. The file is to be located in directory <c>ebin</c>
+      for the application.</p>
+    <p>The file must contain a single Erlang term, which is called an
+      <em>application specification</em>:</p>
+    <code type="none">
+{application, Application,
+  [{description,  Description},
+   {id,           Id},
+   {vsn,          Vsn},
+   {modules,      Modules},
+   {maxP,         MaxP},
+   {maxT,         MaxT},
+   {registered,   Names},
+   {included_applications, Apps},
+   {applications, Apps},
+   {env,          Env},
+   {mod,          Start},
+   {start_phases, Phases},
+   {runtime_dependencies, RTDeps}]}.
+
+             Value                Default
+             -----                -------
+Application  atom()               -
+Description  string()             ""
+Id           string()             ""
+Vsn          string()             ""
+Modules      [Module]             []
+MaxP         int()                infinity
+MaxT         int()                infinity
+Names        [Name]               []
+Apps         [App]                []
+Env          [{Par,Val}]          []
+Start        {Module,StartArgs}   []
+Phases       [{Phase,PhaseArgs}]  undefined
+RTDeps       [ApplicationVersion] []
+
+Module = Name = App = Par = Phase = atom()
+Val = StartArgs = PhaseArgs = term()
+ApplicationVersion = string()</code>
+    <taglist>
+      <tag><c>Application</c></tag>
+      <item>Application name.</item>
+    </taglist>
+    <p>For the application controller, all keys are optional.
+      The respective default values are used for any omitted keys.</p>
+    <p>The functions in <c>systools</c> require more information. If
+      they are used, the following keys are mandatory:</p>
+    <list type="bulleted">
+      <item><c>description</c></item>
+      <item><c>vsn</c></item>
+      <item><c>modules</c></item>
+      <item><c>registered</c></item>
+      <item><c>applications</c></item>
+    </list>
+    <p>The other keys are ignored by <c>systools</c>.</p>
+    <taglist>
+      <tag><c>description</c></tag>
+      <item>
+        <p>A one-line description of the application.</p>
+      </item>
+      <tag><c>id</c></tag>
+      <item>
+        <p>Product identification, or similar.</p>
+      </item>
+      <tag><c>vsn</c></tag>
+      <item>
+        <p>Version of the application.</p>
+      </item>
+      <tag><c>modules</c></tag>
+      <item>
+        <p>All modules introduced by this application. <c>systools</c>
+          uses this list when generating start scripts and tar files. A
+          module can only be defined in one application.</p>
+      </item>
+      <tag><c>maxP</c></tag>
+      <item>
+        <p><em>Deprecated - is ignored</em></p>
+        <p>Maximum number of processes allowed in the application.</p>
+      </item>
+      <tag><c>maxT</c></tag>
+      <item>
+        <p>Maximum time, in milliseconds, that the application is
+          allowed to run. After the specified time, the application
+          terminates automatically.</p>
+      </item>
+      <tag><c>registered</c></tag>
+      <item>
+        <p>All names of registered processes started in this
+          application. <c>systools</c> uses this list to detect name
+          clashes between different applications.</p>
+      </item>
+      <tag><c>included_applications</c></tag>
+      <item>
+        <p>All applications included by this application.
+          When this application is started, all included applications
+          are loaded automatically, but not started, by
+          the application controller. It is assumed that the top-most
+          supervisor of the included application is started by a
+          supervisor of this application.</p>
+      </item>
+      <tag><c>applications</c></tag>
+      <item>
+        <p>All applications that must be started before this
+          application is allowed to be started. <c>systools</c> uses
+          this list to generate correct start scripts. Defaults to
+          the empty list, but notice that all applications have
+          dependencies to (at least) Kernel and STDLIB.</p>
+      </item>
+      <tag><c>env</c></tag>
+      <item>
+        <p>Configuration parameters used by the application. The value
+          of a configuration parameter is retrieved by calling
+          <c>application:get_env/1,2</c>. The values in the application
+          resource file can be overridden by values in a configuration
+          file (see <seealso marker="config"><c>config(4)</c></seealso>)
+          or by command-line flags (see
+          <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>).</p>
+      </item>
+      <tag><c>mod</c></tag>
+      <item>
+        <p>Specifies the application callback module and a start argument, see
+          <seealso marker="application"><c>application(3)</c></seealso>.</p>
+        <p>Key <c>mod</c> is necessary for an application
+          implemented as a supervision tree, otherwise the application
+          controller does not know how to start it. <c>mod</c>
+          can be omitted for applications without processes, typically
+          code libraries, for example, STDLIB.</p>
+      </item>
+      <tag><c>start_phases</c></tag>
+      <item>
+        <p>A list of start phases and corresponding start arguments for
+          the application. If this key is present, the application
+          master, in addition to the usual call to
+          <c>Module:start/2</c>, also calls
+          <c>Module:start_phase(Phase,Type,PhaseArgs)</c> for each
+          start phase defined by key <c>start_phases</c>. Only
+          after this extended start procedure,
+          <c>application:start(Application)</c> returns.</p>
+        <p>Start phases can be used to synchronize startup of an
+          application and its included applications. In this case,
+          key <c>mod</c> must be specified as follows:</p>
+        <code type="none">
+{mod, {application_starter,[Module,StartArgs]}}</code>
+        <p>The application master then calls <c>Module:start/2</c>
+          for the primary application, followed by calls to
+          <c>Module:start_phase/3</c> for each start phase (as defined
+          for the primary application), both for the primary application
+          and for each of its included applications, for which the start
+          phase is defined.</p>
+        <p>This implies that for an included application, the set of
+          start phases must be a subset of the set of phases defined
+          for the primary application. For more information, see
+          <seealso marker="doc/design_principles:applications">OTP Design Principles</seealso>.
+        </p>
+      </item>
+      <tag>
+        <marker id="runtime_dependencies"></marker>
+        <c>runtime_dependencies</c></tag>
+      <item>
+        <p>A list of application versions that the application
+          depends on. An example of such an application version is
+          <c>"kernel-3.0"</c>. Application versions specified as runtime
+          dependencies are minimum requirements. That is, a larger
+          application version than the one specified in the
+          dependency satisfies the requirement. For information about
+          how to compare application versions, see section
+          <seealso marker="doc/system_principles:versions">Versions</seealso>
+          in the System Principles User's Guide.</p>
+        <p>Notice that the application version
+          specifies a source code version. One more, indirect,
+          requirement is that the installed binary application of
+          the specified version is built so that it is
+          compatible with the rest of the system.</p>
+        <p>Some dependencies can only be required in specific runtime
+          scenarios. When such optional dependencies exist, these are
+          specified and documented in the corresponding "App" documentation
+          of the specific application.</p>
+	  <warning><p>The <c>runtime_dependencies</c> key was introduced in
+	  OTP 17.0. The type of its value might be subject to changes during
+	  the OTP 17 release.</p></warning>
+	  <warning><p>All runtime dependencies specified in OTP applications
+	  during the OTP 17 release may not be completely correct. This
+	  is actively being worked on. Declared runtime dependencies in OTP
+	  applications are expected to be correct in OTP 18.</p></warning>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="application"><c>application(3)</c></seealso>,
+      <seealso marker="sasl:systools"><c>systools(3)</c></seealso></p>
+  </section>
+</fileref>
+

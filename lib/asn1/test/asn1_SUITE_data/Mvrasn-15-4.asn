@@ -1,0 +1,42 @@
+-- module(Mvrasn-15-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Supplementary service codes".
+--
+-- ASN.1 module: "MAP-SS-Code".
+--
+-- =============================================================================
+
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+Mvrasn-15-4
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+SS-Code ::= OCTET STRING (SIZE (1))
+    -- This type is used to represent the code identifying a single
+    -- supplementary service, a group of supplementary services, or
+    -- all supplementary services. The services and abbreviations
+    -- used are defined in TS GSM 02.04. The internal structure is
+    -- defined as follows:
+    --
+    -- bits 87654321: group (bits 8765), and specific service
+    -- (bits 4321)
+
+END

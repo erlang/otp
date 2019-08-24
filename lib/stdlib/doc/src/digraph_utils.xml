@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>digraph_utils</title>
+    <prepared>Hans Bolinder</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2001-08-27</date>
+    <rev>PA1</rev>
+    <file>digraph_utils.xml</file>
+  </header>
+  <module since="">digraph_utils</module>
+  <modulesummary>Algorithms for directed graphs.</modulesummary>
+  <description>
+    <p>This module provides algorithms based on depth-first traversal of
+      directed graphs. For basic functions on directed graphs, see the
+      <seealso marker="digraph"><c>digraph(3)</c></seealso> module.</p>
+
+    <list type="bulleted">
+      <item>
+        <p>A <marker id="digraph"></marker><em>directed graph</em> (or just
+          "digraph") is a pair (V,&nbsp;E) of a finite set V of
+          <marker id="vertex"></marker><em>vertices</em> and a finite set E of
+          <marker id="edge"></marker><em>directed edges</em> (or just "edges").
+          The set of edges E is a subset of V&nbsp;&times;&nbsp;V (the
+          Cartesian product of V with itself).</p>
+      </item>
+      <item>
+        <p>Digraphs can be annotated with more information. Such information
+          can be attached to the vertices and to the edges of the digraph. An
+          annotated digraph is called a <em>labeled digraph</em>, and the
+          information attached to a vertex or an edge is called a
+          <marker id="label"></marker><em>label</em>.</p>
+      </item>
+      <item>
+        <p>An edge e&nbsp;=&nbsp;(v,&nbsp;w) is said to
+          <marker id="emanate"></marker><em>emanate</em> from vertex v and to
+          be <marker id="incident"></marker><em>incident</em> on vertex w.</p>
+      </item>
+      <item>
+        <p>If an edge is emanating from v and incident on w, then w is
+          said to be an <marker id="out_neighbour"></marker>
+          <em>out-neighbor</em> of v, and v is said to be an
+          <marker id="in_neighbour"></marker><em>in-neighbor</em> of w.</p>
+      </item>
+      <item>
+        <p>A <marker id="path"></marker><em>path</em> P from v[1] to v[k]
+          in a digraph (V,&nbsp;E) is a non-empty sequence
+          v[1],&nbsp;v[2],&nbsp;...,&nbsp;v[k] of vertices in V such that
+          there is an edge (v[i],v[i+1]) in E for
+          1&nbsp;&lt;=&nbsp;i&nbsp;&lt;&nbsp;k.</p>
+      </item>
+      <item>
+        <p>The <marker id="length"></marker><em>length</em> of path P is
+          k-1.</p>
+      </item>
+      <item>
+        <p>Path P is a <marker id="cycle"></marker><em>cycle</em> if the
+          length of P is not zero and v[1] = v[k].</p>
+      </item>
+      <item>
+        <p>A <marker id="loop"></marker><em>loop</em> is a cycle of length
+          one.</p>
+      </item>
+      <item>
+        <p>An <marker id="acyclic_digraph"></marker><em>acyclic digraph</em>
+          is a digraph without cycles.</p>
+      </item>
+      <item>
+        <p>A <marker id="depth_first_traversal"></marker><em>depth-first
+          traversal</em> of a directed digraph can be viewed as a process
+          that visits all vertices of the digraph. Initially, all vertices
+          are marked as unvisited. The traversal starts with an
+          arbitrarily chosen vertex, which is marked as visited, and
+          follows an edge to an unmarked vertex, marking that vertex. The
+          search then proceeds from that vertex in the same fashion, until
+          there is no edge leading to an unvisited vertex. At that point
+          the process backtracks, and the traversal continues as long as
+          there are unexamined edges. If unvisited vertices remain
+          when all edges from the first vertex have been examined, some
+          so far unvisited vertex is chosen, and the process is repeated.</p>
+      </item>
+      <item>
+        <p>A <marker id="partial_ordering"></marker><em>partial ordering</em>
+          of a set S is a transitive, antisymmetric, and reflexive relation
+          between the objects of S.</p>
+      </item>
+      <item>
+        <p>The problem of
+          <marker id="topsort"></marker><em>topological sorting</em> is to find
+          a total ordering of S that is a superset of the partial ordering. A
+          digraph G&nbsp;=&nbsp;(V,&nbsp;E) is equivalent to a relation E
+          on V (we neglect that the version of directed graphs
+          provided by the <c>digraph</c> module allows multiple edges
+          between vertices). If the digraph has no cycles of length two or
+          more, the reflexive and transitive closure of E is a
+          partial ordering.</p>
+      </item>
+      <item>
+        <p>A <marker id="subgraph"></marker><em>subgraph</em> G' of G is a
+          digraph whose vertices and edges form subsets of the vertices
+          and edges of G.</p>
+      </item>
+      <item>
+        <p>G' is <em>maximal</em> with respect to a property P if all other
+          subgraphs that include the vertices of G' do not have property P.</p>
+      </item>
+      <item>
+        <p>A <marker id="strong_components"></marker><em>strongly connected
+          component</em> is a maximal subgraph such that there is a path
+          between each pair of vertices.</p>
+      </item>
+      <item>
+        <p>A <marker id="components"></marker><em>connected component</em>
+          is a maximal subgraph such that there is a path between each pair of
+          vertices, considering all edges undirected.</p>
+      </item>
+      <item>
+        <p>An <marker id="arborescence"></marker><em>arborescence</em> is an
+          acyclic digraph with a vertex V, the
+          <marker id="root"></marker><em>root</em>, such that there is a unique
+          path from V to every other vertex of G.</p>
+      </item>
+      <item>
+        <p>A <marker id="tree"></marker><em>tree</em> is an acyclic non-empty
+          digraph such that there is a unique path between every pair of
+          vertices, considering all edges undirected.</p>
+      </item>
+    </list>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="arborescence_root" arity="1" since=""/>
+      <fsummary>Check if a digraph is an arborescence.</fsummary>
+      <desc>
+        <p>Returns <c>{yes, <anno>Root</anno>}</c> if <c><anno>Root</anno></c>
+          is the <seealso marker="#root">root</seealso> of the arborescence
+          <c><anno>Digraph</anno></c>, otherwise <c>no</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="components" arity="1" since=""/>
+      <fsummary>Return the components of a digraph.</fsummary>
+      <desc>
+        <p>Returns a list
+          of <seealso marker="#components">connected components.</seealso>.
+          Each component is represented by its
+          vertices. The order of the vertices and the order of the
+          components are arbitrary. Each vertex of digraph
+          <c><anno>Digraph</anno></c> occurs in exactly one component.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="condensation" arity="1" since=""/>
+      <fsummary>Return a condensed graph of a digraph.</fsummary>
+      <desc>
+        <p>Creates a digraph where the vertices are
+          the <seealso marker="#strong_components">strongly connected
+          components</seealso> of <c><anno>Digraph</anno></c> as returned by
+          <seealso marker="#strong_components/1">
+          <c>strong_components/1</c></seealso>.
+          If X and Y are two different strongly
+          connected components, and vertices x and y exist in X
+          and Y, respectively, such that there is an
+          edge <seealso marker="#emanate">emanating</seealso> from x
+          and <seealso marker="#incident">incident</seealso> on y, then 
+          an edge emanating from X and incident on Y is created.</p>
+        <p>The created digraph has the same type as <c><anno>Digraph</anno></c>.
+          All vertices and edges have the
+          default <seealso marker="#label">label</seealso> <c>[]</c>.</p>
+        <p>Each <seealso marker="#cycle">cycle</seealso> is
+          included in some strongly connected component, which implies that
+          a <seealso marker="#topsort">topological ordering</seealso> of the
+          created digraph always exists.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cyclic_strong_components" arity="1" since=""/>
+      <fsummary>Return the cyclic strong components of a digraph.</fsummary>
+      <desc>
+        <p>Returns a list of <seealso marker="#strong_components">strongly
+          connected components</seealso>. Each strongly component is represented
+          by its vertices. The order of the vertices and the order of
+          the components are arbitrary. Only vertices that are
+          included in some <seealso marker="#cycle">cycle</seealso> in
+          <c><anno>Digraph</anno></c> are returned, otherwise the returned
+          list is equal to that returned by
+          <seealso marker="#strong_components/1">
+          <c>strong_components/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_acyclic" arity="1" since=""/>
+      <fsummary>Check if a digraph is acyclic.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if and only if digraph
+          <c><anno>Digraph</anno></c> is
+          <seealso marker="#acyclic_digraph">acyclic</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_arborescence" arity="1" since=""/>
+      <fsummary>Check if a digraph is an arborescence.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if and only if digraph
+          <c><anno>Digraph</anno></c> is
+	  an <seealso marker="#arborescence">arborescence</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_tree" arity="1" since=""/>
+      <fsummary>Check if a digraph is a tree.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if and only if digraph
+          <c><anno>Digraph</anno></c> is
+          a <seealso marker="#tree">tree</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="loop_vertices" arity="1" since=""/>
+      <fsummary>Return the vertices of a digraph included in some loop.
+      </fsummary>
+      <desc>
+        <p>Returns a list of all vertices of <c><anno>Digraph</anno></c> that
+          are included in some <seealso marker="#loop">loop</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="postorder" arity="1" since=""/>
+      <fsummary>Return the vertices of a digraph in postorder.</fsummary>
+      <desc>
+        <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
+          The order is given by
+          a <seealso marker="#depth_first_traversal">depth-first
+          traversal</seealso> of the digraph, collecting visited
+          vertices in postorder. More precisely, the vertices visited
+          while searching from an arbitrarily chosen vertex are
+          collected in postorder, and all those collected vertices are
+          placed before the subsequently visited vertices.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="preorder" arity="1" since=""/>
+      <fsummary>Return the vertices of a digraph in preorder.</fsummary>
+      <desc>
+        <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
+          The order is given by
+          a <seealso marker="#depth_first_traversal">depth-first
+          traversal</seealso> of the digraph, collecting visited
+          vertices in preorder.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reachable" arity="2" since=""/>
+      <fsummary>Return the vertices reachable from some vertices of a digraph.
+      </fsummary>
+      <desc>
+        <p>Returns an unsorted list of digraph vertices such that for
+          each vertex in the list, there is a
+          <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c>
+          from some
+          vertex of <c><anno>Vertices</anno></c> to the vertex. In particular,
+          as paths can have length zero, the vertices of
+          <c><anno>Vertices</anno></c> are included in the returned list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reachable_neighbours" arity="2" since=""/>
+      <fsummary>Return the neighbors reachable from some vertices of a
+        digraph.</fsummary>
+      <desc>
+        <p>Returns an unsorted list of digraph vertices such that for
+          each vertex in the list, there is a
+          <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c>
+          of length
+          one or more from some vertex of <c><anno>Vertices</anno></c> to the
+          vertex. As a consequence, only those vertices
+          of <c><anno>Vertices</anno></c> that are included in
+          some <seealso marker="#cycle">cycle</seealso> are returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reaching" arity="2" since=""/>
+      <fsummary>Return the vertices that reach some vertices of a digraph.
+      </fsummary>
+      <desc>
+        <p>Returns an unsorted list of digraph vertices such that for
+          each vertex in the list, there is
+          a <seealso marker="#path">path</seealso> from the vertex to some
+          vertex of <c><anno>Vertices</anno></c>. In particular, as paths
+          can have length zero, the vertices of <c><anno>Vertices</anno></c>
+          are included in the returned list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reaching_neighbours" arity="2" since=""/>
+      <fsummary>Return the neighbors that reach some vertices of a digraph.
+      </fsummary>
+      <desc>
+        <p>Returns an unsorted list of digraph vertices such that for
+          each vertex in the list, there is
+          a <seealso marker="#path">path</seealso> of length one or more
+          from the vertex to some vertex of <c><anno>Vertices</anno></c>.
+          Therefore only those vertices of <c><anno>Vertices</anno></c>
+          that are included
+          in some <seealso marker="#cycle">cycle</seealso> are returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strong_components" arity="1" since=""/>
+      <fsummary>Return the strong components of a digraph.</fsummary>
+      <desc>
+        <p>Returns a list of <seealso marker="#strong_components">strongly
+          connected components</seealso>.
+          Each strongly component is represented
+          by its vertices. The order of the vertices and the order of
+          the components are arbitrary. Each vertex of digraph
+          <c><anno>Digraph</anno></c> occurs in exactly one strong component.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="subgraph" arity="2" since=""/>
+      <name name="subgraph" arity="3" since=""/>
+      <fsummary>Return a subgraph of a digraph.</fsummary>
+      <desc>
+        <p>Creates a maximal <seealso marker="#subgraph">subgraph</seealso>
+          of <c>Digraph</c> having
+          as vertices those vertices of <c><anno>Digraph</anno></c> that are
+          mentioned in <c><anno>Vertices</anno></c>.</p>
+        <p>If the value of option <c>type</c> is <c>inherit</c>, which is
+          the default, the type of <c><anno>Digraph</anno></c> is used
+          for the subgraph as well. Otherwise the option value of <c>type</c>
+          is used as argument to
+        <seealso marker="digraph#new/1"><c>digraph:new/1</c></seealso>.</p>
+        <p>If the value of option <c>keep_labels</c> is <c>true</c>,
+          which is the default,
+          the <seealso marker="#label">labels</seealso> of vertices and edges
+          of <c><anno>Digraph</anno></c> are used for the subgraph as well. If
+          the value is <c>false</c>, default label <c>[]</c> is used
+          for the vertices and edges of the subgroup.</p>
+        <p><c>subgraph(<anno>Digraph</anno>, <anno>Vertices</anno>)</c> is
+          equivalent to
+          <c>subgraph(<anno>Digraph</anno>, <anno>Vertices</anno>, [])</c>.</p>
+        <p>If any of the arguments are invalid, a <c>badarg</c> exception is
+          raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="topsort" arity="1" since=""/>
+      <fsummary>Return a topological sorting of the vertices of a digraph.
+      </fsummary>
+      <desc>
+        <p>Returns a <seealso marker="#topsort">topological
+          ordering</seealso> of the vertices of digraph
+          <c><anno>Digraph</anno></c> if such an ordering exists, otherwise
+          <c>false</c>. For each vertex in the returned list,
+          no <seealso marker="#out_neighbour">out-neighbors</seealso>
+          occur earlier in the list.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="digraph"><c>digraph(3)</c></seealso></p>
+  </section>
+</erlref>
+

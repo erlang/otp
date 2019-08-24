@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>random</title>
+    <prepared>Joe Armstrong</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1996-09-09</date>
+    <rev>A</rev>
+    <file>random.xml</file>
+  </header>
+  <module since="">random</module>
+  <modulesummary>Pseudo-random number generation.</modulesummary>
+  <description>
+    <p>This module provides a random number generator. The method is attributed
+      to B.A. Wichmann and I.D. Hill in 'An efficient and portable
+      pseudo-random number generator', Journal of Applied
+      Statistics. AS183. 1982. Also Byte March 1987.</p>
+
+    <p>The algorithm is a modification of the version attributed
+      to Richard A. O'Keefe in the standard Prolog library.</p>
+
+    <p>Every time a random number is requested, a state is used to calculate
+      it, and a new state is produced. The state can either be implicit (kept
+      in the process dictionary) or be an explicit argument and return value.
+      In this implementation, the state (the type <c>ran()</c>) consists of a
+      tuple of three integers.</p>
+
+    <note>
+      <p>This random number generator is not cryptographically
+        strong. If a strong cryptographic random number generator is
+        needed, use one of functions in the
+        <seealso marker="crypto:crypto"><c>crypto</c></seealso>
+        module, for example, <seealso marker="crypto:crypto">
+        <c>crypto:strong_rand_bytes/1</c></seealso>.</p>
+    </note>
+
+    <note>
+      <p>The improved <seealso marker="rand"><c>rand</c></seealso>
+        module is to be used instead of this module.</p>
+    </note>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="ran"/>
+      <desc><p>The state.</p></desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="seed" arity="0" since=""/>
+      <fsummary>Seed random number generation with default values.</fsummary>
+      <desc>
+        <p>Seeds random number generation with default (fixed) values
+          in the process dictionary and returns the old state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed" arity="1" since=""/>
+      <fsummary>Seed random number generator.</fsummary>
+      <desc>
+        <p><c>seed({<anno>A1</anno>, <anno>A2</anno>, <anno>A3</anno>})</c>
+          is equivalent to
+          <c>seed(<anno>A1</anno>, <anno>A2</anno>, <anno>A3</anno>)</c>.</p>
+      </desc>
+    </func>
+
+   <func>
+      <name name="seed" arity="3" since=""/>
+      <fsummary>Seed random number generator.</fsummary>
+      <desc>
+        <p>Seeds random number generation with integer values in the process
+          dictionary and returns the old state.</p>
+        <p>The following is an easy way of obtaining a unique value to seed
+          with:</p>
+        <code type="none">
+random:seed(erlang:phash2([node()]),
+            erlang:monotonic_time(),
+            erlang:unique_integer())</code>
+        <p>For details, see
+          <seealso marker="erts:erlang#phash2/1">
+          <c>erlang:phash2/1</c></seealso>,
+          <seealso marker="erts:erlang#node/0">
+          <c>erlang:node/0</c></seealso>,
+          <seealso marker="erts:erlang#monotonic_time/0">
+          <c>erlang:monotonic_time/0</c></seealso>, and
+          <seealso marker="erts:erlang#unique_integer/0">
+          <c>erlang:unique_integer/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed0" arity="0" since=""/>
+      <fsummary>Return default state for random number generation.</fsummary>
+      <desc>
+        <p>Returns the default state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="0" since=""/>
+      <fsummary>Return a random float.</fsummary>
+      <desc>
+        <p>Returns a random float uniformly distributed between <c>0.0</c>
+          and <c>1.0</c>, updating the state in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="1" since=""/>
+      <fsummary>Return a random integer.</fsummary>
+      <desc>
+        <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>,
+          a random integer uniformly distributed between <c>1</c> and
+          <c><anno>N</anno></c>, updating the state in the process
+          dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_s" arity="1" since=""/>
+      <fsummary>Return a random float.</fsummary>
+      <desc>
+        <p>Returns, for a specified state, a random float uniformly
+          distributed between <c>0.0</c> and <c>1.0</c>, and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_s" arity="2" since=""/>
+      <fsummary>Return a random integer.</fsummary>
+      <desc>
+        <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c> and a
+          state, a random integer uniformly distributed between <c>1</c> and
+          <c><anno>N</anno></c>, and a new state.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Note</title>
+    <p>Some of the functions use the process dictionary variable
+      <c>random_seed</c> to remember the current seed.</p>
+
+    <p>If a process calls
+      <seealso marker="#uniform/0"><c>uniform/0</c></seealso> or
+      <seealso marker="#uniform/1"><c>uniform/1</c></seealso>
+      without setting a seed first,
+      <seealso marker="#seed/0"><c>seed/0</c></seealso>
+      is called automatically.</p>
+
+    <p>The implementation changed in Erlang/OTP R15. Upgrading to R15 breaks
+      applications that expect a specific output for a specified seed. The
+      output is still deterministic number series, but different compared to
+      releases older than R15. Seed <c>{0,0,0}</c> does, for example, no longer
+      produce a flawed series of only zeros.</p>
+  </section>
+</erlref>
+

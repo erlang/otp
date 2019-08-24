@@ -1,0 +1,76 @@
+SeqExtension DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSeqExt1, XSeqExt2 FROM External;
+
+
+SeqExt1 ::= SEQUENCE 
+{
+  ...
+}
+
+SeqExt2 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  ...
+}
+
+SeqExt3 ::= SEQUENCE 
+{
+  ...,
+  bool  BOOLEAN,
+  int  INTEGER
+}
+
+SeqExt4 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  ...,
+  int  INTEGER
+}
+
+SeqExt5 ::= SEQUENCE
+{
+  ...,
+  [[ name OCTET STRING (SIZE (1..8)),
+     shoesize INTEGER ]]
+}
+
+SeqExt6 ::= SEQUENCE
+{
+  -- The spaces between the ellipsis and the comma will prevent them
+  -- from being removed.
+  ...     ,
+  [[ i1 [100] INTEGER, i2 [101] INTEGER, i3 [102] INTEGER ]],
+  [[ i4 [104] INTEGER, i5 [105] INTEGER ]],
+  [[ i6 [106] INTEGER, i7 [107] INTEGER ]]
+}
+
+SeqExt7 ::= SEQUENCE
+{
+  -- The spaces between the ellipsis and the comma will prevent them
+  -- from being removed.
+  ...     ,
+  [[ a INTEGER (0..65535) OPTIONAL,
+     b OCTET STRING OPTIONAL,
+     c BOOLEAN
+  ]]
+}
+
+SeqExt1X ::= XSeqExt1 
+SeqExt2X ::= XSeqExt2 
+
+SuperSeq ::= SEQUENCE
+{
+  s1 SeqExt1,
+  s2 SeqExt2,
+  s3 SeqExt3,
+  s4 SeqExt4,
+  s5 SeqExt5,
+  s6 SeqExt6,
+  i INTEGER
+}
+
+END

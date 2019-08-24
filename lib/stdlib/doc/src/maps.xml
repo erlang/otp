@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2013</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>maps</title>
+    <prepared>Björn-Egil Dahlberg</prepared>
+    <docno>1</docno>
+    <date>2014-02-28</date>
+    <rev>A</rev>
+  </header>
+  <module since="OTP 17.0">maps</module>
+  <modulesummary>Maps processing functions.</modulesummary>
+  <description>
+    <p>This module contains functions for maps processing.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="iterator" n_vars="2"/>
+      <desc>
+        <p>An iterator representing the associations in a map with keys of type
+          <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
+        <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>.</p>
+        <p>Consumed by <seealso marker="#next-1"><c>maps:next/1</c></seealso>,
+          <seealso marker="#filter-2"><c>maps:filter/2</c></seealso>,
+          <seealso marker="#fold-3"><c>maps:fold/3</c></seealso> and
+          <seealso marker="#map-2"><c>maps:map/2</c></seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator" n_vars="0"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="filter" arity="2" since="OTP 18.0"/>
+      <fsummary>Select pairs that satisfy a predicate.</fsummary>
+      <desc>
+        <p>Returns a map <c><anno>Map</anno></c> for which predicate
+          <c><anno>Pred</anno></c> holds true in <c><anno>MapOrIter</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Pred</anno></c> is not a
+          function of arity 2.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
+  Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
+  maps:filter(Pred,M).
+#{a => 2,c => 4}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="find" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a tuple <c>{ok, Value}</c>, where <c><anno>Value</anno></c>
+          is the value associated with <c><anno>Key</anno></c>, or <c>error</c>
+          if no value is associated with <c><anno>Key</anno></c> in
+          <c><anno>Map</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"hi" => 42},
+  Key = "hi",
+  maps:find(Key,Map).
+{ok,42}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold" arity="3" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Calls <c>F(Key, Value, AccIn)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun F/3</c>
+          must return a new accumulator, which is passed to the next successive
+          call. This function returns the final value of the accumulator.
+          The initial accumulator value <c><anno>Init</anno></c> is returned
+          if the map is empty.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 3.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
+  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+  maps:fold(Fun,0,Map).
+6</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_list" arity="1" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Takes a list of key-value tuples elements and builds a map. The
+          associations can be in any order, and both keys and values in the
+          association can be of any term. If the same key appears more than
+          once, the latter (right-most) value is used and the previous values
+          are ignored.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
+  maps:from_list(List).
+#{42 => value_three,1337 => "value two","a" => 1}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns value <c><anno>Value</anno></c> associated with
+          <c><anno>Key</anno></c> if <c><anno>Map</anno></c> contains
+          <c><anno>Key</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map, or with a <c>{badkey,Key}</c>
+          exception if no value is associated with <c><anno>Key</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Key = 1337,
+  Map = #{42 => value_two,1337 => "value one","a" => 1},
+  maps:get(Key,Map).
+"value one"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="3" since="OTP 17.1"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns value <c><anno>Value</anno></c> associated with
+          <c><anno>Key</anno></c> if <c><anno>Map</anno></c> contains
+          <c><anno>Key</anno></c>. If no value is associated with
+          <c><anno>Key</anno></c>, <c><anno>Default</anno></c> is returned.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{ key1 => val1, key2 => val2 }.
+#{key1 => val1,key2 => val2}
+> maps:get(key1, Map, "Default value").
+val1
+> maps:get(key3, Map, "Default value").
+"Default value"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_key" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns <c>true</c> if map <c><anno>Map</anno></c> contains
+          <c><anno>Key</anno></c> and returns <c>false</c> if it does not
+          contain the <c><anno>Key</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"42" => value}.
+#{"42" => value}
+> maps:is_key("42",Map).
+true
+> maps:is_key(value,Map).
+false</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator" arity="1" since="OTP 21.0"/>
+      <fsummary>Create a map iterator.</fsummary>
+      <desc>
+        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
+          be used by <seealso marker="#next-1"><c>maps:next/1</c></seealso>
+          to traverse the key-value associations in a map. When iterating
+          over a map, the memory usage is guaranteed to be bounded no matter
+          the size of the map.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> I = maps:iterator(M), ok.
+ok
+> {K1, V1, I2} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I3} = maps:next(I2),{K2, V2}.
+{b,2}
+> maps:next(I3).
+none</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="keys" arity="1" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a complete list of keys, in any order, which resides
+          within <c><anno>Map</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:keys(Map).
+[42,1337,"a"]</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Produces a new map <c><anno>Map</anno></c> by calling function
+          <c>fun F(Key, Value1)</c> for every <c><anno>Key</anno></c> to value
+          <c><anno>Value1</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun Fun/2</c>
+          must return value <c><anno>Value2</anno></c> to be associated with
+          key <c><anno>Key</anno></c> for the new map
+          <c><anno>Map</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 2.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Fun = fun(K,V1) when is_list(K) -> V1*2 end,
+  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+  maps:map(Fun,Map).
+#{"k1" => 2,"k2" => 4,"k3" => 6}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="merge" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Merges two maps into a single map <c><anno>Map3</anno></c>. If two
+          keys exist in both maps, the value in <c><anno>Map1</anno></c> is
+          superseded by the value in <c><anno>Map2</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:merge(Map1,Map2).
+#{a => 1,b => "value_two",c => 2}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="0" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a new empty map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> maps:new().
+#{}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next" arity="1" since="OTP 21.0"/>
+      <fsummary>Get the next key and value from an iterator.</fsummary>
+      <desc>
+        <p>Returns the next key-value association in
+          <c><anno>Iterator</anno></c> and a new iterator for the
+          remaining associations in the iterator.
+        </p>
+        <p>
+          If there are no more associations in the iterator,
+          <c>none</c> is returned.
+        </p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{a => 1, b => 2, c => 3}.
+#{a => 1,b => 2,c => 3}
+> I = maps:iterator(Map), ok.
+ok
+> {K1, V1, I1} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I2} = maps:next(I1), {K2, V2}.
+{b,2}
+> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{c,3}
+> maps:next(I3).
+none</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="put" arity="3" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Associates <c><anno>Key</anno></c> with value
+          <c><anno>Value</anno></c> and inserts the association into map
+          <c>Map2</c>. If key <c><anno>Key</anno></c> already exists in map
+          <c><anno>Map1</anno></c>, the old associated value is replaced by
+          value <c><anno>Value</anno></c>. The function returns a new map
+          <c><anno>Map2</anno></c> containing the new association and the old
+          associations in <c><anno>Map1</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map1</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:put("a", 42, Map).
+#{"a" => 42}
+> maps:put("b", 1337, Map).
+#{"a" => 1,"b" => 1337}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remove" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Removes the <c><anno>Key</anno></c>, if it exists, and its
+          associated value from <c><anno>Map1</anno></c> and returns a new map
+          <c><anno>Map2</anno></c> without key <c><anno>Key</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map1</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:remove("a",Map).
+#{}
+> maps:remove("b",Map).
+#{"a" => 1}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="size" arity="1" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the number of key-value associations in
+          <c><anno>Map</anno></c>. This operation occurs in constant time.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_two,1337 => "value one","a" => 1},
+  maps:size(Map).
+3</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+	<p>The function removes the <c><anno>Key</anno></c>, if it
+	exists, and its associated value from <c><anno>Map1</anno></c>
+	and returns a tuple with the removed <c><anno>Value</anno></c>
+	and the new map <c><anno>Map2</anno></c> without key
+	<c><anno>Key</anno></c>.  If the key does not exist
+	<c>error</c> is returned.
+	</p>
+	<p>The call will fail with a <c>{badmap,Map}</c> exception if
+	<c><anno>Map1</anno></c> is not a map.
+	</p>
+	<p>Example:</p>
+	<code type="none">
+> Map = #{"a" => "hello", "b" => "world"}.
+#{"a" => "hello", "b" => "world"}
+> maps:take("a",Map).
+{"hello",#{"b" => "world"}}
+> maps:take("does not exist",Map).
+error</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_list" arity="1" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a list of pairs representing the key-value associations of
+          <c><anno>Map</anno></c>, where the pairs
+          <c>[{K1,V1}, ..., {Kn,Vn}]</c> are returned in arbitrary order.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:to_list(Map).
+[{42,value_three},{1337,"value two"},{"a",1}]</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update" arity="3" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>If <c><anno>Key</anno></c> exists in <c><anno>Map1</anno></c>, the
+          old associated value is replaced by value <c><anno>Value</anno></c>.
+          The function returns a new map <c><anno>Map2</anno></c> containing
+          the new associated value.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map1</anno></c> is not a map, or with a <c>{badkey,Key}</c>
+          exception if no value is associated with <c><anno>Key</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:update("a", 42, Map).
+#{"a" => 42}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_with" arity="3" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Update a value in a <c><anno>Map1</anno></c> associated
+        with <c><anno>Key</anno></c> by calling
+        <c><anno>Fun</anno></c> on the old value to get a new
+        value. An exception <c>{badkey,<anno>Key</anno>}</c> is
+        generated if <c><anno>Key</anno></c> is not present in the
+        map.</p>
+        <p>Example:</p>
+        <code type="none">
+> Map = #{"counter" => 1},
+  Fun = fun(V) -> V + 1 end,
+  maps:update_with("counter",Fun,Map).
+#{"counter" => 2}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_with" arity="4" since="OTP 19.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Update a value in a <c><anno>Map1</anno></c> associated
+        with <c><anno>Key</anno></c> by calling
+        <c><anno>Fun</anno></c> on the old value to get a new value.
+        If <c><anno>Key</anno></c> is not present in
+        <c><anno>Map1</anno></c> then <c><anno>Init</anno></c> will be
+        associated with <c><anno>Key</anno></c>.
+        </p>
+        <p>Example:</p>
+        <code type="none">
+> Map = #{"counter" => 1},
+  Fun = fun(V) -> V + 1 end,
+  maps:update_with("new counter",Fun,42,Map).
+#{"counter" => 1,"new counter" => 42}</code>
+            </desc>
+        </func>
+
+    <func>
+      <name name="values" arity="1" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a complete list of values, in arbitrary order, contained in
+          map <c>Map</c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:values(Map).
+[value_three,"value two",1]</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="with" arity="2" since="OTP 17.3"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a new map <c><anno>Map2</anno></c> with the keys <c>K1</c>
+          through <c>Kn</c> and their associated values from map
+          <c><anno>Map1</anno></c>. Any key in <c><anno>Ks</anno></c> that does
+          not exist in <c><anno>Map1</anno></c> is ignored.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  Ks = ["a",42,"other key"],
+  maps:with(Ks,Map).
+#{42 => value_three,"a" => 1}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="without" arity="2" since="OTP 17.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a new map <c><anno>Map2</anno></c> without keys <c>K1</c>
+          through <c>Kn</c> and their associated values from map
+          <c><anno>Map1</anno></c>. Any key in <c><anno>Ks</anno></c> that does
+          not exist in <c><anno>Map1</anno></c> is ignored</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  Ks = ["a",42,"other key"],
+  maps:without(Ks,Map).
+#{1337 => "value two"}</code>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson AB.
+ Portions created by Ericsson are Copyright 1999-2007, Ericsson AB.
+ All Rights Reserved.''
+ 
+     $Id$
+-->
+
+<!ENTITY % common SYSTEM "common.dtd" >
+%common;
+<!ENTITY % common.header SYSTEM "common.header.dtd" >
+%common.header;
+<!ENTITY % common.table SYSTEM "common.table.dtd" >
+%common.table;
+
+<!ELEMENT book                (header,
+			       insidecover?,
+			       pagetext,
+			       preamble,
+			       (applications|parts|internals|headline|pagetext)+,
+				(listoffigures?,
+				 listoftables?,
+				 listofterms?,
+				 bibliography?,
+				 index?)) >
+
+<!ELEMENT pagetext	      (#PCDATA) >
+<!ELEMENT preamble	      (contents?,preface?) >
+<!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|dont|do|table)*) >
+
+<!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|tt|bold|
+			       include)* >
+<!ELEMENT tt                  (#PCDATA|br|theheader|vfill)* >
+<!ELEMENT bold                (#PCDATA|br|theheader|vfill)* >
+<!ELEMENT vfill               EMPTY >
+<!ELEMENT theheader           EMPTY >
+<!ATTLIST theheader           tag  (title|prepared|responsible|docno|
+				    approved|checked|date|rev|file|
+				    abbreviation|
+				    none) "none" >
+
+
+<!ELEMENT applications        (include)* >
+<!ELEMENT parts               (title?,description?,(include|onepart)*) >
+<!ATTLIST parts               lift (yes|no) "no" >
+<!ELEMENT internals           (include)* >
+<!ELEMENT headline            (#PCDATA) >
+<!ELEMENT index               EMPTY >
+<!ELEMENT listoffigures       EMPTY >
+<!ELEMENT listoftables        EMPTY >
+<!ELEMENT listofterms         EMPTY >
+<!ELEMENT bibliography        EMPTY >
+<!ELEMENT contents            EMPTY >
+<!ATTLIST contents            level (0|1|2|3) "2">
+
+<!ELEMENT onepart             (title?,description?,include+) >
+<!ATTLIST onepart             lift (yes|no) "no" >
+
+<!ELEMENT description	      (%block;|quote|br|marker|warning|note|dont|do)* >
+
+<!ELEMENT include             EMPTY >
+<!ATTLIST include             file CDATA #REQUIRED>

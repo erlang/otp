@@ -1,0 +1,7 @@
+
+contract.erl:10: Function t2/0 has no local return
+contract.erl:10: The call missing:f(#{'a'=>1, 'c'=>4}) breaks the contract (#{'a':=1,'b'=>2,'c'=>3}) -> 'ok'
+contract.erl:12: Function t3/0 has no local return
+contract.erl:12: The call missing:f(#{'a'=>1, 'b'=>2, 'e'=>3}) breaks the contract (#{'a':=1,'b'=>2,'c'=>3}) -> 'ok'
+contract.erl:8: Function t1/0 has no local return
+contract.erl:8: The call missing:f(#{'b'=>2}) breaks the contract (#{'a':=1,'b'=>2,'c'=>3}) -> 'ok'

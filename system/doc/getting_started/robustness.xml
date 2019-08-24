@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Robustness</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>robustness.xml</file>
+  </header>
+  <p>Several things are wrong with the messenger example in
+    <seealso marker="conc_prog#ex">A Larger Example</seealso>.
+    For example, if a node where a user is logged
+    on goes down without doing a logoff, the user remains in
+    the server's <c>User_List</c>, but the client disappears. This
+    makes it impossible for the user to log on again as the server
+    thinks the user already is logged on.</p>
+  <p>Or what happens if the server goes down in the middle of sending a
+    message, leaving the sending client hanging forever in
+    the <c>await_result</c> function?</p>
+
+  <section>
+    <title>Time-outs</title>
+    <p>Before improving the messenger program, let us look at some
+      general principles, using the ping pong program as an example.
+      Recall that when "ping" finishes, it tells "pong" that it has
+      done so by sending the atom <c>finished</c> as a message to "pong"
+      so that "pong" can also finish. Another way to let "pong"
+      finish is to make "pong" exit if it does not receive a message
+      from ping within a certain time. This can be done by adding a
+      <em>time-out</em> to <c>pong</c> as shown in the following example:</p>
+    <code type="none">
+-module(tut19).
+
+-export([start_ping/1, start_pong/0,  ping/2, pong/0]).
+
+ping(0, Pong_Node) ->
+    io:format("ping finished~n", []);
+
+ping(N, Pong_Node) ->
+    {pong, Pong_Node} ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping(N - 1, Pong_Node).
+
+pong() ->
+    receive
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    after 5000 ->
+            io:format("Pong timed out~n", [])
+    end.
+
+start_pong() ->
+    register(pong, spawn(tut19, pong, [])).
+
+start_ping(Pong_Node) ->
+    spawn(tut19, ping, [3, Pong_Node]).</code>
+    <p>After this is compiled and the file <c>tut19.beam</c>
+      is copied to the necessary directories, the following is seen
+     on (pong@kosken): </p>
+    <pre>
+(pong@kosken)1> <input>tut19:start_pong().</input>
+true
+Pong received ping
+Pong received ping
+Pong received ping
+Pong timed out</pre>
+    <p>And the following is seen on (ping@gollum):</p>
+    <pre>
+(ping@gollum)1> <input>tut19:start_ping(pong@kosken).</input>
+&lt;0.36.0>
+Ping received pong
+Ping received pong
+Ping received pong
+ping finished   </pre>
+    <p>The time-out is set in:</p>
+    <code type="none">
+pong() ->
+    receive
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    after 5000 ->
+            io:format("Pong timed out~n", [])
+    end.</code>
+    <p>The time-out (<c>after 5000</c>) is started when
+      <c>receive</c> is entered.
+      The time-out is canceled if <c>{ping,Ping_PID}</c>
+      is received. If <c>{ping,Ping_PID}</c> is not received,
+      the actions following the time-out are done after 5000
+      milliseconds. <c>after</c> must be last in the <c>receive</c>,
+      that is, preceded by all other message reception specifications in
+      the <c>receive</c>. It is also possible to call a function that
+      returned an integer for the time-out:</p>
+    <code type="none">
+after pong_timeout() -></code>
+    <p>In general, there are better ways than using time-outs to
+      supervise parts of a distributed Erlang system. Time-outs are
+      usually appropriate to supervise external events, for example, if
+      you have expected a message from some external system within a
+      specified time. For example, a time-out can be used to log a user
+      out of the messenger system if they have not accessed it for,
+      say, ten minutes.</p>
+  </section>
+
+  <section>
+    <title>Error Handling</title>
+    <p>Before going into details of the supervision and error handling
+      in an Erlang system, let us see how Erlang processes terminate,
+      or in Erlang terminology, <em>exit</em>.</p>
+    <p>A process which executes <c>exit(normal)</c> or simply runs out
+      of things to do has a <em>normal</em> exit.</p>
+    <p>A process which encounters a runtime error (for example, divide by zero,
+      bad match, trying to call a function that does not exist and so on)
+      exits with an error, that is, has an <em>abnormal</em> exit. A
+      process which executes
+      <seealso marker="erts:erlang#exit/1">exit(Reason)</seealso>
+      where <c>Reason</c> is any Erlang term except the atom
+      <c>normal</c>, also has an abnormal exit.</p>
+    <p>An Erlang process can set up links to other Erlang processes. If
+      a process calls
+      <seealso marker="erts:erlang#link/1">link(Other_Pid)</seealso>
+      it sets up a bidirectional link between itself and the process
+      called <c>Other_Pid</c>. When a process terminates, it sends
+      something called a <em>signal</em> to all the processes it has
+      links to.</p>
+    <p>The signal carries information about the pid it was sent from and
+      the exit reason.</p>
+    <p>The default behaviour of a process that receives a normal exit
+      is to ignore the signal.</p>
+    <p>The default behaviour in the two other cases (that is, abnormal exit)
+      above is to:</p>
+    <list type="bulleted">
+      <item>Bypass all messages to the receiving process.</item>
+      <item>Kill the receiving process.</item>
+      <item>Propagate the same error signal to the links of the
+      killed process.</item>
+    </list>
+    <p>In this way you can connect all processes in a
+      transaction together using links. If one of the processes
+      exits abnormally, all the processes in the transaction are
+      killed. As it is often wanted to create a process and link to it at
+      the same time, there is a special BIF,
+      <seealso marker="erts:erlang#spawn_link/1">spawn_link</seealso>
+      that does the same as <c>spawn</c>, but also creates a link to
+      the spawned process.</p>
+    <p>Now an example of the ping pong example using links to terminate
+      "pong":</p>
+    <code type="none">
+-module(tut20).
+
+-export([start/1,  ping/2, pong/0]).
+
+ping(N, Pong_Pid) ->
+    link(Pong_Pid),
+    ping1(N, Pong_Pid).
+
+ping1(0, _) ->
+    exit(ping);
+
+ping1(N, Pong_Pid) ->
+    Pong_Pid ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping1(N - 1, Pong_Pid).
+
+pong() ->
+    receive
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    end.
+
+start(Ping_Node) ->
+    PongPID = spawn(tut20, pong, []),
+    spawn(Ping_Node, tut20, ping, [3, PongPID]).</code>
+    <pre>
+(s1@bill)3> <input>tut20:start(s2@kosken).</input>
+Pong received ping
+&lt;3820.41.0>
+Ping received pong
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong</pre>
+    <p>This is a slight modification of the ping pong program where both
+      processes are spawned from the same <c>start/1</c> function,
+      and the "ping" process can be spawned on a separate node. Notice
+      the use of the <c>link</c> BIF. "Ping" calls
+      <c>exit(ping)</c> when it finishes and this causes an exit
+      signal to be sent to "pong", which also terminates.</p>
+    <p>It is possible to modify the default behaviour of a process so
+      that it does not get killed when it receives abnormal exit
+      signals. Instead, all signals are turned into normal messages on
+      the format <c>{'EXIT',FromPID,Reason}</c> and added to the end of
+      the receiving process' message queue. This behaviour is set by:</p>
+    <code type="none">
+process_flag(trap_exit, true)</code>
+    <p>There are several other process flags, see
+      <seealso marker="erts:erlang#process_flag/2">erlang(3)</seealso>.
+      Changing the default behaviour of a process in this way is
+      usually not done in standard user programs, but is left to
+      the supervisory programs in OTP.
+      However, the ping pong program is modified to illustrate exit
+      trapping.</p>
+    <code type="none">
+-module(tut21).
+
+-export([start/1,  ping/2, pong/0]).
+
+ping(N, Pong_Pid) ->
+    link(Pong_Pid), 
+    ping1(N, Pong_Pid).
+
+ping1(0, _) ->
+    exit(ping);
+
+ping1(N, Pong_Pid) ->
+    Pong_Pid ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping1(N - 1, Pong_Pid).
+
+pong() ->
+    process_flag(trap_exit, true), 
+    pong1().
+
+pong1() ->
+    receive
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong1();
+        {'EXIT', From, Reason} ->
+            io:format("pong exiting, got ~p~n", [{'EXIT', From, Reason}])
+    end.
+
+start(Ping_Node) ->
+    PongPID = spawn(tut21, pong, []),
+    spawn(Ping_Node, tut21, ping, [3, PongPID]).</code>
+    <pre>
+(s1@bill)1> <input>tut21:start(s2@gollum).</input>
+&lt;3820.39.0>
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+pong exiting, got {'EXIT',&lt;3820.39.0>,ping}</pre>
+  </section>
+
+  <section>
+    <title>The Larger Example with Robustness Added</title>
+    <p>Let us return to the messenger program and add changes to
+      make it more robust:</p>
+    <code type="none">
+%%% Message passing utility.  
+%%% User interface:
+%%% login(Name)
+%%%     One user at a time can log in from each Erlang node in the
+%%%     system messenger: and choose a suitable Name. If the Name
+%%%     is already logged in at another node or if someone else is
+%%%     already logged in at the same node, login will be rejected
+%%%     with a suitable error message.
+%%% logoff()
+%%%     Logs off anybody at that node
+%%% message(ToName, Message)
+%%%     sends Message to ToName. Error messages if the user of this 
+%%%     function is not logged on or if ToName is not logged on at
+%%%     any node.
+%%%
+%%% One node in the network of Erlang nodes runs a server which maintains
+%%% data about the logged on users. The server is registered as "messenger"
+%%% Each node where there is a user logged on runs a client process registered
+%%% as "mess_client" 
+%%%
+%%% Protocol between the client processes and the server
+%%% ----------------------------------------------------
+%%% 
+%%% To server: {ClientPid, logon, UserName}
+%%% Reply {messenger, stop, user_exists_at_other_node} stops the client
+%%% Reply {messenger, logged_on} logon was successful
+%%%
+%%% When the client terminates for some reason
+%%% To server: {'EXIT', ClientPid, Reason}
+%%%
+%%% To server: {ClientPid, message_to, ToName, Message} send a message
+%%% Reply: {messenger, stop, you_are_not_logged_on} stops the client
+%%% Reply: {messenger, receiver_not_found} no user with this name logged on
+%%% Reply: {messenger, sent} Message has been sent (but no guarantee)
+%%%
+%%% To client: {message_from, Name, Message},
+%%%
+%%% Protocol between the "commands" and the client
+%%% ---------------------------------------------- 
+%%%
+%%% Started: messenger:client(Server_Node, Name)
+%%% To client: logoff
+%%% To client: {message_to, ToName, Message}
+%%%
+%%% Configuration: change the server_node() function to return the
+%%% name of the node where the messenger server runs
+
+-module(messenger).
+-export([start_server/0, server/0, 
+         logon/1, logoff/0, message/2, client/2]).
+
+%%% Change the function below to return the name of the node where the
+%%% messenger server runs
+server_node() ->
+    messenger@super.
+
+%%% This is the server process for the "messenger"
+%%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]
+server() ->
+    process_flag(trap_exit, true),
+    server([]).
+
+server(User_List) ->
+    receive
+        {From, logon, Name} ->
+            New_User_List = server_logon(From, Name, User_List),
+            server(New_User_List);
+        {'EXIT', From, _} ->
+            New_User_List = server_logoff(From, User_List),
+            server(New_User_List);
+        {From, message_to, To, Message} ->
+            server_transfer(From, To, Message, User_List),
+            io:format("list is now: ~p~n", [User_List]),
+            server(User_List)
+    end.
+
+%%% Start the server
+start_server() ->
+    register(messenger, spawn(messenger, server, [])).
+
+%%% Server adds a new user to the user list
+server_logon(From, Name, User_List) ->
+    %% check if logged on anywhere else
+    case lists:keymember(Name, 2, User_List) of
+        true ->
+            From ! {messenger, stop, user_exists_at_other_node},  %reject logon
+            User_List;
+        false ->
+            From ! {messenger, logged_on},
+            link(From),
+            [{From, Name} | User_List]        %add user to the list
+    end.
+
+%%% Server deletes a user from the user list
+server_logoff(From, User_List) ->
+    lists:keydelete(From, 1, User_List).
+
+
+%%% Server transfers a message between user
+server_transfer(From, To, Message, User_List) ->
+    %% check that the user is logged on and who he is
+    case lists:keysearch(From, 1, User_List) of
+        false ->
+            From ! {messenger, stop, you_are_not_logged_on};
+        {value, {_, Name}} ->
+            server_transfer(From, Name, To, Message, User_List)
+    end.
+
+%%% If the user exists, send the message
+server_transfer(From, Name, To, Message, User_List) ->
+    %% Find the receiver and send the message
+    case lists:keysearch(To, 2, User_List) of
+        false ->
+            From ! {messenger, receiver_not_found};
+        {value, {ToPid, To}} ->
+            ToPid ! {message_from, Name, Message}, 
+            From ! {messenger, sent} 
+    end.
+
+%%% User Commands
+logon(Name) ->
+    case whereis(mess_client) of 
+        undefined ->
+            register(mess_client, 
+                     spawn(messenger, client, [server_node(), Name]));
+        _ -> already_logged_on
+    end.
+
+logoff() ->
+    mess_client ! logoff.
+
+message(ToName, Message) ->
+    case whereis(mess_client) of % Test if the client is running
+        undefined ->
+            not_logged_on;
+        _ -> mess_client ! {message_to, ToName, Message},
+             ok
+end.
+
+%%% The client process which runs on each user node
+client(Server_Node, Name) ->
+    {messenger, Server_Node} ! {self(), logon, Name},
+    await_result(),
+    client(Server_Node).
+
+client(Server_Node) ->
+    receive
+        logoff ->
+            exit(normal);
+        {message_to, ToName, Message} ->
+            {messenger, Server_Node} ! {self(), message_to, ToName, Message},
+            await_result();
+        {message_from, FromName, Message} ->
+            io:format("Message from ~p: ~p~n", [FromName, Message])
+    end,
+    client(Server_Node).
+
+%%% wait for a response from the server
+await_result() ->
+    receive
+        {messenger, stop, Why} -> % Stop the client 
+            io:format("~p~n", [Why]),
+            exit(normal);
+        {messenger, What} ->  % Normal response
+            io:format("~p~n", [What])
+    after 5000 ->
+            io:format("No response from server~n", []),
+            exit(timeout)
+    end.</code>
+    <p>The following changes are added:</p>
+    <p>The messenger server traps exits. If it receives an exit signal,
+      <c>{'EXIT',From,Reason}</c>, this means that a client process has
+      terminated or is unreachable for one of the following reasons:</p>
+    <list type="bulleted">
+      <item>The user has logged off (the "logoff"
+       message is removed).</item>
+      <item>The network connection to the client is broken.</item>
+      <item>The node on which the client process resides has gone down.</item>
+      <item>The client processes has done some illegal operation.</item>
+    </list>
+    <p>If an exit signal is received as above, the tuple
+      <c>{From,Name}</c> is deleted from the servers <c>User_List</c> using
+      the <c>server_logoff</c> function. If the node on which the server
+      runs goes down, an exit signal (automatically generated by
+      the system) is sent to all of the client processes:
+      <c>{'EXIT',MessengerPID,noconnection}</c> causing all the client
+      processes to terminate.</p>
+    <p>Also, a time-out of five seconds has been introduced in
+      the <c>await_result</c> function. That is, if the server does not
+      reply within five seconds (5000 ms), the client terminates. This
+      is only needed in the logon sequence before the client and the
+      server are linked.</p>
+    <p>An interesting case is if the client terminates before
+      the server links to it. This is taken care of because linking to a
+      non-existent process causes an exit signal,
+      <c>{'EXIT',From,noproc}</c>, to be automatically generated. This is
+      as if the process terminated immediately after the link operation.</p>
+  </section>
+</chapter>
+

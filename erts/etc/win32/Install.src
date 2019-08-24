@@ -1,0 +1,4 @@
+[Install]
+VSN=%I_VSN%
+SYSTEM_VSN=%I_SYSTEM_VSN%
+

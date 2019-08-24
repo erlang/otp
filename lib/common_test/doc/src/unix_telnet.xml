@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>unix_telnet</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>unix_telnet.xml</file>
+  </header>
+  <module since="">unix_telnet</module>
+  <modulesummary>Callback module for ct_telnet, for connecting to a Telnet
+    server on a UNIX host.</modulesummary>
+
+  <description>
+
+    <p>Callback module for
+      <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>,
+      for connecting to a Telnet server on a UNIX host.</p>
+
+    <p>It requires the following entry in the configuration file:</p>
+
+    <pre>
+ {unix,[{telnet,HostNameOrIpAddress},
+        {port,PortNum},                 % optional
+        {username,UserName},
+        {password,Password},
+        {keep_alive,Bool}]}.            % optional</pre>
+
+    <p>To communicate through Telnet to the host specified by
+      <c>HostNameOrIpAddress</c>, use the interface functions in
+      <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>, for example,
+      <c>open(Name)</c> and <c>cmd(Name,Cmd)</c>.</p>
+
+    <p><c>Name</c> is the name you allocated to the Unix host in your
+      <c>require</c> statement, for example:</p>
+
+    <pre>
+ suite() -&gt; [{require,Name,{unix,[telnet]}}].</pre>
+
+    <p>or</p>
+
+    <pre>
+ ct:require(Name,{unix,[telnet]}).</pre>
+
+    <p>The "keep alive" activity (that is, that <c>Common Test</c> sends NOP
+      to the server every 10 seconds if the connection is idle) can be
+      enabled or disabled for one particular connection as described here.
+      It can be disabled for all connections using <c>telnet_settings</c>
+      (see <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>).</p>
+
+    <p>The <c>{port,PortNum}</c> tuple is optional and if omitted, default 
+      Telnet port 23 is used. Also the <c>keep_alive</c> tuple is optional,
+      and the value defauls to <c>true</c> (enabled).</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="OTP 18.3.3">connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <fsummary>Callback for ct_telnet.erl.</fsummary>
+        <type>
+          <v>ConnName = target_name()</v>
+          <v>Ip = string() | {integer(), integer(), integer(), integer()}</v>
+          <v>Port = integer()</v>
+          <v>Timeout = integer()</v>
+          <v>KeepAlive = bool()</v>
+	  <v>TCPNoDelay = bool()</v>
+          <v>Extra = target_name() | {Username, Password}</v>
+          <v>Username = string()</v>
+          <v>Password = string()</v>
+          <v>Handle = handle()</v>
+          <v>Reason = term()</v>
+        </type>
+      <desc><marker id="connect-6"/>
+        <p>Callback for <c>ct_telnet.erl</c>.</p>
+
+        <p>Setup Telnet connection to a Unix host.</p>
+
+        <p>For <c>target_name()</c>, see
+          <seealso marker="ct"><c>ct</c></seealso>. For <c>handle()</c>, see
+          <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_prompt_regexp() -&gt; PromptRegexp</name>
+      <fsummary>Callback for ct_telnet.erl.</fsummary>
+        <type>
+          <v>PromptRegexp = prompt_regexp()</v>
+        </type>
+      <desc><marker id="get_prompt_regexp-0"/>
+        <p>Callback for <c>ct_telnet.erl</c>.</p>
+
+        <p>Returns a suitable <c>regexp</c> string matching common prompts
+          for users on Unix hosts.</p>
+
+        <p>For <c>prompt_regexp()</c>, see
+          <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>.</p>
+      </desc>
+    </func>
+   </funcs>
+
+  <section>
+    <title>See Also</title>
+      <p><seealso marker="ct"><c>ct</c></seealso>,
+        <seealso marker="ct_telnet"><c>ct_telnet</c></seealso></p>
+  </section>
+
+</erlref>
+
+

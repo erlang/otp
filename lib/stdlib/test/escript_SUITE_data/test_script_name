@@ -1,0 +1,5 @@
+#!/usr/bin/env escript
+
+main(_) ->
+    io:format("~s\n", [escript:script_name()]).
+

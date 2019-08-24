@@ -1,0 +1,59 @@
+SelectionType DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Element ::= CHOICE {bool BOOLEAN,
+		    atomic-no INTEGER(1..103),
+		    bs BIT STRING,
+		    os OCTET STRING,
+		    null NULL,
+		    oi OBJECT IDENTIFIER,
+		    od ObjectDescriptor,
+		    ext EXTERNAL,
+		    ePDV EMBEDDED PDV,
+		    utf UTF8String,
+		    ro RELATIVE-OID,
+		    nums NumericString,
+		    symbol PrintableString,
+		    telet TeletexString,
+		    t61 T61String,
+		    video VideotexString,
+		    ia5 IA5String,
+		    utctime UTCTime,
+		    generalizedTime GeneralizedTime,
+		    gs GraphicString,
+		    vs VisibleString,
+		    generalString GeneralString,
+		    univ UniversalString,
+		    cs CHARACTER STRING,
+		    bmp BMPString}
+
+MendeleyevTable ::= SEQUENCE OF symbol < Element
+MendeleyevSet ::= SET OF atomic-no < Element
+
+BoolType ::= bool < Element
+
+einsteinium symbol < Element ::= "Es"
+boolv bool < Element ::= TRUE
+intv atomic-no < Element  ::= 4
+bsv bs < Element ::= '1001'B
+osv os < Element ::= '313'H
+nullv null < Element ::= NULL
+oiv oi < Element ::= {2 1 1}
+odv od < Element ::= "ObjectDesc"
+utfv utf < Element ::= "utf8"
+rov ro < Element ::= {5 32767 256}
+numsv nums < Element ::= "089"
+teletv telet < Element ::= "telet"
+t61v t61 < Element ::= "t61"
+videov video < Element ::= "video"
+ia5v ia5 < Element ::= "ia5"
+utctimev utctime < Element ::= "9805281429Z"
+gTime generalizedTime < Element ::= "19980528142905.1"
+gsv gs < Element ::= "graphic"
+vsv vs  < Element ::= "visible"
+gStringv generalString < Element ::= "general"
+univv univ < Element ::= "Universal"
+bmov bmp < Element ::= "bmp"
+
+END

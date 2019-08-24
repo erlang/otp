@@ -1,0 +1,17 @@
+	
+
+%S0
+{tables
+ [{foo, [{attributes, [x,y,z]}]}]}.
+%E0
+
+
+%S1
+{foo, a, benny, 18}.
+{foo, b, elvis, 19}.
+{foo, c, benny, 20}.
+{foo, d, elvis, 21}.
+{foo, e, klacke, 22}.
+{foo, f, hans, 23}.
+%E1
+

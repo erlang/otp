@@ -1,0 +1,1493 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>snmpa</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa.xml</file>
+  </header>
+  <module since="">snmpa</module>
+  <modulesummary>Interface Functions to the SNMP toolkit agent</modulesummary>
+  <description>
+    <p>The module <c>snmpa</c> contains interface functions to the 
+      SNMP agent.</p>
+
+    <marker id="data_types"></marker>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none"><![CDATA[
+oid() = [byte()] 
+atl_type() = read | write | read_write
+notification_delivery_info() = #snmpa_notification_delivery_info{}
+    ]]></code>
+
+    <p>The <c>oid()</c> type is used to represent an ASN.1 OBJECT IDENTIFIER. </p>
+
+    <p>The record <c><![CDATA[snmpa_notification_delivery_info]]></c> contains the following fields: </p>
+    <taglist>
+      <tag><c><![CDATA[tag = term()]]></c></tag>
+      <item>
+        <p>A user defined identity representing this notification send 
+          operation.</p>
+      </item>
+      <tag><c><![CDATA[mod = module()]]></c></tag>
+      <item>
+        <p>A module implementing the 
+          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          behaviour. The info functions of this module will be called at 
+          various stages of delivery. </p>
+      </item>
+      <tag><c><![CDATA[extra = term()]]></c></tag>
+      <item>
+        <p>This is any extra info the user wants to have supplied 
+          when the functions in the callback module is called. </p>
+      </item>
+    </taglist>
+    
+    <marker id="add_agent_caps"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">add_agent_caps(SysORID, SysORDescr) -> SysORIndex</name>
+      <fsummary>Add an AGENT-CAPABILITY definition to the agent</fsummary>
+      <type>
+        <v>SysORID = oid()</v>
+        <v>SysORDescr = string()</v>
+        <v>SysORIndex = integer()</v>
+      </type>
+      <desc>
+        <p>This function can be used to add an AGENT-CAPABILITY
+          statement to the sysORTable in the agent.  The table is
+          defined in the SNMPv2-MIB.</p>
+        <marker id="del_agent_caps"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">del_agent_caps(SysORIndex) -> void()</name>
+      <fsummary>Delete an AGENT-CAPABILITY definition from the agent</fsummary>
+      <type>
+        <v>SysORIndex = integer()</v>
+      </type>
+      <desc>
+        <p>This function can be used to delete an AGENT-CAPABILITY
+          statement to the sysORTable in the agent.  This table is
+          defined in the SNMPv2-MIB. </p>
+
+          <marker id="get_agent_caps"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_agent_caps() -> [[SysORIndex, SysORID, SysORDescr, SysORUpTime]]</name>
+      <fsummary>Return all AGENT-CAPABILITY definitions in the agent</fsummary>
+      <type>
+        <v>SysORIndex = integer()</v>
+        <v>SysORId = oid()</v>
+        <v>SysORDescr = string()</v>
+        <v>SysORUpTime = integer()</v>
+      </type>
+      <desc>
+        <p>Returns all AGENT-CAPABILITY statements in the sysORTable
+          in the agent.  This table is defined in the SNMPv2-MIB. </p>
+
+        <marker id="get"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get(Agent, Vars) -> Values | {error, Reason}</name>
+      <name since="">get(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <fsummary>Perform a get operation on the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Vars = [oid()]</v>
+        <v>Context = string()</v>
+        <v>Values = [term()]</v>
+        <v>Reason = {atom(), oid()}</v>
+      </type>
+      <desc>
+        <p>Performs a GET operation on the agent.  All loaded MIB
+          objects are visible in this operation.  The agent calls the
+          corresponding instrumentation functions just as if it was a
+          GET request coming from a manager. </p>
+        <p>Note that the request specific parameters (such as 
+          <seealso marker="#current_request_id">current_request_id</seealso>) 
+          are not accessible for the instrumentation functions if this 
+          function is used. </p>
+
+          <marker id="get_next"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_next(Agent, Vars) -> Values | {error, Reason}</name>
+      <name since="">get_next(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <fsummary>Perform a get-next operation on the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Vars = [oid()]</v>
+        <v>Context = string()</v>
+        <v>Values = [{oid(), term()}]</v>
+        <v>Reason = {atom(), oid()}</v>
+      </type>
+      <desc>
+        <p>Performs a GET-NEXT operation on the agent.  All loaded MIB
+          objects are visible in this operation.  The agent calls the
+          corresponding instrumentation functions just as if it was a
+          GET request coming from a manager. </p>
+        <p>Note that the request specific parameters (such as 
+          <c>snmpa:current_request_id/0</c> are not accessible for the 
+          instrumentation functions if this function is used. </p>
+
+        <marker id="backup"></marker>
+        <!-- <marker id="get_symbolic_store_db"></marker> -->
+      </desc>
+    </func>
+
+<!--
+    <func>
+      <name since="">get_symbolic_store_db() -> Db</name>
+      <fsummary>Retrieve the symbolic store database reference</fsummary>
+      <type>
+        <v>Db = term()</v>
+      </type>
+      <desc>
+        <p>Retrieve the symbolic store database reference. This is used 
+          for faster access to the database using the functions: 
+          <c>int_to_enum/3</c>, <c>enum_to_int/3</c>, <c>name_to_oid/2</c>, 
+          <c>oid_to_name/2</c>. </p>
+
+        <marker id="backup"></marker>
+      </desc>
+    </func>
+
+-->
+    <func>
+      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
+      <name since="">backup(Agent, BackupDir) -> ok | {error, Reason}</name>
+      <fsummary>Backup agent data</fsummary>
+      <type>
+        <v>BackupDir = string()</v>
+        <v>Agent = pid() | atom()</v>
+        <v>Reason = backup_in_progress | term()</v>
+      </type>
+      <desc>
+        <p>Backup persistent/permanent data handled by the agent
+          (such as local-db, mib-data and vacm). </p>
+        <p>Data stored by mnesia is not handled. </p>
+        <p>BackupDir cannot be identical to DbDir. </p>
+        <p>Simultaneous backup calls are <em>not</em> allowed. 
+	That is, two different processes cannot simultaneously 
+	successfully call this function. One of them will be first, 
+	and succeed. The second will fail with the error reason
+	<c>backup_in_progress</c>. </p>
+
+        <marker id="info"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">info() -> [{Key, Value}]</name>
+      <name since="">info(Agent) -> [{Key, Value}]</name>
+      <fsummary>Return information about the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Returns a list (a dictionary) containing information about
+	the agent. Information includes loaded MIBs, registered
+	sub-agents, some information about the memory allocation. </p>
+	<p>As of version 4.4 the format of the info has been changed. 
+	To convert the info to the old format, call the 
+	<seealso marker="#old_info_format">old_info_format</seealso> 
+	function. </p>
+	
+        <marker id="old_info_format"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">old_info_format(NewInfo) -> OldInfo</name>
+      <fsummary>Return information about the agent</fsummary>
+      <type>
+        <v>OldInfo = NewInfo = [{Key, Value}]</v>
+      </type>
+      <desc>
+        <p>As of version 4.4 the format of the info has been changed. 
+          This function is used to convert to the old (pre-4.4) info 
+          format. </p>
+
+        <marker id="load_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B02">load_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <fsummary>Load single MIB into the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>MibName = string()</v>
+        <v>Reason = already_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Load a single <c>Mib</c> into an agent. The <c>MibName</c> 
+	is the name of the Mib, including the path to where the compiled 
+	mib is found. For example: </p>
+	<code type="none">
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
+          snmpa:load_mib(snmp_master_agent, Dir ++ "MY-MIB").
+        </code>
+
+        <marker id="load_mibs"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">load_mibs(Mibs) -> ok | {error, Reason}</name>
+      <name since="">load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <fsummary>Load MIBs into the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Mibs = [MibName]</v>
+        <v>Force = boolean()</v>
+        <v>MibName = string()</v>
+        <v>Reason = {'load aborted at', MibName, InternalReason}</v>
+        <v>InternalReason = already_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Load <c>Mibs</c> into an agent.  If the agent cannot load all 
+	MIBs (the default value of the <c>Force</c> argument is <c>false</c>), 
+	it will indicate where loading was aborted. The <c>MibName</c> 
+	is the name of the Mib, including the path to where the compiled 
+	mib is found. For example,</p>
+	<code type="none">
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
+          snmpa:load_mibs(snmp_master_agent, [Dir ++ "MY-MIB"]).
+        </code>
+	<p>If <c>Force = true</c> then the agent will continue attempting
+	to load each mib even after failing to load a previous mib. Use with 
+	care. </p>
+
+        <marker id="unload_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B02">unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <fsummary>Unload single MIB from the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>MibName = string()</v>
+        <v>Reason = not_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Unload a single <c>Mib</c> from an agent. </p>
+
+        <marker id="unload_mibs"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unload_mibs(Mibs) -> ok | {error, Reason}</name>
+      <name since="">unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <fsummary>Unload MIBs from the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Mibs = [MibName]</v>
+        <v>Force = boolean()</v>
+        <v>MibName = string()</v>
+        <v>Reason = {'unload aborted at', MibName, InternalReason}</v>
+        <v>InternalReason = not_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Unload <c>Mibs</c> from an agent. If it cannot unload all MIBs
+	(the default value of the <c>Force</c> argument is <c>false</c>),
+	it will indicate where unloading was aborted. </p>
+	<p>If <c>Force = true</c> then the agent will continue attempting
+	to unload each mib even after failing to unload a previous mib. 
+	Use with care. </p>
+
+        <marker id="which_mibs"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_mibs() -> Mibs</name>
+      <name since="">which_mibs(Agent) -> Mibs</name>
+      <fsummary>Get a list of all the loaded mibs</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Mibs = [{MibName, MibFile}]</v>
+        <v>MibName = atom()</v>
+        <v>MibFile = string()</v>
+      </type>
+      <desc>
+        <p>Retrieve the list of all the mibs loaded into this agent. Default 
+          is the master agent. </p>
+                    
+        <marker id="whereis_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">whereis_mib(MibName) -> {ok, MibFile} | {error, Reason}</name>
+      <name since="">whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason}</name>
+      <fsummary>Get the path to the mib file</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>MibName = atom()</v>
+        <v>MibFile = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Get the full path to the (compiled) mib-file. </p>
+
+        <marker id="current_request_id"></marker>
+        <marker id="current_context"></marker>
+        <marker id="current_community"></marker>
+        <marker id="current_address"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">current_request_id() -> {value, RequestId} | false</name>
+      <name since="">current_context() -> {value, Context} | false</name>
+      <name since="">current_community() -> {value, Community} | false</name>
+      <name since="">current_address() -> {value, Address} | false</name>
+      <fsummary>Get the request-id, context, community and address of the current request</fsummary>
+      <type>
+        <v>RequestId = integer()</v>
+        <v>Context = string()</v>
+        <v>Community = string()</v>
+        <v>Address = term()</v>
+      </type>
+      <desc>
+        <p>Get the request-id, context, community and address of the 
+          request currently being processed by the agent. </p>
+        <p>Note that these functions is intended to be called by the 
+          instrumentation functions and <em>only</em> if they are 
+          executed in the context of the agent process (e.g. it does 
+          not work if called from a spawned process).</p>
+
+        <marker id="enum_to_int"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">enum_to_int(Name, Enum) -> {value, Int} | false</name>
+      <name since="">enum_to_int(Db, Name, Enum) -> {value, Int} | false</name>
+      <fsummary>Convert an enum value to an integer</fsummary>
+      <type>
+        <v>Db   = term()</v>
+        <v>Name = atom()</v>
+        <v>Enum = atom()</v>
+        <v>Int  = int()</v>
+      </type>
+      <desc>
+        <p>Converts the symbolic value <c>Enum</c> to the
+          corresponding integer of the enumerated object or type
+          <c>Name</c> in a MIB.  The MIB must be loaded. 
+          </p>
+        <p><c>false</c> is returned if the object or type is not
+          defined in any loaded MIB, or if it does not define the
+          symbolic value as enumerated.
+          </p>
+        <p><c>Db</c> is a reference to the symbolic store database 
+          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+
+        <marker id="int_to_enum"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">int_to_enum(Name, Int) -> {value, Enum} | false</name>
+      <name since="">int_to_enum(Db, Name, Int) -> {value, Enum} | false</name>
+      <fsummary>Convert an integer to an enum value</fsummary>
+      <type>
+        <v>Db   = term()</v>
+        <v>Name = atom()</v>
+        <v>Int  = int()</v>
+        <v>Enum = atom()</v>
+      </type>
+      <desc>
+        <p>Converts the integer <c>Int</c> to the corresponding
+          symbolic value of the enumerated object or type <c>Name</c> in
+          a MIB.  The MIB must be loaded. 
+          </p>
+        <p><c>false</c> is returned if the object or type is not
+          defined in any loaded MIB, or if it does not define the
+          symbolic value as enumerated.
+          </p>
+        <p><c>Db</c> is a reference to the symbolic store database 
+          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+
+        <marker id="name_to_oid"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">name_to_oid(Name) -> {value, oid()} | false</name>
+      <name since="">name_to_oid(Db, Name) -> {value, oid()} | false</name>
+      <fsummary>Convert a symbolic name to an OID</fsummary>
+      <type>
+        <v>Db   = term()</v>
+        <v>Name = atom()</v>
+      </type>
+      <desc>
+        <p>Looks up the OBJECT IDENTIFIER of a MIB object, given the
+          symbolic name.  Note, the OBJECT IDENTIFIER is given for the
+          object, not for an instance. </p>
+        <p><c>false</c> is returned if the object is not defined in any
+          loaded MIB. </p>
+        <p><c>Db</c> is a reference to the symbolic store database 
+          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+
+        <marker id="oid_to_name"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">oid_to_name(OID) -> {value, Name} | false</name>
+      <name since="">oid_to_name(Db, OID) -> {value, Name} | false</name>
+      <fsummary>Convert an OID to a symbolic name</fsummary>
+      <type>
+        <v>Db   = term()</v>
+        <v>OID  = oid()</v>
+        <v>Name = atom()</v>
+      </type>
+      <desc>
+        <p>Looks up the symbolic name of a MIB object, given OBJECT
+          IDENTIFIER. </p>
+        <p><c>false</c> is returned if the object is not defined in any
+          loaded MIB. </p>
+        <p><c>Db</c> is a reference to the symbolic store database 
+          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+
+        <marker id="which_aliasnames"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_aliasnames() -> Result</name>
+      <fsummary>Get all alias-names known to the agent</fsummary>
+      <type>
+        <v>Result = [atom()]</v>
+      </type>
+      <desc>
+        <p>Retrieve all alias-names known to the agent.</p>
+        <marker id="which_tables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_tables() -> Result</name>
+      <fsummary>Get all tables known to the agent</fsummary>
+      <type>
+        <v>Result = [atom()]</v>
+      </type>
+      <desc>
+        <p>Retrieve all tables known to the agent.</p>
+
+        <marker id="which_variables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_variables() -> Result</name>
+      <fsummary>Get all variables known to the agent</fsummary>
+      <type>
+        <v>Result = [atom()]</v>
+      </type>
+      <desc>
+        <p>Retrieve all variables known to the agent.</p>
+
+        <marker id="which_notifications"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_notifications() -> Result</name>
+      <fsummary>Get all notifications known to the agent</fsummary>
+      <type>
+        <v>Result = [{Name, MibName, Info}]</v>
+        <v>Name = atom()</v>
+        <v>MibName = atom()</v>
+        <v>Info = term()</v>
+      </type>
+      <desc>
+        <p>Retrieve all notifications (and traps) known to the agent.</p>
+
+        <marker id="log_to_txt"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">log_to_txt(LogDir)</name>
+      <name since="">log_to_txt(LogDir, Block | Mibs)</name>
+      <name since="">log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Block = boolean()</v>
+        <v>OutFile = string()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
+        <v>disk_log_open_error() = {LogName, term()}</v>
+        <v>file_open_error() = {OutFile, term()}</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable text file. 
+	<c>OutFile</c> defaults to "./snmpa_log.txt". 
+	<c>LogName</c> defaults to "snmpa_log". 
+	<c>LogFile</c> defaults to "snmpa.log". </p>
+	<p>The <c>Block</c> option indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	for more info.</p>
+
+        <marker id="log_to_io"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">log_to_io(LogDir) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Block = boolean()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
+        <v>disk_log_open_error() = {LogName, term()}</v>
+        <v>file_open_error() = {OutFile, term()}</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable format and 
+	prints it on stdio. 
+	<c>LogName</c> defaults to "snmpa_log". 
+	<c>LogFile</c> defaults to "snmpa.log".</p>
+	<p>The <c>Block</c> option indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	for more info.</p>
+
+        <marker id="change_log_size"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">change_log_size(NewSize) -> ok | {error, Reason}</name>
+      <fsummary>Change the size of the Audit Trail Log</fsummary>
+      <type>
+        <v>NewSize = {MaxBytes, MaxFiles}</v>
+        <v>MaxBytes = integer()</v>
+        <v>MaxFiles = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the log size of the Audit Trail Log. The application must 
+          be configured to use the audit trail log function. Please refer to 
+          disk_log(3) in Kernel Reference Manual for a description of how to 
+          change the log size. </p>
+        <p>The change is permanent, as long as the log is not deleted. 
+          That means, the log size is remembered across reboots. </p>
+
+        <marker id="set_log_type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <fsummary>Change the type of the Audit Trail Log</fsummary>
+      <type>
+        <v>NewType = OldType = atl_type()</v>
+        <v>Agent = pid() | atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the run-time Audit Trail log type. </p>
+        <p>Note that this has no effect on the application configuration as
+          defined by configuration files, so a node restart will revert the 
+          config to whatever is in those files. </p>
+        <p>This function is primarily useful in testing/debugging 
+          scenarios. </p>
+
+        <marker id="mib_of"></marker>
+      </desc>
+
+    </func>
+
+    <func>
+      <name since="">mib_of(Oid) -> {ok, MibName} | {error, Reason}</name>
+      <name since="">mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}</name>
+      <fsummary>Which mib an Oid belongs to</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Oid = oid()</v>
+        <v>MibName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Finds the mib corresponding to the <c>Oid</c>. If it is a
+          variable, the Oid must be 
+          &lt;Oid for var&gt;.0 and if it is a table, Oid must be 
+          &lt;table&gt;.&lt;entry&gt;.&lt;col&gt;.&lt;any&gt;</p>
+
+        <marker id="me_of"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">me_of(Oid) -> {ok, Me} | {error, Reason}</name>
+      <name since="">me_of(Agent, Oid) -> {ok, Me} | {error, Reason}</name>
+      <fsummary>Retrieve the mib-entry of an Oid</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Oid = oid()</v>
+        <v>Me = #me{}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Finds the mib entry corresponding to the <c>Oid</c>. If it is a
+          variable, the Oid must be 
+          &lt;Oid for var&gt;.0 and if it is a table, Oid must be 
+          &lt;table&gt;.&lt;entry&gt;.&lt;col&gt;.&lt;any&gt;</p>
+
+        <marker id="invalidate_mibs_cache"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">invalidate_mibs_cache() -> void()</name>
+      <name since="">invalidate_mibs_cache(Agent) -> void()</name>
+      <fsummary>Invalidate the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Invalidate the mib server cache. </p>
+        <p>The entire contents of the cache will be deleted. </p>
+
+        <marker id="enable_mibs_cache"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">enable_mibs_cache() -> void()</name>
+      <name since="">enable_mibs_cache(Agent) -> void()</name>
+      <fsummary>Enable the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Enable the mib server cache. </p>
+
+        <marker id="disable_mibs_cache"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">disable_mibs_cache() -> void()</name>
+      <name since="">disable_mibs_cache(Agent) -> void()</name>
+      <fsummary>Disable the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Disable the mib server cache. </p>
+
+        <marker id="which_mibs_cache_size"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">which_mibs_cache_size() -> void()</name>
+      <name since="OTP R14B">which_mibs_cache_size(Agent) -> void()</name>
+      <fsummary>The size of the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Retreive the size of the mib server cache. </p>
+
+        <marker id="gc_mibs_cache"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">gc_mibs_cache() -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent, Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent, Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <fsummary>Perform mib server cache gc</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Age = integer() > 0</v>
+        <v>GcLimit = integer() > 0 | infinity</v>
+        <v>NumElementsGCed = integer() >= 0</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Perform mib server cache gc. </p>
+        <p>Manually performs a mib server cache gc. 
+          This can be done regardless of the value of the 
+          <c>autogc</c> option. 
+          The <c>NumElementsGCed</c> value indicates how many 
+          elements where actually removed from the cache. </p>
+
+        <marker id="enable_mibs_cache_autogc"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">enable_mibs_cache_autogc() -> void()</name>
+      <name since="">enable_mibs_cache_autogc(Agent) -> void()</name>
+      <fsummary>Enable automatic gc of the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Enable automatic gc of the mib server cache. </p>
+
+        <marker id="disable_mibs_cache_autogc"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">disable_mibs_cache_autogc() -> void()</name>
+      <name since="">disable_mibs_cache_autogc(Agent) -> void()</name>
+      <fsummary>Disable automatic gc of the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Disable automatic gc of the mib server cache. </p>
+
+        <marker id="update_mibs_cache_age"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">update_mibs_cache_age(NewAge) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_age(Agent, NewAge) -> ok | {error, Reason}</name>
+      <fsummary>Change the mib server cache age property</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>NewAge = integer() > 0</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Change the mib server cache <c>age</c> property. </p>
+
+        <marker id="update_mibs_cache_gclimit"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">update_mibs_cache_gclimit(NewGcLimit) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_gclimit(Agent, NewGCLimit) -> ok | {error, Reason}</name>
+      <fsummary>Change the mib server cache gclimit property</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>NewGcLimit = integer() > 0 | infinity</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Change the mib server cache <c>gclimit</c> property. </p>
+
+        <marker id="register_notification_filter"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="">register_notification_filter(Id, Mod, Data) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Agent, Id, Mod, Data, Where) -> ok | {error, Reason}</name>
+      <fsummary>Register a notification filter</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Id = filter_id()</v>
+        <v>filter_id() = term()</v>
+        <v>Mod = atom()</v>
+        <v>Data = term()</v>
+        <v>Where = filter_position()</v>
+        <v>Reason = term()</v>
+        <v>filter_position() = first | last | {insert_before, filter_id()} | {insert_after, filter_id()} </v>
+      </type>
+      <desc>
+        <p>Registers a notification filter.
+          </p>
+        <p><c>Mod</c> is a module implementing the 
+          <c>snmpa_notification_filter</c> behaviour.</p>
+        <p><c>Data</c> will be passed on to the filter when calling the
+          functions of the behaviour.</p>
+
+        <marker id="unregister_notification_filter"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_notification_filter(Id) -> ok | {error, Reason}</name>
+      <name since="">unregister_notification_filter(Agent, Id) -> ok | {error, Reason}</name>
+      <fsummary>Unregister a notification filter</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Id = filter_id()</v>
+        <v>filter_id() = term()</v>
+      </type>
+      <desc>
+        <p>Unregister a notification filter. </p>
+
+        <marker id="which_notification_filter"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_notification_filter() -> Filters</name>
+      <name since="">which_notification_filter(Agent) -> Filters</name>
+      <fsummary>Which notification filter</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Filters = [filter_id()]</v>
+        <v>filter_id() = term()</v>
+      </type>
+      <desc>
+        <p>List all notification filters in an agent.</p>
+
+        <marker id="set_request_limit"></marker>
+      </desc>
+    </func>
+
+   <func>
+      <name since="">set_request_limit(NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
+      <name since="">set_request_limit(Agent, NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
+      <fsummary>Change the request limit</fsummary>
+      <type>
+        <v>NewLimit = OldLimit = infinity | integer() >= 0</v>
+        <v>Agent = pid() | atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the request limit. </p>
+        <p>Note that this has no effect on the application configuration as
+          defined by configuration files, so a node restart will revert the 
+          config to whatever is in those files. </p>
+        <p>This function is primarily useful in load regulation 
+          scenarios. </p>
+
+        <marker id="register_subagent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_subagent(Agent, SubTreeOid, Subagent) -> ok | {error, Reason}</name>
+      <fsummary>Register a sub-agent under a sub-tree</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>SubTreeOid = oid()</v>
+        <v>SubAgent = pid()</v>
+      </type>
+      <desc>
+        <p>Registers a sub-agent under a sub-tree of another agent. </p>
+        <p>It is easy to make mistakes when registering sub-agents and
+          this activity should be done carefully.  For example, a
+          strange behaviour would result from the following
+          configuration:</p>
+        <pre>
+snmp_agent:register_subagent(MAPid,[1,2,3,4],SA1),
+snmp_agent:register_subagent(SA1,[1,2,3], SA2).
+        </pre>
+        <p><c>SA2</c> will not get requests starting with object
+          identifier <c>[1,2,3]</c> since <c>SA1</c> does not. </p>
+
+        <marker id="unregister_subagent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_subagent(Agent, SubagentOidOrPid) -> ok | {ok, SubAgentPid} | {error, Reason}</name>
+      <fsummary>Unregister a sub-agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>SubTreeOidorPid = oid() | pid()</v>
+      </type>
+      <desc>
+        <p>Unregister a sub-agent.  If the second argument is a pid,
+          then that sub-agent will be unregistered from all trees in
+          <c>Agent</c>. </p>
+
+          <marker id="send_notification2"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="OTP R14B03">send_notification2(Agent, Notification, SendOpts) -> void()</name>
+      <fsummary>Send notification</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Notification = atom()</v>
+        <v>SendOpts = [send_option()]</v>
+        <v>send_option() = {receiver, receiver()} | {name, notify_name()} | {context, context_name()} | {varbinds, varbinds()} | {local_engine_id, string()} | {extra, extra_info()}</v>
+        <v>receiver() = no_receiver | {tag(), tag_receiver()} | notification_delivery_info()</v>
+        <v>tag() = term(()</v>
+        <v>tag_receiver() = pid() | registered_name() | {Mod, Func, Args}</v>
+        <v>registered_name() = atom()</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Args = list()</v>
+        <v>notify_name() = string()</v>
+        <v>context_name() = string()</v>
+        <v>varbinds() = [varbind()]</v>
+        <v>varbind() = {variable(), value()} | {column(), row_index(), value()} | {oid(), value()}</v>
+        <v>variable() = atom()</v>
+        <v>value() = term()</v>
+        <v>column() = atom()</v>
+        <v>row_index() = [int()]</v>
+        <v>extra_info() = term()</v>
+      </type>
+      <desc>
+        <p>Send the notification <c>Notification</c> to the management 
+	targets defined for notify-name (<c>name</c>) in the 
+	<c>snmpNotifyTable</c> in SNMP-NOTIFICATION-MIB from the 
+	specified <c>context</c>. </p>
+
+	<p>If no <c>name</c> is specified (or if it is <c>""</c>), the
+	notification is sent to all management targets. </p>
+
+	<p>If no <c>context</c> is specified, the default context, <c>""</c>, 
+	is used. </p>
+
+        <p>The send option <c>receiver</c> specifies where information
+	about delivery of Inform-Requests should be sent.  The agent
+	sends Inform-Requests and waits for acknowledgments from the
+	management targets. 
+	The <c>receiver</c> can have three values: </p>
+
+	<list type="bulleted">
+          <item>
+            <p><c>no_receiver</c> - No information is delivered. </p>
+	  </item>
+
+          <item>
+	    <p><c>notification_delivery_info()</c> - The information is 
+	    delivered via a function call according to this data. See the 
+	    <seealso marker="#data_types">DATA TYPES</seealso> section 
+	    above for details. </p>
+	  </item>
+
+          <item>
+            <p><c>{tag(), tag_receiver()}</c> - The information is delivered 
+	    either via messages or via a function call according to the value 
+	    of <c>tag_receiver()</c>. </p>
+	    <p>Delivery is done differently depending on the value
+	    of <c>tag_receiver()</c>: </p>
+
+	    <list>
+	      <item>
+		<p><c>pid() | registered_name()</c> - The info will be delivered in  
+		the following messages: </p>
+		<list>
+		  <item>
+		    <p><c>{snmp_targets, tag(), Addresses}</c></p>
+		    <p>This informs the user which target addresses the 
+		    notification was sent to. </p>
+		  </item>
+		  <item>
+		    <p><c>{snmp_notification, tag(), {got_response, Address}}</c></p>
+		    <p>This informs the user that this target address 
+		    acknowledged the notification. </p>
+		  </item>
+		  <item>
+		    <p><c>{snmp_notification, tag(), {no_response, Address}}</c></p>
+		    <p>This informs the user that this target address 
+		    did not acknowledge the notification. </p>
+		  </item>
+		</list>
+		<p>The notification is sent as an Inform-Request to each 
+		target address in <c>Addresses</c> and if there are no 
+		targets for which an Inform-Request is sent, <c>Addresses</c> 
+		is the empty list <c>[]</c>. </p>
+		<p>The <c>tag_receiver()</c> will first be sent the 
+		<c>snmp_targets</c> message, and then for each address in 
+		<c>Addresses</c> list, one of the two <c>snmp_notification</c> 
+		messages. </p>
+	      </item>
+
+	      <item>
+		<p><c>{Mod, Func, Args}</c> - The info will be delivered via
+		the function call: </p>
+		<p><c>Mod:Func([Msg | Args])</c></p>
+		<p>where <c>Msg</c> has the same content and purpose as the 
+		messages descrived above.</p>
+	      </item>
+
+	    </list>
+	  </item>
+        </list>
+
+	<note>
+	  <p>The <c>extra</c> info is not normally interpreted by the agent, 
+	  instead it is passed through to the 
+	  <seealso marker="snmp_agent_netif">net-if</seealso> process. It is 
+	  up to the implementor of that process to make use of this data. </p>
+	  <p>The version of net-if provided by this application makes no use
+	  of this data, with one exception: 
+	  Any tuple containing the atom 
+	  <c>snmpa_default_notification_extra_info</c> 
+	  may be used by the agent and is therefor <em>reserved</em>. </p>
+	  <p>See the net-if incomming messages for sending a 
+	  <seealso marker="snmp_agent_netif#im_send_pdu">
+	  trap</seealso> and 
+	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seealso> for more info. </p>
+	</note>
+
+	<marker id="send_notification"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="">send_notification(Agent, Notification, Receiver)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, Varbinds)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
+      <name since="OTP R14B">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
+      <fsummary>Send a notification</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>Notification = atom()</v>
+        <v>Receiver = no_receiver | {Tag, Recv} | notification_delivery_info()</v>
+        <v>Tag = term()</v>
+        <v>Recv = receiver()</v>
+        <v>receiver() = pid() | atom() | {Mod, Func, Args}</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Args = list()</v>
+        <v>NotifyName = string()</v>
+        <v>ContextName = string()</v>
+        <v>Varbinds = varbinds()</v>
+        <v>varbinds() = [varbind()]</v>
+        <v>varbind() = {Variable, Value} | {Column, RowIndex, Value} | {OID, Value}</v>
+        <v>Variable = atom()</v>
+        <v>Column = atom()</v>
+        <v>OID = oid()</v>
+        <v>Value = term()</v>
+        <v>RowIndex = [int()]</v>
+        <v>LocalEngineID = string()</v>
+      </type>
+      <desc>
+        <p>Sends the notification <c>Notification</c> to the
+	management targets defined for <c>NotifyName</c> in the
+	<c>snmpNotifyTable</c> in SNMP-NOTIFICATION-MIB from the
+	specified context.  </p>
+	<p>If no <c>NotifyName</c> is specified (or if it is <c>""</c>), 
+	the notification is sent to all management targets 
+	(<c>Addresses</c> below).  </p>
+	<p>If no <c>ContextName</c> is specified, the default <c>""</c> 
+	context is used. </p>
+
+        <p>The parameter <c>Receiver</c> specifies where information
+	about delivery of Inform-Requests should be sent.  The agent
+	sends Inform-Requests and waits for acknowledgments from the
+	managers. <c>Receiver</c> can have three values: </p>
+
+	<list type="bulleted">
+          <item>
+            <p><c>no_receiver</c> - No information is delivered. </p>
+	  </item>
+
+          <item>
+            <p><c>notification_delivery_info()</c> - The information is 
+              delivered via a function call according to this data. See the 
+              <seealso marker="#data_types">DATA TYPES</seealso> section 
+              above for details. </p>
+	  </item>
+
+          <item>
+            <p><c>{Tag, Recv}</c> - The information is delivered either via 
+	    messages or via a function call according to the value of 
+	    <c>Recv</c>. </p>
+	  </item>
+
+        </list>
+
+
+        <p>If <c>Receiver</c> has the value <c>{Tag, Recv}</c>, the delivery is
+          done according to <c>Recv</c>: </p>
+
+        <list>
+          <item>
+            <p><c>pid() | atom()</c> - The info will be delivered in  
+              the following messages: </p>
+            <list>
+              <item>
+                <p><c>{snmp_targets, Tag, Addresses}</c></p>
+                <p>This inform the user which target addresses the 
+                  notification was sent to. </p>
+		  </item>
+              <item>
+                <p><c>{snmp_notification, Tag, {got_response, Address}}</c></p>
+                <p>This informs the user that this target address 
+                  acknowledged the notification. </p>
+		  </item>
+              <item>
+                <p><c>{snmp_notification, Tag, {no_response, Address}}</c></p>
+                <p>This informs the user that this target address 
+                  did not acknowledge notification. </p>
+		  </item>
+		</list>
+            <p>The notification is sent as an Inform-Request to each 
+              target address in <c>Addresses</c> and if there are no 
+              targets for which an Inform-Request is sent, <c>Addresses</c> 
+              is the empty list <c>[]</c>. </p>
+            <p>The <c>receiver</c> will first be sent the <c>snmp_targets</c> 
+              message, and then for each address in <c>Addresses</c> list, 
+              one of the two <c>snmp_notification</c> messages. </p>
+	  </item>
+          <item>
+            <p><c>{Mod, Func, Args}</c> - The info will be delivered via
+              the function call: </p>
+            <p><c>Mod:Func([Msg | Args])</c></p>
+            <p>where <c>Msg</c> has the same content and purpose as the 
+              messages descrived above.</p>
+	  </item>
+	</list>
+
+        <p><c>Address</c> is a management target address and <c>Addresses</c> is a 
+          list of management target addresses. They are defined as followes: </p>
+
+<pre>
+        Addresses  = [address()]
+        Address    = address()
+        address()  = v1_address() | v3_address()
+        v1_address() = {TDomain, TAddress}
+        v3_address() = {{TDomain, TAddress}, V3MsgData}
+        TDomain    = tdoamin()
+        TAddress   = taddress()
+        tdomain()  = The oid of snmpUDPDomain 
+                     This is the only supported transport domain.
+        taddress() = [A1, A2, A3, A4, P1, P3]
+                     The 4 first bytes makes up the IP-address and the last 2,
+                     the UDP-port number.
+        V3MsgData  = v3_msg_data()
+        v3_msg_data() = term()
+</pre>
+
+        <p>If <c>Receiver</c> is a <c>notification_delivery_info()</c> record,
+          then the information about the notification delivery will be delivered 
+          to the <c>receiver</c> via the callback functions defined by the 
+          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          behaviour according to the content of the <c>notification_delivery_info()</c> 
+          record. </p>
+
+        <p>The optional argument <c>Varbinds</c> defines
+          values for the objects in the notification.  If no value is
+          given for an object, the <c>Agent</c> performs a get-operation
+          to retrieve the value.
+          </p>
+        <p><c>Varbinds</c> is a list of <c>Varbind</c>, where each
+          <c>Varbind</c> is one of:
+          </p>
+        <list type="bulleted">
+          <item><c>{Variable, Value}</c>, where <c>Variable</c> is the
+           symbolic name of a scalar variable referred to in the notification
+           specification.
+          </item>
+          <item><c>{Column, RowIndex, Value}</c>, where <c>Column</c>
+           is the symbolic name of a column variable.
+          <c>RowIndex</c> is a list of indices for the specified
+           element.  If this is the case, the OBJECT IDENTIFIER sent
+           in the notification is the <c>RowIndex</c> appended to the OBJECT
+           IDENTIFIER for the table column. This is the OBJECT
+           IDENTIFIER which specifies the element.
+          </item>
+          <item><c>{OID, Value}</c>, where <c>OID</c> is the OBJECT
+           IDENTIFIER for an instance of an object, scalar variable,
+           or column variable.
+          </item>
+        </list>
+        <p>For example, to specify that <c>sysLocation</c> should have the
+          value <c>"upstairs"</c> in the notification, we could use one of:
+          </p>
+        <list type="bulleted">
+          <item><c>{sysLocation, "upstairs"}</c> or</item>
+          <item><c>{[1,3,6,1,2,1,1,6,0], "upstairs"}</c> or</item>
+          <item><c>{?sysLocation_instance, "upstairs"}</c> (provided
+           that the generated <c>.hrl</c> file is included)</item>
+        </list>
+
+        <p>If a variable in the notification is a table element, the
+          <c>RowIndex</c> for the element must be given in the
+          <c>Varbinds</c> list. In this case, the OBJECT IDENTIFIER sent
+          in the notification is the OBJECT IDENTIFIER that identifies this
+          element.  This OBJECT IDENTIFIER could be used in a get
+          operation later.
+          </p>
+
+        <p>This function is asynchronous, and does not return any
+          information.  If an error occurs, <c>user_err/2</c> of the error
+          report module is called and the notification is discarded.
+          </p>
+
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
+        <p><c>ExtraInfo</c> is not normally used in any way by the agent. 
+	It is intended to be passed along to the net-if process, which is
+	a component that a user can implement themself. The users own net-if
+	may then make use of ExtraInfo. The net-if provided with this 
+	application does not process ExtraInfo. </p>
+	<p>There is one exception. <em>Any</em> tuple containing the atom
+	<c>snmpa_default_notification_extra_info</c> will, in this context,
+	be considered belonging to this application, and may be processed
+	by the agent. </p>
+
+	<marker id="discovery"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="">discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, ExtraInfo) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <fsummary>Initiate the discovery process with a manager</fsummary>
+      <type>
+        <v>TargetName = string()</v>
+        <v>Notification = atom()</v>
+        <v>ContextName = string() (defaults to "")</v>
+        <v>Varbinds = varbinds()</v>
+        <v>varbinds() = [varbind()]</v>
+        <v>DiscoHandler = snmpa_discovery_handler()</v>
+        <v>ExtraInfo = term()</v>
+        <v>snmpa_discovery_handler() = Module implementing the snmpa_discovery_handler behaviour</v>
+        <v>ManagerEngineID = string()</v>
+        <v>varbind() = {Variable, Value} | {Column, RowIndex, Value} | {OID, Value}</v>
+        <v>Variable = atom()</v>
+        <v>Column = atom()</v>
+        <v>OID = oid()</v>
+        <v>Value = term()</v>
+        <v>RowIndex = [int()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Initiate the discovery process with the manager identified by
+          <c>TargetName</c> using the notification <c>Notification</c>. </p>
+
+        <p>This function is synchronous, which means that it will return when
+          the discovery process has been completed or failed. </p>
+
+        <p>The <c>DiscoHandler</c> module is used during the discovery 
+          process. See 
+          <seealso marker="snmpa_discovery_handler">discovery handler</seealso>
+          for more info. </p>
+
+        <p>The <c>ExtraInfo</c> argument is passed on to the callback functions
+          of the <c>DiscoHandler</c>. </p>
+
+        <note><p>If we are not at security-level <c>noAuthNoPriv</c>,
+          this could be complicated, since the agent will then continue 
+          with stage 2, before which the usm-related updates must be 
+          done. </p></note>
+
+        <note><p>The default discovery handler will require 
+          additional actions by the caller and the discovery will not work
+          if the security-level is higher then <c>noAuthNoPriv</c>. </p></note>
+
+          <marker id="convert_config"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">convert_config(OldConfig) -> AgentConfig</name>
+      <fsummary>Convert old snmp config to new agent config</fsummary>
+      <type>
+        <v>OldConfig = list()</v>
+        <v>AgentConfig = list()</v>
+      </type>
+      <desc>
+        <p>This off-line utility function can be used to convert
+          the old snmp application config (pre snmp-4.0) to the 
+          new snmp agent config (as of snmp-4.0).</p>
+        <p>For information about the old config (<c>OldConfig</c>) 
+          see the OTP R9C documentation.</p>
+        <p>For information about the current agent config 
+          (<c>AgentConfig</c>), see either
+          the <seealso marker="snmp_app">SNMP application</seealso> 
+          part of the reference manual or the 
+          <seealso marker="snmp_config">Configuring the application</seealso> 
+          chapter of the SNMP user's guide.</p>
+
+        <marker id="restart_worker"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">restart_worker() -> void()</name>
+      <name since="">restart_worker(Agent) -> void()</name>
+      <fsummary>Restart the worker process of a multi-threaded agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Restart the worker process of a multi-threaded agent.</p>
+        <p>This is a utility function, that can be useful when
+          e.g. debugging instrumentation functions.</p>
+
+        <marker id="restart_set_worker"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">restart_set_worker() -> void()</name>
+      <name since="">restart_set_worker(Agent) -> void()</name>
+      <fsummary>Restart the set worker process of a multi-threaded agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Restart the set worker process of a multi-threaded agent.</p>
+        <p>This is a utility function, that can be useful when
+          e.g. debugging instrumentation functions.</p>
+
+        <marker id="print_mib_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B02">print_mib_info() -> void()</name>
+      <fsummary>Print mib info</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) tables and variables 
+	for all mibs handled by the snmp agent. </p>
+
+        <marker id="print_mib_tables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B02">print_mib_tables() -> void()</name>
+      <fsummary>Print mib tables</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) tables 
+	for all mibs handled by the snmp agent. </p>
+
+        <marker id="print_mib_variables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B02">print_mib_variables() -> void()</name>
+      <fsummary>Print mib variables</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) variables 
+	for all mibs handled by the snmp agent. </p>
+
+        <marker id="verbosity"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">verbosity(Ref,Verbosity) -> void()</name>
+      <fsummary>Assign a new verbosity for the process</fsummary>
+      <type>
+        <v>Ref = pid() | sub_agents | master_agent | net_if | mib_server | symbolic_store | note_store | local_db</v>
+        <v>Verbosity = verbosity() | {subagents, verbosity()}</v>
+        <v>verbosity() = silence | info | log | debug | trace </v>
+      </type>
+      <desc>
+        <p>Sets verbosity for the designated process. For the lowest 
+          verbosity <c>silence</c>, nothing is printed. The higher the
+          verbosity, the more is printed. </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>calendar(3), erlc(1) </p>
+  </section>
+
+  
+</erlref>
+

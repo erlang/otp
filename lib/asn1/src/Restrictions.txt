@@ -1,0 +1,57 @@
+The following restrictions apply to this implementation of the ASN.1 compiler:
+
+The ASN.1 2002 standard is not fully supported because there has been no need for that.
+It seems as if most ASN.1 specifications are still using the 1998 standard or older.
+
+Supported encoding rules are:
+BER, DER
+PER ALIGNED
+PER UNALIGNED
+
+Supported types are:
+
+INTEGER
+BOOLEAN
+ENUMERATION
+SEQUENCE
+SEQUENCE OF
+SET
+SET OF
+CHOICE
+OBJECT IDENTIFIER
+RestrictedCharacterStringTypes
+UnrestrictedCharacterStringTypes
+
+
+NOT SUPPORTED types are:
+ANY IS (IS NOT IN THE STANDARD ANY MORE)
+ANY DEFINED BY (IS NOT IN THE STANDARD ANY MORE)
+EXTERNAL
+EMBEDDED-PDV
+REAL
+
+The support for value definitions in the ASN.1 notation is very limited.
+
+The support for constraints is limited to:
+SizeConstraint	SIZE(X)
+SingleValue	(1)
+ValueRange	(X..Y)
+PermittedAlpabet FROM
+
+The only supported value-notation for SEQUENCE and SET in Erlang is 
+the record variant.
+The list notation with named components used by the old ASN.1 compiler 
+was supported in the first versions of this compiler both are no longer
+supported.
+
+The decode functions always return a symbolic value if they can.
+
+
+Files with ASN.1 source must have a suffix .asn1 the suffix .py used by the
+old ASN.1 compiler is supported in this version but will not be supported in the future.
+
+Generated files:
+X.asn1db	% the intermediate format of a compiled ASN.1 module ,only used by the ASN.1 compiler.
+X.hrl		% generated Erlang include file for module X
+X.erl		% generated Erlang module with encode decode functions for
+		% ASN.1 module X

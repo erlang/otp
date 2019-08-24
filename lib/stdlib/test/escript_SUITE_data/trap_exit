@@ -1,0 +1,6 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+main(_) ->
+    {trap_exit,Bool} = process_info(self(), trap_exit),
+    io:format("~p\n", [Bool]).

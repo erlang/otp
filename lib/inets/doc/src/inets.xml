@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>inets</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">inets</module>
+  <modulesummary>The Inets services API.</modulesummary>
+  <description>
+    <p>This module provides the most basic API to the 
+    clients and servers that are part of the <c>Inets</c> application,
+    such as start and stop.</p>
+
+    <marker id="common_data_types"></marker>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <p><c>service() = ftpc | tftp | httpc | httpd</c></p>
+    <p><c>property() = atom()</c></p>
+    <marker id="functions"></marker>
+    <marker id="services"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">services() -> [{Service, Pid}]</name>
+      <fsummary>Returns a list of currently running services.</fsummary>
+      <type>
+        <v>Service = service()</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Returns a list of currently running services.</p>
+        <note>
+	  <p>Services started as <c>stand_alone</c> are not listed.</p>
+        </note>
+
+	<marker id="services_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">services_info() -> [{Service, Pid, Info}]</name>
+      <fsummary>Returns a list of currently running services where
+      each service is described by an <c>[{Option, Value}]</c>
+      list.</fsummary>
+      <type>
+        <v>Service = service()</v>
+        <v>Pid = pid()</v>
+        <v>Info = [{Option, Value}]</v>
+        <v>Option = property()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Returns a list of currently running services where each
+	service is described by an <c>[{Option, Value}]</c> list. The
+	information in the list is specific for each service
+	and each service has probably its own info
+	function that gives more details about the service.</p>
+
+	<marker id="service_names"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">service_names() -> [Service] </name>
+      <fsummary>Returns a list of available service names.</fsummary>
+      <type>
+	<v>Service = service()</v>
+      </type>
+      <desc>
+        <p>Returns a list of available service names.</p>
+
+	<marker id="start"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">start() -> </name>
+      <name since="">start(Type) -> ok | {error, Reason}</name>
+      <fsummary>Starts the <c>Inets</c> application.</fsummary>
+      <type>
+        <v>Type = permanent | transient | temporary</v>
+      </type>
+      <desc>
+        <p>Starts the <c>Inets</c> application. Default type
+	is <c>temporary</c>. See also
+	<seealso marker="kernel:application">application(3)</seealso>.</p>
+
+	<marker id="stop"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
+      <fsummary>Dynamically starts an <c>Inets</c>
+      service after the <c>Inets</c> application has been started.</fsummary>
+      <type>
+        <v>Service = service()</v>
+        <v>ServiceConfig = [{Option, Value}]</v>
+	<v>Option = property()</v>
+	<v>Value = term()</v>
+        <v>How = inets | stand_alone - default is inets.</v>
+      </type>
+      <desc>
+        <p>Dynamically starts an <c>Inets</c> service after the <c>Inets</c>
+          application has been started.</p>
+        <note>
+          <p>Dynamically started services are not handled by
+            application takeover and failover behavior when <c>Inets</c> is
+            run as a distributed application. Nor are they
+            automatically restarted when the <c>Inets</c> application is
+            restarted. As long as the <c>Inets</c> application is operational,
+	    they are supervised and can be soft code upgraded.</p>
+	    <p>A service started as <c>stand_alone</c>, that is, the service 
+	    is not started as part of the <c>Inets</c> application, 
+	    lose all OTP application benefits, such as soft upgrade. 
+	    The <c>stand_alone</c>-service is linked to
+            the process that started it. Usually some
+            supervision functionality is still in place and in
+            some sense the calling process becomes the top
+            supervisor.</p>
+        </note>
+	
+	<marker id="stop2"></marker>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">stop() -> ok </name>
+      <fsummary>Stops the <c>Inets</c> application.</fsummary>
+      <desc>
+        <p>Stops the <c>Inets</c> application. See also
+	<seealso marker="kernel:application">application(3)</seealso>.</p>
+	
+	<marker id="start2"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">stop(Service, Reference) -> ok | {error, Reason} </name>
+      <fsummary>Stops a started service of the <c>Inets</c> application or takes
+          down a <c>stand_alone </c>service gracefully.</fsummary>
+      <type>
+	<v>Service = service() | stand_alone</v>
+	<v>Reference = pid() | term() - service-specified reference</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Stops a started service of the <c>Inets</c> application or takes
+	down a <c>stand_alone</c>-service gracefully. When option
+	<c>stand_alone</c> is used in start,
+	only the pid is a valid argument to stop.</p>
+	
+	<marker id="see_also"></marker>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="httpc">httpc(3)</seealso>,
+    <seealso marker="httpd">httpd(3)</seealso>
+    </p>
+  </section>
+  
+</erlref>
+
+

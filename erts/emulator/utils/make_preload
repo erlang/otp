@@ -1,0 +1,228 @@
+#!/usr/bin/env perl 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2017. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+use File::Basename;
+
+#
+# Description:
+#   Packages one erlang module in a form that can be preloaded (C source
+#   for Unix or resource script for Windows).  The output is written to
+#   standard output.
+#
+# Usage:
+#	make_preload [ Options ] file.{jam,beam}
+#
+# Options:
+#	-rc		Produce a resource script rather than C source.
+#
+# Author:
+#    Bjorn Gustavsson
+#
+
+my $gen_rc = 0;
+my $gen_old = 0;
+my $windres = 0;
+my $msys = 0;
+my $file;
+
+my $progname = basename($0);
+
+while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
+    my $opt = shift;
+    if ($opt eq '-rc') {
+	$gen_rc = 1;
+    } elsif ($opt eq '-windres') {
+	$windres = 1;
+    } elsif ($opt eq '-msys') {
+	$msys = 1;
+    } elsif ($opt eq '-old') {
+	$gen_old = 1;
+    } else {
+	usage("bad option: $opt");
+    }
+}
+
+print header();
+
+my @modules;
+my $num = 1;
+
+foreach $file (@ARGV) {
+    local($/);
+
+    usage("not a beam file")
+	unless $file =~ /\.beam$/;
+    my $module = basename($file, ".beam");
+    if ($gen_rc) {
+	my $win_file;
+	if ($msys) {
+	    ($win_file) = split("\n", `(msys2win_path.sh $file)`);
+	} else {
+	    ($win_file) = split("\n", `(cygpath -d $file 2>/dev/null || cygpath -w $file)`);
+	}
+	$win_file =~ s&\\&\\\\&g;
+	print "$num ERLANG_CODE \"$win_file\"\n";
+	push(@modules, "   ", -s $file, "L, $num, ",
+	     length($module), ",\"$module\",\n");
+	$num++;
+    } else {
+	my $i;
+	my $comment = '';
+
+	open(FILE, $file) or error("failed to read $file: $!");
+	binmode(FILE);
+	$_ = <FILE>;
+	$_ = beam_strip($_, $file);
+	close(FILE);
+	
+	push(@modules, "  {\"$module\", " . length($_) . ", preloaded_$module},\n");
+	print "const unsigned preloaded_size_$module = ", length($_), ";\n";
+	print "const unsigned char preloaded_$module", "[] = {\n";
+	for ($i = 0; $i < length($_); $i++) {
+	    if ($i % 8 == 0 && $comment ne '') {
+		$comment =~ s@/\*@..@g; # Comment start -- avoid warning.
+		$comment =~ s@\*/@..@g; # Comment terminator.
+		print " /* $comment */\n  ";
+		$comment = '';
+	    }
+	    my $c = ord(substr($_, $i, 1));
+	    printf("0x%02x,", $c);
+	    $comment .= (32 <= $c && $c < 127) ? chr($c) : '.';
+	}
+	$comment =~ s@\*/@..@g; # Comment terminator.
+	print "     " x (8-($i % 8)), " /* $comment */\n};\n";
+    }
+}
+
+if ($windres) {
+    $modules[$#modules] =~ s/,$//;
+}
+
+if ($gen_rc) {
+    print "#include <beam.rc>\n";
+    $num--;
+    print "\n0 ERLANG_DICT\n";
+    print "BEGIN\n";
+    print "    $num,\n";
+    print @modules;
+    print "END\n";
+} elsif ($gen_old) {
+    print "const struct {\n";
+    print "   char* name;\n";
+    print "   int size;\n";
+    print "   const unsigned char* code;\n";
+    print "} pre_loaded[] = {\n";
+    foreach (@modules) {
+	print;
+    }
+    print "  {0, 0, 0}\n";
+    print "};\n";
+}
+
+sub usage {
+    warn "$progname: ", @_, "\n";
+    die "usage: $progname -o output-directory file.{jam,beam}\n";
+}
+
+sub error {
+    die "$progname: ", @_, "\n";
+}
+
+sub beam_strip {
+    my($beam,$file) = @_;
+
+
+    my $size_left = length($beam);
+    my %chunk;
+    my %needed_chunk = ('Code' => 1,
+			'AtU8' => 1,
+			'ImpT' => 1,
+			'ExpT' => 1,
+			'StrT' => 1,
+			'FunT' => 1,
+			'LitT' => 1);
+
+    die "$file: can't read Beam files for OTP R4 or earlier (sorry)"
+	if $beam =~ /^\x7fBEAM!/;
+
+    #
+    # Read and verify the head of the IFF file.
+    #
+    
+    my ($id, $size, $beam_id) = unpack("a4Na4", $beam);
+
+    return $beam		# It might be compressed.
+	unless $id eq 'FOR1';
+#    die "not a BEAM file: no IFF 'FOR1' chunk"
+#	unless $id eq 'FOR1';
+    $size_left -= 8;
+    die "form size $size greater than size ", $size_left, " of module"
+	if $size > $size_left;
+    $size_left -= 4;
+    die "$file: not a BEAM file: IFF form type is not 'BEAM'"
+	unless $beam_id eq 'BEAM';
+
+    #
+    # Read all IFF chunks.
+    #
+
+    $beam = substr($beam, 12, $size_left);
+    while ($size_left > 0) {
+	($id, $size) = unpack("a4N", $beam);
+	$size_left -= 8;
+	die "chunk size $size greater than size ", $size_left, " of module"
+	    if $size > $size_left;
+	$size = 4*int(($size+3)/4);
+	$chunk{$id} = substr($beam, 0, 8+$size);
+	$beam = substr($beam, 8+$size);
+	$size_left = length($beam);
+    }
+
+    #
+    # Abort if there is no new-style 'AtU8' atom chunk.
+    #
+
+    exists $chunk{'AtU8'} or
+        die "$file: no 'AtU8' chunk (re-compile with " .
+        "OTP 20 or later)\n";
+
+    #
+    # Create a new beam file with only the useful chunk types.
+    #
+
+    my @chunks;
+    foreach (sort keys %chunk) {
+	push(@chunks, $chunk{$_})
+	    if $needed_chunk{$_};
+    }
+    $beam = join('', @chunks);
+    join('', "FOR1", pack("N", length($beam)+4), "BEAM", $beam);
+}
+
+sub header {
+    my $time = localtime;
+    <<END;
+/*
+ * DO NOT EDIT THIS FILE.  It was automatically generated
+ * by the `$progname' program on $time.
+ */
+END
+}

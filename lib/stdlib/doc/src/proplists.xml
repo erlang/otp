@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>proplists</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>2002-09-28</date>
+    <rev>A</rev>
+    <file>proplists.xml</file>
+  </header>
+  <module since="">proplists</module>
+  <modulesummary>Support functions for property lists.</modulesummary>
+  <description>
+    <p>Property lists are ordinary lists containing entries in the form
+      of either tuples, whose first elements are keys used for lookup and
+      insertion, or atoms, which work as shorthand for tuples
+      <c>{Atom, true}</c>. (Other terms are allowed in the lists, but are
+      ignored by this module.) If there is more than one entry in a list for a
+      certain key, the first occurrence normally overrides any later
+      (irrespective of the arity of the tuples).</p>
+
+    <p>Property lists are useful for representing inherited properties,
+      such as options passed to a function where a user can specify options
+      overriding the default settings, object properties, annotations,
+      and so on.</p>
+
+    <p>Two keys are considered equal if they match (<c>=:=</c>). That is,
+      numbers are compared literally rather than by value, so that,
+      for example, <c>1</c> and <c>1.0</c> are different keys.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="property"/>
+    </datatype>
+
+    <datatype>
+      <name name="proplist"/>
+    </datatype>
+
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="append_values" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Similar to
+          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
+          but each value is wrapped in a list unless it is already itself a
+          list. The resulting list of lists is concatenated. This is often
+          useful for "incremental" options.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
+        <p>returns:</p>
+        <code type="none">
+[1,2,3,4]</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="compact" arity="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Minimizes the representation of all entries in the list. This is
+          equivalent to <c><![CDATA[[property(P) || P <- ListIn]]]></c>.</p>
+        <p>See also
+          <seealso marker="#property/1"><c>property/1</c></seealso>,
+          <seealso marker="#unfold/1"><c>unfold/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Deletes all entries associated with <c><anno>Key</anno></c> from
+          <c><anno>List</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="expand" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Expands particular properties to corresponding sets of
+          properties (or other terms). For each pair <c>{<anno>Property</anno>,
+          <anno>Expansion</anno>}</c> in <c><anno>Expansions</anno></c>: if
+          <c>E</c> is the first entry in <c><anno>ListIn</anno></c> with the
+          same key as <c><anno>Property</anno></c>, and <c>E</c> and
+          <c><anno>Property</anno></c> have equivalent normal forms, then
+          <c>E</c> is replaced with the terms in <c><anno>Expansion</anno></c>,
+          and any following entries with the same key are deleted from
+          <c><anno>ListIn</anno></c>.</p>
+        <p>For example, the following expressions all return
+          <c>[fie, bar, baz, fum]</c>:</p>
+        <code type="none">
+expand([{foo, [bar, baz]}], [fie, foo, fum])
+expand([{{foo, true}, [bar, baz]}], [fie, foo, fum])
+expand([{{foo, false}, [bar, baz]}], [fie, {foo, false}, fum])</code>
+        <p>However, no expansion is done in the following call
+          because <c>{foo, false}</c> shadows <c>foo</c>:</p>
+        <code type="none">
+expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
+        <p>Notice that if the original property term is to be preserved in the
+          result when expanded, it must be included in the expansion list. The
+          inserted terms are not expanded recursively. If
+          <c><anno>Expansions</anno></c> contains more than one property with
+          the same key, only the first occurrence is used.</p>
+        <p>See also
+          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_all_values" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Similar to 
+          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          but returns the list of values for <em>all</em> entries
+          <c>{Key, Value}</c> in <c><anno>List</anno></c>. If no such entry
+          exists, the result is the empty list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_bool" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the value of a boolean key/value option. If
+          <c>lookup(<anno>Key</anno>, <anno>List</anno>)</c> would yield
+          <c>{<anno>Key</anno>, true}</c>, this function returns <c>true</c>,
+          otherwise <c>false</c>.</p>
+        <p>See also
+          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_keys" arity="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns an unordered list of the keys used in
+          <c><anno>List</anno></c>, not containing duplicates.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_value" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Equivalent to
+          <c>get_value(<anno>Key</anno>, <anno>List</anno>, undefined)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_value" arity="3" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the value of a simple key/value property in
+          <c><anno>List</anno></c>. If <c>lookup(<anno>Key</anno>,
+          <anno>List</anno>)</c> would yield <c>{<anno>Key</anno>, Value}</c>,
+          this function returns the corresponding <c>Value</c>, otherwise
+          <c><anno>Default</anno></c>.</p>
+        <p>See also
+          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
+          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
+          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_defined" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>List</anno></c> contains at least
+          one entry associated with <c><anno>Key</anno></c>, otherwise
+          <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lookup" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the first entry associated with <c><anno>Key</anno></c> in
+          <c><anno>List</anno></c>, if one exists, otherwise returns
+          <c>none</c>. For an atom <c>A</c> in the list, the tuple
+          <c>{A, true}</c> is the entry associated with <c>A</c>.</p>
+        <p>See also
+          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
+          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          <seealso marker="#lookup_all/2"><c>lookup_all/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lookup_all" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the list of all entries associated with
+          <c><anno>Key</anno></c> in <c><anno>List</anno></c>. If no such entry
+          exists, the result is the empty list.</p>
+        <p>See also
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normalize" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Passes <c><anno>ListIn</anno></c> through a sequence of
+          substitution/expansion stages. For an <c>aliases</c> operation,
+          function <seealso marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seealso> is applied using the
+          specified list of aliases:</p>
+        <list type="bulleted">
+          <item>
+            <p>For a <c>negations</c> operation, <c>substitute_negations/2</c>
+              is applied using the specified negation list.</p>
+          </item>
+          <item>
+            <p>For an <c>expand</c> operation, function
+              <seealso marker="#expand/2"><c>expand/2</c></seealso>
+              is applied using the specified list of expansions.</p>
+          </item>
+        </list>
+        <p>The final result is automatically compacted (compare
+          <seealso marker="#compact/1"><c>compact/1</c></seealso>).</p>
+        <p>Typically you want to substitute negations first, then aliases,
+          then perform one or more expansions (sometimes you want to pre-expand
+          particular entries before doing the main expansion). You might want
+          to substitute negations and/or aliases repeatedly, to allow such
+          forms in the right-hand side of aliases and expansion lists.</p>
+        <p>See also <seealso marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="property" arity="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Creates a normal form (minimal) representation of a property. If
+          <c><anno>PropertyIn</anno></c> is <c>{Key, true}</c>, where
+          <c>Key</c> is an atom, <c>Key</c> is returned, otherwise
+          the whole term <c><anno>PropertyIn</anno></c> is returned.</p>
+        <p>See also
+          <seealso marker="#property/2"><c>property/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="property" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Creates a normal form (minimal) representation of a simple key/value
+          property. Returns <c><anno>Key</anno></c> if <c><anno>Value</anno></c>
+          is <c>true</c> and <c><anno>Key</anno></c> is an atom, otherwise a
+          tuple <c>{<anno>Key</anno>, <anno>Value</anno>}</c> is returned.</p>
+        <p>See also
+          <seealso marker="#property/1"><c>property/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="split" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Partitions <c><anno>List</anno></c> into a list of sublists and a
+          remainder. <c><anno>Lists</anno></c> contains one sublist for each key
+          in <c><anno>Keys</anno></c>, in the corresponding order. The relative
+          order of the elements in each sublist is preserved from the original
+          <c><anno>List</anno></c>. <c><anno>Rest</anno></c> contains the
+          elements in <c><anno>List</anno></c> that are not associated with any
+          of the specified keys,
+          also with their original relative order preserved.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
+        <p>returns:</p>
+        <code type="none">
+{[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="substitute_aliases" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Substitutes keys of properties. For each entry in
+          <c><anno>ListIn</anno></c>, if it is associated with some key
+          <c>K1</c> such that <c>{K1, K2}</c> occurs in
+          <c><anno>Aliases</anno></c>, the
+          key of the entry is changed to <c>K2</c>. If the same
+          <c>K1</c> occurs more than once in <c><anno>Aliases</anno></c>, only
+          the first occurrence is used.</p>
+        <p>For example, <c>substitute_aliases([{color, colour}], L)</c>
+          replaces all tuples <c>{color, ...}</c> in <c>L</c>
+          with <c>{colour, ...}</c>, and all atoms <c>color</c>
+          with <c>colour</c>.</p>
+        <p>See also
+          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
+          <seealso marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="substitute_negations" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Substitutes keys of boolean-valued properties and
+          simultaneously negates their values. For each entry in
+          <c><anno>ListIn</anno></c>, if it is associated with some key
+          <c>K1</c> such that <c>{K1, K2}</c> occurs in
+          <c><anno>Negations</anno></c>: if the entry was
+          <c>{K1, true}</c>, it is replaced with <c>{K2, false}</c>, otherwise
+          with <c>{K2, true}</c>, thus changing the name of the option and
+          simultaneously negating the value specified by
+          <seealso marker="#get_bool/2">
+          <c>get_bool(Key, <anno>ListIn</anno>)</c></seealso>.
+          If the same <c>K1</c> occurs more than once in
+          <c><anno>Negations</anno></c>, only the first occurrence is used.</p>
+        <p>For example, <c>substitute_negations([{no_foo, foo}], L)</c>
+          replaces any atom <c>no_foo</c> or tuple
+          <c>{no_foo, true}</c> in <c>L</c> with <c>{foo, false}</c>,
+          and any other tuple <c>{no_foo, ...}</c> with <c>{foo, true}</c>.</p>
+        <p>See also
+          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
+          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
+          <seealso marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unfold" arity="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Unfolds all occurrences of atoms in <c><anno>ListIn</anno></c> to
+          tuples <c>{Atom, true}</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

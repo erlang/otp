@@ -1,0 +1,1 @@
+This information has been moved to the "Distribution Protocol" chapter of "ERTS User's Guide".

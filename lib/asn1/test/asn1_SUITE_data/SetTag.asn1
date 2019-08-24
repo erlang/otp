@@ -1,0 +1,47 @@
+SetTag DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSeq1, XSetNT, XSetImp, XSetExp FROM External;
+
+SetTag ::= [APPLICATION 20] SET {
+	nt NT,
+	imp Imp,
+	exp Exp }
+
+SetTagImp ::= [APPLICATION 21] SET {
+	nt [0] NT,
+	imp [1] Imp,
+	exp [2] Exp}
+
+SetTagExp ::= [APPLICATION 22] SET {
+	nt [0] EXPLICIT NT,
+	imp [1] EXPLICIT Imp,
+	exp [2] EXPLICIT Exp}
+
+SetTagX ::= [APPLICATION 30] SET {
+	xnt XSetNT,
+	ximp XSetImp,
+	xexp XSetExp }
+
+SetTagImpX ::= [APPLICATION 31] SET {
+	xnt [3] XSetNT,
+	ximp [4] XSetImp,
+	xexp [5] XSetExp }
+
+SetTagExpX ::= [APPLICATION 32] SET {
+	xnt [3] EXPLICIT XSetNT,
+	ximp [4] EXPLICIT XSetImp,
+	xexp [5] EXPLICIT XSetExp }
+
+NT ::= SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [11] SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [12] EXPLICIT SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+END

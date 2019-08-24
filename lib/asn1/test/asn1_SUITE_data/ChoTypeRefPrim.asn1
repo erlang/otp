@@ -1,0 +1,34 @@
+ChoTypeRefPrim DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+ChoTR ::=  CHOICE 
+{
+  bool BOOLEAN,
+  octStr OctStr,
+  int INTEGER
+}
+
+
+ChoTR2 ::=  CHOICE 
+{
+  octStr OctStr,
+  octStrI [114] OctStr,
+  octStrE [115] EXPLICIT OctStr,
+
+  octStr-I OctStrImp,
+  octStrI-I [214] OctStrImp,
+  octStrE-I [215] EXPLICIT OctStrImp,
+
+  octStr-E OctStrExp,
+  octStrI-E [314] OctStrExp,
+  octStrE-E [315] EXPLICIT OctStrExp
+
+}
+
+OctStr ::= OCTET STRING
+OctStrImp ::= [14] OCTET STRING
+OctStrExp ::= [15] EXPLICIT OCTET STRING
+
+END
+

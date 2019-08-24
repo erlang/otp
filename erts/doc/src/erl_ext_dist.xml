@@ -1,0 +1,1421 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2017</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>External Term Format</title>
+    <prepared>Kenneth</prepared>
+    <docno></docno>
+    <date>2007-09-21</date>
+    <rev>PA1</rev>
+    <file>erl_ext_dist.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>
+      The external term format is mainly used in the distribution
+      mechanism of Erlang.
+    </p>
+    <p>
+      As Erlang has a fixed number of types, there is no need for a
+      programmer to define a specification for the external format used
+      within some application.
+      All Erlang terms have an external representation and the interpretation
+      of the different terms is application-specific.
+    </p>
+    <p>
+      In Erlang the BIF <seealso marker="erts:erlang#term_to_binary/1">
+      <c>erlang:term_to_binary/1,2</c></seealso> is used to convert a
+      term into the external format.
+      To convert binary data encoding to a term, the BIF
+      <seealso marker="erts:erlang#binary_to_term/1">
+      <c>erlang:binary_to_term/1</c></seealso> is used.
+    </p>
+    <p>
+      The distribution does this implicitly when sending messages across
+      node boundaries.
+    </p>
+    <marker id="overall_format"/>
+    <p>
+      The overall format of the term format is as follows:
+    </p>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">1</cell>
+        <cell align="center">N</cell>
+      </row>
+      <row>
+        <cell align="center"><c>131</c></cell>
+        <cell align="center"><c>Tag</c></cell>
+        <cell align="center"><c>Data</c></cell>
+      </row>
+    <tcaption>Term Format</tcaption></table>
+    <note>
+      <p>
+        When messages are
+        <seealso marker="erl_dist_protocol#connected_nodes">passed between
+        connected nodes</seealso> and a
+        <seealso marker="#distribution_header">distribution
+        header</seealso> is used, the first byte containing the version
+        number (131) is omitted from the terms that follow the distribution
+        header. This is because the version number is implied by the version
+        number in the distribution header.
+      </p>
+    </note>
+    <p>
+      The compressed term format is as follows:
+    </p>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">1</cell>
+        <cell align="center">4</cell>
+        <cell align="center">N</cell>
+      </row>
+      <row>
+        <cell align="center"><c>131</c></cell>
+        <cell align="center"><c>80</c></cell>
+        <cell align="center"><c>UncompressedSize</c></cell>
+        <cell align="center"><c>Zlib-compressedData</c></cell>
+      </row>
+    <tcaption>Compressed Term Format</tcaption></table>
+    <p>
+      Uncompressed size (unsigned 32-bit integer in big-endian byte order)
+      is the size of the data before it was compressed.
+      The compressed data has the following format when it has been expanded:
+    </p>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">Uncompressed Size</cell>
+      </row>
+      <row>
+        <cell align="center"><c>Tag</c></cell>
+        <cell align="center"><c>Data</c></cell>
+      </row>
+    <tcaption>Compressed Data Format when Expanded</tcaption></table>
+    <marker id="utf8_atoms"/>
+    <note>
+      <p>As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
+        characters and are always encoded using the UTF-8 external formats
+	<seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>
+        or <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>.
+	The old Latin-1 formats <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>
+        and <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>
+	are deprecated and are only kept for backward
+	compatibility when decoding terms encoded by older nodes.</p>
+      <p>Support for UTF-8 encoded atoms in the external format has been
+        available since ERTS 5.10 (OTP R16). This ability allows such old nodes
+	to decode, store and encode any Unicode atoms received from a new OTP 20
+        node.</p>
+      <p>The maximum number of allowed characters in an atom is 255. In the
+        UTF-8 case, each character can need 4 bytes to be encoded.</p>
+    </note>
+  </section>
+
+  <section>
+    <marker id="distribution_header"/>
+    <title>Distribution Header</title>
+    <p>
+      The distribution header is sent by the erlang distribution to
+      carry metadata about the coming
+      <seealso marker="erl_dist_protocol#control_message">control message</seealso>
+      and potential payload. It is primarily used to handle the atom cache
+      in the Erlang distribution. Since OTP-22 it is also used to fragment
+      large distribution messages into multiple smaller fragments.
+      For more information about how the distribution uses the distribution header,
+      see the documentation of the
+      <seealso marker="erl_dist_protocol#connected_nodes">protocol between
+      connected nodes</seealso> in the
+      <seealso marker="erl_dist_protocol">distribution protocol</seealso>
+      documentation.
+    </p>
+    <p>
+      Any <seealso marker="#ATOM_CACHE_REF">ATOM_CACHE_REF</seealso>
+      entries with corresponding <c>AtomCacheReferenceIndex</c> in terms
+      encoded on the external format following a distribution header refer
+      to the atom cache references made in the distribution header. The range
+      is 0 &lt;= <c>AtomCacheReferenceIndex</c> &lt; 255, that is, at most 255
+      different atom cache references from the following terms can be made.
+    </p>
+    <section>
+      <title>Normal Distribution Header</title>
+      <p>
+        The non-fragmented distribution header format is as follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">NumberOfAtomCacheRefs/2+1 | 0</cell>
+          <cell align="center">N | 0</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>68</c></cell>
+          <cell align="center"><c>NumberOfAtomCacheRefs</c></cell>
+          <cell align="center"><c>Flags</c></cell>
+          <cell align="center"><c>AtomCacheRefs</c></cell>
+        </row>
+      <tcaption>Normal Distribution Header Format</tcaption></table>
+      <p>
+        <c>Flags</c> consist of <c>NumberOfAtomCacheRefs/2+1</c> bytes,
+        unless <c>NumberOfAtomCacheRefs</c> is <c>0</c>. If
+        <c>NumberOfAtomCacheRefs</c> is <c>0</c>, <c>Flags</c> and
+        <c>AtomCacheRefs</c> are omitted. Each atom cache reference has
+        a half byte flag field. Flags corresponding to a specific
+        <c>AtomCacheReferenceIndex</c> are located in flag byte number
+        <c>AtomCacheReferenceIndex/2</c>. Flag byte 0 is the first byte
+        after the <c>NumberOfAtomCacheRefs</c> byte. Flags for an even
+        <c>AtomCacheReferenceIndex</c> are located in the least significant
+        half byte and flags for an odd <c>AtomCacheReferenceIndex</c> are
+        located in the most significant half byte.
+      </p>
+      <p>
+        The flag field of an atom cache reference has the following
+        format:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1 bit</cell>
+          <cell align="center">3 bits</cell>
+        </row>
+        <row>
+          <cell align="center"><c>NewCacheEntryFlag</c></cell>
+          <cell align="center"><c>SegmentIndex</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        The most significant bit is the <c>NewCacheEntryFlag</c>. If set,
+        the corresponding cache reference is new. The three least
+        significant bits are the <c>SegmentIndex</c> of the corresponding
+        atom cache entry. An atom cache consists of 8 segments, each of size
+        256, that is, an atom cache can contain 2048 entries.
+      </p>
+      <p>
+        After flag fields for atom cache references, another half byte flag
+        field is located with the following format:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">3 bits</cell>
+          <cell align="center">1 bit</cell>
+        </row>
+        <row>
+          <cell align="center"><c>CurrentlyUnused</c></cell>
+          <cell align="center"><c>LongAtoms</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        The least significant bit in that half byte is flag <c>LongAtoms</c>.
+        If it is set, 2 bytes are used for atom lengths instead of
+        1 byte in the distribution header.
+      </p>
+      <p>
+        After the <c>Flags</c> field follow the <c>AtomCacheRefs</c>. The
+        first <c>AtomCacheRef</c> is the one corresponding to
+        <c>AtomCacheReferenceIndex</c> 0. Higher indices follow
+        in sequence up to index <c>NumberOfAtomCacheRefs - 1</c>.
+      </p>
+      <p>
+        If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c> has
+        been set, a <c>NewAtomCacheRef</c> on the following format follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1 | 2</cell>
+          <cell align="center">Length</cell>
+        </row>
+        <row>
+          <cell align="center"><c>InternalSegmentIndex</c></cell>
+          <cell align="center"><c>Length</c></cell>
+          <cell align="center"><c>AtomText</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
+        completely identify the location of an atom cache entry in the
+        atom cache. <c>Length</c> is the number of bytes that <c>AtomText</c>
+        consists of. Length is a 2 byte big-endian integer
+        if flag <c>LongAtoms</c> has been set, otherwise a 1 byte
+        integer. When distribution flag
+        <seealso marker="erl_dist_protocol#dflags">
+        <c>DFLAG_UTF8_ATOMS</c></seealso>
+        has been exchanged between both nodes in the
+        <seealso marker="erl_dist_protocol#distribution_handshake">
+          distribution handshake</seealso>,
+          characters in <c>AtomText</c> are encoded in UTF-8, otherwise
+          in Latin-1. The following <c>CachedAtomRef</c>s with the same
+          <c>SegmentIndex</c> and <c>InternalSegmentIndex</c> as this
+          <c>NewAtomCacheRef</c> refer to this atom until a new
+          <c>NewAtomCacheRef</c> with the same <c>SegmentIndex</c>
+          and <c>InternalSegmentIndex</c> appear.
+      </p>
+      <p>
+        For more information on encoding of atoms, see the
+        <seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+        in the beginning of this section.
+      </p>
+      <p>
+        If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c>
+        has not been set, a <c>CachedAtomRef</c> on the following format
+        follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>InternalSegmentIndex</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
+        identify the location of the atom cache entry in the atom cache.
+        The atom corresponding to this <c>CachedAtomRef</c> is the
+        latest <c>NewAtomCacheRef</c> preceding this <c>CachedAtomRef</c>
+        in another previously passed distribution header.
+      </p>
+    </section>
+    <section>
+      <marker id="fragments"/>
+      <title>Distribution Header for fragmented messages</title>
+      <p>Messages sent between Erlang nodes can sometimes be
+      quite large. Since OTP-22 it is possible to split large messages
+      into smaller fragments in order to allow smaller messages to be interleaved
+      between larges messages. It is only the <c>message</c> part of each
+      <seealso marker="erl_dist_protocol#connected_nodes">distributed message</seealso>
+      that may be split using fragmentation. Therefore it is recommended to use the
+      <seealso marker="erl_dist_protocol#new-ctrlmessages-for-erlang-otp-22">
+        PAYLOAD control messages</seealso> introduced in OTP-22.
+      </p>
+      <p>Fragmented distribution messages are only used if the receiving node
+      signals that it supports them via the
+      <seealso marker="erl_dist_protocol#dflags">DFLAG_FRAGMENTS</seealso> distribution
+      flag.</p>
+      <p>A process must complete the sending of a fragmented message before it
+      can start sending any other message on the same distribution channel.</p>
+
+      <p>The start of a sequence of fragmented messages looks like this:</p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">8</cell>
+          <cell align="center">8</cell>
+          <cell align="center">1</cell>
+          <cell align="center">NumberOfAtomCacheRefs/2+1 | 0</cell>
+          <cell align="center">N | 0</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>69</c></cell>
+          <cell align="center"><c>SequenceId</c></cell>
+          <cell align="center"><c>FragmentId</c></cell>
+          <cell align="center"><c>NumberOfAtomCacheRefs</c></cell>
+          <cell align="center"><c>Flags</c></cell>
+          <cell align="center"><c>AtomCacheRefs</c></cell>
+        </row>
+        <tcaption>Starting Fragmented Distribution Header Format</tcaption>
+      </table>
+
+      <p>The continuation of a sequence of fragmented messages looks like this:</p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">8</cell>
+          <cell align="center">8</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>70</c></cell>
+          <cell align="center"><c>SequenceId</c></cell>
+          <cell align="center"><c>FragmentId</c></cell>
+        </row>
+        <tcaption>Continuing Fragmented Distribution Header Format</tcaption>
+      </table>
+
+      <p>
+        The starting distribution header is very similar to a non-fragmented distribution
+        header. The atom cache works the same as for normal distribution header and
+        is the same for the entire sequence. The additional fields added are the
+        sequence id and fragment id.
+      </p>
+
+      <taglist>
+        <tag>Sequence ID</tag>
+        <item>
+          <p>
+            The sequence id is used to uniquely identify a fragmented message sent
+            from one process to another on the same distributed connection. This is used
+            to identify which sequence a fragment is a part of as the same process can
+            be in the process of receiving multiple sequences at the same time.
+          </p>
+          <p>
+            As one process can only be sending one fragmented message at once,
+            it can be convenient to use the local PID as the sequence id.
+          </p>
+        </item>
+        <tag>Fragments ID</tag>
+        <item>
+          <p>
+            The Fragment ID is used to number the fragments in a sequence.
+            The id starts at the total number of fragments and then decrements to 1
+            (which is the final fragment). So if a sequence consists of 3 fragments
+            the fragment id in the starting header will be 3, and then fragments 2 and 1
+            are sent.
+          </p>
+          <p>
+            The fragments must be delivered in the correct order, so if an unordered
+            distribution carrier is used, they must be ordered before delivered to the
+            Erlang run-time.
+          </p>
+        </item>
+      </taglist>
+
+      <section>
+        <title>Example:</title>
+        <p>
+          As an example, let say that we want to send
+          <c>{call, &lt;0.245.2>, {set_get_state, &lt;&lt;0:1024>>}}</c> to
+          registered process <c>reg</c> using a fragment size of 128. To send
+          this message we need a distribution header, atom cache updates,
+          the control message (which would be <c>{6, &lt;0.245.2>, [], reg}</c> in this case)
+          and finally the actual message. This would all be encoded into:
+        </p>
+
+        <code>
+131,69,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,2,               %% Header with seq and frag id
+5,4,137,9,10,5,236,3,114,101,103,9,4,99,97,108,108,      %% Atom cache updates
+238,13,115,101,116,95,103,101,116,95,115,116,97,116,101,
+104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,        %% Control message
+104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,                 %% Actual message using cached atoms
+104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1,               %% Cont Header with seq and frag id
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,               %% Rest of payload
+0,0,0,0</code>
+
+       <p>
+         Let us break that apart into its components. First we have the
+         distribution header tags together with the sequence id and
+         a fragment id of 2.
+       </p>
+       <code>
+131,69,                   %% Start fragment header
+0,0,2,168,0,0,5,83,       %% The sequence ID
+0,0,0,0,0,0,0,2,           %% The fragment ID
+</code>
+       <p>Then we have the updates to the atom cache:</p>
+       <code>
+5,4,137,9,  %% 5 atoms and their flags
+10,5,       %% The already cached atom ids
+236,3,114,101,103,  %% The atom 'reg'
+9,4,99,97,108,108,  %% The atom 'call'
+238,13,115,101,116,95,103,101,116,95,115,116,97,116,101, %% The atom 'set_get_state'
+       </code>
+       <p>
+         The first byte says that we have 5 atoms that are part
+         of the cache. Then follows three bytes that are the
+         atom cache ref flags. Each of the flags uses 4 bits so
+         they are a bit hard to read in decimal byte form. In
+         binary half-byte form they look like this:
+       </p>
+       <code>0000, 0100, 1000, 1001, 1001</code>
+       <p>
+         As the high bit of the first two atoms in the
+         cache are not set we know that they are already in the cache,
+         so they do not have to be sent again (this is the node name of the
+         receiving and sending node). Then follows the atoms that have to be sent,
+         together with their segment ids.
+       </p>
+       <p>
+         Then the listing of the atoms comes, starting with 10 and 5
+         which are the atom refs of the already cached atoms. Then the
+         new atoms are sent.
+       </p>
+       <p>
+         When the atom cache is setup correctly the control message is sent.
+       </p>
+       <code>104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,</code>
+       <p>
+         Note that up until here it is not allowed to fragments the message.
+         The entire atom cache and control message has to be part of the
+         starting fragment. After the control message the payload of the message
+         is sent using 128 bytes:
+       </p>
+       <code>
+104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,
+104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+       </code>
+       <p>
+         Since the payload is larger than 128-bytes it is split into two
+         fragments. The second fragment does not have any atom cache update
+         instructions so it is a lot simpler:
+       </p>
+       <code>
+131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1, %% Continuation dist header 70 with seq and frag id
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, %% remaining payload
+0,0,0,0
+       </code>
+       <note>
+         <p>
+           The fragment size of 128 is only used as an example.
+           Any fragments size may be used when sending fragmented messages.
+         </p>
+       </note>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <marker id="ATOM_CACHE_REF"/>
+    <title>ATOM_CACHE_REF</title>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">1</cell>
+      </row>
+      <row>
+        <cell align="center"><c>82</c></cell>
+        <cell align="center"><c>AtomCacheReferenceIndex</c></cell>
+      </row>
+      <tcaption>ATOM_CACHE_REF</tcaption></table>
+      <p>
+        Refers to the atom with <c>AtomCacheReferenceIndex</c> in the
+        <seealso marker="#distribution_header">distribution header</seealso>.
+     </p>
+  </section>
+
+  <section>
+    <marker id="SMALL_INTEGER_EXT"/>
+    <title>SMALL_INTEGER_EXT</title>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">1</cell>
+      </row>
+      <row>
+        <cell align="center"><c>97</c></cell>
+        <cell align="center"><c>Int</c></cell>
+      </row>
+    <tcaption>SMALL_INTEGER_EXT</tcaption></table>
+    <p>
+      Unsigned 8-bit integer.
+    </p>
+  </section>
+
+  <section>
+    <marker id="INTEGER_EXT"/>
+    <title>INTEGER_EXT</title>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">4</cell>
+      </row>
+      <row>
+        <cell align="center"><c>98</c></cell>
+        <cell align="center"><c>Int</c></cell>
+      </row>
+    <tcaption>INTEGER_EXT</tcaption></table>
+    <p>
+      Signed 32-bit integer in big-endian format.
+    </p>
+  </section>
+
+  <section>
+    <marker id="FLOAT_EXT"/>
+    <title>FLOAT_EXT</title>
+    <table align="left">
+      <row>
+        <cell align="center">1</cell>
+        <cell align="center">31</cell>
+      </row>
+      <row>
+        <cell align="center"><c>99</c></cell>
+        <cell align="center"><c>Float string</c></cell>
+      </row>
+    <tcaption>FLOAT_EXT</tcaption></table>
+    <p>
+      A finite float (i.e. not inf, -inf or NaN) is stored in
+      string format. The format used in sprintf to format the
+      float is "%.20e"
+      (there are more bytes allocated than necessary).
+      To unpack the float, use sscanf with format "%lf".
+    </p>
+    <p>
+      This term is used in minor version 0 of the external format;
+      it has been superseded by
+      <seealso marker="#NEW_FLOAT_EXT"><c>NEW_FLOAT_EXT</c></seealso>.
+    </p>
+  </section>
+
+    <section>
+      <marker id="PORT_EXT"/>
+      <title>PORT_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>102</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>PORT_EXT</tcaption></table>
+	<p>
+	  Same as <seealso marker="#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seealso>
+	  except the <c>Creation</c> field is only one byte and only two
+	  bits are significant, the rest are to be 0.
+	</p>
+    </section>
+
+    <section>
+      <marker id="NEW_PORT_EXT"/>
+      <title>NEW_PORT_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>89</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>NEW_PORT_EXT</tcaption></table>
+	<p>
+	  Encodes a port identifier (obtained from
+          <seealso marker="erlang#open_port/2"><c>erlang:open_port/2</c></seealso>).
+	  <c>Node</c> is an encoded atom, that is,
+	  <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	  <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	  or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.
+	  <c>ID</c> is a 32-bit big endian unsigned integer. Only 28 bits are
+	  significant; the rest are to be 0. The <c>Creation</c> works just like in
+	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.
+	  Port operations are not allowed across node boundaries.
+	</p>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local ports. Planned to supersede <seealso marker="#PORT_EXT">
+	  <c>PORT_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
+	</p>
+    </section>
+
+    <section>
+      <marker id="PID_EXT"/>
+      <title>PID_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>103</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Serial</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>PID_EXT</tcaption></table>
+	<p>
+	  Same as <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>
+	  except the <c>Creation</c> field is only one byte and only two
+	  bits are significant, the rest are to be 0.
+	</p>
+    </section>
+
+    <section>
+      <marker id="NEW_PID_EXT"/>
+      <title>NEW_PID_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>88</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Serial</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>NEW_PID_EXT</tcaption></table>
+	<p>
+	  Encodes an Erlang process identifier object.
+	</p>
+	<taglist>
+	  <tag><c>Node</c></tag>
+	  <item><p>The name of the originating node, encoded using
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	    or <seealso
+	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	  </item>
+	  <tag><c>ID</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. Only 15 bits are
+	    significant; the rest are to be 0.</p>
+	  </item>
+	  <tag><c>Serial</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. Only 13 bits are
+	    significant; the rest are to be 0.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. All identifiers
+	    originating from the same node incarnation must have identical <c>Creation</c>
+	    values. This makes it possible to separate identifiers from old
+	    (crashed) nodes from a new one. The value zero should be avoided for
+	    normal operations as it is used as a wild card for debug purpose
+	    (like a pid returned by <seealso marker="erts:erlang#list_to_pid/1">
+	    erlang:list_to_pid/1</seealso>).</p>
+	  </item>
+	</taglist>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local processes. Planned to supersede <seealso marker="#PID_EXT">
+	  <c>PID_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
+	</p>
+    </section>
+
+    <section>
+      <marker id="SMALL_TUPLE_EXT"/>
+      <title>SMALL_TUPLE_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>104</c></cell>
+	    <cell align="center"><c>Arity</c></cell>
+	    <cell align="center"><c>Elements</c></cell>
+	  </row>
+	<tcaption>SMALL_TUPLE_EXT</tcaption></table>
+	<p>
+	  Encodes a tuple. The <c>Arity</c>
+	  field is an unsigned byte that determines how many elements
+	  that follows in section <c>Elements</c>.
+	</p>
+    </section>
+
+    <section>
+      <marker id="LARGE_TUPLE_EXT"/>
+      <title>LARGE_TUPLE_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>105</c></cell>
+	    <cell align="center"><c>Arity</c></cell>
+	    <cell align="center"><c>Elements</c></cell>
+	  </row>
+	<tcaption>LARGE_TUPLE_EXT</tcaption></table>
+	<p>
+	  Same as
+	  <seealso marker="#SMALL_TUPLE_EXT"><c>SMALL_TUPLE_EXT</c></seealso>
+	  except that <c>Arity</c> is an
+          unsigned 4 byte integer in big-endian format.
+	</p>
+    </section>
+
+    <section>
+      <marker id="MAP_EXT"/>
+      <title>MAP_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>116</c></cell>
+	    <cell align="center"><c>Arity</c></cell>
+	    <cell align="center"><c>Pairs</c></cell>
+	  </row>
+	<tcaption>MAP_EXT</tcaption></table>
+	<p>
+	  Encodes a map. The <c>Arity</c> field is an unsigned
+	  4 byte integer in big-endian format that determines the number of
+	  key-value pairs in the map. Key and value pairs (<c>Ki => Vi</c>)
+	  are encoded in section <c>Pairs</c> in the following order:
+	  <c>K1, V1, K2, V2,..., Kn, Vn</c>.
+	  Duplicate keys are <em>not allowed</em> within the same map.
+	</p>
+	<p><em>As from </em>Erlang/OTP 17.0</p>
+    </section>
+
+    <section>
+      <marker id="NIL_EXT"/>
+      <title>NIL_EXT</title>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	</row>
+	<row>
+	  <cell align="center"><c>106</c></cell>
+	</row>
+      <tcaption>NIL_EXT</tcaption></table>
+      <p>
+	The representation for an empty list, that is, the Erlang syntax
+        <c>[]</c>.
+      </p>
+    </section>
+
+    <section>
+      <marker id="STRING_EXT"/>
+      <title>STRING_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>107</c></cell>
+	    <cell align="center"><c>Length</c></cell>
+	    <cell align="center"><c>Characters</c></cell>
+	  </row>
+	<tcaption>STRING_EXT</tcaption></table>
+	<p>
+	  String does <em>not</em> have a corresponding Erlang representation,
+	  but is an optimization for sending lists of bytes (integer in
+	  the range 0-255) more efficiently over the distribution.
+	  As field <c>Length</c> is an unsigned 2 byte integer
+	  (big-endian), implementations must ensure that lists longer than
+	  65535 elements are encoded as
+	  <seealso marker="#LIST_EXT"><c>LIST_EXT</c></seealso>.
+	</p>
+    </section>
+
+    <section>
+      <marker id="LIST_EXT"/>
+      <title>LIST_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">&nbsp;</cell>
+	    <cell align="center">&nbsp;</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>108</c></cell>
+	    <cell align="center"><c>Length</c></cell>
+	    <cell align="center"><c>Elements</c></cell>
+	    <cell align="center"><c>Tail</c></cell>
+	  </row>
+	<tcaption>LIST_EXT</tcaption></table>
+	<p>
+	  <c>Length</c> is the number of elements that follows in section
+	  <c>Elements</c>. <c>Tail</c> is the final tail of the list; it is
+	  <seealso marker="#NIL_EXT"><c>NIL_EXT</c></seealso>
+	  for a proper list, but can be any type if the list is
+	  improper (for example, <c>[a|b]</c>).
+	</p>
+    </section>
+
+    <section>
+      <marker id="BINARY_EXT"/>
+      <title>BINARY_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>109</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>Data</c></cell>
+	  </row>
+	<tcaption>BINARY_EXT</tcaption></table>
+	<p>
+	  Binaries are generated with bit syntax expression or with
+	  <seealso marker="erts:erlang#list_to_binary/1">
+	  <c>erlang:list_to_binary/1</c></seealso>,
+	  <seealso marker="erts:erlang#term_to_binary/1">
+	  <c>erlang:term_to_binary/1</c></seealso>,
+	  or as input from binary ports.
+	  The <c>Len</c> length field is an unsigned 4 byte integer
+	  (big-endian).
+	</p>
+    </section>
+
+    <section>
+      <marker id="SMALL_BIG_EXT"/>
+      <title>SMALL_BIG_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">n</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>110</c></cell>
+	    <cell align="center"><c>n</c></cell>
+	    <cell align="center"><c>Sign</c></cell>
+	    <cell align="center"><c>d(0)</c> ... <c>d(n-1)</c></cell>
+	  </row>
+	<tcaption>SMALL_BIG_EXT</tcaption></table>
+	<p>
+	  Bignums are stored in unary form with a <c>Sign</c> byte,
+	  that is, 0 if the bignum is positive and 1 if it is negative. The
+	  digits are stored with the least significant byte stored first. To
+	  calculate the integer, the following formula can be used:
+	</p>
+	<p><c>B</c> = 256<br/>
+	  <c>(d0*B^0 + d1*B^1 + d2*B^2 + ... d(N-1)*B^(n-1))</c>
+	</p>
+    </section>
+
+    <section>
+      <marker id="LARGE_BIG_EXT"/>
+      <title>LARGE_BIG_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">n</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>111</c></cell>
+	    <cell align="center"><c>n</c></cell>
+	    <cell align="center"><c>Sign</c></cell>
+	    <cell align="center"><c>d(0)</c> ... <c>d(n-1)</c></cell>
+	  </row>
+	<tcaption>LARGE_BIG_EXT</tcaption></table>
+	<p>
+	  Same as <seealso marker="#SMALL_BIG_EXT">
+	  <c>SMALL_BIG_EXT</c></seealso> 
+	  except that the length field is an unsigned 4 byte integer.
+	</p>
+    </section>
+
+    <section>
+      <marker id="REFERENCE_EXT"/>
+      <title>REFERENCE_EXT (deprecated)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">N</cell>
+          <cell align="center">4</cell>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>101</c></cell>
+          <cell align="center"><c>Node</c></cell>
+          <cell align="center"><c>ID</c></cell>
+          <cell align="center"><c>Creation</c></cell>
+        </row>
+      <tcaption>REFERENCE_EXT</tcaption></table>
+      <p>
+	The same as <seealso marker="#NEW_REFERENCE_EXT">
+	<c>NEW_REFERENCE_EXT</c></seealso> except <c>ID</c> is only one word
+	(<c>Len</c> = 1).
+      </p>
+    </section>
+
+    <section>
+      <marker id="NEW_REFERENCE_EXT"/>
+      <title>NEW_REFERENCE_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">N'</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>114</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	    <cell align="center"><c>ID ...</c></cell>
+	  </row>
+	<tcaption>NEW_REFERENCE_EXT</tcaption></table>
+	<p>
+	  The same as <seealso marker="#NEWER_REFERENCE_EXT">
+	  <c>NEWER_REFERENCE_EXT</c></seealso> <em>except</em>:
+	</p>
+	<taglist>
+	  <tag><c>ID</c></tag>
+	  <item><p>In the first word (4 bytes) of <c>ID</c>, only 18 bits are
+	    significant, the rest must be 0.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>Only one byte long and only two bits are significant, the rest must be 0.</p>
+	  </item>
+	</taglist>
+    </section>
+
+    <section>
+      <marker id="NEWER_REFERENCE_EXT"/>
+      <title>NEWER_REFERENCE_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N'</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>90</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	    <cell align="center"><c>ID ...</c></cell>
+	  </row>
+	<tcaption>NEWER_REFERENCE_EXT</tcaption></table>
+	<p>
+	  Encodes a reference term generated with
+	  <seealso marker="erts:erlang#make_ref/0">erlang:make_ref/0</seealso>.
+	</p>
+	<taglist>
+	  <tag><c>Node</c></tag>
+	  <item><p>The name of the originating node, encoded using
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	    or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	  </item>
+	  <tag><c>Len</c></tag>
+	  <item><p>A 16-bit big endian unsigned integer not larger than 3.</p>
+	  </item>
+	  <tag><c>ID</c></tag>
+	  <item><p>A sequence of <c>Len</c> big-endian unsigned integers
+	    (4 bytes each, so <c>N'</c>&nbsp;=&nbsp;4&nbsp;*&nbsp;<c>Len</c>),
+	    but is to be regarded as uninterpreted data.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>Works just like in
+	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.</p>
+	  </item>
+	</taglist>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local references. Planned to supersede <seealso marker="#NEW_REFERENCE_EXT">
+	  <c>NEW_REFERENCE_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
+	</p>
+    </section>
+
+    <section>
+      <marker id="FUN_EXT"/>
+      <title>FUN_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N1</cell>
+	    <cell align="center">N2</cell>
+	    <cell align="center">N3</cell>
+	    <cell align="center">N4</cell>
+	    <cell align="center">N5</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>117</c></cell>
+	    <cell align="center"><c>NumFree</c></cell>
+	    <cell align="center"><c>Pid</c></cell>
+	    <cell align="center"><c>Module</c></cell>
+	    <cell align="center"><c>Index</c></cell>
+	    <cell align="center"><c>Uniq</c></cell>
+	    <cell align="center"><c>Free vars ...</c></cell>
+	  </row>
+	<tcaption>FUN_EXT</tcaption></table>
+	<taglist>
+	  <tag><c>Pid</c></tag>
+	  <item>
+	    <p>A process identifier as in
+	      <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso>.
+	      Represents the process in which the fun was created.
+	    </p>
+	  </item>
+	<tag><c>Module</c></tag>
+	<item>
+	  <p>Encoded as an atom, using
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
+	    or <seealso marker="#ATOM_CACHE_REF">
+	    <c>ATOM_CACHE_REF</c></seealso>.
+	    This is the module that the fun is implemented in.
+	  </p>
+	</item>
+	<tag><c>Index</c></tag>
+	<item>
+	  <p>An integer encoded using
+	    <seealso marker="#SMALL_INTEGER_EXT">
+	    <c>SMALL_INTEGER_EXT</c></seealso> 
+	    or <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	    It is typically a small index into the module's fun table.
+	  </p>
+	</item>
+	<tag><c>Uniq</c></tag>
+	<item>
+	  <p>An integer encoded using
+	    <seealso marker="#SMALL_INTEGER_EXT">
+	    <c>SMALL_INTEGER_EXT</c></seealso> or 
+	    <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	    <c>Uniq</c> is the hash value of the parse for the fun.
+	  </p>
+	</item>
+	<tag><c>Free vars</c></tag>
+	<item>
+	  <p><c>NumFree</c> number of terms, each one encoded according
+	    to its type.
+	  </p>
+	</item>
+	</taglist>
+    </section>
+
+    <section>
+      <marker id="NEW_FUN_EXT"/>
+      <title>NEW_FUN_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">16</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N1</cell>
+	    <cell align="center">N2</cell>
+	    <cell align="center">N3</cell>
+	    <cell align="center">N4</cell>
+	    <cell align="center">N5</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>112</c></cell>
+	    <cell align="center"><c>Size</c></cell>
+	    <cell align="center"><c>Arity</c></cell>
+	    <cell align="center"><c>Uniq</c></cell>
+	    <cell align="center"><c>Index</c></cell>
+	    <cell align="center"><c>NumFree</c></cell>
+	    <cell align="center"><c>Module</c></cell>
+	    <cell align="center"><c>OldIndex</c></cell>
+	    <cell align="center"><c>OldUniq</c></cell>
+	    <cell align="center"><c>Pid</c></cell>
+	    <cell align="center"><c>Free Vars</c></cell>
+	  </row>
+	<tcaption>NEW_FUN_EXT</tcaption></table>
+	<p>
+	  This is the new encoding of internal funs: <c>fun F/A</c> and
+	  <c>fun(Arg1,..) -> ... end</c>.
+	</p>
+	<taglist>
+	  <tag><c>Size</c></tag> 
+	  <item>
+	    <p>The total number of bytes, including field <c>Size</c>.</p>
+	  </item>
+	  <tag><c>Arity</c></tag> 
+	  <item>
+	    <p>The arity of the function implementing the fun.</p>
+	  </item>
+	  <tag><c>Uniq</c></tag>
+	  <item>
+	    <p>The 16 bytes MD5 of the significant parts of the Beam file.</p>
+	  </item>
+	  <tag><c>Index</c></tag> 
+	  <item>
+	    <p>An index number. Each fun within a module has an unique
+	      index. <c>Index</c> is stored in big-endian byte order.
+	    </p>
+	  </item>
+	  <tag><c>NumFree</c></tag> 
+	  <item>
+	    <p>The number of free variables.</p>
+	  </item>
+	  <tag><c>Module</c></tag>
+	  <item>
+	    <p>Encoded as an atom, using
+	      <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
+	      <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
+	      or <seealso marker="#ATOM_CACHE_REF">
+	      <c>ATOM_CACHE_REF</c></seealso>. 
+	      Is the module that the fun is implemented in.
+	    </p>
+	  </item>
+	  <tag><c>OldIndex</c></tag>
+	  <item>
+	    <p>An integer encoded using
+	      <seealso marker="#SMALL_INTEGER_EXT">
+	      <c>SMALL_INTEGER_EXT</c></seealso> or
+	      <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	      Is typically a small index into the module's fun table.
+	    </p>
+	  </item>
+	  <tag><c>OldUniq</c></tag>
+	  <item>
+	    <p>An integer encoded using
+	      <seealso marker="#SMALL_INTEGER_EXT">
+	      <c>SMALL_INTEGER_EXT</c></seealso> or 
+	      <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	      <c>Uniq</c> is the hash value of the parse tree for the fun.
+	    </p>
+	  </item>
+	  <tag><c>Pid</c></tag>
+	  <item>
+	    <p>A process identifier as in
+	      <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso>.
+	      Represents the process in which the fun was created.
+	    </p>
+	  </item>
+	  <tag><c>Free vars</c></tag>
+	  <item>
+	    <p><c>NumFree</c> number of terms, each one encoded according
+	      to its type.
+	    </p>
+	  </item>
+	</taglist>
+    </section>
+
+    <section>
+      <marker id="EXPORT_EXT"/>
+      <title>EXPORT_EXT</title>	
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N1</cell>
+	    <cell align="center">N2</cell>
+	    <cell align="center">N3</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>113</c></cell>
+	    <cell align="center"><c>Module</c></cell>
+	    <cell align="center"><c>Function</c></cell>
+	    <cell align="center"><c>Arity</c></cell>
+	  </row>
+	<tcaption>EXPORT_EXT</tcaption></table>
+	<p>
+	  This term is the encoding for external funs: <c>fun M:F/A</c>.
+	</p>
+	<p>
+	  <c>Module</c> and <c>Function</c> are atoms
+	  (encoded using <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
+	  <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
+	  <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>).
+	</p>
+	<p>
+	  <c>Arity</c> is an integer encoded using
+	  <seealso marker="#SMALL_INTEGER_EXT">
+	  <c>SMALL_INTEGER_EXT</c></seealso>.
+	</p>
+    </section>
+
+    <section>
+      <marker id="BIT_BINARY_EXT"/>
+      <title>BIT_BINARY_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>77</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>Bits</c></cell>
+	    <cell align="center"><c>Data</c></cell>
+	  </row>
+	<tcaption>BIT_BINARY_EXT</tcaption></table>
+	<p>
+	  This term represents a bitstring whose length in bits does
+	  not have to be a multiple of 8.
+	  The <c>Len</c> field is an unsigned 4 byte integer (big-endian).
+	  The <c>Bits</c> field is the number of bits (1-8) that are used
+	  in the last byte in the data field,
+	  counting from the most significant bit to the least significant.
+	</p>
+    </section>
+
+    <section>
+      <marker id="NEW_FLOAT_EXT"/>
+      <title>NEW_FLOAT_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">8</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>70</c></cell>
+	    <cell align="center"><c>IEEE float</c></cell>
+	  </row>
+	<tcaption>NEW_FLOAT_EXT</tcaption></table>
+	<p>
+	  A finite float (i.e. not inf, -inf or NaN) is stored as 8 bytes
+	  in big-endian IEEE format.
+	</p>
+	<p>
+	  This term is used in minor version 1 of the external format.
+	</p>
+    </section>
+
+    <section>
+      <marker id="ATOM_UTF8_EXT"/>
+      <title>ATOM_UTF8_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>118</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>ATOM_UTF8_EXT</tcaption></table>
+      <p>
+	An atom is stored with a 2 byte unsigned length in big-endian order,
+	followed by <c>Len</c> bytes containing the <c>AtomName</c> encoded
+	in UTF-8.
+      </p>
+      <p>
+	For more information on encoding of atoms, see the
+	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the beginning of this section.
+      </p>
+    </section>
+
+    <section>
+      <marker id="SMALL_ATOM_UTF8_EXT"/>
+      <title>SMALL_ATOM_UTF8_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>119</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>SMALL_ATOM_UTF8_EXT</tcaption></table>
+      <p>
+	An atom is stored with a 1 byte unsigned length,
+	followed by <c>Len</c> bytes containing the <c>AtomName</c> encoded
+	in UTF-8. Longer atoms encoded in UTF-8 can be represented using
+	<seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>.
+      </p>
+      <p>
+	For more information on encoding of atoms, see the
+	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the beginning of this section.
+      </p>
+    </section>
+
+    <section>
+      <marker id="ATOM_EXT"/>
+      <title>ATOM_EXT (deprecated)</title>
+	<table align="left">
+	  <row>
+            <cell align="center">1</cell>
+            <cell align="center">2</cell>
+            <cell align="center">Len</cell>
+	  </row>
+	  <row>
+            <cell align="center"><c>100</c></cell>
+            <cell align="center"><c>Len</c></cell>
+            <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>ATOM_EXT</tcaption></table>
+      <p>
+        An atom is stored with a 2 byte unsigned length in big-endian order,
+        followed by <c>Len</c> numbers of 8-bit Latin-1 characters that forms
+        the <c>AtomName</c>. The maximum allowed value for <c>Len</c> is 255.
+      </p>
+    </section>
+
+    <section>
+      <marker id="SMALL_ATOM_EXT"/>
+      <title>SMALL_ATOM_EXT (deprecated)</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>115</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption>SMALL_ATOM_EXT</tcaption></table>
+      <p>
+	An atom is stored with a 1 byte unsigned length,
+	followed by <c>Len</c> numbers of 8-bit Latin-1 characters that
+	forms the <c>AtomName</c>.
+      </p>
+      <note>
+	<p>
+	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
+	  require an exchange of distribution flag
+	  <seealso marker="erl_dist_protocol#dflags">
+	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the
+	  <seealso marker="erl_dist_protocol#distribution_handshake">
+	  distribution handshake</seealso>.
+	</p>
+      </note>
+    </section>
+
+  </chapter>
+
+

@@ -1,0 +1,254 @@
+EFLAGS=+debug_info
+
+LIB= \
+     lib/a-9.1/ebin/a.@EMULATOR@ \
+     lib/a-9.1/ebin/a_sup.@EMULATOR@ \
+     lib/a-9.0/ebin/a.@EMULATOR@ \
+     lib/a-9.0/ebin/a_sup.@EMULATOR@ \
+     lib/a-1.2/ebin/a.@EMULATOR@ \
+     lib/a-1.2/ebin/a_sup.@EMULATOR@ \
+     lib/a-1.1/ebin/a.@EMULATOR@ \
+     lib/a-1.1/ebin/a_sup.@EMULATOR@ \
+     lib/a-1.0/ebin/a.@EMULATOR@ \
+     lib/a-1.0/ebin/a_sup.@EMULATOR@ \
+     lib/b-1.0/ebin/b_server.@EMULATOR@ \
+     lib/b-1.0/ebin/b_lib.@EMULATOR@ \
+     lib/b-2.0/ebin/b_server.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m1.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m2.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m3.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m4.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m5.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m6.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m7.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m8.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m9.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m10.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m1.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m2.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m3.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m4.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m5.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m6.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m7.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m8.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m9.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m10.@EMULATOR@ \
+     lib/many_mods-2.0/ebin/m.@EMULATOR@
+
+APP= \
+     app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib1/app1-1.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib1/app1-1.0/ebin/app1.@EMULATOR@ \
+     app1_app2/lib1/app2-1.0/ebin/app2_sup.@EMULATOR@ \
+     app1_app2/lib1/app2-1.0/ebin/app2_server.@EMULATOR@ \
+     app1_app2/lib1/app2-1.0/ebin/app2.@EMULATOR@ \
+     app1_app2/lib2/app1-2.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib2/app1-2.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib2/app1-2.0/ebin/app1.@EMULATOR@ \
+     app1_app2/lib2/app2-1.0/ebin/app2_sup.@EMULATOR@ \
+     app1_app2/lib2/app2-1.0/ebin/app2_server.@EMULATOR@ \
+     app1_app2/lib2/app2-1.0/ebin/app2.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1.@EMULATOR@
+
+OTP2740=  \
+     otp_2740/vsn_atom.@EMULATOR@ \
+     otp_2740/vsn_list.@EMULATOR@ \
+     otp_2740/vsn_numeric.@EMULATOR@ \
+     otp_2740/vsn_tuple.@EMULATOR@ \
+     otp_2740/vsn_string.@EMULATOR@
+
+C= \
+     c/aa.@EMULATOR@ \
+     c/b.@EMULATOR@ \
+     c/c_sup.@EMULATOR@
+    
+SUP= \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@
+
+UNICODE= \
+     unicode/u-1.0/ebin/u.@EMULATOR@ \
+     unicode/u-1.0/ebin/u_sup.@EMULATOR@ \
+     unicode/u-1.1/ebin/u.@EMULATOR@ \
+     unicode/u-1.1/ebin/u_sup.@EMULATOR@
+
+all: $(LIB) $(APP) $(OTP2740) $(C) $(SUP) $(UNICODE)
+
+lib/a-1.0/ebin/a.@EMULATOR@: lib/a-1.0/src/a.erl
+	erlc $(EFLAGS) -olib/a-1.0/ebin lib/a-1.0/src/a.erl
+lib/a-1.0/ebin/a_sup.@EMULATOR@: lib/a-1.0/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-1.0/ebin lib/a-1.0/src/a_sup.erl
+
+
+lib/a-1.1/ebin/a.@EMULATOR@: lib/a-1.1/src/a.erl
+	erlc $(EFLAGS) -olib/a-1.1/ebin lib/a-1.1/src/a.erl
+lib/a-1.1/ebin/a_sup.@EMULATOR@: lib/a-1.1/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-1.1/ebin lib/a-1.1/src/a_sup.erl
+
+
+lib/a-1.2/ebin/a.@EMULATOR@: lib/a-1.2/src/a.erl
+	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a.erl
+lib/a-1.2/ebin/a_sup.@EMULATOR@: lib/a-1.2/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a_sup.erl
+
+lib/a-9.0/ebin/a.@EMULATOR@: lib/a-9.0/src/a.erl
+	erlc $(EFLAGS) -olib/a-9.0/ebin lib/a-9.0/src/a.erl
+lib/a-9.0/ebin/a_sup.@EMULATOR@: lib/a-9.0/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-9.0/ebin lib/a-9.0/src/a_sup.erl
+
+lib/a-9.1/ebin/a.@EMULATOR@: lib/a-9.1/src/a.erl
+	erlc $(EFLAGS) -olib/a-9.1/ebin lib/a-9.1/src/a.erl
+lib/a-9.1/ebin/a_sup.@EMULATOR@: lib/a-9.1/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-9.1/ebin lib/a-9.1/src/a_sup.erl
+
+
+lib/b-1.0/ebin/b_server.@EMULATOR@: lib/b-1.0/src/b_server.erl
+	erlc $(EFLAGS) -olib/b-1.0/ebin lib/b-1.0/src/b_server.erl
+lib/b-1.0/ebin/b_lib.@EMULATOR@: lib/b-1.0/src/b_lib.erl
+	erlc $(EFLAGS) -olib/b-1.0/ebin lib/b-1.0/src/b_lib.erl
+
+lib/b-2.0/ebin/b_server.@EMULATOR@: lib/b-2.0/src/b_server.erl
+	erlc $(EFLAGS) -olib/b-2.0/ebin lib/b-2.0/src/b_server.erl
+
+lib/many_mods-1.0/ebin/m.@EMULATOR@: lib/many_mods-1.0/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m.erl
+lib/many_mods-1.0/ebin/m1.@EMULATOR@: lib/many_mods-1.0/src/m1.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m1.erl
+lib/many_mods-1.0/ebin/m2.@EMULATOR@: lib/many_mods-1.0/src/m2.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m2.erl
+lib/many_mods-1.0/ebin/m3.@EMULATOR@: lib/many_mods-1.0/src/m3.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m3.erl
+lib/many_mods-1.0/ebin/m4.@EMULATOR@: lib/many_mods-1.0/src/m4.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m4.erl
+lib/many_mods-1.0/ebin/m5.@EMULATOR@: lib/many_mods-1.0/src/m5.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m5.erl
+lib/many_mods-1.0/ebin/m6.@EMULATOR@: lib/many_mods-1.0/src/m6.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m6.erl
+lib/many_mods-1.0/ebin/m7.@EMULATOR@: lib/many_mods-1.0/src/m7.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m7.erl
+lib/many_mods-1.0/ebin/m8.@EMULATOR@: lib/many_mods-1.0/src/m8.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m8.erl
+lib/many_mods-1.0/ebin/m9.@EMULATOR@: lib/many_mods-1.0/src/m9.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m9.erl
+lib/many_mods-1.0/ebin/m10.@EMULATOR@: lib/many_mods-1.0/src/m10.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m10.erl
+lib/many_mods-1.1/ebin/m.@EMULATOR@: lib/many_mods-1.1/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m.erl
+lib/many_mods-1.1/ebin/m1.@EMULATOR@: lib/many_mods-1.1/src/m1.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m1.erl
+lib/many_mods-1.1/ebin/m2.@EMULATOR@: lib/many_mods-1.1/src/m2.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m2.erl
+lib/many_mods-1.1/ebin/m3.@EMULATOR@: lib/many_mods-1.1/src/m3.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m3.erl
+lib/many_mods-1.1/ebin/m4.@EMULATOR@: lib/many_mods-1.1/src/m4.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m4.erl
+lib/many_mods-1.1/ebin/m5.@EMULATOR@: lib/many_mods-1.1/src/m5.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m5.erl
+lib/many_mods-1.1/ebin/m6.@EMULATOR@: lib/many_mods-1.1/src/m6.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m6.erl
+lib/many_mods-1.1/ebin/m7.@EMULATOR@: lib/many_mods-1.1/src/m7.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m7.erl
+lib/many_mods-1.1/ebin/m8.@EMULATOR@: lib/many_mods-1.1/src/m8.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m8.erl
+lib/many_mods-1.1/ebin/m9.@EMULATOR@: lib/many_mods-1.1/src/m9.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m9.erl
+lib/many_mods-1.1/ebin/m10.@EMULATOR@: lib/many_mods-1.1/src/m10.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m10.erl
+lib/many_mods-2.0/ebin/m.@EMULATOR@: lib/many_mods-2.0/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-2.0/ebin lib/many_mods-2.0/src/m.erl
+
+
+app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib1/app1-1.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app1-1.0/ebin app1_app2/lib1/app1-1.0/src/app1_sup.erl
+app1_app2/lib1/app1-1.0/ebin/app1_server.@EMULATOR@: app1_app2/lib1/app1-1.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app1-1.0/ebin app1_app2/lib1/app1-1.0/src/app1_server.erl
+app1_app2/lib1/app1-1.0/ebin/app1.@EMULATOR@: app1_app2/lib1/app1-1.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app1-1.0/ebin app1_app2/lib1/app1-1.0/src/app1.erl
+
+
+app1_app2/lib1/app2-1.0/ebin/app2_sup.@EMULATOR@: app1_app2/lib1/app2-1.0/src/app2_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app2-1.0/ebin app1_app2/lib1/app2-1.0/src/app2_sup.erl
+app1_app2/lib1/app2-1.0/ebin/app2_server.@EMULATOR@: app1_app2/lib1/app2-1.0/src/app2_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app2-1.0/ebin app1_app2/lib1/app2-1.0/src/app2_server.erl
+app1_app2/lib1/app2-1.0/ebin/app2.@EMULATOR@: app1_app2/lib1/app2-1.0/src/app2.erl
+	erlc $(EFLAGS) -oapp1_app2/lib1/app2-1.0/ebin app1_app2/lib1/app2-1.0/src/app2.erl
+
+
+app1_app2/lib2/app1-2.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib2/app1-2.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app1-2.0/ebin app1_app2/lib2/app1-2.0/src/app1_sup.erl
+app1_app2/lib2/app1-2.0/ebin/app1_server.@EMULATOR@: app1_app2/lib2/app1-2.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app1-2.0/ebin app1_app2/lib2/app1-2.0/src/app1_server.erl
+app1_app2/lib2/app1-2.0/ebin/app1.@EMULATOR@: app1_app2/lib2/app1-2.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app1-2.0/ebin app1_app2/lib2/app1-2.0/src/app1.erl
+
+
+app1_app2/lib2/app2-1.0/ebin/app2_sup.@EMULATOR@: app1_app2/lib2/app2-1.0/src/app2_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app2-1.0/ebin app1_app2/lib2/app2-1.0/src/app2_sup.erl
+app1_app2/lib2/app2-1.0/ebin/app2_server.@EMULATOR@: app1_app2/lib2/app2-1.0/src/app2_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app2-1.0/ebin app1_app2/lib2/app2-1.0/src/app2_server.erl
+app1_app2/lib2/app2-1.0/ebin/app2.@EMULATOR@: app1_app2/lib2/app2-1.0/src/app2.erl
+	erlc $(EFLAGS) -oapp1_app2/lib2/app2-1.0/ebin app1_app2/lib2/app2-1.0/src/app2.erl
+
+
+app1_app2/lib3/app1-3.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1_sup.erl
+app1_app2/lib3/app1-3.0/ebin/app1_server.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1_server.erl
+app1_app2/lib3/app1-3.0/ebin/app1.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1.erl
+
+
+app1_app2/lib4/app1-4.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1_sup.erl
+app1_app2/lib4/app1-4.0/ebin/app1_server.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1_server.erl
+app1_app2/lib4/app1-4.0/ebin/app1.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1.erl
+
+
+otp_2740/vsn_atom.@EMULATOR@: otp_2740/vsn_atom.erl
+	erlc $(EFLAGS) -ootp_2740 otp_2740/vsn_atom.erl
+otp_2740/vsn_list.@EMULATOR@: otp_2740/vsn_list.erl
+	erlc $(EFLAGS) -ootp_2740 otp_2740/vsn_list.erl
+otp_2740/vsn_numeric.@EMULATOR@: otp_2740/vsn_numeric.erl
+	erlc $(EFLAGS) -ootp_2740 otp_2740/vsn_numeric.erl
+otp_2740/vsn_tuple.@EMULATOR@: otp_2740/vsn_tuple.erl
+	erlc $(EFLAGS) -ootp_2740 otp_2740/vsn_tuple.erl
+otp_2740/vsn_string.@EMULATOR@: otp_2740/vsn_string.erl
+	erlc $(EFLAGS) -ootp_2740 otp_2740/vsn_string.erl
+
+c/aa.@EMULATOR@: c/aa.erl
+	erlc $(EFLAGS) -oc c/aa.erl
+c/b.@EMULATOR@: c/b.erl
+	erlc $(EFLAGS) -oc c/b.erl
+c/c_sup.@EMULATOR@: c/c_sup.erl
+	erlc $(EFLAGS) -oc c/c_sup.erl
+
+release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
+
+unicode/u-1.0/ebin/u.@EMULATOR@: unicode/u-1.0/src/u.erl
+	erlc $(EFLAGS) -ounicode/u-1.0/ebin unicode/u-1.0/src/u.erl
+unicode/u-1.0/ebin/u_sup.@EMULATOR@: unicode/u-1.0/src/u_sup.erl
+	erlc $(EFLAGS) -ounicode/u-1.0/ebin unicode/u-1.0/src/u_sup.erl
+
+unicode/u-1.1/ebin/u.@EMULATOR@: unicode/u-1.1/src/u.erl
+	erlc $(EFLAGS) -ounicode/u-1.1/ebin unicode/u-1.1/src/u.erl
+unicode/u-1.1/ebin/u_sup.@EMULATOR@: unicode/u-1.1/src/u_sup.erl
+	erlc $(EFLAGS) -ounicode/u-1.1/ebin unicode/u-1.1/src/u_sup.erl

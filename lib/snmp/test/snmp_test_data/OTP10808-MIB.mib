@@ -1,0 +1,137 @@
+OTP10808-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, enterprises, IpAddress FROM SNMPv2-SMI
+    RowStatus FROM SNMPv2-TC
+    ;
+
+otp10808MIB MODULE-IDENTITY
+     LAST-UPDATED "1004200000Z"
+     ORGANIZATION "Erlang/OTP"
+     CONTACT-INFO "www.erlang.org"
+     DESCRIPTION  "The MIB module is used for testing a compiler feature"
+     ::= { otpSnmp 1 }
+
+ericsson        OBJECT IDENTIFIER ::= { enterprises 193 }
+otp             OBJECT IDENTIFIER ::= { ericsson 19 }
+otpApplications OBJECT IDENTIFIER ::= { otp 3 }
+otpSnmp         OBJECT IDENTIFIER ::= { otpApplications 3 }
+
+testMIBObjects OBJECT IDENTIFIER ::= { otp10808MIB 1 }
+
+testMIBObjectGroup OBJECT IDENTIFIER ::= { testMIBObjects 1 }
+
+-- Example Table 1
+
+example-Table1 OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ExampleEntry1
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Example table 1"
+    ::= { testMIBObjectGroup 1 }
+
+example-Entry1       OBJECT-TYPE
+    SYNTAX      ExampleEntry1
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Example table 1 entry"
+    INDEX   { exampleIndex2, exampleIndex1 }
+    ::= { example-Table1 1 }
+
+ExampleEntry1 ::= SEQUENCE {
+      exampleIndex1            INTEGER,
+      exampleColumn1           OCTET STRING,
+      exampleNotAccessible1    OCTET STRING,
+      exampleRowStatus1        RowStatus
+}
+
+exampleIndex1 OBJECT-TYPE
+    SYNTAX      INTEGER (1..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The second index for this entry."
+    ::= { example-Entry1 1 }
+
+exampleColumn1 OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry1 2 }
+
+exampleNotAccessible1 OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry1 3 }
+
+exampleRowStatus1 OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table RowStatus"
+    ::= { example-Entry1 4 }
+
+
+-- Example Table 2
+
+example-Table2 OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ExampleEntry2
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Example table 2"
+    ::= { testMIBObjectGroup 2 }
+
+example-Entry2       OBJECT-TYPE
+    SYNTAX      ExampleEntry2
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Example table entry"
+    INDEX   { exampleIndex2 }
+    ::= { example-Table2 1 }
+
+ExampleEntry2 ::= SEQUENCE {
+      exampleIndex2            INTEGER,
+      exampleColumn2           OCTET STRING,
+      exampleNotAccessible2    OCTET STRING,
+      exampleRowStatus2        RowStatus
+}
+
+exampleIndex2 OBJECT-TYPE
+    SYNTAX      INTEGER (1..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+	"The index for this entry of table 2
+         (and first index of table 1)."
+    ::= { example-Entry2 1 }
+
+exampleColumn2 OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry2 2 }
+
+exampleNotAccessible2 OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry2 3 }
+
+exampleRowStatus2 OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table RowStatus"
+    ::= { example-Entry2 4 }
+
+END

@@ -1,0 +1,94 @@
+PKCS-10 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+pkcs-10(10) modules(1) pkcs-10(1)}
+
+-- $Revision: 1.3 $ --
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS All --
+-- All types and values defined in this module are exported for use
+-- in other ASN.1 modules.
+
+IMPORTS
+
+--informationFramework, authenticationFramework
+--    FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+--    usefulDefinitions(0) 3}
+
+    ATTRIBUTE
+    FROM InformationFramework informationFramework
+
+    Name, Extensions, DirectoryString
+    FROM PKIX1Explicit88 --InformationFramework informationFramework
+
+    ALGORITHM
+       FROM PKCS-7; --AuthenticationFramework authenticationFramework;
+
+-- start inlined from PKCS-9
+
+--pkcs-9-ub-pkcs9String          		INTEGER ::= 255
+--pkcs-9-ub-challengePassword     	INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-at-challengePassword             OBJECT IDENTIFIER ::= {pkcs-9 7}
+
+challengePassword ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString --{pkcs-9-ub-challengePassword}
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-challengePassword
+}
+
+pkcs-9-at-extensionRequest              OBJECT IDENTIFIER ::= {pkcs-9 14}
+
+extensionRequest ATTRIBUTE ::= {
+        WITH SYNTAX ExtensionRequest
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-extensionRequest
+}
+
+ExtensionRequest ::= Extensions
+
+-- end inlined from PKCS-9
+       
+-- Certificate requests
+
+CertificationRequestInfo ::= SEQUENCE {
+    version       INTEGER { v1(0) } (v1,...),
+    subject       Name,
+    subjectPKInfo SubjectPublicKeyInfo-PKCS-10{{ PKInfoAlgorithms }},
+    attributes    [0] Attributes{{ CRIAttributes }}
+}
+
+SubjectPublicKeyInfo-PKCS-10 {ALGORITHM: IOSet} ::= SEQUENCE {
+    algorithm		AlgorithmIdentifierPKCS-10{{IOSet}},
+    subjectPublicKey 	BIT STRING
+}
+
+PKInfoAlgorithms ALGORITHM ::= {
+    ... -- add any locally defined algorithms here -- }
+
+Attributes { ATTRIBUTE:IOSet } ::= SET OF AttributePKCS-10{{ IOSet }}
+
+CRIAttributes  ATTRIBUTE  ::= {
+... -- add any locally defined attributes here -- }
+
+AttributePKCS-10 { ATTRIBUTE:IOSet } ::= SEQUENCE {
+    type   	ATTRIBUTE.&id({IOSet}),
+    values 	SET SIZE(1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
+}
+
+CertificationRequest ::= SEQUENCE {
+    certificationRequestInfo CertificationRequestInfo,
+    signatureAlgorithm	     AlgorithmIdentifierPKCS-10{{ SignatureAlgorithms }},
+    signature                BIT STRING
+}
+
+AlgorithmIdentifierPKCS-10 {ALGORITHM:IOSet } ::= SEQUENCE {
+    algorithm  	ALGORITHM.&id({IOSet}),
+    parameters 	ALGORITHM.&Type({IOSet}{@algorithm}) OPTIONAL
+}
+
+SignatureAlgorithms ALGORITHM ::= {
+    ... -- add any locally defined algorithms here -- }
+
+END

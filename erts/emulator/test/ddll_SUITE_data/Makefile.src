@@ -1,0 +1,3 @@
+all: echo_drv@dll@ echo_drv_fail_init@dll@ noinit_drv@dll@ wrongname_drv@dll@ initfail_drv@dll@ dummy_drv@dll@ lock_drv@dll@
+
+@SHLIB_RULES@

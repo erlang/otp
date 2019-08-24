@@ -1,0 +1,48 @@
+REQUIREMENTS:
+	At least Erlang-R13B with smp enabled. It Requires unicode support.
+
+        Linux, Mac, Solaris-10 or Windows.
+	
+	On linux you will need wxWidgets-2.8 compiled with everything
+	enabled, including unicode and opengl support.
+
+	And I have given up on Solaris-8|9, wxWidgets on my old gtk version
+	doesn't run well, 7 of 10 wxWidgets examples seg fault.
+	Some early tests show that Solaris 10 works, though.
+	
+BUILDING:
+	You will need wxWidgets-2.8.* 
+
+        On mac (snow leopard) I built wxwidgets with:
+
+        mkdir MYBUILD; cd MYBUILD
+	../configure --with-opengl --enable-unicode --enable-graphics_ctx \ 
+                --enable-gnomeprint \    On unix only
+                --disable-shared
+	make && make install
+        cd contrib/src/stc/
+	make && make install
+
+	Or grab them prebuilt from macports.
+
+	On linux I have used the wxwidgets-libraries that came with
+	the distribution. It requires wxStyledTextControl which was 
+	prebuilt on my linux, otherwise you have to build wxWidgets
+	by your self as on the mac above.
+
+	On windows I used MinGW and Msys, I build wxwidgets with:
+
+	mkdir MYBUILD; cd MYBUILD
+	../configure --prefix=/c/local/ --with-opengl  --enable-graphics_ctx \ 
+                     --enable-unicode --disable-shared --with-msw
+	make && make install	
+        cd contrib/src/stc/
+	make && make install
+
+        You should also build wxerlang with msys and mingw since 
+	I havn't tested on cygwin at all.
+        You need to use werl on windows, erl (non-gui) hangs wxwidgets startup.
+
+Cheers
+ Dan Gudmundsson
+

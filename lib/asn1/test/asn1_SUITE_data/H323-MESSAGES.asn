@@ -1,0 +1,1341 @@
+H323-MESSAGES DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+
+IMPORTS
+		SIGNED{},
+		ENCRYPTED{},
+		HASHED{},
+		ChallengeString,
+		TimeStamp,
+		RandomVal,
+		Password,
+		EncodedPwdCertToken,
+		ClearToken,
+		CryptoToken,
+		AuthenticationMechanism
+	FROM H235-SECURITY-MESSAGES;
+
+H323-UserInformation ::= SEQUENCE		-- root for all Q.931 related ASN.1
+{
+	h323-uu-pdu	H323-UU-PDU,
+	user-data	SEQUENCE
+	{
+		protocol-discriminator		INTEGER	(0..255),
+		user-information		OCTET STRING (SIZE(1..131)),
+		...
+	} OPTIONAL,
+	...
+}
+
+H323-UU-PDU ::= SEQUENCE
+{
+	h323-message-body   CHOICE
+	{
+		setup			Setup-UUIE,
+		callProceeding		CallProceeding-UUIE,
+		connect			Connect-UUIE,
+		alerting		Alerting-UUIE,
+		userInformation	UI-UUIE,
+		releaseComplete	ReleaseComplete-UUIE,
+		facility		Facility-UUIE,
+		...,
+		progress		Progress-UUIE,
+		empty			NULL		-- used when a FACILITY message is sent,
+-- but the Facility-UUIE is not to be invoked
+-- (possible when transporting supplementary
+-- services messages)
+	},
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	h4501SupplementaryService	SEQUENCE OF OCTET STRING OPTIONAL,
+						-- each sequence of octet string is defined as one
+						-- H4501SupplementaryService APDU as defined in
+						-- Table 3/H.450.1
+	h245Tunneling			BOOLEAN,
+						-- if TRUE, tunneling of H.245 messages is enabled
+	h245Control			SEQUENCE OF OCTET STRING OPTIONAL,
+						-- each octet string may contain exactly
+						-- one H.245 PDU
+	nonStandardControl		SEQUENCE OF NonStandardParameter OPTIONAL
+}
+
+Alerting-UUIE ::= SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	destinationInfo	EndpointType,
+	h245Address		TransportAddress OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier,
+	h245SecurityMode	H245Security OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	fastStart		SEQUENCE OF OCTET STRING OPTIONAL
+}
+
+CallProceeding-UUIE ::= SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	destinationInfo	EndpointType,
+	h245Address		TransportAddress OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier,
+	h245SecurityMode	H245Security OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	fastStart		SEQUENCE OF OCTET STRING OPTIONAL
+}
+
+Connect-UUIE ::= SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	h245Address		TransportAddress OPTIONAL,
+	destinationInfo	EndpointType,
+	conferenceID		ConferenceIdentifier,
+	...,
+	callIdentifier		CallIdentifier,
+	h245SecurityMode	H245Security OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	fastStart		SEQUENCE OF OCTET STRING OPTIONAL
+}
+
+UI-UUIE	::=SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	...,
+	callIdentifier		CallIdentifier
+}
+
+ReleaseComplete-UUIE ::= SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	reason			ReleaseCompleteReason OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier
+}
+
+ReleaseCompleteReason ::= CHOICE
+{
+	noBandwidth		NULL,	-- bandwidth taken away or ARQ denied
+	gatekeeperResources	NULL,	-- exhausted
+	unreachableDestination	NULL,	-- no transport path to the destination
+	destinationRejection	NULL,	-- rejected at destination
+	invalidRevision	NULL,
+	noPermission		NULL,	-- called party's gatekeeper rejects
+	unreachableGatekeeper	NULL,	-- terminal cannot reach gatekeeper for ARQ
+	gatewayResources	NULL,
+	badFormatAddress	NULL,
+	adaptiveBusy		NULL,	-- call is dropping due to LAN crowding
+	inConf			NULL,	-- no address in AlternativeAddress
+	undefinedReason	NULL,
+	...,
+	facilityCallDeflection	NULL,	-- call was deflected using a Facility message
+	securityDenied		NULL,	-- incompatible security settings
+	calledPartyNotRegistered	NULL,	-- used by gatekeeper when endpoint has
+						-- preGrantedARQ to bypass ARQ/ACF
+	callerNotregistered		NULL	-- used by gatekeeper when endpoint has
+						-- preGrantedArq to bypass ARQ/ACF
+}
+
+Setup-UUIE ::= SEQUENCE
+{
+	protocolIdentifier	ProtocolIdentifier,
+	h245Address		TransportAddress OPTIONAL,
+	sourceAddress		SEQUENCE OF AliasAddress OPTIONAL,
+	sourceInfo		EndpointType,
+	destinationAddress	SEQUENCE OF AliasAddress OPTIONAL,
+	destCallSignalAddress	TransportAddress OPTIONAL,
+	destExtraCallInfo	SEQUENCE OF AliasAddress OPTIONAL,	-- Note(1) 
+	destExtraCRV		SEQUENCE OF CallReferenceValue OPTIONAL,-- Note(1)
+	activeMC		BOOLEAN,
+	conferenceID		ConferenceIdentifier,
+	conferenceGoal		CHOICE
+	{
+		create		NULL,
+		join		NULL,
+		invite		NULL,
+		...,
+		capability-negotiation		NULL,
+		callIndependentSupplementaryService	NULL
+	},
+	callServices		QseriesOptions  OPTIONAL,
+	callType		CallType,
+	...,
+	sourceCallSignalAddress	TransportAddress OPTIONAL,
+	remoteExtensionAddress	AliasAddress OPTIONAL,
+	callIdentifier		CallIdentifier,
+	h245SecurityCapability	SEQUENCE OF H245Security OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	fastStart		SEQUENCE OF OCTET STRING OPTIONAL,
+	mediaWaitForConnect	BOOLEAN,
+	canOverlapSend		BOOLEAN
+}
+
+Facility-UUIE ::= SEQUENCE
+{
+	protocolIdentifier		ProtocolIdentifier,
+	alternativeAddress		TransportAddress OPTIONAL,
+	alternativeAliasAddress	SEQUENCE OF AliasAddress OPTIONAL,
+	conferenceID			ConferenceIdentifier OPTIONAL,
+	reason				FacilityReason,
+	...,
+	callIdentifier			CallIdentifier,
+	destExtraCallInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	remoteExtensionAddress		AliasAddress OPTIONAL,
+	tokens				SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens			SEQUENCE OF CryptoH323Token OPTIONAL,
+	conferences			SEQUENCE OF ConferenceList OPTIONAL,
+	h245Address			TransportAddress OPTIONAL
+}
+
+ConferenceList ::= SEQUENCE
+{
+	conferenceID			ConferenceIdentifier OPTIONAL,
+	conferenceAlias		AliasAddress OPTIONAL,
+	nonStandardData		NonStandardParameter OPTIONAL,
+	...
+}
+
+FacilityReason ::= CHOICE
+{
+	routeCallToGatekeeper	NULL,		-- call must use gatekeeper model
+						-- gatekeeper is alternativeAddress
+	callForwarded		NULL,
+	routeCallToMC		NULL,
+	undefinedReason	NULL,
+	...,
+	conferenceListChoice	NULL,
+	startH245		NULL		-- recipient should connect to h245Address
+}
+
+Progress-UUIE ::= SEQUENCE
+{
+	protocolIdentifier		ProtocolIdentifier,
+	destinationInfo		EndpointType,
+	h245Address			TransportAddress OPTIONAL,
+	callIdentifier			CallIdentifier,
+	h245SecurityMode		H245Security OPTIONAL,
+	...,
+	tokens				SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens			SEQUENCE OF CryptoH323Token OPTIONAL,
+	fastStart			SEQUENCE OF OCTET STRING OPTIONAL
+}
+
+TransportAddress ::= CHOICE
+{
+	ipAddress	SEQUENCE
+	{
+		ip		OCTET STRING (SIZE(4)),
+		port		INTEGER(0..65535)
+	},
+	ipSourceRoute	SEQUENCE
+	{
+		ip		OCTET STRING (SIZE(4)),
+		port		INTEGER(0..65535),
+		route		SEQUENCE OF OCTET STRING(SIZE(4)),
+		routing 	CHOICE
+		{
+			strict	NULL,
+			loose	NULL,
+			...
+		},
+		...
+	},
+	ipxAddress	SEQUENCE
+	{
+		node	OCTET STRING (SIZE(6)),
+		netnum	OCTET STRING (SIZE(4)),
+		port	OCTET STRING (SIZE(2))
+	},
+	ip6Address	SEQUENCE
+	{
+		ip	OCTET STRING (SIZE(16)),
+		port	INTEGER(0..65535),
+		...
+	},
+	netBios			OCTET STRING (SIZE(16)),
+	nsap			OCTET STRING (SIZE(1..20)),
+	nonStandardAddress	NonStandardParameter,	
+	...	
+}
+
+EndpointType ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	vendor			VendorIdentifier OPTIONAL,
+	gatekeeper		GatekeeperInfo OPTIONAL,
+	gateway			GatewayInfo OPTIONAL,
+	mcu			McuInfo OPTIONAL,	-- mc must be set as well
+	terminal		TerminalInfo OPTIONAL,
+	mc			BOOLEAN,		-- shall not be set by itself
+	undefinedNode		BOOLEAN,	
+	...
+}
+
+GatewayInfo ::= SEQUENCE
+{
+	protocol		SEQUENCE OF SupportedProtocols OPTIONAL,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...
+}
+
+SupportedProtocols ::= CHOICE
+{
+	nonStandardData	NonStandardParameter,
+	h310			H310Caps,
+	h320			H320Caps,
+	h321			H321Caps,
+	h322			H322Caps,
+	h323			H323Caps,
+	h324			H324Caps,
+	voice			VoiceCaps,
+	t120-only		T120OnlyCaps,
+	...,
+	nonStandardProtocol	NonStandardProtocol
+}
+
+H310Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+H320Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+H321Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+H322Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+H323Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+H324Caps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+VoiceCaps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+T120OnlyCaps ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix
+}
+
+NonStandardProtocol ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	dataRatesSupported	SEQUENCE OF DataRate OPTIONAL,
+	supportedPrefixes	SEQUENCE OF SupportedPrefix,
+	...
+}
+
+McuInfo ::=SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...
+}
+
+TerminalInfo ::=SEQUENCE 
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...
+}
+
+GatekeeperInfo ::=SEQUENCE 
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...
+}
+
+VendorIdentifier ::= SEQUENCE
+{
+	vendor			H221NonStandard,
+	productId		OCTET STRING (SIZE(1..256)) OPTIONAL,	-- per vendor
+	versionId		OCTET STRING (SIZE(1..256)) OPTIONAL,	-- per product
+	...
+}
+
+H221NonStandard ::= SEQUENCE
+{	t35CountryCode		INTEGER(0..255),	-- country, as per T.35
+	t35Extension		INTEGER(0..255),	-- assigned nationally
+	manufacturerCode	INTEGER(0..65535),	-- assigned nationally
+	...
+}
+
+NonStandardParameter ::= SEQUENCE
+{
+	nonStandardIdentifier	NonStandardIdentifier,
+	data			OCTET STRING
+}
+
+NonStandardIdentifier		::=CHOICE
+{
+	object			OBJECT IDENTIFIER,
+	h221NonStandard	H221NonStandard,
+	...
+}
+
+AliasAddress ::= CHOICE
+{
+	e164		IA5String (SIZE (1..128)) (FROM ("0123456789#*,")),
+	h323-ID		BMPString (SIZE (1..256)),	-- Basic ISO/IEC 10646-1 (Unicode)
+	...,
+	url-ID		IA5String (SIZE(1..512)),	-- URL style address
+	transportID	TransportAddress,
+	email-ID	IA5String (SIZE(1..512)),	-- rfc822-compliant email address
+	partyNumber	PartyNumber
+}	
+
+PartyNumber ::= CHOICE
+{
+	publicNumber PublicPartyNumber,
+		-- the numbering plan is according to
+		-- Recommendations E.163 and E.164.
+	dataPartyNumber NumberDigits,
+		-- not used, value reserved.
+	telexPartyNumber NumberDigits,
+		-- not used, value reserved.
+	privateNumber PrivatePartyNumber,
+	nationalStandardPartyNumber NumberDigits,
+		-- not used, value reserved.
+	...
+}
+
+PublicPartyNumber ::= SEQUENCE
+{
+	publicTypeOfNumber	PublicTypeOfNumber,
+	publicNumberDigits	NumberDigits
+}
+
+PrivatePartyNumber ::= SEQUENCE
+{
+	privateTypeOfNumber	PrivateTypeOfNumber,
+	privateNumberDigits	NumberDigits
+}
+
+NumberDigits ::= IA5String (SIZE (1..128)) (FROM ("0123456789#*,"))
+
+PublicTypeOfNumber ::= CHOICE
+{
+	unknown			NULL,
+		-- if used number digits carry prefix indicating type
+		-- of number according to national recommendations.
+	internationalNumber	NULL,
+	nationalNumber		NULL,
+	networkSpecificNumber	NULL,
+		-- not used, value reserved
+	subscriberNumber	NULL,
+	abbreviatedNumber	NULL,
+		-- valid only for called party number at the outgoing
+		-- access, network substitutes appropriate number.
+...
+}
+
+PrivateTypeOfNumber ::= CHOICE
+{
+	unknown			NULL,
+	level2RegionalNumber	NULL,
+	level1RegionalNumber	NULL,
+	pISNSpecificNumber	NULL,
+	localNumber		NULL,
+	abbreviatedNumber	NULL,
+	...
+}
+
+Endpoint ::= SEQUENCE
+{ 
+	nonStandardData	NonStandardParameter OPTIONAL, 
+	aliasAddress		SEQUENCE OF AliasAddress OPTIONAL,  
+	callSignalAddress	SEQUENCE OF TransportAddress OPTIONAL,  
+	rasAddress		SEQUENCE OF TransportAddress OPTIONAL,  
+	endpointType		EndpointType OPTIONAL,  
+	tokens			SEQUENCE OF ClearToken OPTIONAL,  
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	priority		INTEGER(0..127) OPTIONAL, 
+	remoteExtensionAddress	SEQUENCE OF AliasAddress OPTIONAL,
+	destExtraCallInfo	SEQUENCE OF AliasAddress OPTIONAL,
+	...
+} 
+ 
+AlternateGK ::= SEQUENCE
+{
+	rasAddress		TransportAddress,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	needToRegister		BOOLEAN,
+	priority		INTEGER (0..127),
+	...
+}
+
+AltGKInfo ::= SEQUENCE
+{
+	alternateGatekeeper	SEQUENCE OF AlternateGK,
+	altGKisPermanent	BOOLEAN,
+	...
+}
+
+SecurityServiceMode ::= CHOICE 
+{
+nonStandard		NonStandardParameter,
+none			NULL,
+default			NULL,
+...				-- can be extended with other specific modes
+}
+
+SecurityCapabilities ::= SEQUENCE 
+{
+	nonStandard		NonStandardParameter OPTIONAL,
+	encryption		SecurityServiceMode,
+	authenticaton		SecurityServiceMode,
+	integrity		SecurityServiceMode,
+...
+}
+
+H245Security ::= CHOICE 
+{
+	nonStandard		NonStandardParameter,
+	noSecurity		NULL,
+	tls			SecurityCapabilities,
+	ipsec			SecurityCapabilities,
+	...
+}
+
+QseriesOptions ::= SEQUENCE
+{
+	q932Full	BOOLEAN,	-- if true, indicates full support for Q.932
+	q951Full	BOOLEAN, 	-- if true, indicates full support for Q.951
+	q952Full	BOOLEAN, 	-- if true, indicates full support for Q.952
+	q953Full	BOOLEAN, 	-- if true, indicates full support for Q.953
+	q955Full	BOOLEAN, 	-- if true, indicates full support for Q.955
+	q956Full	BOOLEAN, 	-- if true, indicates full support for Q.956
+	q957Full	BOOLEAN, 	-- if true, indicates full support for Q.957
+	q954Info	Q954Details,	
+	...
+}
+
+Q954Details ::= SEQUENCE
+{
+	conferenceCalling	BOOLEAN,
+	threePartyService	BOOLEAN,
+	...
+}
+
+GloballyUniqueID	::=	OCTET STRING (SIZE(16))
+ConferenceIdentifier	::=	GloballyUniqueID
+RequestSeqNum		::=	INTEGER (1..65535)
+GatekeeperIdentifier	::=	BMPString (SIZE(1..128))
+BandWidth		::=	INTEGER (0.. 4294967295)	-- in 100s of bits
+CallReferenceValue	::=	INTEGER (0..65535)
+EndpointIdentifier	::=	BMPString (SIZE(1..128))
+ProtocolIdentifier	::=	OBJECT IDENTIFIER	
+				-- shall be set to  
+				-- {itu-t (0) recommendation (0) h (8) 2250 version (0) 2}
+TimeToLive		::=	INTEGER (1..4294967295)		--in seconds
+
+CallIdentifier ::= SEQUENCE
+{
+	guid		GloballyUniqueID,
+	...
+}
+
+
+EncryptIntAlg ::= CHOICE
+{	-- core encryption algorithms for RAS message integrity
+	nonStandard		NonStandardParameter,
+	isoAlgorithm		OBJECT IDENTIFIER,	-- defined in ISO/IEC 9979
+	...
+}
+NonIsoIntegrityMechanism ::= CHOICE 
+{	-- HMAC mechanism used, no truncation, tagging may be necessary!
+	hMAC-MD5		NULL,
+	hMAC-iso10118-2-s	EncryptIntAlg,	-- according to ISO/IEC 10118-2 using
+					-- EncryptIntAlg as core block encryption algorithm 
+					-- (short MAC)
+	hMAC-iso10118-2-l	EncryptIntAlg,	-- according to ISO/IEC 10118-2 using
+					-- EncryptIntAlg as core block encryption algorithm 
+					-- (long MAC)
+	hMAC-iso10118-3	OBJECT IDENTIFIER,  -- according to ISO/IEC 10118-3 using
+					-- OID as hash function (OID is SHA-1, RIPE-MD160,
+					-- RIPE-MD128)
+	...
+}
+
+IntegrityMechanism ::= CHOICE
+{	-- for RAS message integrity
+	nonStandard		NonStandardParameter,
+	digSig			NULL,	-- indicates to apply a digital signature
+	iso9797			OBJECT IDENTIFIER,	-- according to ISO/IEC 9797 using OID as
+							-- core encryption algorithm (X-CBC MAC)
+	nonIsoIM		NonIsoIntegrityMechanism,
+	...
+}
+
+ICV ::= SEQUENCE
+{
+	algorithmOID	OBJECT IDENTIFIER,  -- the algorithm used to compute the signature
+	icv		BIT STRING	-- the computed cryptographic integrity check value
+-- or signature
+}
+
+FastStartToken ::= ClearToken (WITH COMPONENTS {..., timeStamp, dhkey, generalID -- set to 'alias' -- })
+EncodedFastStartToken ::= TYPE-IDENTIFIER.&Type (FastStartToken)
+CryptoH323Token::= CHOICE
+{
+	cryptoEPPwdHash SEQUENCE
+{
+		alias		AliasAddress, -- alias of entity generating hash
+		timeStamp	TimeStamp, -- timestamp used in hash
+token 		HASHED	{ EncodedPwdCertToken -- generalID set to 'alias' -- }
+	},
+	cryptoGKPwdHash  SEQUENCE
+{
+gatekeeperId	GatekeeperIdentifier, -- GatekeeperID of GK generating hash
+		timeStamp	TimeStamp, -- timestamp used in hash
+token		HASHED 	{ EncodedPwdCertToken  -- generalID set to Gatekeeperid -- }
+	},
+	cryptoEPPwdEncr	ENCRYPTED
+{ EncodedPwdCertToken -- generalID set to Gatekeeperid --},
+	cryptoGKPwdEncr	ENCRYPTED
+{ EncodedPwdCertToken -- generalID set to Gatekeeperid --},
+	cryptoEPCert		SIGNED { EncodedPwdCertToken -- generalID set to Gatekeeperid -- },
+	cryptoGKCert   	SIGNED { EncodedPwdCertToken -- generalID set to alias -- },
+	cryptoFastStart	SIGNED { EncodedFastStartToken },
+	nestedcryptoToken	CryptoH323Token,
+	...
+}
+
+
+DataRate ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	channelRate		BandWidth,
+	channelMultiplier	INTEGER (1..256) OPTIONAL,
+	...
+}
+
+SupportedPrefix ::= SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	prefix			AliasAddress,
+	...
+}
+
+
+RasMessage ::= CHOICE   
+{
+	gatekeeperRequest		GatekeeperRequest,
+	gatekeeperConfirm		GatekeeperConfirm,
+	gatekeeperReject		GatekeeperReject,
+	registrationRequest		RegistrationRequest,
+	registrationConfirm		RegistrationConfirm,
+	registrationReject		RegistrationReject,
+	unregistrationRequest		UnregistrationRequest,
+	unregistrationConfirm		UnregistrationConfirm,
+	unregistrationReject		UnregistrationReject,
+	admissionRequest		AdmissionRequest,
+	admissionConfirm		AdmissionConfirm,
+	admissionReject		AdmissionReject,
+	bandwidthRequest		BandwidthRequest,
+	bandwidthConfirm		BandwidthConfirm,
+	bandwidthReject		BandwidthReject,
+	disengageRequest		DisengageRequest,
+	disengageConfirm		DisengageConfirm,
+	disengageReject		DisengageReject,
+	locationRequest		LocationRequest,
+	locationConfirm		LocationConfirm,
+	locationReject			LocationReject, 
+	infoRequest			InfoRequest,
+	infoRequestResponse		InfoRequestResponse,
+	nonStandardMessage		NonStandardMessage,
+	unknownMessageResponse		UnknownMessageResponse,
+	...,
+	requestInProgress		RequestInProgress,
+	resourcesAvailableIndicate	ResourcesAvailableIndicate,
+	resourcesAvailableConfirm	ResourcesAvailableConfirm,
+	infoRequestAck			InfoRequestAck,
+	infoRequestNak			InfoRequestNak
+}
+
+GatekeeperRequest ::= SEQUENCE --(GRQ)
+{
+	
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	rasAddress		TransportAddress,
+	endpointType		EndpointType,
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	callServices		QseriesOptions  OPTIONAL, 
+	endpointAlias		SEQUENCE OF AliasAddress OPTIONAL,
+	...,
+	alternateEndpoints	SEQUENCE OF Endpoint OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	authenticationCapability	SEQUENCE OF AuthenticationMechanism OPTIONAL,
+	algorithmOIDs		SEQUENCE OF OBJECT IDENTIFIER OPTIONAL,
+	integrity		SEQUENCE OF IntegrityMechanism OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+GatekeeperConfirm ::= SEQUENCE --(GCF)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	rasAddress		TransportAddress,
+	...,
+	alternateGatekeeper	SEQUENCE OF AlternateGK OPTIONAL,
+	authenticationMode	AuthenticationMechanism OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	algorithmOID		OBJECT IDENTIFIER OPTIONAL,
+	integrity		SEQUENCE OF IntegrityMechanism OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+GatekeeperReject ::= SEQUENCE --(GRJ)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	rejectReason		GatekeeperRejectReason,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+GatekeeperRejectReason ::= CHOICE
+{
+	resourceUnavailable		NULL,
+	terminalExcluded		NULL,	-- permission failure, not a resource failure
+	invalidRevision		NULL,
+	undefinedReason		NULL,
+	...,
+	securityDenial			NULL
+}
+
+RegistrationRequest ::= SEQUENCE --(RRQ)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	discoveryComplete	BOOLEAN,
+	callSignalAddress	SEQUENCE OF TransportAddress,
+	rasAddress		SEQUENCE OF TransportAddress,
+	terminalType		EndpointType,
+	terminalAlias		SEQUENCE OF AliasAddress OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	endpointVendor		VendorIdentifier,
+	...,
+	alternateEndpoints	SEQUENCE OF Endpoint OPTIONAL,
+	timeToLive		TimeToLive OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	keepAlive		BOOLEAN,
+	endpointIdentifier	EndpointIdentifier OPTIONAL,
+	willSupplyUUIEs	BOOLEAN
+}
+
+RegistrationConfirm ::= SEQUENCE --(RCF)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	callSignalAddress	SEQUENCE OF TransportAddress,
+	terminalAlias		SEQUENCE OF AliasAddress OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	endpointIdentifier	EndpointIdentifier,
+	...,	
+	alternateGatekeeper	SEQUENCE OF AlternateGK OPTIONAL,
+	timeToLive		TimeToLive OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	willRespondToIRR	BOOLEAN,
+	preGrantedARQ		SEQUENCE
+	{
+		makeCall				BOOLEAN,
+		useGKCallSignalAddressToMakeCall	BOOLEAN,
+		answerCall				BOOLEAN,
+		useGKCallSignalAddressToAnswer	BOOLEAN,
+		...
+	} OPTIONAL
+}
+
+RegistrationReject ::= SEQUENCE --(RRJ)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	rejectReason		RegistrationRejectReason,
+	gatekeeperIdentifier	GatekeeperIdentifier  OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+RegistrationRejectReason ::= CHOICE
+{
+	discoveryRequired		NULL,	-- registration permission has aged
+	invalidRevision		NULL,
+	invalidCallSignalAddress	NULL,
+	invalidRASAddress		NULL,	-- supplied address is invalid
+	duplicateAlias			SEQUENCE OF AliasAddress,
+						-- alias registered to another endpoint
+	invalidTerminalType		NULL,
+	undefinedReason		NULL,
+	transportNotSupported		NULL,	-- one or more of the transports
+	...,
+	transportQOSNotSupported	NULL,	-- endpoint QoS not supported
+	resourceUnavailable		NULL,	-- gatekeeper resources exhausted
+	invalidAlias			NULL,	-- alias not consistent with gatekeeper rules
+	securityDenial			NULL
+}
+
+UnregistrationRequest ::= SEQUENCE --(URQ)
+{
+	requestSeqNum		RequestSeqNum,
+	callSignalAddress	SEQUENCE OF TransportAddress,
+	endpointAlias		SEQUENCE OF AliasAddress OPTIONAL,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	endpointIdentifier	EndpointIdentifier OPTIONAL,
+	...,
+	alternateEndpoints	SEQUENCE OF Endpoint OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	reason			UnregRequestReason OPTIONAL
+}
+
+UnregRequestReason ::= CHOICE
+{
+	reregistrationRequired		NULL,
+	ttlExpired			NULL,
+	securityDenial			NULL,
+	undefinedReason		NULL,
+	...
+}
+
+UnregistrationConfirm ::= SEQUENCE --(UCF)
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+UnregistrationReject ::= SEQUENCE --(URJ)
+{
+	
+	requestSeqNum		RequestSeqNum,
+	rejectReason		UnregRejectReason,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+UnregRejectReason ::= CHOICE
+{
+	notCurrentlyRegistered	NULL,
+	callInProgress		NULL,
+	undefinedReason	NULL,
+	...,
+	permissionDenied	NULL,	-- requesting user not allowed to unregister
+					-- specified user
+	securityDenial		NULL
+}
+
+AdmissionRequest ::= SEQUENCE --(ARQ)
+{
+	requestSeqNum		RequestSeqNum,
+	callType		CallType,
+	callModel		CallModel OPTIONAL,
+	endpointIdentifier	EndpointIdentifier,
+	destinationInfo	SEQUENCE OF AliasAddress OPTIONAL,	--Note 1
+	destCallSignalAddress	TransportAddress OPTIONAL,		--Note 1
+	destExtraCallInfo	SEQUENCE OF AliasAddress OPTIONAL,
+	srcInfo			SEQUENCE OF AliasAddress,
+	srcCallSignalAddress	TransportAddress OPTIONAL, 
+	bandWidth		BandWidth,
+	callReferenceValue	CallReferenceValue,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	callServices		QseriesOptions  OPTIONAL,
+	conferenceID		ConferenceIdentifier,
+	activeMC		BOOLEAN,
+	answerCall		BOOLEAN,	-- answering a call
+	...,
+	canMapAlias		BOOLEAN,	-- can handle alias address
+	callIdentifier		CallIdentifier,
+	srcAlternatives	SEQUENCE OF Endpoint OPTIONAL,
+	destAlternatives	SEQUENCE OF Endpoint OPTIONAL,
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	transportQOS		TransportQOS OPTIONAL,
+	willSupplyUUIEs	BOOLEAN
+}
+
+CallType ::= CHOICE
+{
+	pointToPoint	NULL,		-- Point to point
+	oneToN		NULL,		-- no interaction (FFS)
+	nToOne		NULL,		-- no interaction (FFS)
+	nToN		NULL,		-- interactive (multipoint)
+	...
+}
+
+CallModel ::= CHOICE
+{
+	direct			NULL,
+	gatekeeperRouted	NULL,
+	...
+}
+
+TransportQOS ::= CHOICE
+{
+	endpointControlled	NULL,
+	gatekeeperControlled	NULL,
+	noControl		NULL,
+	...
+}
+
+AdmissionConfirm ::= SEQUENCE --(ACF)
+{
+	requestSeqNum			RequestSeqNum,
+	bandWidth			BandWidth,
+	callModel			CallModel,
+	destCallSignalAddress		TransportAddress,
+	irrFrequency			INTEGER (1..65535) OPTIONAL,
+	nonStandardData		NonStandardParameter OPTIONAL,
+	...,
+	destinationInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	destExtraCallInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	destinationType		EndpointType OPTIONAL,
+	remoteExtensionAddress		SEQUENCE OF AliasAddress OPTIONAL,
+	alternateEndpoints		SEQUENCE OF Endpoint OPTIONAL,
+	tokens				SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens			SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue		ICV OPTIONAL,
+	transportQOS			TransportQOS OPTIONAL,
+	willRespondToIRR		BOOLEAN,
+	uuiesRequested			UUIEsRequested
+}
+
+UUIEsRequested ::= SEQUENCE
+{
+	setup			BOOLEAN,
+	callProceeding		BOOLEAN,
+	connect			BOOLEAN,
+	alerting		BOOLEAN,
+	userInformation	BOOLEAN,
+	releaseComplete	BOOLEAN,
+	facility		BOOLEAN,
+	progress		BOOLEAN,
+	empty			BOOLEAN,
+	...
+}
+
+AdmissionReject ::= SEQUENCE --(ARJ)
+{
+	requestSeqNum		RequestSeqNum,
+	rejectReason		AdmissionRejectReason,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	callSignalAddress	SEQUENCE OF TransportAddress OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+AdmissionRejectReason ::= CHOICE
+{
+	calledPartyNotRegistered	NULL,	-- can't translate address
+	invalidPermission		NULL,	-- permission has expired
+	requestDenied			NULL,	-- no bandwidth available
+	undefinedReason		NULL,
+	callerNotRegistered		NULL,
+	routeCallToGatekeeper		NULL,
+	invalidEndpointIdentifier	NULL,
+	resourceUnavailable		NULL,
+	...,
+	securityDenial			NULL,
+	qosControlNotSupported		NULL,
+	incompleteAddress		NULL
+}
+
+BandwidthRequest ::= SEQUENCE --(BRQ)
+{
+	requestSeqNum		RequestSeqNum,
+	endpointIdentifier	EndpointIdentifier,
+	conferenceID		ConferenceIdentifier,
+	callReferenceValue	CallReferenceValue,
+	callType		CallType OPTIONAL,
+	bandWidth		BandWidth,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier,
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	answeredCall		BOOLEAN
+}
+
+BandwidthConfirm ::= SEQUENCE --(BCF)
+{
+	requestSeqNum		RequestSeqNum,
+	bandWidth		BandWidth,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+BandwidthReject ::= SEQUENCE --(BRJ)
+{
+	requestSeqNum		RequestSeqNum,
+	rejectReason		BandRejectReason,
+	allowedBandWidth	BandWidth,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+BandRejectReason ::= CHOICE
+{
+	notBound			NULL,	-- discovery permission has aged
+	invalidConferenceID		NULL,	-- possible revision
+	invalidPermission		NULL,	-- true permission violation
+	insufficientResources		NULL,
+	invalidRevision		NULL,
+	undefinedReason		NULL,
+	...,
+	securityDenial			NULL
+}
+
+LocationRequest ::= SEQUENCE --(LRQ)
+{
+	requestSeqNum		RequestSeqNum,
+	endpointIdentifier	EndpointIdentifier OPTIONAL,
+	destinationInfo	SEQUENCE OF AliasAddress,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	replyAddress		TransportAddress,
+	...,
+	sourceInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	canMapAlias		BOOLEAN,	-- can handle alias address
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+LocationConfirm ::= SEQUENCE --(LCF)
+{
+	requestSeqNum			RequestSeqNum,
+	callSignalAddress		TransportAddress,
+	rasAddress			TransportAddress,
+	nonStandardData		NonStandardParameter OPTIONAL,
+	...,
+	destinationInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	destExtraCallInfo		SEQUENCE OF AliasAddress OPTIONAL,
+	destinationType		EndpointType OPTIONAL,
+	remoteExtensionAddress		SEQUENCE OF AliasAddress OPTIONAL,
+	alternateEndpoints		SEQUENCE OF Endpoint OPTIONAL,
+	tokens				SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens			SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue		ICV OPTIONAL
+}
+
+LocationReject ::= SEQUENCE --(LRJ)
+{
+	requestSeqNum		RequestSeqNum,
+	rejectReason		LocationRejectReason,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+
+LocationRejectReason ::= CHOICE
+{
+	notRegistered		NULL,
+	invalidPermission	NULL,	-- exclusion by administrator or feature
+	requestDenied		NULL,	-- can't find location
+	undefinedReason	NULL,
+	...,
+	securityDenial		NULL
+}
+
+DisengageRequest ::= SEQUENCE --(DRQ)
+{
+	requestSeqNum		RequestSeqNum,
+	endpointIdentifier	EndpointIdentifier,
+	conferenceID		ConferenceIdentifier,
+	callReferenceValue	CallReferenceValue,
+	disengageReason	DisengageReason,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier,
+	gatekeeperIdentifier	GatekeeperIdentifier OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	answeredCall		BOOLEAN
+}
+
+DisengageReason ::= CHOICE
+{
+	forcedDrop		NULL,	-- gatekeeper is forcing the drop
+	normalDrop		NULL,	-- associated with normal drop
+	undefinedReason	NULL,
+	...
+}
+
+DisengageConfirm ::= SEQUENCE --(DCF)
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+DisengageReject ::= SEQUENCE --(DRJ)
+{
+	requestSeqNum		RequestSeqNum,
+	rejectReason		DisengageRejectReason,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	...,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+DisengageRejectReason ::= CHOICE
+{
+	notRegistered		NULL,	-- not registered with gatekeeper
+	requestToDropOther	NULL, 	-- can't request drop for others
+	...,
+	securityDenial		NULL
+}
+
+InfoRequest ::= SEQUENCE --(IRQ)
+{
+	requestSeqNum		RequestSeqNum,
+	callReferenceValue	CallReferenceValue,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	replyAddress		TransportAddress OPTIONAL,
+	...,
+	callIdentifier		CallIdentifier,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	uuiesRequested		UUIEsRequested OPTIONAL
+}
+InfoRequestResponse ::= SEQUENCE --(IRR)
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	requestSeqNum		RequestSeqNum,
+	endpointType		EndpointType,
+	endpointIdentifier	EndpointIdentifier,
+	rasAddress		TransportAddress,
+	callSignalAddress	SEQUENCE OF TransportAddress,
+	endpointAlias		SEQUENCE OF AliasAddress OPTIONAL,
+	perCallInfo		SEQUENCE OF SEQUENCE
+	{
+		nonStandardData	NonStandardParameter OPTIONAL,
+		callReferenceValue	CallReferenceValue,
+		conferenceID		ConferenceIdentifier,
+		originator		BOOLEAN OPTIONAL,
+		audio			SEQUENCE OF RTPSession OPTIONAL,
+		video			SEQUENCE OF RTPSession OPTIONAL,
+		data			SEQUENCE OF TransportChannelInfo OPTIONAL,
+		h245			TransportChannelInfo,
+		callSignaling		TransportChannelInfo,
+		callType		CallType,
+		bandWidth		BandWidth,
+		callModel		CallModel,
+		...,
+		callIdentifier		CallIdentifier,
+		tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+		substituteConfIDs	SEQUENCE OF ConferenceIdentifier,
+		pdu			SEQUENCE OF SEQUENCE
+		{
+			h323pdu		H323-UU-PDU,
+			sent		BOOLEAN		-- TRUE is sent, FALSE is received
+		} OPTIONAL
+	} OPTIONAL,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	needResponse		BOOLEAN
+}
+
+TransportChannelInfo ::= SEQUENCE
+{
+	sendAddress		TransportAddress OPTIONAL,
+	recvAddress		TransportAddress OPTIONAL,
+	...
+}
+
+RTPSession ::= SEQUENCE
+{
+	rtpAddress		TransportChannelInfo,
+	rtcpAddress		TransportChannelInfo,
+	cname			PrintableString,
+	ssrc			INTEGER (1..4294967295),
+	sessionId		INTEGER (1..255),
+	associatedSessionIds	SEQUENCE OF INTEGER (1..255),
+	...
+}
+
+InfoRequestAck ::= SEQUENCE --(IACK)
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	...
+}
+
+InfoRequestNak ::= SEQUENCE --(INAK)
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	nakReason		InfoRequestNakReason,
+	altGKInfo		AltGKInfo OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	...
+}
+
+InfoRequestNakReason ::= CHOICE
+{
+	notRegistered		NULL,	-- not registered with gatekeeper
+	securityDenial		NULL,
+	undefinedReason	NULL,
+	...
+}
+
+NonStandardMessage ::= SEQUENCE
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+UnknownMessageResponse ::= SEQUENCE	-- (XRS)
+{
+	requestSeqNum	RequestSeqNum,
+	...,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL
+}
+
+RequestInProgress ::= SEQUENCE	-- (RIP)
+{
+	requestSeqNum		RequestSeqNum,
+	nonStandardData	NonStandardParameter	OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	delay			INTEGER(1..65535),
+	...
+}
+
+ResourcesAvailableIndicate ::= SEQUENCE --(RAI)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	endpointIdentifier	EndpointIdentifier,
+	protocols		SEQUENCE OF SupportedProtocols,
+	almostOutOfResources	BOOLEAN,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	...
+}
+
+ResourcesAvailableConfirm ::= SEQUENCE --(RAC)
+{
+	requestSeqNum		RequestSeqNum,
+	protocolIdentifier	ProtocolIdentifier,
+	nonStandardData	NonStandardParameter OPTIONAL,
+	tokens			SEQUENCE OF ClearToken OPTIONAL,
+	cryptoTokens		SEQUENCE OF CryptoH323Token OPTIONAL,
+	integrityCheckValue	ICV OPTIONAL,
+	...	
+}
+
+END		-- of ASN.1

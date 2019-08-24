@@ -1,0 +1,47 @@
+EnumN2N DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+Cause-Misc ::= ENUMERATED {
+	control-processing-overload,
+	not-enough-user-plane-processing-resources,
+	hardware-failure,
+	om-intervention,
+	unspecified,
+	unknown-PLMN,
+...
+}
+
+CauseProtocol ::= ENUMERATED {
+	transfer-syntax-error,
+	abstract-syntax-error-reject,
+	abstract-syntax-error-ignore-and-notify,
+	message-not-compatible-with-receiver-state,
+	semantic-error,
+	abstract-syntax-error-falsely-constructed-message,
+	unspecified,
+	...
+}
+
+
+NoExt ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2)
+}
+
+Ext ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...
+}
+
+Ext2 ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...,
+	orange(7)
+}
+
+END

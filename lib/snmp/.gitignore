@@ -1,0 +1,8 @@
+# Match at any level.
+
+*.BKP
+*.orig
+*.rej
+
+doc/index.html
+mibs/.index

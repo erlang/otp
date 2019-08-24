@@ -1,0 +1,46 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4590, RADIUS Extension for Digest Authentication
+;;
+
+@avp_types
+
+   Digest-Response          103  OctetString  -
+   Digest-Realm             104  OctetString  -
+   Digest-Nonce             105  OctetString  -
+   Digest-Response-Auth     106  OctetString  -
+   Digest-Nextnonce         107  OctetString  -
+   Digest-Method            108  OctetString  -
+   Digest-URI               109  OctetString  -
+   Digest-Qop               110  OctetString  -
+   Digest-Algorithm         111  OctetString  -
+   Digest-Entity-Body-Hash  112  OctetString  -
+   Digest-CNonce            113  OctetString  -
+   Digest-Nonce-Count       114  OctetString  -
+   Digest-Username          115  OctetString  -
+   Digest-Opaque            116  OctetString  -
+   Digest-Auth-Param        117  OctetString  -
+   Digest-AKA-Auts          118  OctetString  -
+   Digest-Domain            119  OctetString  -
+   Digest-Stale             120  OctetString  -
+   Digest-HA1               121  OctetString  -
+   SIP-AOR                  122  OctetString  -

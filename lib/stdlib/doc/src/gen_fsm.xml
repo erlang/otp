@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996-2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>gen_fsm</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>gen_fsm</module>
+  <modulesummary>Deprecated and replaced by gen_statem </modulesummary>
+
+  <description>
+    <p> Deprecated and replaced by  <seealso marker="gen_statem"><c>gen_statem</c></seealso> </p>
+  </description>
+  <section>
+    <marker id="Migration to gen_statem"/>
+    <title>Migration to gen_statem</title>
+    
+    <p>Here follows a simple example of turning a gen_fsm into
+    a <seealso marker="gen_statem"><c>gen_statem</c></seealso>. The example comes
+    from the previous Users Guide for <c>gen_fsm</c> </p>
+  
+    <code type="erl">
+-module(code_lock).
+-define(NAME, code_lock).
+%-define(BEFORE_REWRITE, true).
+
+-ifdef(BEFORE_REWRITE).
+-behaviour(gen_fsm).
+-else.
+-behaviour(gen_statem).
+-endif.
+
+-export([start_link/1, button/1, stop/0]).
+
+-ifdef(BEFORE_REWRITE).
+-export([init/1, locked/2, open/2, handle_sync_event/4, handle_event/3,
+	 handle_info/3, terminate/3, code_change/4]).
+-else.
+-export([init/1, callback_mode/0, locked/3, open/3, terminate/3, code_change/4]).
+%% Add callback__mode/0
+%% Change arity of the state functions
+%% Remove handle_info/3
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+start_link(Code) ->
+    gen_fsm:start_link({local, ?NAME}, ?MODULE, Code, []).
+-else.
+start_link(Code) ->
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+button(Digit) ->
+    gen_fsm:send_event(?NAME, {button, Digit}).
+-else.
+button(Digit) ->
+    gen_statem:cast(?NAME, {button,Digit}).
+    %% send_event is asynchronous and becomes a cast
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+stop() ->
+    gen_fsm:sync_send_all_state_event(?NAME, stop).
+-else.
+stop() ->
+    gen_statem:call(?NAME, stop).
+    %% sync_send is synchronous and becomes call
+    %% all_state is handled by callback code in gen_statem
+-endif.
+
+init(Code) ->
+    do_lock(),
+    Data = #{code => Code, remaining => Code},
+    {ok, locked, Data}.
+
+-ifdef(BEFORE_REWRITE).
+-else.
+callback_mode() ->
+    state_functions.
+%% state_functions mode is the mode most similar to
+%% gen_fsm. There is also handle_event mode which is
+%% a fairly different concept. 
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+locked({button, Digit}, Data0) ->
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} ->
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} ->
+	    {next_state, StateName, Data}
+    end.
+-else.
+locked(cast, {button,Digit}, Data0) ->
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} ->
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} ->
+	    {next_state, StateName, Data}
+    end;
+locked({call, From}, Msg, Data) ->    
+    handle_call(From, Msg, Data);
+locked({info, Msg}, StateName, Data) ->    
+    handle_info(Msg, StateName, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above. 
+-endif.										
+
+-ifdef(BEFORE_REWRITE).
+open(timeout, State) ->
+     do_lock(),
+    {next_state, locked, State};
+open({button,_}, Data) ->
+    {next_state, locked, Data}.
+-else.
+open(timeout, _, Data) ->
+    do_lock(),
+    {next_state, locked, Data};
+open(cast, {button,_}, Data) ->
+    {next_state, locked, Data};
+open({call, From}, Msg, Data) ->    
+    handle_call(From, Msg, Data);
+open(info, Msg, Data) ->    
+    handle_info(Msg, open, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above.   
+-endif.	  
+
+-ifdef(BEFORE_REWRITE).
+handle_sync_event(stop, _From, _StateName, Data) ->
+    {stop, normal, ok, Data}.
+
+handle_event(Event, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Event, StateName}}, Data}.
+
+handle_info(Info, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}. 
+-else.   
+-endif.	
+  
+terminate(_Reason, State, _Data) ->
+    State =/= locked andalso do_lock(),
+    ok.
+code_change(_Vsn, State, Data, _Extra) ->
+    {ok, State, Data}.
+
+%% Internal functions
+-ifdef(BEFORE_REWRITE).
+-else.   
+handle_call(From, stop, Data) ->
+     {stop_and_reply, normal,  {reply, From, ok}, Data}.
+
+handle_info(Info, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}.
+%% These are internal functions for handling all state events
+%% and not behaviour callbacks as in gen_fsm
+-endif.	
+
+analyze_lock(Digit, #{code := Code, remaining := Remaining} = Data) ->
+     case Remaining of
+         [Digit] ->
+	     do_unlock(),
+	     {open,  Data#{remaining := Code}};
+         [Digit|Rest] -> % Incomplete   
+             {locked, Data#{remaining := Rest}};
+         _Wrong ->
+             {locked, Data#{remaining := Code}}
+     end.
+
+do_lock() ->
+    io:format("Lock~n", []).
+do_unlock() ->
+    io:format("Unlock~n", []).
+    </code>
+  </section>
+</erlref>

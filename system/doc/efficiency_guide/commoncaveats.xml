@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>Common Caveats</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2001-08-08</date>
+    <rev></rev>
+    <file>commoncaveats.xml</file>
+  </header>
+
+  <p>This section lists a few modules and BIFs to watch out for, not only
+  from a performance point of view.</p>
+
+  <section>
+     <title>Timer Module</title>
+
+     <p>Creating timers using <seealso
+     marker="erts:erlang#send_after/3">erlang:send_after/3</seealso>
+     and
+     <seealso marker="erts:erlang#start_timer/3">erlang:start_timer/3</seealso>,
+     is much more efficient than using the timers provided by the
+     <seealso marker="stdlib:timer">timer</seealso> module in STDLIB.
+     The <c>timer</c> module uses a separate process to manage the timers.
+     That process can easily become overloaded if many processes
+     create and cancel timers frequently (especially when using the
+     SMP emulator).</p>
+
+     <p>The functions in the <c>timer</c> module that do not manage timers
+     (such as <c>timer:tc/3</c> or <c>timer:sleep/1</c>), do not call the
+     timer-server process and are therefore harmless.</p>
+  </section>
+
+  <section>
+    <title>list_to_atom/1</title>
+
+    <p>Atoms are not garbage-collected. Once an atom is created, it is never
+    removed. The emulator terminates if the limit for the number
+    of atoms (1,048,576 by default) is reached.</p>
+
+    <p>Therefore, converting arbitrary input strings to atoms can be
+    dangerous in a system that runs continuously.
+    If only certain well-defined atoms are allowed as input,
+    <seealso marker="erts:erlang#list_to_existing_atom/1">list_to_existing_atom/1</seealso>
+    can be used
+    to guard against a denial-of-service attack. (All atoms that are allowed
+    must have been created earlier, for example, by simply using all of them
+    in a module and loading that module.)</p>
+
+    <p>Using <c>list_to_atom/1</c> to construct an atom that is passed to
+    <c>apply/3</c> as follows, is quite expensive and not recommended
+    in time-critical code:</p>
+    <code type="erl">
+apply(list_to_atom("some_prefix"++Var), foo, Args)</code>
+  </section>
+
+  <section>
+    <title>length/1</title>
+
+    <p>The time for calculating the length of a list is proportional to the
+    length of the list, as opposed to <c>tuple_size/1</c>, <c>byte_size/1</c>,
+    and <c>bit_size/1</c>, which all execute in constant time.</p>
+
+    <p>Normally, there is no need to worry about the speed of <c>length/1</c>,
+    because it is efficiently implemented in C. In time-critical code,
+    you might want to avoid it if the input list could potentially be very
+    long.</p>
+
+    <p>Some uses of <c>length/1</c> can be replaced by matching.
+    For example, the following code:</p>
+    <code type="erl">
+foo(L) when length(L) >= 3 ->
+    ...</code>    
+
+    <p>can be rewritten to:</p>
+    <code type="erl">
+foo([_,_,_|_]=L) ->
+   ...</code>    
+
+   <p>One slight difference is that <c>length(L)</c> fails if <c>L</c>
+   is an improper list, while the pattern in the second code fragment
+   accepts an improper list.</p>
+  </section>
+
+  <section>
+    <title>setelement/3</title>
+
+    <p><seealso marker="erts:erlang#setelement/3">setelement/3</seealso>
+    copies the tuple it modifies. Therefore, updating a tuple in a loop
+    using <c>setelement/3</c> creates a new copy of the tuple every time.</p>
+    
+    <p>There is one exception to the rule that the tuple is copied.
+    If the compiler clearly can see that destructively updating the tuple would
+    give the same result as if the tuple was copied, the call to
+    <c>setelement/3</c> is replaced with a special destructive <c>setelement</c>
+    instruction. In the following code sequence, the first <c>setelement/3</c>
+    call copies the tuple and modifies the ninth element:</p>
+    <code type="erl">
+multiple_setelement(T0) ->
+    T1 = setelement(9, T0, bar),
+    T2 = setelement(7, T1, foobar),
+    setelement(5, T2, new_value).</code>    
+
+    <p>The two following <c>setelement/3</c> calls modify
+    the tuple in place.</p>
+
+    <p>For the optimization to be applied, <em>all</em> the followings conditions
+    must be true:</p>
+
+    <list type="bulleted">
+    <item>The indices must be integer literals, not variables or expressions.</item>
+    <item>The indices must be given in descending order.</item>
+    <item>There must be no calls to another function in between the calls to
+    <c>setelement/3</c>.</item>
+    <item>The tuple returned from one <c>setelement/3</c> call must only be used
+    in the subsequent call to <c>setelement/3</c>.</item>
+    </list>
+
+    <p>If the code cannot be structured as in the <c>multiple_setelement/1</c>
+    example, the best way to modify multiple elements in a large tuple is to
+    convert the tuple to a list, modify the list, and convert it back to
+    a tuple.</p>
+  </section>
+
+  <section>
+    <title>size/1</title>
+
+    <p><c>size/1</c> returns the size for both tuples and binaries.</p>
+
+    <p>Using the BIFs <c>tuple_size/1</c> and <c>byte_size/1</c>
+    gives the compiler and the runtime system more opportunities for
+    optimization. Another advantage is that the BIFs give Dialyzer more
+    type information.</p>
+  </section>
+
+  <section>
+    <title>split_binary/2</title>
+      <p>It is usually more efficient to split a binary using matching
+      instead of calling the <c>split_binary/2</c> function.
+      Furthermore, mixing bit syntax matching and <c>split_binary/2</c>
+      can prevent some optimizations of bit syntax matching.</p>
+
+        <p><em>DO</em></p>
+        <code type="none"><![CDATA[
+        <<Bin1:Num/binary,Bin2/binary>> = Bin,]]></code>
+        <p><em>DO NOT</em></p>
+        <code type="none">
+        {Bin1,Bin2} = split_binary(Bin, Num)</code>
+   </section>
+
+</chapter>
+

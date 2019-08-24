@@ -1,0 +1,3 @@
+
+array_use.erl:12: The type test is_tuple(array:array(_)) breaks the opacity of the term array:array(_)
+array_use.erl:9: The attempt to match a term of type array:array(_) against the pattern {'array', _, _, 'undefined', _} breaks the opacity of the term

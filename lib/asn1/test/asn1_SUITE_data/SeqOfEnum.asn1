@@ -1,0 +1,11 @@
+SeqOfEnum DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Enum ::= ENUMERATED {a (0),
+		     b (1),
+		     c (2)}
+
+SeqOfEnum ::= SEQUENCE OF Enum
+
+END

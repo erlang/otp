@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_transport</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_transport.xml</file>
+  </header>
+  <module since="">megaco_transport</module>
+  <modulesummary>Megaco transport behaviour.</modulesummary>
+  <description>
+    <p>The following functions should be exported from a 
+      <c><![CDATA[megaco_transport]]></c> callback module:</p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#send_message">send_message/2</seealso> [<c><![CDATA[mandatory]]></c>]</p>
+      </item>
+      <item>
+        <p><seealso marker="#send_message">send_message/3</seealso> [<c>optional</c>]</p> 
+      </item>
+      <item>
+        <p><seealso marker="#resend_message">resend_message/2</seealso> [<c><![CDATA[optional]]></c>]</p>
+      </item>
+      <item>
+      </item>
+    </list>
+    <marker id="send_message"></marker>
+  </description>
+  <funcs>
+    <func>
+      <name since="">Module:send_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
+      <name since="">Module:send_message(Handle, Msg, Resend) -> ok | {cancel, Reason} | Error</name>
+      <fsummary>Send a megaco message.</fsummary>
+      <type>
+        <v>Handle = term()</v>
+        <v>Msg = binary() | iolist()</v>
+        <v>Resend = boolean()</v>
+        <v>Reason = term()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Send a megaco message. </p>
+        <p>If the function returns <c><![CDATA[{cancel, Reason}]]></c>, 
+          this means the transport module decided not to send the message. 
+          This is <em>not</em> an error. No error messages will be issued 
+          and no error counters incremented. 
+          What actions this will result in depends on what kind of
+          message was sent. 
+          </p>
+        <p>In the case of requests, megaco will cancel the message in much 
+          the same way as if <c><![CDATA[megaco:cancel]]></c> had been called 
+          (after a successfull send). The information will be propagated
+          back to the user differently depending on how the request(s) where
+          issued: For requests issued using 
+          <seealso marker="megaco#call">megaco:call</seealso>, the info
+          will be delivered in the return value. For requests issued 
+          using <c><![CDATA[megaco:cast]]></c> the info will be delivered 
+          via a call to the callback function 
+          <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>. </p>
+        <p>In the case of reply, megaco will cancel the reply and information
+          of this will be returned to the user via a call to the 
+          callback function 
+          <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso>. </p>
+
+        <p>The function <c>send_message/3</c> will only be called if the 
+          <seealso marker="megaco#ui_resend_indication">resend_indication</seealso>
+          config option has been set to the value <c>flag</c>. The third 
+          argument, <c>Resend</c> then indicates if the message send is 
+          a resend or not. </p>
+
+        <marker id="resend_message"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:resend_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
+      <fsummary>Re-send a megaco message.</fsummary>
+      <type>
+        <v>Handle = term()</v>
+        <v>Msg = binary() | iolist()</v>
+        <v>Reason = term()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Re-send a megaco message. </p>
+        <p>Note that this function will only be called if the user has set the 
+          <seealso marker="megaco#ui_resend_indication">resend_indication</seealso> 
+          config option to <c><![CDATA[true]]></c><em>and</em> it is in fact a message 
+          resend. If not <em>both</em> of these condition's are meet, 
+          <c><![CDATA[send_message]]></c> will be called. </p>
+        <p>If the function returns <c><![CDATA[{cancel, Reason}]]></c>, this means the 
+          transport module decided not to send the message. 
+          This is <em>not</em> an error. No error messages will be issued 
+          and no error counters incremented. 
+          What actions this will result in depends on what kind of
+          message was sent. </p>
+        <p>In the case of requests, megaco will cancel the message in much 
+          the same way as if <c><![CDATA[megaco:cancel]]></c> had been called 
+          (after a successfull send). The information will be propagated
+          back to the user differently depending on how the request(s) where
+          issued: For requests issued using 
+          <seealso marker="megaco#call">megaco:call</seealso>, the info
+          will be delivered in the return value. For requests issued 
+          using <c><![CDATA[megaco:cast]]></c> the info will be delivered via a call
+          to the callback function 
+          <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>. </p>
+        <p>In the case of reply, megaco will cancel the reply and information
+          of this will be returned to the user via a call to the 
+          callback function 
+          <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso>. </p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

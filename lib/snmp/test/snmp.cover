@@ -1,0 +1,17 @@
+%% -*- erlang -*-
+{incl_app,snmp,details}.
+
+{excl_mods,snmp,
+ [snmp_index,
+  snmpa_error_io, 
+  snmpa_authentication_service, 
+  snmpa_error_report,
+  snmpa_network_interface,
+  snmpa_network_interface_filter,
+  snmpa_notification_delivery_info_receiver,
+  snmpa_set_mechanism,
+  snmpm_network_interface,
+  snmpm_user
+ ]
+}.
+

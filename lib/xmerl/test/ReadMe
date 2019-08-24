@@ -1,0 +1,24 @@
+
+W3C conformance tests
+=====================
+
+The xmerl tests contains a large number of conformance tests from W3C, which are located in the following 
+directories.
+
+xmerl_std_SUITE_data:
+  These tests are fetched from http://www.w3.org/XML/Test/ and repackaged as four tgz files.
+  The W3C Copyright notice is located in the file xmerl_std_SUITE_data/w3c-copyright-19980720.html.
+
+xmerl_xsd_MS2002-01-16_SUITE_data:
+  These tests are fetched from http://www.w3.org/XML/2004/xml-schema-test-suite/index.html
+  The W3C Copyright notice is located in the file xmerl_xsd_MS2002-01-16_SUITE_data/w3c-copyright-19990405.html.
+
+xmerl_xsd_NIST2002-01-16_SUITE_data:
+  These tests are fetched from http://www.w3.org/XML/2004/xml-schema-test-suite/index.html
+  The W3C Copyright notice is located in the file xmerl_xsd_NIST2002-01-16_SUITE_data/w3c-copyright-19990405.html.
+
+xmerl_xsd_Sun2002-01-16_SUITE_data:
+  These tests are fetched from http://www.w3.org/XML/2004/xml-schema-test-suite/index.html
+  The W3C Copyright notice is located in the file xmerl_xsd_Sun2002-01-16_SUITE_data/w3c-copyright-19990405.html.
+
+

@@ -1,0 +1,130 @@
+Bugfix
+======
+ P->current (Fix observable behaviour?)
+ New calling convention for guard bifs (Recognize at load time).
+ Long branches:
+   timer:tc(hipe,c,[megaco_text_parser,[{timeout,infinity}]]).
+   {4801210531,
+     {error,[{problem,too_long_branch},{address,3381732},{length,-828622}]}}
+
+Performance
+===========
+
+ Better handling of multimove in regalloc.
+ Faster closure creation. (Can static fields be preallocated?)
+ Expand pseudo-ops before scheduler (SPARC)
+ Stack maps for SPARC + Make frames in Sparc not in RTL.
+ Coalesce spill locations.
+
+Feature
+=======
+
+ Stack traces from stack maps.
+
+Cleanup
+=======
+
+ Speedup renaming and other bottlenecks in the compiler.
+ Only calls with fail label should end basic blocks.
+ Remove fail-entry-points from RTL (sparc/x86). 
+ Cleanup hipe_*_registers.erl and interface/rules with regalloc.
+ HiPE in bootstrap.
+ Cleanup and merge loaders. (Better handling of data.) 	
+ Re-examine switching code.
+
+Extensions
+==========
+
+ Design strategy for finding all processes holding a certain closure. 
+ Design strategy for native code unloading.
+ mbufs: In guards -> throw away, in bifs -> trigger special GC. (fix for native.)
+ Unified heap + process optimization (+ PE).
+ Incremental GC.
+
+
+Old list compiled by Thomas Lindgren (needs cleaning up)
+========================================================
+
+<h1>Experimental implementations</h1>
+<h2>RTL</h2>
+<UL>
+  <LI> Algebraiska förenklingar av uttryck (ex. reducera integer multiply,
+      ta bort addition med 0, etc)
+  <LI> Partial redundancy elimination 
+</UL>
+
+<h1>Unimplemented optimizations</h1>
+
+<H2>Erlang/Core source-level-optimizations</H2>
+<UL>
+  <LI> "Context compilation"
+  <LI> CDR-kodning
+  <LI> List reuse
+  <LI> Compilation by transformation
+</UL>
+
+<H2>Icode-optimizations</H2>
+<UL>
+  <LI> Convertion to loops from recursive programs
+  <LI> Dominatorer
+      (<a href="./thomasl/icode/dominators.erl">långsamma</a>, snabba)
+</UL>
+
+<H2>RTL-optimizations</H2>
+<UL>
+  <LI> Common subexpression elimination
+  <LI> Ta bort redundanta tester globalt (ex. upprepade typtester)
+  <LI> Ordna om hopp (ex. byt ordning på nil/cons-tester)
+  <LI> Goto eliminering (= expandera uncond. jumps m. känd måltavla)
+  <LI> Save/restore-placering: dataflödesanalys, interaktion m. catch-frames
+  <LI> Loop optimeringar
+      <UL>
+	<LI> Dominatorer (se dominatorer för icode)
+	<LI> Unrolling
+	<LI> Invariant expression removal
+      </UL>
+  <LI> Partial redundancy elimination by lazy code motion
+  <LI> Partially dead code
+</UL>
+
+<H2>Sparc-optimizations</H2>
+<UL>
+  <LI> Global register allocation
+      <UL>
+	<LI> <a href="./thomasl/regalloc/regalloc.erl">
+	    Pessimistisk färgning</a>
+	<LI> Optimistisk färgning (kan slås på i samma fil som pessimistisk
+	    färgning ovan).
+	<LI> Bättre beräkning av spillkostnader
+	<LI> Renaming
+	<LI> Callee-saves register
+	<LI> Live-range splitting
+      </UL>
+  <LI> Instruktionsschedulering
+      <UL>
+	<LI> Branch delay slot scheduling
+	<LI> Load delay slot scheduling
+	<LI> Spekulativa loads med lduwa
+	<LI> Kollapsa serier av tester med bpr
+	<LI> Begränsad predicated execution med movcc
+      </UL>
+  <LI> Kodlayout: statiska förutsägelser om riktning av hopp,
+      layout, sätta branch prediction bits i hopp, etc.
+  <LI> Prefetching av kod med SparcV9:s bpn.
+</UL>
+
+<H2>Other optimizations</H2>
+
+Profile driven optimizations.
+<UL>
+  <LI> Utplacering av räknare i CFG:er (per block, per båge)
+  <LI> Statiska metoder att uppskatta exekveringstid (inom och mellan proc.)
+  <LI> Feedback till program, annotering av CFG:er med profileringsinfo.
+  <LI> Kodlayout med profileringsinfo.
+  <LI> Skapa superblock
+  <LI> Skapa hyperblock
+  <LI> Plocka fram heta block, skapa en 'het' sub-CFG som hoppar
+      till den kalla huvud-CFG:n vid behov.
+  <LI> Optimering av het CFG, kodförflyttning från het till kall CFG.
+  <LI> Spawn-time specialization
+</UL>

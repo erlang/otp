@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE wurfl [
+<!ELEMENT version (#PCDATA)>
+<!ELEMENT wurfl (version)>
+]>
+<wurfl>
+  <version>
+</version>
+</wurfl>

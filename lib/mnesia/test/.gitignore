@@ -1,0 +1,9 @@
+
+
+# Test generates
+MnesiaCore*
+Mnesia.*
+
+tempfile*
+mnesia_test_case_info
+test_log*

@@ -1,0 +1,534 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>yecc</title>
+    <prepared>Carl Wilhelm Welin</prepared>
+    <responsible>Carl Wilhelm Welin</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-27</date>
+    <rev>B</rev>
+    <file>yecc.sgml</file>
+  </header>
+  <module since="">yecc</module>
+  <modulesummary>LALR-1 Parser Generator</modulesummary>
+  <description>
+    <p>An LALR-1 parser generator for Erlang, similar to <c>yacc</c>.
+      Takes a BNF grammar definition as input, and produces Erlang code
+      for a parser. </p>
+    <p>To understand this text, you also have to
+      look at the <c>yacc</c> documentation in the UNIX(TM) manual. This
+      is most probably necessary in order to understand the idea of a
+      parser generator, and the principle and problems of LALR parsing
+      with finite look-ahead.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">file(Grammarfile [, Options]) -> YeccRet</name>
+      <fsummary>Give information about resolved and unresolved parse action conflicts.</fsummary>
+      <type>
+        <v>Grammarfile = filename()</v>
+        <v>Options = Option | [Option]</v>
+        <v>Option =&nbsp;-&nbsp;see below&nbsp;-</v>
+        <v>YeccRet = {ok, Parserfile}  | {ok, Parserfile, Warnings}  | error  | {error, Errors, Warnings}</v>
+        <v>Parserfile = filename()</v>
+        <v>Warnings = Errors = [{filename(), [ErrorInfo]}]</v>
+        <v>ErrorInfo  = {ErrorLine, module(), Reason}</v>
+        <v>ErrorLine = integer()</v>
+        <v>Reason =&nbsp;-&nbsp;formatable by format_error/1&nbsp;-</v>
+      </type>
+      <desc>
+        <p><c>Grammarfile</c> is the file of declarations and grammar
+          rules. Returns <c>ok</c> upon success, or <c>error</c> if
+          there are errors. An Erlang file containing the parser is
+          created if there are no errors. The options are:
+          </p>
+        <taglist>
+          <tag><c>{parserfile, Parserfile}</c>.</tag>
+          <item><c>Parserfile</c> is the name of the file that will
+           contain the Erlang parser code that is generated. The
+           default (<c>""</c>) is to add the extension <c>.erl</c>
+           to <c>Grammarfile</c> stripped of the <c>.yrl</c>
+           extension.
+          </item>
+          <tag><c>{includefile, Includefile}</c>.</tag>
+          <item>Indicates a customized prologue file which the user
+           may want to use instead of the default file
+          <c>lib/parsetools/include/yeccpre.hrl</c> which is
+           otherwise included at the beginning of the resulting
+           parser file. <em>N.B.</em> The <c>Includefile</c> is
+           included 'as is' in the parser file, so it must not have a
+           module declaration of its own, and it should not be
+           compiled. It must, however, contain the necessary export
+           declarations. The default is indicated by <c>""</c>.
+          </item>
+          <tag><c>{report_errors, bool()}</c>.</tag>
+          <item>Causes errors to be printed as they occur. Default is
+          <c>true</c>.
+          </item>
+          <tag><c>{report_warnings, bool()}</c>.</tag>
+          <item>Causes warnings to be printed as they occur. Default is
+          <c>true</c>.
+          </item>
+          <tag><c>{report, bool()}</c>.</tag>
+          <item>This is a short form for both <c>report_errors</c> and
+          <c>report_warnings</c>.
+          </item>
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
+          </item>
+          <tag><c>{return_errors, bool()}</c>.</tag>
+          <item>If this flag is set, <c>{error, Errors, Warnings}</c>
+           is returned when there are errors. Default is
+          <c>false</c>.
+          </item>
+          <tag><c>{return_warnings, bool()}</c>.</tag>
+          <item>If this flag is set, an extra field containing
+          <c>Warnings</c> is added to the tuple returned upon
+           success. Default is <c>false</c>.
+          </item>
+          <tag><c>{return, bool()}</c>.</tag>
+          <item>This is a short form for both <c>return_errors</c> and
+          <c>return_warnings</c>.
+          </item>
+          <tag><c>{verbose, bool()}</c>. </tag>
+          <item>Determines whether the parser generator should give
+           full information about resolved and unresolved parse
+           action conflicts (<c>true</c>), or only about those
+           conflicts that prevent a parser from being generated from
+           the input grammar (<c>false</c>, the default).
+          </item>
+        </taglist>
+        <p>Any of the Boolean options can be set to <c>true</c> by 
+          stating the name of the option. For example, <c>verbose</c>
+          is equivalent to <c>{verbose, true}</c>.
+          </p>
+        <p>The value of the <c>Parserfile</c> option stripped of the
+          <c>.erl</c> extension is used by Yecc as the module name of
+          the generated parser file.</p>
+        <p>Yecc will add the extension <c>.yrl</c> to the
+          <c>Grammarfile</c> name, the extension <c>.hrl</c> to the
+          <c>Includefile</c> name, and the extension <c>.erl</c> to
+          the <c>Parserfile</c> name, unless the extension is already
+          there.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">format_error(Reason) -> Chars</name>
+      <fsummary>Return an English description of a an error tuple.</fsummary>
+      <type>
+        <v>Reason =&nbsp;-&nbsp;as returned by yecc:file/1,2&nbsp;-</v>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Returns a descriptive string in English of an error tuple
+          returned by <c>yecc:file/1,2</c>. This function is mainly
+          used by the compiler invoking Yecc.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Pre-Processing</title>
+    <p>A <c>scanner</c> to pre-process the text (program, etc.) to be
+      parsed is not provided in the <c>yecc</c> module. The scanner
+      serves as a kind of lexicon look-up routine. It is possible to
+      write a grammar that uses only character tokens as terminal
+      symbols, thereby eliminating the need for a scanner, but this
+      would make the parser larger and slower.</p>
+    <p>The user should implement a scanner that segments the input
+      text, and turns it into one or more lists of tokens. Each token
+      should be a tuple containing information about syntactic
+      category, position in the text (e.g. line number), and the
+      actual terminal symbol found in the text: <c>{Category, LineNumber, Symbol}</c>.</p>
+    <p>If a terminal symbol is the only member of a category, and the
+      symbol name is identical to the category name, the token format
+      may be <c>{Symbol, LineNumber}</c>.</p>
+    <p>A list of tokens produced by the scanner should end with a
+      special <c>end_of_input</c> tuple which the parser is looking
+      for. The format of this tuple should be <c>{Endsymbol, LastLineNumber}</c>, where <c>Endsymbol</c> is an identifier
+      that is distinguished from all the terminal and non-terminal
+      categories of the syntax rules. The <c>Endsymbol</c> may be
+      declared in the grammar file (see below).</p>
+    <p>The simplest case is to segment the input string into a list of
+      identifiers (atoms) and use those atoms both as categories and
+      values of the tokens. For example, the input string <c>aaa bbb 777, X</c> may be scanned (tokenized) as:</p>
+    <code type="none">
+[{aaa, 1}, {bbb, 1}, {777, 1}, {',' , 1}, {'X', 1},
+ {'$end', 1}].    </code>
+    <p>This assumes that this is the first line of the input text, and
+      that <c>'$end'</c> is the distinguished <c>end_of_input</c>
+      symbol.</p>
+    <p>The Erlang scanner in the <c>io</c> module can be used as a
+      starting point when writing a new scanner. Study
+      <c>yeccscan.erl</c> in order to see how a filter can be added on
+      top of <c>io:scan_erl_form/3</c> to provide a scanner for
+      Yecc that tokenizes grammar files before parsing them
+      with the Yecc parser. A more general approach to scanner
+      implementation is to use a scanner generator. A scanner
+      generator in Erlang called <c>leex</c> is under development.</p>
+  </section>
+
+  <section>
+    <title>Grammar Definition Format</title>
+    <p>Erlang style <c>comments</c>, starting with a <c>'%'</c>, are
+      allowed in grammar files.</p>
+    <p>Each <c>declaration</c> or <c>rule</c> ends with a dot (the
+      character <c>'.'</c>).</p>
+    <p>The grammar starts with an optional <c>header</c> section. The
+      header is put first in the generated file, before the module
+      declaration. The purpose of the header is to provide a means to
+      make the documentation generated by EDoc look nicer. Each
+      header line should be enclosed in double quotes, and newlines
+      will be inserted between the lines. For example:</p>
+    <code>
+Header "%% Copyright (C)"
+"%% @private"
+"%% @Author John".</code>
+    <p>Next comes a declaration of the <c>nonterminal categories</c>
+      to be used in the rules. For example:</p>
+    <code type="none">
+Nonterminals sentence nounphrase verbphrase.    </code>
+    <p>A non-terminal category can be used at the left hand side (=
+      <c>lhs</c>, or <c>head</c>) of a grammar rule. It can also
+      appear at the right hand side of rules.</p>
+    <p>Next comes a declaration of the <c>terminal categories</c>,
+      which are the categories of tokens produced by the scanner. For
+      example:</p>
+    <code type="none">
+Terminals article adjective noun verb.    </code>
+    <p>Terminal categories may only appear in the right hand sides (=
+      <c>rhs</c>) of grammar rules.</p>
+    <p>Next comes a declaration of the <c>rootsymbol</c>, or start
+      category of the grammar. For example:</p>
+    <code type="none">
+Rootsymbol sentence.    </code>
+    <p>This symbol should appear in the lhs of at least one grammar
+      rule. This is the most general syntactic category which the
+      parser ultimately will parse every input string into.</p>
+    <p>After the rootsymbol declaration comes an optional declaration
+      of the <c>end_of_input</c> symbol that your scanner is expected
+      to use. For example:</p>
+    <code type="none">
+Endsymbol '$end'.    </code>
+    <p>Next comes one or more declarations of <c>operator precedences</c>, if needed. These are used to resolve
+      shift/reduce conflicts (see <c>yacc</c> documentation).</p>
+    <p>Examples of operator declarations:</p>
+    <code type="none">
+Right 100 '='.
+Nonassoc 200 '==' '=/='.
+Left 300 '+'.
+Left 400 '*'.
+Unary 500 '-'.    </code>
+    <p>These declarations mean that <c>'='</c> is defined as a
+      <c>right associative binary</c> operator with precedence 100,
+      <c>'=='</c> and <c>'=/='</c> are operators with <c>no associativity</c>, <c>'+'</c> and <c>'*'</c> are <c>left associative binary</c> operators, where <c>'*'</c> takes
+      precedence over <c>'+'</c> (the normal case), and <c>'-'</c> is
+      a <c>unary</c> operator of higher precedence than <c>'*'</c>.
+      The fact that '==' has no associativity means that an expression
+      like <c>a == b == c</c> is considered a syntax error.</p>
+    <p>Certain rules are assigned precedence: each rule gets its
+      precedence from the last terminal symbol mentioned in the right
+      hand side of the rule. It is also possible to declare precedence
+      for non-terminals, "one level up". This is practical when an
+      operator is overloaded (see also example 3 below).</p>
+    <p>Next come the <c>grammar rules</c>. Each rule has the general
+      form</p>
+    <code type="none">
+Left_hand_side -> Right_hand_side : Associated_code.    </code>
+    <p>The left hand side is a non-terminal category. The right hand
+      side is a sequence of one or more non-terminal or terminal
+      symbols with spaces between. The associated code is a sequence
+      of zero or more Erlang expressions (with commas <c>','</c> as
+      separators). If the associated code is empty, the separating
+      colon <c>':'</c> is also omitted. A final dot marks the end of
+      the rule.</p>
+    <p>Symbols such as <c>'{'</c>, <c>'.'</c>, etc., have to be
+      enclosed in single quotes when used as terminal or non-terminal
+      symbols in grammar rules. The use of the symbols
+      <c>'$empty'</c>, <c>'$end'</c>, and <c>'$undefined'</c> should
+      be avoided.</p>
+    <p>The last part of the grammar file is an optional section with
+      Erlang code (= function definitions) which is included 'as is'
+      in the resulting parser file. This section must start with the
+      pseudo declaration, or key words</p>
+    <code type="none">
+Erlang code.    </code>
+    <p>No syntax rule definitions or other declarations may follow
+      this section. To avoid conflicts with internal variables, do not
+      use variable names beginning with two underscore characters
+      ('__') in the Erlang code in this section, or in the code
+      associated with the individual syntax rules.</p>
+    <p>The optional <c>expect</c> declaration can be placed anywhere
+      before the last optional section with Erlang code. It is used
+      for suppressing the warning about conflicts that is ordinarily
+      given if the grammar is ambiguous. An example:</p>
+    <code type="none">
+Expect 2.    </code>
+    <p>The warning is given if the number of shift/reduce conflicts
+      differs from 2, or if there are reduce/reduce conflicts.
+      </p>
+  </section>
+
+  <section>
+    <title>Examples</title>
+    <p>A grammar to parse list expressions (with empty associated
+      code):</p>
+    <code type="none">
+Nonterminals list elements element.
+Terminals atom '(' ')'.
+Rootsymbol list.
+list -> '(' ')'.
+list -> '(' elements ')'.
+elements -> element.
+elements -> element elements.
+element -> atom.
+element -> list.    </code>
+    <p>This grammar can be used to generate a parser which parses list
+      expressions, such as <c>(), (a), (peter charles), (a (b c) d (())), ...</c> provided that your scanner tokenizes, for
+      example, the input <c>(peter charles)</c> as follows:</p>
+    <code type="none">
+[{'(', 1} , {atom, 1, peter}, {atom, 1, charles}, {')', 1}, 
+ {'$end', 1}]    </code>
+    <p>When a grammar rule is used by the parser to parse (part of)
+      the input string as a grammatical phrase, the associated code is
+      evaluated, and the value of the last expression becomes the
+      value of the parsed phrase. This value may be used by the parser
+      later to build structures that are values of higher phrases of
+      which the current phrase is a part. The values initially
+      associated with terminal category phrases, i.e. input tokens,
+      are the token tuples themselves.</p>
+    <p>Below is an example of the grammar above with structure
+      building code added:</p>
+    <code type="none">
+list -> '(' ')' : nil.
+list -> '(' elements ')' : '$2'.
+elements -> element : {cons, '$1', nil}.
+elements -> element elements : {cons, '$1', '$2'}.
+element -> atom : '$1'.
+element -> list : '$1'.    </code>
+    <p>With this code added to the grammar rules, the parser produces
+      the following value (structure) when parsing the input string
+      <c>(a b c).</c>. This still assumes that this was the first
+      input line that the scanner tokenized:</p>
+    <code type="none">
+{cons, {atom, 1, a,} {cons, {atom, 1, b},
+                            {cons, {atom, 1, c}, nil}}}    </code>
+    <p>The associated code contains <c>pseudo variables</c> <c>'$1'</c>, <c>'$2'</c>, <c>'$3'</c>, etc. which refer to (are
+      bound to) the values associated previously by the parser with
+      the symbols of the right hand side of the rule. When these
+      symbols are terminal categories, the values are token tuples of
+      the input string (see above).</p>
+    <p>The associated code may not only be used to build structures
+      associated with phrases, but may also be used for syntactic and
+      semantic tests, printout actions (for example for tracing), etc.
+      during the parsing process. Since tokens contain positional
+      (line number) information, it is possible to produce error
+      messages which contain line numbers. If there is no associated
+      code after the right hand side of the rule, the value
+      <c>'$undefined'</c> is associated with the phrase.</p>
+    <p>The right hand side of a grammar rule may be empty. This is
+      indicated by using the special symbol <c>'$empty'</c> as rhs.
+      Then the list grammar above may be simplified to:</p>
+    <code type="none">
+list -> '(' elements ')' : '$2'.
+elements -> element elements : {cons, '$1', '$2'}.
+elements -> '$empty' : nil.
+element -> atom : '$1'.
+element -> list : '$1'.    </code>
+  </section>
+
+  <section>
+    <title>Generating a Parser</title>
+    <p>To call the parser generator, use the following command:</p>
+    <code type="none">
+yecc:file(Grammarfile).    </code>
+    <p>An error message from Yecc will be shown if the grammar
+      is not of the LALR type (for example too ambiguous).
+      Shift/reduce conflicts are resolved in favor of shifting if
+      there are no operator precedence declarations. Refer to the
+      <c>yacc</c> documentation on the use of operator precedence.</p>
+    <p>The output file contains Erlang source code for a parser module
+      with module name equal to the <c>Parserfile</c> parameter. After
+      compilation, the parser can be called as follows (the module
+      name is assumed to be <c>myparser</c>):</p>
+    <code type="none">
+myparser:parse(myscanner:scan(Inport))    </code>
+    <p>The call format may be different if a customized prologue file
+      has been included when generating the parser instead of the
+      default file <c>lib/parsetools/include/yeccpre.hrl</c>.</p>
+    <p>With the standard prologue, this call will return either
+      <c>{ok, Result}</c>, where <c>Result</c> is a structure that the
+      Erlang code of the grammar file has built, or <c>{error, {Line_number, Module, Message}}</c> if there was a syntax error
+      in the input.</p>
+    <p><c>Message</c> is something which may be converted into a
+      string by calling <c>Module:format_error(Message)</c>
+      and printed with <c>io:format/3</c>.</p>
+    <note>
+      <p>By default, the parser that was generated will not print out
+        error messages to the screen. The user will have to do this
+        either by printing the returned error messages, or by
+        inserting tests and print instructions in the Erlang code
+        associated with the syntax rules of the grammar file.</p>
+    </note>
+    <p>It is also possible to make the parser ask for more input
+      tokens when needed if the following call format is used:</p>
+    <code type="none">
+myparser:parse_and_scan({Function, Args})
+myparser:parse_and_scan({Mod, Tokenizer, Args})    </code>
+    <p>The tokenizer <c>Function</c> is either a fun or a tuple
+      <c>{Mod, Tokenizer}</c>. The call <c>apply(Function, Args)</c>
+      or <c>apply({Mod, Tokenizer}, Args)</c> is executed whenever a
+      new token is needed. This, for example, makes it possible to
+      parse from a file, token by token.</p>
+    <p>The tokenizer used above has to be implemented so as to return
+      one of the following:</p>
+    <code type="none">
+{ok, Tokens, Endline}
+{eof, Endline}
+{error, Error_description, Endline}    </code>
+    <p>This conforms to the format used by the scanner in the Erlang
+      <c>io</c> library module.</p>
+    <p>If <c>{eof, Endline}</c> is returned immediately, the call to
+      <c>parse_and_scan/1</c> returns <c>{ok, eof}</c>. If <c>{eof, Endline}</c> is returned before the parser expects end of input,
+      <c>parse_and_scan/1</c> will, of course, return an error message
+      (see above). Otherwise <c>{ok, Result}</c> is returned.</p>
+  </section>
+
+  <section>
+    <title>More Examples</title>
+    <p>1. A grammar for parsing infix arithmetic expressions into
+      prefix notation, without operator precedence:</p>
+    <code type="none">
+Nonterminals E T F.
+Terminals '+' '*' '(' ')' number.
+Rootsymbol E.
+E -> E '+' T: {'$2', '$1', '$3'}.
+E -> T : '$1'.
+T -> T '*' F: {'$2', '$1', '$3'}.
+T -> F : '$1'.
+F -> '(' E ')' : '$2'.
+F -> number : '$1'.    </code>
+    <p>2. The same with operator precedence becomes simpler:</p>
+    <code type="none">
+Nonterminals E.
+Terminals '+' '*' '(' ')' number.
+Rootsymbol E.
+Left 100 '+'.
+Left 200 '*'.
+E -> E '+' E : {'$2', '$1', '$3'}.
+E -> E '*' E : {'$2', '$1', '$3'}.
+E -> '(' E ')' : '$2'.
+E -> number : '$1'.    </code>
+    <p>3. An overloaded minus operator:</p>
+    <code type="none">
+Nonterminals E uminus.
+Terminals '*' '-' number.
+Rootsymbol E.
+
+Left 100 '-'.
+Left 200 '*'.
+Unary 300 uminus.
+
+E -> E '-' E.
+E -> E '*' E.
+E -> uminus.
+E -> number.
+
+uminus -> '-' E.    </code>
+    <p>4. The Yecc grammar that is used for parsing grammar
+      files, including itself:</p>
+    <code type="none">
+Nonterminals
+grammar declaration rule head symbol symbols attached_code
+token tokens.
+Terminals
+atom float integer reserved_symbol reserved_word string char var
+'->' ':' dot.
+Rootsymbol grammar.
+Endsymbol '$end'.
+grammar -> declaration : '$1'.
+grammar -> rule : '$1'.
+declaration -> symbol symbols dot: {'$1', '$2'}.
+rule -> head '->' symbols attached_code dot: {rule, ['$1' | '$3'], 
+        '$4'}.
+head -> symbol : '$1'.
+symbols -> symbol : ['$1'].
+symbols -> symbol symbols : ['$1' | '$2'].
+attached_code -> ':' tokens : {erlang_code, '$2'}.
+attached_code -> '$empty' : {erlang_code, 
+                 [{atom, 0, '$undefined'}]}.
+tokens -> token : ['$1'].
+tokens -> token tokens : ['$1' | '$2'].
+symbol -> var : value_of('$1').
+symbol -> atom : value_of('$1').
+symbol -> integer : value_of('$1').
+symbol -> reserved_word : value_of('$1').
+token -> var : '$1'.
+token -> atom : '$1'.
+token -> float : '$1'.
+token -> integer : '$1'.
+token -> string : '$1'.
+token -> char : '$1'.
+token -> reserved_symbol : {value_of('$1'), line_of('$1')}.
+token -> reserved_word : {value_of('$1'), line_of('$1')}.
+token -> '->' : {'->', line_of('$1')}.
+token -> ':' : {':', line_of('$1')}.
+Erlang code.
+value_of(Token) ->
+    element(3, Token).
+line_of(Token) ->
+    element(2, Token).    </code>
+    <note>
+      <p>The symbols <c>'->'</c>, and <c>':'</c> have to be treated in
+        a special way, as they are meta symbols of the grammar
+        notation, as well as terminal symbols of the Yecc
+        grammar.</p>
+    </note>
+    <p>5. The file <c>erl_parse.yrl</c> in the <c>lib/stdlib/src</c>
+      directory contains the grammar for Erlang.</p>
+    <note>
+      <p>Syntactic tests are used in the code associated with some
+        rules, and an error is thrown (and caught by the generated
+        parser to produce an error message) when a test fails. The
+        same effect can be achieved with a call to
+        <c>return_error(Error_line, Message_string)</c>, which is
+        defined in the <c>yeccpre.hrl</c> default header file.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Files</title>
+    <code type="none">
+lib/parsetools/include/yeccpre.hrl    </code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>Aho &amp; Johnson: 'LR Parsing', ACM Computing Surveys, vol. 6:2, 1974.</p>
+  </section>
+</erlref>
+

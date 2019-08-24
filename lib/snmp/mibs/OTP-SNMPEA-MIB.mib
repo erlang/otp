@@ -1,0 +1,569 @@
+OTP-SNMPEA-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Integer32, IpAddress
+        FROM SNMPv2-SMI
+    DisplayString, RowStatus, StorageType
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    otpModules, otpApplications
+        FROM OTP-REG
+    ;
+
+otpSnmpeaModule MODULE-IDENTITY
+    LAST-UPDATED  "0305130000Z"
+    ORGANIZATION  "Ericsson"
+    CONTACT-INFO
+        "Contact:  Erlang Support see license agreement for Erlang/OTP."
+    DESCRIPTION
+        "This MIB module defines MIB objects for the SNMPEA
+        component in OTP."
+
+    REVISION    "0305130000Z"
+    DESCRIPTION
+        "Changed CONTACT-INFO as it was outdated, made it more generic
+	to avoid such changes in the future."
+
+    REVISION    "9808280000Z"
+    DESCRIPTION
+        "Since there are standard MIBs in the SNMPv3 framework that
+        implements the functionality defined in this MIB, all objects in
+        this MIB is now obsolete.  There are still a few OID assignments
+        defined in this MIB.
+
+        Removed intCommunityTable; replaced by snmpCommunityTable in
+        SNMP-COMMUNITY-MIB.
+
+        Removed intAddressTable; replaced by SNMP-TARGET-MIB.
+
+	Removed intAgentMaxPacketSize, replaced by snmpEngineMaxPacketSize
+        in SNMP-FRAMEWORK-MIB.
+
+        Removed intAgentIpAddress and intAgentUDPPort.
+
+        Removed intViewTable, replaced by SNMP-VIEW-BASED-ACM-MIB."
+
+    REVISION    "9804160000Z"
+    DESCRIPTION
+        "Updated to support MIBs from SNMPv3.  Since SNMPv3 standardizes
+        some of the functionality provided by this MIB, we're using the
+        standard instead.
+
+        Removed intTrapDestTable; replaced by SNMP-TARGET-MIB and
+	SNMP-NOTIFICATION-MIB."
+
+    REVISION    "9709220900Z"
+    DESCRIPTION
+        "The initial version of this MIB module.  It is the old
+        INTERNAL-MIB renamed."
+    ::= { otpModules 5 }
+
+otpSnmpeaMIB    OBJECT IDENTIFIER ::= { otpApplications 3 }
+otpSnmpeaMIBConformance
+                OBJECT IDENTIFIER ::= { otpSnmpeaMIB 1 }
+otpSnmpeaMIBObjects
+                OBJECT IDENTIFIER ::= { otpSnmpeaMIB 2 }
+
+snmpeaAdm       OBJECT IDENTIFIER ::= { otpSnmpeaMIBObjects 1}
+community       OBJECT IDENTIFIER ::= { snmpeaAdm 1 }
+trap            OBJECT IDENTIFIER ::= { snmpeaAdm 2 }
+view            OBJECT IDENTIFIER ::= { snmpeaAdm 3 }
+
+
+-- Obsolete objects
+
+-- The Administration Group
+--
+-- This group consists of objects to configure the access for
+-- managers to the MIB tree.
+--
+-- These objects were previously defined in INTERNAL-MIB
+
+intCommunityTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF IntCommunityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "This table defines access for the different
+        communities.
+
+        When a request comes from a certain ip address,
+        referring to a community string, the mib view
+        and access corresponding to these are looked up
+        in this table. Then the operation is validatated against
+        the access, and all requested objects validated against
+        the mib view."
+    ::= { community 1 }
+
+intCommunityEntry OBJECT-TYPE
+    SYNTAX      IntCommunityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        ""
+    INDEX   { intCommunityDestination, intCommunityString }
+    ::= { intCommunityTable 1 }
+
+IntCommunityEntry ::=
+    SEQUENCE {
+      intCommunityDestination   IpAddress,
+      intCommunityString        DisplayString,
+      intCommunityViewIndex     Integer32,
+      intCommunityAccess        INTEGER,
+      intCommunityStatus        RowStatus
+    }
+
+intCommunityDestination OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "The ip address of a management station. The special
+        ip address {0.0.0.0} is a wildcard, meaning all possible
+        ip addresses. In this way, access can be granted to all
+        ip addressed for some communities."
+    ::= { intCommunityEntry 1 }
+
+intCommunityString OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "The community string, defining the community."
+    ::= { intCommunityEntry 2 }
+
+intCommunityViewIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "Identifies a mib view.  Index into the
+        intViewTable."
+    ::= { intCommunityEntry 3 }
+
+intCommunityAccess OBJECT-TYPE
+    SYNTAX      INTEGER { read(1), readWrite(2) }
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "Defines which operations the manager can perform
+        on the objects in the mib view."
+    ::= { intCommunityEntry 4 }
+
+intCommunityStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The status of this conceptual row in the
+        intCommunityTable."
+    ::= { intCommunityEntry 5 }
+
+intAgentIpAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-only
+    STATUS      obsolete
+    DESCRIPTION
+        "The IP address of this agent."
+    ::= { community 2 }
+
+intAgentUDPPort OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      obsolete
+    DESCRIPTION
+        "The UDP port the agent listens to."
+    ::= { community 3 }
+
+intAgentMaxPacketSize OBJECT-TYPE
+    SYNTAX      Integer32 (484..65535)
+    MAX-ACCESS  read-only
+    STATUS      obsolete
+    DESCRIPTION
+        "The maximum packet size in bytes this agent will send to a
+        manager."
+    ::= { community 4 }
+
+
+intAddressTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF IntAddressEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "This table holds UDP related information on each known
+        management station."
+    ::= { community 5 }
+
+
+intAddressEntry OBJECT-TYPE
+    SYNTAX      IntAddressEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        ""
+    INDEX   { intAddressDestination }
+    ::= { intAddressTable 1 }
+
+IntAddressEntry ::=
+    SEQUENCE {
+      intAddressDestination     IpAddress,
+      intAddressUDPPort         Integer32,
+      intAddressMaxPacketSize   Integer32 (484..65535),
+      intAddressStatus          RowStatus
+    }
+
+intAddressDestination OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "The ip address of the management station."
+    ::= { intAddressEntry 1 }
+
+intAddressUDPPort OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The UDP port to which traps will be sent to
+        this destination."
+    DEFVAL { 162 }
+    ::= { intAddressEntry 2 }
+
+intAddressMaxPacketSize OBJECT-TYPE
+    SYNTAX      Integer32 (484..65535)
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The maximum packet size in bytes for Messages
+        sent to this destination.  The max size of a packet
+        sent to this destination will be the minumim of
+        this variable and agentMaxPacketSize.0."
+    ::= { intAddressEntry 3 }
+
+intAddressStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The status of this conceptual row in the
+        intAddressTable."
+    ::= { intAddressEntry 4 }
+
+intTrapDestTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF IntTrapDestEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "The intTrapDestTable defines to which destination all traps
+        for a specific community should be sent."
+    ::= { trap 1 }
+
+intTrapDestEntry OBJECT-TYPE
+    SYNTAX      IntTrapDestEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        ""
+    INDEX   { intTrapDestCommunityString, intTrapDestDestination }
+    ::= { intTrapDestTable 1 }
+
+IntTrapDestEntry ::=
+    SEQUENCE {
+      intTrapDestCommunityString    DisplayString,
+      intTrapDestDestination        IpAddress,
+      intTrapDestStatus             RowStatus,
+      intTrapDestSnmpVersion        INTEGER
+    }
+
+intTrapDestCommunityString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..255))
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        ""
+    ::= { intTrapDestEntry 1 }
+
+intTrapDestDestination OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        ""
+    ::= { intTrapDestEntry 2 }
+
+intTrapDestStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The status of this conceptual row in the
+        intTrapDestTable."
+    ::= { intTrapDestEntry 3 }
+
+intTrapDestSnmpVersion OBJECT-TYPE
+    SYNTAX      INTEGER { v1(1), v2(2) }
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The SNMP version of the manager.  If it is v1,
+        SNMPv1Traps are sent.  If it is v2, SNMPv2Traps are sent"
+    ::= { intTrapDestEntry 4 }
+
+intViewTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF IntViewEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "Locally held information about the MIB views
+        known to this agent.
+
+        Each MIB view is defined by two
+        collections of view subtrees: the included view
+        subtrees, and the excluded view subtrees.  Every
+        such subtree, both included and excluded, is
+        defined in this table.
+
+        To determine if a particular object instance is in
+        a particular MIB view, compare the object
+        instance's OBJECT IDENTIFIER with each of the MIB
+        view's entries in this table.  If none match, then
+        the object instance is not in the MIB view.  If
+        one or more match, then the object instance is
+        included in, or excluded from, the MIB view
+        according to the value of viewType in the entry
+        whose value of viewSubtree has the most sub-
+        identifiers.  If multiple entries match and have
+        the same number of sub-identifiers, then the
+        lexicographically greatest instance of viewType
+        determines the inclusion or exclusion.
+
+        An object instance's OBJECT IDENTIFIER X matches
+        an entry in this table when the number of sub-
+        identifiers in X is at least as many as in the
+        value of viewSubtree for the entry, and each sub-
+        identifier in the value of viewSubtree matches its
+        corresponding sub-identifier in X.  Two sub-
+        identifiers match either if the corresponding bit
+        of viewMask is zero (the 'wild card' value), or if
+        they are equal.
+
+        Due to this 'wild card' capability, we introduce
+        the term, a 'family' of view subtrees, to refer to
+        the set of subtrees defined by a particular
+        combination of values of viewSubtree and viewMask.
+        In the case where no 'wild card' is defined in
+        viewMask, the family of view subtrees reduces to a
+        single view subtree."
+    ::= { view 1 }
+
+intViewEntry OBJECT-TYPE
+    SYNTAX      IntViewEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "Information on a particular family of view
+        subtrees included in or excluded from a particular
+        MIB view.
+
+        Implementations must not restrict the number of
+        families of view subtrees for a given MIB view,
+        except as dictated by resource constraints on the
+        overall number of entries in the viewTable."
+    INDEX   { intViewIndex, intViewSubtree }
+    ::= { intViewTable 1 }
+
+IntViewEntry ::=
+    SEQUENCE {
+      intViewIndex          Integer32,
+      intViewSubtree        OBJECT IDENTIFIER,
+      intViewMask           OCTET STRING,
+      intViewType           INTEGER,
+      intViewStorageType    StorageType,
+      intViewStatus         RowStatus
+    }
+
+
+intViewIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "A unique value for each MIB view.  The value for
+        each MIB view must remain constant at least from
+        one re-initialization of the entity's network
+        management system to the next re-initialization."
+    ::= { intViewEntry 1 }
+
+intViewSubtree OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION
+        "A MIB subtree."
+    ::= { intViewEntry 2 }
+
+intViewMask OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..16))
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The bit mask which, in combination with the
+        corresponding instance of viewSubtree, defines a
+        family of view subtrees.
+
+        Each bit of this bit mask corresponds to a sub-
+        identifier of viewSubtree, with the most
+        significant bit of the i-th octet of this octet
+        string value (extended if necessary, see below)
+        corresponding to the (8*i - 7)-th sub-identifier,
+        and the least significant bit of the i-th octet of
+        this octet string corresponding to the (8*i)-th
+        sub-identifier, where i is in the range 1 through
+        16.
+
+        Each bit of this bit mask specifies whether or not
+        the corresponding sub-identifiers must match when
+        determining if an OBJECT IDENTIFIER is in this
+        family of view subtrees; a '1' indicates that an
+        exact match must occur; a '0' indicates 'wild
+        card', i.e., any sub-identifier value matches.
+
+
+        Thus, the OBJECT IDENTIFIER X of an object
+        instance is contained in a family of view subtrees
+        if the following criteria are met:
+
+               for each sub-identifier of the value of
+               viewSubtree, either:
+
+                the i-th bit of viewMask is 0, or
+
+                the i-th sub-identifier of X is equal to
+                the i-th sub-identifier of the value of
+                viewSubtree.
+
+        If the value of this bit mask is M bits long and
+        there are more than M sub-identifiers in the
+        corresponding instance of viewSubtree, then the
+        bit mask is extended with 1's to be the required
+        length.
+
+        Note that when the value of this object is the
+        zero-length string, this extension rule results in
+        a mask of all-1's being used (i.e., no 'wild
+        card'), and the family of view subtrees is the one
+        view subtree uniquely identified by the
+        corresponding instance of viewSubtree."
+    DEFVAL      { ''H }
+    ::= { intViewEntry 3 }
+
+
+intViewType OBJECT-TYPE
+    SYNTAX      INTEGER {
+        included(1),
+        excluded(2)
+        }
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The status of a particular family of view
+        subtrees within the particular
+        MIB view.  The value 'included(1)' indicates that
+        the corresponding instances of viewSubtree and
+        viewMask define a family of view subtrees included
+        in the MIB view.  The  value 'excluded(2)'
+        indicates that the corresponding instances of
+        viewSubtree and viewMask define a family of view
+        subtrees excluded from the MIB view."
+    DEFVAL      { included }
+    ::= { intViewEntry 4 }
+
+intViewStorageType OBJECT-TYPE
+    SYNTAX      StorageType
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The storage type for this conceptual row in the
+        intViewTable."
+    DEFVAL      { nonVolatile }
+    ::= { intViewEntry 5 }
+
+intViewStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The status of this conceptual row in the
+        intViewTable."
+    ::= { intViewEntry 6 }
+
+-- conformance information
+
+otpSnmpeaMIBCompliances
+                OBJECT IDENTIFIER ::= { otpSnmpeaMIBConformance 1 }
+otpSnmpeaMIBGroups
+                OBJECT IDENTIFIER ::= { otpSnmpeaMIBConformance 2 }
+
+
+-- compliance statements
+
+otpSnmpeaBasicCompliance MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+        "The compliance statement for SNMPv2 entities which
+        implement the OTP-SNMPEA-MIB."
+    MODULE  -- this module
+        MANDATORY-GROUPS { addressGroup }
+    ::= { otpSnmpeaMIBCompliances 1 }
+
+
+-- units of conformance
+
+communityGroup OBJECT-GROUP
+    OBJECTS { intCommunityViewIndex,
+              intCommunityAccess,
+              intCommunityStatus }
+    STATUS  obsolete
+    DESCRIPTION
+        "A collection of objects providing basic instrumentation
+        of the load of the OTP system."
+    ::= { otpSnmpeaMIBGroups 1 }
+
+addressGroup OBJECT-GROUP
+    OBJECTS { intAgentIpAddress,
+              intAgentUDPPort,
+              intAgentMaxPacketSize,
+              intAddressUDPPort,
+              intAddressMaxPacketSize,
+              intAddressStatus }
+    STATUS  obsolete
+    DESCRIPTION
+        "A collection of objects providing basic instrumentation
+        of the load of the OTP system."
+    ::= { otpSnmpeaMIBGroups 2 }
+
+trapGroup OBJECT-GROUP
+    OBJECTS { intTrapDestStatus,
+              intTrapDestSnmpVersion }
+    STATUS  obsolete
+    DESCRIPTION
+        "A collection of objects providing basic instrumentation
+        of the load of the OTP system."
+    ::= { otpSnmpeaMIBGroups 3 }
+
+viewGroup OBJECT-GROUP
+    OBJECTS { intViewMask,
+              intViewType,
+              intViewStorageType,
+              intViewStatus }
+    STATUS  obsolete
+    DESCRIPTION
+        "A collection of objects providing basic instrumentation
+        of the load of the OTP system."
+    ::= { otpSnmpeaMIBGroups 4 }
+
+
+END

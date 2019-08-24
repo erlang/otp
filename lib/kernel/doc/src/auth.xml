@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>auth</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">auth</module>
+  <modulesummary>Erlang network authentication server.</modulesummary>
+  <description>
+    <p>This module is deprecated. For a description of the Magic
+      Cookie system, refer to
+      <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso> in the Erlang Reference Manual.</p>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="cookie"/>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="cookie" arity="0" since=""/>
+      <fsummary>Magic cookie for local node (deprecated).</fsummary>
+      <desc>
+        <p>Use
+          <seealso marker="erts:erlang#get_cookie/0"><c>erlang:get_cookie()</c></seealso>
+          in ERTS instead.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="cookie" arity="1" since=""/>
+      <fsummary>Set the magic for the local node (deprecated).</fsummary>
+      <type_desc variable="TheCookie">
+        The cookie can also be specified as a list with a single atom element.
+      </type_desc>
+      <desc>
+        <p>Use
+          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
+	  in ERTS</seealso> instead.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="is_auth" arity="1" since=""/>
+      <fsummary>Status of communication authorization (deprecated).</fsummary>
+      <desc>
+        <p>Returns <c>yes</c> if communication with <c><anno>Node</anno></c> is
+          authorized. Notice that a connection to <c><anno>Node</anno></c>
+          is established in this case. Returns <c>no</c> if <c><anno>Node</anno></c>
+          does not exist or communication is not authorized (it has
+          another cookie than <c>auth</c> thinks it has).</p>
+        <p>Use <seealso marker="net_adm#ping/1"><c>net_adm:ping(<anno>Node</anno>)</c></seealso>
+          instead.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">node_cookie([Node, Cookie]) -> yes | no</name>
+      <fsummary>Set the magic cookie for a node and verify authorization (deprecated).</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Cookie = <seealso marker="#type-cookie"><c>cookie()</c></seealso></v>
+      </type>
+      <desc>
+        <p>Equivalent to
+          <seealso marker="#node_cookie/2"><c>node_cookie(Node, Cookie)</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="node_cookie" arity="2" since=""/>
+      <fsummary>Set the magic cookie for a node and verify authorization (deprecated).</fsummary>
+      <desc>
+        <p>Sets the magic cookie of <c><anno>Node</anno></c> to
+	<c><anno>Cookie</anno></c> and verifies the status of the authorization.
+          Equivalent to calling
+          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</c></seealso>, followed by
+          <seealso marker="#is_auth/1"><c>auth:is_auth(<anno>Node</anno>)</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

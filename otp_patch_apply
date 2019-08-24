@@ -1,0 +1,479 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2014. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+version="1.0.2"
+
+force=
+lib_path=
+orig_dir=
+sdir=
+idir="/broken/path/here"
+cleanup=no
+install_docs=yes
+
+invalid_src="does not seem to be a valid OTP source tree"
+not_built="Source in has not been built"
+doc_not_built="Documentation has not been built. Either build the
+documentation and re-run 'otp_patch_apply', or re-run 'otp_patch_apply'
+with the '-n' switch."
+
+print_usage()
+{
+    cat <<EOF
+otp_patch_apply -s <Dir> -i <Dir> [-l <Dir>] [-c] [-f] [-h] [-n] [-v] \\
+                <App1> [... <AppN>]
+
+  -s <Dir>  -- OTP source directory that contain build results.
+  -i <Dir>  -- OTP installation directory to patch.
+  -l <Dir>  -- Alternative OTP source library directory path(s) containing
+               build results of OTP applications. Multiple paths should be
+               colon separated.
+  -c        -- Cleanup (remove) old versions of applications patched
+               in the installation.
+  -f        -- Force patch of application(s) even though dependencies are
+               not fullfilled.
+  -h        -- Print this help then exit.
+  -n        -- Do not install documentation.
+  -v        -- Print version then exit.
+  <AppX>    -- Application to patch.
+
+Environment Variable:
+  ERL_LIBS  -- Alternative OTP source library directory path(s) containing
+               build results of OTP applications. Multiple paths should be
+               colon separated.
+
+NOTE:
+  * Complete build environment is required while running otp_patch_apply.
+  * Before applying a patch you need to build all of OTP in the source
+    directory.
+  * All source directories identified by -s and -l should contain build
+    results of OTP applications.
+
+Version: $version
+
+EOF
+
+}
+
+error()
+{
+    echo "ERROR:" "$@" 1>&2
+    exit 1
+}
+
+usage_error()
+{
+    echo "ERROR:" "$@" 1>&2
+    echo "" 1>&2
+    print_usage 1>&2
+    exit 1
+}
+
+usage()
+{
+    print_usage
+    exit 0
+}
+
+alt_lib_path()
+{
+    app=$1
+    save_ifs=$IFS
+    IFS=:
+
+    cd "$orig_dir" || error "Cannot change directory to $orig_dir"
+
+    for lib in $lib_path; do
+	# Want absolute path
+	case "$lib" in
+	    /*)
+		;;
+	    *)
+		cd "$lib" || error "Cannot change directory to $lib"
+		lib=`pwd`
+		cd "$orig_dir" || error "Cannot change directory to $orig_dir"
+	esac
+	if [ -d "$lib/$app" ]; then
+	    echo "$lib/$app"
+	    IFS=$save_ifs
+	    return 0
+	fi
+    done
+
+    IFS=$save_ifs
+
+    return 1
+}
+
+prog_in_mod_path()
+{
+    chk_path="/bin:$PATH"
+    PROG=$1
+    save_ifs=$IFS
+    IFS=:
+    if [ "X$TARGET" = "Xwin32" ]; then
+	for p in $chk_path; do
+	    if [ -f "$p/$PROG.exe" ]; then
+		IFS=$save_ifs
+		echo "$p/$PROG.exe"
+		return 0
+	    fi
+	done
+    else
+	for p in $chk_path; do
+	    if [ -x "$p/$PROG" ]; then
+		IFS=$save_ifs
+		echo "$p/$PROG"
+		return 0
+	    fi
+	done
+    fi
+    IFS=$save_ifs
+    return 1
+}
+
+find_prog()
+{
+    prog_in_mod_path "$1"
+    if [ $? -ne 0 ]; then
+	echo "$1"
+    fi
+    return 0
+}
+
+# Parse arguments
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+    	"-s")
+	    shift
+	    if [ ! $# -gt 0 ]; then
+		usage_error "Missing OTP source directory"
+	    fi
+	    sdir="$1";;
+    	"-i")
+	    shift
+	    if [ ! $# -gt 0 ]; then
+		usage_error "Missing OTP install directory"
+	    fi
+	    idir="$1";;
+    	"-l")
+	    shift
+	    if [ ! $# -gt 0 ]; then
+		usage_error "Missing OTP library directory"
+	    fi
+	    if [ "x$lib_path" = "x" ]; then
+		lib_path="$1"
+	    else
+		lib_path="$lib_path:$1"
+	    fi;;
+    	"-f")
+	    force="-force";;
+    	"-c")
+	    cleanup=yes;;
+	"-h")
+	    usage;;
+	"-n")
+	    install_docs=no;;
+	"-v")
+	    echo "otp_patch_apply version $version"
+	    exit 0;;
+	*)
+	    app="$1"
+	    applications="$applications $app";;
+    esac
+    shift
+done
+
+# Check that we got mandatory arguments
+test "x$sdir" != "x" || usage_error "Missing OTP source directory"
+test "x$idir" != "x" || usage_error "Missing OTP install directory"
+test "x$applications" != "x" || usage_error "Missing applications"
+
+orig_dir=`pwd`
+
+# Check that the source directory seems sane
+cd "$sdir" 2>/dev/null || error "Cannot change directory to $sdir"
+
+# Want absolute path
+case "$sdir" in
+    /*) ;;
+    *) sdir=`pwd`;;
+esac
+
+export ERL_TOP="$sdir"
+test -f "$sdir/otp_build" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/OTP_VERSION" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/otp_versions.table" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/erts/autoconf/config.guess" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/make/verify_runtime_dependencies" || error "$ERL_TOP" $invalid_src
+test -x "$sdir/bootstrap/bin/erl" || error $not_built
+test -x "$sdir/bootstrap/bin/erlc" || error $not_built
+test -x "$sdir/bootstrap/bin/escript" || error $not_built
+test -f "$sdir/make/otp_built" || error $not_built
+
+if [ $install_docs = yes ]; then
+    test -f "$sdir/make/otp_doc_built" || usage_error $doc_not_built
+fi
+
+otp_rel=`sed 's|\([0-9]*\).*|\1|' < $ERL_TOP/OTP_VERSION` || \
+    error "Failed to read $ERL_TOP/OTP_VERSION"
+
+case "$otp_rel" in
+    1[7-9]|[2-9][0-9]) ;; # ok; release 17-99
+    *) error "Invalid OTP release: $otp_rel";;
+esac
+
+export PATH="$ERL_TOP/bootstrap/bin:$PATH"
+erlc="$ERL_TOP/bootstrap/bin/erlc"
+erl="$ERL_TOP/bootstrap/bin/erl"
+
+erl_otp_rel=`$erl -noshell -noinput -eval "io:format(\"~s~n\", [erlang:system_info(otp_release)]), erlang:halt(0)"` || \
+    error "Failed to execute: $erl"
+
+test "$otp_rel" = "$erl_otp_rel" || error "Inconsistent source: $sdir"
+
+app_dirs=
+for app in $applications; do
+    case "$app" in
+	"erts")
+	    dir="$ERL_TOP/erts";;
+	*)
+	    dir="$ERL_TOP/lib/$app";;
+    esac
+    if [ ! -d "$dir" ]; then
+	dir=`alt_lib_path "$app"`
+	if [ $? -ne 0 ]; then
+	    error "Application missing in source: $app"
+	fi
+    fi
+    app_dirs="$app_dirs $dir"
+done
+
+cd "$orig_dir" 2>/dev/null || error "Cannot change directory to $orig_dir"
+
+# Check that the install directory seems sane
+cd "$idir" 2>/dev/null || error "Cannot change directory to $idir"
+
+# Want absolute path
+case "$idir" in
+    /*) ;;
+    *) idir=`pwd`;;
+esac
+
+test -d "$idir/releases/$otp_rel" || \
+    error "No OTP-$otp_rel installation present in $idir"
+
+cd "$ERL_TOP" 2>/dev/null || error "Cannot change directory to $ERL_TOP"
+
+# Some tools we use
+rm=`find_prog rm`
+rmdir=`find_prog rmdir`
+cp=`find_prog cp`
+mv=`find_prog mv`
+mkdir=`find_prog mkdir`
+
+# Setup build stuff
+if [ "x$TARGET" = "x" ]; then
+    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
+fi
+BUILDSYS=$TARGET
+if [ -z "$MAKE" ]; then
+    case $TARGET in
+	win32)
+	    MAKE=make;;
+	*)
+	    prog_in_mod_path gmake >/dev/null
+	    if [ $? -eq 0 ]; then
+		MAKE=gmake
+	    else
+		MAKE=make
+	    fi;;
+    esac
+fi
+if [ X`$MAKE is_cross_configured` = Xyes ]; then
+    TARGET=`$MAKE target_configured`
+elif [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
+    TARGET=$OVERRIDE_TARGET
+fi
+
+# Check for cleanup
+inst_app_vers="$idir/releases/$otp_rel/installed_application_versions"
+rm_app_vers=
+if [ $cleanup = yes ]; then
+    $mv "$inst_app_vers" "${inst_app_vers}.save" || \
+	error "Failed to save $inst_app_vers"
+    for app in $applications; do
+	tmp=`grep "$app-*" "${inst_app_vers}.save"`
+	rm_app_vers="$rm_app_vers $tmp"
+    done
+    $cp "${inst_app_vers}.save" "$inst_app_vers"
+    for rm_app_ver in $rm_app_vers; do
+	$cp "$inst_app_vers" "${inst_app_vers}.tmp"
+	grep -v $rm_app_ver "${inst_app_vers}.tmp" > "$inst_app_vers"
+    done
+    $rm -f "${inst_app_vers}.tmp"
+fi
+
+# Verify runtime dependencies
+$ERL_TOP/make/verify_runtime_dependencies -release "$otp_rel" \
+    -source "$ERL_TOP" -target "$idir" $force $applications || {
+    test ! -f  "${inst_app_vers}.save" || \
+	$mv "${inst_app_vers}.save" "$inst_app_vers"
+    exit 1
+}
+
+# Update OTP_VERSION in installation
+otp_version=`cat "$idir/releases/$otp_rel/OTP_VERSION"` || {
+    test ! -f  "${inst_app_vers}.save" || \
+	$mv "${inst_app_vers}.save" "$inst_app_vers"
+    error "Not able to read $idir/releases/$otp_rel/OTP_VERSION"
+}
+
+{
+    echo "$otp_version" | sed "s|^\([^\*]*\)\**|\1\*\*|g" > \
+	"$idir/releases/$otp_rel/OTP_VERSION"
+} 2>/dev/null || {
+    test ! -f  "${inst_app_vers}.save" || \
+	$mv "${inst_app_vers}.save" "$inst_app_vers"
+    error "Not able to update $idir/releases/$otp_rel/OTP_VERSION"
+}
+
+# Do actual cleanup
+if [ "x$rm_app_vers" != "x" ]; then
+    for app_ver in $rm_app_vers; do
+	case x"$app_ver" in
+	    x)
+		;;
+	    xerts-*)
+		$rm -rf "$idir/$app_ver" ;;
+	    x*)
+		$rm -rf "$idir/lib/$app_ver" ;;
+	esac
+    done
+    $rm -f "${inst_app_vers}.save"
+fi
+
+# Install application from built source
+for app_dir in $app_dirs; do
+    (cd "$app_dir" && \
+	$MAKE MAKE="$MAKE" TARGET=$TARGET RELEASE_ROOT="$idir" \
+	RELEASE_PATH="$idir" TESTROOT="$idir" release) || exit 1
+done
+
+if [ $install_docs = yes ]; then
+# Documentation have been built and should be installed
+
+    for app_dir in $app_dirs; do
+	(cd "$app_dir" && \
+	    $MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
+	    TESTROOT="$idir" release_docs) || exit 1
+    done
+
+    (cd "$sdir/system/doc" && \
+	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
+	TESTROOT="$idir" release_docs) || exit 1
+
+    echo ""
+    echo "*"
+    echo "* NOTE! In order to update pre-formatted man pages you"
+    echo "*       need to run the 'Install' script located in:"
+    echo "*       $idir"
+    echo "*"
+fi 
+
+# If erts, kernel, stdlib or sasl is included, find versions
+for app in $applications; do
+    case "$app" in
+	erts)
+	    erts_vsn=`grep '^VSN' erts/vsn.mk | sed "s|^VSN.*=[^0-9]*\([0-9].*\)$|\1|g"`
+	    update_rel=true;;
+	kernel)
+	    kernel_vsn=`sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/kernel/vsn.mk`
+	    update_rel=true;;
+	stdlib)
+	    stdlib_vsn=`sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/stdlib/vsn.mk`
+	    update_rel=true;;
+	sasl)
+	    sasl_vsn=`sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/sasl/vsn.mk`
+	    update_rel=true;;
+	*)
+	    ;;
+    esac
+done
+
+# and find the old versions for those not included
+if [ "X$update_rel" != "X" ]; then
+    if [ "X$erts_vsn" = "X" ]; then
+	erts_vsns=`ls -d "$idir"/erts-* | sed "s|$idir/erts-\([0-9\.].*\)|\1|g"`
+	erts_vsn=`echo "$erts_vsns" | sort -t '.' -g | tail -n 1`
+    fi
+    if [ "X$kernel_vsn" = "X" ]; then
+	kernel_vsns=`ls -d "$idir"/lib/kernel-* | sed "s|$idir/lib/kernel-\([0-9\.].*\)|\1|g"`
+	kernel_vsn=`echo "$kernel_vsns" | sort -t '.' -g | tail -n 1`
+    fi
+    if [ "X$stdlib_vsn" = "X" ]; then
+	stdlib_vsns=`ls -d "$idir"/lib/stdlib-* | sed "s|$idir/lib/stdlib-\([0-9\.].*\)|\1|g"`
+	stdlib_vsn=`echo "$stdlib_vsns" | sort -t '.' -g | tail -n 1`
+    fi
+    if [ "X$sasl_vsn" = "X" ]; then
+	sasl_vsns=`ls -d "$idir"/lib/sasl-* | sed "s|$idir/lib/sasl-\([0-9\.].*\)|\1|g"`
+	sasl_vsn=`echo "$sasl_vsns" | sort -t '.' -g | tail -n 1`
+    fi
+
+    # Generate .rel, .script and .boot - to tmp dir
+    start_clean="{release, {\"Erlang/OTP\",\"$otp_rel\"}, {erts, \"$erts_vsn\"}, [{kernel,\"$kernel_vsn\"},  {stdlib,\"$stdlib_vsn\"}]}."
+    start_sasl="{release, {\"Erlang/OTP\",\"$otp_rel\"}, {erts, \"$erts_vsn\"}, [{kernel,\"$kernel_vsn\"},  {stdlib,\"$stdlib_vsn\"},  {sasl,\"$sasl_vsn\"}]}."
+
+    tmp_dir="$idir/tmp";
+    if [ ! -d "$tmp_dir" ]; then
+	$mkdir "$tmp_dir"
+    fi
+    echo "$start_sasl" > "$tmp_dir/start_sasl.rel"
+    echo "$start_clean" > "$tmp_dir/start_clean.rel"
+    echo "$start_clean" > "$tmp_dir/no_dot_erlang.rel"
+
+    $erlc -I"$idir"/lib/*/ebin -o"$tmp_dir" "$tmp_dir/start_sasl.rel" || exit 1
+    $erlc -I"$idir"/lib/*/ebin -o"$tmp_dir" +no_warn_sasl "$tmp_dir/start_clean.rel" || exit 1
+    $erlc -I"$idir"/lib/*/ebin -o"$tmp_dir" +no_warn_sasl +no_dot_erlang "$tmp_dir/no_dot_erlang.rel" || exit 1
+
+    # Generate RELEASES file
+    "$erl" -noinput +B -eval "release_handler:create_RELEASES(\"%ERL_ROOT%\", \"$tmp_dir\", \"$tmp_dir/start_sasl.rel\", []), halt()" || exit 1
+
+    # If all good so far, move generated files into target area
+    $mv "$tmp_dir/RELEASES" "$idir/releases/RELEASES.src"
+    $mv "$tmp_dir"/* "$idir/releases/$otp_rel"
+    $rmdir "$tmp_dir"
+
+    # Remove old start scripts (forces a new run of Install)
+    $rm -f "$idir"/releases/RELEASES
+    $rm -f "$idir"/bin/*.script
+    $rm -f "$idir"/bin/*.boot
+    $rm -f "$idir"/bin/erl
+
+    echo ""
+    echo "*"
+    echo "* NOTE! In order to get a runnable OTP system again you"
+    echo "*       need to run the 'Install' script located in:"
+    echo "*       $idir"
+    echo "*"
+fi
+

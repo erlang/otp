@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY message '<seealso marker="#message">message()</seealso>'>
+  <!ENTITY MESSAGES '<seealso marker="#MESSAGES">MESSAGES</seealso>'>
+  <!ENTITY start '<seealso marker="#Mod:start-3">start/3</seealso>'>
+  <!ENTITY ip_address
+  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<erlref>
+<header>
+<copyright>
+<year>2011</year>
+<year>2019</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>diameter_transport(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_transport.xml</file>
+</header>
+
+<module since="OTP R14B03">diameter_transport</module>
+<modulesummary>Diameter transport interface.</modulesummary>
+
+<description>
+
+<p>
+A module specified as a <c>transport_module</c> to &mod_add_transport;
+must implement the interface documented here.
+The interface consists of a function with which
+diameter starts a transport process and a message interface with which
+the transport process communicates with the process that starts it (aka its
+parent).</p>
+
+</description>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>DATA TYPES</title>
+
+<taglist>
+
+<tag>
+<marker id="message"/><c>message() = binary() | &codec_packet;</c></tag>
+<item>
+<p>
+A Diameter message as passed over the transport interface.</p>
+
+<p>
+For an inbound message from a transport process, a &codec_packet; must
+contain the received message in its <c>bin</c> field.
+In the case of an inbound request, any value set in the
+<c>transport_data</c> field will passed back to the transport module
+in the corresponding answer message, unless the sender supplies
+another value.</p>
+
+<p>
+For an outbound message to a transport process, a &codec_packet; has a
+value other than <c>undefined</c> in its <c>transport_data</c> field
+and has the binary() to send in its <c>bin</c> field.</p>
+</item>
+
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name since="OTP R14B03">Mod:start({Type, Ref}, Svc, Config)
+         -> {ok, Pid}
+          | {ok, Pid, LAddrs}
+          | {error, Reason}</name>
+<fsummary>Start a transport process.</fsummary>
+<type>
+<v>Type = connect | accept</v>
+<v>Ref = &mod_transport_ref;</v>
+<v>Svc = #diameter_service{}</v>
+<v>Config = term()</v>
+<v>Pid = pid()</v>
+<v>LAddrs = [&ip_address;]</v>
+<v>Reason = term()</v>
+</type>
+<desc>
+<p>
+Start a transport process.
+Called by diameter as a consequence of a call to &mod_add_transport; in
+order to establish or accept a transport connection respectively.
+A transport process maintains a connection with a single remote peer.</p>
+
+<p>
+<c>Type</c> indicates whether the transport process in question
+is being started for a connecting (<c>Type=connect</c>) or listening
+(<c>Type=accept</c>) transport.
+In the latter case, transport processes are started as required to
+accept connections from multiple peers.</p>
+
+<p>
+Ref is the value that was returned from the call to &mod_add_transport;
+that has lead to starting of a transport process.</p>
+
+<p>
+<c>Svc</c> contains capabilities passed to &mod_start_service; and
+&mod_add_transport;, values passed to the latter overriding those
+passed to the former.</p>
+
+<p>
+<c>Config</c> is as passed in <c>transport_config</c> tuple in the
+&mod_transport_opt; list passed to &mod_add_transport;.</p>
+
+<p>
+The start function should use the <c>Host-IP-Address</c> list in
+<c>Svc</c> and/or <c>Config</c> to select and return an appropriate
+list of local IP addresses.
+In the connecting case, the local address list can instead be
+communicated in a <c>connected</c> message (see &MESSAGES; below)
+following connection establishment.
+In either case, the local address list is used to populate
+<c>Host-IP-Address</c> AVPs in outgoing capabilities exchange
+messages if <c>Host-IP-Address</c> is unspecified.</p>
+
+<p>
+A transport process must implement the message interface documented below.
+It should retain the pid of its parent, monitor the parent and terminate if
+it dies.
+It should not link to the parent.
+It should exit if its transport connection with its peer is lost.</p>
+
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+
+<section>
+<marker id="MESSAGES"/>
+<title>MESSAGES</title>
+
+<p>
+All messages sent over the transport interface are of the
+form <c>{diameter, term()}</c>.</p>
+
+<p>
+A transport process can expect messages of the following types from
+its parent.</p>
+
+<taglist>
+
+<tag><c>{diameter, {send, &message; | false}}</c></tag>
+<item>
+<p>
+An outbound Diameter message.
+The atom <c>false</c> can only be received when request
+acknowledgements have been requests: see the <c>ack</c> message
+below.</p>
+</item>
+
+<tag><c>{diameter, {close, Pid}}</c></tag>
+<item>
+<p>
+A request to terminate the transport process after having received DPA
+in response to DPR.
+The transport process should exit.
+<c>Pid</c> is the pid() of the parent process.</p>
+</item>
+
+<tag><c>{diameter, {tls, Ref, Type, Bool}}</c></tag>
+<item>
+<p>
+Indication of whether or not capabilities exchange has selected
+inband security using TLS.
+<c>Ref</c> is a reference() that must be included in the
+<c>{diameter, {tls, Ref}}</c> reply message to the transport's
+parent process (see below).
+<c>Type</c> is either <c>connect</c> or <c>accept</c> depending on
+whether the process has been started for a connecting or listening
+transport respectively.
+<c>Bool</c> is a boolean() indicating whether or not the transport
+connection should be upgraded to TLS.</p>
+
+<p>
+If TLS is requested (<c>Bool=true</c>) then a connecting process should
+initiate a TLS handshake with the peer and an accepting process should
+prepare to accept a handshake.
+A successful handshake should be followed by a <c>{diameter, {tls, Ref}}</c>
+message to the parent process.
+A failed handshake should cause the process to exit.</p>
+
+<p>
+This message is only sent to a transport process over whose
+<c>Inband-Security-Id</c> configuration has indicated support for
+TLS.</p>
+</item>
+
+</taglist>
+
+<p>
+A transport process should send messages of the following types
+to its parent.</p>
+
+<taglist>
+
+<tag><c>{diameter, {self(), connected}}</c></tag>
+<item>
+<p>
+Inform the parent that the transport process with <c>Type=accept</c> has
+established a connection with the peer.
+Not sent if the transport process has <c>Type=connect</c>.</p>
+</item>
+
+<tag><c>{diameter, {self(), connected, Remote}}</c></tag><item/>
+<tag><c>{diameter, {self(), connected, Remote, [LocalAddr]}}</c></tag>
+<item>
+<p>
+Inform the parent that the transport process with <c>Type=connect</c>
+has established a connection with a peer.
+Not sent if the transport process has <c>Type=accept</c>.&nbsp;
+<c>Remote</c> is an arbitrary term that uniquely identifies the remote
+endpoint to which the transport has connected.
+A <c>LocalAddr</c> list has the same semantics as one returned from
+&start;.</p>
+</item>
+
+<tag><c>{diameter, ack}</c></tag>
+<item>
+<p>
+Request acknowledgements of unanswered requests.
+A transport process should send this once before passing incoming
+Diameter messages into diameter.
+As a result, every Diameter request passed into diameter with a
+<c>recv</c> message (below) will be answered with a
+<c>send</c> message (above), either a &message; for the transport
+process to send or the atom <c>false</c> if the request has been
+discarded or otherwise not answered.</p>
+
+<p>
+This is to allow a transport process to keep count of the number
+of incoming request messages that have not yet been answered or
+discarded, to allow it to regulate the amount of incoming traffic.
+Both diameter_tcp and diameter_sctp request acknowledgements when a
+<c>message_cb</c> is configured, turning send/recv message into
+callbacks that can be used to regulate traffic.</p>
+</item>
+
+<tag><c>{diameter, {recv, &message;}}</c></tag>
+<item>
+<p>
+An inbound Diameter message.</p>
+</item>
+
+<tag><c>{diameter, {tls, Ref}}</c></tag>
+<item>
+<p>
+Acknowledgment of a successful TLS handshake.
+<c>Ref</c> is the reference() received in the
+<c>{diameter, {tls, Ref, Type, Bool}}</c> message in response
+to which the reply is sent.
+A transport must exit if a handshake is not successful.</p>
+</item>
+
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_tcp;, &man_sctp;</p>
+
+</section>
+
+</erlref>

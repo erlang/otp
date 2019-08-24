@@ -1,0 +1,1398 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Observer Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Observer
+    application.</p>
+
+<section><title>Observer 2.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Since Logger was introduced in OTP-21.0, menu choice
+	    <em>Log &gt; Toggle Log View</em> in observer would cause
+	    a crash unless an <c>error_logger</c> event handler was
+	    explicitly installed. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15553 Aux Id: ERL-848 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Since persistent_term was introduced, observer would
+	    sometimes crash when expanding a term from a process
+	    state. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15493 Aux Id: ERL-810 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>OBSERVER_SCALE</c> environment variable for HiDPI
+	    support.</p>
+          <p>
+	    Own Id: OTP-15586 Aux Id: PR-2105 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Literals such as <c>#{"one"=>1}</c> dumped to a crash
+	    dump would cause <c>crashdump_viewer</c> to crash.</p>
+          <p>
+	    Own Id: OTP-15365 Aux Id: ERL-722 </p>
+        </item>
+        <item>
+          <p>
+	    <c>crashdump_viewer</c> would sometimes crash when
+	    processing a dump which was truncated in the
+	    <c>literals</c> area. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15377</p>
+        </item>
+        <item>
+          <p>
+	    Since OTP-20.2, <c>crashdump_viewer</c> was very slow
+	    when opening a crash dump with many processes. An
+	    ets:select per process could be removed, which improved
+	    the performance a lot.</p>
+          <p>
+	    A bug when parsing heap data in a crashdump caused
+	    <c>crashdump_viewer</c> to crash when multiple <c>Yc</c>
+	    lines referenced the same reference counted binary. This
+	    is now corrected.</p>
+          <p>
+	    Own Id: OTP-15391</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added possibility to garbage collect selected processes
+	    and fixed a crash when the saved config file contained
+	    bad data.</p>
+          <p>
+	    Own Id: OTP-14993 Aux Id: PR-1666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop.hrl used a relative path to include
+	    observer_backend.hrl, this is now changed to use
+	    include_lib instead. runtime_tools/include is added to
+	    the tertiary bootstrap.</p>
+          <p>
+	    Own Id: OTP-14842 Aux Id: ERL-534 </p>
+        </item>
+        <item>
+          <p>
+	    If a crashdump was truncated in the attributes section
+	    for a module, crashdump_viewer would crash when a module
+	    view was opened from the GUI. This bug was introduced in
+	    OTP-20.2 and is now corrected.</p>
+          <p>
+	    Own Id: OTP-14846 Aux Id: ERL-537 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized ets and mnesia table view tab in observer gui,
+	    listing 10000 tables was previously very slow.</p>
+          <p>
+	    Own Id: OTP-14856 Aux Id: ERIERL-117 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a process has many links and/or monitors, it could
+	    earlier take very long time to display the process
+	    information window. This is now improved by only showing
+	    a few links and monitors, and then an link named
+	    "more..." to expand the rest.</p>
+          <p>
+	    Own Id: OTP-14725</p>
+        </item>
+        <item>
+          <p>
+	    More crash dump info such as: process binary virtual heap
+	    stats, full info for process causing out-of-mem during
+	    GC, more port related info, and dirty scheduler info.</p>
+          <p>
+	    Own Id: OTP-14820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug introduced in OTP-20 would make Crashdump Viewer
+	    crash when trying to expand an empty binary. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14642</p>
+        </item>
+        <item>
+          <p>
+	    If a match spec in the config file contained more than
+	    one clause, observer would earlier crash when trying to
+	    display it in the GUI. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14643 Aux Id: ERL-489 </p>
+        </item>
+        <item>
+	    <p>Writing of crash dumps is significantly faster.</p>
+	    <p>Maps are now included in crash dumps.</p>
+	    <p>Constants terms would only be shown in one process,
+	    while other processes referencing the same constant term
+	    would show a marker for incomplete heap. </p>
+          <p>
+	    Own Id: OTP-14685 Aux Id: OTP-14611, OTP-14603, OTP-14595 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Binaries and some other data in crash dumps are now
+	    encoded in base64 (instead of in hex), which will reduce
+	    the size of crash dumps.</p>
+	    <p>A few bugs in the handling of sub binaries in
+	    <c>crashdump_viewer</c> have been fixed.</p>
+          <p>
+	    Own Id: OTP-14686</p>
+        </item>
+        <item>
+          <p>
+	    In order to allow future improvements, Crashdump Viewer
+	    now checks the version tag of the crashdump to see that
+	    it is a known format. If the crashdump version is newer
+	    than Crashdump Viewer is prepared to read, then an
+	    information dialog is displayed before Crashdump Viewer
+	    terminates.</p>
+          <p>
+	    If an incomplete process heap is discovered in a
+	    crashdump, Crashdump Viewer will now display a warning
+	    for this, similar to the warning displayed when a
+	    crashdump is truncated. Incomplete heaps can occur if for
+	    instance the literals are not included, which is the case
+	    for all dumps prior to OTP-20.2.</p>
+          <p>
+	    Own Id: OTP-14755</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following improvements are done to Crashdump
+	    Viewer:</p> <list> <item>Reading of crash dumps with many
+	    binaries is optimized.</item> <item>A progress bar is
+	    shown when the detail view for a process is
+	    opened.</item> <item>The <c>cdv</c> script now sets
+	    <c>ERL_CRASH_DUMP_SECONDS=0</c> to avoid generating a new
+	    crash dump from the node running the Crashdump
+	    Viewer.</item> <item>A warning dialog is shown if the
+	    node running the Crashdump Viewer could potentially
+	    overwrite the crash dump under inspection.</item>
+	    <item>Bugfix: In some situations, Crashdump Viewer could
+	    not find the end of the 'Last calls' section in a crash
+	    dump, and would erroneously mark the crash dump as
+	    truncated. This is now corrected.</item> <item>Bugfix: In
+	    some situations, process info for a specific process
+	    would be marked as truncated by Crashdump Viewer, even if
+	    the crash dump was truncated in the binary section - and
+	    not related to the process in question. This is now
+	    corrected.</item> </list>
+          <p>
+	    Own Id: OTP-14386</p>
+        </item>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+        <item>
+          <p>
+	    Add system statistics and limits to frontpage in
+	    observer.</p>
+          <p>
+	    Own Id: OTP-14536</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> had a hardcoded timeout value of 1 second
+	    when waiting for data from a remote node. When this
+	    expired, which could happen for instance if there were
+	    very many processes on the remote node, etop would exit
+	    with reason <c>connection_lost</c>. To overcome this
+	    problem, the timeout is now changed to be the same as the
+	    update interval, which is configurable.</p>
+          <p>
+	    Own Id: OTP-14393</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Show dirty-scheduler threads in performance monitor graph
+	    and add a column with maximum allocated memory in the
+	    Memory Allocators table.</p>
+          <p>
+	    Own Id: OTP-14137</p>
+        </item>
+        <item>
+          <p>
+	    Keep table and port selection after refresh of tables.
+	    Store settings before shutdown and restore when starting
+	    application.</p>
+          <p>
+	    Own Id: OTP-14270</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+          <p>
+	    When observing a node older than OTP-19.0, a pop-up will
+	    be displayed when trying to access port information.
+	    Earlier, observer would crash in this situation.</p>
+          <p>
+	    Own Id: OTP-14345 Aux Id: ERL-399 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop erroneously reported the average scheduler
+	    utilization since the tool was first started instead of
+	    the scheduler utilization since last update. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14090 Aux Id: seq13232 </p>
+        </item>
+        <item>
+          <p>
+	    crashdump_viewer crashed when the 'Slogan' had more than
+	    one line. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14093 Aux Id: ERL-318 </p>
+        </item>
+        <item>
+          <p>
+	    When clicking an HTML-link to a port before the port tab
+	    has been opened for the first time, observer would crash
+	    since port info is not initiated. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14151 Aux Id: PR-1296 </p>
+        </item>
+        <item>
+	    <p>The dialyzer and observer applications will now use a
+	    portable way to find the home directory. That means that
+	    there is no longer any need to manually set the HOME
+	    environment variable on Windows.</p>
+          <p>
+	    Own Id: OTP-14249 Aux Id: ERL-161 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The shell script (priv/bin/cdv) and bat file
+	    (priv/bin/cdv.bat) which can be used for starting
+	    crashdump_viewer both started a distributed erlang node.
+	    This would cause any attempt at starting a second
+	    instance of the crashdump_viewer to fail. To solve this
+	    problem, cdv and cdv.bat now use non-distributed nodes
+	    when starting the crashdump_viewer.</p>
+          <p>
+	    Own Id: OTP-14010</p>
+        </item>
+        <item>
+          <p>
+	    A bug caused the number of buckets to be shown in the
+	    'Objects' column, and the number of objects to be shown
+	    in the 'Memory' column for ets table in crashdump_viewer.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14064</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed error handling in observer when mnesia tables was
+	    requested and not available.</p>
+          <p>
+	    Own Id: OTP-13845 Aux Id: ERL-237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a crash happening when observing another node, who
+	    have a different number of schedulers than the current
+	    one.</p>
+          <p>
+	    Own Id: OTP-13702 Aux Id: ERL-171 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update observer GUI to support tracing on ports, and to
+	    set matchspecs for send/receive. This required some minor
+	    bugfixes in runtime_tools/dbg.</p>
+          <p>
+	    Own Id: OTP-13481</p>
+        </item>
+        <item>
+          <p>
+	    Update dbg and ttb to work with a tracer module as tracer
+	    and tracing on ports.</p>
+          <p>
+	    Own Id: OTP-13500</p>
+        </item>
+        <item>
+          <p>
+	    Added possibility to change update frequency and length
+	    of the graph windows.</p>
+          <p>
+	    Own Id: OTP-13555</p>
+        </item>
+        <item>
+          <p>
+	    Improved background coloring to work with dark themes and
+	    other visual improvements.</p>
+          <p>
+	    Own Id: OTP-13556</p>
+        </item>
+        <item>
+          <p>
+	    Crashdump viewer now allows port info "Port controls
+	    forker process..."</p>
+          <p>
+	    Own Id: OTP-13647</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Documentation corrections.</p>
+          <p>
+	    Own Id: OTP-12994</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Show ets owner pid in crashdump viewers popup window,
+	    thanks Leo Liu.</p>
+          <p>
+	    Own Id: OTP-13030</p>
+        </item>
+        <item>
+          <p>
+	    Several initialisms (eg, ERTS, ETS, SMP) are used as
+	    headings. They were being capitalized incorrectly.</p>
+          <p>
+	    Own Id: OTP-13044</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a crash in crashdump viewer when dump contained a
+	    truncated binary.</p>
+          <p>
+	    Own Id: OTP-13163</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Show run queue status in crashdump viewer.</p>
+          <p>
+	    Own Id: OTP-12401</p>
+        </item>
+        <item>
+          <p>
+	    Don't refresh observer table view if there was no change</p>
+          <p>
+	    Own Id: OTP-12819</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added display of new crashdump information available in
+	    crashdumps from Erlang/OTP 18.</p>
+          <p>
+	    Own Id: OTP-12363</p>
+        </item>
+        <item>
+          <p>
+	    Added the possibility to view sasl log entries for
+	    processes.</p>
+          <p>
+	    Own Id: OTP-12504</p>
+        </item>
+        <item>
+          <p>
+	    Add memory allocator usage and utilization graphs.</p>
+          <p>
+	    Own Id: OTP-12631</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash when opening a process information window.</p>
+          <p>
+	    Own Id: OTP-12634</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A note saying only R15B nodes can be observed is removed
+	    from the user guide.</p>
+          <p>
+	    Own Id: OTP-12078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed statusbar on Windows</p>
+          <p>
+	    Own Id: OTP-12162</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    crashdump_viewer would crash if the owner of a timer was
+	    specified as the process' registered name. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-11919</p>
+        </item>
+        <item>
+          <p>
+	    Fix crash and minor updates.</p>
+          <p>
+	    Own Id: OTP-11949</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop trace handler now works in smp environment (Thanks
+	    to Péter Gömöri)</p>
+          <p>
+	    Own Id: OTP-11633</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed gs based applications and gs based backends. The
+	    <c>observer</c> application replaces the removed
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10915</p>
+        </item>
+        <item>
+          <p>
+	    The <c>crashdump_viewer</c> is re-written using
+	    <c>wx</c>. The old <c>webtool</c> interface for
+	    <c>crashdump_viewer</c> does no longer exist.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11179</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for <c>ttb:tracer/2</c> incorrectly
+	    stated that there was an option named '<c>overload</c>',
+	    while the correct name used in the implementation is
+	    '<c>overload_check</c>'.</p>
+          <p>
+	    Own Id: OTP-11335 Aux Id: seq12385 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo in observer documentation. Thanks to Dave
+	    Parfitt.</p>
+          <p>
+	    Own Id: OTP-11475</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.3.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some bugs related to calculation of CPU/scheduler
+	    utilization in observer are corrected.</p>
+          <p>
+	    Current function for a process is accepted to be
+	    'undefined' when running hipe.</p>
+          <p>
+	    Own Id: OTP-10894</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <list> <item> The new Memory field from a crash dump is
+	    now presented by crashdump viewer, both in the process
+	    overview and in the process detail page. </item> <item> A
+	    summary of blocks- and carriers sizes is added to the
+	    allocator information page in the crashdump viewer.
+	    </item> </list>
+          <p>
+	    Own Id: OTP-10604 Aux Id: kunagi-336 [247] </p>
+        </item>
+        <item>
+          <p>
+	    Use "open" as default browser for crashdump viewer on Mac
+	    OS X. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10929</p>
+        </item>
+        <item>
+          <p>
+	    Fix observer table viewer crash on formatting improper
+	    lists. Thanks to Andrey Tsirulev</p>
+          <p>
+	    Own Id: OTP-10931</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    Add processes state view in observer. Thanks to Eric
+	    Pailleau.</p>
+          <p>
+	    Own Id: OTP-11136</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The module name in the link to the detail page for each
+	    loaded module was earlier not URL encoded. If the module
+	    name contained e.g. a # this could cause the crashdump
+	    viewer to crash when opening the link. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-10090 Aux Id: seq12068 </p>
+        </item>
+        <item>
+          <p>
+	    Escape control characters in Table Viewer</p>
+          <p>
+	    Similar behaviour to old tv. Objects in tables supposed
+	    to be printed in a single line and it looks ugly when a
+	    [...,10,...] integer list creates a new-line. Fix Table
+	    Viewer search crash on new|changed|deleted rows.</p>
+          <p>
+	    Fix Table Viewer crash after a 'Found' -&gt; 'Not found'
+	    search sequence</p>
+          <p>
+	    Start position was lost after a 'Found' -&gt; 'Not found'
+	    search sequence leading an undefined position in the next
+	    search. Thanks to Peti Gömori</p>
+          <p>
+	    Own Id: OTP-10218</p>
+        </item>
+        <item>
+          <p>
+	    observer: fix app file (Noticed-by: Motiejus Jakstys)</p>
+          <p>
+	    Add missing observer modules to observer.app.src. Thanks
+	    to Tuncer Ayaz.</p>
+          <p>
+	    Own Id: OTP-10221</p>
+        </item>
+        <item>
+          <p>
+	    Make Table Viewer search a bit faster</p>
+          <p>
+	    Edit table row in a multiline text dialog. Thanks to Peti
+	    Gomori.</p>
+          <p>
+	    Own Id: OTP-10225</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Allow tracing on bifs.</p> <p>Ask epmd for local
+	    nodes, and remember users last input in connect.</p>
+	    <p>Fix crashes when a table or process information could
+	    not be retrieved.</p>
+          <p>
+	    Own Id: OTP-10075</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The following bugs in <c>ttb</c> have been corrected:</p>
+	    <list> <item><c>ttb:tracer/2</c> would earlier crash when
+	    trying to set up tracing for a diskless node to wrap
+	    files, i.e. when option
+	    <c>{file,{local,{wrap,Filename,Size,Count}}}</c> was
+	    used.</item> <item><c>ttb:stop([fetch])</c> would
+	    sometimes silently fail if multiple nodes with different
+	    current working directories were traced.</item>
+	    <item><c>ttb:stop([fetch])</c> would crash if the tracer
+	    was started with option
+	    <c>{file,{local,Filename}}</c></item> <item>A deadlock
+	    would sometimes occur due to an information printout from
+	    the <c>ttb_control</c> process when <c>ttb</c> was
+	    stopped.</item> </list>
+          <p>
+	    Own Id: OTP-9431</p>
+        </item>
+        <item>
+          <p>
+	    The file trace port to which the IP trace client relays
+	    all traces from diskless nodes was not flushed and closed
+	    properly on ttb:stop. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9665</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new GUI for Observer. Integrating pman, etop, appmon
+	    and tv into observer with tracing facilities.</p>
+          <p>
+	    Own Id: OTP-4779</p>
+        </item>
+        <item>
+          <p>
+	    The following new features are added to <c>ttb</c>:</p>
+	    <list> <item>A one-command trace setup is added,
+	    <c>ttb:start_trace/4</c>.</item> <item>The following new
+	    options are added to <c>ttb:tracer/2</c>: <list>
+	    <item><em><c>shell</c></em> - Show trace messages on the
+	    console in real time</item> <item><em><c>timer</c></em> -
+	    Time constrained tracing</item>
+	    <item><em><c>overload</c></em> - Overload
+	    protection</item> <item><em><c>flush</c></em> - Flush
+	    file trace port buffers with given frequency</item>
+	    <item><em><c>resume</c></em> - Automatically resume
+	    tracing after node restart</item> </list> </item> <item>
+	    A new shortcut is added for common tracer settings
+	    similar to using the <c>dbg</c> module directly,
+	    <c>ttb:tracer(shell | dbg)</c>. </item> <item> Some
+	    shortcuts are added for commonly used match
+	    specifications in <c>ttb:tp</c> and <c>ttb:tpl</c>.
+	    </item> <item> The <c>Options</c> argument to functions
+	    <c>ttb:tracer</c>, <c>ttb:write_config</c>,
+	    <c>ttb:stop</c> and <c>ttb:format</c> may now be one
+	    single option instead of a list. </item> <item> The
+	    history buffer of the last trace is now always
+	    automatically dumped to the file <c>ttb_last_config</c>
+	    when <c>ttb:stop</c> is called. </item> <item> The
+	    following new options are added to <c>ttb:stop/1</c>:
+	    <list> <item><em><c>fetch_dir</c></em> - Specify where to
+	    store fetched logs</item>
+	    <item><em><c>{format,FormatOpts}</c></em> - Specify
+	    options to use when formatting the fetched logs</item>
+	    <item><em><c>return_fetch_dir</c></em> - Indicate that
+	    the return value from <c>ttb:stop/1</c> should include
+	    the name of the directory where the fetched logs are
+	    stored</item> </list> </item> <item> The option
+	    <c>disable_sort</c> is added to <c>ttb:format/2</c>. When
+	    this option is used, trace messages from different logs
+	    are not merged according to timestamps, but just appended
+	    one log after the other. </item> </list>
+          <p>
+	    Own Id: OTP-9403</p>
+        </item>
+        <item>
+          <p>
+	    The following non backwards compatible changes are done
+	    in <c>ttb</c>:</p>
+	    <list> <item> When setting up trace with ttb, the
+	    'timestamp' trace flag will now always be set. </item>
+	    <item> The 'fetch' option to ttb:stop/1 is removed since
+	    it is now default behavior that trace logs are fetched
+	    when stopping ttb. Fetching can be disabled with the
+	    'nofetch' option to ttb:stop/1. </item> <item> The name
+	    of the upload directory is changed from
+	    ttb_upload-Timestamp to ttb_upload_FileName-Timestamp.
+	    </item> <item> To format the output using 'et', you now
+	    need to provide the option {handler,ttb:get_et_handler()}
+	    instead of {handler,et}. </item> <item> When formatting a
+	    trace log, the handler state was earlier reset after each
+	    trace file, this is now changed so the handler state is
+	    passed not only from one trace message to the next in the
+	    same file, but also from one file to the next. </item>
+	    </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not install *.bat files on non-win32 machines (Thanks
+	    to Hans Ulrich Niedermann)</p>
+          <p>
+	    Own Id: OTP-9515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The time needed for loading a crashump into the crashdump
+	    viewer would earlier grow exponentially with the size of
+	    the crashdump file. Reading a file of 20M would take a
+	    couple of minutes, and for a dump of 250M it would take
+	    between 1 and 2 hours. This has been solved.</p>
+          <p>
+	    Earlier, all processes, timers, funs or ets-tables would
+	    be loaded into the memory of the crashdump viewer node
+	    before sending it on to the web server. This has been
+	    changed and the pages are now sent to the web server in
+	    chunks.</p>
+          <p>
+	    A security function in newer web browsers prevents a full
+	    file path to be sent from an HTML file input field, i.e.
+	    the field needed to implement the "Browse" button when
+	    loading a file into the crashdump viewer. To overcome
+	    this, the file input field is no longer used. Instead a
+	    normal text input field is used, and the user needs to
+	    manually insert the complete file path. For convenience,
+	    a shell script and a batch file are added to the observer
+	    application. These can be used to start the
+	    crashdump_viewer and a browser and load a file - with the
+	    file name given from the command line. The shell script
+	    and batch file are called cdv and cdv.bat respectively,
+	    and can be found in the priv dir of the observer
+	    application.</p>
+          <p>
+	    Own Id: OTP-9051 Aux Id: seq11789 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The multitrace.erl installation example file is now
+	    installed in the examples directory. (Thanks to Peter
+	    Lemenkov.)</p>
+          <p>
+	    Own Id: OTP-8857</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The test suite has been updated for R14A.</p>
+          <p>
+	    Own Id: OTP-8708</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc updates</p>
+          <p>
+	    Own Id: OTP-8456</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Major improvements of the Erlang distribution for Erlang
+	    runtime systems with SMP support. Previously distribution
+	    port locks were heavily contended, and all encoding and
+	    decoding for a specific distribution channel had to be
+	    done in sequence. Lock contention due to the distribution
+	    is now negligible and both encoding and decoding of
+	    Erlang messages can be done in parallel.</p>
+          <p>
+	    The old atom cache protocol used by the Erlang
+	    distribution has been dropped since it effectively
+	    prevented all parallel encoding and decoding of messages
+	    passed over the same distribution channel.</p>
+          <p>
+	    A new atom cache protocol has been introduced which
+	    isolates atom cache accesses and makes parallel encoding
+	    and decoding of messages passed over the same
+	    distribution channel possible. The new atom cache
+	    protocol also use an atom cache size 8 times larger than
+	    before. The new atom cache protocol is documented in the
+	    ERTS users guide.</p>
+          <p>
+	    Erlang messages received via the distribution are now
+	    decoded by the receiving Erlang processes without holding
+	    any distribution channel specific locks. Erlang messages
+	    and signals sent over the distribution are as before
+	    encoded by the sending Erlang process, but now without
+	    holding any distribution channel specific locks during
+	    the encoding. That is, both encoding and decoding can be
+	    and are done in parallel regardless of distribution
+	    channel used.</p>
+          <p>
+	    The part that cannot be parallelized is the atom cache
+	    updates. Atom cache updates are therefore now scheduled
+	    on the distribution port. Since it is only one entity per
+	    distribution channel doing this work there is no lock
+	    contention due to the atom cache updates.</p>
+          <p>
+	    The new runtime system does not understand the old atom
+	    cache protocol. New and old runtime systems can however
+	    still communicate, but no atom cache will be used.</p>
+          <p>
+	    Own Id: OTP-7774</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> would crash if the emulator's custom
+	    allocators had been turned off (e.g. using the
+	    <c>+Meamin</c> option).</p>
+          <p>
+	    Own Id: OTP-7519</p>
+        </item>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Observer 0.9.7.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>Obsolete guard tests (such as list()) have been replaced
+            with the modern guard tests (such as is_list()).</p>
+          <p>Own Id: OTP-6725</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>This application has been updated to eliminate warnings
+            by Dialyzer.</p>
+          <p>Own Id: OTP-6551</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Several minor bugs and race conditions eliminated in the
+            runtime_tools and observer applications.</p>
+          <p>Own Id: OTP-6265</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Crash dump with large integers could crash the
+            <c>crashdump_viewer</c>.</p>
+          <p>Own Id: OTP-6301</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7 (R11B)</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed a bug in <c>etop</c> which made the Load and Memory
+            information in the header incorrect -- for example the
+            value shown for <c>binary</c> (memory allocated for
+            binaries) was actually the number of currently running
+            processes. (Thanks to Rikard Johansson.)</p>
+          <p>Own Id: OTP-6075</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.6.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The Observer application has been recompiled because of
+            a compiler bug.</p>
+          <p>Own Id: OTP-5700</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.6.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>crashdump_viewer</c> is faster when showing message,
+            dictionary, and stack dump for large processes.</p>
+          <p>Own Id: OTP-5408</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>rel</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>rel</file>
+  <filesummary>Release resource file</filesummary>
+  <description>
+    <p>The <em>release resource file</em> specifies which applications
+      are included in a release (system) based on Erlang/OTP.</p>
+    <p>This file is used by the functions in 
+    <seealso marker="systools"><c>systools</c></seealso> 
+    when generating start scripts (<c>.script</c>, <c>.boot</c>) and 
+    release upgrade files (<c>relup</c>).</p>
+  </description>
+
+  <section>
+    <title>File Syntax</title>
+    <p>The release resource file is to be called <c>Name.rel</c>.</p>
+    <p>The <c>.rel</c> file contains one single Erlang term, which is
+      called a <em>release specification</em>. The file has the
+      following syntax:</p>
+    <code type="none">
+{release, {RelName,Vsn}, {erts, EVsn},
+  [{Application, AppVsn} |
+   {Application, AppVsn, Type} |
+   {Application, AppVsn, IncApps} |
+   {Application, AppVsn, Type, IncApps}]}.</code>
+    <taglist>
+      <tag><c>RelName = string()</c></tag>
+        <item><p>Release name.</p></item>
+      <tag><c>Vsn = string()</c></tag>
+        <item><p>Release version.</p></item>
+      <tag><c>EVsn = string()</c></tag>
+        <item><p>ERTS version the release is intended for.</p></item>
+      <tag><c>Application = atom()</c></tag>
+        <item><p>Name of an application included in the release.</p></item>
+      <tag><c>AppVsn = string()</c></tag>
+        <item><p>Version of an application included in the release.</p></item>
+      <tag><c>Type = permanent | transient | temporary | load | none</c></tag>
+        <item><p>Start type of an application included in the release.</p>
+          <p>If <c>Type = permanent | transient | temporary</c>, the
+          application is loaded and started in the corresponding way, see
+          <seealso marker="kernel:application"><c>application(3)</c></seealso>.</p>
+          <p>If <c>Type = load</c>, the application is only loaded.</p>
+          <p>If <c>Type = none</c>, the application is not loaded and not
+          started, although the code for its modules is loaded.</p>
+          <p>Defaults to <c>permanent</c></p></item>
+      <tag><c>IncApps = [atom()]</c></tag>
+        <item><p>A list of applications that are included by an application
+          included in the release. The list must be a subset of the
+          included applications
+          specified in the application resource file
+          (<c>Application.app</c>) and overrides this value. Defaults
+          to the same value as in the application resource file.</p></item>
+    </taglist>
+    <note>
+      <p>The list of applications must contain the Kernel and
+        STDLIB applications.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel:application"><c>application(3)</c></seealso>,
+      <seealso marker="relup"><c>relup(4)</c></seealso>,
+      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+  </section>
+</fileref>
+

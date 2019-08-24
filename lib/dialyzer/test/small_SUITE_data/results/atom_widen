@@ -1,0 +1,3 @@
+
+atom_widen.erl:10: The call atom_widen:foo('z') will never return since it differs in the 1st argument from the success typing arguments: ('a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'k' | 'l' | 'm' | 'n')
+atom_widen.erl:9: Function test/0 has no local return

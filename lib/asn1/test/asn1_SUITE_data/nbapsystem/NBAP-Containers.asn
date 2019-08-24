@@ -1,0 +1,197 @@
+-- **************************************************************
+--
+-- Container definitions
+--
+-- **************************************************************
+
+NBAP-Containers {
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) nbap (2) version1 (1) nbap-Containers (5) }
+
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- **************************************************************
+--
+-- IE parameter types from other modules.
+--
+-- **************************************************************
+
+IMPORTS
+	maxProtocolExtensions,
+	maxPrivateIEs,
+	maxProtocolIEs,
+	Criticality,
+	Presence,
+	PrivateIE-ID,
+	ProtocolIE-ID
+FROM NBAP-CommonDataTypes;
+
+-- **************************************************************
+--
+-- Class Definition for Protocol IEs
+--
+-- **************************************************************
+
+NBAP-PROTOCOL-IES ::= CLASS {
+	&id		ProtocolIE-ID 			UNIQUE,
+	&criticality	Criticality,
+	&Value,
+	&presence	Presence
+}
+WITH SYNTAX {
+	ID		&id
+	CRITICALITY	&criticality
+	TYPE		&Value
+	PRESENCE	&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Protocol IEs
+--
+-- **************************************************************
+
+NBAP-PROTOCOL-IES-PAIR ::= CLASS {
+	&id			ProtocolIE-ID 			UNIQUE,
+	&firstCriticality	Criticality,
+	&FirstValue,
+	&secondCriticality	Criticality,
+	&SecondValue,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID			&id
+	FIRST CRITICALITY	&firstCriticality
+	FIRST TYPE		&FirstValue
+	SECOND CRITICALITY 	&secondCriticality
+	SECOND TYPE		&SecondValue
+	PRESENCE		&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Protocol Extensions
+--
+-- **************************************************************
+
+NBAP-PROTOCOL-EXTENSION ::= CLASS {
+	&id		ProtocolIE-ID 		UNIQUE,
+	&criticality	Criticality,
+	&Extension,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID		&id
+	CRITICALITY	&criticality
+	EXTENSION	&Extension
+	PRESENCE	&presence
+}
+
+-- **************************************************************
+--
+-- Class Definition for Private IEs
+--
+-- **************************************************************
+
+NBAP-PRIVATE-IES ::= CLASS {
+	&id		PrivateIE-ID,
+	&criticality	Criticality,
+	&Value,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID		&id
+	CRITICALITY	&criticality
+	TYPE	&Value
+	PRESENCE	&presence
+}
+
+-- **************************************************************
+--
+-- Container for Protocol IEs
+--
+-- **************************************************************
+
+ProtocolIE-Container {NBAP-PROTOCOL-IES : IEsSetParam} ::= 
+	SEQUENCE (SIZE (0..maxProtocolIEs)) OF
+	ProtocolIE-Field {{IEsSetParam}}
+
+ProtocolIE-Single-Container {NBAP-PROTOCOL-IES : IEsSetParam} ::=
+	ProtocolIE-Field {{IEsSetParam}}
+
+ProtocolIE-Field {NBAP-PROTOCOL-IES : IEsSetParam} ::= SEQUENCE {
+	id		NBAP-PROTOCOL-IES.&id		({IEsSetParam}),
+	criticality		NBAP-PROTOCOL-IES.&criticality	({IEsSetParam}{@id}),
+	value		NBAP-PROTOCOL-IES.&Value	 ({IEsSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container for Protocol IE Pairs
+--
+-- **************************************************************
+
+ProtocolIE-ContainerPair {NBAP-PROTOCOL-IES-PAIR : IEsSetParam} ::= 
+	SEQUENCE (SIZE (0..maxProtocolIEs)) OF
+	ProtocolIE-FieldPair {{IEsSetParam}}
+
+ProtocolIE-FieldPair {NBAP-PROTOCOL-IES-PAIR : IEsSetParam} ::= SEQUENCE {
+	id				NBAP-PROTOCOL-IES-PAIR.&id			({IEsSetParam}),
+	firstCriticality		NBAP-PROTOCOL-IES-PAIR.&firstCriticality	({IEsSetParam}{@id}),
+	firstValue			NBAP-PROTOCOL-IES-PAIR.&FirstValue	({IEsSetParam}{@id}),
+	secondCriticality		NBAP-PROTOCOL-IES-PAIR.&secondCriticality	({IEsSetParam}{@id}),
+	secondValue			NBAP-PROTOCOL-IES-PAIR.&SecondValue	({IEsSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container Lists for Protocol IE Containers
+--
+-- **************************************************************
+
+ProtocolIE-ContainerList {INTEGER : lowerBound, INTEGER : upperBound, NBAP-PROTOCOL-IES : IEsSetParam} ::=
+	SEQUENCE (SIZE (lowerBound..upperBound)) OF
+	ProtocolIE-Container {{IEsSetParam}}
+
+ProtocolIE-ContainerPairList {INTEGER : lowerBound, INTEGER : upperBound, NBAP-PROTOCOL-IES-PAIR : IEsSetParam} ::=
+	SEQUENCE (SIZE (lowerBound..upperBound)) OF
+	ProtocolIE-ContainerPair {{IEsSetParam}}
+
+-- **************************************************************
+--
+-- Container for Protocol Extensions
+--
+-- **************************************************************
+
+ProtocolExtensionContainer {NBAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= 
+	SEQUENCE (SIZE (1..maxProtocolExtensions)) OF
+	ProtocolExtensionField {{ExtensionSetParam}}
+
+ProtocolExtensionField {NBAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= SEQUENCE {
+	id		NBAP-PROTOCOL-EXTENSION.&id	({ExtensionSetParam}),
+	criticality	NBAP-PROTOCOL-EXTENSION.&criticality	({ExtensionSetParam}{@id}),
+	extensionValue	NBAP-PROTOCOL-EXTENSION.&Extension	({ExtensionSetParam}{@id})
+}
+
+-- **************************************************************
+--
+-- Container for Private IEs
+--
+-- **************************************************************
+
+PrivateIE-Container {NBAP-PRIVATE-IES : IEsSetParam} ::= 
+	SEQUENCE (SIZE (1..maxPrivateIEs)) OF
+	PrivateIE-Field {{IEsSetParam}}
+
+PrivateIE-Field {NBAP-PRIVATE-IES : IEsSetParam} ::= SEQUENCE {
+	id			NBAP-PRIVATE-IES.&id	
+	({IEsSetParam}),
+	criticality			NBAP-PRIVATE-IES.&criticality
+	({IEsSetParam}{@id}),
+	value		NBAP-PRIVATE-IES.&Value
+	({IEsSetParam}{@id})
+}
+
+END

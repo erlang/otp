@@ -1,0 +1,5 @@
+
+bad_argument.erl:14: Function t3/0 has no local return
+bad_argument.erl:15: Guard test is_map('not_a_map') can never succeed
+bad_argument.erl:5: Function t/0 has no local return
+bad_argument.erl:6: A key of type 'b' cannot exist in a map of type #{'a':='q'}

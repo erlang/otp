@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>application</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">application</module>
+  <modulesummary>Generic OTP application functions</modulesummary>
+  <description>
+    <p>In OTP, <em>application</em> denotes a component implementing
+      some specific functionality, that can be started and stopped as a
+      unit, and that can be reused in other systems. This
+      module interacts with <em>application controller</em>, a process
+      started at every Erlang runtime system. This module contains functions
+      for controlling applications (for example, starting and stopping
+      applications), and functions to access information about
+      applications (for example, configuration parameters).</p>
+    <p>An application is defined by an <em>application specification</em>.
+      The specification is normally located in an
+      <em>application resource file</em> named <c>Application.app</c>,
+      where <c>Application</c> is the application name. For details
+      about the application specification, see
+    <seealso marker="app"><c>app(4)</c></seealso>.</p>
+    <p>This module can also be viewed as a behaviour for an application
+      implemented according to the OTP design principles as a
+      supervision tree. The definition of how to start and stop
+      the tree is to be located in an <em>application callback module</em>,
+      exporting a predefined set of functions.</p>
+    <p>For details about applications and behaviours, see
+    <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso>.</p>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="start_type"/>
+    </datatype>
+    <datatype>
+      <name name="restart_type"/>
+    </datatype>
+    <datatype>
+      <name>tuple_of(T)</name>
+      <desc><p>A tuple where the elements are of type <c>T</c>.</p></desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+        <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
+        <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
+        <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
+        <desc>
+          <p>Equivalent to calling
+	  <seealso marker="#start/1"><c>start/1,2</c></seealso>
+          repeatedly on all dependencies that are not yet started for an application.</p>
+          <p>Returns <c>{ok, AppNames}</c> for a successful start or for an already started
+          application (which is, however, omitted from the <c>AppNames</c> list).</p>
+	  <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where
+	  <c>Reason</c> is any possible reason returned by
+	  <seealso marker="#start/1"><c>start/1,2</c></seealso>
+	  when starting a specific dependency.</p>
+	  <p>If an error occurs, the applications started by the function are stopped
+	  to bring the set of running applications back to its initial state.</p>
+        </desc>
+    </func>
+    <func>
+      <name name="ensure_started" arity="1" since="OTP R16B01"/>
+      <name name="ensure_started" arity="2" since="OTP R16B01"/>
+      <fsummary>Load and start an application.</fsummary>
+      <desc>
+	<p>Equivalent to
+	<seealso marker="#start/1"><c>start/1,2</c></seealso>
+	except it returns <c>ok</c> for already started applications.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_all_env" arity="0" since=""/>
+      <name name="get_all_env" arity="1" since=""/>
+      <fsummary>Get the configuration parameters for an application.</fsummary>
+      <desc>
+        <p>Returns the configuration parameters and their values for
+          <c><anno>Application</anno></c>. If the argument is omitted, it defaults to
+          the application of the calling process.</p>
+        <p>If the specified application is not loaded, or if the process
+          executing the call does not belong to any application,
+          the function returns <c>[]</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_all_key" arity="0" since=""/>
+      <name name="get_all_key" arity="1" since=""/>
+      <fsummary>Get the application specification keys.</fsummary>
+      <desc>
+        <p>Returns the application specification keys and their values
+          for <c><anno>Application</anno></c>. If the argument is omitted, it
+          defaults to the application of the calling process.</p>
+        <p>If the specified application is not loaded, the function
+          returns <c>undefined</c>. If the process executing the call
+          does not belong to any application, the function returns
+          <c>[]</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_application" arity="0" since=""/>
+      <name name="get_application" arity="1" since=""/>
+      <fsummary>Get the name of an application containing a certain process or module.</fsummary>
+      <desc>
+        <p>Returns the name of the application to which the process
+          <c><anno>Pid</anno></c> or the module <c><anno>Module</anno></c> belongs. Providing no
+          argument is the same as calling
+          <c>get_application(self())</c>.</p>
+        <p>If the specified process does not belong to any application,
+          or if the specified process or module does not exist,
+          the function returns <c>undefined</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_env" arity="1" since=""/>
+      <name name="get_env" arity="2" since=""/>
+      <fsummary>Get the value of a configuration parameter.</fsummary>
+      <desc>
+        <p>Returns the value of configuration parameter <c><anno>Par</anno></c>
+          for <c><anno>Application</anno></c>. If the application argument is
+          omitted, it defaults to the application of the calling
+          process.</p>
+	  <p>Returns <c>undefined</c> if any of the following applies:</p>
+	  <list type="bulleted">
+	    <item>The specified application is not loaded.</item>
+	    <item>The configuration parameter does not exist.</item>
+	    <item>The process executing the call does not belong to any application.</item>
+	  </list>
+      </desc>
+    </func>
+    <func>
+      <name name="get_env" arity="3" since="OTP R16B"/>
+      <fsummary>Get the value of a configuration parameter using a default.</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#get_env/2"><c>get_env/2</c></seealso> but returns
+          value <c><anno>Def</anno></c> when configuration parameter
+          <c><anno>Par</anno></c> does not exist.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_key" arity="1" since=""/>
+      <name name="get_key" arity="2" since=""/>
+      <fsummary>Get the value of an application specification key.</fsummary>
+      <desc>
+        <p>Returns the value of the application specification key
+          <c><anno>Key</anno></c> for <c><anno>Application</anno></c>. If the application
+          argument is omitted, it defaults to the application of
+          the calling process.</p>
+	  <p>Returns <c>undefined</c> if any of the following applies:</p>
+	  <list type="bulleted">
+	    <item>The specified application is not loaded.</item>
+	    <item>The specification key does not exist.</item>
+	    <item>The process executing the call does not belong to any application.</item>
+	  </list>
+
+      </desc>
+    </func>
+    <func>
+      <name name="load" arity="1" since=""/>
+      <name name="load" arity="2" since=""/>
+      <fsummary>Load an application.</fsummary>
+      <type name="application_spec"/>
+      <type name="application_opt"/>
+      <desc>
+        <p>Loads the application specification for an application into
+          the application controller. It also loads the application
+          specifications for any included applications. Notice that
+          the function does not load the Erlang object code.</p>
+        <p>The application can be specified by its name <c><anno>Application</anno></c>.
+          In this case, the application controller searches the code
+          path for the application resource file <c><anno>Application</anno>.app</c>
+          and loads the specification it contains.</p>
+        <p>The application specification can also be specified directly as a
+          tuple <c><anno>AppSpec</anno></c>, having the format and
+          contents as described in
+	<seealso marker="app"><c>app(4)</c></seealso>.</p>
+        <p>If <c><anno>Distributed</anno> == {<anno>Application</anno>,[<anno>Time</anno>,]<anno>Nodes</anno>}</c>,
+          the application becomes distributed. The argument overrides
+          the value for the application in the Kernel configuration
+          parameter <c>distributed</c>. <c><anno>Application</anno></c> must be
+          the application name (same as in the first argument).
+          If a node crashes and <c><anno>Time</anno></c> is specified,
+          the application controller waits for <c><anno>Time</anno></c>
+          milliseconds before attempting to restart the application on
+          another node. If <c><anno>Time</anno></c> is not specified, it
+          defaults to <c>0</c> and the application is restarted
+          immediately.</p>
+        <p><c><anno>Nodes</anno></c> is a list of node names where the application
+          can run, in priority from left to right. Node names can be
+          grouped using tuples to indicate that they have the same
+          priority.</p>
+	  <p><em>Example:</em></p>
+        <code type="none">
+Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
+        <p>This means that the application is preferably to be started
+          at <c>cp1@cave</c>. If <c>cp1@cave</c> is down,
+          the application is to be started at <c>cp2@cave</c>
+          or <c>cp3@cave</c>.</p>
+        <p>If <c>Distributed == default</c>, the value for
+          the application in the Kernel configuration parameter
+          <c>distributed</c> is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="loaded_applications" arity="0" since=""/>
+      <fsummary>Get the currently loaded applications.</fsummary>
+      <desc>
+        <p>Returns a list with information about the applications, and included
+	  applications, which are loaded using <c>load/1,2</c>.
+          <c><anno>Application</anno></c> is the application name.
+          <c><anno>Description</anno></c> and <c><anno>Vsn</anno></c> are the values
+	  of their <c>description</c> and <c>vsn</c> application specification
+          keys, respectively.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="set_env" arity="1" since="OTP 21.3"/>
+      <name name="set_env" arity="2" since="OTP 21.3"/>
+      <fsummary>Sets the configuration parameters of multiple applications.</fsummary>
+      <desc>
+        <p>Sets the configuration <c><anno>Config</anno></c> for multiple
+          applications. It is equivalent to calling <c>set_env/4</c> on
+          each application individially, except it is more efficient.
+          The given <c><anno>Config</anno></c> is validated before the
+          configuration is set.</p>
+        <p><c>set_env/2</c> uses the standard <c>gen_server</c> time-out
+          value (5000 ms). Option <c>timeout</c> can be specified
+          if another time-out value is useful, for example, in situations
+          where the application controller is heavily loaded.</p>
+        <p>Option <c>persistent</c> can be set to <c>true</c>
+          to guarantee that parameters set with <c>set_env/2</c>
+          are not overridden by those defined in the application resource
+          file on load. This means that persistent values will stick after the application
+          is loaded and also on application reload.</p>
+        <p>If an application is given more than once or if an application
+          has the same key given more than once, the behaviour is undefined
+          and a warning message will be logged. In future releases, an error
+          will be raised.</p>
+        <p><c>set_env/1</c> is equivalent to <c>set_env(Config, [])</c>.</p>
+        <warning>
+          <p>Use this function only if you know what you are doing,
+            that is, on your own applications. It is very
+            application-dependent and
+            configuration parameter-dependent when and how often
+            the value is read by the application. Careless use
+            of this function can put the application in a
+            weird, inconsistent, and malfunctioning state.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name name="permit" arity="2" since=""/>
+      <fsummary>Change the permission for an application to run at a node.</fsummary>
+      <desc>
+        <p>Changes the permission for <c><anno>Application</anno></c> to run at
+          the current node. The application must be loaded using
+          <c>load/1,2</c> for the function to have effect.</p>
+        <p>If the permission of a loaded, but not started, application
+          is set to <c>false</c>, <c>start</c> returns <c>ok</c> but
+          the application is not started until the permission is
+          set to <c>true</c>.</p>
+        <p>If the permission of a running application is set to
+          <c>false</c>, the application is stopped. If
+          the permission later is set to <c>true</c>, it is
+          restarted.</p>
+        <p>If the application is distributed, setting the permission to
+          <c>false</c> means that the application will be started at, or
+          moved to, another node according to how its distribution is
+          configured
+	(see <seealso marker="#load/2"><c>load/2</c></seealso>).</p>
+        <p>The function does not return until the application is
+          started, stopped, or successfully moved to another node.
+          However, in some cases where permission is set to <c>true</c>,
+          the function returns <c>ok</c> even though the application
+          is not started. This is true when an application
+          cannot start because of dependencies to other
+          applications that are not yet started. When they are
+          started, <c>Application</c> is started as well.</p>
+        <p>By default, all applications are loaded with permission
+          <c>true</c> on all nodes. The permission can be configured
+          using the Kernel configuration parameter <c>permissions</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="set_env" arity="3" since=""/>
+      <name name="set_env" arity="4" since=""/>
+      <fsummary>Set the value of a configuration parameter.</fsummary>
+      <desc>
+        <p>Sets the value of configuration parameter <c><anno>Par</anno></c> for
+          <c><anno>Application</anno></c>.</p>
+        <p><c>set_env/4</c> uses the standard <c>gen_server</c> time-out
+          value (5000 ms). Option <c>timeout</c> can be specified
+          if another time-out value is useful, for example, in situations
+          where the application controller is heavily loaded.</p>
+        <p>If <c>set_env/4</c> is called before the application is loaded,
+          the application environment values specified in file <c>Application.app</c>
+          override the ones previously set. This is also true for application
+          reloads.</p>
+        <p>Option <c>persistent</c> can be set to <c>true</c>
+          to guarantee that parameters set with <c>set_env/4</c>
+          are not overridden by those defined in the application resource
+          file on load. This means that persistent values will stick after the application
+          is loaded and also on application reload.</p>
+        <warning>
+          <p>Use this function only if you know what you are doing,
+            that is, on your own applications. It is very
+	    application-dependent and
+	    configuration parameter-dependent when and how often
+            the value is read by the application. Careless use
+            of this function can put the application in a
+            weird, inconsistent, and malfunctioning state.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
+      <fsummary>Load and start an application.</fsummary>
+       <desc>
+        <p>Starts <c><anno>Application</anno></c>. If it is not loaded,
+          the application controller first loads it using
+          <c>load/1</c>. It ensures that any included applications
+          are loaded, but does not start them. That is assumed to be
+          taken care of in the code for <c><anno>Application</anno></c>.</p>
+        <p>The application controller checks the value of
+          the application specification key <c>applications</c>, to
+          ensure that all applications needed to be started before
+          this application are running. Otherwise,
+          <c>{error,{not_started,App}}</c> is returned, where <c>App</c>
+          is the name of the missing application.</p>
+        <p>The application controller then creates an <em>application master</em>
+          for the application. The application master becomes the
+          group leader of all the processes in the application. I/O is
+          forwarded to the previous group leader, though, this is just
+          a way to identify processes that belong to the application.
+          Used for example to find itself from any process, or,
+          reciprocally, to kill them all when it terminates.</p>
+        <p>
+          The application master starts the application by calling
+          the application callback function <c>Module:start/2</c> as
+          defined by the application specification key <c>mod</c>.</p>
+        <p>Argument <c><anno>Type</anno></c> specifies the type of
+          the application. If omitted, it defaults to <c>temporary</c>.</p>
+        <list type="bulleted">
+          <item>If a permanent application terminates, all other
+           applications and the entire Erlang node are also terminated.</item>
+          <item>
+	    <list type="bulleted">
+	      <item>If a transient application terminates with <c>Reason == normal</c>,
+	      this is reported but no other applications are terminated.</item>
+	      <item>If a transient application terminates abnormally, all other
+	      applications and the entire Erlang node are also terminated.</item>
+	    </list>
+	   </item>
+          <item>If a temporary application terminates, this is reported
+           but no other applications are terminated.</item>
+        </list>
+        <p>Notice that an application can always be stopped
+          explicitly by calling <c>stop/1</c>. Regardless of the type of
+          the application, no other applications are affected.</p>
+        <p>Notice also that the transient type is of little practical use,
+          because when a supervision tree terminates, the reason is set to
+          <c>shutdown</c>, not <c>normal</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start_type" arity="0" since=""/>
+      <fsummary>Get the start type of an ongoing application startup.</fsummary>
+      <desc>
+        <p>This function is intended to be called by a process belonging
+          to an application, when the application is started, to
+          determine the start type, which is <c><anno>StartType</anno></c> or
+          <c>local</c>.</p>
+        <p>For a description of <c><anno>StartType</anno></c>, see
+	  <seealso marker="#start_type"><c>Module:start/2</c></seealso>.</p>
+        <p><c>local</c> is returned if only parts of the application are
+          restarted (by a supervisor), or if the function is
+          called outside a startup.</p>
+        <p>If the process executing the call does not belong to any
+          application, the function returns <c>undefined</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stop" arity="1" since=""/>
+      <fsummary>Stop an application.</fsummary>
+      <desc>
+        <p>Stops <c><anno>Application</anno></c>. The application master calls
+          <c>Module:prep_stop/1</c>, if such a function is defined, and
+          then tells the top supervisor of the application to shut down
+          (see <seealso marker="stdlib:supervisor"><c>supervisor(3)</c></seealso>).
+	  This means that the entire
+          supervision tree, including included applications, is
+          terminated in reversed start order. After the shutdown,
+          the application master calls <c>Module:stop/1</c>.
+          <c>Module</c> is the callback module as defined by
+          the application specification key <c>mod</c>.</p>
+        <p>Last, the application master terminates. Notice that all
+          processes with the application master as group leader, that is,
+          processes spawned from a process belonging to the application,
+          are also terminated.</p>
+        <p>When stopped, the application is still loaded.</p>
+        <p>To stop a distributed application, <c>stop/1</c>
+          must be called on all nodes where it can execute (that is,
+          on all nodes where it has been started). The call to
+          <c>stop/1</c> on the node where the application currently
+          executes stops its execution. The application is not
+          moved between nodes, as <c>stop/1</c> is called on
+          the node where the application currently executes before
+          <c>stop/1</c> is called on the other nodes.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="takeover" arity="2" since=""/>
+      <fsummary>Take over a distributed application.</fsummary>
+      <desc>
+        <p>Takes over the distributed application
+          <c><anno>Application</anno></c>, which executes at another node
+          <c>Node</c>. At the current node, the application is
+          restarted by calling
+          <c>Module:start({takeover,Node},StartArgs)</c>. <c>Module</c>
+          and <c>StartArgs</c> are retrieved from the loaded application
+          specification. The application at the other node is not
+          stopped until the startup is completed, that is, when
+          <c>Module:start/2</c> and any calls to
+          <c>Module:start_phase/3</c> have returned.</p>
+        <p>Thus, two instances of the application run simultaneously
+          during the takeover, so that data can be transferred
+          from the old to the new instance. If this is not an acceptable
+          behavior, parts of the old instance can be shut down when
+          the new instance is started. However, the application cannot
+          be stopped entirely, at least the top supervisor
+          must remain alive.</p>
+        <p>For a description of <c>Type</c>, see
+	<seealso marker="#start/1"><c>start/1,2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unload" arity="1" since=""/>
+      <fsummary>Unload an application.</fsummary>
+      <desc>
+        <p>Unloads the application specification for <c><anno>Application</anno></c>
+          from the application controller. It also unloads
+          the application specifications for any included applications.
+          Notice that the function does not purge the Erlang
+          object code.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unset_env" arity="2" since=""/>
+      <name name="unset_env" arity="3" since=""/>
+      <fsummary>Unset the value of a configuration parameter.</fsummary>
+      <desc>
+        <p>Removes the configuration parameter <c><anno>Par</anno></c> and its value
+          for <c><anno>Application</anno></c>.</p>
+        <p><c>unset_env/2</c> uses the standard <c>gen_server</c>
+          time-out value (5000 ms). Option <c>timeout</c> can be
+          specified if another time-out value is useful, for example, in
+          situations where the application controller is heavily loaded.</p>
+        <p><c>unset_env/3</c> also allows the persistent option to be passed
+          (see <seealso marker="#set_env/4"><c>set_env/4</c></seealso>).</p>
+	<warning>
+          <p>Use this function only if you know what you are doing,
+            that is, on your own applications. It is very
+	    application-dependent and configuration
+	    parameter-dependent when and how often
+            the value is read by the application. Careless use
+            of this function can put the application in a
+            weird, inconsistent, and malfunctioning state.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name name="which_applications" arity="0" since=""/>
+      <name name="which_applications" arity="1" since=""/>
+      <fsummary>Get the currently running applications.</fsummary>
+      <desc>
+        <p>Returns a list with information about the applications that
+          are currently running. <c><anno>Application</anno></c> is the application
+          name. <c><anno>Description</anno></c> and <c><anno>Vsn</anno></c> are the
+	  values of their <c>description</c> and <c>vsn</c> application specification
+          keys, respectively.</p>
+        <p><c>which_applications/0</c> uses the standard
+          <c>gen_server</c> time-out value (5000 ms). A <c><anno>Timeout</anno></c>
+          argument can be specified if another time-out value is useful,
+          for example, in situations where the application controller
+          is heavily loaded.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Callback Module</title>
+    <p>The following functions are to be exported from an
+      <c>application</c> callback module.</p>
+  </section>
+  <funcs>
+    <func>
+      <name since="">Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
+      <fsummary>Start an application.</fsummary>
+      <type>
+        <v>StartType = <seealso marker="#type-start_type"><c>start_type()</c></seealso></v>
+        <v>StartArgs = term()</v>
+        <v>Pid = pid()</v>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>This function is called whenever an application is started
+          using <c>start/1,2</c>, and is to start
+          the processes of the application. If the application is
+          structured according to the OTP design principles as a
+          supervision tree, this means starting the top supervisor of
+          the tree.</p>
+        <p><marker id="start_type"/><c>StartType</c> defines the type of start:</p>
+        <list type="bulleted">
+          <item><c>normal</c> if it is a normal startup.</item>
+          <item><c>normal</c> also if the application is distributed and
+           started at the current node because of a failover from another
+           node, and the application specification key <c>start_phases == undefined</c>.</item>
+          <item><c>{takeover,Node}</c> if the application is
+           distributed and started at the current node because of a
+           takeover from <c>Node</c>, either because
+          <c>takeover/2</c> has been called or because
+           the current node has higher priority than <c>Node</c>.</item>
+          <item><c>{failover,Node}</c> if the application is
+           distributed and started at the current node because of a
+           failover from <c>Node</c>, and the application
+           specification key <c>start_phases /= undefined</c>.</item>
+        </list>
+        <p><c>StartArgs</c> is the <c>StartArgs</c> argument defined by
+          the application specification key <c>mod</c>.</p>
+        <p>The function is to return <c>{ok,Pid}</c> or
+          <c>{ok,Pid,State}</c>, where <c>Pid</c> is the pid of the top
+          supervisor and <c>State</c> is any term. If omitted,
+          <c>State</c> defaults to <c>[]</c>. If the application
+          is stopped later, <c>State</c> is passed to
+          <c>Module:prep_stop/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">Module:start_phase(Phase, StartType, PhaseArgs) -> ok | {error, Reason}</name>
+      <fsummary>Extended start of an application.</fsummary>
+      <type>
+        <v>Phase = atom()</v>
+        <v>StartType = <seealso marker="#type-start_type"><c>start_type()</c></seealso></v>
+        <v>PhaseArgs = term()</v>
+        <v>Pid = pid()</v>
+        <v>State = state()</v>
+      </type>
+      <desc>
+        <p>Starts an application with included
+          applications, when synchronization is needed between
+          processes in the different applications during startup.</p>
+        <p>The start phases are defined by the application specification
+          key <c>start_phases == [{Phase,PhaseArgs}]</c>. For included
+          applications, the set of phases must be a subset of the set of
+          phases defined for the including application.</p>
+        <p>The function is called for each start phase (as defined for
+          the primary application) for the primary application and all
+          included applications, for which the start phase is defined.</p>
+        <p>For a description of <c>StartType</c>, see
+	<seealso marker="#Module:start/2"><c>Module:start/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">Module:prep_stop(State) -> NewState</name>
+      <fsummary>Prepare an application for termination.</fsummary>
+      <type>
+        <v>State = NewState = term()</v>
+      </type>
+      <desc>
+        <p>This function is called when an application is about to be
+          stopped, before shutting down the processes of
+          the application.</p>
+        <p><c>State</c> is the state returned from
+          <c>Module:start/2</c>, or <c>[]</c> if no state was returned.
+          <c>NewState</c> is any term and is passed to
+          <c>Module:stop/1</c>.</p>
+        <p>The function is optional. If it is not defined, the processes
+          are terminated and then <c>Module:stop(State)</c> is called.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">Module:stop(State)</name>
+      <fsummary>Clean up after termination of an application.</fsummary>
+      <type>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>This function is called whenever an application has stopped.
+          It is intended to be the opposite of <c>Module:start/2</c>
+          and is to do any necessary cleaning up. The return value is
+          ignored.</p>
+        <p><c>State</c> is the return value of <c>Module:prep_stop/1</c>,
+	  if such a function exists. Otherwise <c>State</c> is taken from
+	  the return value of <c>Module:start/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">Module:config_change(Changed, New, Removed) -> ok</name>
+      <fsummary>Update the configuration parameters for an application.</fsummary>
+      <type>
+        <v>Changed = [{Par,Val}]</v>
+        <v>New = [{Par,Val}]</v>
+        <v>Removed = [Par]</v>
+        <v>&nbsp;Par = atom()</v>
+        <v>&nbsp;Val = term()</v>
+      </type>
+      <desc>
+        <p>This function is called by an application after a code
+          replacement, if the configuration parameters have changed.</p>
+        <p><c>Changed</c> is a list of parameter-value tuples including all
+          configuration parameters with changed values.</p>
+	<p><c>New</c> is a list of parameter-value tuples including all
+	  added configuration parameters.</p>
+	<p><c>Removed</c> is a list of all removed parameters.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso>,
+      <seealso marker="kernel_app">kernel(6)</seealso>,
+      <seealso marker="app">app(4)</seealso></p>
+  </section>
+</erlref>

@@ -1,0 +1,10 @@
+
+trec.erl:29: The call trec:mk_foo_loc
+         (42,
+          any()) will never return since it differs in the 1st argument from the success typing arguments: 
+         ('undefined',
+          atom())
+trec.erl:32: Record construction violates the declared type for #foo{} since variable A cannot be of type 
+          atom()
+trec.erl:39: Record construction violates the declared type for #foo{} since variable A cannot be of type 
+          atom()

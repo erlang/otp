@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Distributed Applications</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>distributed_applications.xml</file>
+  </header>
+  <marker id="distributed appl"></marker>
+
+  <section>
+    <title>Introduction</title>
+    <p>In a distributed system with several Erlang nodes, it can be
+      necessary to control applications in a distributed manner. If
+      the node, where a certain application is running, goes down,
+      the application is to be restarted at another node.</p>
+    <p>Such an application is called a <em>distributed application</em>.
+      Notice that it is the control of the application that is distributed.
+      All applications can be distributed in the sense that they,
+      for example, use services on other nodes.</p>
+    <p>Since a distributed application can move between nodes, some
+      addressing mechanism is required to ensure that it can be
+      addressed by other applications, regardless on which node it
+      currently executes. This issue is not addressed here, but the
+      <c>global</c> or <c>pg2</c> modules in Kernel
+      can be used for this purpose.</p>
+  </section>
+
+  <section>
+    <title>Specifying Distributed Applications</title>
+    <p>Distributed applications are controlled by both the application
+    controller and a distributed application controller process,
+    <c>dist_ac</c>. Both these processes are part of the Kernel
+    application. Distributed applications are thus specified by
+    configuring the Kernel application, using the following
+    configuration parameter (see also <c>kernel(6)</c>):</p>
+    <p><c>distributed = [{Application, [Timeout,] NodeDesc}]</c></p>
+    <list type="bulleted">
+      <item>Specifies where the application <c>Application = atom()</c>
+      can execute.</item>
+      <item>><c>NodeDesc = [Node | {Node,...,Node}]</c> is a list of
+      node names in priority order. The order between nodes in a tuple
+      is undefined.</item>
+      <item><c>Timeout = integer()</c> specifies how many milliseconds
+      to wait before restarting the application at another node. It
+      defaults to 0.</item>
+    </list>
+    <p>For distribution of application control to work properly,
+      the nodes where a distributed application can run must contact
+      each other and negotiate where to start the application. This is
+      done using the following configuration parameters in
+      Kernel:</p>
+      <list type="bulleted">
+	<item><c>sync_nodes_mandatory = [Node]</c> - Specifies which
+	other nodes must be started (within the time-out specified by
+	<c>sync_nodes_timeout</c>).</item>
+	<item><c>sync_nodes_optional = [Node]</c> - Specifies which
+	other nodes can be started (within the time-out specified by
+	<c>sync_nodes_timeout</c>).</item>
+	<item><c>sync_nodes_timeout = integer() | infinity</c> -
+	Specifies how many milliseconds to wait for the other nodes to
+	start.</item>
+      </list>
+    <p>When started, the node waits for all nodes specified by
+      <c>sync_nodes_mandatory</c> and <c>sync_nodes_optional</c> to
+      come up. When all nodes are up, or when all mandatory nodes
+      are up and the time specified by <c>sync_nodes_timeout</c>
+      has elapsed, all applications start. If not all
+      mandatory nodes are up, the node terminates.</p>
+    <p><em>Example:</em></p>
+    <p>An application <c>myapp</c> is to run at the node
+      <c>cp1@cave</c>. If this node goes down, <c>myapp</c> is to
+      be restarted at <c>cp2@cave</c> or <c>cp3@cave</c>. A system
+      configuration file <c>cp1.config</c> for <c>cp1@cave</c> can
+      look as follows:</p>
+    <code type="none">
+[{kernel,
+  [{distributed, [{myapp, 5000, [cp1@cave, {cp2@cave, cp3@cave}]}]},
+   {sync_nodes_mandatory, [cp2@cave, cp3@cave]},
+   {sync_nodes_timeout, 5000}
+  ]
+ }
+].</code>
+    <p>The system configuration files for <c>cp2@cave</c> and
+      <c>cp3@cave</c> are identical, except for the list of mandatory
+      nodes, which is to be <c>[cp1@cave, cp3@cave]</c> for
+      <c>cp2@cave</c> and <c>[cp1@cave, cp2@cave]</c> for
+      <c>cp3@cave</c>.</p>
+    <note>
+      <p>All involved nodes must have the same value for
+        <c>distributed</c> and <c>sync_nodes_timeout</c>.
+        Otherwise the system behaviour is undefined.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Starting and Stopping Distributed Applications</title>
+    <p>When all involved (mandatory) nodes have been started,
+      the distributed application can be started by calling
+      <c>application:start(Application)</c> at <em>all of these
+      nodes.</em></p>
+    <p>A boot script (see
+      <seealso marker="release_structure">Releases</seealso>)
+      can be used that automatically starts the application.</p>
+    <p>The application is started at the first operational node that
+      is listed in the list of nodes in the <c>distributed</c>
+      configuration parameter. The application is started as usual.
+      That is, an application master is created and calls the
+      application callback function:</p>
+    <code type="none">
+Module:start(normal, StartArgs)</code>
+    <p>Example:</p>
+    <p>Continuing the example from the previous section, the three nodes
+    are started, specifying the system configuration file:</p>
+    <pre>
+> <input>erl -sname cp1 -config cp1</input>
+> <input>erl -sname cp2 -config cp2</input>
+> <input>erl -sname cp3 -config cp3</input></pre>
+    <p>When all nodes are operational, <c>myapp</c> can be started.
+      This is achieved by calling <c>application:start(myapp)</c> at
+      all three nodes. It is then started at <c>cp1</c>, as shown in
+      the following figure:</p>
+    <marker id="dist1"></marker>
+    <image file="../design_principles/dist1.gif">
+      <icaption>Application myapp - Situation 1</icaption>
+    </image>
+    <p>Similarly, the application must be stopped by calling
+      <c>application:stop(Application)</c> at all involved nodes.</p>
+  </section>
+
+  <section>
+    <title>Failover</title>
+    <p>If the node where the application is running goes down,
+      the application is restarted (after the specified time-out) at
+      the first operational node that is listed in the list of nodes
+      in the <c>distributed</c> configuration parameter. This is called a
+      <em>failover</em>.</p>
+    <p>The application is started the normal way at the new node,
+      that is, by the application master calling:</p>
+    <code type="none">
+Module:start(normal, StartArgs)</code>
+    <p>An exception is if the application has the <c>start_phases</c>
+      key defined
+      (see <seealso marker="included_applications">Included Applications</seealso>).
+      The application is then instead started by calling:</p>
+    <code type="none">
+Module:start({failover, Node}, StartArgs)</code>
+    <p>Here <c>Node</c> is the terminated node.</p>
+    <p><em>Example:</em></p>
+    <p> If <c>cp1</c> goes down, the system checks which one of
+      the other nodes, <c>cp2</c> or <c>cp3</c>, has the least number of
+      running applications, but waits for 5 seconds for <c>cp1</c> to
+      restart. If <c>cp1</c> does not restart and <c>cp2</c> runs fewer
+      applications than <c>cp3</c>, <c>myapp</c> is restarted on
+      <c>cp2</c>.</p>
+    <marker id="dist2"></marker>
+    <image file="../design_principles/dist2.gif">
+      <icaption>Application myapp - Situation 2</icaption>
+    </image>
+    <p>Suppose now that <c>cp2</c> goes also down and does not
+      restart within 5 seconds. <c>myapp</c> is now restarted on
+      <c>cp3</c>.</p>
+    <marker id="dist3"></marker>
+    <image file="../design_principles/dist3.gif">
+      <icaption>Application myapp - Situation 3</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Takeover</title>
+    <p>If a node is started, which has higher priority according
+      to <c>distributed</c> than the node where a distributed
+      application is running, the application is restarted at the
+      new node and stopped at the old node. This is
+      called a <em>takeover</em>.</p>
+    <p>The application is started by the application master calling:</p>
+    <code type="none">
+Module:start({takeover, Node}, StartArgs)</code>
+    <p>Here <c>Node</c> is the old node.</p>
+    <p><em>Example: </em></p>
+    <p>If <c>myapp</c> is running at <c>cp3</c>, and if
+      <c>cp2</c> now restarts, it does not restart <c>myapp</c>,
+      as the order between the <c>cp2</c> and <c>cp3</c> nodes is
+      undefined.</p>
+    <marker id="dist4"></marker>
+    <image file="../design_principles/dist4.gif">
+      <icaption>Application myapp - Situation 4</icaption>
+    </image>
+    <p>However, if <c>cp1</c> also restarts, the function
+      <c>application:takeover/2</c> moves <c>myapp</c> to <c>cp1</c>,
+      as <c>cp1</c> has a higher priority than <c>cp3</c> for this
+      application. In this case,
+      <c>Module:start({takeover, cp3@cave}, StartArgs)</c> is
+      executed at <c>cp1</c> to start the application.</p>
+    <marker id="dist5"></marker>
+    <image file="../design_principles/dist5.gif">
+      <icaption>Application myapp - Situation 5</icaption>
+    </image>
+  </section>
+</chapter>
+

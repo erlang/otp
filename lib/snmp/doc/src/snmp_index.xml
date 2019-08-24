@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_index</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_index.xml</file>
+  </header>
+  <module since="">snmp_index</module>
+  <modulesummary>Abstract Data Type for SNMP Indexing</modulesummary>
+  <description>
+    <p>The module <c>snmp_index</c> implements an Abstract
+      Data Type (ADT) for an SNMP
+      index structure for SNMP tables.  It is implemented as an ets
+      table of the ordered_set data-type, which means that all operations are
+      O(log n).  In the table, the key is an ASN.1 OBJECT
+      IDENTIFIER.
+      </p>
+    <p>This index is used to separate the implementation of the SNMP
+      ordering from the actual implementation of the table.  The SNMP
+      ordering, that is implementation of GET NEXT, is implemented in this
+      module.
+      </p>
+    <p>For example, suppose there is an SNMP table, which is best
+      implemented in Erlang as one process per SNMP table row.  Suppose
+      further that the INDEX in the SNMP table is an OCTET STRING.  The
+      index structure would be created as follows:
+      </p>
+    <code type="none">
+snmp_index:new(string)
+    </code>
+    <p>For each new process we create, we insert an item in an
+      <c>snmp_index</c> structure:
+      </p>
+    <code type="none"><![CDATA[
+new_process(Name, SnmpIndex) ->
+  Pid = start_process(),
+  NewSnmpIndex = 
+    snmp_index:insert(SnmpIndex, Name, Pid),
+  <...>
+    ]]></code>
+    <p>With this structure, we can now map an OBJECT IDENTIFIER in
+      e.g. a GET NEXT request, to the correct process:
+      </p>
+    <code type="none">
+get_next_pid(Oid, SnmpIndex) ->
+  {ok, {_, Pid}} = snmp_index:get_next(SnmpIndex, Oid),
+  Pid.
+    </code>
+  </description>
+
+  <section>
+    <title>Common data types</title>
+    <p>The following data types are used in the functions below:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p><c>index()</c></p>
+      </item>
+      <item>
+        <p><c>oid() = [byte()]</c></p>
+      </item>
+      <item>
+        <p><c>key_types = type_spec()  |  {type_spec(), type_spec(), ...}</c></p>
+      </item>
+      <item>
+        <p><c>type_spec() = fix_string | string | integer</c></p>
+      </item>
+      <item>
+        <p><c>key() = key_spec() | {key_spec(), key_spec(), ...}</c></p>
+      </item>
+      <item>
+        <p><c>key_spec() = string() | integer()</c></p>
+      </item>
+    </list>
+    <p>The <c>index()</c> type denotes an snmp index structure.
+      </p>
+    <p>The <c>oid()</c> type is used to represent an ASN.1 OBJECT
+      IDENTIFIER.
+      </p>
+    <p>The <c>key_types()</c> type is used when creating the
+      index structure, and the <c>key()</c> type is used when inserting
+      and deleting items from the structure.
+      </p>
+    <p>The <c>key_types()</c> type defines the types of the SNMP INDEX
+      columns for the table.  If the table has one single INDEX column,
+      this type should be a single atom, but if the table has multiple
+      INDEX columns, it should be a tuple with atoms.
+      </p>
+    <p>If the INDEX column is of type INTEGER, or derived from
+      INTEGER, the corresponding type should be <c>integer</c>.  If it
+      is a variable length type (e.g. OBJECT IDENTIFIER, OCTET STRING),
+      the corresponding type should be <c>string</c>.  Finally, if the
+      type is of variable length, but with a fixed size restriction
+      (e.g. IpAddress), the corresponding type should be
+      <c>fix_string</c>.
+      </p>
+    <p>For example, if the SNMP table has two INDEX columns, the first
+      one an OCTET STRING with size 2, and the second one an OBJECT
+      IDENTIFER, the corresponding <c>key_types</c> parameter would be
+      <c>{fix_string, string}</c>.
+      </p>
+    <p>The <c>key()</c> type correlates to the <c>key_types()</c>
+      type. If the <c>key_types()</c> is a single atom, the
+      corresponding <c>key()</c> is a single type as well, but if the
+      <c>key_types()</c> is a tuple, <c>key</c> must be a tuple of the
+      same size.
+      </p>
+    <p>In the example above, valid <c>keys</c> could be <c>{"hi", "mom"}</c> and <c>{"no", "thanks"}</c>, whereas <c>"hi"</c>,
+      <c>{"hi", 42}</c> and <c>{"hello", "there"}</c> would be invalid.</p>
+    <warning>
+      <marker id="1"></marker>
+      <p>All API functions that update the index return a <c>NewIndex</c>
+        term. This is for backward compatibility with a previous
+        implementation that used a B+ tree written purely in Erlang for 
+        the index. The <c>NewIndex</c> return value can now be ignored. 
+        The return value is now the unchanged table identifier for the 
+        ets table.</p>
+      <p>The implementation using ets tables introduces a semantic
+        incompatibility with older implementations. In those older 
+        implementations, using pure Erlang terms, the index was garbage 
+        collected like any other Erlang term and did not have to be 
+        deleted when discarded. An ets table is deleted only when the 
+        process creating it explicitly deletes it or when the creating 
+        process terminates.</p>
+      <p>A new interface <c>delete/1</c> is now added to
+        handle the case when a process wants to discard an index table
+        (i.e. to build a completely new). Any application using
+        transient snmp indexes has to be modified to handle this.</p>
+      <p>As an snmp adaption usually keeps the index for the whole of the
+        systems lifetime, this is rarely a problem.</p>
+    </warning>
+  </section>
+  <funcs>
+    <func>
+      <name since="">delete(Index) -> true</name>
+      <fsummary>Delete an index table</fsummary>
+      <type>
+        <v>Index = NewIndex = index()</v>
+        <v>Key = key()</v>
+      </type>
+      <desc>
+        <p>Deletes a complete index structure (i.e. the ets table
+          holding the index). The index can no longer be referenced
+          after this call. See the <seealso marker="#1">warning note</seealso>
+          above.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">delete(Index, Key) -> NewIndex</name>
+      <fsummary>Delete an item from the index</fsummary>
+      <type>
+        <v>Index = NewIndex = index()</v>
+        <v>Key = key()</v>
+      </type>
+      <desc>
+        <p>Deletes a key and its value from the index structure.
+          Returns a new structure.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined</name>
+      <fsummary>Get the item with <c>KeyOid</c></fsummary>
+      <type>
+        <v>Index = index()</v>
+        <v>KeyOid = oid()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Gets the item with key <c>KeyOid</c>.  Could be used from
+          within an SNMP instrumentation function.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_last(Index) -> {ok, {KeyOid, Value}} | undefined</name>
+      <fsummary>Get the last item in the index structure</fsummary>
+      <type>
+        <v>Index = index()</v>
+        <v>KeyOid = oid()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Gets the last item in the index structure.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined</name>
+      <fsummary>Get the next item</fsummary>
+      <type>
+        <v>Index = index()</v>
+        <v>KeyOid = NextKeyOid = oid()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Gets the next item in the SNMP lexicographic ordering,
+          after <c>KeyOid</c> in the index structure.  <c>KeyOid</c>
+          does not have to refer to an existing item in the index.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">insert(Index, Key, Value) -> NewIndex</name>
+      <fsummary>Insert an item into the index</fsummary>
+      <type>
+        <v>Index = NewIndex = index()</v>
+        <v>Key = key()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Inserts a new key value tuple into the index structure.  If
+          an item with the same key already exists, the new <c>Value</c>
+          overwrites the old value.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">key_to_oid(Index, Key) -> KeyOid</name>
+      <fsummary>Convert a key to an OBJECT IDENTIFIER</fsummary>
+      <type>
+        <v>Index = index()</v>
+        <v>Key = key()</v>
+        <v>KeyOid = NextKeyOid = oid()</v>
+      </type>
+      <desc>
+        <p>Converts <c>Key</c> to an OBJECT IDENTIFIER.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">new(KeyTypes) -> Index</name>
+      <fsummary>Create a new snmp index structure</fsummary>
+      <type>
+        <v>KeyTypes = key_types()</v>
+        <v>Index = index()</v>
+      </type>
+      <desc>
+        <p>Creates a new snmp index structure.  The <c>key_types()</c>
+          type is described above.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

@@ -1,0 +1,42 @@
+Original Authors and Contributors:
+
+Joe Armstrong
+Robert Virding
+Claes Wikström
+Mike Williams
+Tony Rogvall
+Magnus Fröberg
+Martin Björklund
+Björn Gustavsson
+Patrik Nyblom
+Arndt Jonasson
+Kenneth Lundin
+Esko Vierumäki
+Peter Olin
+Micael Karlberg
+Raimo Niskanen
+Rickard Green
+Gunilla Arendt
+Hans Bolinder
+Dan Gudmundsson
+Jan-Erik Dahlin
+Jakob Cederlund
+The HiPE project (mainly loading of native code)
+Rickard Carlsson
+
+and probably others...
+
+Open source contributors:
+
+Tony Rogvall (now at Bluetail)
+	Rewrote inet_{tcp,udp}.erl and gen_{tcp,udp}.erl among others, 
+	added prim_{file,inet}.erl. When adding a new and faster
+	inet_drv.
+Leonid Timochouk <l (dot) timochouk (at) gmail (dot) com> and
+Serge Aleynikov <saleyn (at) gmail (dot) com>
+	then (2006) at IDT Corp.
+	Wrote the original SCTP implementation, adapted by the OTP team;
+	in {gen,inet,inet6}_sctp.erl, inet_sctp.hrl, as well as the parts
+	in e.g prim_inet.erl and also inet_drv.c in the emulator. Their
+	included edoc documentation was manually extracted and reworked
+	into gen_sctp.xml. They continue to provide patches.

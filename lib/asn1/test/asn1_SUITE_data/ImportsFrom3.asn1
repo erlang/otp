@@ -1,0 +1,4 @@
+ImportsFrom3 DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+  Int ::= INTEGER (0..63)
+END

@@ -1,0 +1,37 @@
+ChoTypeRefSeq DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+ChoTRseq ::=  CHOICE 
+{
+  choSeq ChoSeq,
+  choSeqI [134] ChoSeq,
+  choSeqE [135] EXPLICIT ChoSeq,
+
+  choSeq-I ChoSeqImp,
+  choSeqI-I [234] ChoSeqImp,
+  choSeqE-I [235] EXPLICIT ChoSeqImp,
+
+  choSeq-E ChoSeqExp,
+  choSeqI-E [334] ChoSeqExp,
+  choSeqE-E [335] EXPLICIT ChoSeqExp
+
+}
+
+ChoSeq ::= SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+ChoSeqImp ::= [64] SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+ChoSeqExp ::= [65] EXPLICIT SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+END

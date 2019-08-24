@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erts_alloc_config</title>
+    <prepared>Rickard Green</prepared>
+    <docno>1</docno>
+    <date>07-05-30</date>
+    <rev>1</rev>
+    <file>erts_alloc_config.sgml</file>
+  </header>
+  <module since="">erts_alloc_config</module>
+  <modulesummary>Configuration tool for erts_alloc</modulesummary>
+  <description>
+    <note>
+      <p><c>erts_alloc_config</c> is currently an experimental
+        tool and might be subject to backward incompatible
+        changes.</p>
+    </note>
+    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso> is an
+      Erlang Run-Time System internal memory allocator library.
+      <c>erts_alloc_config</c> is intended to be used to aid creation
+      of an <seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>
+      configuration that is suitable for a limited number of runtime
+      scenarios. The configuration that <c>erts_alloc_config</c>
+      produce is intended as a suggestion, and may need to be
+      adjusted manually.</p>
+    <p>The configuration is created based on information about a number
+      of runtime scenarios. It is obviously impossible to foresee every
+      runtime scenario that can occur. The important scenarios are
+      those that cause maximum or minimum load on specific memory
+      allocators. Load in this context is total size of memory blocks
+      allocated.</p>
+    <p>The current implementation of <c>erts_alloc_config</c> concentrate
+      on configuration of multi-block carriers. Information gathered
+      when a runtime scenario is saved is mainly current and maximum use
+      of multi-block carriers. If a parameter that change the use of
+      multi-block carriers is changed, a previously generated
+      configuration is invalid and <c>erts_alloc_config</c> needs
+      to be run again. It is mainly the single block carrier threshold
+      that effects the use of multi-block carriers, but other
+      single-block carrier parameters might as well. If another value of
+      a single block carrier parameter than the default is desired, use
+      the desired value when running <c>erts_alloc_config</c>.</p>
+    <p>A configuration is created in the following way:</p>
+    <list type="bulleted">
+      <item>
+        <p>Pass the <seealso marker="erts:erts_alloc#Mea">+Mea config</seealso>
+	   command-line flag to the Erlang runtime system you are going
+	   to use for creation of the allocator configuration. It will
+	   disable features that prevent <c>erts_alloc_config</c> from
+	   doing its job. Note, you should <em>not</em> use this flag
+	   when using the created configuration. Also note that it is
+	   important that you use the same
+	   <seealso marker="erts:erl#+S">amount of schedulers</seealso>
+	   when creating the configuration as you are going the use on
+	   the system using the configuration.</p>
+      </item>
+      <item>
+        <p>Run your applications with different scenarios (the more
+          the better) and save information about each scenario by calling
+          <seealso marker="#save_scenario/0">save_scenario/0</seealso>.
+          It may be hard to know when the applications are at an (for
+          <c>erts_alloc_config</c>) important runtime scenario. A good
+          approach may therefore be to call
+          <seealso marker="#save_scenario/0">save_scenario/0</seealso>
+          repeatedly, e.g. once every tenth second. Note that it is
+          important that your applications reach the runtime scenarios
+          that are important for <c>erts_alloc_config</c> when you are
+          saving scenarios; otherwise, the configuration may perform
+          bad.</p>
+      </item>
+      <item>
+        <p>When you have covered all scenarios, call
+          <seealso marker="#make_config/1">make_config/1</seealso>
+          in order to create a configuration. The configuration is
+          written to a file that you have chosen. This configuration
+          file can later be read by an Erlang runtime-system at
+          startup. Pass the command line argument 
+          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
+          to the <seealso marker="erts:erl">erl(1)</seealso> command.</p>
+      </item>
+      <item>
+        <p>The configuration produced by <c>erts_alloc_config</c> may
+          need to be manually adjusted as already stated. Do not modify the
+          file produced by <c>erts_alloc_config</c>; instead, put your
+          modifications in another file and load this file after the
+          file produced by <c>erts_alloc_config</c>. That is, put the
+          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
+          argument that reads your modification file later on the
+          command-line than the 
+          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
+          argument that reads the configuration file produced by
+          <c>erts_alloc_config</c>. If a memory allocation parameter
+          appear multiple times, the last version of will be used, i.e.,
+          you can override parameters in the configuration file produced
+          by <c>erts_alloc_config</c>. Doing it this way simplifies
+          things when you want to rerun <c>erts_alloc_config</c>.</p>
+      </item>
+    </list>
+    <note>
+      <p>The configuration created by <c>erts_alloc_config</c> may
+        perform bad, ever horrible, for runtime scenarios that are very
+        different from the ones saved when creating the
+        configuration. You are, therefore, advised to rerun
+        <c>erts_alloc_config</c> if the applications run when the
+        configuration was made are changed, or if the load on the
+        applications have changed since the configuration was made. You
+        are also advised to rerun <c>erts_alloc_config</c> if the Erlang
+        runtime system used is changed.</p>
+    </note>
+    <p><c>erts_alloc_config</c> saves information about runtime scenarios
+      and performs computations in a server that is automatically
+      started. The server register itself under the name
+      <c>'__erts_alloc_config__'</c>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">save_scenario() -> ok | {error, Error}</name>
+      <fsummary>Saves information about current runtime scenario</fsummary>
+      <type>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p><c>save_scenario/0</c> saves information about the current
+          runtime scenario. This information will later be used when
+          <seealso marker="#make_config/0">make_config/0</seealso>,
+          or <seealso marker="#make_config/1">make_config/1</seealso>
+          is called.</p>
+        <p>The first time <c>save_scenario/0</c> is called a server
+          will be started. This server will save runtime scenarios. All
+          saved scenarios can be removed by calling
+          <seealso marker="#make_config/0">stop/0</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">make_config() -> ok | {error, Error}</name>
+      <fsummary>Creates an erts_alloc configuration</fsummary>
+      <type>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>This is the same as calling
+          <seealso marker="#make_config/1">make_config(group_leader())</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">make_config(FileNameOrIODev) -> ok | {error, Error}</name>
+      <fsummary>Creates an erts_alloc configuration</fsummary>
+      <type>
+        <v>FileNameOrIODev = string() | io_device()</v>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p><c>make_config/1</c> uses the information previously saved by
+          <seealso marker="#save_scenario/0">save_scenario/0</seealso>
+          in order to produce an <c>erts_alloc</c> configuration. At
+          least one scenario have had to be saved. All scenarios
+          previously saved will be used when creating the
+          configuration.  </p>
+        <p>If <c>FileNameOrIODev</c> is a <c>string()</c>,
+          <c>make_config/1</c> will use <c>FileNameOrIODev</c> as a
+          filename. A file named <c>FileNameOrIODev</c> is created and
+          the configuration will be written to that file. If
+          <c>FileNameOrIODev</c> is an
+          <seealso marker="stdlib:io">io_device()</seealso> (see the
+          documentation of the module
+          <seealso marker="stdlib:io">io</seealso>), the configuration
+          will be written to the io device.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> ok | {error, Error}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Error = term()</v>
+      </type>
+      <desc>
+        <p>Stops the server that saves runtime scenarios.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>,
+      <seealso marker="erts:erl">erl(1)</seealso>,
+      <seealso marker="stdlib:io">io(3)</seealso></p>
+  </section>
+</erlref>
+
+

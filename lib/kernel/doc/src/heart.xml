@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>heart</title>
+    <prepared>Magnus Fr&ouml;berg</prepared>
+    <docno></docno>
+    <date>1998-01-28</date>
+    <rev>A</rev>
+  </header>
+  <module since="">heart</module>
+  <modulesummary>Heartbeat monitoring of an Erlang runtime system.</modulesummary>
+  <description>
+    <p>This modules contains the interface to the <c>heart</c> process.
+      <c>heart</c> sends periodic heartbeats to an external port
+      program, which is also named <c>heart</c>. The purpose of
+      the <c>heart</c> port program is to check that the Erlang runtime system
+      it is supervising is still running. If the port program has not
+      received any heartbeats within <c>HEART_BEAT_TIMEOUT</c> seconds
+      (defaults to 60 seconds), the system can be rebooted.</p>
+    <p>An Erlang runtime system to be monitored by a heart program
+      is to be started with command-line flag <c>-heart</c> (see
+      also <seealso marker="erts:erl"><c>erl(1)</c></seealso>).
+      The <c>heart</c> process is then started automatically:</p>
+    <pre>
+% <input>erl -heart ...</input></pre>
+    <p>If the system is to be rebooted because of missing heartbeats,
+      or a terminated Erlang runtime system, environment variable
+      <c>HEART_COMMAND</c> must be set before the system is started.
+      If this variable is not set, a warning text is printed but
+      the system does not reboot.</p>
+    <p>To reboot on Windows, <c>HEART_COMMAND</c> can be
+      set to <c>heart -shutdown</c> (included in the Erlang delivery)
+      or to any other suitable program that can activate a reboot.</p>
+    <p>The environment variable <c>HEART_BEAT_TIMEOUT</c>
+      can be used to configure the heart
+      time-outs; it can be set in the operating system shell before Erlang
+      is started or be specified at the command line:</p>
+    <pre>
+% <input>erl -heart -env HEART_BEAT_TIMEOUT 30 ...</input></pre>
+    <p>The value (in seconds) must be in the range 10 &lt; X &lt;= 65535.</p>
+    <p>When running on OSs lacking support for monotonic time,
+      <c>heart</c> is susceptible to system clock adjustments of more than
+      <c>HEART_BEAT_TIMEOUT</c> seconds. When  this happens, <c>heart</c>
+      times out and tries to reboot the system. This can occur, for
+      example, if the system clock is adjusted automatically by use of the
+      Network Time Protocol (NTP).</p>
+    <p>If a crash occurs, an <c><![CDATA[erl_crash.dump]]></c> is <em>not</em>
+      written unless environment variable
+        <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> is set:</p>
+    <pre>
+% <input>erl -heart -env ERL_CRASH_DUMP_SECONDS 10 ...</input></pre>
+    <p>If a regular core dump is wanted, let <c>heart</c> know by setting
+      the kill signal to abort using environment variable
+      <c><![CDATA[HEART_KILL_SIGNAL=SIGABRT]]></c>. If unset, or not set to
+      <c><![CDATA[SIGABRT]]></c>, the default behavior is a kill signal using
+      <c><![CDATA[SIGKILL]]></c>:</p>
+    <pre>
+% <input>erl -heart -env HEART_KILL_SIGNAL SIGABRT ...</input></pre>
+  <p> If heart should <em>not</em> kill the Erlang runtime system, this can be indicated
+      using the environment variable <c><![CDATA[HEART_NO_KILL=TRUE]]></c>.
+      This can be useful if the command executed by heart takes care of this,
+      for example as part of a specific cleanup sequence. 
+      If unset, or not set to <c><![CDATA[TRUE]]></c>, the default behaviour
+      will be to kill as described above.
+  </p>
+
+    <pre>
+% <input>erl -heart -env HEART_NO_KILL 1 ...</input></pre>
+
+    <p>Furthermore, <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> has the
+      following behavior on <c>heart</c>:</p>
+    <taglist>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
+      <item><p>Suppresses the writing of a crash dump file entirely,
+        thus rebooting the runtime system immediately.
+        This is the same as not setting the environment variable.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
+      <item><p>Setting the environment variable to a negative value does not
+        reboot the runtime system until the crash dump file is completly
+        written.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
+      <item><p><c>heart</c> waits for <c>S</c> seconds to let the crash dump
+        file be written. After <c>S</c> seconds, <c>heart</c> reboots the
+        runtime system, whether the crash dump file is written or not.</p>
+      </item>
+    </taglist>
+    <p>In the following descriptions, all functions fail with reason
+      <c>badarg</c> if <c>heart</c> is not started.</p>
+  </description>
+
+  <datatypes>
+      <datatype>
+          <name name="heart_option"/>
+      </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="set_cmd" arity="1" since=""/>
+      <fsummary>Set a temporary reboot command.</fsummary>
+      <desc>
+        <p>Sets a temporary reboot command. This command is used if
+          a <c>HEART_COMMAND</c> other than the one specified with
+          the environment variable is to be used to reboot
+          the system. The new Erlang runtime system uses (if it misbehaves)
+          environment variable <c>HEART_COMMAND</c> to reboot.</p>
+        <p>Limitations: Command string <c><anno>Cmd</anno></c> is sent to the
+          <c>heart</c> program as an ISO Latin-1 or UTF-8 encoded binary,
+          depending on the filename encoding mode of the emulator (see
+          <seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>).
+          The size of the encoded binary must be less than 2047 bytes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="clear_cmd" arity="0" since=""/>
+      <fsummary>Clear the temporary boot command.</fsummary>
+      <desc>
+        <p>Clears the temporary boot command. If the system terminates,
+          the normal <c>HEART_COMMAND</c> is used to reboot.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_cmd" arity="0" since=""/>
+      <fsummary>Get the temporary reboot command.</fsummary>
+      <desc>
+        <p>Gets the temporary reboot command. If the command is cleared,
+          the empty string is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_callback" arity="2" since="OTP 18.3"/>
+      <fsummary>Set a validation callback</fsummary>
+      <desc>
+          <p> This validation callback will be executed before any
+          heartbeat is sent to the port program. For the validation to
+          succeed it needs to return with the value <c>ok</c>.
+        </p>
+        <p>An exception within the callback will be treated as a validation failure.</p>
+        <p>The callback will be removed if the system reboots.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="clear_callback" arity="0" since="OTP 18.3"/>
+      <fsummary>Clear the validation callback</fsummary>
+      <desc>
+          <p>Removes the validation callback call before heartbeats.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_callback" arity="0" since="OTP 18.3"/>
+      <fsummary>Get the validation callback</fsummary>
+      <desc>
+          <p>Get the validation callback. If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
+    <func>
+        <name name="set_options" arity="1" since="OTP 18.3"/>
+        <fsummary>Set a list of options</fsummary>
+        <desc>
+            <p> Valid options <c>set_options</c> are: </p>
+            <taglist>
+                <tag><c>check_schedulers</c></tag>
+                <item>
+                    <p>If enabled, a signal will be sent to each scheduler to check its
+                        responsiveness. The system check occurs before any heartbeat sent
+                        to the port program. If any scheduler is not responsive enough the
+                        heart program will not receive its heartbeat and thus eventually terminate the node.
+                    </p>
+                </item>
+            </taglist>
+            <p> Returns with the value <c>ok</c> if the options are valid.</p>
+        </desc>
+    </func>
+    <func>
+      <name name="get_options" arity="0" since="OTP 18.3"/>
+      <fsummary>Get the temporary reboot command</fsummary>
+      <desc>
+          <p>Returns <c>{ok, Options}</c> where <c>Options</c> is a list of current options enabled for heart.
+              If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
+
+  </funcs>
+</erlref>
+

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    @(#)testcases.dtd	1.6 99/01/21
+    Original version copyright 1998 by Sun Microsystems, Inc.
+    All Rights Reserved.
+    Modifications copyright 1999 by OASIS.
+
+    1999-06-09 00:20
+
+    DTD describing a database of XML tests.
+
+    NOTE:  the OASIS/NIST test effort also has a DTD for its test
+    environment, but that DTD is not yet suited for automated test
+    processing.  (Among other issues, it doesn't record information
+    putting any test case into the test matrix.)  If that gets fixed,
+    it may be useful to switch over to that DTD.
+-->
+
+<!--
+    The root element of the whole collection is TESTSUITE.  While not
+    very different from TESTCASES, it must be distinguished due to
+    improper processing by IE5.
+-->
+<!ELEMENT TESTSUITE ( TESTCASES+ )>
+<!ATTLIST TESTSUITE 
+    PROFILE	CDATA		#IMPLIED
+    >
+
+<!--
+    The root element of a collection should be "TESTCASES".  It groups 
+    a set of tests in a particular "PROFILE", which is descriptive.  For
+    example, a "Japanese" profile might group tests with documents
+    in standard Japanese encodings, using Japanese characters used
+    inside names and name tokens as well as inside text.  Or the
+    profile might be associated with the test supplier.
+-->
+
+<!ELEMENT TESTCASES (TEST|TESTCASES)*>
+<!ATTLIST TESTCASES
+    PROFILE	CDATA		#IMPLIED
+    >
+
+<!--
+    The body of each TEST element is its description, used
+    to evaluate the diagnostic produced on negative tests.
+    People will generally read this to evaluate whether the
+    test failed for the correct reason.
+
+    The type of (external) ENTITIES required affect the results
+    permitted for certain types of nonvalidating parsers.  In
+    some cases, errors (even well-formedness errors) can't be seen
+    without reading external parameter or general entities.
+
+    Each test has a unique ID used in diagnostics.
+
+    Tests with an OUTPUT attribute do dual duty:  not only must parsers
+    accept the test, but the data they report must also have "Second
+    Canonical Form" as found in the specified output file.  (This is
+    what James Clark titled "Canonical XML", with the addition of the
+    NOTATION declarations that all XML parsers are required to report.)
+
+    The OUTPUT3 attribute is like OUTPUT, but when sent through a
+    validating parser the data reported must have the "Third Canonical
+    Form" as found in the specified output file.  (This is Second
+    Canonical form, with declarations of unparsed ENTITY values and
+    with all ignorable whitespace removed.)
+
+    Tests apply to one or more particular SECTIONS.
+
+    Each test has a TYPE:
+    * All parsers must accept "valid" testcases.
+    * Nonvalidating parsers must also accept "invalid" testcases,
+      but validating ones must reject them.
+    * No parser should accept a "not-wf" testcase unless it's a
+      nonvalidating parser and the test contains external entities
+      that the parser doesn't read.
+    * Parsers are not required to report "errors".
+
+    Each test is in a particular XML document, with a URI.  If these
+    tests are accessed over a network, the path will be relative to
+    the base URI of the document holding the testcase.
+-->
+
+<!ELEMENT TEST (#PCDATA | EM | B)*>
+<!ATTLIST TEST
+    ENTITIES    (both|none|parameter|general)   "none"
+    ID          ID                              #REQUIRED
+    OUTPUT	CDATA				#IMPLIED
+    OUTPUT3	CDATA				#IMPLIED
+    SECTIONS    CDATA                           #REQUIRED
+    TYPE        (valid|invalid|not-wf|error)    #REQUIRED
+    URI         CDATA                           #REQUIRED
+    NAMESPACE   (yes|no)			"yes"
+    >
+
+<!--
+    Really basic HTML font tweaks, to support highlighting
+    some aspects of test descriptions ...
+    EM == emphasis (e.g. italics, fun colors)
+    B == bold
+-->
+<!ELEMENT EM (#PCDATA | B)*>
+<!ELEMENT B (#PCDATA | EM)*>

@@ -1,0 +1,5 @@
+{topcase, {dir, "../erl_interface_test"}}.
+{skip,{ei_accept_SUITE, ei_threaded_accept,
+	"Threaded test not yet implemented - FIXME"}}.
+{skip,{ei_connect_SUITE, ei_threaded_send,
+	"Threaded test not yet implemented - FIXME"}}.

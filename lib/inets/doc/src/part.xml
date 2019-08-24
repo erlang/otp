@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Inets User's Guide</title>
+    <prepared>Péter Dimitrov</prepared>
+    <docno></docno>
+    <date>2018-02-28</date>
+    <rev>A</rev>
+    <file>part.sgml</file>
+  </header>
+  <description>
+    <p>The <c>Inets</c> application provides a set of 
+    Internet-related services as follows:</p>
+      <list type="bulleted">
+       <item>An <term id="HTTP"></term> client and server</item>
+     </list>
+     <p>The HTTP client and server are HTTP 1.1 compliant as
+      defined in
+     <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+  </description>
+  <xi:include href="introduction.xml"/>
+  <xi:include href="inets_services.xml"/>
+  <xi:include href="http_client.xml"/>
+  <xi:include href="http_server.xml"/>
+</part>
+
+

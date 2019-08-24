@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Compiler Release Notes History</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+  </header>
+
+  <section>
+    <title>Compiler 4.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The semantics for boolean operators in guards have
+            been changed to be more consistent.</p>
+          <p>All boolean operators will fail if given non-boolean
+            arguments; '<c><![CDATA[true or garbage]]></c>' used to succeed but
+            will now fail. Also, failure in the evaluation of
+            the operands will also cause the guard to fail;
+            '<c><![CDATA[true or element(1, [])]]></c>' used to succeed but will
+            now fail.</p>
+          <p>Semicolon will behave as it used to. If a failure as
+            described above occurs, evaluation will continue with
+            the right operand of the semicolon.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4623</p>
+        </item>
+        <item>
+          <p><c><![CDATA[-compile(...)]]></c> attributes inside an Erlang module
+            can now contain compiler options that control warnings
+            (such as <c><![CDATA[warn_unused_vars]]></c>). They used to be ignored.</p>
+          <p>Own Id: OTP-4911</p>
+        </item>
+        <item>
+          <p>When a record was updated, and the record given as an
+            expression (such as function call), the record could be
+            evaluated more than once.</p>
+          <p>Own Id: OTP-4933</p>
+        </item>
+        <item>
+          <p>Compilation of modules with long strings could be
+            extremely slow.</p>
+          <p>Own Id: OTP-4960 Aux Id: seq8310 </p>
+        </item>
+        <item>
+          <p>In bit syntax matching with clauses having guards,
+            sometimes the following clauses would never match if a
+            guard was evaluated (and failed).</p>
+          <p>Own Id: OTP-4961 Aux Id: seq8338, OTP-4891 </p>
+        </item>
+        <item>
+          <p>Using multiple matching ('=') in the pattern for a
+            generator in list comprehension would cause an internal
+            compiler error.</p>
+          <p>Example:</p>
+          <code type="none"><![CDATA[
+[3 || {3=4} <- []].
+          ]]></code>
+          <p>Own Id: OTP-5076 Aux Id: OTP-5092 </p>
+        </item>
+        <item>
+          <p>List and string literals, and integer and character
+            literals were not equivalent in matching as they should
+            be. For instance, <c><![CDATA[f("a"=[$a])]]></c> would never match.</p>
+          <p>Own Id: OTP-5092 Aux Id: OTP-5076 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler used to warn for definition of functions
+            having the same name as an auto-imported BIF (such as
+            <c><![CDATA[size/1]]></c>). In the R10B release, such warnings will
+            only be emitted if the function is NOT exported (because it
+            will be impossible to call it). Instead, there will be a
+            warning for any local call (call without module prefix)
+            to any (exported) function in the same module that is
+            also the name of an auto-imported BIF. To avoid the
+            warning, insert a module prefix (either <c><![CDATA[erlang]]></c> to
+            call the BIF, or the name of the module to call function in
+            the module).</p>
+          <p>Own Id: OTP-4909</p>
+        </item>
+        <item>
+          <p>The unary '+' operator has been changed to throw an
+            <c><![CDATA[badarith]]></c> exception if its argument is not numeric (or
+            fail in a guard). It used its argument unchanged whatever
+            the type. Given the new meaning, unary '+' can now be
+            used to test whether a term is numeric.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4928</p>
+        </item>
+        <item>
+          <p>The compiler now warns for more types of suspect code,
+            such as expressions that will fail at run-time (such as
+            <c><![CDATA[atom-42]]></c>), guards that are always false, or
+            patterns that cannot match.</p>
+          <p>Own Id: OTP-5098 Aux Id: seq8965, OTP-2456 </p>
+        </item>
+        <item>
+          <p>The long-awaited <c><![CDATA[try]]></c>...<c><![CDATA[catch]]></c> construction
+            is included in this release. See the reference manual
+            for how to use it.</p>
+          <p>Own Id: OTP-5150</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.2.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler could generate incorrect code for receive
+            clauses did not use the message in any way, for instance
+            if a guard would ignore message depending on some
+            condition not based on the contents of the message (e.g.
+            a state variable in the "loop data").</p>
+          <p>Own Id: OTP-5050</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.2.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Compilation of modules with long strings could be
+            extremely slow.</p>
+          <p>Own Id: OTP-4960 Aux Id: seq8310 </p>
+        </item>
+        <item>
+          <p>In bit syntax matching with clauses having guards,
+            sometimes the following clauses would never match if a
+            guard was evaluated (and failed).</p>
+          <p>Own Id: OTP-4961 Aux Id: seq8338, OTP-4891 </p>
+        </item>
+        <item>
+          <p>In <c><![CDATA[(Expr)#rec{a=A,b=B}]]></c>, <c><![CDATA[Expr]]></c> would be
+            evaluated more than once.</p>
+          <p>Own Id: OTP-4962 Aux Id: seq8292 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.2.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>In rare circumstances, the compiler could optimize away
+            test that would verify that a tuple or record argument
+            indeed was of the correct type (resulting in an emulator
+            crash if the argument was not of the correct type/size).
+            Wrong code could also be generated for floating point
+            expressions.</p>
+          <p>Own Id: OTP-4790</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

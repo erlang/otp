@@ -1,0 +1,1 @@
+{dialyzer_options, [{indent_opt, false}]}.

@@ -1,0 +1,150 @@
+
+ %CopyrightBegin%
+ %CopyrightEnd%
+
+
+
+HiPE AMD64 ABI
+==============
+This document describes aspects of HiPE's runtime system
+that are specific for the AMD64 (x86-64) architecture.
+
+Register Usage
+--------------
+%rsp and %rbp are fixed and must be preserved by calls (callee-save).
+%rax, %rbx, %rcx, %rdx, %rsi, %rdi, %r8, %r9, %r10, %r11, %r12, %r13, %r14
+are clobbered by calls (caller-save).
+%r15 is a fixed global register (unallocatable).
+
+%rsp is the native code stack pointer, growing towards lower addresses.
+%rbp (aka P) is the current process' "Process*".
+%r15 (aka HP) is the current process' heap pointer. (If HP_IN_R15 is true.)
+
+Notes:
+- C/AMD64 16-byte aligns %rsp, presumably for SSE and signal handling.
+  HiPE/AMD64 does not need that, so our %rsp is only 8-byte aligned.
+- HiPE/x86 uses %esi for HP, but C/AMD64 uses %rsi for parameter passing,
+  so HiPE/AMD64 should not use %rsi for HP.
+- Using %r15 for HP requires a REX instruction prefix, but performing
+  64-bit stores needs one anyway, so the only REX-prefix overhead
+  occurs when incrementing or copying HP [not true (we need REX for 64
+  bit add and mov too); only overhead is when accessing floats on the
+  heap /Luna].
+- XXX: HiPE/x86 could just as easily use %ebx for HP. HiPE/AMD64 could use
+  %rbx, but the performance impact is probably minor. Try&measure?
+- XXX: Cache SP_LIMIT, HP_LIMIT, and FCALLS in registers? Try&measure.
+
+Calling Convention
+------------------
+Same as in the HiPE/x86 ABI, with the following adjustments:
+
+The first NR_ARG_REGS (a tunable parameter between 0 and 6, inclusive)
+parameters are passed in %rsi, %rdx, %rcx, %r8, %r9, and %rdi.
+
+The first return value from a function is placed in %rax, the second
+(if any) is placed in %rdx.
+
+Notes:
+- Currently, NR_ARG_REGS == 4.
+- C BIFs expect P in C parameter register 1: %rdi. By making Erlang
+  parameter registers 1-5 coincide with C parameter registers 2-6,
+  our BIF wrappers can simply move P to %rdi without having to shift
+  the remaining parameter registers.
+- A few primop calls target C functions that do not take a P parameter.
+  For these, the code generator should have a "ccall" instruction which
+  passes parameters starting with %rdi instead of %rsi.
+- %rdi can still be used for Erlang parameter passing. The BIF wrappers
+  will push it to the C stack, but \emph{parameter \#6 would have been
+  pushed anyway}, so there is no additional overhead.
+- We could pass more parameters in %rax, %rbx, %r10, %r11, %r12, %r13,
+  and %r14. However:
+  * we may need a scratch register for distant call trampolines
+  * using >6 argument registers complicates the mode-switch interface
+    (needs hacks and special-case optimisations)
+  * it is questionable whether using more than 6 improves performance;
+    it may be better to just cache more P state in registers
+
+Instruction Encoding / Code Model
+---------------------------------
+AMD64 maintains x86's limit of <= 32 bits for PC-relative offsets
+in call and jmp instructions. HiPE/AMD64 handles this as follows:
+- The compiler emits ordinary call/jmp instructions for
+  recursive calls and tailcalls.
+- The runtime system code is loaded into the low 32 bits of the
+  address space. (C/AMD64 small or medium code model.) By using mmap()
+  with the MAP_32BIT flag when allocating memory for code, all
+  code will be in the low 32 bits of the address space, and hence
+  no trampolines will be necessary.
+
+When generating code for non-immediate literals (boxed objects in
+the constants pool), the code generator should use AMD64's new
+instruction for loading a 64-bit immediate into a register:
+mov reg,imm with a rex prefix.
+
+Notes:
+- The loader/linker could redirect a distant call (where the offset
+  does not fit in a 32-bit signed immediate) to a linker-generated
+  trampoline. However, managing trampolines requires changes in the
+  loaders and possibly also the object code format, since the trampoline
+  must be close to the call site, which implies that code and its
+  trampolines must be created as a unit. This is the better long-term
+  solution, not just for AMD64 but also for SPARC32 and PowerPC,
+  both of which have similar problems.
+- The constants pool could also be restricted to the low 32 bits of
+  the address space. However:
+  * We want to move away from a single constants pool. With multiple
+    areas, the address space restriction may be unrealistic.
+  * Creating the address of a literal is an infrequent operation, so
+    the performance impact of using 64-bit immediates should be minor.
+
+Stack Frame Layout
+Garbage Collection Interface
+BIFs
+Stacks and Unix Signal Handlers
+-------------------------------
+Same as in the HiPE/x86 ABI.
+
+
+Standard C/AMD64 Calling Conventions
+====================================
+See <http://www.x86-64.org/abi.pdf>.
+
+%rax, %rdx, %rcx, %rsi, %rdi, %r8, %r9, %r10, %r11 are clobbered by calls (caller-save)
+%rsp, %rbp, %rbx, %r12, %r13, %r14, %r15 are preserved by calls (callee-save)
+[note: %rsi and %rdi are calleR-save, not calleE-save as in the x86 ABI]
+%rsp is the stack pointer (fixed). It is required that ((%rsp+8) & 15) == 0
+when a function is entered. (Section 3.2.2 in the ABI document.)
+%rbp is optional frame pointer or local variable
+The first six integer parameters are passed in %rdi, %rsi, %rdx, %rcx, %r8, and %r9.
+Remaining integer parameters are pushed right-to-left on the stack.
+When calling a variadic function, %rax (%al actually) must contain an upper
+bound on the number of SSE parameter registers, 0-8 inclusive.
+%r10 is used for passing a function's static chain pointer.
+%r11 is available for PLT code when computing the target address.
+The first integer return value is put in %rax, the second (for __int128) in %rdx.
+A memory return value (exact definition is complicated, but basically "large struct"),
+is implemented as follows: the caller passes a pointer in %rdi as a hidden first
+parameter, the callee stores the result there and returns this pointer in %rax.
+The caller deallocates stacked parameters after return (addq $N, %rsp).
+
+Windows 64-bit C Calling Conventions
+====================================
+See "Calling Convention for x64 64-Bit Environments" in msdn.
+
+%rax, %rcx, %rdx, %r8, %r9, %r10, %r11 are clobbered by calls (caller-save).
+%rsp, %rbp, %rbx, %rsi, %rdi, %r12, %r13, %r14, %r15 are preserved
+by calls (callee-save).
+[Note: %rsi and %rdi are calleE-save not calleR-save as in the Linux/Solaris ABI]
+%rsp is the stack pointer (fixed). %rsp & 15 should be 0 at all times,
+except at the start of a function's prologue when ((%rsp+8) & 15) == 0.
+Leaf functions may leave (%rsp & 15) != 0.
+The first four integer parameters are passed in %rcx, %rdx, %r8, and %r9.
+Remaining integer parameters are pushed right-to-left on the stack,
+starting at the fifth slot above the caller's stack pointer.
+The bottom of the caller's frame must contain 4 slots where the callee
+can save the four integer parameter registers, even if fewer than 4
+parameters are passed in registers.
+An integer return value is put in %rax. Large integers (_m128), floats,
+and doubles are returned in %xmm0. Larger return values cause the caller
+to pass a pointer to a result buffer in %rcx as a hidden first parameter.
+The caller may deallocate stacked parameters after return (addq $N, %rsp).

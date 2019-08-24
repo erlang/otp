@@ -1,0 +1,57 @@
+CoverParser DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+ Cho1 ::= CHOICE {
+   i INTEGER,
+   ... ! 42,
+   [[ b BOOLEAN ]]
+ }
+
+ Cho2 ::= CHOICE {
+   i INTEGER,
+   ...,
+   [[ b BOOLEAN,
+      s IA5String ]],
+   ...
+ }
+
+ Int1 ::= INTEGER (CONSTRAINED BY {INTEGER:1,INTEGER:2})
+
+ Seq1 ::= SEQUENCE {
+   ... ! INTEGER:1
+ }
+
+ Seq2 ::= SEQUENCE {
+   ... ! INTEGER:1,
+   i INTEGER
+ }
+
+ Seq3 ::= SEQUENCE {
+   b BOOLEAN,
+   ... ! INTEGER:1,
+   i INTEGER
+ }
+
+ Seq4 ::= SEQUENCE {
+   a INTEGER OPTIONAL,
+   b OCTET STRING OPTIONAL
+ } (WITH COMPONENTS {a ABSENT, b OPTIONAL} |
+    WITH COMPONENTS {a PRESENT, b PRESENT})
+
+ SeqOf1 ::= SEQUENCE OF INTEGER
+ SeqOf2 ::= SeqOf1 (WITH COMPONENT (0..7))
+
+ SegOf3 ::= SEQUENCE (SIZE (1..10)) OF id INTEGER
+
+ Set1 ::= SET {
+   ... ! INTEGER:1
+ }
+
+ Set2 ::= SET {
+   ... ! INTEGER:1,
+   a INTEGER
+ }
+
+ SetOf3 ::= SET (SIZE (1..10)) OF id INTEGER
+
+END

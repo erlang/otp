@@ -1,0 +1,58 @@
+# 
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2006-2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+# 
+# Author: Peter Andersson
+#
+# This sed program file is intended to be used when creating Makefiles for vxworks
+# from the generic Makefile.in that is found in a number of directories (see configure.vxworks)
+#
+#
+#
+# Install programs etc
+s|@INSTALL@|/usr/bin/install -c|
+
+# other
+s|@host@|vxworks_ppc32|
+s|@system_type@|vxworks_ppc32|
+s|@ARCH@|ppc32|
+s|@CC@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ccppc -mlongcall|
+s|@HCC@|gcc|
+s|@GCC@|yes|
+s|@LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldppc|
+s|@STRIP@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/workbench-2.3/@HOST_TYPE@/bin/stripppc|
+s|@SYMPREFIX@||
+s|@LIBS@||
+s|@GCCLIBFLAGS@|-L@WIND_BASE@/vxworks-6.3/target/lib/ppc/PPC32/common -lgcc|
+s|@DED_LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldppc|
+s|@DED_CFLAGS@|@CFLAGS@|
+s|@DEBUG_CFLAGS@|@CFLAGS@|
+# generate dwarf debug code on PPC ..
+s|@DEBUG_FLAGS@|-gdwarf|
+# remove -g option
+s|TYPE_FLAGS = -g |TYPE_FLAGS = |
+s|@GCCLIB_PATH@|@WIND_BASE@/vxworks-6.3/target/lib/ppc/PPC32/common/libgcc.a|
+s|@RANLIB@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ranlibppc|
+s|@AR@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/arppc|
+# -Dasm(X)= is for beam
+
+s|@LIB_CFLAGS@|@CFLAGS@|
+
+s|@CFLAGS@|@GENERAL_CFLAGS@ -DCPU=PPC32 -DTOOL_FAMILY=gnu -DTOOL=gnu -DWANT_NONBLOCKING -DHAVE_SENS -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/vxworks-6.3/target/h -I@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc/powerpc-wrs-vxworks/3.4.4/include -I@WIND_BASE@/vxworks-6.3/target/h/wrn/coreip -mstrict-align -fvolatile -fno-builtin |
+
+#s|@LIB_CFLAGS@|@GENERAL_CFLAGS@ -DCPU=PPC32 -DTOOL_FAMILY=gnu -DTOOL=gnu -DWANT_NONBLOCKING -DHAVE_SENS -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/vxworks-6.3/target/h/wrn/coreip -I@WIND_BASE@/vxworks-6.3/target/h  -mstrict-align -fvolatile -fno-builtin |

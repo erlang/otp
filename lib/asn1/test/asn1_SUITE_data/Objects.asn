@@ -1,0 +1,61 @@
+Objects DEFINITIONS ::=
+BEGIN
+
+OPERATION ::= CLASS 
+ { 
+   &ArgumentType OPTIONAL, 
+   &ResultType OPTIONAL, 
+   &Errors ERROR OPTIONAL, 
+   &Linked OPERATION OPTIONAL, 
+   &resultReturned BOOLEAN DEFAULT TRUE, 
+   &operationCode INTEGER UNIQUE 
+ } 
+WITH SYNTAX 
+ { 
+   [ARGUMENT &ArgumentType] 
+   [RESULT &ResultType] 
+   [RETURN RESULT &resultReturned] 
+   [ERRORS &Errors] 
+   [LINKED &Linked] 
+   CODE &operationCode 
+ } 
+
+ERROR ::= CLASS 
+ { 
+   &ParameterType OPTIONAL, 
+   &errorCode INTEGER UNIQUE 
+ } 
+WITH SYNTAX 
+ { 
+   [PARAMETER &ParameterType] 
+   CODE &errorCode 
+ }
+
+My-Operations OPERATION ::= { operationA | operationB }
+
+operationA OPERATION ::= { 
+  ARGUMENT INTEGER 
+  ERRORS { { PARAMETER INTEGER CODE 1000 } | { CODE 1001 } }
+  CODE 1
+}
+
+operationB OPERATION ::= {
+  ARGUMENT IA5String
+  RESULT BOOLEAN
+  ERRORS { { CODE 1002 } | { PARAMETER IA5String CODE 1003 } }
+  CODE 2
+}
+
+My-OperationErrors ERROR ::= { My-Operations.&Errors }
+
+My-OperationAERror ERROR ::= {operationA.&Errors}
+-- Equals:
+-- My-OperationErrors ERROR ::= { { PARAMETER INTEGER CODE 1000 } | { CODE 1001 } | { CODE 1002 } | { PARAMETER IA5String CODE 1003 } }
+
+My-OperationErrorCodes INTEGER ::= { My-Operations.&Errors.&errorCode }
+-- Equals:
+-- My-OperationErrorCodes INTEGER ::= { 1000 | 1001 | 1002 | 1003 }
+
+END
+
+

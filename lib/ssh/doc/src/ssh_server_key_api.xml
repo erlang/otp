@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+      The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+    <title>ssh_server_key_api</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP R16B">ssh_server_key_api</module>
+  <modulesummary>
+    -behaviour(ssh_server_key_api).
+  </modulesummary>
+  <description>
+    <p>Behaviour describing the API for public key handling of an SSH server. By implementing
+    the callbacks defined in this behavior, the public key handling of an SSH server can
+    be customized. By default the SSH application implements this behavior
+    with help of the standard OpenSSH files,
+    see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
+  </description>
+
+  <!-- section>
+    <title>DATA TYPES</title>
+
+    <p>Type definitions that are used more than once in this module,
+    or abstractions to indicate the intended use of the data
+    type, or both. For more details on public key data types,
+    refer to Section 2 Public Key Records in the
+    <seealso marker="public_key:public_key_records"> public_key user's guide</seealso>.
+    </p>
+
+    <taglist>
+      <tag><c>boolean() =</c></tag>
+      <item><p><c>true | false</c></p></item>
+      <tag><c>string() =</c></tag>
+      <item><p><c>[byte()]</c></p></item>
+      <tag><c>public_key() =</c></tag>
+      <item><p><c>#'RSAPublicKey'{} 
+      | {integer(),#'Dss-Parms'{}} 
+      | {#'ECPoint'{},{namedCurve,Curve::string()}}</c></p></item>
+      <tag><c>private_key() =</c></tag>
+      <item><p><c>#'RSAPrivateKey'{} 
+      | #'DSAPrivateKey'{} 
+      | #'ECPrivateKey'{}</c></p></item>      
+      <tag><c>public_key_algorithm() =</c></tag>
+      <item><p><c>'ssh-rsa' | 'ssh-dss' 
+      | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512'
+      | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
+    </taglist>
+  </section -->
+  
+  <datatypes>
+    <datatype>
+      <name name="daemon_key_cb_options"/>
+      <desc>
+	<p>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>.
+	</p>
+	<p>The option list given in the
+	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+	option is available with the key <c>key_cb_private</c>.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name since="OTP R16B">Module:host_key(Algorithm, DaemonOptions) ->
+      {ok, Key} | {error, Reason}</name>
+      <fsummary>Fetches the host’s private key.</fsummary>
+      <type>
+	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<d>Host key algorithm.</d>
+
+	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+
+	<v>PrivateKey = <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso>
+	   | <seealso marker="crypto:crypto#type-engine_key_ref">crypto:engine_key_ref()</seealso>
+	</v>
+
+	<d>Private key of the host matching the <c>Algorithm</c>.
+	It may be a reference to a 'ssh-rsa', rsa-sha2-* or 'ssh-dss' (NOT ecdsa) key stored in a loaded Engine.</d>
+
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+	  <p>Fetches the private key of the host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
+      <fsummary>Checks if the user key is authorized.</fsummary>
+      <type>
+	<v>PublicUserKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added</d>
+
+	<v>User = string()</v>
+	<d>User owning the public key.</d>
+
+	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+
+	<v>Result = boolean()</v>
+      </type>
+      <desc>
+	 <p>Checks if the user key is authorized.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>

@@ -1,0 +1,42 @@
+#! /bin/sh -f
+#
+#  %CopyrightBegin%
+#  
+#  Copyright Ericsson AB 2008-2018. All Rights Reserved.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#  
+#  %CopyrightEnd%
+#
+# Usage: wxt <args to erlang startup script>
+
+log=test_log_$$
+latest=test_log_latest
+args=${1+"$@"}
+erlcmd="erl -sname test_server -smp -pa ../ebin $p $args -wx_test_verbose true -wx_test_timeout"
+
+echo "Give the following command in order to see the outcome:"
+echo ""
+echo "	less $log"
+
+rm "$latest" 2>/dev/null
+ln -s "$log" "$latest"
+touch "$log"
+
+ostype=`uname -s`
+if [ "$ostype" = "SunOS" ] ; then 
+  /usr/openwin/bin/xterm  -T Testing -l -lf "$log" -e $erlcmd &
+else
+  xterm -T Testing -e script -f -c "$erlcmd" "$log"  &
+fi
+tail -f "$log" | egrep 'Eval|<ERROR>|NYI'

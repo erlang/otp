@@ -1,0 +1,18 @@
+%% Add a host name in the appropriate list
+%% Each "platform" contains a list of hostnames (a string) that can 
+%% be used for testing the ftp client.
+%% The definition below are an example!!
+[{solaris8_sparc,      ["solaris8_sparc_dummy1", "solaris8_sparc_dummy2"]}, 
+ {solaris9_sparc,      ["solaris9_sparc_dummy1"]}, 
+ {solaris10_sparc,     ["solaris10_sparc_dummy1"]}, 
+ {solaris10_x86,       ["solaris10_x86_dummy1", "solaris10_x86_dummy2"]}, 
+ {linux_x86,           ["linux_x86_dummy1", "linux_x86_dummy2"]}, 
+ {linux_ppc,           ["linux_ppc_dummy1"]}, 
+ {macosx_ppc,          ["macosx_ppc_dummy1"]},
+ {macosx_x86,          ["macosx_x86_dummy1", "macosx_x86_dummy2"]},
+ {openbsd_x86,         []},
+ {freebsd_x86,         ["freebsd_x86_dummy1"]},
+ {netbsd_x86,          []},
+ {windows_xp,          []},
+ {windows_2003_server, ["win2003_dummy1"]},
+ {ticket_test,         ["solaris8_x86_dummy1", "linux_x86_dummy1"]}].

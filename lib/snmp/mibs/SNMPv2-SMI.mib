@@ -1,0 +1,314 @@
+SNMPv2-SMI DEFINITIONS ::= BEGIN
+
+-- the path to the root
+
+org            OBJECT IDENTIFIER ::= { iso 3 }
+dod            OBJECT IDENTIFIER ::= { org 6 }
+internet       OBJECT IDENTIFIER ::= { dod 1 }
+
+directory      OBJECT IDENTIFIER ::= { internet 1 }
+
+mgmt           OBJECT IDENTIFIER ::= { internet 2 }
+mib-2          OBJECT IDENTIFIER ::= { mgmt 1 }
+transmission   OBJECT IDENTIFIER ::= { mib-2 10 }
+
+experimental   OBJECT IDENTIFIER ::= { internet 3 }
+
+private        OBJECT IDENTIFIER ::= { internet 4 }
+enterprises    OBJECT IDENTIFIER ::= { private 1 }
+
+security       OBJECT IDENTIFIER ::= { internet 5 }
+
+snmpV2         OBJECT IDENTIFIER ::= { internet 6 }
+
+-- transport domains
+snmpDomains    OBJECT IDENTIFIER ::= { snmpV2 1 }
+
+-- transport proxies
+snmpProxys     OBJECT IDENTIFIER ::= { snmpV2 2 }
+
+-- module identities
+snmpModules    OBJECT IDENTIFIER ::= { snmpV2 3 }
+
+
+-- definitions for information modules
+
+MODULE-IDENTITY MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  "LAST-UPDATED" value(Update UTCTime)
+                  "ORGANIZATION" Text
+                  "CONTACT-INFO" Text
+                  "DESCRIPTION" Text
+                  RevisionPart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    RevisionPart ::=
+                  Revisions
+                | empty
+    Revisions ::=
+                  Revision
+                | Revisions Revision
+    Revision ::=
+                  "REVISION" value(Update UTCTime)
+                  "DESCRIPTION" Text
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+
+OBJECT-IDENTITY MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                "REFERENCE" Text
+              | empty
+
+    Text ::= """" string """"
+END
+
+
+-- names of objects
+
+ObjectName ::=
+    OBJECT IDENTIFIER
+
+NotificationName ::=
+    OBJECT IDENTIFIER
+
+-- syntax of objects
+
+ObjectSyntax ::=
+    CHOICE {
+        simple
+            SimpleSyntax,
+
+          -- note that SEQUENCEs for conceptual tables and
+          -- rows are not mentioned here...
+
+        application-wide
+            ApplicationSyntax
+    }
+
+
+-- built-in ASN.1 types
+
+SimpleSyntax ::=
+    CHOICE {
+        -- INTEGERs with a more restrictive range
+        -- may also be used
+        integer-value               -- includes Integer32
+            INTEGER (-2147483648..2147483647),
+
+        -- OCTET STRINGs with a more restrictive size
+        -- may also be used
+        string-value
+            OCTET STRING (SIZE (0..65535)),
+
+        objectID-value
+            OBJECT IDENTIFIER
+    }
+
+
+-- indistinguishable from INTEGER, but never needs more than
+-- 32-bits for a two's complement representation
+Integer32 ::=
+    [UNIVERSAL 2]
+        IMPLICIT INTEGER (-2147483648..2147483647)
+
+
+-- application-wide types
+
+ApplicationSyntax ::=
+    CHOICE {
+        ipAddress-value
+            IpAddress,
+
+        counter-value
+            Counter32,
+
+        timeticks-value
+            TimeTicks,
+
+        arbitrary-value
+            Opaque,
+
+        big-counter-value
+            Counter64,
+
+        unsigned-integer-value  -- includes Gauge32
+            Unsigned32
+    }
+
+-- in network-byte order
+-- (this is a tagged type for historical reasons)
+IpAddress ::=
+    [APPLICATION 0]
+        IMPLICIT OCTET STRING (SIZE (4))
+
+-- this wraps
+Counter32 ::=
+    [APPLICATION 1]
+        IMPLICIT INTEGER (0..4294967295)
+
+-- this doesn't wrap
+Gauge32 ::=
+    [APPLICATION 2]
+        IMPLICIT INTEGER (0..4294967295)
+
+-- an unsigned 32-bit quantity
+-- indistinguishable from Gauge32
+Unsigned32 ::=
+    [APPLICATION 2]
+        IMPLICIT INTEGER (0..4294967295)
+
+-- hundredths of seconds since an epoch
+TimeTicks ::=
+    [APPLICATION 3]
+        IMPLICIT INTEGER (0..4294967295)
+
+-- for backward-compatibility only
+Opaque ::=
+    [APPLICATION 4]
+        IMPLICIT OCTET STRING
+
+-- for counters that wrap in less than one hour with only 32 bits
+Counter64 ::=
+    [APPLICATION 6]
+        IMPLICIT INTEGER (0..18446744073709551615)
+
+
+-- definition for objects
+
+OBJECT-TYPE MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  "SYNTAX" Syntax
+                  UnitsPart
+                  "MAX-ACCESS" Access
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+                  IndexPart
+                  DefValPart
+
+    VALUE NOTATION ::=
+                  value(VALUE ObjectName)
+
+    Syntax ::=
+                  type(ObjectSyntax)
+                | "BITS" "{" Kibbles "}"
+    Kibbles ::=
+                  Kibble
+                | Kibbles "," Kibble
+    Kibble ::=
+                 identifier "(" nonNegativeNumber ")"
+
+    UnitsPart ::=
+                  "UNITS" Text
+                | empty
+
+    Access ::=
+                  "not-accessible"
+                | "accessible-for-notify"
+                | "read-only"
+                | "read-write"
+                | "read-create"
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                  "REFERENCE" Text
+                | empty
+
+    IndexPart ::=
+                  "INDEX"    "{" IndexTypes "}"
+                | "AUGMENTS" "{" Entry      "}"
+                | empty
+    IndexTypes ::=
+                  IndexType
+                | IndexTypes "," IndexType
+    IndexType ::=
+                  "IMPLIED" Index
+                | Index
+    Index ::=
+                    -- use the SYNTAX value of the
+                    -- correspondent OBJECT-TYPE invocation
+                  value(Indexobject ObjectName)
+    Entry ::=
+                    -- use the INDEX value of the
+                    -- correspondent OBJECT-TYPE invocation
+                  value(Entryobject ObjectName)
+
+    DefValPart ::=
+                  "DEFVAL" "{" value(Defval Syntax) "}"
+                | empty
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+
+-- definitions for notifications
+
+NOTIFICATION-TYPE MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  ObjectsPart
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+
+    VALUE NOTATION ::=
+                  value(VALUE NotificationName)
+
+    ObjectsPart ::=
+                  "OBJECTS" "{" Objects "}"
+                | empty
+    Objects ::=
+                  Object
+                | Objects "," Object
+    Object ::=
+                  value(Name ObjectName)
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                "REFERENCE" Text
+              | empty
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+-- definitions of administrative identifiers
+
+zeroDotZero    OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "A value used for null identifiers."
+    ::= { 0 0 }
+
+END
+

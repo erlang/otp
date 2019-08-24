@@ -1,0 +1,28 @@
+<config>
+	<x>suite</x>
+	<gen_cfg>
+		<a>a_value</a>
+		<b>b_value</b>
+		<c><d>d_value</d></c>
+	</gen_cfg>
+	<gen_cfg2>
+		<c>"Hello, world!"</c>
+		<d>atom_value</d>
+		<e>{tuple,1,"third value",[]}</e>
+		<f>[]</f>
+		<g>[1,atom,"string",13.6,{1,2,3}]</g>
+	</gen_cfg2>
+	<gen_cfg3>
+		<h>
+			<i>third1</i>
+			<j>"Third2"</j>
+			<k>'THIRD3'</k>
+		</h>
+		<l>
+			<m>
+				<n>"N"</n>
+				<o>'O'</o>
+			</m>
+		</l>
+	</gen_cfg3>
+</config>

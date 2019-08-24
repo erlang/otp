@@ -1,0 +1,9 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -emuarg emuvalue
+
+main(Args) ->
+    {ok,[Emuvalue]} = init:get_argument(emuarg),
+    io:format("Root dir: ~s\n", [code:root_dir()]),
+    io:format("Script args: ~p\n", [Args]),
+    io:format("Emuarg: ~p\n", [Emuvalue]).

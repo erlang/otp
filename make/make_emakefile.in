@@ -1,0 +1,66 @@
+#!/usr/bin/env @PERL@
+# -*- cperl -*-
+
+use strict;
+
+my $key;
+my @opts;
+my @modules;
+my $m;
+my $o;
+
+foreach (@ARGV) {
+  if (/^\-I(.+)/) {
+    push(@opts,"{i,\"$1\"}");
+    $key=0;
+  }
+  elsif (/^\-o(.+)/) {
+    push(@opts,"{outdir,\"$1\"}");
+    $key=0;
+  }
+  elsif (/^\-D(.+)=(.+)/) {
+    push(@opts,"{d,\'$1\',$2}");
+    $key=0;
+  }
+  elsif (/^\-D(.+)/) {
+    push(@opts,"{d,\'$1\'}");
+    $key=0;
+  }
+  elsif (/^\+(.+)/) {
+    push(@opts,$1),
+    $key=0;
+  }
+  elsif (/^(\-(.+))$/) {
+    $key = $1;
+  }
+  elsif ($key eq "\-I") {
+    push(@opts,"{i,\"$_\"}");
+    $key=0;
+  }
+  elsif ($key eq "\-o") {
+    push(@opts,"{outdir,\"$_\"}");
+    $key=0;
+  }
+  elsif ($key) {
+    print "Warning: Ignoring invalid option \"$key $_\"\n";
+    $key=0;
+  }
+  else {
+    push(@modules,"\'$_\'"),
+    $key=0;
+  }
+};
+
+$m = pop(@modules);
+print "{[$m";
+foreach (@modules) {
+  print ",$_";
+};
+
+$o = pop(@opts);
+print "],[$o";
+foreach (@opts) {
+  print ",$_";
+};
+
+print "]}.\n";

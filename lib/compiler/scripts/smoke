@@ -1,0 +1,123 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+-mode(compile).
+
+main(_Args) ->
+    setup(),
+    clone_elixir(),
+    build_elixir(),
+    test_elixir(),
+    setup_mix(),
+    smoke(main),
+    smoke(rabbitmq),
+    halt(0).
+
+setup() ->
+    ScriptsDir = scripts_dir(),
+    SmokeBuildDir = filename:join(ScriptsDir, "smoke-build"),
+    _ = file:make_dir(SmokeBuildDir),
+    ok = file:set_cwd(SmokeBuildDir),
+    ok.
+
+clone_elixir() ->
+    {ok,SmokeDir} = file:get_cwd(),
+    DotGitDir = filename:join([SmokeDir,"elixir",".git"]),
+    ElixirRepo = "git@github.com:elixir-lang/elixir.git",
+    case filelib:is_dir(DotGitDir) of
+        false ->
+            cmd("git clone " ++ ElixirRepo);
+        true ->
+            GetHeadSHA1 = "cd elixir && git rev-parse --verify HEAD",
+            Before = os:cmd(GetHeadSHA1),
+            cmd("cd elixir && git pull --ff-only origin master"),
+            case os:cmd(GetHeadSHA1) of
+                Before ->
+                    ok;
+                _After ->
+                    %% There were some changes. Clean to force a re-build.
+                    cmd("cd elixir && make clean")
+            end
+    end.
+
+build_elixir() ->
+    cmd("cd elixir && make compile").
+
+test_elixir() ->
+    cmd("cd elixir && make test_stdlib").
+
+setup_mix() ->
+    MixExsFile = filename:join(scripts_dir(), "smoke-mix.exs"),
+    {ok,MixExs} = file:read_file(MixExsFile),
+    ok = file:write_file("mix.exs", MixExs),
+
+    {ok,SmokeDir} = file:get_cwd(),
+    ElixirBin = filename:join([SmokeDir,"elixir","bin"]),
+    PATH = ElixirBin ++ ":" ++ os:getenv("PATH"),
+    os:putenv("PATH", PATH),
+    mix("local.hex --force"),
+    mix("local.rebar --force"),
+    ok.
+
+smoke(Set) ->
+    os:putenv("SMOKE_DEPS_SET", atom_to_list(Set)),
+    _ = file:delete("mix.lock"),
+    cmd("touch mix.exs"),
+    mix("deps.clean --all"),
+    mix("deps.get"),
+    mix("deps.compile"),
+    ok.
+
+scripts_dir() ->
+    Root = code:lib_dir(compiler),
+    filename:join(Root, "scripts").
+
+mix(Cmd) ->
+    cmd("mix " ++ Cmd).
+
+cmd(Cmd) ->
+    run("sh", ["-c",Cmd]).
+
+run(Program0, Args) ->
+    Program = case os:find_executable(Program0) of
+		  Path when is_list(Path) ->
+		      Path;
+		  false ->
+		      abort("Unable to find program: ~s\n", [Program0])
+	      end,
+    Cmd = case {Program0,Args} of
+              {"sh",["-c"|ShCmd]} ->
+                  ShCmd;
+              {_,_} ->
+                  lists:join(" ", [Program0|Args])
+          end,
+    io:format("\n# ~s\n", [Cmd]),
+    Options = [{args,Args},binary,exit_status,stderr_to_stdout],
+    try open_port({spawn_executable,Program}, Options) of
+	Port ->
+	    case run_loop(Port, <<>>) of
+                0 ->
+                    ok;
+                ExitCode ->
+                    abort("*** Failed with exit code: ~p\n",
+                          [ExitCode])
+            end
+    catch
+	error:_ ->
+	    abort("Failed to execute ~s\n", [Program0])
+    end.
+
+run_loop(Port, Output) ->
+    receive
+	{Port,{exit_status,Status}} ->
+	    Status;
+	{Port,{data,Bin}} ->
+            io:put_chars(Bin),
+	    run_loop(Port, <<Output/binary,Bin/binary>>);
+	Msg ->
+	    io:format("L: ~p~n", [Msg]),
+	    run_loop(Port, Output)
+    end.
+
+abort(Format, Args) ->
+    io:format(Format, Args),
+    halt(1).

@@ -1,0 +1,14 @@
+{selective_decode,{'PartialDecSeq',
+	[{selected_decode_F1,['F',fb,b,[1],a]},
+	 {selected_decode_F2,['F',fb,b]},
+	 {selected_decode_F3,['F',fb,b,[1]]},
+	 {selected_decode_F4,['F',fb,d,da,[1],b,a]},
+	 {selected_decode_E1,['E',d,dc,dcc,dcca]}]}}.
+{exclusive_decode,{'PartialDecSeq',
+	[{decode_F_fb_incomplete,['F',[{fb,[{b,parts},{d,undecoded}]}]]},
+	 {decode_D_incomplete,['D',[{a,undecoded}]]},
+	 {decode_F_fb_exclusive2,['F',[{fb,[{b,parts},{d,[{da,parts}]}]}]]},	     {decode_F_fb_exclusive3,['F',[{fb,[{b,parts},{d,[{da,parts},{dc,[{dcc,undecoded}]}]}]}]]}]}}.
+{module_name,'Seq.asn1'}.
+{compile_options,[ber,debug_info]}.
+{multifile_compile,['M1.asn','M2.asn']}.
+

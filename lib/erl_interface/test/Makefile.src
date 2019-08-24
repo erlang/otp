@@ -1,0 +1,72 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+
+include @erl_interface_mk_include@
+
+CC0 = @CC@
+CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
+LD = @LD@
+
+LIBPATH = @erl_interface_libpath@
+LIBERL = $(LIBPATH)/@erl_interface_lib@
+LIBEI = $(LIBPATH)/@erl_interface_eilib@
+LIBFLAGS = $(LIBERL) $(LIBEI)
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../common
+
+ETERM_OBJS = eterm_test@obj@ eterm_test_decl@obj@ runner@obj@ 
+EXT_OBJS = ext_test@obj@ ext_test_decl@obj@ runner@obj@ 
+FORMAT_OBJS = format_test@obj@ format_test_decl@obj@ runner@obj@
+EI_FORMAT_OBJS = ei_format_test@obj@ ei_format_test_decl@obj@ ei_runner@obj@
+EI_PRINT_OBJS = ei_print_test@obj@ ei_print_test_decl@obj@ ei_runner@obj@
+EI_CONNECT_OBJS = ei_connect_test@obj@ ei_connect_test_decl@obj@ ei_runner@obj@
+EI_ACCEPT_OBJS = ei_accept_test@obj@ ei_accept_test_decl@obj@ ei_runner@obj@
+MATCH_OBJS = match_test@obj@ match_test_decl@obj@ runner@obj@
+
+PROGS = eterm_test@exe@ format_test@exe@ print_term@exe@ match_test@exe@ ei_format_test@exe@ ei_print_test@exe@ ei_connect_test@exe@ ei_accept_test@exe@
+
+
+all: $(PROGS)
+
+eterm_test@exe@: $(ETERM_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o eterm_test $(ETERM_OBJS) $(LIBFLAGS)
+
+ext_test@exe@: $(EXT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o ext_test $(EXT_OBJS) $(LIBFLAGS)
+
+format_test@exe@: $(FORMAT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o format_test $(FORMAT_OBJS) $(LIBFLAGS)
+
+ei_format_test@exe@: $(EI_FORMAT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o ei_format_test $(EI_FORMAT_OBJS) $(LIBFLAGS)
+
+ei_print_test@exe@: $(EI_PRINT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o ei_print_test $(EI_PRINT_OBJS) $(LIBFLAGS)
+
+ei_connect_test@exe@: $(EI_CONNECT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o ei_connect_test $(EI_CONNECT_OBJS) $(LIBFLAGS)
+
+ei_accept_test@exe@: $(EI_ACCEPT_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o ei_accept_test $(EI_ACCEPT_OBJS) $(LIBFLAGS)
+
+match_test@exe@: $(MATCH_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o match_test $(MATCH_OBJS) $(LIBFLGAS)
+
+print_term@exe@: print_term@obj@ $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o print_term print_term@obj@ $(LIBFLGAS)

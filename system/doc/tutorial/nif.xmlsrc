@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>NIFs</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>nif.xml</file>
+  </header>
+  <p>This section outlines an example of how to solve the example
+    problem in <seealso marker="example">Problem Example</seealso>
+    by using Native Implemented Functions (NIFs).</p>
+  <p>NIFs were introduced in Erlang/OTP R13B03 as an experimental
+    feature. It is a simpler and more efficient way of calling C-code
+    than using port drivers. NIFs are most suitable for synchronous
+    functions, such as <c>foo</c> and <c>bar</c> in the example, that
+    do some relatively short calculations without side effects and
+    return the result.</p>
+  <p>A NIF is a function that is implemented in C instead of Erlang.
+    NIFs appear as any other functions to the callers. They belong to
+    a module and are called like any other Erlang functions. The NIFs
+    of a module are compiled and linked into a dynamic loadable,
+    shared library (SO in UNIX, DLL in Windows). The NIF library must
+    be loaded in runtime by the Erlang code of the module.</p>
+  <p>As a NIF library is dynamically linked into the emulator process,
+    this is the fastest way of calling C-code from Erlang (alongside
+    port drivers). Calling NIFs requires no context switches. But it
+    is also the least safe, because a crash in a NIF brings the
+    emulator down too.</p>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>Even if all functions of a module are NIFs, an Erlang
+      module is still needed for two reasons:</p>
+    <list type="bulleted">
+      <item>The NIF library must be explicitly loaded by
+      Erlang code in the same module.</item>
+      <item>All NIFs of a module must have an Erlang implementation
+      as well.</item>
+     </list>
+   <p>Normally these are minimal stub implementations that throw an
+     exception. But they can also be used as fallback implementations
+     for functions that do not have native implemenations on some
+     architectures.</p>
+   <p>NIF libraries are loaded by calling <c>erlang:load_nif/2</c>,
+     with the name of the shared library as argument. The second
+     argument can be any term that will be passed on to the library
+     and used for initialization:</p>
+
+    <codeinclude file="complex6.erl" tag="" type="none"></codeinclude>
+
+    <p>Here, the directive <c>on_load</c> is used to get function
+      <c>init</c> to be automatically called when the module is
+      loaded. If <c>init</c> returns anything other than <c>ok</c>,
+      such when the loading of the NIF library fails in this example,
+      the module is unloaded and calls to functions within it,
+      fail.</p>
+    <p>Loading the NIF library overrides the stub implementations
+      and cause calls to <c>foo</c> and <c>bar</c> to be dispatched to
+      the NIF implementations instead.</p>
+  </section>
+  <section>
+    <title>NIF Library Code</title>
+    <p>The NIFs of the module are compiled and linked into a
+      shared library. Each NIF is implemented as a normal C function. The macro
+      <c>ERL_NIF_INIT</c> together with an array of structures defines the names,
+      arity, and function pointers of all the NIFs in the module. The header
+      file <c>erl_nif.h</c> must be included. As the library is a shared
+      module, not a program, no main function is to be present.</p>
+    <p>The function arguments passed to a NIF appears in an array <c>argv</c>,
+      with <c>argc</c> as the length of the array, and thus the arity of the
+      function. The Nth argument of the function can be accessed as
+      <c>argv[N-1]</c>. NIFs also take an environment argument that
+      serves as an opaque handle that is needed to be passed on to
+      most API functions. The environment contains information about
+      the calling Erlang process:</p>
+
+    <codeinclude file="complex6_nif.c" tag="" type="none"></codeinclude>
+
+    <p>Here,<c>ERL_NIF_INIT</c> has the following arguments:</p>
+    <list type="bulleted">
+      <item><p>The first argument must be the name of the
+      Erlang module as a C-identifier. It will be stringified by the
+      macro.</p>
+      </item>
+      <item>The second argument is the array of <c>ErlNifFunc</c>
+      structures containing name, arity, and function pointer of
+      each NIF.</item>
+      <item>The remaining arguments are pointers to callback functions
+      that can be used to initialize the library. They are not used
+      in this simple example, hence they are all set to <c>NULL</c>.</item>
+    </list>
+    <p>Function arguments and return values are represented as values
+      of type <c>ERL_NIF_TERM</c>. Here, functions like <c>enif_get_int</c>
+      and <c>enif_make_int</c> are used to convert between Erlang term
+      and C-type.
+      If the function argument <c>argv[0]</c> is not an integer,
+      <c>enif_get_int</c> returns false, in which case it returns
+      by throwing a <c>badarg</c>-exception with <c>enif_make_badarg</c>.</p>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p><em>Step 1.</em> Compile the C code:</p>
+    <pre>
+unix> <input>gcc -o complex6_nif.so -fpic -shared complex.c complex6_nif.c</input>
+windows> <input>cl -LD -MD -Fe complex6_nif.dll complex.c complex6_nif.c</input></pre>
+    <p><em>Step 2:</em> Start Erlang and compile the Erlang code:</p>
+    <pre>
+> <input>erl</input>
+Erlang R13B04 (erts-5.7.5) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.5  (abort with ^G)
+1> <input>c(complex6).</input>
+{ok,complex6}</pre>
+    <p><em>Step 3:</em> Run the example:</p>
+<pre>
+3> <input>complex6:foo(3).</input>
+4
+4> <input>complex6:bar(5).</input>
+10
+5> <input>complex6:foo("not an integer").</input>
+** exception error: bad argument
+     in function  complex6:foo/1
+        called as comlpex6:foo("not an integer")
+</pre>
+</section>
+</chapter>

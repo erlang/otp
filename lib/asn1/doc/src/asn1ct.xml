@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>asn1ct</title>
+    <prepared>Kenneth Lundin</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>97-10-14</date>
+    <rev>A</rev>
+    <file>asn1.sgml</file>
+  </header>
+  <module since="">asn1ct</module>
+  <modulesummary>ASN.1 compiler and compile-time support functions</modulesummary>
+  <description>
+    <p>The ASN.1 compiler takes an ASN.1 module as input and generates a 
+      corresponding Erlang module, which can encode and decode the specified
+      data types. Alternatively, the compiler takes a specification module
+      specifying all input modules, and generates a module with 
+      encode/decode functions. In addition, some generic functions
+      can be used during development of applications that handles ASN.1
+      data (encoded as <c>BER</c> or <c>PER</c>).</p>
+
+      <note>
+	<p>By default in OTP 17, the representation of the <c>BIT STRING</c>
+	and <c>OCTET STRING</c> types as Erlang terms were changed. <c>BIT
+	STRING</c> values are now Erlang bit strings and <c>OCTET STRING</c>
+	values are binaries. Also, an undecoded open type is now wrapped in
+	an <c>asn1_OPENTYPE</c> tuple. For details, see <seealso
+	marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>, <seealso
+	marker="asn1_getting_started#OCTET STRING">OCTET STRING</seealso>, and
+	<seealso marker="asn1_getting_started#Information Object">ASN.1 Information Objects</seealso> in the User's Guide.</p>
+	<p>To revert to the old representation of the types, use option
+	<c>legacy_erlang_types</c>.</p>
+      </note>
+
+      <note>
+	<p>In OTP R16, the options were simplified. The back end is chosen
+	using one of the options <c>ber</c>, <c>per</c>, or <c>uper</c>.
+	Options <c>optimize</c>, <c>nif</c>, and <c>driver</c> options
+	are no longer necessary (and the ASN.1 compiler generates a
+	warning if they are used). Options <c>ber_bin</c>, <c>per_bin</c>,
+	and <c>uper_bin</c> options still work, but generates a warning.
+	</p>
+	<p>Another change in OTP R16 is that the generated function
+	<c>encode/2</c> always returns a binary. Function <c>encode/2</c>
+	for the <c>BER</c> back end used to return an iolist.</p>
+      </note>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">compile(Asn1module) -> ok | {error, Reason}</name>
+      <name since="">compile(Asn1module, Options) -> ok | {error, Reason}</name>
+      <fsummary>Compiles an ASN.1 module and generates encode/decode functions according to encoding rules BER or PER.</fsummary>
+      <type>
+        <v>Asn1module = atom() | string()</v>
+        <v>Options = [Option| OldOption]</v>
+        <v>Option = ber | per | uper | der | compact_bit_string |
+	legacy_bit_string | legacy_erlang_types |
+	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
+	asn1config | undec_rest | no_ok_wrapper |
+	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
+        <v>OldOption = ber | per</v> 
+        <v>Reason = term()</v>
+        <v>Prefix = string()</v>
+      </type>
+      <desc>
+        <p>Compiles the <c>ASN.1</c> module <c>Asn1module</c> and generates 
+          an Erlang module <c>Asn1module.erl</c> with encode and decode 
+          functions for the types defined in <c>Asn1module</c>. For each 
+          ASN.1 value defined in the module, an Erlang function that 
+          returns the value in Erlang representation is generated.</p>
+        <p>If <c>Asn1module</c> is a filename without extension, first
+          <c>".asn1"</c> is assumed, then <c>".asn"</c>, and finally
+          <c>".py"</c> (to be compatible with the old ASN.1 compiler).
+          <c>Asn1module</c> can be a full pathname (relative or
+          absolute) including filename with (or without) extension.
+                    <marker id="asn1set"></marker>
+</p>
+        <p>If it is needed to compile a set of <c>ASN.1</c> modules into an
+          Erlang file with encode/decode functions, ensure to list all
+          involved files in a configuration file. This configuration
+          file must have a double extension <c>".set.asn"</c>
+          (<c>".asn"</c> can alternatively be <c>".asn1"</c> or <c>".py"</c>).
+          List the input file names
+          within quotation marks (""), one at each row
+          in the file. If the input files are <c>File1.asn</c>,
+          <c>File2.asn</c>, and <c>File3.asn</c>, the configuration file
+          must look as follows:</p>
+        <pre>
+File1.asn
+File2.asn
+File3.asn</pre>
+        <p>The output files in this case get their names from the
+          configuration file. If the configuration file is named
+          <c>SetOfFiles.set.asn</c>, the names of the output files are
+          <c>SetOfFiles.hrl, SetOfFiles.erl, and SetOfFiles.asn1db</c>.</p>
+        <p>Sometimes in a system of <c>ASN.1</c> modules, different
+          default tag modes, for example, <c>AUTOMATIC</c>, <c>IMPLICIT</c>,
+          or <c>EXPLICIT</c>. The
+          multi-file compilation resolves the default tagging as if
+          the modules were compiled separately.</p>
+        <p>Name collisions is another unwanted effect that can occur in
+          multi file-compilation. The compiler solves this problem in one
+          of two ways:</p>
+          <list type="bulleted">
+            <item>If the definitions are identical, the output module
+            keeps only one definition with the original name.</item>
+            <item>If the definitions have the same name and differs in the
+            definition, they are renamed. The new names are the definition
+            name and the original module name concatenated.</item>
+	  </list>
+        <p>If a name collision occurs, the compiler reports a 
+          <c>"NOTICE: ..."</c> message that tells if a definition was renamed,
+          and the new name that must be used to encode/decode data.</p>
+        <p><c>Options</c> is a list with options specific for the <c>ASN.1</c>
+	  compiler and options that are applied to the Erlang compiler.
+	  The latter are not recognized as <c>ASN.1</c> specific. The
+	  available options are as follows:
+	</p>
+	<taglist>
+          <tag><c>ber | per | uper</c></tag>
+          <item>
+            <p>
+	      The encoding rule to be used. The supported encoding rules
+	      are Basic Encoding Rules (BER),
+	      Packed Encoding Rules (PER) aligned, and PER unaligned.
+	      If the encoding rule option is omitted, <c>ber</c> 
+	      is the default.
+	    </p>
+	    <p>
+	      The generated Erlang module always gets the same name
+	      as the <c>ASN.1</c> module. Therefore, only one
+	      encoding rule per <c>ASN.1</c> module can be used at runtime.
+	    </p>
+          </item>
+          <tag><c>der</c></tag>
+          <item>
+            <p>
+	      With this option the Distinguished Encoding Rules (DER) is chosen.
+	      DER is regarded as a specialized variant of the BER encoding 
+              rule. Therefore, this option only makes sense together
+	      with option <c>ber</c>.
+	      This option
+              sometimes adds sorting and value checks when encoding, which
+              implies a slower encoding. The decoding routines are the same
+              as for <c>ber</c>.
+	    </p>
+          </item>
+          <tag><c>maps</c></tag>
+          <item>
+	    <p>This option changes the representation of the types
+	    <c>SEQUENCE</c> and <c>SET</c> to use maps (instead of
+	    records).  This option also suppresses the generation of
+	    <c>.hrl</c> files.</p>
+	    <p>For details, see Section
+	      <seealso marker="asn1_getting_started#MAP_SEQ_SET">
+		Map representation for SEQUENCE and SET</seealso>
+		in the User's Guide.
+	    </p>
+	  </item>
+          <tag><c>compact_bit_string</c></tag>
+          <item>
+            <p>
+	      The <c>BIT STRING</c> type is decoded to "compact notation".
+	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
+	    </p>
+	    <p>For details, see Section
+	      <seealso marker="asn1_getting_started#BIT STRING">
+		BIT STRING</seealso> in the User's Guide.
+	    </p>
+	    <p>This option implies option <c>legacy_erlang_types</c>.</p>
+	  </item>
+          <tag><c>legacy_bit_string</c></tag>
+          <item>
+            <p>
+	      The <c>BIT STRING</c> type is decoded to the legacy
+	      format, that is, a list of zeroes and ones.
+	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
+	    </p>
+	    <p>For details, see Section
+	      <seealso marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>
+	      in the User's Guide</p>
+	      <p>This option implies option <c>legacy_erlang_types</c>.</p>
+	  </item>
+          <tag><c>legacy_erlang_types</c></tag>
+          <item>
+            <p>Use the same Erlang types to represent <c>BIT STRING</c> and
+            <c>OCTET STRING</c> as in OTP R16.</p>
+	    <p>For details, see Section <seealso
+            marker="asn1_getting_started#BIT STRING">BIT STRING</seealso> and Section
+            <seealso marker="asn1_getting_started#OCTET STRING">OCTET
+            STRING</seealso> in the User's Guide.</p>
+	    <p><em>This option is not recommended for new code.</em>
+	    This option cannot be combined with the option <c>maps</c>.</p>
+	  </item>
+          <tag><c>{n2n, EnumTypeName}</c></tag>
+          <item>
+            <p>
+	      Tells the compiler to generate functions for conversion
+	      between names (as atoms) and numbers and conversely for
+	      the specified <c>EnumTypeName</c>. There can be multiple
+	      occurrences of this option to specify several type names.
+	      The type names must be declared as <c>ENUMERATIONS</c> in
+	      the ASN.1 specification.</p>
+	    <p>
+	      If <c>EnumTypeName</c> does not exist in the ASN.1 specification, 
+	      the compilation stops with an error code.</p>
+	    <p>
+	      The generated conversion functions are named
+	      <c>name2num_EnumTypeName/1</c> and 
+	      <c>num2name_EnumTypeName/1</c>.
+	    </p>
+          </item>
+          <tag><c>noobj</c></tag>
+          <item>
+            <p>Do not compile (that is, do not produce object code) the
+	      generated <c>.erl</c> file. If this option is omitted, the
+	      generated Erlang module is compiled.</p>
+          </item>
+          <tag><c>{i, IncludeDir}</c></tag>
+          <item>
+            <p>Adds <c>IncludeDir</c> to the search-path for
+              <c>.asn1db</c> and <c>ASN.1</c> source files. The compiler
+              tries to open an <c>.asn1db</c> file when a module imports
+              definitions from another <c>ASN.1</c> module. If no
+              <c>.asn1db</c> file is found, the <c>ASN.1</c> source file is
+              parsed. Several <c>{i, IncludeDir}</c> can be given.
+              </p>
+          </item>
+          <tag><c>{outdir, Dir}</c></tag>
+          <item>
+            <p>Specifies directory <c>Dir</c> where all generated files 
+              are to be placed. If this option is omitted, the files are
+	      placed in the current directory.</p>
+          </item>
+          <tag><c>asn1config</c></tag>
+          <item>
+            <p>When using one of the specialized decodes, exclusive or
+              selective decode, instructions must be given in
+              a configuration file. Option <c>asn1config</c> enables
+              specialized decodes and takes the configuration file in
+	      concern. The configuration file has
+              the same name as the ASN.1 specification, but with extension
+              <c>.asn1config</c>.
+              </p>
+            <p>For instructions for exclusive decode, see Section
+              <seealso marker="asn1_spec#Exclusive Instruction">Exclusive
+	      Decode</seealso> in the User's Guide.
+              </p>
+            <p>For instructions for selective decode, see Section
+              <seealso marker="asn1_spec#Selective Instruction">Selective
+	      Decode</seealso> in the User's Guide.
+              </p>
+          </item>
+          <tag><c>undec_rest</c></tag>
+          <item>
+            <p>A buffer that holds a message, being decoded it can also
+              have some following bytes. Those following bytes can now
+              be returned together with the decoded value. If an
+              ASN.1 specification is compiled with this option, a tuple
+              <c>{ok, Value, Rest}</c> is returned. <c>Rest</c> can be a
+              list or a binary. Earlier versions of the compiler ignored
+              those following bytes.</p>
+          </item>
+	  <tag><c>no_ok_wrapper</c></tag>
+	  <item>
+	    <p>With this option, the generated <c>encode/2</c>
+	    and <c>decode/2</c> functions do not wrap a successful
+	    return value in an <c>{ok,...}</c> tuple. If any error
+	    occurs, an exception will be raised.</p>
+	  </item>
+          <tag><c>{macro_name_prefix, Prefix}</c></tag>
+          <item>
+              <p>All macro names generated by the compiler are prefixed with
+              <c>Prefix</c>. This is useful when multiple protocols that contain
+              macros with identical names are included in a single module.</p>
+          </item>
+          <tag><c>{record_name_prefix, Prefix}</c></tag>
+          <item>
+            <p>All record names generated by the compiler are prefixed with
+              <c>Prefix</c>. This is useful when multiple protocols that contain
+              records with identical names are included in a single module.</p>
+          </item>
+          <tag><c>verbose</c></tag>
+          <item>
+            <p>Causes more verbose information from the compiler
+              describing what it is doing.</p>
+          </item>
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
+          </item>
+        </taglist>
+        <p>Any more option that is applied is passed to
+          the final step when the generated <c>.erl</c> file is compiled.
+          </p>
+        <p>The compiler generates the following files:</p>
+        <list type="bulleted">
+          <item><c>Asn1module.hrl</c> (if any <c>SET</c> or <c>SEQUENCE</c>
+	    is defined)
+          </item>
+          <item><c>Asn1module.erl</c> - Erlang module with encode, decode,
+	    and value functions
+          </item>
+          <item><c>Asn1module.asn1db</c> - Intermediate format used by the
+	    compiler when modules <c>IMPORT</c> definitions from each other.
+          </item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">value(Module, Type) -> {ok, Value} | {error, Reason}</name>
+      <fsummary>Creates an ASN.1 value for test purposes.</fsummary>
+      <type>
+        <v>Module = Type = atom()</v>
+        <v>Value = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns an Erlang term that is an example of a valid Erlang 
+          representation of a value of the <c>ASN.1</c> type <c>Type</c>. The value
+          is a random value and subsequent calls to this function will for most
+          types return different values.</p>
+	<note>
+	  <p>Currently, the <c>value</c> function has many limitations.
+	  Essentially, it will mostly work for old specifications based
+	  on the 1997 standard for ASN.1, but not for most modern-style
+	  applications. Another limitation is that the <c>value</c> function
+	  may not work if options that change code generations strategies
+	  such as the options <c>macro_name_prefix</c> and
+	  <c>record_name_prefix</c> have been used.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">test(Module) -> ok | {error, Reason}</name>
+      <name since="">test(Module, Type | Options) -> ok | {error, Reason}</name>
+      <name since="">test(Module, Type, Value | Options) -> ok | {error, Reason}</name>
+      <fsummary>Performs a test of encode and decode for types in an ASN.1 module.</fsummary>
+      <type>
+        <v>Module = Type = atom()</v>
+        <v>Value = term()</v>
+        <v>Options = [{i, IncludeDir}]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Performs a test of encode and decode of types in <c>Module</c>.
+          The generated functions are called by this function.
+          This function is useful during test to secure that the generated
+          encode and decode functions as well as the general runtime support
+          work as expected.</p>
+	<note>
+	  <p>Currently, the <c>test</c> functions have many limitations.
+	  Essentially, they will mostly work for old specifications based
+	  on the 1997 standard for ASN.1, but not for most modern-style
+	  applications. Another limitation is that the <c>test</c> functions
+	  may not work if options that change code generations strategies
+	  such as the options <c>macro_name_prefix</c> and
+	  <c>record_name_prefix</c> have been used.</p>
+	</note>
+        <list type="bulleted">
+          <item>
+            <p><c>test/1</c> iterates over all types in <c>Module</c>.</p>
+          </item>
+          <item>
+            <p><c>test/2</c> tests type <c>Type</c> with a random value.</p>
+          </item>
+          <item>
+            <p><c>test/3</c> tests type <c>Type</c> with <c>Value</c>.</p>
+          </item>
+        </list>
+        <p>Schematically, the following occurs for each type in the module:</p>
+        <code type="none">
+{ok, Value} = asn1ct:value(Module, Type),
+{ok, Bytes} = Module:encode(Type, Value),
+{ok, Value} = Module:decode(Type, Bytes).</code>
+        <p>The <c>test</c> functions use the <c>*.asn1db</c> files
+          for all included modules. If they are located in a different
+          directory than the current working directory, use the <c>include</c>
+          option to add paths. This is only needed when automatically
+          generating values. For static values using <c>Value</c> no
+          options are needed.</p>
+
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Jinteface Release Notes History</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <section>
+    <title>Jinterface 1.2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug on the constructor for OtpNode which caused 
+            NullPointerException, is fixed.</p>
+          <p>Own Id: OTP-3721</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Jinterface 1.2</title>
+
+    <section>
+      <title>Improvements and New features</title>
+      <list type="bulleted">
+        <item>
+          <p>A new class, AbstractConnection, has been added to deal
+            with most of the aspects of the Erlang communication
+            protocol, and which can be subclassed in order to provide
+            different levels of support to the application as necessary.
+            OtpConnection is now a subclass to AbstractConnection.</p>
+        </item>
+        <item>
+          <p>OtpCookedConnection is a new subclass to
+            AbstractConnection, which together with OtpNode provides an
+            intuitive mailbox-based communication mechanism. By using
+            this interface, applications are no longer required to
+            manage connections explicitly, since the OtpNode now opens
+            and manages connections to remote nodes as needed. Outgoing
+            messages are sent through mailboxes and automatically
+            dispatched through the correct connections to
+            the destination node, while incoming messages are queued in
+            the destination mailbox. This allows parts of an
+            application to communicate with several peers
+            simultaneously without the need to sort and dispatch
+            incoming messages. Additionally, mailboxes can be linked
+            with Erlang processes or with each other, in much the same
+            manner that Erlang processes can be linked together.</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Changes and additions</title>
+      <list type="bulleted">
+        <item>
+          <p>The node class hierarchy has changed. The top class
+            is now AbstractNode, and direct subclasses are OtpPeer and
+            OtpLocalNode, of which the latter is extended by OtpNode and
+            OtpSelf. This does not change the functionality of any of
+            the existing classes or methods that take node arguments,
+            however it was necessary in order to group OtpNode and
+            OtpSelf and to provide some common methods for them.</p>
+        </item>
+        <item>
+          <p>OtpServer is now deprecated. Its functionality has
+            been added to OtpSelf.</p>
+        </item>
+        <item>
+          <p>An open OtpConnection no longer requires service on
+            a regular basis in order to keep the remote Erlang node from
+            disconnecting. OtpConnection now extends java.lang.Thread so
+            it can keep the connection open and respond to ticks when
+            needed, without intervention from the application. Incoming
+            messages are automatically received and queued for
+            subsequent retrieval through one of the receive methods.</p>
+        </item>
+        <item>
+          <p>Tracing of inter-node communication can now be set
+            on a per-connection basis. The system property
+            OtpConnection. Trace is still used as before, but now sets
+            only the initial trace level for new connections. Once a
+            connection has been created, its current trace level can be
+            set or retrieved through new methods setTraceLevel and
+            getTraceLevel.</p>
+        </item>
+        <item>
+          <p>Constructors for OtpErlangAtom and OtpErlangTuple
+            previously declared that OtpErlangDataException would be
+            thrown for certain types of input. These constructors now
+            throw java.lang.IllegalArgumentException instead, which is
+            a runtime exception and is therefore not declared
+            explicitly, nor is it necessary for the caller to
+            explicitly catch it. The rules for creating atoms and
+            tuples have not changed however.</p>
+        </item>
+        <item>
+          <p>Some of the constructors for OtpErlangPid, OtpErlangPort
+            and OtpErlangRef are now deprecated. The various
+            OtpNode classes provide factory methods instead.</p>
+        </item>
+        <item>
+          <p>OtpErlangObject and all subclasses representing
+            Erlang data types now implement java.io.Serializable and
+            java.lang.Cloneable.</p>
+        </item>
+        <item>
+          <p>A user's guide is now available.</p>
+          <p>Own Id: OTP-3424</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in the MD5 handshaking code, that could cause the
+            connection to fail when the Java node was run in a 7-bit
+            character encoding environment, has now been fixed.</p>
+          <p>Own Id: OTP-3512</p>
+        </item>
+        <item>
+          <p>A bug in OtpErlangList, which caused message corruption 
+            when empty list where encoded, is fixed.</p>
+          <p></p>
+          <p>Own Id: OTP-3564</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Jinterface 1.1</title>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Modifications for using along with new IC types.</p>
+          <p>Some modifications were done on classes OtpInputStream amd
+            OtpOutputStream in order to work with the new types added
+            on IC.</p>
+          <p>Own Id: OTP-3331</p>
+        </item>
+        <item>
+          <p>Machine-depended character encoding problems fixed.</p>
+          <p>The character encoding (LC_CTYPE) need no longer be 
+            defined to an eight bit character set for 
+            jinterface connections to work.</p>
+          <p>Own Id: OTP-3512</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Jinterface 1.0</title>
+    <p>New application.</p>
+  </section>
+</chapter>
+

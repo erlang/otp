@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Description</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_desc.xml</file>
+  </header>
+
+  <section>
+    <title>Overview</title>
+
+    <p>The two major components of the <c>Event Tracer (ET)</c> tool
+    is a graphical sequence chart viewer (<c>et_viewer</c>) and its
+    backing storage (<c>et_collector</c>). One <c>Collector</c> may be
+    used as backing storage for several simultaneous <c>Viewers</c>
+    where each one may display a different view of the same trace
+    data.</p>
+
+    <p>The interface between the <c>Collector</c> and its
+    <c>Viewers</c> is public in order to enable other types of
+    <c>Viewers</c>. However in the following text we will focus on
+    usage of the <c>et_viewer</c>.</p>
+
+    <p>The main start function is <c>et_viewer:start/1</c>. By
+    default it will start both an <c>et_collector</c> and an
+    <c>et_viewer</c>:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+% erl -pa et/examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1> {ok, Viewer} = et_viewer:start([]).
+{ok,<0.40.0>}]]></code>
+
+    <p>A <c>Viewer</c> gets trace <c>Events</c> from its
+    <c>Collector</c> by polling it regularly for more <c>Events</c> to
+    display. <c>Events</c> are for example reported to the
+    <c>Collector</c> with <c>et_collector:report_event/6</c>:</p>
+
+    <code type="none"><![CDATA[
+2> Collector = et_viewer:get_collector_pid(Viewer).
+<0.39.0>
+3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer,
+3>                           "Start outer transaction"),
+3> et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid,
+3>                           "New transaction id is 4711"),
+3> et_collector:report_event(Collector, 20, my_shell, mnesia_locker, try_write_lock,
+3>                           "Acquire write lock for {my_tab, key}"),
+3> et_collector:report_event(Collector, 10, mnesia_locker, my_shell, granted,
+3>                           "You got the write lock for {my_tab, key}"),
+3> et_collector:report_event(Collector, 60, my_shell, do_commit,
+3>                           "Perform  transaction commit"),
+3> et_collector:report_event(Collector, 40, my_shell, mnesia_locker, release_tid,
+3>                           "Release all locks for transaction 4711"),
+3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
+3>                           "End of outer transaction"),
+3> et_collector:report_event(Collector, 20, my_shell, end_outer,
+3>                           "Transaction returned {atomic, ok}").
+{ok,{table_handle,<0.39.0>,16402,trace_ts,
+     #Fun<et_collector.0.62831470>}}]]></code>
+
+    <p>This actually is a simulation of the process <c>Events</c>
+    caused by a <c>Mnesia</c> transaction that writes a record in a local
+    table:</p>
+
+    <code type="none"><![CDATA[
+mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
+
+    <p>At this stage when we have a couple of <c>Events</c>, it is time to
+      show how it looks like in the graphical interface of
+      <c>et_viewer</c>:</p>
+
+    <image file="sim_trans.png">
+      <icaption>A simulated Mnesia transaction which writes one record</icaption>
+    </image>
+
+    <p>In the sequence chart, the actors (which symbolically has
+    performed the <c>Event</c>) are shown as named vertical bars. The
+    order of the actors may be altered by dragging (hold mouse button
+    1 pressed during the operation) the name tag of an actor and drop
+    it elsewhere:</p>
+
+    <image file="sim_trans_move_actor.png">
+      <icaption>Two actors has switched places</icaption>
+    </image>
+
+    <p>An <c>Event</c> may be an action performed by one single actor
+    (blue text label) or it may involve two actors and is then
+    depicted as an arrow directed from one actor to another (red text
+    label). Details of an <c>Event</c> can be shown by clicking (press
+    and release the mouse button 1) on the event label text or on the
+    arrow. When doing that a <c>Contents Viewer</c> window pops up. It
+    may look like this:</p>
+
+    <p></p>
+
+    <image file="sim_trans_write_lock.png">
+      <icaption>Details of a write lock message</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Filters and dictionary</title>
+
+    <p>The <c>Event Tracer (ET)</c> uses named filters in various
+    contexts. An Event Trace filter is an <c>Erlang fun</c> that takes
+    some trace data as input and returns a possibly modified version
+    of it:
+      </p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+filter(TraceData) -> false | true | {true, NewEvent}
+
+TraceData = Event | erlang_trace_data()
+Event = #event{}
+NewEvent = #event{}]]></code>
+
+    <p>The interface of the filter function is the same as the the
+    filter functions for the good old <c>lists:filtermap/2</c>. If the filter
+    returns <c>false</c> it means that the trace data should silently
+    be dropped. <c>true</c> means that the trace data data already is
+    an <c>Event Record</c> and that it should be kept as it is.
+    <c>true</c> means that the <c>TraceData</c> already is an <c>Event
+    Record</c> and that it should be kept as it is. <c>{true,
+    NewEvent}</c> means that the original trace data should be
+    replaced with <c>Event</c>. This provides means to get rid of
+    unwanted <c>Events</c> as well as enabling alternate views of an
+    <c>Event</c>.</p>
+
+    <p>The first filter that the trace data is exposed for is the
+    <c>Collector Filter</c>. When a trace <c>Event</c> is reported with
+    <c>et_collector:report/2</c> (or
+    <c>et_collector:report_event/5,6</c>) the first thing that
+    happens, is that a message is sent to the <c>Collector</c> process
+    to fetch a handle that contains some useful stuff, such as the
+    <c>Collector Filter Fun</c> and an Ets table identifier. Then the
+    <c>Collector Filter Fun</c> is applied and if it returns
+    <c>true</c> (or <c>{true, NewEvent}</c>), the <c>Event</c> will be stored
+    in an Ets table. As an optimization, subsequent calls to
+    <c>et_collector:report</c>-functions can use the handle directly
+    instead of the <c>Collector Pid</c>.</p>
+
+    <p>All filters (registered in a <c>Collector</c> or in a
+    <c>Viewer</c>) must be able to handle an <c>Event record</c> as
+    input. The <c>Collector Filter</c> (that is the filter named
+    <c>all</c>) is a little bit special, as its input also may be raw
+    <c>Erlang Trace Data</c></p>
+
+    <p>The <c>Collector</c> manages a key/value based dictionary,
+    where the filters are stored. Updates of the dictionary is
+    propagated to all subscribing processes. When a <c>Viewer</c> is
+    started it is registered as a subscriber of dictionary
+    updates.</p>
+
+    <p>In each <c>Viewer</c> there is only one filter that is active
+    and all trace <c>Events</c> that the <c>Viewer</c> gets from the
+    <c>Collector</c> will pass thru that filter. By writing clever
+    filters it is possible to customize how the <c>Events</c> looks
+    like in the viewer. The following filter in
+    <c>et/examples/et_demo.erl</c> replaces the actor names
+    <c>mnesia_tm</c> and <c>mnesia_locker</c> and leaves everything
+    else in the record as it was:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%mgr_actors" type="erl"></codeinclude>
+    <p>If we now add the filter to the running <c>Collector</c>:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+4> Fun = fun(E) -> et_demo:mgr_actors(E) end.
+#Fun<erl_eval.6.13229925>
+5> et_collector:dict_insert(Collector, {filter, mgr_actors}, Fun).
+ok]]></code>
+
+    <p>you will see that the <c>Filter</c> menu in all viewers have
+    got a new entry called <c>mgr_actors</c>. Select it, and a new
+   <c>Viewer</c> window will pop up:</p>
+
+    <p></p>
+
+    <image file="sim_trans_mgr_actors.png">
+      <icaption>The same trace data in a different view</icaption>
+    </image>
+
+    <p>In order to see the nitty gritty details of an <c>Event</c> you
+    may click on the <c>Event</c> in order to start a <c>Contents
+    Viewer</c> for that <c>Event</c>. In the <c>Contents Viewer</c>
+    there also is a filter menu that enables inspection of the
+    <c>Event</c> from other views than the one selected in the
+    viewer. A click on the <c>new_tid</c> <c>Event</c> will cause a
+    <c>Contents Viewer</c> window to pop up, showing the <c>Event</c>
+    in the <c>mgr_actors</c> view:</p>
+
+    <image file="sim_trans_contents_viewer_mgr_actors.png">
+      <icaption>The trace Event in the mgr_actors view</icaption>
+    </image>
+
+    <p>Select the <c>all</c> entry in the <c>Filters</c> menu
+    and a new <c>Contents Viewer window</c> will pop up showing the
+    same trace <c>Event</c> in the collectors view:</p>
+
+    <image file="sim_trans_contents_viewer_collector.png">
+      <icaption>The same trace Event in the collectors view</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Trace clients</title>
+    <p>As you have seen, it is possible to use the
+    <c>et_collector:report_event/5,6</c> functions explicitly. By
+    using those functions you can write your own trace client that
+    reads trace data from any source stored in any format and just
+    feed the <c>Collector</c> with it. You may replace the default
+    <c>Collector Filter</c> with a filter that converts new exciting
+    trace data formats to <c>Event Records</c> or you may convert it
+    to an <c>Event Record</c> before you invoke
+    <c>et_collector:report/2</c> and then rely on the default
+    <c>Collector Filter</c> to handle the new format.</p>
+
+    <p>There are also existing functions in the API that reads from
+    various sources and calls <c>et_collector:report/2</c>:</p>
+
+    <list type="bulleted">
+      <item>
+        <p>The trace <c>Events</c> that are hosted by the <c>Collector</c> may be
+        stored to file and later be loaded by selecting <c>save</c>
+        and <c>load</c> entries in the <c>Viewers</c> <c>File</c> menu
+        or via the <c>et_collector</c> API.</p>
+      </item>
+
+      <item>
+        <p>It is also possible to perform live tracing of a running
+        system by making use of the built-in trace support in the
+        Erlang emulator. These Erlang traces can be directed to files
+        or to ports. See the reference manual for
+        <c>erlang:trace/4</c>, <c>erlang:trace_pattern/3</c>,
+        <c>dbg</c> and <c>ttb</c> for more info.</p>
+
+        <p>There are also corresponding trace client types that can
+        read the Erlang trace data format from such files or ports.
+        The <c>et_collector:start_trace_client/3</c> function makes
+        use of these Erlang trace clients and redirects the trace data
+        to the <c>Collector</c>.</p>
+
+        <p>The default <c>Collector Filter</c> converts the raw Erlang
+        trace data format into <c>Event Records</c>. If you want to
+        perform this differently you can of course write your own
+        <c>Collector Filter</c> from scratch. But it may probably save
+        you some efforts if you first apply the default filter in
+        <c>et_selector:parse_event/2</c> before you apply your own
+        conversions of its output.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Global tracing</title>
+
+    <p>Setting up an Erlang tracer on a set of nodes and connecting
+    trace clients to the ports of these tracers is not intuitive. In
+    order to make this it easier the <c>Event Tracer</c> has a notion
+    of global tracing. When used, the <c>et_collector</c> process will
+    monitor Erlang nodes and when one connects, an Erlang tracer will
+    automatically be started on the newly connected node. A
+    corresponding trace client will also be started on the
+    <c>Collector</c> node in order to automatically forward the trace
+    <c>Events</c> to the <c>Collector</c>. Set the boolean parameter
+    <c>trace_global</c> to <c>true</c> for either the
+    <c>et_collector</c> or <c>et_viewer</c> in order to activate the
+    global tracing. There is no restriction on how many concurrent
+    (anonymous) collectors you can have, but you can only have one
+    <em>global</em> <c>Collector</c> as its name is registered in
+    <c>global</c>.</p>
+
+    <p>In order to further simplify the tracing, you can make use of
+    the <c>et:trace_me/4,5</c> functions. These functions are intended
+    to be invoked from other applications when there are interesting
+    <c>Events</c>, in your application that needs to be
+    highlighted. The functions are extremely light weight as they do
+    nothing besides returning an atom. These functions are
+    specifically designed to be traced for. As the caller explicitly
+    provides the values for the <c>Event Record</c> fields, the
+    default <c>Collector Filter</c> is able to automatically provide a
+    customized <c>Event Record</c> without any user defined filter
+    functions.</p>
+
+    <p>In normal operation, the <c>et:trace_me/4,5</c> calls are almost
+    for free. When tracing is needed, you can either activate tracing
+    on these functions explicitly. Or you can combine the usage of
+    <c>trace_global</c> with the usage of <c>trace_pattern</c>. When
+    set, the <c>trace_pattern</c> will automatically be activated on
+    all connected nodes. </p>
+
+    <p>One nice thing with the <c>trace_pattern</c> is that it
+    provides a very simple way of minimizing the amount of generated
+    trace data by allowing you to explicitly control the detail level
+    of the tracing. As you may have seen the <c>et_viewer</c> have a
+    slider called <c>"Detail Level"</c> that allows you to control the
+    detail level of the trace <c>Events</c> displayed in the
+    <c>Viewer</c>. On the other hand if you set a low detail level in
+    the <c>trace_pattern</c>, lots of the trace data will never be
+    generated and thus not sent over the socket to the trace client
+    and stored in the <c>Collector</c>.</p>
+  </section>
+
+  <section>
+    <title>Viewer window</title>
+
+    <p>Almost all functionality available in the <c>et_viewer</c> is
+    also available via shortcuts. Which key that has the same effect
+    as selecting a menu entry is shown enclosed in parentheses. For
+    example pressing the key <c>r</c> is equivalent to selecting the
+    menu entry <c>Viewer->Refresh</c>.</p>
+
+    <p>File menu:</p>
+
+    <list type="bulleted">
+      <item>
+	<p><c>Clear all events in the Collector</c> - Deletes all
+	<c>Events</c> stored in the <c>Collector</c> and notifies all
+	connected <c>Viewers</c> about this.</p>
+      </item>
+      
+      <item>
+	<p><c>Load events to the Collector from file</c> - Loads the
+	<c>Collector</c> with <c>Events</c> from a file and notifies
+	all connected <c>Viewers</c> about this.</p>
+      </item>
+      
+      <item>
+	<p><c>Save all events in the Collector to file</c> - Saves all
+	<c>Events</c> stored in the <c>Collector</c> to file.</p>
+      </item>
+      
+      <item>
+	<p><c>Print setup</c> - Enables editing of printer setting,
+	such as paper and layout.</p>
+      </item>
+      
+      <item>
+	<p><c>Print current page</c> - Prints the events on the
+	current page. The page size is dependent of the selected paper
+	type.</p>
+      </item>
+      
+      <item>
+	<p><c>Print all pages</c> - Prints all events. The page size
+	is dependent of the selected paper type.</p>
+      </item>
+      
+      <item>
+	<p><c>Close this Viewer</c> - Closes this <c>Viewer</c>
+	window, but keeps all other <c>Viewers</c> windows and the
+	<c>Collector</c> process.</p>
+      </item>
+
+      <item>
+	<p><c>Close other Viewers, but this</c> - Keeps this
+	<c>Viewer</c> window and its <c>Collector</c> process, but
+	closes all other <c>Viewers</c> windowsconnected to the same
+	    <c>Collector</c>.</p>
+      </item>
+      
+      <item>
+	<p><c>Close all Viewers and the Collector</c> - Closes the
+	<c>Collector</c> and all <c>Viewers</c> connected to it.</p>
+      </item>
+    </list>
+    
+    <p>Viewer menu:</p>
+
+    <list type="bulleted">
+      <item>
+	<p><c>First</c> - Scrolls <c>this</c> viewer to the first
+	<c>Event</c> in the <c>Collector</c>.</p>
+      </item>
+      
+      <item>
+	<p><c>Last</c> - Scrolls <c>this</c> viewer to the last
+	<c>Event</c> in the <c>Collector</c>.</p>
+      </item>
+      
+      <item>
+	<p><c>Prev</c> - Scrolls <c>this</c> viewer one page
+	backwards.</p>
+      </item>
+      
+      <item>
+	<p><c>Next</c> - Scrolls <c>this</c> viewer one page
+	forward.</p>
+      </item>
+      
+      <item>
+	<p><c>Refresh</c> - Clears <c>this</c> viewer and re-read its
+	<c>Events</c> from the <c>Collector</c>.</p>
+      </item>
+      
+      <item>
+	<p><c>Up</c> - Scrolls a few <c>Events</c> backwards.</p>
+      </item>
+	  
+      <item>
+	<p><c>Down</c> - Scrolls a few <c>Events</c> forward.</p>
+      </item>
+
+      <item>
+	<p><c>Display all actors.</c> - Reset the settings for hidden
+	and/or highlighted actors.</p>
+      </item>
+    </list>
+    
+    <p>Collector menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>First</c> - Scrolls<c>all</c> viewers to the first
+	<c>Event</c> in the <c>Collector</c>.</p>
+      </item>
+
+      <item>
+        <p><c>Last</c> - Scrolls <c>all</c> viewers to the last
+	<c>Event</c> in the <c>Collector</c>.</p>
+      </item>
+
+      <item>
+        <p><c>Prev</c> - Scrolls <c>all</c> viewers one page
+        backwards.</p>
+      </item>
+
+      <item>
+        <p><c>Next</c> - Scrolls <c>all</c> viewers one page
+        forward.</p>
+      </item>
+
+      <item>
+        <p><c>Refresh</c> - Clears <c>all</c> viewers and re-read
+        their <c>Events</c> from the <c>Collector</c>.</p>
+      </item>
+    </list>
+
+    <p>Filters and scaling menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>ActiveFilter (=)</c> - Starts a new <c>Viewer</c> window
+        with the same active filter and scale as the current one.</p>
+      </item>
+
+      <item>
+        <p><c>ActiveFilter (+)</c> - Starts a new <c>Viewer</c> window
+        with the same active filter but a larger scale than the
+        current one.</p>
+      </item>
+
+      <item>
+        <p><c>ActiveFilter (-)</c> - Starts a new <c>Viewer </c>window
+        with the same active filter but a smaller scale than the
+        current one.</p>
+      </item>
+
+      <item>
+        <p><c>all (0)</c> - Starts a new <c>Viewer</c> with the
+        <c>Collector Filter</c> as active filter. It will cause all
+        events in the collector to be viewed.</p>
+      </item>
+
+      <item>
+        <p><c>AnotherFilter (2)</c> - If more filters are inserted
+        into the dictionary, these will turn up here as entries in the
+        <c>Filters</c> menu. The second filter will get the shortcut
+        number 2, the next one number 3 etc. The names are sorted.</p>
+      </item>
+    </list>
+
+    <p>Slider and radio buttons:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Hide From=To</c> - When true, this means that the
+        <c>Viewer</c> will hide all <c>Events</c> where the from-actor
+        equals to its to-actor. These events are sometimes called
+        actions.</p>
+      </item>
+
+      <item>
+        <p><c>Hide (excluded actors)</c> - When true, this means that
+        the <c>Viewer</c> will hide all <c>Events</c> whose actors are
+        marked as excluded. Excluded actors are normally enclosed in
+        round brackets when they are displayed inthe
+        <c>Viewer</c>.</p>
+      </item>
+
+      <item>
+        <p><c>Detail level</c> - This slider controls the resolution
+        of the <c>Viewer</c>. Only <c>Events</c> with a detail level
+        <c>smaller</c> than the selected one (default=100=max) are
+        displayed.</p>
+      </item>
+    </list>
+
+    <p>Other features:</p>
+
+    <list type="bulleted">
+      <item>
+	<p><c>Vertical scroll</c> - Use mouse wheel and up/down arrows
+	to scroll little. Use page up/down and home/end buttons to
+	scroll more.</p>
+      </item>
+
+      <item>
+	<p><c>Display details of an event</c> - Left mouse click on
+	the event label or the arrowand a new <c>Contents Viewer</c>
+	window will pop up, displaying the contents of an
+	<c>Event</c>.</p>
+      </item>
+
+      <item>
+	<p><c>Highlight actor (toggle)</c> - Left mouse click on the
+	actor name tag. The actor name will be enclosed in square
+	brackets <c>[]</c>. When one or more actors are highlighted,
+	only events related to those actors are displayed. All others
+	are hidden.</p>
+      </item>
+
+      <item>
+	<p><c>Exclude actor (toggle)</c> - Right mouse click on the
+	actor name tag. The actor name will be enclosed in round
+	brackets <c>()</c>. When an actor is excluded, all events
+	related to this actor is hidden. If the checkbox <c>Hide
+	(excluded actors)</c> is checked, even the name tags and
+	corresponding vertical line of excluded actors will be
+	hidden.</p>
+      </item>
+
+      <item>
+	<p><c>Move actor</c> - Left mouse button drag and drop on
+	actor name tag. Move the actor by first clicking on the actor
+	name, keeping the button pressed while moving the cursor to a
+	new location and release the button where the actor should be
+	moved to.</p>
+      </item>
+
+      <item>
+	<p><c>Display all actors</c> - Press the 'a' button. Reset the
+	settings for hidden and/or highlighted actors.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+
+    <p>The <c>Event Records</c> in the Ets table are ordered by their
+    timestamp. Which timestamp that should be used is controlled via
+    the <c>event_order</c> parameter. Default is <c>trace_ts</c> which
+    means the time when the trace data was generated. <c>event_ts</c>
+    means the time when the trace data was parsed (transformed into an
+    <c>Event Record</c>).</p>
+  </section>
+
+  <section>
+    <title>Contents viewer window</title>
+
+    <p>File menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Close</c> - Close this window.</p>
+      </item>
+
+      <item>
+        <p><c>Save</c> - Save the contents of this window to file.</p>
+      </item>
+    </list>
+
+    <p>Filters menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>ActiveFilter</c> - Start a new <c>Contents Viewer
+        window</c> with the same active filter.</p>
+      </item>
+
+      <item>
+        <p><c>AnotherFilter (2)</c> - If more filters are inserted
+        into the dictionary, these will turn up here as entries in the
+        <c>Filters</c> menu. The second filter will be number 2, the
+        next one number 3 etc. The names are sorted.</p>
+      </item>
+    </list>
+
+    <p>Hide menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Hide actor in viewer</c> - Known actors are shown as a
+        named vertical bars in the <c>Viewer</c> window. By hiding the
+        actor, its vertical bar will be removed and the <c>Viewer</c>
+        will be refreshed.</p>
+
+        <p><c>Hiding the actor</c> is only useful if the
+        <c>max_actors</c> threshold has been reached, as it then will
+        imply that the "hidden" actor will be displayed as if it were
+        <c>"UNKNOWN"</c>. If the <c>max_actors</c> threshold not have
+        been reached, the actor will re-appear as a vertical bar in
+        the <c>Viewer</c>.</p>
+      </item>
+      <item>
+        <p><c>Show actor in viewer</c> - This implies that the actor
+        will be added as a known actor in the <c>Viewer</c> with its
+        own vertical bar.</p>
+      </item>
+    </list>
+
+    <p>Search menu:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>Forward from this event</c> - Set this event to be the first
+        event in the viewer and change its display mode to be enter
+        forward search mode. The actor of this event (from, to or
+        both) will be added to the list of selected actors.</p>
+      </item>
+
+      <item>
+        <p><c>Reverse from this event</c> - Set this event to be the
+        first <c>Event</c> in the <c>Viewer</c> and change its display
+        mode to be enter reverse search mode. The actor of this
+        <c>Event</c> (from, to or both) will be added to the list of
+        selected actors. Observe, that the <c>Events</c> will be shown
+        in reverse order.</p>
+      </item>
+
+      <item>
+        <p><c>Abort search. Display all</c> - Switch the display mode
+        of the <c>Viewer</c> to show all <c>Events</c> regardless of
+        any ongoing searches. Abort the searches.</p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

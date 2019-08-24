@@ -1,0 +1,162 @@
+-- Module DirectoryAccessProtocol (X.519 TC2:08/1997)
+
+DirectoryAccessProtocol {joint-iso-itu-t ds(5) module(1) dap(11) 3} DEFINITIONS
+::=
+BEGIN
+
+-- EXPORTS All 
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  directoryAbstractService, protocolObjectIdentifiers
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  ROS-OBJECT-CLASS, CONTRACT, OPERATION-PACKAGE, CONNECTION-PACKAGE, 
+    Code, OPERATION
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  ROS{}, Bind{}, Unbind{}, InvokeId
+    FROM Remote-Operations-Generic-ROS-PDUs {joint-iso-itu-t
+      remote-operations(4) generic-ROS-PDUs(6) version1(0)}
+  APPLICATION-CONTEXT
+    FROM Remote-Operations-Information-Objects-extensions {joint-iso-itu-t
+      remote-operations(4) informationObjects-extensions(8) version1(0)}
+  acse, pData
+    FROM Remote-Operations-Realizations {joint-iso-itu-t remote-operations(4)
+      realizations(9) version1(0)}
+  acse-abstract-syntax
+    FROM Remote-Operations-Abstract-Syntaxes {joint-iso-itu-t
+      remote-operations(4) remote-operations-abstract-syntaxes(12) version1(0)}
+  id-ac-directoryAccessAC, id-rosObject-dua, id-rosObject-directory,
+    id-rosObject-dapDSA, id-contract-dap, id-package-dapConnection,
+    id-package-read, id-package-search, id-package-modify,
+    id-as-directoryAccessAS
+    FROM ProtocolObjectIdentifiers protocolObjectIdentifiers
+  directoryBind, directoryUnbind, read, compare, abandon, list, search,
+    addEntry, removeEntry, modifyEntry, modifyDN
+    FROM DirectoryAbstractService directoryAbstractService;
+
+-- application contexts 
+directoryAccessAC APPLICATION-CONTEXT ::= {
+  CONTRACT                  dapContract
+  ESTABLISHED BY            acse
+  INFORMATION TRANSFER BY   pData
+  ABSTRACT SYNTAXES
+    {acse-abstract-syntax | directoryAccessAbstractSyntax}
+  APPLICATION CONTEXT NAME  id-ac-directoryAccessAC
+}
+
+-- ROS objects 
+dua ROS-OBJECT-CLASS ::= {INITIATES  {dapContract}
+                          ID         id-rosObject-dua
+}
+
+directory ROS-OBJECT-CLASS ::= {
+  RESPONDS  {dapContract}
+  ID        id-rosObject-directory
+}
+
+dap-dsa ROS-OBJECT-CLASS ::= {
+  RESPONDS  {dapContract}
+  ID        id-rosObject-dapDSA
+}
+
+-- contracts 
+dapContract CONTRACT ::= {
+  CONNECTION             dapConnectionPackage
+  INITIATOR CONSUMER OF  {readPackage | searchPackage | modifyPackage}
+  ID                     id-contract-dap
+}
+
+-- connection package 
+dapConnectionPackage CONNECTION-PACKAGE ::= {
+  BIND    directoryBind
+  UNBIND  directoryUnbind
+  ID      id-package-dapConnection
+}
+
+--  read package 
+readPackage OPERATION-PACKAGE ::= {
+  CONSUMER INVOKES  {read | compare | abandon}
+  ID                id-package-read
+}
+
+--  search package 
+searchPackage OPERATION-PACKAGE ::= {
+  CONSUMER INVOKES  {list | search}
+  ID                id-package-search
+}
+
+--  modify Package 
+modifyPackage OPERATION-PACKAGE ::= {
+  CONSUMER INVOKES  {addEntry | removeEntry | modifyEntry | modifyDN}
+  ID                id-package-modify
+}
+
+-- abstract syntaxes 
+directoryAccessAbstractSyntax ABSTRACT-SYNTAX ::= {
+  DAP-PDUs
+  IDENTIFIED BY  id-as-directoryAccessAS
+}
+
+DAP-PDUs ::= CHOICE {
+  basicRos  ROS{{DAP-InvokeIDSet}, {DAP-Invokable}, {DAP-Returnable}},
+  bind      Bind{directoryBind},
+  unbind    Unbind{directoryUnbind}
+}
+
+DAP-InvokeIDSet ::= InvokeId(ALL EXCEPT absent:NULL)
+
+DAP-Invokable OPERATION ::=
+  {read | compare | abandon | list | search | addEntry | removeEntry |
+   modifyEntry | modifyDN}
+
+DAP-Returnable OPERATION ::=
+  {read | compare | abandon | list | search | addEntry | removeEntry |
+   modifyEntry | modifyDN}
+
+--  remote operation codes 
+id-opcode-read Code ::= local:1
+
+id-opcode-compare Code ::= local:2
+
+id-opcode-abandon Code ::= local:3
+
+id-opcode-list Code ::= local:4
+
+id-opcode-search Code ::= local:5
+
+id-opcode-addEntry Code ::= local:6
+
+id-opcode-removeEntry Code ::= local:7
+
+id-opcode-modifyEntry Code ::= local:8
+
+id-opcode-modifyDN Code ::= local:9
+
+-- remote error codes 
+id-errcode-attributeError Code ::= local:1
+
+id-errcode-nameError Code ::= local:2
+
+id-errcode-serviceError Code ::= local:3
+
+id-errcode-referral Code ::= local:4
+
+id-errcode-abandoned Code ::= local:5
+
+id-errcode-securityError Code ::= local:6
+
+id-errcode-abandonFailed Code ::= local:7
+
+id-errcode-updateError Code ::= local:8
+
+-- remote error code for DSP 
+id-errcode-dsaReferral Code ::= local:9
+
+END -- DirectoryAccessProtocol
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

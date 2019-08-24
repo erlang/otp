@@ -1,0 +1,1764 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>erl.xml</file>
+  </header>
+  <com>erl</com>
+  <comsummary>The Erlang emulator.</comsummary>
+  <description>
+    <p>The <c><![CDATA[erl]]></c> program starts an Erlang runtime system.
+      The exact details (for example, whether <c><![CDATA[erl]]></c> is a
+      script or a program and which other programs it calls) are
+      system-dependent.</p>
+
+    <p>Windows users probably want to use the <c><![CDATA[werl]]></c> program
+      instead, which runs in its own window with scrollbars and supports
+      command-line editing. The <c><![CDATA[erl]]></c> program on Windows
+      provides no line editing in its shell, and on Windows 95 there is no way
+      to scroll back to text that has scrolled off the screen. The
+      <c><![CDATA[erl]]></c> program must be used, however, in pipelines or if
+      you want to redirect standard input or output.</p>
+
+    <note>
+      <p>As from ERTS 5.9 (Erlang/OTP R15B) the runtime system does by
+        default <em>not</em> bind schedulers to logical processors.
+	For more information, see system flag
+	<seealso marker="#+sbt"><c>+sbt</c></seealso>.</p>
+    </note>
+  </description>
+
+  <funcs>
+    <func>
+      <name>erl &lt;arguments></name>
+      <fsummary>Start an Erlang runtime system.</fsummary>
+      <desc>
+	<p>Starts an Erlang runtime system.</p>
+	<p>The arguments can be divided into <em>emulator flags</em>,
+	  <em>flags</em>, and <em>plain arguments</em>:</p>
+	<list type="bulleted">
+	  <item>
+	    <p>Any argument starting with character <c><![CDATA[+]]></c> is
+	      interpreted as an
+	      <seealso marker="#emu_flags">emulator flag</seealso>.</p>
+	    <p>As indicated by the name, emulator flags control
+	      the behavior of the emulator.</p>
+	  </item>
+	  <item>
+	    <p>Any argument starting with character <c><![CDATA[-]]></c>
+	      (hyphen) is interpreted as a
+	      <seealso marker="#init_flags">flag</seealso>, which is to
+	      be passed to the Erlang part of the runtime system, more
+	      specifically to the <c><![CDATA[init]]></c> system process, see
+	      <seealso marker="init"><c>init(3)</c></seealso>.</p>
+	    <p>The <c><![CDATA[init]]></c> process itself interprets some of
+	      these flags, the <em>init flags</em>. It also stores any
+	      remaining flags, the <em>user flags</em>. The latter can be
+	      retrieved by calling <c><![CDATA[init:get_argument/1]]></c>.</p>
+	    <p>A small number of "-" flags exist, which now actually are
+	      emulator flags, see the description below.</p>
+	  </item>
+	  <item>
+	    <p>Plain arguments are not interpreted in any way. They are also
+	      stored by the <c><![CDATA[init]]></c> process and can be retrieved
+	      by calling <c><![CDATA[init:get_plain_arguments/0]]></c>.
+	      Plain arguments can occur before the first flag, or after a
+	      <c><![CDATA[--]]></c> flag. Also, the <c><![CDATA[-extra]]></c>
+	      flag causes everything that follows to become plain arguments.</p>
+	  </item>
+	</list>
+	<p><em>Examples:</em></p>
+	<pre>
+% <input>erl +W w -sname arnie +R 9 -s my_init -extra +bertie</input>
+(arnie@host)1> <input>init:get_argument(sname).</input>
+{ok,[["arnie"]]}
+(arnie@host)2> <input>init:get_plain_arguments().</input>
+["+bertie"]</pre>
+        <p>Here <c><![CDATA[+W w]]></c> and <c><![CDATA[+R 9]]></c> are
+	  emulator flags. <c><![CDATA[-s my_init]]></c> is an init flag,
+	  interpreted by <c><![CDATA[init]]></c>.
+	  <c><![CDATA[-sname arnie]]></c> is a user flag, stored by
+	  <c><![CDATA[init]]></c>. It is read by Kernel and causes the
+	  Erlang runtime system to become distributed. Finally, everything after
+	  <c><![CDATA[-extra]]></c> (that is, <c><![CDATA[+bertie]]></c>) is
+	  considered as plain arguments.</p>
+	<pre>
+% <input>erl -myflag 1</input>
+1> <input>init:get_argument(myflag).</input>
+{ok,[["1"]]}
+2> <input>init:get_plain_arguments().</input>
+[]</pre>
+        <p>Here the user flag <c><![CDATA[-myflag 1]]></c> is passed to and
+	  stored by the <c><![CDATA[init]]></c> process. It is a user-defined
+	  flag, presumably used by some user-defined application.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="init_flags"></marker>
+    <title>Flags</title>
+    <p>In the following list, init flags are marked "(init flag)".
+      Unless otherwise specified, all other flags are user flags, for
+      which the values can be retrieved by calling
+      <c><![CDATA[init:get_argument/1]]></c>. Notice that the list of user
+      flags is not exhaustive, there can be more application-specific
+      flags that instead are described in the corresponding
+      application documentation.</p>
+    <taglist>
+      <tag><c><![CDATA[--]]></c> (init flag)</tag>
+      <item>
+        <p>Everything following <c><![CDATA[--]]></c> up to the next flag
+          (<c><![CDATA[-flag]]></c> or <c><![CDATA[+flag]]></c>) is considered
+          plain arguments and can be retrieved using
+          <c><![CDATA[init:get_plain_arguments/0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-Application Par Val]]></c></tag>
+      <item>
+        <p>Sets the application configuration parameter <c><![CDATA[Par]]></c>
+          to the value <c><![CDATA[Val]]></c> for the application
+          <c><![CDATA[Application]]></c>; see
+          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
+          <seealso marker="kernel:application">
+          <c>application(3)</c></seealso>.</p>
+      </item>
+      <tag><marker id="args_file"/><c><![CDATA[-args_file FileName]]></c></tag>
+      <item>
+        <p>Command-line arguments are read from the file
+          <c><![CDATA[FileName]]></c>. The arguments read from the file replace
+          flag '<c><![CDATA[-args_file FileName]]></c>' on the resulting
+          command line.</p>
+        <p>The file <c><![CDATA[FileName]]></c> is to be a plain text file and
+          can contain comments and command-line arguments. A comment begins
+          with a <c>#</c> character and continues until the next end of line
+          character. Backslash (\\) is used as quoting character. All
+          command-line arguments accepted by <c><![CDATA[erl]]></c> are allowed,
+          also flag <c><![CDATA[-args_file FileName]]></c>. Be careful not to
+          cause circular dependencies between files containing flag
+          <c><![CDATA[-args_file]]></c>, though.</p>
+        <p>The flag <c><![CDATA[-extra]]></c> is treated in special way. Its
+          scope ends at the end of the file. Arguments following an
+          <c><![CDATA[-extra]]></c> flag are moved on the command line into the
+          <c><![CDATA[-extra]]></c> section, that is, the end of the command
+          line following after an <c><![CDATA[-extra]]></c> flag.</p>
+      </item>
+      <tag><c><![CDATA[-async_shell_start]]></c></tag>
+      <item>
+        <p>The initial Erlang shell does not read user input until
+          the system boot procedure has been completed (Erlang/OTP 5.4 and
+          later). This flag disables the start synchronization feature
+          and lets the shell start in parallel with the rest of
+          the system.</p>
+      </item>
+      <tag><c><![CDATA[-boot File]]></c></tag>
+      <item>
+        <p>Specifies the name of the boot file, <c><![CDATA[File.boot]]></c>,
+          which is used to start the system; see
+          <seealso marker="init"><c>init(3)</c></seealso>. Unless
+          <c><![CDATA[File]]></c> contains an absolute path, the system searches
+          for <c><![CDATA[File.boot]]></c> in the current and 
+          <c><![CDATA[$ROOT/bin]]></c> directories.</p>
+        <p>Defaults to <c><![CDATA[$ROOT/bin/start.boot]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-boot_var Var Dir]]></c></tag>
+      <item>
+        <p>If the boot script contains a path variable <c><![CDATA[Var]]></c>
+          other than <c><![CDATA[$ROOT]]></c>, this variable is expanded to
+          <c><![CDATA[Dir]]></c>. Used when applications are installed in
+          another directory than <c><![CDATA[$ROOT/lib]]></c>; see
+          <seealso marker="sasl:systools#make_script/1">
+          <c>systools:make_script/1,2</c></seealso> in SASL.</p>
+      </item>
+      <tag><c><![CDATA[-code_path_cache]]></c></tag>
+      <item>
+        <p>Enables the code path cache of the code server; see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-compile Mod1 Mod2 ...]]></c></tag>
+      <item>
+        <p>Compiles the specified modules and then terminates (with
+          non-zero exit code if the compilation of some file did not
+          succeed). Implies <c><![CDATA[-noinput]]></c>.</p>
+        <p>Not recommended; use <seealso marker="erlc"><c>erlc</c></seealso>
+          instead.</p>
+      </item>
+      <tag><c><![CDATA[-config Config]]></c></tag>
+      <item>
+        <p>Specifies the name of a configuration file,
+          <c><![CDATA[Config.config]]></c>, which is used to configure
+          applications; see
+          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
+          <seealso marker="kernel:application">
+          <c>application(3)</c></seealso>.</p>
+      </item>
+      <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
+      <item>
+        <p>If this flag is present, <c><![CDATA[global]]></c> does not maintain
+          a fully connected network of distributed Erlang nodes, and then
+          global name registration cannot be used; see
+          <seealso marker="kernel:global"><c>global(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-cookie Cookie]]></c></tag>
+      <item>
+        <p>Obsolete flag without any effect and common misspelling for
+          <c><![CDATA[-setcookie]]></c>. Use <c><![CDATA[-setcookie]]></c>
+          instead.</p>
+      </item>
+      <tag><c><![CDATA[-detached]]></c></tag>
+      <item>
+        <p>Starts the Erlang runtime system detached from the system
+          console. Useful for running daemons and backgrounds processes. Implies
+          <c><![CDATA[-noinput]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-emu_args]]></c></tag>
+      <item>
+        <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
+      </item>
+      <tag><c><![CDATA[-emu_type Type]]></c></tag>
+      <item>
+        <p>Start an emulator of a different type. For example, to start
+	the lock-counter emualator, use <c>-emu_type lcnt</c>. (The emulator
+	must already be built. Use the <c>configure</c> option
+	<c>--enable-lock-counter</c> to build the lock-counter emulator.)</p>
+      </item>
+      <tag><c><![CDATA[-env Variable Value]]></c></tag>
+      <item>
+        <p>Sets the host OS environment variable <c><![CDATA[Variable]]></c> to
+          the value <c><![CDATA[Value]]></c> for the Erlang runtime system.
+          Example:</p>
+        <pre>
+% <input>erl -env DISPLAY gin:0</input></pre>
+        <p>In this example, an Erlang runtime system is started with
+          environment variable <c><![CDATA[DISPLAY]]></c> set to
+          <c><![CDATA[gin:0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-epmd_module Module]]></c> (init flag)</tag>
+      <item>
+        <p>Configures the module responsible to communicate to
+          <seealso marker="epmd">epmd</seealso>. Defaults to <c>erl_epmd</c>.</p>
+      </item>
+      <tag><c><![CDATA[-eval Expr]]></c> (init flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> evaluate the expression
+          <c><![CDATA[Expr]]></c>; see
+          <seealso marker="init"><c>init(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-extra]]></c> (init flag)</tag>
+      <item>
+        <p>Everything following <c><![CDATA[-extra]]></c> is considered plain
+          arguments and can be retrieved using
+          <c><![CDATA[init:get_plain_arguments/0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-heart]]></c></tag>
+      <item>
+        <p>Starts heartbeat monitoring of the Erlang runtime system;
+          see <seealso marker="kernel:heart">
+          <c>heart(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-hidden]]></c></tag>
+      <item>
+        <p>Starts the Erlang runtime system as a hidden node, if it is
+          run as a distributed node. Hidden nodes always establish
+          hidden connections to all other nodes except for nodes in the
+          same global group. Hidden connections are not published on
+          any of the connected nodes, that is, none of the connected
+          nodes are part of the result from <c><![CDATA[nodes/0]]></c> on the
+          other node. See also hidden global groups;
+          <seealso marker="kernel:global_group">
+          <c>global_group(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-hosts Hosts]]></c></tag>
+      <item>
+        <p>Specifies the IP addresses for the hosts on which Erlang boot servers
+          are running, see <seealso marker="kernel:erl_boot_server">
+          <c>erl_boot_server(3)</c></seealso>. This flag
+          is mandatory if flag <c><![CDATA[-loader inet]]></c> is present.</p>
+        <p>The IP addresses must be specified in the standard form (four
+          decimal numbers separated by periods, for example,
+          <c><![CDATA["150.236.20.74"]]></c>. Hosts names are not acceptable,
+          but a broadcast address (preferably limited to the local network)
+          is.</p>
+      </item>
+      <tag><c><![CDATA[-id Id]]></c></tag>
+      <item>
+        <p>Specifies the identity of the Erlang runtime system. If it is
+          run as a distributed node, <c><![CDATA[Id]]></c> must be identical to
+          the name supplied together with flag <c><![CDATA[-sname]]></c> or
+          <c><![CDATA[-name]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-init_debug]]></c></tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> write some debug information while
+          interpreting the boot script.</p>
+      </item>
+      <tag><marker id="instr"/><c><![CDATA[-instr]]></c> (emulator flag)</tag>
+      <item>
+        <p>Selects an instrumented Erlang runtime system (virtual
+          machine) to run, instead of the ordinary one. When running an
+          instrumented runtime system, some resource usage data can be
+          obtained and analyzed using the <c><![CDATA[instrument]]></c> module.
+          Functionally, it behaves exactly like an ordinary Erlang
+          runtime system.</p>
+      </item>
+      <tag><c><![CDATA[-loader Loader]]></c></tag>
+      <item>
+        <p>Specifies the method used by <c><![CDATA[erl_prim_loader]]></c> to
+          load Erlang modules into the system; see
+          <seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>.
+          Two <c><![CDATA[Loader]]></c> methods are supported:</p>
+        <list type="bulleted">
+          <item>
+            <p><c><![CDATA[efile]]></c>, which means use the local file system,
+              this is the default.</p>
+          </item>
+          <item>
+            <p><c><![CDATA[inet]]></c>, which means use a boot server on
+              another machine. The flags <c><![CDATA[-id]]></c>,
+              <c><![CDATA[-hosts]]></c> and <c><![CDATA[-setcookie]]></c> must
+              also be specified.</p>
+          </item>
+        </list>
+        <p>If <c><![CDATA[Loader]]></c> is something else, the user-supplied
+          <c><![CDATA[Loader]]></c> port program is started.</p>
+      </item>
+      <tag><c><![CDATA[-make]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system invoke <c><![CDATA[make:all()]]></c>
+          in the current working directory and then terminate; see
+          <seealso marker="tools:make"><c>make(3)</c></seealso>. Implies
+          <c><![CDATA[-noinput]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-man Module]]></c></tag>
+      <item>
+        <p>Displays the manual page for the Erlang module
+          <c><![CDATA[Module]]></c>. Only supported on Unix.</p>
+      </item>
+      <tag><c><![CDATA[-mode interactive | embedded]]></c></tag>
+      <item>
+        <p>Modules are auto loaded when they are first referenced if the
+          runtime system runs in <c><![CDATA[interactive]]></c> mode, which is
+          the default. In <c><![CDATA[embedded]]></c> mode modules are not auto
+          loaded. The latter is recommended when the boot script preloads all
+          modules, as conventionally happens in OTP releases. See
+          <seealso marker="kernel:code"><c>code(3)</c></seealso></p>.
+      </item>
+      <tag><c><![CDATA[-name Name]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system into a distributed node.
+          This flag invokes all network servers necessary for a node to
+          become distributed; see <seealso marker="kernel:net_kernel">
+          <c>net_kernel(3)</c></seealso>. It is also ensured that
+          <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
+          started; see <seealso marker="epmd"><c>epmd(1)</c></seealso>.and the
+          <seealso marker="#start_epmd"><c>-start_epmd</c></seealso> option.</p>
+        <p>The node name will be <c><![CDATA[Name@Host]]></c>, where
+          <c><![CDATA[Host]]></c> is the fully qualified host name of the
+          current host. For short names, use flag <c><![CDATA[-sname]]></c>
+          instead.</p>
+        <warning>
+          <p>
+            Starting a distributed node without also specifying
+            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            will expose the node to attacks that may give the attacker
+            complete access to the node and in extension the cluster.
+            When using un-secure distributed nodes, make sure that the
+            network is configured to keep potential attackers out.
+          </p>
+        </warning>
+      </item>
+      <tag><c><![CDATA[-noinput]]></c></tag>
+      <item>
+        <p>Ensures that the Erlang runtime system never tries to read
+          any input. Implies <c><![CDATA[-noshell]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-noshell]]></c></tag>
+      <item>
+        <p>Starts an Erlang runtime system with no shell. This flag
+          makes it possible to have the Erlang runtime system as a
+          component in a series of Unix pipes.</p>
+      </item>
+      <tag><c><![CDATA[-nostick]]></c></tag>
+      <item>
+        <p>Disables the sticky directory facility of the Erlang code
+          server; see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-oldshell]]></c></tag>
+      <item>
+        <p>Invokes the old Erlang shell from Erlang/OTP 3.3. The old shell
+          can still be used.</p>
+      </item>
+      <tag><c><![CDATA[-pa Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Adds the specified directories to the beginning of the code
+          path, similar to <seealso marker="kernel:code#add_pathsa/1">
+	  <c><![CDATA[code:add_pathsa/1]]></c></seealso>. Note that the
+	  order of the given directories will be reversed in the
+	  resulting path.</p>
+	<p>As an alternative to <c>-pa</c>, if several directories are
+	  to be prepended to the code path and the directories have a
+	  common parent directory, that parent directory can be
+	  specified in environment variable <c>ERL_LIBS</c>; see
+	  <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-pz Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Adds the specified directories to the end of the code path,
+          similar to <c><![CDATA[code:add_pathsz/1]]></c>; see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-path Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Replaces the path specified in the boot script; see
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-proto_dist Proto]]></c></tag>
+      <item>
+        <marker id="proto_dist"/>
+        <p>Specifies a protocol for Erlang distribution:</p>
+        <taglist>
+          <tag><c>inet_tcp</c></tag>
+          <item>TCP over IPv4 (the default)</item>
+          <tag><c>inet_tls</c></tag>
+          <item>Distribution over TLS/SSL, See the
+            <seealso marker="ssl:ssl_distribution">
+              Using SSL for Erlang Distribution</seealso> User's Guide
+              for details on how to setup a secure distributed node.
+          </item>
+          <tag><c>inet6_tcp</c></tag>
+          <item>TCP over IPv6</item>
+        </taglist>
+        <p>For example, to start up IPv6 distributed nodes:</p>
+<pre>
+% <input>erl -name test@ipv6node.example.com -proto_dist inet6_tcp</input></pre>
+      </item>
+      <tag><c><![CDATA[-remsh Node]]></c></tag>
+      <item>
+        <p>Starts Erlang with a remote shell connected to
+          <c><![CDATA[Node]]></c>. Requires either <c><![CDATA[-name]]></c>
+          or <c><![CDATA[-sname]]></c> to be given. If <c><![CDATA[Node]]></c>
+          does not contain a hostname, one is automatically taken from
+          <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c></p>
+      </item>
+      <tag><c><![CDATA[-rsh Program]]></c></tag>
+      <item>
+        <p>Specifies an alternative to <c><![CDATA[ssh]]></c> for starting a
+          slave node on a remote host; see
+          <seealso marker="stdlib:slave"><c>slave(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c> (init
+        flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> call the specified function.
+          <c><![CDATA[Func]]></c> defaults to <c><![CDATA[start]]></c>.
+          If no arguments are provided, the function is assumed to be of
+          arity 0. Otherwise it is assumed to be of arity 1, taking the list
+          <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are
+          passed as strings. See <seealso marker="init">
+          <c>init(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-s Mod [Func [Arg1, Arg2, ...]]]]></c> (init flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> call the specified function.
+          <c><![CDATA[Func]]></c> defaults to <c><![CDATA[start]]></c>.
+          If no arguments are provided, the function is assumed to be of
+          arity 0. Otherwise it is assumed to be of arity 1, taking the list
+          <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are
+          passed as atoms. See <seealso marker="init">
+          <c>init(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
+      <item>
+        <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>; see
+          <seealso marker="erlang#set_cookie/2">
+          <c>erlang:set_cookie/2</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-shutdown_time Time]]></c></tag>
+      <item>
+        <p>Specifies how long time (in milliseconds) the <c><![CDATA[init]]></c>
+          process is allowed to spend shutting down the system. If
+          <c><![CDATA[Time]]></c> milliseconds have elapsed, all processes still
+          existing are killed. Defaults to <c><![CDATA[infinity]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-sname Name]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system into a distributed node, similar to
+          <c><![CDATA[-name]]></c>, but the host name portion of the node
+          name <c><![CDATA[Name@Host]]></c> will be the short name, not fully
+          qualified.</p>
+        <p>This is sometimes the only way to run distributed Erlang if
+          the Domain Name System (DNS) is not running. No communication can
+          exist between nodes running with flag <c><![CDATA[-sname]]></c>
+          and those running with flag <c><![CDATA[-name]]></c>, as node
+          names must be unique in distributed Erlang systems.</p>
+        <warning>
+          <p>
+            Starting a distributed node without also specifying
+            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            will expose the node to attacks that may give the attacker
+            complete access to the node and in extension the cluster.
+            When using un-secure distributed nodes, make sure that the
+            network is configured to keep potential attackers out.
+          </p>
+        </warning>
+      </item>
+      <tag><marker id="start_epmd"/><c>-start_epmd true | false</c></tag>
+      <item>
+
+        <p>Specifies whether Erlang should start
+          <seealso marker="epmd">epmd</seealso> on startup. By default
+          this is <c>true</c>, but if you prefer to start epmd
+          manually, set this to <c>false</c>.</p>
+
+        <p>This only applies if Erlang is started as a distributed node,
+          i.e. if <c>-name</c> or <c>-sname</c> is specified. Otherwise,
+          epmd is not started even if <c>-start_epmd true</c> is given.</p>
+
+        <p>Note that a distributed node will fail to start if epmd is
+          not running.</p>
+      </item>
+      <tag><c><![CDATA[-version]]></c> (emulator flag)</tag>
+      <item>
+        <p>Makes the emulator print its version number. The same
+          as <c><![CDATA[erl +V]]></c>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="emu_flags"></marker>
+    <title>Emulator Flags</title>
+    <p><c><![CDATA[erl]]></c> invokes the code for the Erlang emulator (virtual
+      machine), which supports the following flags:</p>
+    <taglist>
+      <tag><marker id="async_thread_stack_size"/>
+        <c><![CDATA[+a size]]></c></tag>
+      <item>
+        <p>Suggested stack size, in kilowords, for threads in the
+          async thread pool. Valid range is 16-8192 kilowords. The
+          default suggested stack size is 16 kilowords, that is, 64
+          kilobyte on 32-bit architectures. This small default size
+          has been chosen because the number of async threads can
+          be large. The default size is enough for drivers
+          delivered with Erlang/OTP, but might not be large
+          enough for other dynamically linked-in drivers that use the
+          <seealso marker="erl_driver#driver_async">
+          <c>driver_async()</c></seealso> functionality.
+          Notice that the value passed is only a suggestion,
+          and it can even be ignored on some platforms.</p>
+      </item>
+      <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
+      <item>
+        <p>Sets the number of threads in async thread pool. Valid range
+          is 0-1024. Defaults to 1.</p>
+      </item>
+      <tag><c><![CDATA[+B [c | d | i]]]></c></tag>
+      <item>
+        <p>Option <c><![CDATA[c]]></c> makes <c><![CDATA[Ctrl-C]]></c>
+          interrupt the current shell instead of invoking the emulator break
+          handler. Option <c><![CDATA[d]]></c> (same as specifying
+          <c><![CDATA[+B]]></c> without an extra option) disables the break
+          handler. Option <c><![CDATA[i]]></c> makes the emulator ignore any
+          break signal.</p>
+        <p>If option <c><![CDATA[c]]></c> is used with
+          <c><![CDATA[oldshell]]></c> on Unix, <c><![CDATA[Ctrl-C]]></c> will
+          restart the shell process rather than interrupt it.</p>
+        <p>Notice that on Windows, this flag is only applicable for
+          <c><![CDATA[werl]]></c>, not <c><![CDATA[erl]]></c>
+          (<c><![CDATA[oldshell]]></c>). Notice also that
+          <c><![CDATA[Ctrl-Break]]></c> is used instead of
+          <c><![CDATA[Ctrl-C]]></c> on Windows.</p>
+      </item>
+      <tag><marker id="+c"/><c><![CDATA[+c true | false]]></c></tag>
+      <item>
+        <p>Enables or disables
+          <seealso marker="time_correction#Time_Correction">time
+          correction</seealso>:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+          <item>Enables time correction. This is the default if
+            time correction is supported on the specific platform.</item>
+          <tag><c>false</c></tag>
+          <item>Disables time correction.</item>
+          </taglist>
+        <p>For backward compatibility, the boolean value can be omitted.
+          This is interpreted as <c>+c false</c>.</p>
+      </item>
+      <tag><marker id="+C_"/><c><![CDATA[+C no_time_warp | single_time_warp |
+        multi_time_warp]]></c></tag>
+      <item>
+        <p>Sets <seealso marker="time_correction#Time_Warp_Modes">time warp
+          mode</seealso>:</p>
+        <taglist>
+        <tag><c>no_time_warp</c></tag>
+          <item><seealso marker="time_correction#No_Time_Warp_Mode">
+            No time warp mode</seealso> (the default)</item>
+          <tag><c>single_time_warp</c></tag>
+          <item><seealso marker="time_correction#Single_Time_Warp_Mode">
+            Single time warp mode</seealso></item>
+          <tag><c>multi_time_warp</c></tag>
+          <item><seealso marker="time_correction#Multi_Time_Warp_Mode">
+            Multi-time warp mode</seealso></item>
+      </taglist>
+      </item>
+      <tag><c><![CDATA[+d]]></c></tag>
+      <item>
+        <p>If the emulator detects an internal error (or runs out of memory),
+          it, by default, generates both a crash dump and a core dump.
+          The core dump is, however, not very useful as the content
+          of process heaps is destroyed by the crash dump generation.</p>
+        <p>Option <c>+d</c> instructs the emulator to produce only a
+          core dump and no crash dump if an internal error is detected.</p>
+        <p>Calling <seealso marker="erlang#halt/1">
+          <c>erlang:halt/1</c></seealso> with a string argument still
+          produces a crash dump. On Unix systems, sending an emulator process
+          a <c>SIGUSR1</c> signal also forces a crash dump.</p>
+      </item>
+      <tag><marker id="+dcg"/><c><![CDATA[+rg DecentralizedCounterGroupsLimit]]></c></tag>
+      <item>
+        <p>Limits the number of decentralized counter groups used by
+           decentralized counters optimized for update operations in the
+           Erlang runtime system. By default, the limit is 256.</p>
+        <p>When the number of schedulers is less than or equal to the
+           limit, each scheduler has its own group. When the
+           number of schedulers is larger than the groups limit,
+           schedulers share groups. Shared groups degrade
+           the performance for updating counters while many reader groups
+           degrade the performance for reading counters. So, the limit is a tradeoff
+           between performance for update operations and performance for
+           read operations. Each group consumes 64 bytes in each
+           counter.</p>
+        <p>Notice that a runtime system using decentralized
+           counter groups benefits from <seealso marker="#+sbt">binding
+           schedulers to logical processors</seealso>, as the groups are
+           distributed better between schedulers with this option.</p>
+        <p>This option only affects decentralized counters used for
+           the counters that are keeping track of the memory consumption
+           and the number of terms in ETS tables of type ordered_set with
+           the write_concurrency option activated.</p>
+      </item>
+      <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
+      <item>
+        <p>Sets the maximum number of ETS tables. This limit is
+	<seealso marker="stdlib:ets#max_ets_tables">partially obsolete</seealso>.
+	</p>
+      </item>
+      <tag><c><![CDATA[+ec]]></c></tag>
+      <item>
+        <p>Forces option <c>compressed</c> on all ETS tables.
+          Only intended for test and evaluation.</p>
+      </item>
+      <tag><marker id="file_name_encoding"></marker>
+        <c><![CDATA[+fnl]]></c></tag>
+      <item>
+        <p>The virtual machine works with filenames as if they are encoded
+          using the ISO Latin-1 encoding, disallowing Unicode characters with
+          code points &gt; 255.</p>
+        <p>For more information about Unicode filenames, see section
+          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          this value also applies to command-line parameters and environment
+          variables (see section <seealso
+          marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
+          Unicode in Environment and Parameters</seealso> in the STDLIB
+          User's Guide).</p>
+      </item>
+      <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
+      <item>
+        <p>The virtual machine works with filenames as if they are encoded
+          using UTF-8 (or some other system-specific Unicode encoding). This is
+          the default on operating systems that enforce Unicode encoding, that
+          is, Windows and MacOS X.</p>
+        <p>The <c>+fnu</c> switch can be followed by <c>w</c>, <c>i</c>, or
+          <c>e</c> to control how wrongly encoded filenames are to be
+          reported:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>w</c> means that a warning is sent to the <c>error_logger</c>
+              whenever a wrongly encoded filename is "skipped" in directory
+              listings. This is the default.</p>
+          </item>
+          <item>
+            <p><c>i</c> means that those wrongly encoded filenames are silently
+              ignored.</p>
+          </item>
+          <item>
+            <p><c>e</c> means that the API function returns an error whenever a
+              wrongly encoded filename (or directory name) is encountered.</p>
+          </item>
+        </list>
+        <p>Notice that <seealso marker="kernel:file#read_link/1">
+          <c>file:read_link/1</c></seealso> always returns an error if the link
+          points to an invalid filename.</p>
+        <p>For more information about Unicode filenames, see section
+          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          this value also applies to command-line parameters and environment
+          variables (see section <seealso
+          marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
+          Unicode in Environment and Parameters</seealso> in the STDLIB
+          User's Guide).</p>
+      </item>
+      <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
+      <item>
+        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based
+          on the current locale settings in the OS. This means that if you
+          have set your terminal for UTF-8 encoding, the filesystem is
+          expected to use the same encoding for filenames. This is
+          default on all operating systems, except MacOS X and Windows.</p>
+        <p>The <c>+fna</c> switch can be followed by <c>w</c>, <c>i</c>, or
+          <c>e</c>. This has effect if the locale settings cause the behavior
+          of <c>+fnu</c> to be selected; see the description of <c>+fnu</c>
+          above. If the locale settings cause the behavior of <c>+fnl</c> to be
+          selected, then <c>w</c>, <c>i</c>, or <c>e</c> have no effect.</p>
+        <p>For more information about Unicode filenames, see section
+          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          this value also applies to command-line parameters and environment
+          variables (see section <seealso
+          marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
+          Unicode in Environment and Parameters</seealso> in the STDLIB
+          User's Guide).</p>
+      </item>
+      <tag><c><![CDATA[+hms Size]]></c></tag>
+      <item>
+        <p>Sets the default heap size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[+hmbs Size]]></c></tag>
+      <item>
+        <p>Sets the default binary virtual heap size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
+      <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
+      <item>
+        <p>Sets the default maximum heap size of processes to the size
+          <c><![CDATA[Size]]></c>. Defaults to <c>0</c>, which means that no
+          maximum heap size is used. For more information, see
+          <seealso marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+      </item>
+      <tag><marker id="+hmaxel"/><c><![CDATA[+hmaxel true|false]]></c></tag>
+      <item>
+        <p>Sets whether to send an error logger message or not for processes
+          reaching the maximum heap size. Defaults to <c>true</c>.
+          For more information, see
+          <seealso marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+      </item>
+      <tag><marker id="+hmaxk"/><c><![CDATA[+hmaxk true|false]]></c></tag>
+      <item>
+        <p>Sets whether to kill processes reaching the maximum heap size or not.
+          Default to <c>true</c>. For more information, see
+          <seealso marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[+hpds Size]]></c></tag>
+      <item>
+        <p>Sets the initial process dictionary size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
+      <tag><marker id="+hmqd"/><c>+hmqd off_heap|on_heap</c></tag>
+      <item>
+        <p>Sets the default value for process flag <c>message_queue_data</c>.
+          Defaults to <c>on_heap</c>. If <c>+hmqd</c> is not
+	  passed, <c>on_heap</c> will be the default. For more information, see
+          <seealso marker="erlang#process_flag_message_queue_data">
+          <c>process_flag(message_queue_data, MQD)</c></seealso>.</p>
+      </item>
+      <tag><marker id="+IOp"/><c>+IOp PollSets</c></tag>
+      <item>
+        <p>Sets the number of IO pollsets to use when polling for I/O.
+          This option is only used on platforms that support concurrent
+          updates of a pollset, otherwise the same number of pollsets
+          are used as IO poll threads.
+          The default is 1.
+        </p>
+      </item>
+      <tag><marker id="+IOt"/><c>+IOt PollThreads</c></tag>
+      <item>
+        <p>Sets the number of IO poll threads to use when polling for I/O.
+          The maximum number of poll threads allowed is 1024. The default is 1.
+        </p>
+        <p>A good way to check if more IO poll threads are needed is to use
+          <seealso marker="runtime_tools:msacc">microstate accounting</seealso>
+          and see what the load of the IO poll thread is. If it is high it could
+          be a good idea to add more threads.</p>
+      </item>
+      <tag><marker id="+IOPp"/><c>+IOPp PollSetsPercentage</c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+IOp"><c>+IOp</c></seealso> but uses
+          percentages to set the number of IO pollsets to create, based on the
+          number of poll threads configured. If both <c>+IOPp</c> and <c>+IOp</c>
+          are used, <c>+IOPp</c> is ignored.
+        </p>
+      </item>
+      <tag><marker id="+IOPt"/><c>+IOPt PollThreadsPercentage</c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+IOt"><c>+IOt</c></seealso> but uses
+          percentages to set the number of IO poll threads to create, based on
+          the number of schedulers configured. If both <c>+IOPt</c> and
+          <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
+        </p>
+      </item>
+      <tag><c><![CDATA[+l]]></c></tag>
+      <item>
+        <p>Enables autoload tracing, displaying information while loading
+          code.</p>
+      </item>
+      <tag><c><![CDATA[+L]]></c></tag>
+      <item>
+        <p>Prevents loading information about source filenames and line
+          numbers. This saves some memory, but exceptions do not contain
+          information about the filenames and line numbers.</p>
+      </item>
+      <tag><marker id="erts_alloc"/><c><![CDATA[+MFlag Value]]></c></tag>
+      <item>
+        <p>Memory allocator-specific flags. For more information, see
+          <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>.</p>
+      </item>
+      <tag><marker id="+pc"/><marker id="printable_character_range"/>
+        <c><![CDATA[+pc Range]]></c></tag>
+      <item>
+        <p>Sets the range of characters that the system considers printable in
+          heuristic detection of strings. This typically affects the shell,
+          debugger, and <c>io:format</c> functions (when <c>~tp</c> is used in
+          the format string).</p> 
+        <p>Two values are supported for <c>Range</c>:</p>
+        <taglist>
+          <tag><c>latin1</c></tag>
+          <item>The default. Only characters in the ISO Latin-1 range can be
+            considered printable. This means that a character with a code point
+            &gt; 255 is never considered printable and that lists containing
+            such characters are displayed as lists of integers rather than text
+            strings by tools.</item>
+          <tag><c>unicode</c></tag>
+          <item>All printable Unicode characters are considered when
+            determining if a list of integers is to be displayed in
+            string syntax. This can give unexpected results if, for
+            example, your font does not cover all Unicode characters.</item>
+        </taglist>
+        <p>See also <seealso marker="stdlib:io#printable_range/0">
+          <c>io:printable_range/0</c></seealso> in STDLIB.</p>
+      </item>
+      <tag><marker id="+P"/><marker id="max_processes"/><c><![CDATA[+P Number]]></c></tag>
+      <item>
+	<p>Sets the maximum number of simultaneously existing processes for this
+          system if a <c>Number</c> is passed as value. Valid range for
+	<c>Number</c> is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
+	<p>The default value is <c>262144</c></p>
+      </item>
+      <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number]]></c></tag>
+      <item>
+	<p>Sets the maximum number of simultaneously existing ports for this
+          system if a Number is passed as value. Valid range for <c>Number</c>
+	is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the actual <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_port_limit">erlang:system_info(port_limit)</seealso>.</p>
+	<p>The default value used is normally <c>65536</c>. However, if
+	the runtime system is able to determine maximum amount of file
+	descriptors that it is allowed to open and this value is larger
+	than <c>65536</c>, the chosen value will increased to a value
+	larger or equal to the maximum amount of file descriptors that
+	can be opened.</p>
+	<p>On Windows the default value is set to <c>8196</c> because the
+	normal OS limitations are set higher than most machines can handle.</p>
+      </item>
+      <tag><marker id="compat_rel"/><c><![CDATA[+R ReleaseNumber]]></c></tag>
+      <item>
+        <p>Sets the compatibility mode.</p>
+        <p>The distribution mechanism is not backward compatible by
+          default. This flag sets the emulator in compatibility mode
+          with an earlier Erlang/OTP release <c><![CDATA[ReleaseNumber]]></c>.
+          The release number must be in the range
+          <c><![CDATA[<current release>-2..<current release>]]></c>. This
+          limits the emulator, making it possible for it to communicate
+          with Erlang nodes (as well as C- and Java nodes) running that
+          earlier release.</p>
+        <note>
+          <p>Ensure that all nodes (Erlang-,  C-, and Java nodes) of
+            a distributed Erlang system is of the same Erlang/OTP release,
+            or from two different Erlang/OTP releases X and Y, where
+            <em>all</em> Y nodes have compatibility mode X.</p>
+        </note>
+      </item>
+      <tag><c><![CDATA[+r]]></c></tag>
+      <item>
+        <p>Forces ETS memory block to be moved on realloc.</p>
+      </item>
+      <tag><marker id="+rg"/><c><![CDATA[+rg ReaderGroupsLimit]]></c></tag>
+      <item>
+        <p>Limits the number of reader groups used by read/write locks
+          optimized for read operations in the Erlang runtime system. By
+          default the reader groups limit is 64.</p>
+        <p>When the number of schedulers is less than or equal to the reader
+          groups limit, each scheduler has its own reader group. When the
+          number of schedulers is larger than the reader groups limit,
+          schedulers share reader groups. Shared reader groups degrade
+          read lock and read unlock performance while many
+          reader groups degrade write lock performance. So, the limit is a
+          tradeoff between performance for read operations and performance
+          for write operations. Each reader group consumes 64 byte
+          in each read/write lock.</p>
+        <p>Notice that a runtime system using shared reader groups benefits from
+          <seealso marker="#+sbt">binding schedulers to logical
+          processors</seealso>, as the reader groups are distributed better
+          between schedulers.</p>
+      </item>
+      <tag><marker id="+S"/>
+        <c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
+      <item>
+        <p>Sets the number of scheduler threads to create and scheduler threads
+          to set online. The maximum for both
+          values is 1024. If the Erlang runtime system is able to determine the
+          number of logical processors configured and logical processors
+          available, <c>Schedulers</c> defaults to logical processors
+          configured, and <c>SchedulersOnline</c> defaults to logical processors
+          available; otherwise the default values are 1. <c>Schedulers</c> can
+          be omitted if <c>:SchedulerOnline</c> is not and conversely. The
+          number of schedulers online can be changed at runtime through
+          <seealso marker="erlang#system_flag_schedulers_online">
+          <c>erlang:system_flag(schedulers_online,
+          SchedulersOnline)</c></seealso>.</p>
+        <p>If <c>Schedulers</c> or <c>SchedulersOnline</c> is specified as a
+          negative number, the value is subtracted from the default number of
+          logical processors configured or logical processors available,
+          respectively.</p>
+        <p>Specifying value <c>0</c> for <c>Schedulers</c> or
+          <c>SchedulersOnline</c> resets the number of scheduler threads or
+          scheduler threads online, respectively, to its default value.</p>
+      </item>
+      <tag><marker id="+SP"/><c><![CDATA[+SP
+        SchedulersPercentage:SchedulersOnlinePercentage]]></c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+S"><c>+S</c></seealso> but uses
+          percentages to set the number of scheduler threads to create, based
+          on logical processors configured, and scheduler threads to set online,
+          based on logical processors available.
+          Specified values must be &gt; 0. For example,
+          <c>+SP 50:25</c> sets the number of scheduler threads to 50% of the
+          logical processors configured, and the number of scheduler threads
+          online to 25% of the logical processors available.
+          <c>SchedulersPercentage</c> can be omitted if
+          <c>:SchedulersOnlinePercentage</c> is not and conversely. The number
+          of schedulers online can be changed at runtime through
+          <seealso marker="erlang#system_flag_schedulers_online">
+          <c>erlang:system_flag(schedulers_online,
+          SchedulersOnline)</c></seealso>.</p>
+        <p>This option interacts with <seealso marker="#+S"><c>+S</c></seealso>
+          settings. For example, on a system with 8 logical cores configured
+          and 8 logical cores available, the combination of the options
+          <c>+S 4:4 +SP 50:25</c> (in either order) results in 2 scheduler
+          threads (50% of 4) and 1 scheduler thread online (25% of 4).</p>
+      </item>
+      <tag><marker id="+SDcpu"/><c><![CDATA[+SDcpu
+        DirtyCPUSchedulers:DirtyCPUSchedulersOnline]]></c></tag>
+      <item>
+        <p>Sets the number of dirty CPU scheduler threads to create and dirty
+          CPU scheduler threads to set online.
+          The maximum for both values is 1024, and each value is
+          further limited by the settings for normal schedulers:</p>
+        <list type="bulleted">
+          <item>The number of dirty CPU scheduler threads created cannot exceed
+            the number of normal scheduler threads created.</item>
+          <item>The number of dirty CPU scheduler threads online cannot exceed
+            the number of normal scheduler threads online.</item>
+        </list>
+        <p>For details, see the <seealso marker="#+S"><c>+S</c></seealso> and
+          <seealso marker="#+SP"><c>+SP</c></seealso>. By default, the number
+          of dirty CPU scheduler threads created equals the number of normal
+          scheduler threads created, and the number of dirty CPU scheduler
+          threads online equals the number of normal scheduler threads online.
+          <c>DirtyCPUSchedulers</c> can be omitted if
+          <c>:DirtyCPUSchedulersOnline</c> is not and conversely. The number of
+          dirty CPU schedulers online can be changed at runtime through
+          <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">
+          <c>erlang:system_flag(dirty_cpu_schedulers_online,
+          DirtyCPUSchedulersOnline)</c></seealso>.</p>
+	<p>The amount of dirty CPU schedulers is limited by the amount of
+	  normal schedulers in order to limit the effect on processes
+	  executing on ordinary schedulers. If the amount of dirty CPU
+	  schedulers was allowed to be unlimited, dirty CPU bound jobs would
+	  potentially starve normal jobs.</p>
+      </item>
+      <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
+        DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+SDcpu"><c>+SDcpu</c></seealso> but
+          uses percentages to set the number of dirty CPU scheduler threads to
+          create and the number of dirty CPU scheduler threads to set online.
+          Specified values must be
+          &gt; 0. For example, <c>+SDPcpu 50:25</c> sets the number of dirty
+          CPU scheduler threads to 50% of the logical processors configured
+          and the number of dirty CPU scheduler threads online to 25% of the
+          logical processors available. <c>DirtyCPUSchedulersPercentage</c> can
+          be omitted if <c>:DirtyCPUSchedulersOnlinePercentage</c> is not and
+          conversely. The number of dirty CPU schedulers online can be changed
+          at runtime through
+          <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">
+          <c>erlang:system_flag(dirty_cpu_schedulers_online,
+          DirtyCPUSchedulersOnline)</c></seealso>.</p>
+        <p>This option interacts with <seealso
+          marker="#+SDcpu"><c>+SDcpu</c></seealso> settings. For example, on a
+          system with 8 logical cores configured and 8 logical cores available,
+          the combination of the options <c>+SDcpu 4:4 +SDPcpu 50:25</c> (in
+          either order) results in 2 dirty CPU scheduler threads (50% of 4) and
+          1 dirty CPU scheduler thread online (25% of 4).</p>
+      </item>
+      <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
+      <item>
+        <p>Sets the number of dirty I/O scheduler threads to create.
+          Valid range is 0-1024. By
+          default, the number of dirty I/O scheduler threads created is 10,
+          same as the default number of threads in the <seealso
+          marker="#async_thread_pool_size">async thread pool</seealso>.</p>
+	<p>The amount of dirty IO schedulers is not limited by the amount of
+	  normal schedulers <seealso marker="#+SDcpu">like the amount of
+	  dirty CPU schedulers</seealso>. This since only I/O bound work is
+	  expected to execute on dirty I/O schedulers. If the user should schedule CPU
+	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
+	  jobs executing on ordinary schedulers.</p>
+      </item>
+      <tag><c><![CDATA[+sFlag Value]]></c></tag>
+      <item>
+        <p>Scheduling specific flags.</p>
+        <taglist>
+          <tag><marker id="+sbt"/><c>+sbt BindType</c></tag>
+          <item>
+            <p>Sets scheduler bind type.</p>
+            <p>Schedulers can also be bound using flag
+              <seealso marker="#+stbt"><c>+stbt</c></seealso>. The only
+              difference between these two flags is how the following errors
+              are handled:</p>
+            <list type="bulleted">
+              <item>Binding of schedulers is not supported on the specific
+                platform.</item>
+              <item>No available CPU topology. That is, the runtime system was
+                not able to detect the CPU topology automatically, and no
+                <seealso marker="#+sct">user-defined CPU topology</seealso>
+                was set.</item>
+            </list>
+            <p>If any of these errors occur when <c>+sbt</c> has been passed,
+              the runtime system prints an error message, and refuses to
+              start. If any of these errors occur when <c>+stbt</c> has been
+              passed, the runtime system silently ignores the error, and
+              start up using unbound schedulers.</p>
+            <p>Valid <c>BindType</c>s:</p>
+            <taglist>
+              <tag><c>u</c></tag>
+              <item><c>unbound</c> - Schedulers are not bound to logical
+                processors, that is, the operating system decides where the
+                scheduler threads execute, and when to migrate them. This is
+                the default.
+              </item>
+              <tag><c>ns</c></tag>
+              <item><c>no_spread</c> - Schedulers with close scheduler
+                identifiers are bound as close as possible in hardware.
+              </item>
+              <tag><c>ts</c></tag>
+              <item><c>thread_spread</c> - Thread refers to hardware threads
+                (such as Intel's hyper-threads). Schedulers with low scheduler
+                identifiers, are bound to the first hardware thread of
+                each core, then schedulers with higher scheduler identifiers
+                are bound to the second hardware thread of each core,and so on.
+              </item>
+              <tag><c>ps</c></tag>
+              <item><c>processor_spread</c> - Schedulers are spread like
+                <c>thread_spread</c>, but also over physical processor chips.
+              </item>
+              <tag><c>s</c></tag>
+              <item><c>spread</c> - Schedulers are spread as much as possible.
+              </item>
+              <tag><c>nnts</c></tag>
+              <item><c>no_node_thread_spread</c> - Like <c>thread_spread</c>,
+                but if multiple Non-Uniform Memory Access (NUMA) nodes exist,
+                schedulers are spread over one NUMA node at a time,
+                that is, all logical processors of one NUMA node are bound
+                to schedulers in sequence.
+              </item>
+              <tag><c>nnps</c></tag>
+              <item><c>no_node_processor_spread</c> - Like
+                <c>processor_spread</c>, but if multiple NUMA nodes exist,
+                schedulers are spread over one NUMA node at a time, that is,
+                all logical processors of one NUMA node are bound to
+                schedulers in sequence.
+              </item>
+              <tag><c>tnnps</c></tag>
+              <item><c>thread_no_node_processor_spread</c> - A combination of
+                <c>thread_spread</c>, and <c>no_node_processor_spread</c>.
+                Schedulers are spread over hardware threads across NUMA
+                nodes, but schedulers are only spread over processors
+                internally in one NUMA node at a time.
+              </item>
+              <tag><c>db</c></tag>
+              <item><c>default_bind</c> - Binds schedulers the default way.
+                Defaults to <c>thread_no_node_processor_spread</c>
+                (which can change in the future).
+              </item>
+            </taglist>
+            <p>Binding of schedulers is only supported on newer
+              Linux, Solaris, FreeBSD, and Windows systems.</p>
+            <p>If no CPU topology is available when flag <c>+sbt</c>
+              is processed and <c>BindType</c> is any other type than
+              <c>u</c>, the runtime system fails to start. CPU
+              topology can be defined using flag
+              <seealso marker="#+sct"><c>+sct</c></seealso>. Notice
+              that flag <c>+sct</c> can have to be passed before flag
+              <c>+sbt</c> on the command line (if no CPU topology
+              has been automatically detected).</p>
+            <p>The runtime system does by default <em>not</em> bind schedulers
+              to logical processors.</p>
+            <note>
+              <p>If the Erlang runtime system is the only operating system
+                process that binds threads to logical processors, this
+                improves the performance of the runtime system. However,
+                if other operating system processes (for example
+                another Erlang runtime system) also bind threads to
+                logical processors, there can be a performance penalty
+                instead. This performance penalty can sometimes be
+                severe. If so, you are advised not to
+                bind the schedulers.</p>
+            </note>
+            <p>How schedulers are bound matters. For example, in
+              situations when there are fewer running processes than
+              schedulers online, the runtime system tries to migrate
+              processes to schedulers with low scheduler identifiers.
+              The more the schedulers are spread over the hardware,
+              the more resources are available to the runtime
+              system in such situations.</p>
+            <note>
+              <p>If a scheduler fails to bind, this is
+                often silently ignored, as it is not always
+                possible to verify valid logical processor identifiers. If
+                an error is reported, it is reported to the
+                <c>error_logger</c>. If you want to verify that the
+                schedulers have bound as requested, call
+                <seealso marker="erlang#system_info_scheduler_bindings">
+                <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
+            </note>
+          </item>
+          <tag><marker id="+sbwt"/>
+            <c>+sbwt none|very_short|short|medium|long|very_long</c></tag>
+          <item>
+            <p>Sets scheduler busy wait threshold. Defaults to <c>medium</c>.
+              The threshold determines how long schedulers are to busy
+              wait when running out of work before going to sleep.</p>
+            <note>
+              <p>This flag can be removed or changed at any time
+                without prior notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+sbwtdcpu"/>
+            <c>+sbwtdcpu none|very_short|short|medium|long|very_long</c></tag>
+          <item>
+            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
+              dirty CPU schedulers. Defaults to <c>short</c>.</p>
+            <note>
+              <p>This flag can be removed or changed at any time
+                without prior notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+sbwtdio"/>
+            <c>+sbwtdio none|very_short|short|medium|long|very_long</c></tag>
+          <item>
+            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
+              dirty IO schedulers. Defaults to <c>short</c>.</p>
+            <note>
+              <p>This flag can be removed or changed at any time
+                without prior notice.</p>
+            </note>
+          </item>
+<tag><marker id="+scl"/><c>+scl true|false</c></tag>
+          <item>
+            <p>Enables or disables scheduler compaction of load. By default
+              scheduler compaction of load is enabled. When enabled, load
+              balancing strives for a load distribution, which causes
+              as many scheduler threads as possible to be fully loaded (that is,
+              not run out of work). This is accomplished by migrating load
+              (for example, runnable processes) into a smaller set of schedulers
+              when schedulers frequently run out of work. When disabled,
+              the frequency with which schedulers run out of work is
+              not taken into account by the load balancing logic.</p>
+            <p><c>+scl false</c> is similar to
+              <seealso marker="#+sub"><c>+sub true</c></seealso>, but
+              <c>+sub true</c> also balances scheduler utilization
+              between schedulers.</p>
+          </item>
+          <tag><marker id="+sct"/><c>+sct CpuTopology</c></tag>
+          <item>
+            <list type="bulleted">
+              <item><c><![CDATA[<Id> = integer(); when 0 =< <Id> =< 65535]]></c>
+              </item>
+              <item><c><![CDATA[<IdRange> = <Id>-<Id>]]></c></item>
+              <item><c><![CDATA[<IdOrIdRange> = <Id> | <IdRange>]]></c></item>
+              <item><c><![CDATA[<IdList> = <IdOrIdRange>,<IdOrIdRange> |
+                <IdOrIdRange>]]></c></item>
+              <item><c><![CDATA[<LogicalIds> = L<IdList>]]></c></item>
+              <item><c><![CDATA[<ThreadIds> = T<IdList> | t<IdList>]]></c>
+              </item>
+              <item><c><![CDATA[<CoreIds> = C<IdList> | c<IdList>]]></c></item>
+              <item><c><![CDATA[<ProcessorIds> = P<IdList> | p<IdList>]]></c>
+              </item>
+              <item><c><![CDATA[<NodeIds> = N<IdList> | n<IdList>]]></c></item>
+              <item><c><![CDATA[<IdDefs> =
+                <LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds> |
+                <LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>]]></c>
+              </item>
+              <item><c><![CDATA[CpuTopology = <IdDefs>:<IdDefs> |
+                <IdDefs>]]></c></item>
+            </list>
+            <p>Sets a user-defined CPU topology. The user-defined
+              CPU topology overrides any automatically detected
+              CPU topology. The CPU topology is used when
+              <seealso marker="#+sbt">binding schedulers to logical
+              processors</seealso>.</p>
+            <p>Uppercase letters signify real identifiers and lowercase
+	      letters signify fake identifiers only used for description
+              of the topology. Identifiers passed as real identifiers can
+              be used by the runtime system when trying to access specific
+              hardware; if they are incorrect the behavior is
+              undefined. Faked logical CPU identifiers are not accepted,
+              as there is no point in defining the CPU topology without
+              real logical CPU identifiers. Thread, core, processor, and
+              node identifiers can be omitted. If omitted, the thread ID
+              defaults to <c>t0</c>, the core ID defaults to <c>c0</c>,
+              the processor ID defaults to <c>p0</c>, and the node ID is
+              left undefined. Either each logical processor must 
+              belong to only one NUMA node, or no logical
+              processors must belong to any NUMA nodes.</p>
+            <p>Both increasing and decreasing <c><![CDATA[<IdRange>]]></c>s
+              are allowed.</p>
+            <p>NUMA node identifiers are system wide. That is, each NUMA
+              node on the system must have a unique identifier. Processor
+              identifiers are also system wide. Core identifiers are
+              processor wide. Thread identifiers are core wide.</p>
+            <p>The order of the identifier types implies the hierarchy of the
+              CPU topology. The valid orders are as follows:</p>
+            <list type="bulleted">
+              <item>
+                <p><c><![CDATA[<LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds>]]></c>,
+                  that is, thread is part of a core that is part of a processor,
+                  which is part of a NUMA node.</p>
+              </item>
+              <item>
+                <p><c><![CDATA[<LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>]]></c>,
+                  that is, thread is part of a core that is part of a NUMA node,
+                  which is part of a processor.</p>
+              </item>
+            </list>
+            <p>A CPU topology can consist of both processor external, and
+              processor internal NUMA nodes as long as each logical processor
+              belongs to only one NUMA node. If
+              <c><![CDATA[<ProcessorIds>]]></c> is omitted, its default position
+              is before <c><![CDATA[<NodeIds>]]></c>. That is, the default is
+              processor external NUMA nodes.</p>
+            <p>If a list of identifiers is used in an
+              <c><![CDATA[<IdDefs>]]></c>:</p>
+            <list type="bulleted">
+              <item><c><![CDATA[<LogicalIds>]]></c> must be a list
+                of identifiers.</item>
+              <item>At least one other identifier type besides
+                <c><![CDATA[<LogicalIds>]]></c> must also have a
+                list of identifiers.</item>
+              <item>All lists of identifiers must produce the
+                same number of identifiers.</item>
+            </list>
+            <p>A simple example. A single quad core processor can be
+              described as follows:</p>
+<pre>
+% <input>erl +sct L0-3c0-3</input>
+1> <input>erlang:system_info(cpu_topology).</input>
+[{processor,[{core,{logical,0}},
+             {core,{logical,1}},
+             {core,{logical,2}},
+             {core,{logical,3}}]}]</pre>
+            <p>A more complicated example with two quad core
+              processors, each processor in its own NUMA node.
+              The ordering of logical processors is a bit weird.
+              This to give a better example of identifier lists:</p>
+<pre>
+% <input>erl +sct L0-1,3-2c0-3p0N0:L7,4,6-5c0-3p1N1</input>
+1> <input>erlang:system_info(cpu_topology).</input>
+[{node,[{processor,[{core,{logical,0}},
+                    {core,{logical,1}},
+                    {core,{logical,3}},
+                    {core,{logical,2}}]}]},
+ {node,[{processor,[{core,{logical,7}},
+                    {core,{logical,4}},
+                    {core,{logical,6}},
+                    {core,{logical,5}}]}]}]</pre>
+            <p>As long as real identifiers are correct, it is OK
+              to pass a CPU topology that is not a correct
+              description of the CPU topology. When used with
+              care this can be very useful. This
+              to trick the emulator to bind its schedulers
+              as you want. For example, if you want to run multiple
+              Erlang runtime systems on the same machine, you
+              want to reduce the number of schedulers used and
+              manipulate the CPU topology so that they bind to
+              different logical CPUs. An example, with two Erlang
+              runtime systems on a quad core machine:</p>
+<pre>
+% <input>erl +sct L0-3c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname one</input>
+% <input>erl +sct L3-0c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname two</input></pre>
+            <p>In this example, each runtime system have two
+              schedulers each online, and all schedulers online
+              will run on different cores. If we change to one
+              scheduler online on one runtime system, and three
+              schedulers online on the other, all schedulers
+              online will still run on different cores.</p>
+            <p>Notice that a faked CPU topology that does not reflect
+              how the real CPU topology looks like is likely to
+              decrease the performance of the runtime system.</p>
+            <p>For more information, see
+              <seealso marker="erlang#system_info_cpu_topology">
+              <c>erlang:system_info(cpu_topology)</c></seealso>.</p>
+          </item>
+          <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
+          <item>
+            <p>Sets scheduler-forced wakeup interval. All run queues are
+              scanned each <c>Interval</c> milliseconds. While there are
+              sleeping schedulers in the system, one scheduler is woken
+              for each non-empty run queue found. <c>Interval</c> default
+              to <c>0</c>, meaning this feature is disabled.</p>
+            <note>
+              <p>This feature has been introduced as a temporary workaround
+                for long-executing native code, and native code that does not
+                bump reductions properly in OTP. When these bugs have be fixed,
+                this flag will be removed.</p>
+            </note>
+          </item>
+          <tag><marker id="+spp"/><c>+spp Bool</c></tag>
+          <item>
+            <p>Sets default scheduler hint for port parallelism. If set to
+              <c>true</c>, the virtual machine schedules port tasks when it
+              improves parallelism in the system. If set to <c>false</c>, the
+              virtual machine tries to perform port tasks immediately,
+              improving latency at the expense of parallelism. Default to
+              <c>false</c>. The default used can be inspected in runtime by
+              calling <seealso marker="erlang#system_info_port_parallelism">
+              <c>erlang:system_info(port_parallelism)</c></seealso>.
+              The default can be overridden on port creation by passing option
+              <seealso marker="erlang#open_port_parallelism">
+              <c>parallelism</c></seealso> to
+              <seealso marker="erlang#open_port/2">
+              <c>erlang:open_port/2</c></seealso></p>.
+          </item>
+          <tag><marker id="sched_thread_stack_size"/>
+            <c><![CDATA[+sss size]]></c></tag>
+          <item>
+            <p>Suggested stack size, in kilowords, for scheduler threads.
+              Valid range is 20-8192 kilowords. The default suggested
+	      stack size is 128 kilowords.</p>
+          </item>
+          <tag><marker id="dcpu_sched_thread_stack_size"/>
+            <c><![CDATA[+sssdcpu size]]></c></tag>
+          <item>
+            <p>Suggested stack size, in kilowords, for dirty CPU scheduler
+	      threads. Valid range is 20-8192 kilowords. The default
+	      suggested stack size is 40 kilowords.</p>
+          </item>
+          <tag><marker id="dio_sched_thread_stack_size"/>
+            <c><![CDATA[+sssdio size]]></c></tag>
+          <item>
+            <p>Suggested stack size, in kilowords, for dirty IO scheduler
+	      threads. Valid range is 20-8192 kilowords. The default
+	      suggested stack size is 40 kilowords.</p>
+          </item>
+          <tag><marker id="+stbt"/><c>+stbt BindType</c></tag>
+          <item>
+            <p>Tries to set the scheduler bind type. The same as flag
+              <seealso marker="#+sbt"><c>+sbt</c></seealso> except
+              how some errors are handled. For more information, see
+              <seealso marker="#+sbt"><c>+sbt</c></seealso>.</p>
+          </item>
+          <tag><marker id="+sub"/><c>+sub true|false</c></tag>
+          <item>
+            <p>Enables or disables
+              <seealso marker="erts:erlang#statistics_scheduler_wall_time">
+              scheduler utilization</seealso> balancing of load. By default
+              scheduler utilization balancing is disabled and instead scheduler
+              compaction of load is enabled, which strives for a load
+              distribution that causes as many scheduler threads as possible
+              to be fully loaded (that is, not run out of work). When scheduler
+              utilization balancing is enabled, the system instead tries to
+              balance scheduler utilization between schedulers. That is,
+              strive for equal scheduler utilization on all schedulers.</p>
+            <p><c>+sub true</c> is only supported on systems where the runtime
+              system detects and uses a monotonically increasing high-resolution
+              clock. On other systems, the runtime system fails to start.</p>
+            <p><c>+sub true</c> implies <seealso marker="#+scl">
+              <c>+scl false</c></seealso>. The difference between
+              <c>+sub true</c> and <c>+scl false</c> is that <c>+scl false</c>
+              does not try to balance the scheduler utilization.</p>
+          </item>
+          <tag><marker id="+swct"/>
+            <c>+swct very_eager|eager|medium|lazy|very_lazy</c></tag>
+          <item>
+            <p>Sets scheduler wake cleanup threshold. Defaults to <c>medium</c>.
+              Controls how eager schedulers are to be requesting
+              wakeup because of certain cleanup operations. When a lazy setting
+              is used, more outstanding cleanup operations can be left undone
+              while a scheduler is idling. When an eager setting is used,
+              schedulers are more frequently woken, potentially increasing
+              CPU-utilization.</p>
+            <note>
+              <p>This flag can be removed or changed at any time without prior
+                notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+sws"/><c>+sws default|legacy</c></tag>
+          <item>
+            <p>Sets scheduler wakeup strategy. Default strategy changed in
+              ERTS 5.10 (Erlang/OTP R16A). This strategy was known as
+              <c>proposal</c> in Erlang/OTP R15. The <c>legacy</c> strategy
+              was used as default from R13 up to and including R15.</p>
+            <note>
+              <p>This flag can be removed or changed at any time without prior
+                notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+swt"/>
+            <c>+swt very_low|low|medium|high|very_high</c></tag>
+          <item>
+            <p>Sets scheduler wakeup threshold. Defaults to <c>medium</c>.
+              The threshold determines when to wake up sleeping schedulers
+              when more work than can be handled by currently awake schedulers
+              exists. A low threshold causes earlier wakeups, and a high
+              threshold causes later wakeups. Early wakeups distribute work
+              over multiple schedulers faster, but work does more easily bounce
+              between schedulers.</p>
+            <note>
+              <p>This flag can be removed or changed at any time without prior
+                notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+swtdcpu"/>
+            <c>+swtdcpu very_low|low|medium|high|very_high</c></tag>
+          <item>
+            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but
+              affects dirty CPU schedulers. Defaults to <c>medium</c>.</p>
+            <note>
+              <p>This flag can be removed or changed at any time
+                without prior notice.</p>
+            </note>
+          </item>
+          <tag><marker id="+swtdio"/>
+            <c>+swtdio very_low|low|medium|high|very_high</c></tag>
+          <item>
+            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but affects
+              dirty IO schedulers. Defaults to <c>medium</c>.</p>
+            <note>
+              <p>This flag can be removed or changed at any time
+                without prior notice.</p>
+            </note>
+          </item>
+        </taglist>
+      </item>
+      <tag><marker id="+t"/><c><![CDATA[+t size]]></c></tag>
+      <item>
+        <p>Sets the maximum number of atoms the virtual machine can handle.
+          Defaults to 1,048,576.</p>
+      </item>
+      <tag><marker id="+T"/><c><![CDATA[+T Level]]></c></tag>
+      <item>
+        <p>Enables modified timing and sets the modified timing level. Valid
+          range is 0-9. The timing of the runtime system is changed. A high
+          level usually means a greater change than a low level. Changing the
+          timing can be very useful for finding timing-related bugs.</p>
+        <p>Modified timing affects the following:</p>
+        <taglist>
+          <tag>Process spawning</tag>
+          <item>A process calling <c><![CDATA[spawn]]></c>,
+            <c><![CDATA[spawn_link]]></c>, <c><![CDATA[spawn_monitor]]></c>,
+            or <c><![CDATA[spawn_opt]]></c> is scheduled out immediately
+            after completing the call. When higher modified timing levels are
+            used, the caller also sleeps for a while after it is scheduled out.
+          </item>
+          <tag>Context reductions</tag>
+          <item>The number of reductions a process is allowed to use before it
+            is scheduled out is increased or reduced.
+          </item>
+          <tag>Input reductions</tag>
+          <item>The number of reductions performed before checking I/O is
+            increased or reduced.
+          </item>
+        </taglist>
+        <note>
+          <p>Performance suffers when modified timing is enabled. This flag is
+            <em>only</em> intended for testing and debugging.</p>
+          <p><c><![CDATA[return_to]]></c> and <c><![CDATA[return_from]]></c>
+            trace messages are lost when tracing on the spawn BIFs.</p>
+          <p>This flag can be removed or changed at any time without prior
+            notice.</p>
+        </note>
+      </item>
+      <tag><c><![CDATA[+v]]></c></tag>
+      <item>
+        <p>Verbose.</p>
+      </item>
+      <tag><c><![CDATA[+V]]></c></tag>
+      <item>
+        <p>Makes the emulator print its version number.</p>
+      </item>
+      <tag><c><![CDATA[+W w | i | e]]></c></tag>
+      <item>
+        <p>Sets the mapping of warning messages for
+          <c><![CDATA[error_logger]]></c>. Messages sent to the error logger
+          using one of the warning routines can be mapped to errors
+          (<c><![CDATA[+W e]]></c>), warnings (<c><![CDATA[+W w]]></c>), or
+          information reports (<c><![CDATA[+W i]]></c>). Defaults to warnings.
+          The current mapping can be retrieved using
+          <c><![CDATA[error_logger:warning_map/0]]></c>. For more information,
+          see <seealso marker="kernel:error_logger#warning_map/0">
+          <c>error_logger:warning_map/0</c></seealso> in Kernel.</p>
+      </item>
+      <tag><c><![CDATA[+zFlag Value]]></c></tag>
+      <item>
+        <p>Miscellaneous flags:</p>
+        <taglist>
+          <tag><marker id="+zdbbl"/><c>+zdbbl size</c></tag>
+          <item>
+            <p>Sets the distribution buffer busy limit
+              (<seealso marker="erlang#system_info_dist_buf_busy_limit">
+              <c>dist_buf_busy_limit</c></seealso>)
+              in kilobytes. Valid range is 1-2097151. Defaults to 1024.</p>
+            <p>A larger buffer limit allows processes to buffer
+              more outgoing messages over the distribution. When the
+              buffer limit has been reached, sending processes will be
+              suspended until the buffer size has shrunk. The buffer
+              limit is per distribution channel. A higher limit
+              gives lower latency and higher throughput at the expense
+              of higher memory use.</p>
+          </item>
+          <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
+          <item>
+            <p>Sets the delayed node table garbage collection time
+              (<seealso marker="erlang#system_info_delayed_node_table_gc">
+              <c>delayed_node_table_gc</c></seealso>)
+              in seconds. Valid values are either <c>infinity</c> or
+              an integer in the range 0-100000000. Defaults to 60.</p>
+            <p>Node table entries that are not referred linger
+              in the table for at least the amount of time that this
+              parameter determines. The lingering prevents repeated
+              deletions and insertions in the tables from occurring.</p>
+          </item>
+        </taglist>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="environment_variables"></marker>
+    <title>Environment Variables</title>
+    <taglist>
+      <tag><c><![CDATA[ERL_CRASH_DUMP]]></c></tag>
+      <item>
+        <p>If the emulator needs to write a crash dump, the value of this
+          variable is the filename of the crash dump file.
+          If the variable is not set, the name of the crash dump file is
+          <c><![CDATA[erl_crash.dump]]></c> in the current directory.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_NICE]]></c></tag>
+      <item>
+      <p><em>Unix systems</em>: If the emulator needs to write a crash dump,
+        it uses the value of this variable to set the nice value
+        for the process, thus lowering its priority. Valid range is
+        1-39 (higher values are replaced with 39). The highest
+        value, 39, gives the process the lowest priority.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c></tag>
+      <item>
+        <p><em>Unix systems</em>: This variable gives the number of seconds
+          that the emulator is allowed to spend writing a crash dump. When the
+          given number of seconds have elapsed, the emulator is terminated.</p>
+        <taglist>
+          <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
+	  <item>If the variable is set to <c>0</c> seconds, the runtime system does
+            not even attempt to write the crash dump file. It only terminates.
+	    This is the default if option <c>-heart</c> is passed to <c>erl</c>
+	    and <c>ERL_CRASH_DUMP_SECONDS</c> is not set.
+	  </item>
+          <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
+          <item>If the variable is set to a positive value <c>S</c>,
+	    wait for <c>S</c> seconds to complete the crash dump file and
+            then terminates the runtime system with a <c>SIGALRM</c> signal.
+          </item>
+          <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
+          <item>A negative value causes the termination of the runtime system
+	    to wait indefinitely until the crash dump file has been completly
+	    written. This is the default if option <c>-heart</c> is <em>not</em>
+	    passed to <c>erl</c> and <c>ERL_CRASH_DUMP_SECONDS</c> is not set.
+          </item>
+        </taglist>
+        <p>See also <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_BYTES]]></c></tag>
+      <item>
+      <p>This variable sets the maximum size of a crash dump file in bytes.
+        The crash dump will be truncated if this limit is exceeded. If the
+	variable is not set, no size limit is enforced by default. If the
+	variable is set to <c>0</c>, the runtime system does not even attempt
+	to write a crash dump file.</p>
+      <p>Introduced in ERTS 8.1.2 (Erlang/OTP 19.2).</p>
+      </item>
+      <tag><marker id="ERL_AFLAGS"/><c><![CDATA[ERL_AFLAGS]]></c></tag>
+      <item>
+        <p>The content of this variable is added to the beginning of the
+          command line for <c><![CDATA[erl]]></c>.</p>
+        <p>Flag <c><![CDATA[-extra]]></c> is treated in a special way. Its
+          scope ends at the end of the environment variable content. Arguments
+          following an <c><![CDATA[-extra]]></c> flag are moved on the command
+          line into section <c><![CDATA[-extra]]></c>, that is, the end of the
+          command line following an <c><![CDATA[-extra]]></c> flag.</p>
+      </item>
+      <tag><marker id="ERL_ZFLAGS"/><c><![CDATA[ERL_ZFLAGS]]></c> and
+        <marker id="ERL_FLAGS"/><c><![CDATA[ERL_FLAGS]]></c></tag>
+      <item>
+        <p>The content of these variables are added to the end of the command
+          line for <c><![CDATA[erl]]></c>.</p>
+        <p>Flag <c><![CDATA[-extra]]></c> is treated in a special way. Its
+          scope ends at the end of the environment variable content. Arguments
+          following an <c><![CDATA[-extra]]></c> flag are moved on the command
+          line into section <c><![CDATA[-extra]]></c>, that is, the end of the
+          command line following an <c><![CDATA[-extra]]></c> flag.</p>
+      </item>
+      <tag><c><![CDATA[ERL_LIBS]]></c></tag>
+      <item>
+        <p>Contains a list of additional library directories that the code
+          server searches for applications and adds to the code path; see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
+      <item>
+        <p>Can be set to a comma-separated list of IP addresses, in which case
+          the <seealso marker="epmd"><c>epmd</c></seealso> daemon listens only
+          on the specified address(es) and on the loopback address (which is
+          implicitly added to the list if it has not been specified).</p>
+      </item>
+      <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
+      <item>
+        <p>Can contain the port number to use when communicating with
+          <seealso marker="epmd"><c>epmd</c></seealso>. The default port works
+          fine in most cases. A different port can be specified
+          to allow nodes of independent clusters to co-exist on the same host.
+          All nodes in a cluster must use the same <c>epmd</c> port number.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+      <marker id="signals"></marker>
+      <title>Signals</title>
+      <p>On Unix systems, the Erlang runtime will interpret two types of signals.</p>
+      <taglist>
+          <tag><c>SIGUSR1</c></tag>
+          <item>
+              <p>A <c>SIGUSR1</c> signal forces a crash dump.</p>
+          </item>
+          <tag><c>SIGTERM</c></tag>
+          <item>
+              <p>A <c>SIGTERM</c> will produce a <c>stop</c> message to the <c>init</c> process.
+                  This is equivalent to a <c>init:stop/0</c> call.</p>
+              <p>Introduced in ERTS 8.3 (Erlang/OTP 19.3)</p>
+          </item>
+      </taglist>
+      <p>The signal <c>SIGUSR2</c> is reserved for internal usage. No other signals are handled.</p>
+  </section>
+
+  <section>
+    <marker id="configuration"></marker>
+    <title>Configuration</title>
+    <p>The standard Erlang/OTP system can be reconfigured to change the default
+      behavior on startup.</p>
+    <taglist>
+      <tag>The <c>.erlang</c> startup file</tag>
+      <item>
+        <p>When Erlang/OTP is started, the system searches for a file named
+        <c>.erlang</c> in the user's home directory.</p>
+        <p>If an <c>.erlang</c> file is found, it is assumed to contain valid
+          Erlang expressions. These expressions are evaluated as if they were
+          input to the shell.</p>
+        <p>A typical <c>.erlang</c> file contains a set of search paths, for
+          example:</p>
+    <code type="none"><![CDATA[
+io:format("executing user profile in HOME/.erlang\n",[]).
+code:add_path("/home/calvin/test/ebin").
+code:add_path("/home/hobbes/bigappl-1.2/ebin").
+io:format(".erlang rc finished\n",[]).    ]]></code>
+      </item>
+      <tag>user_default and shell_default</tag>
+      <item>
+        <p>Functions in the shell that are not prefixed by a module name are
+          assumed to be functional objects (funs), built-in functions (BIFs),
+          or belong to the module <c>user_default</c> or
+          <c>shell_default</c>.</p>
+        <p>To include private shell commands, define them in a module
+          <c>user_default</c> and add the following argument as the first line
+          in the <c>.erlang</c> file:</p>
+        <code type="none"><![CDATA[
+code:load_abs("..../user_default").    ]]></code>
+      </item>
+      <tag>erl</tag>
+      <item>
+        <p>If the contents of <c>.erlang</c> are changed and a private version
+          of <c>user_default</c> is defined, the Erlang/OTP environment can be
+          customized. More powerful changes can be made by supplying
+          command-line arguments in the startup script <c>erl</c>. For more
+          information, see <seealso marker="init"><c>init(3)</c></seealso>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="epmd"><c>epmd(1)</c></seealso>,
+      <seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>,
+      <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>,
+      <seealso marker="init"><c>init(3)</c></seealso>,
+      <seealso marker="kernel:application">
+        <c>application(3)</c></seealso>,
+      <seealso marker="kernel:auth"><c>auth(3)</c></seealso>,
+      <seealso marker="kernel:code"><c>code(3)</c></seealso>,
+      <seealso marker="kernel:erl_boot_server">
+        <c>erl_boot_server(3)</c></seealso>,
+      <seealso marker="kernel:heart"><c>heart(3)</c></seealso>,
+      <seealso marker="kernel:net_kernel"><c>net_kernel(3)</c></seealso>,
+      <seealso marker="tools:make"><c>make(3)</c></seealso></p>
+  </section>
+</comref>

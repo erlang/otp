@@ -1,0 +1,5 @@
+
+union_use.erl:12: The attempt to match a term of type union_adt:u() against the pattern 'aaa' breaks the opacity of the term
+union_use.erl:16: The type test is_tuple(union_adt:u()) breaks the opacity of the term union_adt:u()
+union_use.erl:7: Guard test is_atom(A::union_adt:u()) breaks the opacity of its argument
+union_use.erl:8: Guard test is_tuple(T::union_adt:u()) breaks the opacity of its argument

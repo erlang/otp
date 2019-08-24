@@ -1,0 +1,12 @@
+%%
+%% Fake release upgrade script for sasl
+%%
+
+{
+ "9.9",
+ [{<<".+">>,[restart_new_emulator]}
+ ],
+
+ [{<<".+">>,[restart_new_emulator]}
+ ]
+}.

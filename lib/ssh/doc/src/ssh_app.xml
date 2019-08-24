@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2012</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>SSH</title>
+    <prepared></prepared>
+    <docno></docno>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>ssh_app.xml</file>
+  </header>
+  <app>SSH</app>
+  <appsummary>The ssh application implements the Secure Shell (SSH) protocol and
+  provides an SSH File Transfer Protocol (SFTP) client and server.</appsummary>
+  <description>
+    <p>The <c>ssh</c> application is an implementation of the SSH protocol in Erlang.
+    <c>ssh</c> offers API functions to write customized SSH clients and servers as well as
+    making the Erlang shell available over SSH. An SFTP client, <c>ssh_sftp</c>, and server,
+    <c>ssh_sftpd</c>, are also included.</p>
+  </description>
+
+   <section>
+    <title>DEPENDENCIES</title>
+    <p>The <c>ssh</c> application uses the applications
+    <seealso marker="public_key:public_key">public_key</seealso> and
+    <seealso marker="crypto:crypto">crypto</seealso> 
+    to handle public keys and encryption. Hence, these
+    applications must be loaded for the <c>ssh</c> application to work. In
+    an embedded environment this means that they must be started with
+    <seealso marker="kernel:application#start/1">application:start/1,2</seealso> before the
+    <c>ssh</c> application is started.
+    </p>
+  </section>
+
+   <section>
+    <title>CONFIGURATION</title>
+
+    <p>The <c>ssh</c> application does not have an application-
+    specific configuration file, as described in <seealso marker="kernel:application">application(3)</seealso>.
+    However, by default it use the following configuration files
+    from OpenSSH:</p>
+    <list type="bulleted">
+      <item><c>known_hosts</c></item>
+      <item><c>authorized_keys</c></item>
+      <item><c>authorized_keys2</c></item>
+      <item><c>id_dsa</c></item>
+      <item><c>id_rsa</c></item>
+      <item><c>id_ecdsa</c></item>
+      <item><c>ssh_host_dsa_key</c></item>
+      <item><c>ssh_host_rsa_key</c></item>
+      <item><c>ssh_host_ecdsa_key</c></item>
+    </list>
+      <p>By default, <c>ssh</c> looks for <c>id_dsa</c>, <c>id_rsa</c>,
+      <c>id_ecdsa_key</c>,
+      <c>known_hosts</c>, and <c>authorized_keys</c> in ~/.ssh,
+      and for the host key files in <c>/etc/ssh</c>. These locations can be changed
+      by the options
+      <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
+      <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
+      </p>
+      <p>Public key handling can also be customized through a callback module that
+      implements the behaviors
+      <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and
+      <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+      </p>
+      <p>See also the default callback module documentation in
+      <seealso marker="ssh_file">ssh_file</seealso>.
+      </p>
+
+  </section>
+  <section>
+    <title>Public Keys</title>
+    <p><c>id_dsa</c>, <c>id_rsa</c> and <c>id_ecdsa</c> are the users private key files.
+	Notice that the public key is part of the private key so the <c>ssh</c>
+	application does not use the <c>id_&lt;*>.pub</c> files. These are
+	for the user's convenience when it is needed to convey the user's
+	public key.
+      </p>
+  </section>
+ <section>
+    <title>Known Hosts</title>
+    <p>The <c>known_hosts</c> file contains a list of approved servers and
+      their public keys. Once a server is listed, it can be verified
+      without user interaction.
+     </p>
+  </section>
+ <section>
+    <title>Authorized Keys</title>
+    <p>The <c>authorized_key</c> file keeps track of the user's authorized
+      public keys. The most common use of this file is to let users
+      log in without entering their password, which is supported by the
+      Erlang <c>ssh</c> daemon.
+      </p>
+  </section>
+ <section>
+    <title>Host Keys</title>
+    <p>RSA, DSA and ECDSA host keys are supported and are
+       expected to be found in files named <c>ssh_host_rsa_key</c>,
+       <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
+       </p>
+  </section>
+  <section>
+    <title>ERROR LOGGER AND EVENT HANDLERS</title>
+    <p>The <c>ssh</c> application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors or print information about special events.</p>
+  </section>
+
+  <section>
+    <marker id="supported"/>
+    <title>SUPPORTED SPECIFICATIONS AND STANDARDS</title>
+    <p>The supported SSH version is 2.0.</p>
+  </section>
+  <section>
+    <title>Algorithms</title>
+    <p>The actual set of algorithms may vary depending on which OpenSSL crypto library that is installed on the machine.
+    For the list on a particular installation, use the command
+    <seealso marker="ssh:ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>. 
+    The user may override the default algorithm configuration both on the server side and the client side.
+    See the options
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    and
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
+    <seealso marker="ssh:ssh#connect/3">ssh:connect/3,4</seealso> functions.
+    </p>
+
+    <p>Supported algorithms are (in the default order):</p>
+    <marker id="supported_algos"></marker>
+    <taglist>
+      <tag>Key exchange algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>ecdh-sha2-nistp384</item>
+	  <item>ecdh-sha2-nistp521</item>
+	  <item>ecdh-sha2-nistp256</item>
+	  <item>diffie-hellman-group-exchange-sha256</item>
+	  <item>diffie-hellman-group16-sha512</item>
+	  <item>diffie-hellman-group18-sha512</item>
+	  <item>diffie-hellman-group14-sha256</item>
+	  <item>curve25519-sha256</item>
+	  <item>curve25519-sha256@libssh.org</item>
+	  <item>curve448-sha512</item>
+	  <item>diffie-hellman-group14-sha1</item>
+	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>(diffie-hellman-group1-sha1, retired: It can be enabled with the 
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    or
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    options)</item>
+	</list>
+      </item>
+
+      <tag>Public key algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>ecdsa-sha2-nistp384</item>
+	  <item>ecdsa-sha2-nistp521</item>
+	  <item>ecdsa-sha2-nistp256</item>
+	  <item>ssh-ed25519</item>
+	  <item>ssh-ed448</item>
+	  <item>ssh-rsa</item>
+	  <item>rsa-sha2-256</item>
+	  <item>rsa-sha2-512</item>
+	  <item>ssh-dss</item>
+	</list>
+      </item>
+
+      <tag>MAC algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>hmac-sha2-256</item>
+	  <item>hmac-sha2-512</item>
+	  <item>hmac-sha1</item>
+	</list>
+      </item>
+
+      <tag>Encryption algorithms (ciphers)</tag>
+      <item>
+	<list type="bulleted">
+	  <item>chacha20-poly1305@openssh.com</item>
+          <item>aes256-gcm@openssh.com</item>
+	  <item>aes256-ctr</item>
+	  <item>aes192-ctr</item>
+          <item>aes128-gcm@openssh.com</item>
+	  <item>aes128-ctr</item>
+	  <item>aes128-cbc</item>
+	  <item>3des-cbc</item>
+	  <item>(AEAD_AES_128_GCM, not enabled per default)</item>
+          <item>(AEAD_AES_256_GCM, not enabled per default)</item>
+	</list>
+	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
+	for more information regarding AEAD_AES_*_GCM.
+	</p>
+	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
+	cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
+	cipher aes256-gcm@openssh.com is negotiated.
+	</p>
+      </item>
+	
+      <tag>Compression algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>none</item>
+	  <item>zlib@openssh.com</item>
+	  <item>zlib</item>
+	</list>
+      </item>
+    </taglist>
+  </section>
+  <section>
+    <title>Unicode support</title>
+    <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
+      <seealso marker="kernel:file">file</seealso> manual page in Kernel for information about this subject.
+    </p>
+    <p>The shell and the cli both support unicode.
+    </p>
+  </section>
+
+  <section>
+    <title>Rfcs</title>
+    <p>The following rfc:s are supported:</p>
+    <list type="bulleted">
+      <item><url href="https://tools.ietf.org/html/rfc4251">RFC 4251</url>, The Secure Shell (SSH) Protocol Architecture.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>9.4.6 Host-Based Authentication</item>
+	<item>9.5.2 Proxy Forwarding</item>
+	<item>9.5.3 X11 Forwarding</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4252">RFC 4252</url>, The Secure Shell (SSH) Authentication Protocol.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>9. Host-Based Authentication: "hostbased"</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>6.3. X11 Forwarding</item>
+	<item>7. TCP/IP Port Forwarding</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4256">RFC 4256</url>, Generic Message Exchange Authentication for
+      the Secure Shell Protocol (SSH).
+      <p>Except</p>
+      <list type="bulleted">
+	<item><c>num-prompts > 1</c></item>
+	<item>password changing</item>
+	<item>other identification methods than userid-password</item>
+	</list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>, Diffie-Hellman Group Exchange for
+      the Secure Shell (SSH) Transport Layer Protocol.
+       <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4716">RFC 4716</url>, The Secure Shell (SSH) Public Key File Format.
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc5647">RFC 5647</url>, AES Galois Counter Mode for
+      the Secure Shell Transport Layer Protocol.
+      <p><marker id="rfc5647_note"/>There is an ambiguity in the synchronized selection of cipher and mac algorithm. 
+      This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
+      If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
+      they could be enabled with the options
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+      </p>
+      <warning>
+	<p>
+	  If the client or the server is not Erlang/OTP, it is the users responsibility to check that 
+	  other implementation has the same interpretation of AEAD_AES_*_GCM as the Erlang/OTP SSH before
+	  enabling them. The  aes*-gcm@openssh.com variants are always safe to use since they lack the
+	  ambiguity.
+	</p>
+      </warning>
+      <p>The second paragraph in section 5.1 is resolved as:</p>
+      <list type="ordered">
+	<item>If the negotiated cipher is AEAD_AES_128_GCM, the mac algorithm is set to  AEAD_AES_128_GCM.</item>
+	<item>If the negotiated cipher is AEAD_AES_256_GCM, the mac algorithm is set to  AEAD_AES_256_GCM.</item>
+	<item>If the mac algorithm is AEAD_AES_128_GCM, the cipher is set to AEAD_AES_128_GCM.</item>
+	<item>If the mac algorithm is AEAD_AES_256_GCM, the cipher is set to AEAD_AES_256_GCM.</item>
+      </list>
+      <p>The first rule that matches when read in order from the top is applied</p>
+      </item>
+	
+      <item><url href="https://tools.ietf.org/html/rfc5656">RFC 5656</url>, Elliptic Curve Algorithm Integration in 
+      the Secure Shell Transport Layer.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>5.   ECMQV Key Exchange</item>
+	<item>6.4. ECMQV Key Exchange and Verification Method Name</item>
+	<item>7.2. ECMQV Message Numbers</item>
+	<item>10.2. Recommended Curves</item>
+      </list>
+      <p/>
+      </item>
+      
+      <item><url href="https://tools.ietf.org/html/rfc6668">RFC 6668</url>, SHA-2 Data Integrity Verification for
+      the Secure Shell (SSH) Transport Layer Protocol
+      <p>Comment: Defines hmac-sha2-256 and hmac-sha2-512
+      </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-kex-sha2">Draft-ietf-curdle-ssh-kex-sha2 (work in progress)</url>, Key Exchange (KEX) Method Updates and Recommendations for Secure Shell (SSH).
+      <p>Deviations:</p>
+      <list type="bulleted">
+	<item>The <c>diffie-hellman-group1-sha1</c> is not enabled by default, but is still supported and can be enabled
+	with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	</item>
+	<item>The questionable sha1-based algorithms <c>diffie-hellman-group-exchange-sha1</c> and
+	<c>diffie-hellman-group14-sha1</c> are still enabled by default for compatibility with ancient clients and servers.
+	They can be disabled with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	They will be disabled by default when the draft is turned into an RFC.</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc8332">RFC 8332</url>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol.
+      </item>
+      
+      <item><marker id="supported-ext-info"/>
+      <url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
+      <p>Implemented are:</p>
+      <list type="bulleted">
+	<item>The Extension Negotiation Mechanism</item>
+	<item>The extension <c>server-sig-algs</c></item>
+      </list>
+      <p/>
+      </item>
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
+      </item>
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448">Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol (work in progress)</url>
+      </item>
+
+    </list>
+
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="kernel:application">application(3)</seealso></p>
+  </section>
+
+</appref>

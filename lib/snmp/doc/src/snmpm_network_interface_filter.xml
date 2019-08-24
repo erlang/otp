@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpm_network_interface_filter</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpm_network_interface_filter.xml</file>
+  </header>
+  <module since="">snmpm_network_interface_filter</module>
+  <modulesummary>Behaviour module for the SNMP manager network-interface filter.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the manager network interface
+      filter. A <c>snmpm_network_interface_filter</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#accept_recv">accept_recv/2</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#accept_send">accept_send/2</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#accept_recv_pdu">accept_recv_pdu/3</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#accept_send_pdu">accept_send_pdu/2</seealso></p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+    <p>The purpose of the network interface filter is to allow for filtering
+      of messages (accept or reject) receive and send. This is done 
+      on two levels: </p>
+    <list type="bulleted">
+      <item>
+        <p>The first level is at the UDP entry / exit point, i.e. 
+          immediately after the receipt of the message, before any message 
+          processing is done (accept_recv) and 
+          immediately before sending the message, after all message 
+          processing is done (accept_send).</p>
+      </item>
+      <item>
+        <p>The second level is at the MPD entry / exit point, i.e.
+          immediately after the basic message processing (accept_recv_pdu) / 
+          immediately before the basic message processing (accept_send_pdu).</p>
+      </item>
+    </list>
+    <p>Note that the network interface filter is something which is used 
+      by the network interface implementation provided by the application 
+    (<c>snmpm_net_if</c> and <c>snmpm_net_if_mt</c>). 
+    The default filter accepts all messages.</p>
+    <p>A network interface filter can e.g. be used during testing or for load 
+    regulation. </p>
+    <p>Legacy network interface filter modules used arguments on the form
+      <c>(IpAddr, PortNumber,...)</c> instead of
+      <c>(Domain, Addr, ...)</c>, and if the SNMP manager is run without
+      changing the configuration to use transport domains
+      the network interface filter will still get
+      the old arguments and work as before.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+port() = integer() > 0
+pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 
+             'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
+             report | trappdu
+    </code>
+    <p>See also the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+    <marker id="accept_recv"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">accept_recv(Domain, Addr) -> boolean()</name>
+      <fsummary>Shall the received message be accepted</fsummary>
+      <type>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
+      </type>
+      <desc>
+        <p>Called at the reception of a message (before <em>any</em> processing 
+          has been done).</p>
+        <p>For the message to be rejected, the function <em>must</em> return
+          <em>false</em>. </p>
+        <marker id="accept_send"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">accept_send(Domain, Addr) -> boolean()</name>
+      <fsummary>Shall the message be sent</fsummary>
+      <type>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
+      </type>
+      <desc>
+        <p>Called before the sending of a message (after <em>all</em> processing 
+          has been done).</p>
+        <p>For the message to be rejected, the function <em>must</em> return
+          <em>false</em>. </p>
+        <marker id="accept_recv_pdu"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
+      <fsummary>Shall the received pdu be accepted</fsummary>
+      <type>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
+        <v>PduType = pdu_type()</v>
+      </type>
+      <desc>
+        <p>Called after the basic message processing (MPD) has been done, 
+          but before the pdu is handed over to the server for primary 
+          processing.</p>
+        <p>For the pdu to be rejected, the function <em>must</em> return
+          <em>false</em>. </p>
+        <marker id="accept_send_pdu"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">accept_send_pdu(Domain, Addr, PduType) -> boolean()</name>
+      <fsummary>Shall the pdu be sent</fsummary>
+      <type>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
+        <v>PduType = pdu_type() > 0</v>
+      </type>
+      <desc>
+        <p>Called before the basic message processing (MPD) is done, 
+          when a pdu has been received from the master-agent.</p>
+        <p>For the message to be rejected, the function <em>must</em> return 
+          <em>false</em>. </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

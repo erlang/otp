@@ -1,0 +1,12 @@
+%0
+{tables,
+ [{fruit, [{attributes, [name, color, taste]}]},
+  {vegetable, [{attributes, [name, color, taste, price]}]}]}.
+
+
+{fruit, orange, orange, sweet}.
+{fruit, apple, green, sweet}.
+{vegetable, carrot, orange, carrotish, 2.55}.
+{vegetable, potato, yellow, none, 0.45}.
+%0
+

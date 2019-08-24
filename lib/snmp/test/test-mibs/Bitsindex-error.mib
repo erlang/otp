@@ -1,0 +1,94 @@
+          Bitsindex-error DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+          klas1       OBJECT IDENTIFIER ::= { private 7 }
+ 
+	  RowStatus ::= 
+                INTEGER {
+                         -- the following two values are states:
+                         -- these values may be read or written
+                         active(1),
+                         notInService(2),
+
+                         -- the following value is a state:
+                         -- this value may be read, but not written
+                         notReady(3),
+
+                         -- the following three values are
+                         -- actions: these values may be written,
+                         --   but are never read
+                         createAndGo(4),
+                         createAndWait(5),
+                         destroy(6)
+                      }
+
+
+          friendsTable OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas1 4 }
+ 
+          friendsEntry OBJECT-TYPE
+              SYNTAX  FriendsEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex }
+              ::= { friendsTable 1 }
+ 
+          FriendsEntry ::=
+              SEQUENCE {
+			fIndex
+                      BITS,
+                   fName
+                      OCTET STRING,
+                   fStatus
+                      INTEGER              }
+ 
+          fIndex OBJECT-TYPE
+              SYNTAX  BITS {tihi(0)}
+              ACCESS  not-accessible
+              STATUS  mandatory
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry 1 }
+ 
+          fName OBJECT-TYPE
+              SYNTAX  OCTET STRING (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "Name of friend"
+              ::= { friendsEntry 2 }
+
+           fStatus OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry 3 }
+
+          authenticationFajlure TRAP-TYPE
+              ENTERPRISE  klas1
+              DESCRIPTION
+                          "An authenticationFailure trap signifies that
+                          the sending protocol entity is the addressee
+                          of a protocol message that is not properly
+                          authenticated.  While implementations of the
+                          SNMP must be capable of generating this trap,
+                          they must also be capable of suppressing the
+                          emission of such traps via an implementation-
+                          specific mechanism."
+              ::= 4
+
+
+          END
+ 

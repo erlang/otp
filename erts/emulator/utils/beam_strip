@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+
+for (@ARGV) {
+    open(IN, "<$_") or do {warn "skipping $_:$!\n"; next};
+    my $data;
+    sysread(IN, $data, 10000000);
+    close IN;
+    my $new_file = eval {slim_beam($data)};
+    open(OUT, ">$_") or die "Failed to write $_:$!\n";
+    print OUT $new_file;
+    close OUT;
+}
+
+# Bug in 5.6.0: The following doesn't work.
+#local $/;
+#while (<>) {
+#    my $new_file = eval {slim_beam($_)};
+#    if ($@) {
+#	...
+#    } else {
+#	...
+#    }
+#}
+
+sub slim_beam {
+    my($beam) = @_;
+    my $size_left = length($beam);
+    my @chunk;
+
+    die "can't read Beam files for OTP R4 or earlier (sorry)"
+	if $beam =~ /^\x7fBEAM!/;
+
+    #
+    # Read and verify the head of the IFF file.
+    #
+    
+    my ($id, $size, $beam_id) = unpack("a4Na4", $beam);
+    die "not a BEAM file: no IFF 'FOR1' chunk"
+	unless $id eq 'FOR1';
+    $size_left -= 8;
+    die "form size $size greater than size ", $size_left, " of module"
+	if $size > $size_left;
+    $size_left -= 4;
+    die "not a BEAM file: IFF form type is not 'BEAM'"
+	unless $beam_id eq 'BEAM';
+
+    #
+    # Read all IFF chunks.
+    #
+
+    $beam = substr($beam, 12, $size_left);
+    while ($size_left > 0) {
+	($id, $size) = unpack("a4N", $beam);
+	$size_left -= 8;
+	die "chunk size $size greater than size ", $size_left, " of module"
+	    if $size > $size_left;
+	$size = 4*int(($size+3)/4);
+	my $chunk = substr($beam, 0, $size+8);
+	$beam = substr($beam, 8+$size);
+	$size_left = length($beam);
+	push(@chunk, $chunk)
+	    unless $id eq 'LocT' || $id eq 'CInf';
+    }
+
+    #
+    # Create new Beam file.
+    #
+    my $new_file = join('', @chunk);
+    "FOR1" . pack("N", length($new_file)+4) . "BEAM" . $new_file;
+}

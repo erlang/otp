@@ -1,0 +1,73 @@
+SetOfCho DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+SetChoDef ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF ChoIn DEFAULT {}
+}
+
+SetChoOpt ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF ChoIn OPTIONAL
+}
+
+SetChoEmbDef ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } DEFAULT {}
+}
+
+SetChoEmbOpt ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } OPTIONAL
+}
+
+SetOfChoEmbDef ::= SET OF SET
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } DEFAULT {}
+}
+
+
+SetOfChoEmbOpt ::= SET OF SET
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SET OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } OPTIONAL
+}
+
+
+ChoIn ::= CHOICE 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+END

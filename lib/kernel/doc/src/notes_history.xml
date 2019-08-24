@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Kernel Release Notes History</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <section>
+    <title>Kernel 2.10</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added documentation of configuration parameter
+            <c>net_setuptime</c>.</p>
+          <p>Own Id: OTP-5117 Aux Id: seq8908</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>disk_log</c> module has been slightly changed for
+            the purpose of reducing the risk of memory problems due
+            to corrupt files. The <c>chunk</c> commands have been
+            optimized by increasing the chunk size from 8 kilobytes
+            to 64 kilobytes.</p>
+          <p>Own Id: OTP-4530 Aux Id: seq7646</p>
+        </item>
+        <item>
+          <p>The code server used <c>prim_file</c> for its file
+            operations. This made it impossible to load code from a
+            boot server. Now the code server uses <c>erl_prim_loader</c>
+            for these operations instead.</p>
+          <p>Own Id: OTP-4819 Aux Id: OTP-4802, OTP-4846</p>
+        </item>
+        <item>
+          <p>New functions - <c>rpc:call/5</c> and
+            <c>rpc:block_call/5</c>. They have a timeout argument! See
+            the documentation for details.</p>
+          <p>Own Id: OTP-4849 Aux Id: seq8250</p>
+        </item>
+        <item>
+          <p>A new environment parameter <c>browser_cmd</c> has been
+            introduced which defines how to display help text (HTML
+            files).</p>
+          <p>Own Id: OTP-4852</p>
+        </item>
+        <item>
+          <p>The system configuration file <c>sys.config</c> can now
+            contain names of other configuration files as well as
+            application configuration data.</p>
+          <p>Thus, it is now possible to have several configuration
+            files in connection with release handling. See
+            <c>config(4)</c> and <em>OTP Design Principles</em> for
+            more information.</p>
+          <p>Own Id: OTP-4867 Aux Id: OTP-1968</p>
+        </item>
+        <item>
+          <p>It is now possible to compile files with <c>erlc</c> without
+            getting a lot of (for compilation) unnecessary code
+            loaded and executed (like distribution, inet config,
+            etc). <c>erlc</c> now also calls <c>erl</c> with <c>-boot start_clean</c> (so that SASL is not started even if
+            <c>start_sasl</c> is default boot script).</p>
+          <p>Own Id: OTP-4878</p>
+        </item>
+        <item>
+          <p>Disk logs can now be opened or closed in parallel. In
+            particular, if some log is being repaired, other logs can
+            still be opened or closed.</p>
+          <p>Own Id: OTP-4913</p>
+        </item>
+        <item>
+          <p>Native lookup (system calls) is now default resolver
+            method on all platforms. Also the user inet configuration
+            method has changed so that a Kernel variable, <c>inetrc</c>,
+            should now be used to specify the name of the user inet
+            config file (if it exists). This is all documented in the
+            ERTS User's Guide.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4983</p>
+        </item>
+        <item>
+          <p>Previously missing documentation of
+            <c>erlang:system_info/1</c> and <c>erlang:system_flag/2</c>
+            have been added.</p>
+          <p>Own Id: OTP-5038 Aux Id: seq8708</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The code server now caches <c>.app</c> files as well as
+            <c>.beam</c> files. Application controller calls
+            the function <c>code:where_is_file/1</c> to locate
+            the cached <c>.app</c> file so that <c>file:consult/1</c>
+            may be used instead of <c>file:path_consult/2</c> to read
+            the file. This is much more efficient.</p>
+          <p>Own Id: OTP-5097 Aux Id: seq8956</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Improved setup of connection between nodes to avoid that
+            some nodes get lower priority (and thus times out) when
+            many nodes are connected simultaneously.</p>
+          <p>Own Id: OTP-5116 Aux Id: seq8908</p>
+        </item>
+        <item>
+          <p>There is now a packet size limit option for <c>gen_tcp</c>
+            sockets. See the manual for <c>inet:setopts/2</c>.</p>
+          <p>The ASN.1 BER packet decoding for <c>gen_tcp</c> sockets
+            can now decode indefinite length packets.</p>
+          <p>Own Id: OTP-5128</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A helper for <c>global</c> would terminate if it received
+            unknown types of messages, causing <c>global</c> to
+            terminate too. Changed so that the helper process logs and
+            ignore strange messages.</p>
+          <p>Own Id: OTP-5078 Aux Id: seq_8839</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The ability to set system wide options for TCP sockets is
+            added through the Kernel application variables
+            <c>inet_default_listen_options</c> and
+            <c>inet_default_connect_options</c>, see the <c>inet</c>
+            manual page for details.</p>
+          <p>Own Id: OTP-5080</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed error that made code server crash if invalid
+            directories were added to the path.</p>
+          <p>Own Id: OTP-5070 Aux Id: OTP-5060, EABln14115</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Speed improvements in <c>code:add_path(s)[az]/1</c> when
+            the cache is activated.</p>
+          <p>Own Id: OTP-5060 Aux Id: seq8315, EABln14115</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Remote spawn on a nonreachable node now gives warning
+            instead of error in the error_log.</p>
+          <p>Own Id: OTP-5030 Aux Id: seq8663]</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.6.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>An error that made the code server ignore version numbers
+            on <c>lib</c> directories has been corrected.</p>
+          <p>Own Id: OTP-5020</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>A possibility to make distribution messages be queued up
+            during running of Erlang code, so that larger packages is
+            sent over the network is added.</p>
+          <p>Own Id: OTP-4916</p>
+        </item>
+        <item>
+          <p>When code loading failed it was impossible to know
+            exactly what caused it, only <c>{undef,[{M,F,A}|...]}</c>
+            would be reported. Now the primitive loader lets the
+            <c>error_logger</c> print an error report if a file
+            operation fails. All file errors except <c>enoent</c> and
+            <c>enotdir</c> are reported this way.</p>
+          <p>Own Id: OTP-4925 Aux Id: OTP-4952</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Bugs have been fixed in the <c>disk_log</c> module: if
+            <c>reopen</c> failed to rename a file, a message could
+            erroneously be sent to the client; if requests were
+            queued while a log was blocked, no replies were sent to
+            the blocked processes should the log be closed.</p>
+          <p>Own Id: OTP-4880 Aux Id: seq7902</p>
+        </item>
+        <item>
+          <p>In rare cases, the <c>global</c> name registration could
+            hang during simultaneous startup of several nodes, due to a
+            cyclic deadlock in the <c>global:loop_the_locker</c>
+            processes.</p>
+          <p>Own Id: OTP-4902 Aux Id: seq8275</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The Kernel variable <c>net_setuptime</c> can now be defined
+            in fractions of seconds (using a floating point number).</p>
+          <p>Own Id: OTP-4915</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The driver for dynamically linked in drivers has been
+            fixed to delete loaded drivers when its Erlang server
+            dies. The Erlang server has also been updated to improve
+            the start-on-demand behaviour.</p>
+          <p>Own Id: OTP-4876 Aux Id: OTP-4855 seq8272</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Starting Erlang with the <c>+Bi</c> flag (to ignore ^C), now
+            also disables the quit ('q') option in the JCL menu.</p>
+          <p>Own Id: OTP-4897</p>
+        </item>
+        <item>
+          <p>A STDLIB application variable, <c>shell_esc</c>, has been
+            introduced that controls the behaviour of ^G. If
+            <c>shell_esc</c> is set to <c>abort</c>, ^G restarts the
+            shell. If set to <c>jcl</c>, ^G invokes the JCL menu. The
+            latter is default.</p>
+          <p>Own Id: OTP-4898 Aux Id: OTP-4897</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The boot server had become broken. Now it works again.</p>
+          <p>Own Id: OTP-4846 Aux Id: OTP-4802, OTP-4819</p>
+        </item>
+        <item>
+          <p>When loading a dynamically linked in driver through
+            <c>erl_ddll</c>, the server <c>ddll_server</c> that held
+            the port for the driver handling shared libraries got
+            the group leader of the invoking application. Later, when
+            the application was terminated, it killed all processes in
+            its group, also the <c>ddll_server</c>, so the driver still
+            had some shared libraries loaded. Finally, when
+            the <c>ddll_server</c> was restarted it assumed that all
+            shared libraries its driver knew of was statically linked,
+            so the dynamically linked in drivers that was loaded when
+            <c>ddll_server</c> was killed could neither be loaded nor
+            unloaded. This bug has now been fixed by setting the group
+            leader of <c>ddll_server</c> to something harmless and more
+            eternal, and by unloading all remaining dynamically linked
+            in drivers when <c>ddll_server</c> starts. A race condition
+            when starting <c>ddll_server</c> has also been fixed.</p>
+          <p>Own Id: OTP-4855 Aux Id: OTP-4876 seq8272</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Kernel 2.9.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When the emulator was started with command line arguments
+            <c>-run</c> or <c>-s</c> and the started code did an
+            uncatched <c>erlang:throw/1</c>, the emulator ignored
+            the throw which is rather strange. Now the init process
+            exits with <c>nocatch</c> as expected.</p>
+          <p>Own Id: OTP-4788 Aux Id: seq8129</p>
+        </item>
+        <item>
+          <p>The code server could hang if invoked early in the startup.
+            For example if the emulator was started with <c>"-s file eval Filename"</c> and <c>Filename</c> contained a
+            call to <c>code:add_patha/1</c> the code server accidentally
+            tried to execute code in an unloaded module from inside
+            the code that loaded a module - hence hangup. This bug has
+            now been fixed.</p>
+          <p>Note! Starting Erlang through code loading from a remote
+            Erlang boot server will not work after this patch. It will
+            be fixed in a later patch. Rumours has it that remote boot
+            server code loading did not work before this patch either.
+            It is not a commonly used feature.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4802 Aux Id: seq8314</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

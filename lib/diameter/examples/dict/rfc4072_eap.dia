@@ -1,0 +1,151 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4072, Diameter Extensible Authentication Protocol (EAP) Application
+;;
+;; Edits:
+;;
+;; - Move EAP-Payload to not break fixed/required/optional order
+;; - Framed-Appletalk-Link    -> Framed-AppleTalk-Link
+;; - Framed-Appletalk-Network -> Framed-AppleTalk-Network
+;; - Framed-Appletalk-Zone    -> Framed-AppleTalk-Zone
+;;
+
+@id 5
+
+@inherits common
+@inherits rfc4005_nas
+
+;; ===========================================================================
+
+@avp_types
+
+   EAP-Master-Session-Key           464   OctetString    -
+   EAP-Key-Name                     102   OctetString    -
+   EAP-Payload                      462   OctetString    -
+   EAP-Reissued-Payload             463   OctetString    -
+   Accounting-EAP-Auth-Method       465    Unsigned64    -
+
+;; ===========================================================================
+
+@messages
+
+   DER ::= < Diameter Header: 268, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { Auth-Request-Type }
+           { EAP-Payload }
+           [ Destination-Host ]
+           [ NAS-Identifier ]
+           [ NAS-IP-Address ]
+           [ NAS-IPv6-Address ]
+           [ NAS-Port ]
+           [ NAS-Port-Id ]
+           [ NAS-Port-Type ]
+           [ Origin-State-Id ]
+           [ Port-Limit ]
+           [ User-Name ]
+           [ EAP-Key-Name ]
+           [ Service-Type ]
+           [ State ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Auth-Session-State ]
+           [ Callback-Number ]
+           [ Called-Station-Id ]
+           [ Calling-Station-Id ]
+           [ Originating-Line-Info ]
+           [ Connect-Info ]
+         * [ Framed-Compression ]
+           [ Framed-Interface-Id ]
+           [ Framed-IP-Address ]
+         * [ Framed-IPv6-Prefix ]
+           [ Framed-IP-Netmask ]
+           [ Framed-MTU ]
+           [ Framed-Protocol ]
+         * [ Tunneling ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   DEA ::= < Diameter Header: 268, PXY >
+
+          < Session-Id >
+          { Auth-Application-Id }
+          { Auth-Request-Type }
+          { Result-Code }
+          { Origin-Host }
+          { Origin-Realm }
+          [ User-Name ]
+          [ EAP-Payload ]
+          [ EAP-Reissued-Payload ]
+          [ EAP-Master-Session-Key ]
+          [ EAP-Key-Name ]
+          [ Multi-Round-Time-Out ]
+          [ Accounting-EAP-Auth-Method ]
+          [ Service-Type ]
+        * [ Class ]
+        * [ Configuration-Token ]
+          [ Acct-Interim-Interval ]
+          [ Error-Message ]
+          [ Error-Reporting-Host ]
+        * [ Failed-AVP ]
+          [ Idle-Timeout ]
+          [ Authorization-Lifetime ]
+          [ Auth-Grace-Period ]
+          [ Auth-Session-State ]
+          [ Re-Auth-Request-Type ]
+          [ Session-Timeout ]
+          [ State ]
+        * [ Reply-Message ]
+          [ Origin-State-Id ]
+        * [ Filter-Id ]
+          [ Port-Limit ]
+          [ Callback-Id ]
+          [ Callback-Number ]
+          [ Framed-AppleTalk-Link ]
+        * [ Framed-AppleTalk-Network ]
+          [ Framed-AppleTalk-Zone ]
+        * [ Framed-Compression ]
+          [ Framed-Interface-Id ]
+          [ Framed-IP-Address ]
+        * [ Framed-IPv6-Prefix ]
+          [ Framed-IPv6-Pool ]
+        * [ Framed-IPv6-Route ]
+          [ Framed-IP-Netmask ]
+        * [ Framed-Route ]
+          [ Framed-Pool ]
+          [ Framed-IPX-Network ]
+          [ Framed-MTU ]
+          [ Framed-Protocol ]
+          [ Framed-Routing ]
+        * [ NAS-Filter-Rule ]
+        * [ QoS-Filter-Rule ]
+        * [ Tunneling ]
+        * [ Redirect-Host ]
+          [ Redirect-Host-Usage ]
+          [ Redirect-Max-Cache-Time ]
+        * [ Proxy-Info ]
+        * [ AVP ]

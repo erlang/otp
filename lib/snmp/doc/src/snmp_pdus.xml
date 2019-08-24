@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmp_pdus</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_pdus.xml</file>
+  </header>
+  <module since="">snmp_pdus</module>
+  <modulesummary>Encode and Decode Functions for SNMP PDUs</modulesummary>
+  <description>
+    <p>RFC1157, RFC1905 and/or RFC2272 should be studied carefully
+      before using this module, <c>snmp_pdus</c>.
+      </p>
+    <p>The module <c>snmp_pdus</c> contains functions for encoding 
+      and decoding of
+      SNMP protocol data units (PDUs).  In short, this module converts a
+      list of bytes to Erlang record representations and vice versa.
+      The record definitions can be found in the file
+      <c>snmp/include/snmp_types.hrl</c>.  If snmpv3 is used, the module
+      that includes <c>snmp_types.hrl</c> must define the constant
+      <c>SNMP_USE_V3</c> before the header file is included.  Example:</p>
+    <pre>
+-define(SNMP_USE_V3, true).
+-include_lib("snmp/include/snmp_types.hrl").    </pre>
+    <p>Encoding and decoding must be done explicitly when writing your
+      own Net if process.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">dec_message([byte()]) -> Message</name>
+      <fsummary>Decode an SNMP Message</fsummary>
+      <type>
+        <v>Message = #message</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into an SNMP Message.  Note, if there
+          is a v3 message, the <c>msgSecurityParameters</c> are not
+          decoded.  They must be explicitly decoded by a call to a
+          security model specific decoding function,
+          e.g. <c>dec_usm_security_parameters/1</c>.  Also note, if
+          the <c>scopedPDU</c> is encrypted, the OCTET STRING encoded
+          <c>encryptedPDU</c> will be present in the <c>data</c> field.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dec_message_only([byte()]) -> Message</name>
+      <fsummary>Decode an SNMP Message, but not the data part</fsummary>
+      <type>
+        <v>Message = #message</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into an SNMP Message, but does not
+          decode the data part of the Message. That means, data is still
+          a list of bytes, normally an encoded <c>PDU</c> (v1 and V2) or an
+          encoded and possibly encrypted <c>scopedPDU</c> (v3).</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dec_pdu([byte()]) -> Pdu</name>
+      <fsummary>Decode an SNMP Pdu</fsummary>
+      <type>
+        <v>Pdu = #pdu</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into an SNMP Pdu.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dec_scoped_pdu([byte()]) -> ScopedPdu</name>
+      <fsummary>Decode an SNMP ScopedPdu</fsummary>
+      <type>
+        <v>ScopedPdu = #scoped_pdu</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into an SNMP ScopedPdu.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dec_scoped_pdu_data([byte()]) -> ScopedPduData</name>
+      <fsummary>Decode an SNMP ScopedPduData</fsummary>
+      <type>
+        <v>ScopedPduData = #scoped_pdu | EncryptedPDU</v>
+        <v>EncryptedPDU = [byte()]</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into either a scoped pdu record, or
+          - if the scoped pdu was encrypted - to a list of bytes.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dec_usm_security_parameters([byte()]) -> UsmSecParams</name>
+      <fsummary>Decode SNMP UsmSecurityParameters</fsummary>
+      <type>
+        <v>UsmSecParams = #usmSecurityParameters</v>
+      </type>
+      <desc>
+        <p>Decodes a list of bytes into an SNMP UsmSecurityParameters</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_encrypted_scoped_pdu(EncryptedScopedPdu) -> [byte()]</name>
+      <fsummary>Encode an encrypted SNMP scopedPDU</fsummary>
+      <type>
+        <v>EncryptedScopedPdu = [byte()]</v>
+      </type>
+      <desc>
+        <p>Encodes an encrypted SNMP ScopedPdu into an OCTET STRING
+          that can be used as the <c>data</c> field in a
+          <c>message</c> record, that later can be encoded with a call
+          to <c>enc_message_only/1</c>. 
+          </p>
+        <p>This function should be used whenever the <c>ScopedPDU</c>
+          is encrypted.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_message(Message) -> [byte()]</name>
+      <fsummary>Encode an SNMP Message</fsummary>
+      <type>
+        <v>Message = #message</v>
+      </type>
+      <desc>
+        <p>Encodes a message record to a list of bytes.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_message_only(Message) -> [byte()]</name>
+      <fsummary>Encode an SNMP Message, but not the data part</fsummary>
+      <type>
+        <v>Message = #message</v>
+      </type>
+      <desc>
+        <p><c>Message</c> is a record where the <c>data</c> field is
+          assumed to be encoded (a list of bytes).  If there is a v1 or v2
+          message, the <c>data</c> field is an encoded <c>PDU</c>, and if
+          there is a v3 message, <c>data</c> is an encoded and possibly
+          encrypted <c>scopedPDU</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_pdu(Pd) -> [byte()]</name>
+      <fsummary>Encode an SNMP Pdu</fsummary>
+      <type>
+        <v>Pdu = #pdu</v>
+      </type>
+      <desc>
+        <p>Encodes an SNMP Pdu into a list of bytes.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_scoped_pdu(ScopedPdu) -> [byte()]</name>
+      <fsummary>Encode an SNMP scopedPDU</fsummary>
+      <type>
+        <v>ScopedPdu = #scoped_pdu</v>
+      </type>
+      <desc>
+        <p>Encodes an SNMP ScopedPdu into a list of bytes, which can be
+          encrypted, and after encryption, encoded with
+          a call to <c>enc_encrypted_scoped_pdu/1</c>; or it can be
+          used as the <c>data</c> field in a <c>message</c> record, which
+          then can be encoded with <c>enc_message_only/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">enc_usm_security_parameters(UsmSecParams) -> [byte()]</name>
+      <fsummary>Encode SNMP UsmSecurityParameters</fsummary>
+      <type>
+        <v>UsmSecParams = #usmSecurityParameters</v>
+      </type>
+      <desc>
+        <p>Encodes SNMP UsmSecurityParameters into a list of bytes.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

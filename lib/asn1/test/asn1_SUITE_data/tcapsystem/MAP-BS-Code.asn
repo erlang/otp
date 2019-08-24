@@ -1,0 +1,126 @@
+MAP-BS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-BS-Code (20) version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+BearerServiceCode ::= OCTET STRING (SIZE (1))
+	-- This type is used to represent the code identifying a single
+	-- bearer service, a group of bearer services, or all bearer
+	-- services. The services are defined in TS 3GPP TS 22.002 [3].
+	-- The internal structure is defined as follows:
+	--
+	-- plmn-specific bearer services:
+	-- bits 87654321: defined by the HPLMN operator
+
+	-- rest of bearer services:
+	-- bit 8: 0 (unused)
+	-- bits 7654321: group (bits 7654), and rate, if applicable
+	-- (bits 321)
+
+Ext-BearerServiceCode ::= OCTET STRING (SIZE (1..5))
+	-- This type is used to represent the code identifying a single
+	-- bearer service, a group of bearer services, or all bearer
+	-- services. The services are defined in TS 3GPP TS 22.002 [3].
+	-- The internal structure is defined as follows:
+	--
+	-- OCTET 1:
+	-- plmn-specific bearer services:
+	-- bits 87654321: defined by the HPLMN operator
+	--
+	-- rest of bearer services:
+	-- bit 8: 0 (unused)
+	-- bits 7654321: group (bits 7654), and rate, if applicable
+	-- (bits 321)
+
+	-- OCTETS 2-5: reserved for future use. If received the
+    -- Ext-TeleserviceCode shall be
+	-- treated according to the exception handling defined for the
+	-- operation that uses this type. 
+
+
+	-- Ext-BearerServiceCode includes all values defined for BearerServiceCode.
+
+allBearerServices	BearerServiceCode ::= '00000000'B
+
+allDataCDA-Services	BearerServiceCode ::= '00010000'B
+dataCDA-300bps		BearerServiceCode ::= '00010001'B
+dataCDA-1200bps	BearerServiceCode ::= '00010010'B
+dataCDA-1200-75bps	BearerServiceCode ::= '00010011'B
+dataCDA-2400bps	BearerServiceCode ::= '00010100'B
+dataCDA-4800bps	BearerServiceCode ::= '00010101'B
+dataCDA-9600bps	BearerServiceCode ::= '00010110'B
+general-dataCDA	BearerServiceCode ::= '00010111'B
+
+allDataCDS-Services	BearerServiceCode ::= '00011000'B
+dataCDS-1200bps	BearerServiceCode ::= '00011010'B
+dataCDS-2400bps	BearerServiceCode ::= '00011100'B
+dataCDS-4800bps	BearerServiceCode ::= '00011101'B
+dataCDS-9600bps	BearerServiceCode ::= '00011110'B
+general-dataCDS	BearerServiceCode ::= '00011111'B
+
+allPadAccessCA-Services	BearerServiceCode ::= '00100000'B
+padAccessCA-300bps	BearerServiceCode ::= '00100001'B
+padAccessCA-1200bps	BearerServiceCode ::= '00100010'B
+padAccessCA-1200-75bps	BearerServiceCode ::= '00100011'B
+padAccessCA-2400bps	BearerServiceCode ::= '00100100'B
+padAccessCA-4800bps	BearerServiceCode ::= '00100101'B
+padAccessCA-9600bps	BearerServiceCode ::= '00100110'B
+general-padAccessCA	BearerServiceCode ::= '00100111'B
+
+allDataPDS-Services	BearerServiceCode ::= '00101000'B
+dataPDS-2400bps	BearerServiceCode ::= '00101100'B
+dataPDS-4800bps	BearerServiceCode ::= '00101101'B
+dataPDS-9600bps	BearerServiceCode ::= '00101110'B
+general-dataPDS	BearerServiceCode ::= '00101111'B
+
+allAlternateSpeech-DataCDA	BearerServiceCode ::= '00110000'B
+
+allAlternateSpeech-DataCDS	BearerServiceCode ::= '00111000'B
+
+allSpeechFollowedByDataCDA	BearerServiceCode ::= '01000000'B
+
+allSpeechFollowedByDataCDS	BearerServiceCode ::= '01001000'B
+
+-- The following non-hierarchical Compound Bearer Service
+-- Groups are defined in TS 3GPP TS 22.030:
+allDataCircuitAsynchronous	BearerServiceCode ::= '01010000'B
+	-- covers "allDataCDA-Services", "allAlternateSpeech-DataCDA" and
+	-- "allSpeechFollowedByDataCDA"
+allAsynchronousServices	BearerServiceCode ::= '01100000'B
+	-- covers "allDataCDA-Services", "allAlternateSpeech-DataCDA",
+	-- "allSpeechFollowedByDataCDA" and "allPadAccessCDA-Services"
+allDataCircuitSynchronous	BearerServiceCode ::= '01011000'B
+	-- covers "allDataCDS-Services", "allAlternateSpeech-DataCDS" and
+	-- "allSpeechFollowedByDataCDS"
+allSynchronousServices	BearerServiceCode ::= '01101000'B
+	-- covers "allDataCDS-Services", "allAlternateSpeech-DataCDS",
+	-- "allSpeechFollowedByDataCDS" and "allDataPDS-Services"
+--
+-- Compound Bearer Service Group Codes are only used in call
+-- independent supplementary service operations, i.e. they
+-- are not used in InsertSubscriberData or in
+-- DeleteSubscriberData messages.
+
+allPLMN-specificBS	BearerServiceCode ::= '11010000'B
+plmn-specificBS-1	BearerServiceCode ::= '11010001'B
+plmn-specificBS-2	BearerServiceCode ::= '11010010'B
+plmn-specificBS-3	BearerServiceCode ::= '11010011'B
+plmn-specificBS-4	BearerServiceCode ::= '11010100'B
+plmn-specificBS-5	BearerServiceCode ::= '11010101'B
+plmn-specificBS-6	BearerServiceCode ::= '11010110'B
+plmn-specificBS-7	BearerServiceCode ::= '11010111'B
+plmn-specificBS-8	BearerServiceCode ::= '11011000'B
+plmn-specificBS-9	BearerServiceCode ::= '11011001'B
+plmn-specificBS-A	BearerServiceCode ::= '11011010'B
+plmn-specificBS-B	BearerServiceCode ::= '11011011'B
+plmn-specificBS-C	BearerServiceCode ::= '11011100'B
+plmn-specificBS-D	BearerServiceCode ::= '11011101'B
+plmn-specificBS-E	BearerServiceCode ::= '11011110'B
+plmn-specificBS-F	BearerServiceCode ::= '11011111'B
+
+END

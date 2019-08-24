@@ -1,0 +1,3 @@
+{incl_app,ssh,details}.
+
+{excl_mods, ssh, [ssh_dbg, ssh_info, ssh_server_key_api, ssh_sftpd_file_api]}.

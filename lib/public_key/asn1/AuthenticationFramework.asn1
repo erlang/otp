@@ -1,0 +1,367 @@
+AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+  authenticationFramework(7) 6} DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained
+-- within the Directory Specifications, and for the use of other applications which will use them to access
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  id-at, id-nf, id-oc, informationFramework, selectedAttributeTypes,
+    basicAccessControl, certificateExtensions
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 6}
+  Name, ATTRIBUTE, OBJECT-CLASS, NAME-FORM, top
+    FROM InformationFramework informationFramework
+  UniqueIdentifier, octetStringMatch, commonName, UnboundedDirectoryString
+    FROM SelectedAttributeTypes selectedAttributeTypes
+  certificateExactMatch, certificatePairExactMatch, certificateListExactMatch,
+    KeyUsage, GeneralNames, CertificatePoliciesSyntax,
+    algorithmIdentifierMatch, CertPolicyId
+    FROM CertificateExtensions certificateExtensions;
+
+-- parameterized types
+ENCRYPTED{ToBeEnciphered} ::=
+  BIT STRING
+    (CONSTRAINED BY {
+       -- shall be the result of applying an encipherment procedure
+       -- to the BER-encoded octets of a value of --ToBeEnciphered})
+
+HASH{ToBeHashed} ::= SEQUENCE {
+  algorithmIdentifier  AlgorithmIdentifier{{SupportedAlgorithms}},
+  hashValue
+    BIT STRING
+      (CONSTRAINED BY {
+         -- shall be the result of applying a hashing procedure to the DER-encoded octets
+         -- of a value of -- ToBeHashed})
+}
+
+ENCRYPTED-HASH{ToBeSigned} ::=
+  BIT STRING
+    (CONSTRAINED BY {
+       -- shall be the result of applying a hashing procedure to the DER-encoded (see 6.1) octets
+       -- of a value of --ToBeSigned -- and then applying an encipherment procedure to those octets --})
+
+SIGNATURE{ToBeSigned} ::= SEQUENCE {
+  algorithmIdentifier  AlgorithmIdentifier{{SupportedAlgorithms}},
+  encrypted            ENCRYPTED-HASH{ToBeSigned}
+}
+
+SIGNED{ToBeSigned} ::= SEQUENCE {
+  toBeSigned  ToBeSigned,
+  COMPONENTS OF SIGNATURE{ToBeSigned}
+}
+
+-- public-key certificate definition
+Certificate ::= SIGNED{CertificateContent}
+
+CertificateContent ::= SEQUENCE {
+  version                  [0]  Version DEFAULT v1,
+  serialNumber             CertificateSerialNumber,
+  signature                AlgorithmIdentifier{{SupportedAlgorithms}},
+  issuer                   Name,
+  validity                 Validity,
+  subject                  Name,
+  subjectPublicKeyInfo     SubjectPublicKeyInfo,
+  issuerUniqueIdentifier   [1] IMPLICIT UniqueIdentifier OPTIONAL,
+  -- if present, version shall be v2 or v3
+  subjectUniqueIdentifier  [2] IMPLICIT UniqueIdentifier OPTIONAL,
+  -- if present, version shall be v2 or v3
+  extensions               [3]  Extensions OPTIONAL
+  -- If present, version shall be v3
+}
+
+Version ::= INTEGER {v1(0), v2(1), v3(2)}
+
+CertificateSerialNumber ::= INTEGER
+
+AlgorithmIdentifier{ALGORITHM:SupportedAlgorithms} ::= SEQUENCE {
+  algorithm   ALGORITHM.&id({SupportedAlgorithms}),
+  parameters  ALGORITHM.&Type({SupportedAlgorithms}{@algorithm}) OPTIONAL
+}
+
+-- Definition of the following information object set is deferred, perhaps to standardized
+-- profiles or to protocol implementation conformance statements. The set is required to
+-- specify a table constraint on the parameters component of AlgorithmIdentifier.
+SupportedAlgorithms ALGORITHM ::=
+  {...}
+
+Validity ::= SEQUENCE {notBefore  Time,
+                       notAfter   Time
+}
+
+SubjectPublicKeyInfo ::= SEQUENCE {
+  algorithm         AlgorithmIdentifier{{SupportedAlgorithms}},
+  subjectPublicKey  BIT STRING
+}
+
+Time ::= CHOICE {utcTime          UTCTime,
+                 generalizedTime  GeneralizedTime
+}
+
+Extensions ::= SEQUENCE OF Extension
+
+-- For those extensions where ordering of individual extensions within the SEQUENCE is significant, the
+-- specification of those individual extensions shall include the rules for the significance of the order therein
+Extension ::= SEQUENCE {
+  extnId     EXTENSION.&id({ExtensionSet}),
+  critical   BOOLEAN DEFAULT FALSE,
+  extnValue
+    OCTET STRING
+      (CONTAINING EXTENSION.&ExtnType({ExtensionSet}{@extnId})
+       ENCODED BY
+       der)
+}
+
+der OBJECT IDENTIFIER ::=
+  {joint-iso-itu-t asn1(1) ber-derived(2) distinguished-encoding(1)}
+
+ExtensionSet EXTENSION ::=
+  {...}
+
+EXTENSION ::= CLASS {&id        OBJECT IDENTIFIER UNIQUE,
+                     &ExtnType
+}WITH SYNTAX {SYNTAX &ExtnType
+              IDENTIFIED BY &id
+}
+
+ALGORITHM ::= CLASS {&Type  OPTIONAL,
+                     &id    OBJECT IDENTIFIER UNIQUE
+}WITH SYNTAX {[&Type]
+              IDENTIFIED BY &id
+}
+
+-- other PKI certificate constructs
+Certificates ::= SEQUENCE {
+  userCertificate    Certificate,
+  certificationPath  ForwardCertificationPath OPTIONAL
+}
+
+CertificationPath ::= SEQUENCE {
+  userCertificate    Certificate,
+  theCACertificates  SEQUENCE OF CertificatePair OPTIONAL
+}
+
+ForwardCertificationPath ::= SEQUENCE OF CrossCertificates
+
+CrossCertificates ::= SET OF Certificate
+
+PkiPath ::= SEQUENCE OF Certificate
+
+-- certificate revocation list (CRL)
+CertificateList ::=
+  SIGNED{CertificateListContent}
+
+CertificateListContent ::= SEQUENCE {
+  version              Version OPTIONAL,
+  -- if present, version shall be v2
+  signature            AlgorithmIdentifier{{SupportedAlgorithms}},
+  issuer               Name,
+  thisUpdate           Time,
+  nextUpdate           Time OPTIONAL,
+  revokedCertificates
+    SEQUENCE OF
+      SEQUENCE {serialNumber        CertificateSerialNumber,
+                revocationDate      Time,
+                crlEntryExtensions  Extensions OPTIONAL} OPTIONAL,
+  crlExtensions        [0]  Extensions OPTIONAL
+}
+
+-- PKI object classes
+pkiUser OBJECT-CLASS ::= {
+  SUBCLASS OF  {top}
+  KIND         auxiliary
+  MAY CONTAIN  {userCertificate}
+  ID           id-oc-pkiUser
+}
+
+pkiCA OBJECT-CLASS ::= {
+  SUBCLASS OF  {top}
+  KIND         auxiliary
+  MAY CONTAIN
+    {cACertificate | certificateRevocationList | authorityRevocationList |
+      crossCertificatePair}
+  ID           id-oc-pkiCA
+}
+
+cRLDistributionPoint OBJECT-CLASS ::= {
+  SUBCLASS OF   {top}
+  KIND          structural
+  MUST CONTAIN  {commonName}
+  MAY CONTAIN
+    {certificateRevocationList | authorityRevocationList | deltaRevocationList}
+  ID            id-oc-cRLDistributionPoint
+}
+
+cRLDistPtNameForm NAME-FORM ::= {
+  NAMES            cRLDistributionPoint
+  WITH ATTRIBUTES  {commonName}
+  ID               id-nf-cRLDistPtNameForm
+}
+
+deltaCRL OBJECT-CLASS ::= {
+  SUBCLASS OF  {top}
+  KIND         auxiliary
+  MAY CONTAIN  {deltaRevocationList}
+  ID           id-oc-deltaCRL
+}
+
+cpCps OBJECT-CLASS ::= {
+  SUBCLASS OF  {top}
+  KIND         auxiliary
+  MAY CONTAIN  {certificatePolicy | certificationPracticeStmt}
+  ID           id-oc-cpCps
+}
+
+pkiCertPath OBJECT-CLASS ::= {
+  SUBCLASS OF  {top}
+  KIND         auxiliary
+  MAY CONTAIN  {pkiPath}
+  ID           id-oc-pkiCertPath
+}
+
+-- PKI directory attributes
+userCertificate ATTRIBUTE ::= {
+  WITH SYNTAX             Certificate
+  EQUALITY MATCHING RULE  certificateExactMatch
+  ID                      id-at-userCertificate
+}
+
+cACertificate ATTRIBUTE ::= {
+  WITH SYNTAX             Certificate
+  EQUALITY MATCHING RULE  certificateExactMatch
+  ID                      id-at-cAcertificate
+}
+
+crossCertificatePair ATTRIBUTE ::= {
+  WITH SYNTAX             CertificatePair
+  EQUALITY MATCHING RULE  certificatePairExactMatch
+  ID                      id-at-crossCertificatePair
+}
+
+CertificatePair ::= SEQUENCE {
+  forward  [0]  Certificate OPTIONAL,
+  reverse  [1]  Certificate OPTIONAL
+  -- at least one of the pair shall be present
+}
+(WITH COMPONENTS {
+   ...,
+   forward  PRESENT
+ } | WITH COMPONENTS {
+       ...,
+       reverse  PRESENT
+     })
+
+certificateRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX             CertificateList
+  EQUALITY MATCHING RULE  certificateListExactMatch
+  ID                      id-at-certificateRevocationList
+}
+
+authorityRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX             CertificateList
+  EQUALITY MATCHING RULE  certificateListExactMatch
+  ID                      id-at-authorityRevocationList
+}
+
+deltaRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX             CertificateList
+  EQUALITY MATCHING RULE  certificateListExactMatch
+  ID                      id-at-deltaRevocationList
+}
+
+supportedAlgorithms ATTRIBUTE ::= {
+  WITH SYNTAX             SupportedAlgorithm
+  EQUALITY MATCHING RULE  algorithmIdentifierMatch
+  ID                      id-at-supportedAlgorithms
+}
+
+SupportedAlgorithm ::= SEQUENCE {
+  algorithmIdentifier          AlgorithmIdentifier{{SupportedAlgorithms}},
+  intendedUsage                [0]  KeyUsage OPTIONAL,
+  intendedCertificatePolicies  [1]  CertificatePoliciesSyntax OPTIONAL
+}
+
+certificationPracticeStmt ATTRIBUTE ::= {
+  WITH SYNTAX  InfoSyntax
+  ID           id-at-certificationPracticeStmt
+}
+
+InfoSyntax ::= CHOICE {
+  content  UnboundedDirectoryString,
+  pointer  SEQUENCE {name  GeneralNames,
+                     hash  HASH{HashedPolicyInfo} OPTIONAL}
+}
+
+POLICY ::= TYPE-IDENTIFIER
+
+HashedPolicyInfo ::= POLICY.&Type({Policies})
+
+Policies POLICY ::=
+  {...} -- Defined by implementors
+
+certificatePolicy ATTRIBUTE ::= {
+  WITH SYNTAX  PolicySyntax
+  ID           id-at-certificatePolicy
+}
+
+PolicySyntax ::= SEQUENCE {
+  policyIdentifier  PolicyID,
+  policySyntax      InfoSyntax
+}
+
+PolicyID ::= CertPolicyId
+
+pkiPath ATTRIBUTE ::= {WITH SYNTAX  PkiPath
+                       ID           id-at-pkiPath
+}
+
+userPassword ATTRIBUTE ::= {
+  WITH SYNTAX             OCTET STRING(SIZE (0..MAX))
+  EQUALITY MATCHING RULE  octetStringMatch
+  ID                      id-at-userPassword
+}
+
+-- object identifier assignments
+-- object classes
+id-oc-cRLDistributionPoint OBJECT IDENTIFIER ::=
+  {id-oc 19}
+
+id-oc-pkiUser OBJECT IDENTIFIER ::= {id-oc 21}
+
+id-oc-pkiCA OBJECT IDENTIFIER ::= {id-oc 22}
+
+id-oc-deltaCRL OBJECT IDENTIFIER ::= {id-oc 23}
+
+id-oc-cpCps OBJECT IDENTIFIER ::= {id-oc 30}
+
+id-oc-pkiCertPath OBJECT IDENTIFIER ::= {id-oc 31}
+
+-- name forms
+id-nf-cRLDistPtNameForm OBJECT IDENTIFIER ::= {id-nf 14}
+
+-- directory attributes
+id-at-userPassword OBJECT IDENTIFIER ::= {id-at 35}
+
+id-at-userCertificate OBJECT IDENTIFIER ::= {id-at 36}
+
+id-at-cAcertificate OBJECT IDENTIFIER ::= {id-at 37}
+
+id-at-authorityRevocationList OBJECT IDENTIFIER ::= {id-at 38}
+
+id-at-certificateRevocationList OBJECT IDENTIFIER ::= {id-at 39}
+
+id-at-crossCertificatePair OBJECT IDENTIFIER ::= {id-at 40}
+
+id-at-supportedAlgorithms OBJECT IDENTIFIER ::= {id-at 52}
+
+id-at-deltaRevocationList OBJECT IDENTIFIER ::= {id-at 53}
+
+id-at-certificationPracticeStmt OBJECT IDENTIFIER ::= {id-at 68}
+
+id-at-certificatePolicy OBJECT IDENTIFIER ::= {id-at 69}
+
+id-at-pkiPath OBJECT IDENTIFIER ::= {id-at 70}
+
+END -- AuthenticationFramework

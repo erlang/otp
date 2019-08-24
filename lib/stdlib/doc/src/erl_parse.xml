@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_parse</title>
+    <prepared>Robert</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-24</date>
+    <rev>B</rev>
+    <file>erl_parse.xml</file>
+  </header>
+  <module since="">erl_parse</module>
+  <modulesummary>The Erlang parser.</modulesummary>
+  <description>
+    <p>This module is the basic Erlang parser that converts tokens into
+      the abstract form of either forms (that is, top-level constructs),
+      expressions, or terms. The Abstract Format is described in the
+      <seealso marker="erts:absform">ERTS User's Guide</seealso>.
+      Notice that a token list must end with the <em>dot</em> token to be
+      acceptable to the parse functions (see the <seealso marker="erl_scan">
+      <c>erl_scan(3)</c></seealso>) module.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name>abstract_clause()</name>
+      <desc><p>Abstract form of an Erlang clause.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>abstract_expr()</name>
+      <desc><p>Abstract form of an Erlang expression.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>abstract_form()</name>
+      <desc><p>Abstract form of an Erlang form.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>abstract_type()</name>
+      <desc><p>Abstract form of an Erlang type.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="erl_parse_tree"></name>
+    </datatype>
+    <datatype>
+      <name name="error_description"></name>
+    </datatype>
+    <datatype>
+      <name name="error_info"></name>
+    </datatype>
+    <datatype>
+      <name name="form_info"></name>
+        <desc><p>Tuples <c>{error, error_info()}</c> and <c>{warning,
+        error_info()}</c>, denoting syntactically incorrect forms and
+        warnings, and <c>{eof, line()}</c>, denoting an end-of-stream
+        encountered before a complete form had been parsed.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="token"></name>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="abstract" arity="1" since=""/>
+      <fsummary>Convert an Erlang term into an abstract form.</fsummary>
+      <desc>
+        <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
+          abstract form of type <c><anno>AbsTerm</anno></c>.
+          This function is the inverse of
+          <seealso marker="#normalise/1"><c>normalise/1</c></seealso>.</p>
+        <p><c>erl_parse:abstract(T)</c> is equivalent to
+          <c>erl_parse:abstract(T, 0)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="abstract" arity="2" since="OTP R16B01"/>
+      <fsummary>Convert an Erlang term into an abstract form.</fsummary>
+      <type name="encoding_func"/>
+      <desc>
+        <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
+          abstract form of type <c><anno>AbsTerm</anno></c>.</p>
+        <p>Option <c><anno>Line</anno></c> is the line to be
+          assigned to each node of <c><anno>AbsTerm</anno></c>.</p>
+        <p>Option <c><anno>Encoding</anno></c> is used for
+          selecting which integer lists to be considered
+          as strings. The default is to use the encoding returned by
+          function <seealso marker="epp#default_encoding/0">
+          <c>epp:default_encoding/0</c></seealso>.
+          Value <c>none</c> means that no integer lists are
+          considered as strings. <c>encoding_func()</c> is
+          called with one integer of a list at a time; if it
+          returns <c>true</c> for every integer, the list is
+          considered a string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="anno_from_term" arity="1" since="OTP 18.0"/>
+      <fsummary>Return annotations as terms.</fsummary>
+      <desc>
+        <p>Assumes that <c><anno>Term</anno></c> is a term with the same
+          structure as a <c>erl_parse</c> tree, but with terms,
+          say <c>T</c>, where a <c>erl_parse</c> tree has collections
+          of annotations. Returns a <c>erl_parse</c> tree where each
+          term <c>T</c> is replaced by the value returned by
+          <seealso marker="erl_anno#from_term/1">
+          <c>erl_anno:from_term(T)</c></seealso>. The term
+          <c><anno>Term</anno></c> is traversed in a depth-first,
+          left-to-right fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="anno_to_term" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the representation of annotations.</fsummary>
+      <desc>
+        <p>Returns a term where each collection of annotations
+          <c>Anno</c> of the nodes of the <c>erl_parse</c> tree
+          <c><anno>Abstr</anno></c> is replaced by the term
+          returned by <seealso marker="erl_anno#to_term/1">
+          <c>erl_anno:to_term(Anno)</c></seealso>. The
+          <c>erl_parse</c> tree is traversed in a depth-first,
+          left-to-right fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold_anno" arity="3" since="OTP 18.0"/>
+      <fsummary>Fold a function over the annotations of an <c>erl_parse</c> tree.
+      </fsummary>
+      <desc>
+        <p>Updates an accumulator by applying <c><anno>Fun</anno></c> on
+          each collection of annotations of the <c>erl_parse</c> tree
+          <c><anno>Abstr</anno></c>. The first call to
+          <c><anno>Fun</anno></c> has <c><anno>AccIn</anno></c> as
+          argument, the returned accumulator
+          <c><anno>AccOut</anno></c> is passed to the next call, and
+          so on. The final value of the accumulator is returned. The
+          <c>erl_parse</c> tree is traversed in a depth-first, left-to-right
+          fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format_error(ErrorDescriptor) -> Chars</name>
+      <fsummary>Format an error descriptor.</fsummary>
+      <type>
+        <v>ErrorDescriptor = <seealso
+          marker="#type-error_info">error_description()</seealso></v>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Uses an <c>ErrorDescriptor</c> and returns a string
+          that describes the error. This function is usually called
+          implicitly when an <c>ErrorInfo</c> structure is processed
+          (see section <seealso marker="#errorinfo">
+          Error Information</seealso>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="map_anno" arity="2" since="OTP 18.0"/>
+      <fsummary>Map a function over the annotations of an <c>erl_parse</c> tree.
+      </fsummary>
+      <desc>
+        <p>Modifies the <c>erl_parse</c> tree <c><anno>Abstr</anno></c>
+          by applying <c><anno>Fun</anno></c> on each collection of
+          annotations of the nodes of the <c>erl_parse</c> tree. The
+          <c>erl_parse</c> tree is traversed in a depth-first,
+          left-to-right fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mapfold_anno" arity="3" since="OTP 18.0"/>
+      <fsummary>Map and fold a function over the annotations of an
+        <c>erl_parse</c> tree.</fsummary>
+      <desc>
+        <p>Modifies the <c>erl_parse</c> tree <c><anno>Abstr</anno></c>
+          by applying <c><anno>Fun</anno></c> on each collection of
+          annotations of the nodes of the <c>erl_parse</c> tree, while
+          at the same time updating an accumulator. The first call to
+          <c><anno>Fun</anno></c> has <c><anno>AccIn</anno></c> as
+          second argument, the returned accumulator
+          <c><anno>AccOut</anno></c> is passed to the next call, and
+          so on. The modified <c>erl_parse</c> tree and the
+          final value of the accumulator are returned. The
+          <c>erl_parse</c> tree is traversed in a depth-first,
+          left-to-right fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new_anno" arity="1" since="OTP 18.0"/>
+      <fsummary>Create new annotations.</fsummary>
+      <desc>
+        <p>Assumes that <c><anno>Term</anno></c> is a term with the same
+          structure as a <c>erl_parse</c> tree, but with <seealso
+          marker="erl_anno#type-location">locations</seealso> where a
+          <c>erl_parse</c> tree has collections of annotations.
+          Returns a <c>erl_parse</c> tree where each location <c>L</c>
+          is replaced by the value returned by <seealso
+          marker="erl_anno#new/1"><c>erl_anno:new(L)</c></seealso>.
+          The term <c><anno>Term</anno></c> is traversed in a
+          depth-first, left-to-right fashion.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normalise" arity="1" since=""/>
+      <fsummary>Convert abstract form to an Erlang term.</fsummary>
+      <desc>
+        <p>Converts the abstract form <c><anno>AbsTerm</anno></c> of a
+          term into a conventional Erlang data structure (that is, the
+          term itself). This function is the inverse of
+          <seealso marker="#abstract/1"><c>abstract/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_exprs" arity="1" since=""/>
+      <fsummary>Parse Erlang expressions.</fsummary>
+      <desc>
+        <p>Parses <c><anno>Tokens</anno></c> as if it was a list of expressions.
+          Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, <anno>ExprList</anno>}</c></tag>
+          <item>
+            <p>The parsing was successful. <c><anno>ExprList</anno></c> is a
+              list of the abstract forms of the parsed expressions.</p>
+          </item>
+          <tag><c>{error, <anno>ErrorInfo</anno>}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_form" arity="1" since=""/>
+      <fsummary>Parse an Erlang form.</fsummary>
+      <desc>
+        <p>Parses <c><anno>Tokens</anno></c> as if it was a form. Returns one
+          of the following:</p>
+        <taglist>
+          <tag><c>{ok, <anno>AbsForm</anno>}</c></tag>
+          <item>
+            <p>The parsing was successful. <c><anno>AbsForm</anno></c> is the
+              abstract form of the parsed form.</p>
+          </item>
+          <tag><c>{error, <anno>ErrorInfo</anno>}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_term" arity="1" since=""/>
+      <fsummary>Parse an Erlang term.</fsummary>
+      <desc>
+        <p>Parses <c><anno>Tokens</anno></c> as if it was a term. Returns
+          one of the following:</p>
+        <taglist>
+          <tag><c>{ok, <anno>Term</anno>}</c></tag>
+          <item>
+            <p>The parsing was successful. <c><anno>Term</anno></c> is
+              the Erlang term corresponding to the token list.</p>
+          </item>
+          <tag><c>{error, <anno>ErrorInfo</anno>}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tokens" arity="1" since=""/>
+      <name name="tokens" arity="2" since=""/>
+      <fsummary>Generate a list of tokens for an expression.</fsummary>
+      <desc>
+        <p>Generates a list of tokens representing the abstract
+          form <c><anno>AbsTerm</anno></c> of an expression. Optionally,
+          <c><anno>MoreTokens</anno></c> is appended.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="errorinfo"/>
+    <title>Error Information</title>
+    <p><c>ErrorInfo</c> is the standard <c>ErrorInfo</c> structure that is
+      returned from all I/O modules. The format is as follows:</p>
+    <code type="none">
+{ErrorLine, Module, ErrorDescriptor}</code>
+    <p>A string describing the error is obtained with the following call:</p>
+    <code type="none">
+Module:format_error(ErrorDescriptor)</code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_anno"><c>erl_anno(3)</c></seealso>,
+       <seealso marker="erl_scan"><c>erl_scan(3)</c></seealso>,
+       <seealso marker="io"><c>io(3)</c></seealso>,
+        section <seealso marker="erts:absform">The Abstract Format</seealso>
+        in the ERTS User's Guide</p>
+  </section>
+</erlref>
+

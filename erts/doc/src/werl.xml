@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>werl</title>
+    <prepared>Bj&ouml;rn Gustavsson</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1998-01-26</date>
+    <rev>A</rev>
+    <file>werl.xml</file>
+  </header>
+  <com>werl</com>
+  <comsummary>The Erlang Emulator</comsummary>
+  <description>
+    <p>On Windows, the preferred way to start the Erlang system for interactive
+      use is as follows:</p>
+
+    <p><c><![CDATA[werl <arguments>]]></c></p>
+
+    <p>This starts Erlang in its own window, with fully
+      functioning command-line editing and scrollbars. All flags
+      except <c><![CDATA[-oldshell]]></c> work as they do for
+      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
+
+    <list type="bulleted">
+      <item>
+        <p>To copy text to the clipboard, use <c>Ctrl-C</c>.</p>
+      </item>
+      <item>
+        <p>To paste text, use <c>Ctrl-V</c>.</p>
+      </item>
+      <item>
+        <p>To interrupt the runtime system or the shell process (depending
+          on what has been specified with system flag <c>+B</c>), use
+          <c>Ctrl-Break</c>.</p>
+      </item>
+    </list>
+
+    <p>In cases where you want to redirect standard input and/or
+      standard output or use Erlang in a pipeline, <c>werl</c> is
+      not suitable, and the <c>erl</c> program is to be used instead.</p>
+    
+    <p>The <c>werl</c> window is in many ways modeled after the <c>xterm</c>
+      window present on other platforms, as the <c>xterm</c> model
+      fits well with line-oriented command-based interaction. This
+      means that selecting text is line-oriented rather than
+      rectangle-oriented.</p>
+
+    <list type="bulleted">
+      <item>
+        <p>To select text in the <c>werl</c> window, press and hold
+          the left mouse button and drag the mouse over the text you want
+          to select. If the selection crosses line boundaries, the
+          selected text consists of complete lines where applicable
+          (just like in a word processor).</p>
+      </item>
+      <item>
+        <p>To select more text than fits
+          in the window, start by selecting a small part in the
+          beginning of the text you want, then use the scrollbar
+          to view the end of the desired selection, point to it, and press
+          the <em>right</em> mouse button. The whole area between your
+          first selection and the point where you right-clicked is
+          included in the selection.</p>
+      </item>
+      <item>
+        <p>To copy the selected text to the clipboard, either
+          use <c>Ctrl-C</c>, use the menu, or press the copy
+          button in the toolbar.</p>
+      </item>
+    </list>
+
+    <p>Pasted text is inserted at the current prompt position
+      and is interpreted by Erlang as usual keyboard input.</p>
+
+    <list type="bulleted">
+      <item>
+        <p>To retrieve previous command lines, press the <c>Up arrow</c> or
+          use <c>Ctrl-P</c>.</p>
+      </item>
+    </list>
+      
+    <p>A drop-down box in the toolbar contains the command
+      history. Selecting a command in the drop-down box inserts the command
+      at the prompt, as if you used the keyboard to retrieve the
+      command.</p>
+
+    <list type="bulleted">
+      <item>
+        <p>To stop the Erlang emulator, close the <c>werl</c> window.</p>
+      </item>
+    </list>
+  </description>
+</comref>
+

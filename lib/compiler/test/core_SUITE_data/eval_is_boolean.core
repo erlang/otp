@@ -1,0 +1,22 @@
+module 'eval_is_boolean' ['eval_is_boolean'/0]
+    attributes []
+'eval_is_boolean'/0 =
+    %% Line 4
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+		case call 'erlang':'is_boolean'(call 'erlang':'make_ref'()) of
+		    <'false'> when 'true' ->
+			'ok'
+		    ( <_cor1> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',_cor1})
+		      -| ['compiler_generated'] )
+		  end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'eval_is_boolean',0}}] )
+	    -| ['compiler_generated'] )
+	end
+end

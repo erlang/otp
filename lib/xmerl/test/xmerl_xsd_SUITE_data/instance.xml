@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="MeasDataCollection.xsl"?>
+<measCollecFile xmlns="http://www.3gpp.org/ftp/specs/archive/32_series/32.435#measCollec">
+    <fileHeader fileFormatVersion="32.435 V7.2.0"
+                vendorName="Ericsson AB"
+                dnPrefix="STP43">
+        <fileSender localDn="bs=18"
+                    elementType="SBG"/>
+        <measCollec beginTime="2007-09-20T14:05:00+00:00"/>
+    </fileHeader>
+    <measData>
+        <managedElement localDn="bs=18"
+                        userLabel="OMMP"
+                        swVersion="R6A"/>
+        <measInfo measInfoId="l">
+            <job jobId="1"/>
+            <granPeriod duration="PT300S" endTime="2007-09-20T14:10:00+00:00"/>
+            <repPeriod duration="PT300S"/>
+            <measType p="1">ethernetStatsTxFrames</measType>
+            <measType p="2">ethernetStatsTxOctets</measType>
+            <measType p="3">ethernetStatsRxFrames</measType>
+            <measType p="4">ethernetStatsRxOctets</measType>
+            <measType p="5">ethernetStatsBroadcastTx</measType>
+            <measType p="6">ethernetStatsBroadcastRx</measType>
+            <measType p="7">ethernetStatsTxPauseFrames</measType>
+            <measType p="8">ethernetStatsRxMacFrames</measType>
+            <measType p="9">ethernetStatsMulticastRx</measType>
+            <measType p="10">ethernetStatsRxDiscarded</measType>
+            <measType p="11">ethernetStatsRxErrors</measType>
+            <measType p="12">ethernetStatsTxDiscarded</measType>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=7,EthernetInterface.port=1">
+                <r p="1">139197852</r>
+                <r p="2">19584465702</r>
+                <r p="3">144651440</r>
+                <r p="4">20348020750</r>
+                <r p="5">30</r>
+                <r p="6">27509</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">114575</r>
+                <r p="10">0</r>
+                <r p="11">8590076673</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=7,EthernetInterface.port=2">
+                <r p="1">0</r>
+                <r p="2">0</r>
+                <r p="3">0</r>
+                <r p="4">0</r>
+                <r p="5">0</r>
+                <r p="6">0</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">0</r>
+                <r p="10">0</r>
+                <r p="11">0</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=9,EthernetInterface.port=1">
+                <r p="1">2282798</r>
+                <r p="2">146099072</r>
+                <r p="3">2424888</r>
+                <r p="4">155302856</r>
+                <r p="5">3</r>
+                <r p="6">27515</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">114575</r>
+                <r p="10">0</r>
+                <r p="11">142081</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=7,EthernetInterface.port=3">
+                <r p="1">0</r>
+                <r p="2">0</r>
+                <r p="3">0</r>
+                <r p="4">0</r>
+                <r p="5">0</r>
+                <r p="6">0</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">0</r>
+                <r p="10">0</r>
+                <r p="11">0</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=9,EthernetInterface.port=2">
+                <r p="1">0</r>
+                <r p="2">0</r>
+                <r p="3">0</r>
+                <r p="4">0</r>
+                <r p="5">0</r>
+                <r p="6">0</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">0</r>
+                <r p="10">0</r>
+                <r p="11">0</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=9,EthernetInterface.port=3">
+                <r p="1">0</r>
+                <r p="2">0</r>
+                <r p="3">0</r>
+                <r p="4">0</r>
+                <r p="5">0</r>
+                <r p="6">0</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">0</r>
+                <r p="10">0</r>
+                <r p="11">0</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=7,EthernetInterface.port=0">
+                <r p="1">139211625</r>
+                <r p="2">19586502972</r>
+                <r p="3">153860245</r>
+                <r p="4">21661061980</r>
+                <r p="5">30</r>
+                <r p="6">3</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">68745</r>
+                <r p="10">0</r>
+                <r p="11">68745</r>
+                <r p="12">0</r>
+            </measValue>
+            <measValue measObjLdn="Mp.bsNo=18,MpBlade.subrack=0+slot=9,EthernetInterface.port=0">
+                <r p="1">2282798</r>
+                <r p="2">146099072</r>
+                <r p="3">2351552</r>
+                <r p="4">150499328</r>
+                <r p="5">3</r>
+                <r p="6">9</r>
+                <r p="7">0</r>
+                <r p="8">0</r>
+                <r p="9">68745</r>
+                <r p="10">0</r>
+                <r p="11">68745</r>
+                <r p="12">0</r>
+            </measValue>
+        </measInfo>
+    </measData>
+    <fileFooter>
+        <measCollec endTime="2007-09-20T14:10:00+00:00"/>
+    </fileFooter>
+</measCollecFile>
+

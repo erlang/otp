@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year>
+      <year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2016-03-04</date>
+    <rev>PA1</rev>
+    <file>introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Scope</title>
+    <p>The Standard Erlang Libraries application, <em>STDLIB</em>, is mandatory
+      in the sense that the minimal system based on Erlang/OTP consists of
+      <em>STDLIB</em> and <em>Kernel</em>.</p>
+
+    <p><em>STDLIB</em> contains the following functional areas:</p>
+
+    <list type="bulleted">
+      <item>Erlang shell</item>
+      <item>Command interface</item>
+      <item>Query interface</item>
+      <item>Interface to standard Erlang I/O servers</item>
+      <item>Interface to the Erlang built-in term storage BIFs</item>
+      <item>Regular expression matching functions for strings and binaries</item>
+      <item>Finite state machine</item>
+      <item>Event handling</item>
+      <item>Functions for the server of a client-server relation</item>
+      <item>Function to control applications in a distributed manner</item>
+      <item>Start and control of slave nodes</item>
+      <item>Operations on finite sets and relations represented as sets</item>
+      <item>Library for handling binary data</item>
+      <item>Disk-based term storage</item>
+      <item>List processing</item>
+      <item>Maps processing</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang programming
+      language.</p> 
+  </section>
+</chapter>
+
+

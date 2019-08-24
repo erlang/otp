@@ -1,0 +1,2052 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>How to Implement an Alternative Carrier for the Erlang Distribution
+    </title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2000-10-17</date>
+    <rev>PA2</rev>
+    <file>alt_dist.xml</file>
+  </header>
+  <p>This section describes how to implement an alternative carrier
+    protocol for the Erlang distribution. The distribution is normally
+    carried by TCP/IP. Here is explained a method for replacing TCP/IP
+    with another protocol.</p>
+
+  <p>The section is a step-by-step explanation of the
+    <c><![CDATA[uds_dist]]></c> example application (in the
+    Kernel application <c><![CDATA[examples]]></c> directory). The
+    <c><![CDATA[uds_dist]]></c> application implements distribution over Unix
+    domain sockets and is written for the Sun Solaris 2 operating environment.
+    The mechanisms are however general and apply to any operating system Erlang
+    runs on. The reason the C code is not made portable, is simply
+    readability.</p>
+
+  <section>
+    <title>Introduction</title>
+    <p>To implement a new carrier for the Erlang distribution, the main
+      steps are as follows.</p>
+
+      <note><p>
+	As of ERTS version 10.0 support for distribution controller
+	processes has been introduced. That is, the traffic over a
+	distribution channel can be managed by a process instead of
+	only by a port. This makes it possible to implement large
+	parts of the logic in Erlang code, and you perhaps do not
+	even need a new driver for the protocol. One example could
+	be Erlang distribution over UDP using <c>gen_udp</c> (your
+	Erlang code will of course have to take care of retransmissions,
+	etc in this example). That is, depending on what you want
+	to do you perhaps do not need to implement a driver at all
+	and can then skip the driver related sections below.
+	The <c>gen_tcp_dist</c> example described in the
+	<seealso marker="#distribution_module">Distribution
+	Module</seealso> section utilize distribution controller
+	processes and can be worth having a look at if you want to
+	use distribution controller processes.
+      </p></note>
+
+    <section>
+      <title>Writing an Erlang Driver</title>
+      <p>First, the protocol must be available to the Erlang machine, which
+        involves writing an Erlang driver. A port program cannot be used,
+        an Erlang driver is required. Erlang drivers can be:</p>
+
+      <list type="bulleted">
+        <item>
+          <p>Statically linked to the emulator, which can be an alternative
+            when using the open source distribution of Erlang, or</p>
+        </item>
+        <item>
+          <p>Dynamically loaded into the Erlang machines address space,
+            which is the only alternative if a precompiled version of 
+            Erlang is to be used</p>
+        </item>
+      </list>
+
+      <p>Writing an Erlang driver is not easy. The driver is written
+        as some callback functions called by the Erlang emulator when
+        data is sent to the driver, or the driver has any data available on
+        a file descriptor. As the driver callback routines execute in the main
+        thread of the Erlang machine, the callback functions can perform
+        no blocking activity whatsoever. The callbacks are only to set up
+        file descriptors for waiting and/or read/write available data. All
+        I/O must be non-blocking. Driver callbacks are however executed
+        in sequence, why a global state can safely be updated within the
+        routines.</p>
+    </section>
+
+    <section>
+      <title>Writing an Erlang Interface for the Driver</title>
+      <p>When the driver is implemented, one would preferably write an
+        Erlang interface for the driver to be able to test the
+        functionality of the driver separately. This interface can then
+        be used by the distribution module, which will cover the details of
+        the protocol from the <c><![CDATA[net_kernel]]></c>.</p>
+
+      <p>The easiest path
+        is to mimic the <c><![CDATA[inet]]></c> and <c><![CDATA[inet_tcp]]></c>
+        interfaces, but not much
+        functionality in those modules needs to be implemented. In the
+        example application, only a few of the usual interfaces are
+        implemented, and they are much simplified.</p>
+    </section>
+
+    <section>
+      <title>Writing a Distribution Module</title>
+      <p>When the protocol is available to Erlang through a driver and an
+        Erlang interface module, a distribution module can be written.
+        The distribution module is a module with well-defined callbacks,
+        much like a <c><![CDATA[gen_server]]></c> (there is no compiler support
+        for checking the callbacks, though). This module implements:</p>
+
+      <list type="bulleted">
+        <item>The details of finding other nodes (that is, talking to
+          <c>epmd</c> or something similar)</item>
+        <item>Creating a listen port (or similar)</item>
+        <item>Connecting to other nodes</item>
+        <item>Performing the handshakes/cookie verification</item>
+      </list>
+
+      <p>There is however a utility module, <c><![CDATA[dist_util]]></c>, which
+        does most of the hard work of handling handshakes, cookies, timers,
+        and ticking. Using <c><![CDATA[dist_util]]></c> makes implementing a
+        distribution module much easier and that is done in
+        the example application.</p>
+    </section>
+
+    <section>
+      <title>Creating Boot Scripts</title>
+      <p>The last step is to create boot scripts to make the protocol
+        implementation available at boot time. The implementation can be
+        debugged by starting the distribution when all the system is
+        running, but in a real system the distribution is to start very
+        early, why a boot script and some command-line parameters are
+        necessary.</p>
+
+      <p>This step also implies that the Erlang code in the
+        interface and distribution modules is written in such a way that
+        it can be run in the startup phase. In particular, there can be no
+        calls to the <c><![CDATA[application]]></c> module or to any modules
+        not loaded at boot time. That is, only <c><![CDATA[Kernel]]></c>,
+        <c><![CDATA[STDLIB]]></c>, and the application itself can be used.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="distribution_module"/>
+    <title>Distribution Module</title>
+    <p>
+      The distribution module expose an API that <c>net_kernel</c> call
+      in order to manage connections to other nodes. The module name
+      should have the suffix <c>_dist</c>.
+    </p>
+    <p>
+      The module needs to create some kind of listening entity (process
+      or port) and an acceptor process that accepts incoming connections
+      using the listening entity. For each connection, the module at least
+      needs to create one connection supervisor process, which also is
+      responsible for the handshake when setting up the connection, and
+      a distribution controller (process or port) responsible for
+      transport of data over the connection. The distribution controller
+      and the connection supervisor process should be linked together
+      so both of them are cleaned up when the connection is taken down.
+    </p>
+    <p>
+      Note that there need to be exactly one distribution controller
+      per connection. A process or port can only be distribution
+      controller for one connection. The registration as distribution
+      controller cannot be undone. It will stick until the distribution
+      controller terminates. The distribution controller should not
+      ignore exit signals. It is allowed to trap exits, but it should
+      then voluntarily terminate when an exit signal is received.
+    </p>
+    <p>
+      An example implementation of a distribution module can be found
+      in
+      <url href="gen_tcp_dist.erl">$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl</url>.
+      It implements the distribution over TCP/IP using the <c>gen_tcp</c>
+      API with distribution controllers implemented by processes. This
+      instead of using port distribution controllers as the ordinary TCP/IP
+      distribution uses.
+    </p>
+
+    <section>
+      <marker id="distribution_module_exported_callback_functions"/>
+      <title>Exported Callback Functions</title>
+
+      <p>
+	The following functions are mandatory:
+      </p>
+      <taglist>
+	<tag><marker id="listen"/><c>listen(Name) -></c><br/>&nbsp;&nbsp;<c>{ok, {Listen, Address, Creation}} | {error, Error} </c></tag>
+	<item>
+	  <p>
+	    <c>listen/1</c> is called once in order to listen for incoming
+	    connection requests. The call is made when the distribution is brought
+	    up. The argument <c>Name</c> is the part of the node name before
+	    the <c>@</c> sign in the full node name. It can be either an atom or a
+	    string.
+	  </p>
+	  <p>
+	    The return value consists of a <c>Listen</c> handle (which is
+	    later passed to the <seealso marker="#accept"><c>accept/1</c></seealso>
+	    callback), <c>Address</c> which is a <c>#net_address{}</c> record
+	    with information about the address for the node (the
+	    <c>#net_address{}</c> record is defined in
+	    <c>kernel/include/net_address.hrl</c>), and <c>Creation</c> which
+	    (currently) is an integer <c>1</c>, <c>2</c>, or <c>3</c>.
+	  </p>
+	  <p>
+	    If <seealso marker="erts:epmd"><c>epmd</c></seealso> is to be used 
+	    for node discovery, you typically want to use the (unfortunately
+	    undocumented) <c>erl_epmd</c> module (part of the <c>kernel</c>
+	    application) in order to register the listen port with <c>epmd</c>
+	    and retrieve <c>Creation</c> to use.
+	  </p>
+	</item>
+
+	<tag><marker id="accept"/><c>accept(Listen) -></c><br/>&nbsp;&nbsp;<c>AcceptorPid</c></tag>
+	<item>
+	  <p>
+	    <c>accept/1</c> should spawn a process that accepts connections. This
+	    process should preferably execute on <c>max</c> priority. The process
+	    identifier of this process should be returned.
+	  </p>
+	  <p>
+	    The <c>Listen</c> argument will be the same as the <c>Listen</c> handle
+	    part of the return value of the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback above.
+	    <c>accept/1</c> is called only once when the distribution protocol is
+	    started.
+	  </p>
+	  <p>
+	    The caller of this function is a representative for <c>net_kernel</c>
+	    (this may or may not be the process registered as <c>net_kernel</c>)
+	    and is in this document identified as <c>Kernel</c>.
+	    When a connection has been accepted by the acceptor process, it needs
+	    to inform <c>Kernel</c> about the accepted connection. This is done by
+	    passing a message on the form:
+	  </p>
+	  <code type="none"><![CDATA[Kernel ! {accept, AcceptorPid, DistController, Family, Proto}]]></code>
+	  <p>
+	    <c>DistController</c> is either the process or port identifier
+	    of the distribution controller for the connection. The
+	    distribution controller should be created by the acceptor
+	    processes when a new connection is accepted. Its job is to
+	    dispatch traffic on the connection.
+	  </p>
+	  <c>Kernel</c> responds with one of the following messages:
+	  <taglist>
+	    <tag><c>{Kernel, controller, SupervisorPid}</c></tag>
+	    <item>
+	      <p>
+		The request was accepted and <c>SupervisorPid</c> is the
+		process identifier of the connection supervisor process
+		(which is created in the
+		<seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>
+		callback).
+	      </p>
+	    </item>
+	    <tag><c>{Kernel, unsupported_protocol}</c></tag>
+	    <item>
+	      <p>
+		The request was rejected. This is a fatal error. The acceptor
+		process should terminate.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    When an accept sequence has been completed the acceptor process
+	    is expected to continue accepting further requests.
+	  </p>
+	</item>
+
+	<tag><marker id="accept_connection"/><c>accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) -></c><br/>&nbsp;&nbsp;<c>ConnectionSupervisorPid</c></tag>
+	<item>
+	  <p>
+	    <c>accept_connection/5</c> should spawn a process that will
+	    perform the Erlang distribution handshake for the connection.
+	    If the handshake successfully completes it should continue to
+	    function as a connection supervisor. This process
+	    should preferably execute on <c>max</c> priority.
+	  </p>
+	  <p>The arguments:</p>
+	  <taglist>
+	    <tag><c>AcceptorPid</c></tag>
+	    <item>
+	      <p>
+		Process identifier of the process created by the
+		<seealso marker="#accept"><c>accept/1</c></seealso>
+		callback.
+	      </p>
+	    </item>
+	    <tag><c>DistCtrl</c></tag>
+	    <item>
+	      <p>The identifier of the distribution controller identifier
+	      created by the acceptor process. To be passed along to
+	      <c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>MyNode</c></tag>
+	    <item>
+	      <p>
+		Node name of this node. To be passed along to
+	      <c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>Allowed</c></tag>
+	    <item>
+	      <p>
+		To be passed along to
+		<c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>SetupTime</c></tag>
+	    <item>
+	      <p>
+		Time used for creating a setup timer by a
+		call to <c>dist_util:start_timer(SetupTime)</c>.
+		The timer should be passed along to
+		<c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    The created process should provide callbacks and other
+	    information needed for the handshake in a
+	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    record and call <c>dist_util:handshake_other_started(HsData)</c>
+	    with this record.
+	  </p>
+	  <p>
+	    <c>dist_util:handshake_other_started(HsData)</c> will perform
+	    the handshake and if the handshake successfully completes this
+	    process will then continue in a connection supervisor loop
+	    as long as the connection is up.
+	  </p>
+	</item>
+	
+	<tag><marker id="setup"/><c>setup(Node, Type, MyNode, LongOrShortNames, SetupTime) -></c><br/>&nbsp;&nbsp;<c>ConnectionSupervisorPid</c></tag>
+	<item>
+	  <p>
+	    <c>setup/5</c> should spawn a process that connects to
+	    <c>Node</c>. When connection has been established it should
+	    perform the Erlang distribution handshake for the connection.
+	    If the handshake successfully completes it should continue to
+	    function as a connection supervisor. This process
+	    should preferably execute on <c>max</c> priority.
+	  </p>
+	  <p>The arguments:</p>
+	  <taglist>
+	    <tag><c>Node</c></tag>
+	    <item>
+	      <p>
+		Node name of remote node. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>Type</c></tag>
+	    <item>
+	      <p>
+		Connection type. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>MyNode</c></tag>
+	    <item>
+	      <p>
+		Node name of this node. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>LongOrShortNames</c></tag>
+	    <item>
+	      <p>
+		Either the atom <c>longnames</c> or
+		the atom <c>shortnames</c> indicating
+		whether long or short names is used.
+	      </p>
+	    </item>
+	    <tag><c>SetupTime</c></tag>
+	    <item>
+	      <p>
+		Time used for creating a setup timer by a
+		call to <c>dist_util:start_timer(SetupTime)</c>.
+		The timer should be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    The caller of this function is a representative for <c>net_kernel</c>
+	    (this may or may not be the process registered as <c>net_kernel</c>)
+	    and is in this document identified as <c>Kernel</c>. 
+	  </p>
+	  <p>
+	    This function should, besides spawning the connection supervisor,
+	    also create a distribution controller. The distribution
+	    controller is either a process or a port which is responsible
+	    for dispatching traffic.
+	  </p>
+	  <p>
+	    The created process should provide callbacks and other
+	    information needed for the handshake in a
+	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    record and call <c>dist_util:handshake_we_started(HsData)</c>
+	    with this record.
+	  </p>
+	  <p>
+	    <c>dist_util:handshake_we_started(HsData)</c> will perform
+	    the handshake and the handshake successfully completes this
+	    process will then continue in a connection supervisor loop
+	    as long as the connection is up.
+	  </p>
+	</item>
+	
+	<tag><marker id="close"/><c>close(Listen) -></c><br/>&nbsp;&nbsp;<c>void()</c></tag>
+	
+	<item><p>
+	  Called in order to close the <c>Listen</c> handle
+	  that originally was passed from the
+	  <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	</p></item>
+	
+	<tag><marker id="select"/><c>select(NodeName) -></c><br/>&nbsp;&nbsp;<c>boolean()</c></tag>
+	<item>
+	  <p>Return <c>true</c> if the host name part
+	  of the <c>NodeName</c> is valid for use
+	  with this protocol; otherwise, <c>false</c>.
+	  </p>
+	</item>
+	
+      </taglist>
+
+      <p>
+	There are also two optional functions that may be
+	exported:
+      </p>
+      <taglist>
+	<tag><marker id="select"/><c>setopts(Listen, Opts) -></c><br/>&nbsp;&nbsp;<c>ok | {error, Error}</c></tag>
+	<item>
+	  <p>
+	    The argument <c>Listen</c> is the handle originally passed
+	    from the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    The argument <c>Opts</c> is a list of options to set on future
+	    connections.
+	  </p>
+	</item>
+
+	<tag><marker id="select"/><c>getopts(Listen, Opts) -></c><br/>&nbsp;&nbsp;<c>{ok, OptionValues} | {error, Error}</c></tag>
+	<item>
+	  <p>
+	    The argument <c>Listen</c> is the handle originally passed
+	    from the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    The argument <c>Opts</c> is a list of options to read for future
+	    connections.
+	  </p>
+	</item>
+      </taglist>
+      
+    </section>
+    <section>
+      <marker id="hs_data_record"/>
+      <title>The #hs_data{} Record</title>
+      <p>
+	The <c>dist_util:handshake_we_started/1</c> and
+	<c>dist_util:handshake_other_started/1</c> functions
+	takes a <c>#hs_data{}</c> record as argument. There
+	are quite a lot of fields in this record that you
+	need to set. The record is defined in
+	<c>kernel/include/dist_util.hrl</c>. Not documented
+	fields should not be set, i.e., should be left as
+	<c>undefined</c>.
+      </p>
+      <p>
+	The following <c>#hs_data{}</c> record fields need
+	to be set unless otherwise stated:</p>
+      <taglist>
+	<tag><marker id="hs_data_kernel_pid"/><c>kernel_pid</c></tag>
+	<item>
+	  <p>
+	    Process identifier of the <c>Kernel</c> process. That is,
+	    the process that called either
+	    <seealso marker="#setup"><c>setup/5</c></seealso> or
+	    <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_other_node"/><c>other_node</c></tag>
+	<item>
+	  <p>Name of the other node. This field is only
+	  mandatory when this node initiates the connection.
+	  That is, when connection is set up via
+	  <seealso marker="#setup"><c>setup/5</c></seealso>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_this_node"/><c>this_node</c></tag>
+	<item>
+	  <p>
+	    The node name of this node.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_socket"/><c>socket</c></tag>
+	<item>
+	  <p>
+	    The identifier of the distribution controller.
+	  </p>
+	</item>
+	
+	<tag><marker id="hs_data_timer"/><c>timer</c></tag>
+	<item>
+	  <p>
+	    The timer created using <c>dist_util:start_timer/1</c>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_allowed"/><c>allowed</c></tag>
+	<item>
+	  <p>Information passed as <c>Allowed</c> to
+	  <c>accept_connection/5</c>. This field is only
+	  mandatory when the remote node initiated the
+	  connection. That is, when the connection is set
+	  up via
+	  <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	  </p>
+	</item>
+      
+	<tag><marker id="hs_data_f_send"/><c>f_send</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Data) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller and <c>Data</c>
+	    is io data to pass to the other side.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+	
+	<tag><marker id="hs_data_f_recv"/><c>f_recv</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of the distribution
+	    controller.
+	    If <c>Length</c> is <c>0</c>, all available bytes should be
+	    returned. If <c>Length > 0</c>, exactly <c>Length</c> bytes
+	    should be returned, or an error; possibly discarding less
+	    than <c>Length</c> bytes of data when the connection is
+	    closed from the other side.
+	    It is used for passive receive of data from the
+	    other end.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_setopts_pre_nodeup"/><c>f_setopts_pre_nodeup</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller. Called just
+	    before the distribution channel is taken up
+	    for normal traffic.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_setopts_post_nodeup"/><c>f_setopts_post_nodeup</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller. Called just
+	    after distribution channel has been taken
+	    up for normal traffic.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_getll"/><c>f_getll</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ID]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller and <c>ID</c> is
+	    the identifier of the low level entity that
+	    handles the connection (often <c>DistCtrlr</c>
+	    itself).
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_address"/><c>f_address</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Node) -> NetAddress]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller, <c>Node</c>
+	    is the node name of the node on the other end,
+	    and <c>NetAddress</c> is a <c>#net_address{}</c>
+	    record with information about the address
+	    for the <c>Node</c> on the other end of the
+	    connection. The <c>#net_address{}</c> record
+	    is defined in
+	    <c>kernel/include/net_address.hrl</c>.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_mf_tick"/><c>mf_tick</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> void()]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller. This
+	    function should send information over
+	    the connection that is not interpreted
+	    by the other end while increasing the
+	    statistics of received packets on the
+	    other end. This is usually implemented by
+	    sending an empty packet.
+	  </p>
+	  <note><p>
+	    It is of vital importance that this operation
+	    does not block the caller for a long time.
+	    This since it is called from the connection
+	    supervisor.
+	  </p></note>
+	  <p>Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_mf_getstat"/><c>mf_getstat</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> {ok, Received, Sent, PendSend}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller, <c>Received</c>
+	    is received packets, <c>Sent</c> is
+	    sent packets, and <c>PendSend</c> is
+	    amount of data in queue to be sent
+	    (typically in bytes, but <c>dist_util</c>
+	    only checks whether the value is non-zero
+	    to know there is data in queue)
+	    or a <c>boolean()</c> indicating whether
+	    there are packets in queue to be sent.
+	  </p>
+	  <note><p>
+	    It is of vital importance that this operation
+	    does not block the caller for a long time.
+	    This since it is called from the connection
+	    supervisor.
+	  </p></note>
+	  <p>Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_request_type"/><c>request_type</c></tag>
+	<item>
+	  <p>
+	    The request <c>Type</c> as passed to
+	    <seealso marker="#setup"><c>setup/5</c></seealso>.
+	    This is only mandatory when the connection has
+	    been initiated by this node. That is, the connection
+	    is set up via <c>setup/5</c>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_mf_setopts"/><c>mf_setopts</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller and <c>Opts</c>
+	    is a list of options to set on the connection.
+	  </p>
+	  <p>This function is optional. Used when connection is up.</p>
+	</item>
+	
+	<tag><marker id="hs_data_mf_getopts"/><c>mf_getopts</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> {ok, OptionValues} | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller and <c>Opts</c>
+	    is a list of options to read for the connection.
+	  </p>
+	  <p>This function is optional. Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_handshake_complete"/><c>f_handshake_complete</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Node, DHandle) -> void()]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller, <c>Node</c> is
+	    the node name of the node connected at the other
+	    end, and <c>DHandle</c> is a distribution handle
+	    needed by a distribution controller process when
+	    calling the following BIFs:
+	  </p>
+	  <list>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data/1</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification/1</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_input_handler/2"><c>erlang:dist_ctrl_input_handler/2</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data/2</c></seealso></p></item>
+	  </list>
+	  <p>
+	    This function is called when the handshake has
+	    completed and the distribution channel is up.
+	    The distribution controller can begin dispatching
+	    traffic over the channel. This function is optional.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+	
+	<tag><marker id="hs_data_add_flags"/><c>add_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to add to the connection. Currently all (non obsolete) flags will
+	    automatically be enabled.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_reject_flags"/><c>reject_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to reject. Currently the following distribution flags can be rejected:
+	  </p>
+	  <taglist>
+	    <tag><c>DFLAG_DIST_HDR_ATOM_CACHE</c></tag>
+	    <item>Do not use atom cache over this connection.</item>
+	  </taglist>
+	  <p>Use function <c>dist_util:strict_order_flags/0</c> to get all flags
+	    for features that require strict order delivery.</p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_require_flags"/><c>require_flags</c></tag>
+	<item>
+	  <p>
+	    Require these <seealso marker="erl_dist_protocol#dflags">distribution
+	    flags</seealso> to be used. The connection will be aborted during the
+	    handshake if the other end does not use them.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+      </taglist>
+    </section>
+
+    <section>
+      <marker id="distribution_data_delivery"/>
+      <title>Distribution Data Delivery</title>
+      <p>
+	When using the default configuration, the data to pass
+	over a connection needs to be delivered as is
+	to the node on the receiving end in the <em>exact same
+	order</em>, with no loss of data what so ever, as sent
+	from the sending node.
+      </p>
+      <p>
+	The data delivery order can be relaxed by disabling
+	features that require strict ordering. This is done by
+	passing the
+	<seealso marker="erl_dist_protocol#dflags">distribution	flags</seealso>
+	returned by <c>dist_util:strict_order_flags/0</c> in the
+	<seealso marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seealso>
+	field of the <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	record used when setting up the connection. When relaxed
+	ordering is used, only the order of signals with the same
+	sender/receiver pair has to be preserved.
+	However, note that disabling the features that require
+	strict ordering may have a negative impact on performance,
+	throughput, and/or latency. 
+      </p>
+    </section>
+
+    <section>
+      <marker id="enable_your_distribution_module"/>
+      <title>Enable Your Distribution Module</title>
+
+      <p>For <c>net_kernel</c> to find out which distribution module to use,
+      the <c>erl</c> command-line argument <c>-proto_dist</c> is used. It
+      is followed by one or more distribution module names, with suffix
+      "_dist" removed. That is, <c>gen_tcp_dist</c> as a distribution module
+      is specified as <c>-proto_dist gen_tcp</c>.</p>
+
+      <p>If no <c>epmd</c> (TCP port mapper daemon) is used, also command-line
+      option <c>-no_epmd</c> is to be specified, which makes
+      Erlang skip the <c>epmd</c> startup, both as an OS process and as an
+      Erlang ditto.</p>
+    </section>
+
+  </section>
+
+  <section>
+    <title>The Driver</title>
+
+    <note>
+      <p>This section was written a long time ago. Most of it is still
+      valid, but some things have changed since then. Some updates have
+      been made to the documentation of the driver presented here,
+      but more can be done and is planned for the future.
+      The reader is encouraged to read the
+      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
+      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      documentation also.</p>
+    </note>
+
+    <p>Although Erlang drivers in general can be beyond the scope of this
+      section, a brief introduction seems to be in place.</p>
+
+    <section>
+      <title>Drivers in General</title>
+      <p>An Erlang driver is a native code module written in C (or
+        assembler), which serves as an interface for some special operating
+        system service. This is a general mechanism that is used
+        throughout the Erlang emulator for all kinds of I/O. An Erlang
+        driver can be dynamically linked (or loaded) to the Erlang
+        emulator at runtime by using the <c><![CDATA[erl_ddll]]></c> Erlang
+        module. Some of the drivers in OTP are however statically linked
+        to the runtime system, but that is more an optimization than a
+        necessity.</p>
+
+      <p>The driver data types and the functions available to the driver
+        writer are defined in header file <c><![CDATA[erl_driver.h]]></c>
+        seated in Erlang's include directory. See the
+        <seealso marker="erts:erl_driver">erl_driver</seealso> documentation
+        for details of which functions are available.</p>
+
+      <p>When writing a driver to make a communications protocol available
+        to Erlang, one should know just about everything worth knowing
+        about that particular protocol. All operation must be
+        non-blocking and all possible situations are to be accounted for in
+        the driver. A non-stable driver will affect and/or crash the
+        whole Erlang runtime system.</p>
+
+      <p>The emulator calls the driver in the following situations:</p>
+
+      <list type="bulleted">
+        <item>
+          <p>When the driver is loaded. This callback must have a special
+            name and inform the emulator of what callbacks are to be used 
+            by returning a pointer to a <c><![CDATA[ErlDrvEntry]]></c> struct,
+            which is to be properly filled in (see below).</p>
+        </item>
+        <item>
+          <p>When a port to the driver is opened (by a
+            <c><![CDATA[open_port]]></c> call from Erlang). This routine is to
+            set up internal data structures and return an opaque data entity of
+            the type <c><![CDATA[ErlDrvData]]></c>, which is a data type large
+            enough to hold a pointer.
+            The pointer returned by this function is the first
+            argument to all other callbacks concerning this particular
+            port. It is usually called the port handle. The emulator only
+            stores the handle and does never try to interpret it, why it can
+            be virtually anything (anything not larger than a pointer
+            that is) and can point to anything if it is a pointer. Usually
+            this pointer refers to a structure holding information about
+            the particular port, as it does in the example.</p>
+        </item>
+        <item>
+          <p>When an Erlang process sends data to the port. The data
+            arrives as a buffer of bytes, the interpretation is not defined,
+            but is up to the implementor. This callback returns nothing to the
+            caller, answers are sent to the caller as messages (using a
+            routine called <c><![CDATA[driver_output]]></c> available to all
+            drivers). There is also a way to talk in a synchronous way to
+            drivers, described below. There can be an additional callback
+            function for handling data that is fragmented (sent in a deep
+            io-list). That interface gets the data in a form suitable for
+            Unix <c><![CDATA[writev]]></c> rather than in a single buffer.
+            There is no need for a distribution driver to implement such a
+            callback, so we will not.</p>
+        </item>
+        <item>
+          <p>When a file descriptor is signaled for input. This callback
+            is called when the emulator detects input on a file descriptor
+            that the driver has marked for monitoring by using the interface
+            <c><![CDATA[driver_select]]></c>. The mechanism of driver select
+            makes it possible to read non-blocking from file descriptors by
+            calling <c><![CDATA[driver_select]]></c> when reading is needed, and
+            then do the reading in this callback (when reading is possible).
+            The typical scenario is that <c><![CDATA[driver_select]]></c> is
+            called when an Erlang process orders a read operation, and that
+            this routine sends the answer when data is available on the file
+            descriptor.</p>
+        </item>
+        <item>
+          <p>When a file descriptor is signaled for output. This callback
+            is called in a similar way as the previous, but when writing to a
+            file descriptor is possible. The usual scenario is that Erlang
+            orders writing on a file descriptor and that the driver calls
+            <c><![CDATA[driver_select]]></c>. When the descriptor is ready for
+            output, this callback is called and the driver can try to send the
+            output. Queuing can be involved in such operations, and there are
+            convenient queue routines available to the driver writer to use.</p>
+        </item>
+        <item>
+          <p>When a port is closed, either by an Erlang process or by the
+            driver calling one of the <c><![CDATA[driver_failure_XXX]]></c>
+            routines. This routine is to clean up everything connected to one
+            particular port. When other callbacks call a
+            <c><![CDATA[driver_failure_XXX]]></c> routine, this routine is
+            immediately called. The callback routine issuing the error can
+            make no more use of the data structures for the port, as this
+            routine surely has freed all associated data and closed all file
+            descriptors. If the queue utility available to driver writer is
+            used, this routine is however <em>not</em> called until the
+            queue is empty.</p>
+        </item>
+        <item>
+          <p>When an Erlang process calls
+            <seealso marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seealso>,
+            which is a synchronous interface to drivers. The control interface
+            is used to set driver options, change states of ports, and so on.
+            This interface is used a lot in the example.</p>
+        </item>
+        <item>
+          <p>When a timer expires. The driver can set timers with the function
+            <c><![CDATA[driver_set_timer]]></c>. When such timers expire, a
+            specific callback function is called. No timers are used in
+            the example.</p>
+        </item>
+        <item>
+          <p>When the whole driver is unloaded. Every resource allocated
+            by the driver is to be freed.</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>The Data Structures of the Distribution Driver</title>
+      <p>The driver used for Erlang distribution is to implement a
+        reliable, order maintaining, variable length packet-oriented
+        protocol. All error correction, resending and such need to be
+        implemented in the driver or by the underlying communications
+        protocol. If the protocol is stream-oriented (as is the case with
+        both TCP/IP and our streamed Unix domain sockets), some mechanism
+        for packaging is needed. We will use the simple method of having a
+        header of four bytes containing the length of the package in a
+        big-endian 32-bit integer. As Unix domain sockets only can be used
+        between processes on the same machine, we do not need to
+        code the integer in some special endianess, but we will do it anyway
+        because in most situation you need to do it. Unix domain
+        sockets are reliable and order maintaining, so we do not need to
+        implement resends and such in the driver.</p>
+
+      <p>We start writing the example Unix domain sockets driver by
+        declaring prototypes and filling in a static <c>ErlDrvEntry</c>
+        structure:</p>
+
+      <code type="none"><![CDATA[
+( 1) #include <stdio.h>
+( 2) #include <stdlib.h>
+( 3) #include <string.h>
+( 4) #include <unistd.h>
+( 5) #include <errno.h>
+( 6) #include <sys/types.h>
+( 7) #include <sys/stat.h>
+( 8) #include <sys/socket.h>
+( 9) #include <sys/un.h>
+(10) #include <fcntl.h>
+
+(11) #define HAVE_UIO_H
+(12) #include "erl_driver.h"
+
+(13) /*
+(14) ** Interface routines
+(15) */
+(16) static ErlDrvData uds_start(ErlDrvPort port, char *buff);
+(17) static void uds_stop(ErlDrvData handle);
+(18) static void uds_command(ErlDrvData handle, char *buff, int bufflen);
+(19) static void uds_input(ErlDrvData handle, ErlDrvEvent event);
+(20) static void uds_output(ErlDrvData handle, ErlDrvEvent event);
+(21) static void uds_finish(void);
+(22) static int uds_control(ErlDrvData handle, unsigned int command, 
+(23)                        char* buf, int count, char** res, int res_size);
+
+(24) /* The driver entry */
+(25) static ErlDrvEntry uds_driver_entry = {
+(26)     NULL,                            /* init, N/A */
+(27)     uds_start,                       /* start, called when port is opened */
+(28)     uds_stop,                        /* stop, called when port is closed */
+(29)     uds_command,                     /* output, called when erlang has sent */
+(30)     uds_input,                       /* ready_input, called when input
+(31)                                         descriptor ready */
+(32)     uds_output,                      /* ready_output, called when output 
+(33)                                         descriptor ready */
+(34)     "uds_drv",                       /* char *driver_name, the argument 
+(35)                                         to open_port */
+(36)     uds_finish,                      /* finish, called when unloaded */
+(37)     NULL,                            /* void * that is not used (BC) */
+(38)     uds_control,                     /* control, port_control callback */
+(39)     NULL,                            /* timeout, called on timeouts */
+(40)     NULL,                            /* outputv, vector output interface */
+(41)     NULL,                            /* ready_async callback */
+(42)     NULL,                            /* flush callback */
+(43)     NULL,                            /* call callback */
+(44)     NULL,                            /* event callback */
+(45)     ERL_DRV_EXTENDED_MARKER,         /* Extended driver interface marker */
+(46)     ERL_DRV_EXTENDED_MAJOR_VERSION,  /* Major version number */
+(47)     ERL_DRV_EXTENDED_MINOR_VERSION,  /* Minor version number */
+(48)     ERL_DRV_FLAG_SOFT_BUSY,          /* Driver flags. Soft busy flag is
+(49)                                         required for distribution drivers */
+(50)     NULL,                            /* Reserved for internal use */
+(51)     NULL,                            /* process_exit callback */
+(52)     NULL                             /* stop_select callback */
+(53) };]]></code>
+
+      <p>On line 1-10 the OS headers needed for the driver are included.
+        As this driver is written for Solaris, we know that the
+        header <c><![CDATA[uio.h]]></c> exists. So the preprocessor variable
+        <c><![CDATA[HAVE_UIO_H]]></c> can be defined before
+        <c><![CDATA[erl_driver.h]]></c> is included on line 12.
+        The definition of <c><![CDATA[HAVE_UIO_H]]></c> will make the
+        I/O vectors used in Erlang's driver queues to correspond to the
+        operating systems ditto, which is very convenient.</p>
+
+      <p>On line 16-23 the different callback functions are declared ("forward
+        declarations").</p>
+
+      <p>The driver structure is similar for statically linked-in
+        drivers and dynamically loaded. However, some of the fields
+        are to be left empty (that is, initialized to NULL) in the
+        different types of drivers. The first field (the <c><![CDATA[init]]></c>
+        function pointer) is always left blank in a dynamically loaded
+        driver, see line 26. <c>NULL</c> on line 37
+        is always to be there, the field is no longer used and is
+        retained for backward compatibility. No timers are used in this
+        driver, why no callback for timers is needed. The <c>outputv</c> field
+        (line 40) can be used to implement an interface similar to
+        Unix <c><![CDATA[writev]]></c> for output. The Erlang runtime
+        system could previously not use <c>outputv</c> for the
+        distribution, but it can as from ERTS 5.7.2.
+        As this driver was written before ERTS 5.7.2 it does
+        not use the <c>outputv</c> callback. Using the <c>outputv</c>
+        callback is preferred, as it reduces copying of data. (We
+        will however use scatter/gather I/O internally in the driver.)</p>
+
+      <p>As from ERTS 5.5.3 the driver interface was extended with
+        version control and the possibility to pass capability information.
+        Capability flags are present on line 48. As from ERTS 5.7.4 flag
+        <seealso marker="driver_entry#driver_flags">
+        <c>ERL_DRV_FLAG_SOFT_BUSY</c></seealso> is required for drivers that
+        are to be used by the distribution. The soft busy flag implies that the
+        driver can handle calls to the <c>output</c> and <c>outputv</c>
+        callbacks although it has marked itself as busy. This has always been a
+        requirement on drivers used by the distribution, but no capability
+        information has been available about this previously. For more
+        information. see <seealso marker="erl_driver#set_busy_port">
+        <c>erl_driver:set_busy_port()</c></seealso>).</p>
+
+      <p>This driver was written before the runtime system had SMP support.
+        The driver will still function in the runtime system with SMP support,
+        but performance will suffer from lock contention on the driver lock
+        used for the driver. This can be alleviated by reviewing and perhaps
+        rewriting the code so that each instance of the driver safely can
+        execute in parallel. When instances safely can execute in parallel, it
+        is safe to enable instance-specific locking on the driver. This is done
+        by passing <seealso marker="driver_entry#driver_flags">
+        <c>ERL_DRV_FLAG_USE_PORT_LOCKING</c></seealso> as a driver flag. This
+        is left as an exercise for the reader.</p>
+
+      <p>Thus, the defined callbacks are as follows:</p>
+
+      <taglist>
+        <tag><c>uds_start</c></tag>
+        <item>
+          <p>Must initiate data for a port. We do not create any sockets
+            here, only initialize data structures.</p>
+        </item>
+        <tag><c>uds_stop</c></tag>
+        <item>
+          <p>Called when a port is closed.</p>
+        </item>
+        <tag><c>uds_command</c></tag>
+        <item>
+          <p>Handles messages from Erlang. The
+            messages can either be plain data to be sent or more subtle
+            instructions to the driver. This function is here mostly for
+            data pumping.</p>
+        </item>
+        <tag><c>uds_input</c></tag>
+        <item>
+          <p>Called when there is something to read from a socket.</p>
+        </item>
+        <tag><c>uds_output</c></tag>
+        <item>
+          <p>Called when it is possible to write to a socket.</p>
+        </item>
+        <tag><c>uds_finish</c></tag>
+        <item>
+          <p>Called when the driver is unloaded. A distribution driver will
+            never be unloaded, but we include this for completeness. To be
+            able to clean up after oneself is always a good thing.</p>
+        </item>
+        <tag><c>uds_control</c></tag>
+        <item>
+          <p>The <seealso marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seealso> callback, which is
+            used a lot in this implementation.</p>
+        </item>
+      </taglist>
+
+      <p>The ports implemented by this driver operate in two major modes,
+        named <c>command</c> and <c>data</c>. In <c>command</c> mode,
+        only passive reading and writing (like
+        <c>gen_tcp:recv</c>/<c>gen_tcp:send</c>) can be done. The port is in
+        this mode during the distribution handshake. When the connection is up,
+        the port is switched to <c>data</c> mode and all data is immediately
+        read and passed further to the Erlang emulator. In <c>data</c>
+        mode, no data arriving to <c>uds_command</c> is interpreted, only
+        packaged and sent out on the socket. The <c>uds_control</c> callback
+        does the switching between those two modes.</p>
+
+      <p>While <c><![CDATA[net_kernel]]></c> informs different subsystems
+        that the connection is coming up, the port is to accept data to send.
+        However, the port should not receive any data, to avoid that data
+        arrives from another node before every kernel subsystem is prepared
+        to handle it. A third mode, named <c>intermediate</c>, is used for this
+        intermediate stage.</p>
+
+      <p>An enum is defined for the different types of ports:</p>
+
+      <code type="none"><![CDATA[
+( 1) typedef enum { 
+( 2)     portTypeUnknown,      /* An uninitialized port */
+( 3)     portTypeListener,     /* A listening port/socket */
+( 4)     portTypeAcceptor,     /* An intermediate stage when accepting
+( 5)                              on a listen port */
+( 6)     portTypeConnector,    /* An intermediate stage when connecting */
+( 7)     portTypeCommand,      /* A connected open port in command mode */
+( 8)     portTypeIntermediate, /* A connected open port in special
+( 9)                              half active mode */
+(10)     portTypeData          /* A connected open port in data mode */ 
+(11) } PortType;      ]]></code>
+
+      <p>The different types are as follows:</p>
+
+      <taglist>
+        <tag><c>portTypeUnknown</c></tag>
+        <item>
+          <p>The type a port has when it is opened, but
+            not bound to any file descriptor.</p>
+        </item>
+        <tag><c>portTypeListener</c></tag>
+        <item>
+          <p>A port that is connected to a listen socket. This port does not
+            do much, no data pumping is done on this socket, but read data is
+            available when one is trying to do an accept on the port.</p>
+        </item>
+        <tag><c>portTypeAcceptor</c></tag>
+        <item>
+          <p>This port is to represent the result of an accept operation. It is
+            created when one wants to accept from a listen socket, and it is
+            converted to a <c>portTypeCommand</c> when the accept succeeds.</p>
+        </item>
+        <tag><c>portTypeConnector</c></tag>
+        <item>
+          <p>Very similar to <c>portTypeAcceptor</c>, an
+            intermediate stage between the request for a connect operation and
+            that the socket is connected to an accepting ditto in the
+            other end. When the sockets are connected, the port
+            switches type to <c>portTypeCommand</c>.</p>
+        </item>
+        <tag><c>portTypeCommand</c></tag>
+        <item>
+          <p>A connected socket (or accepted socket) in <c>command</c> mode
+            mentioned earlier.</p>
+        </item>
+        <tag><c>portTypeIntermediate</c></tag>
+        <item>
+          <p>The intermediate stage for a connected socket.
+            There is to be no processing of input for this socket.</p>
+        </item>
+        <tag><c>portTypeData</c></tag>
+        <item>
+          <p>The mode where data is pumped through the port and the
+            <c>uds_command</c> routine regards every call as a call where
+            sending is wanted. In this mode, all input available is read and
+            sent to Erlang when it arrives on the socket, much like in the
+            active mode of a <c><![CDATA[gen_tcp]]></c> socket.</p>
+        </item>
+      </taglist>
+
+      <p>We study the state that is needed for the ports. Notice
+        that not all fields are used for all types of ports. Some space
+        could be saved by using unions, but that would clutter the
+        code with multiple indirections, so here is used one struct for
+        all types of ports, for readability:</p>
+
+      <code type="none"><![CDATA[
+( 1) typedef unsigned char Byte;
+( 2) typedef unsigned int Word;
+
+( 3) typedef struct uds_data {
+( 4)     int fd;                   /* File descriptor */
+( 5)     ErlDrvPort port;          /* The port identifier */
+( 6)     int lockfd;               /* The file descriptor for a lock file in 
+( 7)                                  case of listen sockets */
+( 8)     Byte creation;            /* The creation serial derived from the 
+( 9)                                  lock file */
+(10)     PortType type;            /* Type of port */
+(11)     char *name;               /* Short name of socket for unlink */
+(12)     Word sent;                /* Bytes sent */
+(13)     Word received;            /* Bytes received */
+(14)     struct uds_data *partner; /* The partner in an accept/listen pair */
+(15)     struct uds_data *next;    /* Next structure in list */
+(16)     /* The input buffer and its data */
+(17)     int buffer_size;          /* The allocated size of the input buffer */
+(18)     int buffer_pos;           /* Current position in input buffer */
+(19)     int header_pos;           /* Where the current header is in the 
+(20)                                  input buffer */
+(21)     Byte *buffer;             /* The actual input buffer */
+(22) } UdsData;      ]]></code>
+
+      <p>This structure is used for all types of ports although some
+        fields are useless for some types. The least memory consuming
+        solution would be to arrange this structure as a union of
+        structures. However, the multiple indirections in the code to
+        access a field in such a structure would clutter the code too
+        much for an example.</p>
+
+      <p>The fields in the structure are as follows:</p>
+
+      <taglist>
+        <tag><c>fd</c></tag>
+        <item>
+          <p>The file descriptor of the socket associated with the port.</p>
+        </item>
+        <tag><c>port</c></tag>
+        <item>
+          <p>The port identifier for the port that this structure
+            corresponds to. It is needed for most <c><![CDATA[driver_XXX]]></c>
+            calls from the driver back to the emulator.</p>
+        </item>
+        <tag><c>lockfd</c></tag>
+        <item>
+          <p>If the socket is a listen socket, we use a separate
+            (regular) file for two purposes:</p>
+          <list type="bulleted">
+            <item>
+              <p>We want a locking mechanism that gives no race
+                conditions, to be sure if another Erlang
+                node uses the listen socket name we require or if the
+                file is only left there from a previous (crashed) session.</p>
+            </item>
+            <item>
+              <p>We store the <c>creation</c> serial number in the
+                file. The <c>creation</c> is a number that is to
+                change between different instances of different Erlang
+                emulators with the same name, so that process
+                identifiers from one emulator do not become valid when sent
+                to a new emulator with the same distribution name. The
+                creation can be from 0 through 3 (two bits) and is stored
+                in every process identifier sent to another node.</p>
+              <p>In a system with TCP-based distribution, this data is
+                kept in the <em>Erlang port mapper daemon</em>
+                (<c><![CDATA[epmd]]></c>), which is contacted when a distributed
+                node starts. The lock file and a convention for the UDS
+                listen socket's name remove the need for
+                <c><![CDATA[epmd]]></c> when using this distribution module. UDS
+                is always restricted to one host, why avoiding a port
+                mapper is easy.</p>
+            </item>
+          </list>
+        </item>
+        <tag><c>creation</c></tag>
+        <item>
+          <p>The creation number for a listen socket, which is
+            calculated as (the value found in the lock-file + 1) rem 4.
+            This creation value is also written back into the
+            lock file, so that the next invocation of the emulator
+            finds our value in the file.</p>
+        </item>
+        <tag><c>type</c></tag>
+        <item>
+          <p>The current type/state of the port, which can be one
+            of the values declared above.</p>
+        </item>
+        <tag><c>name</c></tag>
+        <item>
+          <p>The name of the socket file (the path prefix removed),
+            which allows for deletion (<c><![CDATA[unlink]]></c>) when the
+            socket is closed.</p>
+        </item>
+        <tag><c>sent</c></tag>
+        <item>
+          <p>How many bytes that have been sent over the
+            socket. This can wrap, but that is no problem for the
+            distribution, as the Erlang distribution is only interested in
+            if this value has changed. (The Erlang
+            <c>net_kernel</c> <c>ticker</c> uses this value by calling the
+            driver to fetch it, which is done through the
+            <seealso marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seealso> routine.)</p>
+        </item>
+        <tag><c>received</c></tag>
+        <item>
+          <p>How many bytes that are read (received) from the
+            socket, used in similar ways as <c><![CDATA[sent]]></c>.</p>
+        </item>
+        <tag><c>partner</c></tag>
+        <item>
+          <p>A pointer to another port structure, which is
+            either the listen port from which this port is accepting a
+            connection or conversely. The "partner relation"
+            is always bidirectional.</p>
+        </item>
+        <tag><c>next</c></tag>
+        <item>
+          <p>Pointer to next structure in a linked list of all
+            port structures. This list is used when accepting
+            connections and when the driver is unloaded.</p>
+        </item>
+        <tag><c>buffer_size</c>, <c>buffer_pos</c>, <c>header_pos</c>,
+          <c>buffer</c></tag>
+        <item>
+          <p>Data for input buffering. For details about the input buffering,
+            see the source code in directory <c>kernel/examples</c>. That
+            certainly goes beyond the scope of this section.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>Selected Parts of the Distribution Driver Implementation</title>
+      <p>The implemenation of the distribution driver is not completely
+        covered here, details about buffering and other things
+        unrelated to driver writing are not explained. Likewise are
+        some peculiarities of the UDS protocol not explained in
+        detail. The chosen protocol is not important.</p>
+
+      <p>Prototypes for the driver callback routines can be found in
+        the <c><![CDATA[erl_driver.h]]></c> header file.</p>
+
+      <p>The driver initialization routine is (usually) declared with a
+        macro to make the driver easier to port between different
+        operating systems (and flavors of systems). This is the only
+        routine that must have a well-defined name. All other
+        callbacks are reached through the driver structure. The macro
+        to use is named <c><![CDATA[DRIVER_INIT]]></c> and takes the driver name
+        as parameter:</p>
+
+      <code type="none"><![CDATA[
+(1) /* Beginning of linked list of ports */
+(2) static UdsData *first_data;
+
+(3) DRIVER_INIT(uds_drv)
+(4) {
+(5)     first_data = NULL;
+(6)     return &uds_driver_entry;
+(7) }      ]]></code>
+
+      <p>The routine initializes the single global data structure and
+        returns a pointer to the driver entry. The routine is called
+        when <c><![CDATA[erl_ddll:load_driver]]></c> is called from Erlang.</p>
+
+      <p>The <c><![CDATA[uds_start]]></c> routine is called when a port is
+        opened from Erlang. In this case, we only allocate a structure and
+        initialize it. Creating the actual socket is left to the
+        <c><![CDATA[uds_command]]></c> routine.</p>
+
+      <code type="none"><![CDATA[
+( 1) static ErlDrvData uds_start(ErlDrvPort port, char *buff)
+( 2) {
+( 3)     UdsData *ud;
+( 4)     
+( 5)     ud = ALLOC(sizeof(UdsData));
+( 6)     ud->fd = -1;
+( 7)     ud->lockfd = -1;
+( 8)     ud->creation = 0;
+( 9)     ud->port = port;
+(10)     ud->type = portTypeUnknown;
+(11)     ud->name = NULL;
+(12)     ud->buffer_size = 0;
+(13)     ud->buffer_pos = 0;
+(14)     ud->header_pos = 0;
+(15)     ud->buffer = NULL;
+(16)     ud->sent = 0;
+(17)     ud->received = 0;
+(18)     ud->partner = NULL;
+(19)     ud->next = first_data;
+(20)     first_data = ud;
+(21)     
+(22)     return((ErlDrvData) ud);
+(23) }      ]]></code>
+
+      <p>Every data item is initialized, so that no problems arise
+        when a newly created port is closed (without there being any
+        corresponding socket). This routine is called when
+        <c><![CDATA[open_port({spawn, "uds_drv"},[])]]></c> is called from
+        Erlang.</p>
+
+      <p>The <c><![CDATA[uds_command]]></c> routine is the routine called when
+        an Erlang process sends data to the port. This routine handles all
+        asynchronous commands when the port is in <c>command</c> mode and
+        the sending of all data when the port is in <c>data</c> mode:</p>
+
+      <code type="none"><![CDATA[
+( 1) static void uds_command(ErlDrvData handle, char *buff, int bufflen)
+( 2) {
+( 3)     UdsData *ud = (UdsData *) handle;
+
+( 4)     if (ud->type == portTypeData || ud->type == portTypeIntermediate) {
+( 5)         DEBUGF(("Passive do_send %d",bufflen));
+( 6)         do_send(ud, buff + 1, bufflen - 1); /* XXX */
+( 7)         return;
+( 8)     } 
+( 9)     if (bufflen == 0) {
+(10)         return;
+(11)     }
+(12)     switch (*buff) {
+(13)     case 'L':
+(14)         if (ud->type != portTypeUnknown) {
+(15)             driver_failure_posix(ud->port, ENOTSUP);
+(16)             return;
+(17)         }
+(18)         uds_command_listen(ud,buff,bufflen);
+(19)         return;
+(20)     case 'A':
+(21)         if (ud->type != portTypeUnknown) {
+(22)             driver_failure_posix(ud->port, ENOTSUP);
+(23)             return;
+(24)         }
+(25)         uds_command_accept(ud,buff,bufflen);
+(26)         return;
+(27)     case 'C':
+(28)         if (ud->type != portTypeUnknown) {
+(29)             driver_failure_posix(ud->port, ENOTSUP);
+(30)             return;
+(31)         }
+(32)         uds_command_connect(ud,buff,bufflen);
+(33)         return;
+(34)     case 'S':
+(35)         if (ud->type != portTypeCommand) {
+(36)             driver_failure_posix(ud->port, ENOTSUP);
+(37)             return;
+(38)         }
+(39)         do_send(ud, buff + 1, bufflen - 1);
+(40)         return;
+(41)     case 'R':
+(42)         if (ud->type != portTypeCommand) {
+(43)             driver_failure_posix(ud->port, ENOTSUP);
+(44)             return;
+(45)         }
+(46)         do_recv(ud);
+(47)         return;
+(48)     default:
+(49)         return;
+(50)     }
+(51) }      ]]></code>
+
+      <p>The command routine takes three parameters; the handle returned for
+        the port by <c><![CDATA[uds_start]]></c>, which is a pointer
+        to the internal port structure, the data buffer, and the length
+        of the data buffer. The buffer is the data sent from Erlang
+        (a list of bytes) converted to an C array (of bytes).</p>
+
+      <p>If Erlang sends, for example, the list <c><![CDATA[[$a,$b,$c]]]></c>
+        to the port, the <c><![CDATA[bufflen]]></c> variable is
+        <c><![CDATA[3]]></c> and the <c><![CDATA[buff]]></c> variable contains
+        <c><![CDATA[{'a','b','c'}]]></c> (no
+        <c>NULL</c> termination). Usually the first byte is used as an
+        opcode, which is the case in this driver too (at least when the
+        port is in <c>command</c> mode). The opcodes are defined as follows:</p>
+
+      <taglist>
+        <tag><c>'L'&lt;socket name&gt;</c></tag>
+        <item>
+          <p>Creates and listens on socket with the specified name.</p>
+        </item>
+        <tag><c>'A'&lt;listen number as 32-bit big-endian&gt;</c></tag>
+        <item>
+          <p>Accepts from the listen socket identified by the specified
+            identification number. The identification number is retrieved with
+            the <c>uds_control</c> routine.</p>
+        </item>
+        <tag><c>'C'&lt;socket name&gt;</c></tag>
+        <item>
+          <p>Connects to the socket named &lt;socket name&gt;.</p>
+        </item>
+        <tag><c>'S'&lt;data&gt;</c></tag>
+        <item>
+          <p>Sends the data &lt;data&gt; on the
+            connected/accepted socket (in <c>command</c> mode). The sending is
+            acknowledged when the data has left this process.</p>
+        </item>
+        <tag><c>'R'</c></tag>
+        <item>
+          <p>Receives one packet of data.</p>
+        </item>
+      </taglist>
+
+      <p>"One packet of data" in command <c>'R'</c> can be explained
+        as follows. This driver always sends data packaged with a 4
+        byte header containing a big-endian 32-bit integer that
+        represents the length of the data in the packet. There is no
+        need for different packet sizes or some kind of streamed
+        mode, as this driver is for the distribution only.
+        Why is the header word coded explicitly in big-endian when a UDS
+        socket is local to the host? It is good practice when writing a
+        distribution driver, as distribution in practice usually crosses
+        the host boundaries.</p>
+
+      <p>On line 4-8 is handled the case where the port is in <c>data</c> mode
+        or <c>intermediate</c> mode and the remaining routine handles the
+        different commands. The routine uses the
+        <c><![CDATA[driver_failure_posix()]]></c> routine to report errors
+        (see, for example, line 15). Notice that the failure routines make
+        a call to the <c><![CDATA[uds_stop]]></c> routine, which will
+        remove the internal port data. The handle (and the casted handle
+        <c><![CDATA[ud]]></c>) is therefore <em>invalid pointers</em> after a
+        <c><![CDATA[driver_failure]]></c> call and we should <em>return
+        immediately</em>. The runtime system will send exit signals to all
+        linked processes.</p>
+
+      <p>The <c>uds_input</c> routine is called when data is available on a
+        file descriptor previously passed to the
+        <c><![CDATA[driver_select]]></c> routine. This occurs typically when
+        a read command is issued and no data is available. The
+        <c><![CDATA[do_recv]]></c> routine is as follows:</p>
+
+      <code type="none"><![CDATA[
+( 1) static void do_recv(UdsData *ud)
+( 2) {
+( 3)     int res;
+( 4)     char *ibuf;
+( 5)     for(;;) {
+( 6)         if ((res = buffered_read_package(ud,&ibuf)) < 0) {
+( 7)             if (res == NORMAL_READ_FAILURE) {
+( 8)                 driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ, 1);
+( 9)             } else {
+(10)                 driver_failure_eof(ud->port);
+(11)             }
+(12)             return;
+(13)         }
+(14)         /* Got a package */
+(15)         if (ud->type == portTypeCommand) {
+(16)             ibuf[-1] = 'R'; /* There is always room for a single byte 
+(17)                                opcode before the actual buffer 
+(18)                                (where the packet header was) */
+(19)             driver_output(ud->port,ibuf - 1, res + 1);
+(20)             driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ,0);
+(21)             return;
+(22)         } else {
+(23)             ibuf[-1] = DIST_MAGIC_RECV_TAG; /* XXX */
+(24)             driver_output(ud->port,ibuf - 1, res + 1);
+(25)             driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ,1);
+(26)         }
+(27)     }
+(28) }      ]]></code>
+
+      <p>The routine tries to read data until a packet is read or the
+        <c><![CDATA[buffered_read_package]]></c> routine returns a
+        <c><![CDATA[NORMAL_READ_FAILURE]]></c> (an internally defined constant
+        for the module, which means that the read operation resulted in an
+        <c><![CDATA[EWOULDBLOCK]]></c>). If the port is in <c>command</c> mode,
+        the reading stops when one package is read. If the port is in
+        <c>data</c> mode, the reading continues until the socket buffer is empty
+        (read failure). If no more data can be read and more is wanted (which
+        is always the case when the socket is in <c>data</c> mode),
+        <c>driver_select</c> is called to make the <c><![CDATA[uds_input]]></c>
+        callback be called when more data is available for reading.</p>
+
+      <p>When the port is in <c>data</c> mode, all data is sent to Erlang in a
+        format that suits the distribution. In fact, the raw data will
+        never reach any Erlang process, but will be
+        translated/interpreted by the emulator itself and then
+        delivered in the correct format to the correct processes. In
+        the current emulator version, received data is to be tagged
+        with a single byte of 100. That is what the macro
+        <c><![CDATA[DIST_MAGIC_RECV_TAG]]></c> is defined to. The tagging of
+        data in the distribution can be changed in the future.</p>
+
+      <p>The <c><![CDATA[uds_input]]></c> routine handles other input events
+        (like non-blocking <c><![CDATA[accept]]></c>), but most importantly
+        handle
+        data arriving at the socket by calling <c><![CDATA[do_recv]]></c>:</p>
+
+      <code type="none"><![CDATA[
+( 1) static void uds_input(ErlDrvData handle, ErlDrvEvent event)
+( 2) {
+( 3)     UdsData *ud = (UdsData *) handle;
+
+( 4)     if (ud->type == portTypeListener) {
+( 5)         UdsData *ad = ud->partner;
+( 6)         struct sockaddr_un peer;
+( 7)         int pl = sizeof(struct sockaddr_un);
+( 8)         int fd;
+
+( 9)         if ((fd = accept(ud->fd, (struct sockaddr *) &peer, &pl)) < 0) {
+(10)             if (errno != EWOULDBLOCK) {
+(11)                 driver_failure_posix(ud->port, errno);
+(12)                 return;
+(13)             }
+(14)             return;
+(15)         }
+(16)         SET_NONBLOCKING(fd);
+(17)         ad->fd = fd;
+(18)         ad->partner = NULL;
+(19)         ad->type = portTypeCommand;
+(20)         ud->partner = NULL;
+(21)         driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ, 0);
+(22)         driver_output(ad->port, "Aok",3);
+(23)         return;
+(24)     }
+(25)     do_recv(ud);
+(26) }      ]]></code>
+
+      <p>The important line is the last line in the function: the
+        <c><![CDATA[do_read]]></c> routine is called to handle new input.
+        The remaining function handles input on a listen socket, which means
+        that it is to be possible to do an accept on the
+        socket, which is also recognized as a read event.</p>
+
+      <p>The output mechanisms are similar to the input.
+        The <c><![CDATA[do_send]]></c> routine is as follows:</p>
+
+      <code type="none"><![CDATA[
+( 1) static void do_send(UdsData *ud, char *buff, int bufflen) 
+( 2) {
+( 3)     char header[4];
+( 4)     int written;
+( 5)     SysIOVec iov[2];
+( 6)     ErlIOVec eio;
+( 7)     ErlDrvBinary *binv[] = {NULL,NULL};
+
+( 8)     put_packet_length(header, bufflen);
+( 9)     iov[0].iov_base = (char *) header;
+(10)     iov[0].iov_len = 4;
+(11)     iov[1].iov_base = buff;
+(12)     iov[1].iov_len = bufflen;
+(13)     eio.iov = iov;
+(14)     eio.binv = binv;
+(15)     eio.vsize = 2;
+(16)     eio.size = bufflen + 4;
+(17)     written = 0;
+(18)     if (driver_sizeq(ud->port) == 0) {
+(19)         if ((written = writev(ud->fd, iov, 2)) == eio.size) {
+(20)             ud->sent += written;
+(21)             if (ud->type == portTypeCommand) {
+(22)                 driver_output(ud->port, "Sok", 3);
+(23)             }
+(24)             return;
+(25)         } else if (written < 0) {
+(26)             if (errno != EWOULDBLOCK) {
+(27)                 driver_failure_eof(ud->port);
+(28)                 return;
+(29)             } else {
+(30)                 written = 0;
+(31)             }
+(32)         } else {
+(33)             ud->sent += written;
+(34)         }
+(35)         /* Enqueue remaining */
+(36)     }
+(37)     driver_enqv(ud->port, &eio, written);
+(38)     send_out_queue(ud);
+(39) }      ]]></code>
+
+      <p>This driver uses the <c><![CDATA[writev]]></c> system call to send data
+        onto the socket. A combination of <c>writev</c> and the driver output
+        queues is very convenient. An <c>ErlIOVec</c> structure
+        contains a <c>SysIOVec</c> (which is equivalent to the
+        <c><![CDATA[struct iovec]]></c> structure defined in
+        <c><![CDATA[uio.h]]></c>. The
+        <c>ErlIOVec</c> also contains an array of <c>ErlDrvBinary</c>
+        pointers, of the same length as the number of buffers in the
+        I/O vector itself. One can use this to allocate the binaries
+        for the queue "manually" in the driver, but here
+        the binary array is filled with <c>NULL</c> values (line 7).
+        The runtime system then allocates its own buffers when
+        <c><![CDATA[driver_enqv]]></c> is called (line 37).</p>
+
+      <p>The routine builds an I/O vector containing the header bytes
+        and the buffer (the opcode has been removed and the buffer
+        length decreased by the output routine). If the queue is
+        empty, we write the data directly to the socket (or at
+        least try to). If any data is left, it is stored in the queue
+        and then we try to send the queue (line 38). An acknowledgement
+        is sent when the message is delivered completely (line 22). The
+        <c><![CDATA[send_out_queue]]></c> sends acknowledgements if the sending
+        is completed there. If the port is in <c>command</c> mode, the Erlang
+        code serializes the send operations so that only one packet
+        can be waiting for delivery at a time. Therefore the acknowledgement
+        can be sent whenever the queue is empty.</p>
+
+      <p>The <c><![CDATA[send_out_queue]]></c> routine is as follows:</p>
+
+      <code type="none"><![CDATA[
+( 1) static int send_out_queue(UdsData *ud)
+( 2) {
+( 3)     for(;;) {
+( 4)         int vlen;
+( 5)         SysIOVec *tmp = driver_peekq(ud->port, &vlen);
+( 6)         int wrote;
+( 7)         if (tmp == NULL) {
+( 8)             driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_WRITE, 0);
+( 9)             if (ud->type == portTypeCommand) {
+(10)                 driver_output(ud->port, "Sok", 3);
+(11)             }
+(12)             return 0;
+(13)         }
+(14)         if (vlen > IO_VECTOR_MAX) {
+(15)             vlen = IO_VECTOR_MAX;
+(16)         } 
+(17)         if ((wrote = writev(ud->fd, tmp, vlen)) < 0) {
+(18)             if (errno == EWOULDBLOCK) {
+(19)                 driver_select(ud->port, (ErlDrvEvent) ud->fd, 
+(20)                               DO_WRITE, 1);
+(21)                 return 0;
+(22)             } else {
+(23)                 driver_failure_eof(ud->port);
+(24)                 return -1;
+(25)             }
+(26)         }
+(27)         driver_deq(ud->port, wrote);
+(28)         ud->sent += wrote;
+(29)     }
+(30) }      ]]></code>
+
+      <p>We simply pick out an I/O vector from the queue
+        (which is the whole queue as a <c>SysIOVec</c>). If the I/O
+        vector is too long (<c>IO_VECTOR_MAX</c> is defined to 16), the vector
+        length is decreased (line 15), otherwise the <c><![CDATA[writev]]></c>
+        call (line 17) fails. Writing is tried and anything written is dequeued
+        (line 27).
+        If the write fails with <c><![CDATA[EWOULDBLOCK]]></c> (notice that all
+        sockets are in non-blocking mode), <c><![CDATA[driver_select]]></c> is
+        called to make the <c><![CDATA[uds_output]]></c> routine be called when
+        there is space to write again.</p>
+
+      <p>We continue trying to write until the queue is empty or
+        the writing blocks.</p>
+
+      <p>The routine above is called from the <c><![CDATA[uds_output]]></c>
+        routine:</p>
+
+      <code type="none"><![CDATA[
+( 1) static void uds_output(ErlDrvData handle, ErlDrvEvent event)
+( 2) {
+( 3)    UdsData *ud = (UdsData *) handle;
+( 4)    if (ud->type == portTypeConnector) {
+( 5)        ud->type = portTypeCommand;
+( 6)        driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_WRITE, 0);
+( 7)        driver_output(ud->port, "Cok",3);
+( 8)        return;
+( 9)    }
+(10)    send_out_queue(ud);
+(11) }      ]]></code>
+
+      <p>The routine is simple: it first handles the fact that the
+        output select will concern a socket in the business of
+        connecting (and the connecting blocked). If the socket is in
+        a connected state, it simply sends the output queue. This
+        routine is called when it is possible to write to a socket
+        where we have an output queue, so there is no question what to
+        do.</p>
+
+      <p>The driver implements a control interface, which is a
+        synchronous interface called when Erlang calls
+        <seealso marker="erlang#port_control/3">
+        <c>erlang:port_control/3</c></seealso>. Only this interface
+        can control the driver when it is in <c>data</c> mode. It can
+        be called with the following opcodes:</p>
+
+      <taglist>
+        <tag><c>'C'</c></tag>
+        <item>
+          <p>Sets port in <c>command</c> mode.</p>
+        </item>
+        <tag><c>'I'</c></tag>
+        <item>
+          <p>Sets port in <c>intermediate</c> mode.</p>
+        </item>
+        <tag><c>'D'</c></tag>
+        <item>
+          <p>Sets port in <c>data</c> mode.</p>
+        </item>
+        <tag><c>'N'</c></tag>
+        <item>
+          <p>Gets identification number for listen port. This
+            identification number is used in an accept command to the
+            driver. It is returned as a big-endian 32-bit integer, which
+            is the file identifier for the listen socket.</p>
+        </item>
+        <tag><c>'S'</c></tag>
+        <item>
+          <p>Gets statistics, which is the number of bytes received,
+            the number of bytes sent, and the number of bytes pending in
+            the output queue. This data is used when the distribution
+            checks that a connection is alive (ticking). The statistics
+            is returned as three 32-bit big-endian integers.</p>
+        </item>
+        <tag><c>'T'</c></tag>
+        <item>
+          <p>Sends a tick message, which is a packet of length 0.
+            Ticking is done when the port is in <c>data</c> mode, so the
+            command for sending data cannot be used (besides it ignores
+            zero length packages in <c>command</c> mode). This is used by the
+            ticker to send dummy data when no other traffic is present.</p>
+          <p><em>Note:</em> It is important that the interface for
+            sending ticks is not blocking. This implementation uses
+            <seealso marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seealso>, which does not block the
+            caller. If <c>erlang:port_command</c> is used, use
+            <seealso marker="erlang#port_command/3">
+            <c>erlang:port_command/3</c></seealso> and pass <c>[force]</c> as
+            option list; otherwise the caller can be blocked indefinitely
+            on a busy port and prevent the system from taking down a
+            connection that is not functioning.</p>
+        </item>
+        <tag><c>'R'</c></tag>
+        <item>
+          <p>Gets creation number of a listen socket, which is used to
+            dig out the number stored in the lock file to differentiate
+            between invocations of Erlang nodes with the same name.</p>
+        </item>
+      </taglist>
+
+      <p>The control interface gets a buffer to return its value in,
+        but is free to allocate its own buffer if the provided one is
+        too small. The <c><![CDATA[uds_control]]></c> code is as follows:</p>
+
+      <code type="none"><![CDATA[
+( 1) static int uds_control(ErlDrvData handle, unsigned int command, 
+( 2)                        char* buf, int count, char** res, int res_size)
+( 3) {
+( 4) /* Local macro to ensure large enough buffer. */
+( 5) #define ENSURE(N)                               \
+( 6)    do {                                         \
+( 7)        if (res_size < N) {                      \
+( 8)            *res = ALLOC(N);                     \
+( 9)        }                                        \
+(10)    } while(0)
+
+(11)    UdsData *ud = (UdsData *) handle;
+
+(12)    switch (command) {
+(13)    case 'S':
+(14)        {
+(15)            ENSURE(13);
+(16)            **res = 0;
+(17)            put_packet_length((*res) + 1, ud->received);
+(18)            put_packet_length((*res) + 5, ud->sent);
+(19)            put_packet_length((*res) + 9, driver_sizeq(ud->port));
+(20)            return 13;
+(21)        }
+(22)    case 'C':
+(23)        if (ud->type < portTypeCommand) {
+(24)            return report_control_error(res, res_size, "einval");
+(25)        }
+(26)        ud->type = portTypeCommand;
+(27)        driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ, 0);
+(28)        ENSURE(1);
+(29)        **res = 0;
+(30)        return 1;
+(31)    case 'I':
+(32)        if (ud->type < portTypeCommand) {
+(33)            return report_control_error(res, res_size, "einval");
+(34)        }
+(35)        ud->type = portTypeIntermediate;
+(36)        driver_select(ud->port, (ErlDrvEvent) ud->fd, DO_READ, 0);
+(37)        ENSURE(1);
+(38)        **res = 0;
+(39)        return 1;
+(40)    case 'D':
+(41)        if (ud->type < portTypeCommand) {
+(42)            return report_control_error(res, res_size, "einval");
+(43)        }
+(44)        ud->type = portTypeData;
+(45)        do_recv(ud);
+(46)        ENSURE(1);
+(47)        **res = 0;
+(48)        return 1;
+(49)    case 'N':
+(50)        if (ud->type != portTypeListener) {
+(51)            return report_control_error(res, res_size, "einval");
+(52)        }
+(53)        ENSURE(5);
+(54)        (*res)[0] = 0;
+(55)        put_packet_length((*res) + 1, ud->fd);
+(56)        return 5;
+(57)    case 'T': /* tick */
+(58)        if (ud->type != portTypeData) {
+(59)            return report_control_error(res, res_size, "einval");
+(60)        }
+(61)        do_send(ud,"",0);
+(62)        ENSURE(1);
+(63)        **res = 0;
+(64)        return 1;
+(65)    case 'R':
+(66)        if (ud->type != portTypeListener) {
+(67)            return report_control_error(res, res_size, "einval");
+(68)        }
+(69)        ENSURE(2);
+(70)        (*res)[0] = 0;
+(71)        (*res)[1] = ud->creation;
+(72)        return 2;
+(73)    default:
+(74)        return report_control_error(res, res_size, "einval");
+(75)    }
+(76) #undef ENSURE
+(77) }      ]]></code>
+
+      <p>The macro <c><![CDATA[ENSURE]]></c> (line 5-10) is used to ensure that
+        the buffer is large enough for the answer. We switch on the command and
+        take actions. We always have read select active on a port in <c>data</c>
+        mode (achieved by calling <c><![CDATA[do_recv]]></c> on line 45), but
+        we turn off read selection in <c>intermediate</c> and <c>command</c>
+        modes (line 27 and 36).</p>
+
+      <p>The rest of the driver is more or less UDS-specific and not of
+        general interest.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Putting It All Together</title>
+    <p>To test the distribution, the <c><![CDATA[net_kernel:start/1]]></c>
+      function can be used. It is useful, as it starts the distribution on a
+      running system, where tracing/debugging can be performed.
+      The <c><![CDATA[net_kernel:start/1]]></c> routine takes a
+      list as its single argument. The list first element in the list is to be
+      the node name (without the "@hostname") as an atom. The second (and
+      last) element is to be one of the atoms <c><![CDATA[shortnames]]></c> or 
+      <c><![CDATA[longnames]]></c>. In the example case,
+      <c><![CDATA[shortnames]]></c> is preferred.</p>
+
+    <p>For <c>net_kernel</c> to find out which distribution module to use,
+      command-line argument <c><![CDATA[-proto_dist]]></c> is used. It
+      is followed by one or more distribution module names, with suffix
+      "_dist" removed, that is, <c>uds_dist</c> as a distribution module
+      is specified as <c><![CDATA[-proto_dist uds]]></c>.</p>
+
+    <p>If no <c>epmd</c> (TCP port mapper daemon) is used, also command-line
+      option <c><![CDATA[-no_epmd]]></c> is to be specified, which makes
+      Erlang skip the <c>epmd</c> startup, both as an OS process and as an
+      Erlang ditto.</p>
+
+    <p>The path to the directory where the distribution modules reside
+      must be known at boot. This can be achieved either by
+      specifying <c><![CDATA[-pa <path>]]></c> on the command line or by
+      building a boot script containing the applications used for your
+      distribution protocol. (In the <c>uds_dist</c> protocol, only the
+      <c>uds_dist</c> application needs to be added to the script.)</p>
+
+    <p>The distribution starts at boot if all the above is
+      specified and an <c><![CDATA[-sname <name>]]></c> flag is present at the
+      command line.</p>
+
+    <p><em>Example 1:</em></p>
+
+    <pre>
+$ <input>erl -pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin -proto_dist uds -no_epmd</input>
+Erlang (BEAM) emulator version 5.0 
+ 
+Eshell V5.0  (abort with ^G)
+1> <input>net_kernel:start([bing,shortnames]).</input>
+{ok,&lt;0.30.0>}
+(bing@hador)2></pre>
+
+    <p><em>Example 2:</em></p>
+
+    <pre>
+$ <input>erl -pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin -proto_dist uds \ </input>
+<input>      -no_epmd -sname bong</input>
+Erlang (BEAM) emulator version 5.0 
+ 
+Eshell V5.0  (abort with ^G)
+(bong@hador)1></pre>
+
+    <p>The <c>ERL_FLAGS</c> environment variable can be used to store the
+      complicated parameters in:</p>
+
+    <pre>
+$ <input>ERL_FLAGS=-pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin \ </input>
+<input>      -proto_dist uds -no_epmd</input>
+$ <input>export ERL_FLAGS</input>
+$ <input>erl -sname bang</input>
+Erlang (BEAM) emulator version 5.0 
+ 
+Eshell V5.0  (abort with ^G)
+(bang@hador)1></pre>
+
+    <p><c><![CDATA[ERL_FLAGS]]></c> should not include the node name.</p>
+  </section>
+</chapter>
+

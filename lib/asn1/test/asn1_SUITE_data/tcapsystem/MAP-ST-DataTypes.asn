@@ -1,0 +1,98 @@
+MAP-ST-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ST-DataTypes (27) version9 (9)}
+
+DEFINITIONS
+IMPLICIT TAGS
+::=
+BEGIN
+
+EXPORTS
+	SecureTransportArg,
+	SecureTransportRes,
+	SecurityHeader,
+	ProtectedPayload
+;
+
+IMPORTS
+	IMSI
+
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+;
+
+SecureTransportArg ::= SEQUENCE {
+	securityHeader		SecurityHeader,
+	protectedPayload		ProtectedPayload	OPTIONAL
+	}
+	-- The protectedPayload carries the result of applying the security function 
+	-- defined in 3GPP TS 33.200 to the encoding of the argument of the securely
+	-- transported operation
+
+SecureTransportRes ::= SEQUENCE {
+	securityHeader		SecurityHeader,
+	protectedPayload		ProtectedPayload	OPTIONAL
+	}
+	-- The protectedPayload carries the result of applying the security function 
+	-- defined in 3GPP TS 33.200 to the encoding of the result of the securely
+	-- transported operation
+
+SecurityHeader ::= SEQUENCE {
+	securityParametersIndex	SecurityParametersIndex,
+	originalComponentIdentifier	OriginalComponentIdentifier,
+	initialisationVector	InitialisationVector	OPTIONAL,
+	...}
+
+ProtectedPayload ::= OCTET STRING(SIZE(1.. 3438))
+	-- In protection mode 0 (noProtection) the ProtectedPayload carries the transfer
+		-- syntax value of the component parameter identified by the
+		-- originalComponentIdentifier.
+	-- In protection mode 1 (integrityAuthenticity) the protectedPayload carries 
+		--  the transfer syntax value of the component
+		-- parameter identified by the originalComponentIdentifier, followed by
+		-- the 32 bit integrity check value.
+		-- The integrity check value is the result of applying the hash algorithm
+		-- to the concatenation of the transfer syntax value of the SecurityHeader,
+		-- and the transfer syntax value of the component parameter. 
+	-- In protection mode 2 (confidentialityIntegrityAuthenticity) the protected
+		-- payload carries the encrypted transfer syntax
+		-- value of the component parameter identified by the
+		-- originalComponentIdentifier, followed by the 32 bit integrity check value.
+		-- The integrity check value is the result of applying the hash algorithm
+		-- to the concatenation of the transfer syntax value of the SecurityHeader,
+		-- and the encrypted transfer syntax value of the component parameter. 
+	-- See 33.200.
+	-- The length of the protectedPayload is adjusted according to the capabilities of
+	-- the lower protocol layers
+
+SecurityParametersIndex ::= OCTET STRING (SIZE(4))
+
+InitialisationVector ::= OCTET STRING (SIZE(14)) 
+	-- the internal structure is defined as follows:
+	-- Octets 1 to 4 : TVP. The TVP is a 32 bit time stamp. Its value is binary coded
+	--		          and indicates the number of intervals of 100 milliseconds
+	--		          elapsed since 1st January 2002, 0:00:00 UTC
+	-- Octets 5 to 10: NE-Id. The NE-Id uniquely identifies the sending network entity
+	--		          within the PLMN. It is the entity's E.164 number without CC and
+	--		          NDC. It is TBCD-coded, padded with zeros.
+	-- Octets 11 to 14: PROP. This 32 bit value is used to make the
+	--		          InitialisationVector unique within the same TVP period.
+	--		          The content is not standardized.
+
+
+OriginalComponentIdentifier ::= CHOICE {
+	operationCode	[0] OperationCode,
+	errorCode		[1] ErrorCode,
+	userInfo		[2] NULL}
+
+OperationCode ::= CHOICE {
+	localValue	INTEGER,
+	globalValue	OBJECT IDENTIFIER}
+
+ErrorCode ::= CHOICE {
+	localValue	INTEGER,
+	globalValue	OBJECT IDENTIFIER}
+
+END
+

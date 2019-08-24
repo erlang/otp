@@ -1,0 +1,78 @@
+ParamBasic DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+General1{T,T:val} ::= SEQUENCE {
+  number  INTEGER,
+  string  T DEFAULT val
+}
+
+T11 ::= General1{PrintableString,"hej"}
+
+T12 ::= General1{BIT STRING,'1010'B}
+
+General2{T} ::= SEQUENCE {
+  number  INTEGER,
+  string  T
+}
+
+T21 ::= General2{PrintableString}
+
+T22 ::= General2{BIT STRING}
+
+
+--
+-- Test a class parameter that is the governor for another parameter.
+--
+
+AlgorithmIdentifier{ALGORITHM-TYPE, ALGORITHM-TYPE:AlgorithmSet} ::=
+  SEQUENCE {
+     algorithm  ALGORITHM-TYPE.&id   ({AlgorithmSet}),
+     type       ALGORITHM-TYPE.&Type ({AlgorithmSet}{@algorithm})
+  }
+
+AnAlgorithm ::= AlgorithmIdentifier{ SIGNATURE-ALGORITHM,
+	                             { {KEY 1 CONTAINING INTEGER} |
+				       {KEY 2 CONTAINING BOOLEAN} } }
+
+SIGNATURE-ALGORITHM ::= CLASS {
+    &id    INTEGER UNIQUE,
+    &Type
+} WITH SYNTAX {
+    KEY &id CONTAINING &Type
+}
+
+alg-seq-1 AnAlgorithm ::= { algorithm 1, type 42 }
+alg-seq-2 AnAlgorithm ::= { algorithm 2, type TRUE }
+
+--
+-- Test that indirect classes references are resolved.
+--
+
+AlgorithmIdentifier2 { ALGORITHM-IDENTIFIER:InfoObjectSet } ::= SEQUENCE {
+  algorithm ALGORITHM-IDENTIFIER.&id({InfoObjectSet}),
+  parameters ALGORITHM-IDENTIFIER.&Type({InfoObjectSet} {@algorithm}) OPTIONAL
+}
+
+ALGORITHM-IDENTIFIER ::= TYPE-IDENTIFIER
+
+Seq ::= SEQUENCE {
+  c1 AlgorithmIdentifier2 {{ObjectSet-1}},
+  c2 AlgorithmIdentifier2 {{ObjectSet-2}}
+}
+
+ObjectSet-1 ALGORITHM-IDENTIFIER ::= { {INTEGER IDENTIFIED BY {2 1 1}}, ... }
+ObjectSet-2 ALGORITHM-IDENTIFIER ::= { ... }
+
+-- Test a value that uses the instantiation of a parameterized type inline.
+-- (Adapted from PKCS-5.)
+--
+
+algid-hmacWithSHA1 AlgorithmIdentifier2 {{ObjectSet-3}} ::=
+  {algorithm id-hmacWithSHA1, parameters NULL : NULL}
+
+ObjectSet-3 TYPE-IDENTIFIER ::= { {NULL IDENTIFIED BY id-hmacWithSHA1} }
+
+id-hmacWithSHA1 OBJECT IDENTIFIER ::= {2 9 9 9 7}
+
+END

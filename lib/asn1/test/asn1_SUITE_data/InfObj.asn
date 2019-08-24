@@ -1,0 +1,485 @@
+InfObj DEFINITIONS ::=
+BEGIN
+
+
+RANAP-ELEMENTARY-PROCEDURE ::= CLASS {
+    &InitiatingMessage				,
+    &SuccessfulOutcome				OPTIONAL,
+    &Outcome				DEFAULT NULL,
+    &vartypvalue                        &Outcome OPTIONAL,
+    &FixTypeValSet                      PrintableString OPTIONAL,
+    &VarTypeValSet                      &InitiatingMessage OPTIONAL,
+    &infoObject                         RANAP-ELEMENTARY-PROCEDURE OPTIONAL,
+    &InfObjectSet                       CLASS2 OPTIONAL,
+    &UnsuccessfulOutcome				OPTIONAL,
+    &procedureCode			ProcedureCode 	UNIQUE,
+    &criticality			Criticality 	DEFAULT ignore
+}
+WITH SYNTAX {
+  INITIATING MESSAGE		&InitiatingMessage
+  [SUCCESSFUL OUTCOME		&SuccessfulOutcome]
+  [UNSUCCESSFUL OUTCOME		&UnsuccessfulOutcome]
+  [OUTCOME			&Outcome]
+  PROCEDURE CODE				&procedureCode
+  [CRITICALITY			&criticality]
+  [VARTYPEVALUE                 &vartypvalue]
+  [FIXT                         &FixTypeValSet]
+  [VART                         &VarTypeValSet]
+  [INFOOBJECT                   &infoObject]
+  [INFOOBJECTSET                &InfObjectSet]
+}
+
+RANAP-PDU ::= CHOICE {
+	initiatingMessage	InitiatingMessage,
+--	successfulOutcome	SuccessfulOutcome,
+--	unsuccessfulOutcome	UnsuccessfulOutcome,
+--	outcome			Outcome,
+	...
+}
+
+CLASS2 ::= RANAP-ELEMENTARY-PROCEDURE
+
+InitiatingMessage  ::= SEQUENCE {
+    procedureCode  RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+    criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+    value	RANAP-ELEMENTARY-PROCEDURE.&InitiatingMessage	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+    }
+
+iu-Release RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-Iu-Release1
+    CRITICALITY		ignore
+    }
+
+relocationPreparation RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	INTEGER --Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-Iu-Release2
+    CRITICALITY		notify
+    }
+
+object3 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage Iu-ReleaseCommand,
+    &SuccessfulOutcome Iu-ReleaseComplete,
+    &procedureCode     id-Iu-Release3,
+    &criticality       reject
+    }
+
+object4 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage INTEGER,
+    &SuccessfulOutcome PrintableString,
+    &procedureCode     id-Iu-Release4,
+    &criticality       reject
+    }
+
+object5 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage INTEGER,
+    &SuccessfulOutcome PrintableString,
+    &Outcome           ProcedureCode,
+    &vartypvalue       12,
+    &infoObject        object4,
+    &InfObjectSet      MyObjectSet,
+    &procedureCode     id-Iu-Release5,
+    &criticality       reject
+    }
+
+
+RANAP-ELEMENTARY-PROCEDURES RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release         |
+    relocationPreparation ,
+    ...
+    }
+
+RANAP-ELEMENTARY-PROCEDURES2 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release         |
+    relocationPreparation
+    }
+
+
+OBJECTSET1 RANAP-ELEMENTARY-PROCEDURE ::= {
+    {INITIATING MESSAGE Iu-ReleaseCommand SUCCESSFUL OUTCOME Iu-ReleaseComplete PROCEDURE CODE id-Iu-Release1 CRITICALITY ignore} | {INITIATING MESSAGE Iu-ReleaseCommand PROCEDURE CODE id-Iu-Release2}
+    }
+
+OBJECTSET2 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release |
+    {INITIATING MESSAGE Iu-ReleaseCommand SUCCESSFUL OUTCOME Iu-ReleaseComplete PROCEDURE CODE id-Iu-Release4 CRITICALITY ignore} |
+    relocationPreparation |
+    {INITIATING MESSAGE Iu-ReleaseCommand PROCEDURE CODE id-Iu-Release5} ,
+    ...
+    }
+
+OBJECTSET3 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release,
+    ...
+    }
+
+OBJECTSET4 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release
+    }
+
+Iu-ReleaseCommand  ::= SEQUENCE {
+    first     INTEGER,
+    second    BOOLEAN
+    }
+
+Iu-ReleaseComplete ::= INTEGER (1..510)
+
+ProcedureCode      ::= INTEGER (0..255)
+Criticality        ::= ENUMERATED { reject, ignore, notify }
+id-Iu-Release1				INTEGER ::= 1
+id-Iu-Release2				INTEGER ::= 2
+id-Iu-Release3				INTEGER ::= 3
+id-Iu-Release4				INTEGER ::= 4
+id-Iu-Release5				INTEGER ::= 5
+
+--
+-- MY-CLASS
+--
+
+Seq ::= SEQUENCE {
+    int INTEGER,
+    str OCTET STRING
+}
+
+MY-CLASS ::= CLASS {
+    &Count             DEFAULT INTEGER,
+    &integerValue      INTEGER UNIQUE,
+    &booleanValue      BOOLEAN,
+    &stringValue       PrintableString
+}
+
+myobject MY-CLASS ::= {
+    &integerValue      12,
+    &booleanValue      TRUE,
+    &stringValue       "hejsan"
+}
+
+myotherobject MY-CLASS ::= {
+    &Count             Seq,
+    &integerValue      42,
+    &booleanValue      FALSE,
+    &stringValue       "hoppsan"
+}
+
+MyObjectSet MY-CLASS ::= {
+    myobject | myotherobject |
+    {
+        -- Each character will be encoded in 3 bits in UPER, 4 bits in PER.
+	&Count             NumericString (FROM("01234567") ^ SIZE(8)),
+	&integerValue      43,
+	&booleanValue      TRUE,
+	&stringValue       "tjosan"
+    }
+}
+
+MyPdu ::= SEQUENCE {
+    count MY-CLASS.&Count ({MyObjectSet}{@int}),
+    int   MY-CLASS.&integerValue ({MyObjectSet}),
+    bool  MY-CLASS.&booleanValue ({MyObjectSet}{@int}),
+    str   MY-CLASS.&stringValue ({MyObjectSet}{@int})
+}
+
+Seq2 ::= SEQUENCE {
+   int MY-CLASS.&integerValue ({MyObjectSet}),
+   seqof SEQUENCE (1..10) OF MY-CLASS.&booleanValue ({MyObjectSet}{@int}),
+   setof SET (1..10) OF MY-CLASS.&booleanValue ({MyObjectSet}{@int})
+}
+
+--
+-- Class with constructed default
+--
+
+CONSTRUCTED-DEFAULT ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type DEFAULT SEQUENCE { a INTEGER, b BOOLEAN },
+  &ok BOOLEAN DEFAULT TRUE
+}
+
+constructed1 CONSTRUCTED-DEFAULT ::= { &id 1 }
+constructed2 CONSTRUCTED-DEFAULT ::= { &id 2, &ok false }
+
+ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
+  constructed1 |
+  constructed2 |
+  { &id 3, &Type BOOLEAN } |
+  { &id 4, &Type SET { a INTEGER, b BIT STRING } } |
+  { &id 5, &Type CHOICE { i INTEGER, b BIT STRING } } |
+  { &id 6, &Type SEQUENCE OF INTEGER (1..16) } |
+  { &id 7, &Type SET OF INTEGER (1..64) } |
+  { &id 8, &Type SEQUENCE OF SEQUENCE { x INTEGER, y INTEGER } } |
+  { &id 9, &Type SET OF SEQUENCE { x INTEGER, y INTEGER } }
+}
+
+ConstructedPdu ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
+ConstructedSet ::= SET {
+  id [0] CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content [1] CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
+-- Test OPTIONAL and DEFAULT
+
+OptionalInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id}) OPTIONAL
+}
+
+DefaultInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+          DEFAULT BOOLEAN:TRUE
+}
+
+-- Test more than one optional typefield table constraint in a SEQUENCE.
+
+MULTIPLE-OPTIONALS ::= CLASS {
+   &id INTEGER UNIQUE,
+   &T1,
+   &T2,
+   &T3
+}
+
+multiple-optionals-1 MULTIPLE-OPTIONALS ::=
+   {&id 1, &T1 INTEGER, &T2 BOOLEAN, &T3 OCTET STRING}
+
+Multiple-Optionals-Set MULTIPLE-OPTIONALS ::= {
+   multiple-optionals-1
+}
+
+Multiple-Optionals ::= SEQUENCE {
+   id MULTIPLE-OPTIONALS.&id ({Multiple-Optionals-Set}),
+   t1 [0] MULTIPLE-OPTIONALS.&T1 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t2 [1] MULTIPLE-OPTIONALS.&T2 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t3 [2] MULTIPLE-OPTIONALS.&T3 ({Multiple-Optionals-Set}{@id}) OPTIONAL
+}
+
+-- Test different ways of constructing object sets.
+
+OBJECT-SET-TEST ::= CLASS {
+    &id INTEGER UNIQUE,
+    &Type
+} WITH SYNTAX {
+    &id IS &Type
+}
+
+ObjectSetTest{OBJECT-SET-TEST:ObjectSet} ::=
+  SEQUENCE {
+     id   OBJECT-SET-TEST.&id   ({ObjectSet}),
+     type OBJECT-SET-TEST.&Type ({ObjectSet}{@id})
+  }
+
+ost1 OBJECT-SET-TEST ::= { 1 IS BIT STRING }
+ost2 OBJECT-SET-TEST ::= { 2 IS OCTET STRING }
+ost3 OBJECT-SET-TEST ::= { 3 IS ENUMERATED {donald,scrooge} }
+ost4 OBJECT-SET-TEST ::= { 4 IS BOOLEAN }
+ost5 OBJECT-SET-TEST ::= { 5 IS INTEGER (0..15) }
+
+Ost12    OBJECT-SET-TEST ::= { ost1 | ost2 }
+Ost123   OBJECT-SET-TEST ::= { ost3 | Ost12 }
+Ost1234  OBJECT-SET-TEST ::= { Ost123 | ost4 }
+Ost45    OBJECT-SET-TEST ::= { ost4 | ost5 }
+Ost12345 OBJECT-SET-TEST ::= { Ost123 | Ost45 }
+
+OstSeq12 ::= ObjectSetTest{ {Ost12} }
+OstSeq123 ::= ObjectSetTest{ {Ost123} }
+OstSeq1234 ::= ObjectSetTest{ {Ost1234} }
+OstSeq45 ::= ObjectSetTest{ {Ost45} }
+OstSeq12345 ::= ObjectSetTest{ {Ost12345} }
+
+OstSeq12Except ::= ObjectSetTest{ {Ost123 EXCEPT ost3} }
+OstSeq123Except ::= ObjectSetTest{ {Ost12345 EXCEPT Ost45} }
+
+ExOst1    OBJECT-SET-TEST ::= { ost1, ... }
+ExOst12    OBJECT-SET-TEST ::= { ost1, ..., ost2 }
+ExOst123   OBJECT-SET-TEST ::= { ost3, ..., ExOst12 }
+ExOst1234  OBJECT-SET-TEST ::= { ExOst123, ..., ost4 }
+ExOst45    OBJECT-SET-TEST ::= { ost4, ..., ost5 }
+ExOst12345 OBJECT-SET-TEST ::= { ExOst123, ..., ExOst45 }
+
+ExOstSeq1 ::= ObjectSetTest{ {ExOst1} }
+ExOstSeq12 ::= ObjectSetTest{ {ExOst12} }
+ExOstSeq123 ::= ObjectSetTest{ {ExOst123} }
+ExOstSeq1234 ::= ObjectSetTest{ {ExOst1234} }
+ExOstSeq45 ::= ObjectSetTest{ {ExOst45} }
+ExOstSeq12345 ::= ObjectSetTest{ {ExOst12345} }
+
+ExOstSeq12Except ::= ObjectSetTest{ {ExOst123 EXCEPT ost3} }
+ExOstSeq123Except ::= ObjectSetTest{ {ExOst12345 EXCEPT ExOst45} }
+
+ExInlOst1    OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...
+}
+ExInlOst12   OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...,
+    { 2 IS OCTET STRING }
+}
+
+ExInlOstSeq1 ::= ObjectSetTest{ {ExInlOst1} }
+ExInlOstSeq12 ::= ObjectSetTest{ {ExInlOst12} }
+
+--
+-- Test that extensions in a simple class works.
+--
+
+ExtClassSeq ::= SEQUENCE {
+  arg      EXT-CLASS.&id({Extend})
+}
+
+EXT-CLASS ::= CLASS {
+    &id INTEGER UNIQUE
+} WITH SYNTAX {
+    ID &id
+}
+
+Extend EXT-CLASS ::= { { ID alt1 } | { ID alt2 }, ... }
+
+alt1 INTEGER ::= 4
+alt2 INTEGER ::= 5
+
+
+--
+-- Test a BIT STRING which is optional in the simplified syntax.
+--
+
+PUBLIC-KEY ::= CLASS {
+    &id             INTEGER UNIQUE,
+    &keyUsage       KeyUsage OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [OPTIONAL-BIT-STRING &keyUsage]
+}
+
+KeyUsage ::= BIT STRING {
+     digitalSignature        (0),
+     nonRepudiation          (1),
+     keyEncipherment         (2)
+ }
+
+object-with-optional-bit-string PUBLIC-KEY ::= {
+ IDENTIFIER 42
+ OPTIONAL-BIT-STRING {digitalSignature, nonRepudiation, keyEncipherment}
+}
+
+-- Test object identifiers from objects.
+
+CONTAINER ::= CLASS {
+ &id   OBJECT IDENTIFIER UNIQUE,
+ &rid  RELATIVE-OID OPTIONAL,
+ &Type OPTIONAL
+} WITH SYNTAX {
+  IDENTIFIED BY &id
+  [REL-OID &rid]
+  [TYPE &Type]
+}
+
+id1 OBJECT IDENTIFIER ::= {1 2 42}
+obj1 CONTAINER ::= { IDENTIFIED BY id1 REL-OID {100 101} }
+
+value-2 OBJECT IDENTIFIER ::= { value-1 25 }
+value-1 OBJECT IDENTIFIER ::= obj1.&id
+value-3 RELATIVE-OID ::= obj1.&rid
+value-4 OBJECT IDENTIFIER ::= { 1 2 value-3 }
+
+
+-- Test an obscure issue when ATTRIBUTE.&id was not
+-- properly evaluated.
+
+Rdn ::= SingleAttribute { {SupportedAttributes} }
+
+ATTRIBUTE ::= CLASS {
+   &id             OBJECT IDENTIFIER UNIQUE,
+   &Type           OPTIONAL
+}
+
+SingleAttribute{ATTRIBUTE:AttrSet} ::= SEQUENCE {
+   type      ATTRIBUTE.&id({AttrSet}),
+   value     ATTRIBUTE.&Type({AttrSet}{@type})
+}
+
+AttributeType ::= ATTRIBUTE.&id
+
+SupportedAttributes ATTRIBUTE ::= { at-name }
+
+id-at OBJECT IDENTIFIER ::= { 2 5 4 41 }
+id-at-name AttributeType ::= id-at
+at-name ATTRIBUTE ::= { &Type PrintableString, &id id-at-name }
+
+--
+-- Test using an alias for TYPE-IDENTIFIER.
+--
+
+TiAliasParameterized { TI-ALIAS:InfoObjectSet } ::= SEQUENCE {
+  algorithm TI-ALIAS.&id({InfoObjectSet}),
+  parameters TI-ALIAS.&Type({InfoObjectSet} {@algorithm}) OPTIONAL
+}
+
+TI-ALIAS ::= TYPE-IDENTIFIER
+
+TiAliasSeq ::= SEQUENCE {
+  prf TiAliasParameterized {{TiAliasSet}}
+}
+
+TiAliasSet TI-ALIAS ::= {
+  {NULL IDENTIFIED BY {2 1 2}},
+   ...
+}
+
+--
+-- Test using an alias for a class.
+--
+
+ALIAS-CONTAINER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INDIRECT-CLASS
+}
+
+INDIRECTED-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type
+}
+
+INDIRECT-CLASS ::= INDIRECTED-CLASS
+
+--
+-- Indirect ObjectClassFieldType in a SEQUENCE.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType  ContentType, -- Indirect ObjectClassFieldType
+  content      TYPE-IDENTIFIER.&Type({Contents}{@contentType})
+OPTIONAL
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {IA5String IDENTIFIED BY id-content-type}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
+id-content-type ContentType ::= { 2 7 8 9 }
+
+--
+-- Tricky parsing of simplified syntax.
+--
+
+TrickyType-1 ::= BIT STRING
+TrickyType-2 ::= OCTET STRING
+
+TRICKY ::= CLASS {
+  &Type1,
+  &Type2
+} WITH SYNTAX {
+   TYPE &Type1 &Type2
+}
+
+tricky-object TRICKY ::= {TYPE TrickyType-1 TrickyType-2}
+
+tricky-bit-string tricky-object.&Type1 ::= '1011'B
+tricky-octet-string tricky-object.&Type1 ::= 'CAFE'H
+
+END

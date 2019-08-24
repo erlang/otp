@@ -1,0 +1,10 @@
+Original Authors:
+ Ingela Anderton - version 1.0
+ Ingvar Meyer - version 0.9.1
+ Joakim Hirsch  - first version	 
+
+Contributors:
+Scott Lystig Fritchie - input/output variables for stored procedures
+willi@talk24.com - Some 64 bits adjustments
+Juhani Ränkimies -  SQL_WCHAR and SQL_WVARCHAR support
+Juhani Ränkimies -  TIMESTAMP support

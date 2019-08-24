@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Installing the Binary Release</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>(Peter H&ouml;gfeldt</approved>
+    <checked></checked>
+    <date>1997-05-26</date>
+    <rev>C</rev>
+    <file>install-binary.xml</file>
+  </header>
+  <section>
+    <title>Windows</title>
+    <p>The system is delivered as a Windows Installer executable.
+    Get it from http://www.erlang.org/download.html</p>
+
+    <section>
+      <title>Installing</title>
+      <p>The installation procedure is automated. Double-click the
+        <c>.exe</c> file icon and follow the instructions.</p>
+    </section>
+
+    <section>
+    <title>Verifying</title>
+    <list type="bulleted">
+      <item>
+        <p>Start Erlang/OTP by double-clicking on the Erlang shortcut icon on the
+          desktop.</p>
+        <p>Expect a command-line window to pop up with an output looking
+	something like this:</p>
+        <pre>
+  Erlang/OTP 17 [erts-6.0] [64-bit] [smp:2:2]
+
+  Eshell V6.0  (abort with ^G)
+  1></pre>
+      </item>
+      <item>
+        <p>Exit by entering the command <c>halt()</c>.</p>
+        <pre>
+  2> <input>halt().</input></pre>
+        <p>This closes the Erlang/OTP shell.</p>
+      </item>
+    </list>
+    </section>
+  </section>
+</chapter>

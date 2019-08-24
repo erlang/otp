@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Observer Release Notes History</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+  </header>
+
+  <section>
+    <title>Observer 0.9.6 (OTP R10B)</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Bugfix: <c>ttb:p/2</c> can now take the flag <c>clear</c>.</p>
+          <p>Bugfix: <c>ttb:format/1,2</c> can now handle trace of
+            messages sent to a process addressed with
+            <c>{ProcName,Node}</c>.</p>
+          <p>Own Id: OTP-4967</p>
+        </item>
+        <item>
+          <p><c>crashdump_viewer</c>: Atoms are shown 100 at the time
+            to avoid the browser hanging/timing out.</p>
+          <p>Own Id: OTP-5027</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p><c>crashdump_viewer</c>:</p>
+          <list type="bulleted">
+            <item>The 'Name' and 'Spawned as' columns are merged into
+             one column showing name if it exists, else initial
+             function.</item>
+            <item>Added more warnings if the dump is truncated.</item>
+            <item>To avoid that the browser times out during
+             reading/translating when the dump is really big, a
+             temporary page is shown which redirects to the start page
+             when ready.</item>
+          </list>
+          <p>Own Id: OTP-4975</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.5 (R9C)</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor updates to <c>etop</c> GUI.</p>
+          <p><c>etop</c> now also works on <c>nonode@nohost</c> using
+            <c>etop:start()</c>.</p>
+          <p>Process info is added to the "to-process" in <c>send</c>
+            trace messages</p>
+          <p>Own Id: OTP-4735</p>
+          <p></p>
+        </item>
+        <item>
+          <p><c>crashdump_viewer</c> can now handle dumps created on
+            Windows.</p>
+          <p>Own Id: OTP-4750</p>
+          <p></p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added new tool: <c>crashdump_viewer</c>.</p>
+          <p>Own Id: OTP-4654</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.3 (OTP R9B)</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added <c>priv</c> directory.</p>
+          <p>Own Id: OTP-4527</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.2 (OTP R8B)</title>
+    <p>This was Observer with the <c>crashdump_viewer</c> added for
+      OTP R8B.</p>
+  </section>
+
+  <section>
+    <title>Observer 0.9.1 (OTP R7B01/R8B)</title>
+    <p>This was the first version of Observer for OTP R7B01 and R8B.</p>
+  </section>
+
+  <section>
+    <title>Observer 0.9 (OTP-R9B)</title>
+    <p>The Observer application is a collection of tools for tracing and
+      investigation of distributed systems.</p>
+
+    <section>
+      <title>Known bugs and problems</title>
+      <list type="bulleted">
+        <item>Observer is still in beta stadium.</item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

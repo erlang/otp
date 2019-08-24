@@ -1,0 +1,873 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Match Specifications in Erlang</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1999-06-01</date>
+    <rev>PA1</rev>
+    <file>match_spec.xml</file>
+  </header>
+  <p>A "match specification" (<c>match_spec</c>) is an Erlang term describing a
+    small "program" that tries to match something. It can be used
+    to either control tracing with
+    <seealso marker="erlang#trace_pattern/3">erlang:trace_pattern/3</seealso>
+    or to search for objects in an ETS table with for example
+    <seealso marker="stdlib:ets#select/2">ets:select/2</seealso>.
+    The match specification in many ways works like a small function in Erlang,
+    but is interpreted/compiled by the Erlang runtime system to something much more
+    efficient than calling an Erlang function. The match specification is also
+    very limited compared to the expressiveness of real Erlang functions.</p>
+  <p>The most notable difference between a match specification and an Erlang
+    fun is the syntax. Match specifications are Erlang terms, not Erlang code.
+    Also, a match specification has a strange concept of exceptions:</p>
+
+  <list type="bulleted">
+    <item>
+      <p>An exception (such as <c><![CDATA[badarg]]></c>) in the
+        <c><![CDATA[MatchCondition]]></c> part, which resembles an Erlang guard,
+        generates immediate failure.</p>
+    </item>
+    <item>
+      <p>An exception in the <c><![CDATA[MatchBody]]></c> part, which resembles
+        the body of an Erlang function, is implicitly caught and results in the
+        single atom <c><![CDATA['EXIT']]></c>.</p>
+    </item>
+  </list>
+
+  <section>
+    <title>Grammar</title>
+    <p>A match specification used in tracing can be described in the following
+      <em>informal</em> grammar:</p>
+
+    <list type="bulleted">
+      <item>MatchExpression ::= [ MatchFunction, ... ]
+      </item>
+      <item>MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
+      </item>
+      <item>MatchHead ::=  MatchVariable | <c><![CDATA['_']]></c> |
+        [ MatchHeadPart, ... ]
+      </item>
+      <item>MatchHeadPart ::= term() | MatchVariable | <c><![CDATA['_']]></c>
+      </item>
+      <item>MatchVariable ::= '$&lt;number&gt;'
+      </item>
+      <item>MatchConditions ::= [ MatchCondition, ...] | <c><![CDATA[[]]]></c>
+      </item>
+      <item>MatchCondition ::= { GuardFunction } | { GuardFunction,
+        ConditionExpression, ... }
+      </item>
+      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
+        <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> |
+        <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
+        <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
+        <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
+        <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
+        <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
+        <c><![CDATA['andalso']]></c> | <c><![CDATA['orelse']]></c>
+      </item>
+      <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
+        { GuardFunction, ConditionExpression, ... } | TermConstruct
+      </item>
+      <item>ExprMatchVariable ::= MatchVariable (bound in the MatchHead) |
+        <c><![CDATA['$_']]></c> | <c><![CDATA['$$']]></c>
+      </item>
+      <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} |
+        <c><![CDATA[[]]]></c> | [ConditionExpression, ...] |
+        <c><![CDATA[#{}]]></c> | #{term() => ConditionExpression, ...} |
+        NonCompositeTerm | Constant
+      </item>
+      <item>NonCompositeTerm ::= term() (not list or tuple or map)
+      </item>
+      <item>Constant ::= {<c><![CDATA[const]]></c>, term()}
+      </item>
+      <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
+        <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
+        <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
+        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> |
+        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
+        <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
+        <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
+        <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
+        <c><![CDATA['bor']]></c> | <c><![CDATA['bxor']]></c> |
+        <c><![CDATA['bnot']]></c> | <c><![CDATA['bsl']]></c> |
+        <c><![CDATA['bsr']]></c> | <c><![CDATA['>']]></c> |
+        <c><![CDATA['>=']]></c> | <c><![CDATA['<']]></c> |
+        <c><![CDATA['=<']]></c> | <c><![CDATA['=:=']]></c> |
+        <c><![CDATA['==']]></c> | <c><![CDATA['=/=']]></c> |
+        <c><![CDATA['/=']]></c> | <c><![CDATA[self]]></c> |
+        <c><![CDATA[get_tcw]]></c>
+      </item>
+      <item>MatchBody ::= [ ActionTerm ]
+      </item>
+      <item>ActionTerm ::= ConditionExpression | ActionCall
+      </item>
+      <item>ActionCall ::= {ActionFunction} | {ActionFunction, ActionTerm, ...}
+      </item>
+      <item>ActionFunction ::= <c><![CDATA[set_seq_token]]></c> |
+        <c><![CDATA[get_seq_token]]></c> | <c><![CDATA[message]]></c> |
+        <c><![CDATA[return_trace]]></c> | <c><![CDATA[exception_trace]]></c> |
+        <c><![CDATA[process_dump]]></c> | <c><![CDATA[enable_trace]]></c> |
+        <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
+        <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> |
+        <c><![CDATA[set_tcw]]></c> | <c><![CDATA[silent]]></c>
+      </item>
+    </list>
+
+    <p>A match specification  used in
+      <seealso marker="stdlib:ets"><c>ets(3)</c></seealso>
+      can be described in the following <em>informal</em> grammar:</p>
+
+    <list type="bulleted">
+      <item>MatchExpression ::= [ MatchFunction, ... ]
+      </item>
+      <item>MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
+      </item>
+      <item>MatchHead ::=  MatchVariable | <c><![CDATA['_']]></c> |
+        { MatchHeadPart, ... }
+      </item>
+      <item>MatchHeadPart ::= term() | MatchVariable | <c><![CDATA['_']]></c>
+      </item>
+      <item>MatchVariable ::= '$&lt;number&gt;'
+      </item>
+      <item>MatchConditions ::= [ MatchCondition, ...] | <c><![CDATA[[]]]></c>
+      </item>
+      <item>MatchCondition ::= { GuardFunction } |
+        { GuardFunction, ConditionExpression, ... }
+      </item>
+      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
+        <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> |
+        <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
+        <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
+        <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[map_is_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_record]]></c> | <c><![CDATA['and']]></c> |
+        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
+        <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
+        <c><![CDATA['orelse']]></c>
+      </item>
+      <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
+        { GuardFunction, ConditionExpression, ... } | TermConstruct
+      </item>
+      <item>ExprMatchVariable ::= MatchVariable (bound in the MatchHead) |
+        <c><![CDATA['$_']]></c> | <c><![CDATA['$$']]></c>
+      </item>
+      <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} |
+        <c><![CDATA[[]]]></c> | [ConditionExpression, ...] | #{} |
+        #{term() => ConditionExpression, ...} | NonCompositeTerm | Constant
+      </item>
+      <item>NonCompositeTerm ::= term() (not list or tuple or map)
+      </item>
+      <item>Constant ::= {<c><![CDATA[const]]></c>, term()}
+      </item>
+      <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
+        <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
+        <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
+        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> |
+        <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
+        <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
+        <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
+        <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> |
+        <c><![CDATA['bor']]></c> | <c><![CDATA['bxor']]></c> |
+        <c><![CDATA['bnot']]></c> | <c><![CDATA['bsl']]></c> |
+        <c><![CDATA['bsr']]></c> | <c><![CDATA['>']]></c> |
+        <c><![CDATA['>=']]></c> | <c><![CDATA['<']]></c> |
+        <c><![CDATA['=<']]></c> | <c><![CDATA['=:=']]></c> |
+        <c><![CDATA['==']]></c> | <c><![CDATA['=/=']]></c> |
+        <c><![CDATA['/=']]></c> | <c><![CDATA[self]]></c>
+      </item>
+      <item>MatchBody ::= [ ConditionExpression, ... ]
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Function Descriptions</title>
+    <section>
+      <title>Functions Allowed in All Types of Match Specifications</title>
+      <p>The functions allowed in <c><![CDATA[match_spec]]></c> work as
+        follows:</p>
+
+      <taglist>
+        <tag><c>is_atom</c>, <c>is_float</c>, <c>is_integer</c>, <c>is_list</c>,
+          <c>is_number</c>, <c>is_pid</c>, <c>is_port</c>, <c>is_reference</c>,
+          <c>is_tuple</c>, <c>is_map</c>, <c>is_binary</c>, <c>is_function</c>
+        </tag>
+        <item>
+          <p>Same as the corresponding guard tests in Erlang, return
+            <c><![CDATA[true]]></c> or <c><![CDATA[false]]></c>.</p>
+        </item>
+        <tag><c>is_record</c></tag>
+        <item>
+          <p>Takes an additional parameter, which <em>must</em> be the result
+            of <c><![CDATA[record_info(size, <record_type>)]]></c>, like in
+            <c><![CDATA[{is_record, '$1', rectype, record_info(size,
+            rectype)}]]></c>.</p>
+        </item>
+        <tag><c>'not'</c></tag>
+        <item>
+          <p>Negates its single argument (anything other
+            than <c><![CDATA[false]]></c> gives <c><![CDATA[false]]></c>).</p>
+        </item>
+        <tag><c>'and'</c></tag>
+        <item>
+          <p>Returns <c><![CDATA[true]]></c> if all its arguments (variable
+            length argument list) evaluate to <c><![CDATA[true]]></c>, otherwise
+            <c><![CDATA[false]]></c>. Evaluation order is undefined.</p>
+        </item>
+        <tag><c>'or'</c></tag>
+        <item>
+          <p>Returns <c><![CDATA[true]]></c> if any of its arguments
+            evaluates to <c><![CDATA[true]]></c>. Variable length argument
+            list. Evaluation order is undefined.</p>
+        </item>
+        <tag><c>'andalso'</c></tag>
+        <item>
+          <p>Works as <c><![CDATA['and']]></c>, but quits evaluating its
+            arguments when one argument evaluates to something else
+            than <c>true</c>. Arguments are evaluated left to right.</p>
+        </item>
+        <tag><c>'orelse'</c></tag>
+        <item>
+          <p>Works as <c><![CDATA['or']]></c>, but quits evaluating as soon
+            as one of its arguments evaluates to <c><![CDATA[true]]></c>.
+            Arguments are evaluated left to right.</p>
+        </item>
+        <tag><c>'xor'</c></tag>
+        <item>
+          <p>Only two arguments, of which one must be <c>true</c> and the
+            other <c>false</c> to return <c><![CDATA[true]]></c>; otherwise
+            <c><![CDATA['xor']]></c> returns false.</p>
+        </item>
+        <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
+          <c>map_get</c>, <c>map_size</c>, <c>node</c>, <c>round</c>,
+          <c>size</c>, <c>bit_size</c>, <c>tl</c>, <c>trunc</c>, <c>'+'</c>,
+          <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,
+          <c>'bor'</c>, <c>'bxor'</c>, <c>'bnot'</c>, <c>'bsl'</c>,
+          <c>'bsr'</c>, <c>'>'</c>, <c>'>='</c>, <c>'&lt;'</c>, <c>'=&lt;'</c>,
+          <c>'=:='</c>, <c>'=='</c>, <c>'=/='</c>, <c>'/='</c>,
+          <c>self</c></tag>
+        <item>
+          <p>Same as the corresponding Erlang BIFs (or operators). In case of
+            bad arguments, the result depends on the context. In the
+            <c><![CDATA[MatchConditions]]></c> part of the expression, the test
+            fails immediately (like in an Erlang guard). In the
+            <c><![CDATA[MatchBody]]></c> part, exceptions are implicitly caught
+            and the call results in the atom <c><![CDATA['EXIT']]></c>.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>Functions Allowed Only for Tracing</title>
+      <p>The functions allowed only for tracing work as follows:</p>
+
+      <taglist>
+        <tag><c>is_seq_trace</c></tag>
+        <item>
+          <p>Returns <c><![CDATA[true]]></c> if a sequential trace token is set
+            for the current process, otherwise <c><![CDATA[false]]></c>.</p>
+        </item>
+        <tag><c>set_seq_token</c></tag>
+        <item>
+          <p>Works as <c><![CDATA[seq_trace:set_token/2]]></c>, but returns
+            <c><![CDATA[true]]></c> on success, and <c><![CDATA['EXIT']]></c>
+            on error or bad argument. Only allowed in the
+            <c><![CDATA[MatchBody]]></c> part and only allowed when tracing.</p>
+        </item>
+        <tag><c>get_seq_token</c></tag>
+        <item>
+          <p>Same as <c><![CDATA[seq_trace:get_token/0]]></c> and only
+            allowed in the <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+        </item>
+        <tag><c>message</c></tag>
+        <item>
+          <p>Sets an additional message appended to the
+            trace message sent. One can only set one additional message in
+            the body. Later calls replace the appended message.</p>
+          <p>As a special case, <c><![CDATA[{message, false}]]></c> disables
+            sending of trace messages ('call' and 'return_to') for this function
+            call, just like if the match specification had not matched.
+            This can be useful if only the side effects of 
+            the <c><![CDATA[MatchBody]]></c> part are desired.</p>
+          <p>Another special case is <c><![CDATA[{message, true}]]></c>, which
+            sets the default behavior, as if the function had no match
+            specification; trace message is sent with no extra information
+            (if no other calls to <c><![CDATA[message]]></c> are placed before
+            <c><![CDATA[{message, true}]]></c>, it is in fact a "noop").</p>
+          <p>Takes one argument: the message. Returns <c><![CDATA[true]]></c>
+            and can only be used in the <c><![CDATA[MatchBody]]></c> part and
+            when tracing.</p>
+        </item>
+        <tag><c>return_trace</c></tag>
+        <item>
+          <p>Causes a <c><![CDATA[return_from]]></c> trace message to be sent
+            upon return from the current function. Takes no arguments, returns
+            <c><![CDATA[true]]></c> and can only be used in the
+            <c><![CDATA[MatchBody]]></c> part when tracing.
+            If the process trace flag <c><![CDATA[silent]]></c> is active, the
+            <c><![CDATA[return_from]]></c> trace message is inhibited.</p>
+          <p><em>Warning:</em> If the traced function is tail-recursive, this
+            match specification function destroys that property. Hence, if a
+            match specification executing this function is used on a
+            perpetual server process, it can only be active for a limited
+            period of time, or the emulator will eventually use all memory in
+            the host machine and crash. If this match specification function is
+            inhibited using process trace flag <c><![CDATA[silent]]></c>,
+            tail-recursiveness still remains.</p>
+        </item>
+        <tag><c>exception_trace</c></tag>
+        <item>
+          <p>Works as <c>return_trace</c> plus; if the traced function exits
+            because of an exception,
+            an <c><![CDATA[exception_from]]></c> trace message is generated,
+            regardless of the exception is caught or not.</p>
+        </item>
+        <tag><c>process_dump</c></tag>
+        <item>
+          <p>Returns some textual information about
+            the current process as a binary. Takes no arguments and is only
+            allowed in the <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+        </item>
+        <tag><c>enable_trace</c></tag>
+        <item>
+          <p>With one parameter this function turns on tracing like the Erlang
+            call <c><![CDATA[erlang:trace(self(), true, [P2])]]></c>, where
+            <c><![CDATA[P2]]></c> is the parameter to
+            <c><![CDATA[enable_trace]]></c>.</p>
+          <p>With two parameters, the first parameter is to be either a process
+            identifier or the registered name of a process. In this case tracing
+            is turned on for the designated process in the same way as in the
+            Erlang call <c><![CDATA[erlang:trace(P1, true, [P2])]]></c>, where
+            <c>P1</c> is the first and <c>P2</c> is the second argument. The
+            process <c><![CDATA[P1]]></c> gets its trace messages sent to the
+            same tracer as the process executing the statement uses.
+            <c><![CDATA[P1]]></c> <em>cannot</em> be one of the atoms
+            <c><![CDATA[all]]></c>, <c><![CDATA[new]]></c> or 
+            <c><![CDATA[existing]]></c> (unless they are registered names).
+            <c><![CDATA[P2]]></c> <em>cannot</em> be
+            <c><![CDATA[cpu_timestamp]]></c> or <c><![CDATA[tracer]]></c>.</p>
+          <p>Returns <c><![CDATA[true]]></c> and can only be used in
+            the <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+        </item>
+        <tag><c>disable_trace</c></tag>
+        <item>
+          <p>With one parameter this function disables tracing like the Erlang
+            call <c><![CDATA[erlang:trace(self(), false, [P2])]]></c>, where
+            <c><![CDATA[P2]]></c> is the parameter to
+            <c><![CDATA[disable_trace]]></c>.</p>
+          <p>With two parameters this function works as the Erlang call
+            <c><![CDATA[erlang:trace(P1, false, [P2])]]></c>, where <c>P1</c>
+            can be either a process identifier or a registered name and is
+            specified as the first argument to the match specification function.
+            <c><![CDATA[P2]]></c> <em>cannot</em> be
+            <c><![CDATA[cpu_timestamp]]></c> or <c><![CDATA[tracer]]></c>.</p>
+          <p>Returns <c><![CDATA[true]]></c> and can only be used in the
+            <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+        </item>
+        <tag><c>trace</c></tag>
+        <item>
+          <p>With two parameters this function takes a list
+            of trace flags to disable as first parameter and a list
+            of trace flags to enable as second parameter. Logically, the
+            disable list is applied first, but effectively all changes
+            are applied atomically. The trace flags
+            are the same as for <c><![CDATA[erlang:trace/3]]></c>,
+            not including <c><![CDATA[cpu_timestamp]]></c>, but including
+            <c><![CDATA[tracer]]></c>.</p>
+          <p>If a tracer is specified in both lists, the tracer in the
+            enable list takes precedence. If no tracer is specified, the same
+            tracer as the process executing the match specification is used (not the meta tracer).
+            If that process doesn't have tracer either, then trace flags are ignored.</p>
+          <p>When using a <seealso marker="erl_tracer">tracer module</seealso>,
+            the module must be loaded before the match specification is
+            executed. If it is not loaded, the match fails.</p>
+          <p>With three parameters to this function, the first is
+            either a process identifier or the registered name of a
+            process to set trace flags on, the second is the disable
+            list, and the third is the enable list.</p>
+          <p>Returns <c><![CDATA[true]]></c> if any trace property was changed
+            for the trace target process, otherwise <c><![CDATA[false]]></c>.
+            Can only be used in the <c><![CDATA[MatchBody]]></c> part when
+            tracing.</p>
+        </item>
+        <tag><c>caller</c></tag>
+        <item>
+          <p>Returns the calling function as a tuple <c>{Module, Function,
+             Arity}</c> or the atom <c><![CDATA[undefined]]></c> if the calling
+             function cannot be determined. Can only be used in the
+             <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+           <p>Notice that if a "technically built in function" (that is, a
+             function not written in Erlang) is traced, the
+             <c><![CDATA[caller]]></c> function sometimes returns the atom
+             <c><![CDATA[undefined]]></c>. The calling
+             Erlang function is not available during such calls.</p>
+        </item>
+        <tag><c>display</c></tag>
+          <item>
+            <p>For debugging purposes only. Displays the single argument as an
+              Erlang term on <c>stdout</c>, which is seldom what is wanted.
+              Returns <c><![CDATA[true]]></c> and can only be used in the
+              <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+          </item>
+        <tag><marker id="get_tcw"/><c>get_tcw</c></tag>
+        <item>
+          <p>Takes no argument and returns the value of the node's trace
+            control word. The same is done by
+            <c><![CDATA[erlang:system_info(trace_control_word)]]></c>.</p>
+          <p>The trace control word is a 32-bit unsigned integer intended for
+            generic trace control. The trace control word can be tested and
+            set both from within trace match specifications and with BIFs.
+            This call is only allowed when tracing.</p>
+        </item>
+        <tag><marker id="set_tcw"/><c>set_tcw</c></tag>
+        <item>
+          <p>Takes one unsigned integer argument, sets the value of
+            the node's trace control word to the value of the argument,
+            and returns the previous value. The same is done by
+            <c><![CDATA[erlang:system_flag(trace_control_word, Value)]]></c>.
+            It is only allowed to use <c><![CDATA[set_tcw]]></c> in the
+            <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+        </item>
+        <tag><c>silent</c></tag>
+        <item>
+          <p>Takes one argument. If the argument is <c><![CDATA[true]]></c>,
+            the call trace message mode for the current process is set to
+            silent for this call and all later calls, that is, call trace
+            messages are inhibited even if
+            <c><![CDATA[{message, true}]]></c> is called in the
+            <c><![CDATA[MatchBody]]></c> part for a traced function.</p>
+          <p>This mode can also be activated with flag
+            <c><![CDATA[silent]]></c> to
+            <c><![CDATA[erlang:trace/3]]></c>.</p>
+          <p>If the argument is <c><![CDATA[false]]></c>, the call trace
+            message mode for the current process is set to normal
+            (non-silent) for this call and all later calls.</p>
+          <p>If the argument is not <c><![CDATA[true]]></c> or
+            <c><![CDATA[false]]></c>, the call trace message mode is
+            unaffected.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <note>
+      <p>All "function calls" must be tuples, even if they take no arguments.
+        The value of <c><![CDATA[self]]></c> is the atom()
+        <c><![CDATA[self]]></c>, but the value of <c><![CDATA[{self}]]></c> is
+        the pid() of the current process.</p>
+    </note>
+  </section>
+
+  <section>
+    <marker id="match_target"/>
+    <title>Match target</title>
+    <p>Each execution of a match specification is done against
+      a match target term. The format and content of the target term
+      depends on the context in which the match is done. The match
+      target for ETS is always a full table tuple. The match target
+      for call trace is always a list of all function arguments. The
+      match target for event trace depends on the event type, see
+      table below.</p>
+      <table>
+      <row>
+        <cell align="left" valign="middle">Context</cell>
+        <cell align="left" valign="middle">Type</cell>
+        <cell align="left" valign="middle">Match target</cell>
+        <cell align="left" valign="middle">Description</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ETS</cell>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">{Key, Value1, Value2, ...}</cell>
+        <cell align="left" valign="middle">A table object</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">call</cell>
+        <cell align="left" valign="middle">[Arg1, Arg2, ...]</cell>
+        <cell align="left" valign="middle">Function arguments</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">send</cell>
+        <cell align="left" valign="middle">[Receiver, Message]</cell>
+        <cell align="left" valign="middle">Receiving process/port and message term</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">'receive'</cell>
+        <cell align="left" valign="middle">[Node, Sender, Message]</cell>
+        <cell align="left" valign="middle">Sending node, process/port and message term</cell>
+      </row>
+      <tcaption>Match target depending on context</tcaption>
+      </table>
+  </section>
+
+  <section>
+    <title>Variables and Literals</title>
+    <p>Variables take the form <c><![CDATA['$<number>']]></c>, where
+      <c><![CDATA[<number>]]></c> is an integer between 0 and
+      100,000,000 (1e+8). The behavior if the number is outside these limits
+      is <em>undefined</em>. In the <c><![CDATA[MatchHead]]></c> part, the
+      special variable <c><![CDATA['_']]></c> matches anything, and never gets
+      bound (like <c><![CDATA[_]]></c> in Erlang).</p>
+
+    <list type="bulleted">
+      <item>
+        <p>In the <c><![CDATA[MatchCondition/MatchBody]]></c> parts,
+          no unbound variables are allowed, so <c><![CDATA['_']]></c> is
+          interpreted as itself (an atom). Variables can only be bound in the
+          <c><![CDATA[MatchHead]]></c> part.</p>
+      </item>
+      <item>
+        <p>In the <c><![CDATA[MatchBody]]></c> and
+          <c><![CDATA[MatchCondition]]></c> parts, only variables bound
+          previously can be used.</p>
+      </item>
+      <item>
+        <p>As a special case, the following apply in the
+          <c><![CDATA[MatchCondition/MatchBody]]></c> parts:</p>
+        <list type="bulleted">
+          <item>
+            <p>The variable <c><![CDATA['$_']]></c> expands to the whole
+            <seealso marker="#match_target">match target</seealso> term.
+            </p>
+          </item>
+          <item>
+            <p>The variable <c><![CDATA['$$']]></c> expands to a list of the
+              values of all bound variables in order (that is,
+              <c><![CDATA[['$1','$2', ...]]]></c>).</p>
+          </item>
+        </list>
+      </item>
+    </list>
+
+    <p>In the <c><![CDATA[MatchHead]]></c> part, all literals (except the
+      variables above) are interpreted "as is".</p>
+
+    <p>In the <c><![CDATA[MatchCondition/MatchBody]]></c> parts, the
+      interpretation is in some ways different. Literals in these parts
+      can either be written "as is", which works for all literals except
+      tuples, or by using the special form <c><![CDATA[{const, T}]]></c>,
+      where <c><![CDATA[T]]></c> is any Erlang term.</p>
+
+    <p>For tuple literals in the match specification, double tuple parentheses
+      can also be used, that is, construct them as a tuple of
+      arity one containing a single tuple, which is the one to be
+      constructed. The "double tuple parenthesis" syntax is useful to
+      construct tuples from already bound variables, like in
+      <c><![CDATA[{{'$1', [a,b,'$2']}}]]></c>. Examples:</p>
+
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Expression</em></cell>
+        <cell align="left" valign="middle"><em>Variable Bindings</em></cell>
+        <cell align="left" valign="middle"><em>Result</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">{{'$1','$2'}}</cell>
+        <cell align="left" valign="middle">'$1' = a, '$2' = b</cell>
+        <cell align="left" valign="middle">{a,b}</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">{const, {'$1', '$2'}}</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">{'$1', '$2'}</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">a</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">a</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">'$1'</cell>
+        <cell align="left" valign="middle">'$1' = []</cell>
+        <cell align="left" valign="middle">[]</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">['$1']</cell>
+        <cell align="left" valign="middle">'$1' = []</cell>
+        <cell align="left" valign="middle">[[]]</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">[{{a}}]</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">[{a}]</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">42</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">42</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">"hello"</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">"hello"</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">$1</cell>
+        <cell align="left" valign="middle">Irrelevant</cell>
+        <cell align="left" valign="middle">49 (the ASCII value for
+          character '1')</cell>
+      </row>
+      <tcaption>Literals in MatchCondition/MatchBody Parts of a Match
+        Specification</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>Execution of the Match</title>
+    <p>The execution of the match expression, when the runtime system
+      decides whether a trace message is to be sent, is as follows:</p>
+
+    <p>For each tuple in the <c><![CDATA[MatchExpression]]></c> list and while
+      no match has succeeded:</p>
+
+    <list type="ordered">
+      <item>
+        <p>Match the <c><![CDATA[MatchHead]]></c> part against the match target
+          term, binding the <c><![CDATA['$<number>']]></c> variables
+          (much like in <c><![CDATA[ets:match/2]]></c>). If the
+          <c><![CDATA[MatchHead]]></c> part cannot match the arguments, the
+          match fails.</p>
+      </item>
+      <item>
+        <p>Evaluate each <c><![CDATA[MatchCondition]]></c> (where only
+          <c><![CDATA['$<number>']]></c> variables previously bound in the
+          <c><![CDATA[MatchHead]]></c> part can occur) and expect it to return
+          the atom <c><![CDATA[true]]></c>. When a condition does not evaluate
+          to <c><![CDATA[true]]></c>, the match fails. If any BIF call
+          generates an exception, the match also fails.</p>
+      </item>
+      <item>
+        <p>Two cases can occur:</p>
+        <list type="bulleted">
+          <item>
+            <p>If the match specification is executing when tracing:</p>
+            <p>Evaluate each <c><![CDATA[ActionTerm]]></c> in the same way as
+              the <c><![CDATA[MatchConditions]]></c>, but ignore the return
+              values. Regardless of what happens in this part, the match has
+              succeeded.</p>
+          </item>
+          <item>
+            <p>If the match specification is executed when selecting objects
+              from an ETS table:</p>
+            <p>Evaluate the expressions in order and return the value of
+              the last expression (typically there is only one expression
+              in this context).</p>
+          </item>
+        </list>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="differences_ets_tracing"/>
+    <title>Differences between Match Specifications in ETS and Tracing</title>
+    <p>ETS match specifications produce a return value.
+        Usually the <c><![CDATA[MatchBody]]></c> contains one single
+        <c><![CDATA[ConditionExpression]]></c> that defines the return value
+        without any side effects. Calls with side effects are not allowed in
+        the ETS context.</p>
+
+    <p>When tracing there is no return value to produce, the
+      match specification either matches or does not. The effect when the
+      expression matches is a trace message rather than a returned
+      term. The <c><![CDATA[ActionTerm]]></c>s are executed as in an imperative
+      language, that is, for their side effects. Functions with side effects
+      are also allowed when tracing.</p>
+  </section>
+
+  <section>
+    <title>Tracing Examples</title>
+    <p>Match an argument list of three, where the first and third arguments
+      are equal:</p>
+
+    <code type="none"><![CDATA[
+[{['$1', '_', '$1'],
+  [],
+  []}]
+    ]]></code>
+
+    <p>Match an argument list of three, where the second argument is
+      a number &gt; 3:</p>
+
+    <code type="none"><![CDATA[
+[{['_', '$1', '_'],
+  [{ '>', '$1', 3}],
+  []}]
+    ]]></code>
+
+    <p>Match an argument list of three, where the third argument is
+      either a tuple containing argument one and two, <em>or</em> a list
+      beginning with argument one and two (that is,
+      <c><![CDATA[[a,b,[a,b,c]]]]></c> or <c><![CDATA[[a,b,{a,b}]]]></c>):</p>
+
+    <code type="none"><![CDATA[
+[{['$1', '$2', '$3'],
+  [{'orelse', 
+      {'=:=', '$3', {{'$1','$2'}}},
+      {'and', 
+        {'=:=', '$1', {hd, '$3'}},
+        {'=:=', '$2', {hd, {tl, '$3'}}}}}],
+  []}]
+    ]]></code>
+
+    <p>The above problem can also be solved as follows:</p>
+
+    <code type="none"><![CDATA[
+[{['$1', '$2', {'$1', '$2}], [], []},
+ {['$1', '$2', ['$1', '$2' | '_']], [], []}]
+    ]]></code>
+
+    <p>Match two arguments, where the first is a tuple beginning with
+      a list that in turn begins with the second argument times
+      two (that is, <c>[{[4,x],y},2]</c> or <c>[{[8], y, z},4])</c>:</p>
+
+    <code type="none"><![CDATA[
+[{['$1', '$2'],[{'=:=', {'*', 2, '$2'}, {hd, {element, 1, '$1'}}}],
+  []}]
+    ]]></code>
+
+    <p>Match three arguments. When all three are equal and are
+      numbers, append the process dump to the trace message, otherwise
+      let the trace message be "as is", but set the sequential trace
+      token label to 4711:</p>
+
+    <code type="none"><![CDATA[
+[{['$1', '$1', '$1'],
+  [{is_number, '$1'}],
+  [{message, {process_dump}}]},
+ {'_', [], [{set_seq_token, label, 4711}]}]
+    ]]></code>
+
+    <p>As can be noted above, the parameter list can be matched against a
+      single <c><![CDATA[MatchVariable]]></c> or an <c><![CDATA['_']]></c>.
+      To replace the whole parameter list with a single variable is a special
+      case. In all other cases the <c><![CDATA[MatchHead]]></c> must be a
+      <em>proper</em> list.</p>
+
+    <p>Generate a trace message only if the trace control word is set to 1:</p>
+
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{get_tcw},{const, 1}}],
+  []}]
+    ]]></code>
+
+    <p>Generate a trace message only if there is a <c>seq_trace</c> token:</p>
+
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{is_seq_trace},{const, 1}}],
+  []}]
+    ]]></code>
+
+    <p>Remove the <c>'silent'</c> trace flag when the first argument is
+      <c>'verbose'</c>, and add it when it is <c>'silent':</c></p>
+
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{hd, '$1'},verbose}],
+  [{trace, [silent],[]}]},
+ {'$1',
+  [{'==',{hd, '$1'},silent}],
+  [{trace, [],[silent]}]}]
+    ]]></code>
+
+    <p>Add a <c>return_trace</c> message if the function is of arity 3:</p>
+
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{length, '$1'},3}],
+  [{return_trace}]},
+ {'_',[],[]}]
+    ]]></code>
+
+    <p>Generate a trace message only if the function is of arity 3 and the
+      first argument is <c>'trace'</c>:</p>
+
+    <code type="none"><![CDATA[
+[{['trace','$2','$3'],
+  [],
+  []},
+ {'_',[],[]}]
+    ]]></code>
+  </section>
+
+  <section>
+    <title>ETS Examples</title>
+    <p>Match all objects in an ETS table, where the first element is
+      the atom <c>'strider'</c> and the tuple arity is 3, and return the whole
+      object:</p>
+
+    <code type="none"><![CDATA[
+[{{strider,'_','_'},
+  [],
+  ['$_']}]
+    ]]></code>
+
+    <p>Match all objects in an ETS table with arity &gt; 1 and the first
+      element is 'gandalf', and return element 2:</p>
+
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==', gandalf, {element, 1, '$1'}},{'>=',{size, '$1'},2}],
+  [{element,2,'$1'}]}]
+    ]]></code>
+
+    <p>In this example, if the first element had been the key, it is
+      much more efficient to match that key in the <c><![CDATA[MatchHead]]></c>
+      part than in the <c><![CDATA[MatchConditions]]></c> part.
+      The search space of the tables is restricted with regards to the
+      <c><![CDATA[MatchHead]]></c> so
+      that only objects with the matching key are searched.</p>
+
+    <p>Match tuples of three elements, where the second element is either
+      <c>'merry'</c> or <c>'pippin'</c>, and return the whole objects:</p>
+
+    <code type="none"><![CDATA[
+[{{'_',merry,'_'},
+  [],
+  ['$_']},
+ {{'_',pippin,'_'},
+  [],
+  ['$_']}]
+    ]]></code>
+
+    <p>Function <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seealso>
+      can be useful for testing complicated ETS matches.</p>
+  </section>
+</chapter>

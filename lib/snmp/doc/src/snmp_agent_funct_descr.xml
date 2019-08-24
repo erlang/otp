@@ -1,0 +1,948 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Agent Functional Description</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_agent_funct_descr.xml</file>
+  </header>
+  <p>The SNMP agent system consists of one Master Agent and
+    optional Sub-agents.
+    </p>
+  <p>The tool makes it easy to dynamically extend an SNMP agent in
+    run-time. MIBs can be loaded and unloaded at any time. It is also
+    easy to change the implementation of an MIB in run-time, without
+    having to recompile the MIB. The MIB implementation is clearly
+    separated from the agent.
+    </p>
+  <p>To facilitate incremental MIB implementation, the tool can
+    generate a prototype implementation for a whole MIB, or parts
+    thereof. This allows different MIBs and management applications to
+    be developed at the same time.
+    </p>
+
+  <section>
+    <title>Features</title>
+    <marker id="features"></marker>
+    <p>To implement an agent, the programmer writes instrumentation
+      functions for the variables and the tables in the MIBs that the
+      agent is going to support. A running prototype which handles <c>set</c>,
+      <c>get</c>, and <c>get-next</c> can be created without any programming.
+      </p>
+    <p>The toolkit provides the following:
+      </p>
+    <list type="bulleted">
+      <item>multi-lingual multi-threaded extensible SNMP agent</item>
+      <item>easy writing of instrumentation functions with a
+       high-level programming language</item>
+      <item>basic fault handling such as automatic type checking</item>
+      <item>access control</item>
+      <item>authentication</item>
+      <item>privacy through encryption</item>
+      <item>loading and unloading of MIBs in run-time</item>
+      <item>the ability to change instrumentation functions without
+       recompiling the MIB</item>
+      <item>rapid prototyping environment where the MIB compiler can
+       use generic instrumentation functions, which later can be
+       refined by the programmer</item>
+      <item>a simple and extensible model for transaction handling and
+       consistency checking of set-requests</item>
+      <item>support of the sub-agent concept via distributed Erlang</item>
+      <item>a mechanism for sending notifications (traps and informs)</item>
+      <item>support for implementing SNMP tables in the Mnesia DBMS.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>SNMPv1, SNMPv2 and SNMPv3</title>
+    <marker id="versions"></marker>
+    <p>The SNMP development toolkit works with all three versions of
+      Standard Internet Management Framework; SNMPv1, SNMPv2 and SNMPv3.
+      They all share the same basic structure and components. And they 
+      follow the same architecture.</p>
+    <p>The versions are defined in following RFCs</p>
+    <list type="bulleted">
+      <item>SNMPv1        RFC 1555, 1157 1212, 1213 and 1215</item>
+      <item>SNMPv2        RFC 1902 - 1907</item>
+      <item>SNMPv3        RFC  2570 - 2575</item>
+    </list>
+    <p>Over time, as the Framework has evolved from SNMPv1 , through SNMPv2, 
+      to SNMPv3 the definitions of each of these architectural components
+      have become richer and more clearly defined, but the fundamental
+      architecture has remained consistent.</p>
+    <p>The main features of SNMPv2 compared to SNMPv1 are:
+      </p>
+    <list type="bulleted">
+      <item>The <c>get-bulk</c> operation for transferring large
+       amounts of data.
+      </item>
+      <item>Enhanced error codes.
+      </item>
+      <item>A more precise language for MIB specification</item>
+    </list>
+    <p>The standard documents that define SNMPv2 are incomplete, in
+      the sense that they do not specify how an SNMPv2 message looks
+      like.  The message format and security issues are left to a
+      special Administrative Framework. One such framework is the
+      Community-based SNMPv2 Framework (SNMPv2c), which uses the same
+      message format and framework as SNMPv1.   Other
+      experimental frameworks as exist, e.g. SNMPv2u and SNMPv2*.
+      </p>
+    <p>The SNMPv3 specifications take a modular 
+      approach to SNMP.  All modules are
+      separated from each other, and can be extended or replaced
+      individually.  Examples of modules are Message definition,
+      Security and Access Control.  The main features of SNMPv3 are:
+      </p>
+    <list type="bulleted">
+      <item>Encryption and authentication is added.
+      </item>
+      <item>MIBs for agent configuration are defined.</item>
+    </list>
+    <p>All these specifications are commonly referred to as "SNMPv3",
+      but it is actually only the Message module, which defines a new
+      message format, and Security module, which takes care of
+      encryption and authentication, that cannot be used with SNMPv1 or
+      SNMPv2c.  In this version of the agent toolkit, all the standard
+      MIBs for agent configuration are used.  This includes MIBs for
+      definition of management targets for notifications.  These MIBs
+      are used regardless of which SNMP version the agent is configured
+      to use.
+      </p>
+    <p>The extensible agent in this toolkit understands the SNMPv1,
+      SNMPv2c and SNMPv3. Recall that SNMP consists of two separate
+      parts, the MIB definition language (SMI), and the protocol.  On
+      the protocol level, the agent can be configured to speak v1, v2c,
+      v3 or any combination of them at the same time, i.e. a v1 request
+      gets an v1 reply, a v2c request gets a v2c reply, and a v3 request
+      gets a v3 reply.  On the MIB level, the MIB compiler can compile
+      both SMIv1 and SMIv2 MIBs.  Once compiled, any of the formats can
+      be loaded into the agent, regardless of which protocol version the
+      agent is configured to use.  This means that the agent translates
+      from v2 notifications to v1 traps, and vice versa.  For example,
+      v2 MIBs can be loaded into an agent that speaks v1 only.  The
+      procedures for the translation between the two protocols are
+      described in RFC 1908 and RFC 2089.
+      </p>
+    <p>In order for an implementation to make full use of the enhanced
+      SNMPv2 error codes, it is essential that the instrumentation
+      functions always return SNMPv2 error codes, in case of error.
+      These are translated into the corresponding SNMPv1 error codes by
+      the agent, if necessary.</p>
+    <note>
+      <p>The translation from an SMIv1 MIB to an SNMPv2c or SNMPv3 reply
+        is always very straightforward, but the translation from a v2 MIB
+        to a v1 reply is somewhat more complicated.  There is one data
+        type in SMIv2, called <c>Counter64</c>, that an SNMPv1 manager cannot
+        decode correctly.  Therefore, an agent may never send a <c>Counter64</c>
+        object to an SNMPv1 manager.  The common practice in these
+        situations is to simple ignore any <c>Counter64</c> objects, when sending
+        a reply or a trap to an SNMPv1 manager.  For example, if an SNMPv1
+        manager tries to GET an object of type <c>Counter64</c>, he will get a
+        <c>noSuchName</c> error, while an SNMPv2 manager would get a
+        correct value.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Operation</title>
+    <marker id="operations"></marker>
+    <p>The following steps are needed to get a running agent:</p>
+    <list type="ordered">
+      <item>
+        <p>Write your MIB in SMI in a text file.</p>
+      </item>
+      <item>
+        <p>Write the instrumentation functions in Erlang and compile them.</p>
+      </item>
+      <item>
+        <p>Put their names in the association file.</p>
+      </item>
+      <item>
+        <p>Run the MIB together with the association file through the
+          MIB compiler.</p>
+      </item>
+      <item>
+        <p>Configure the application (agent).</p>
+      </item>
+      <item>
+        <p>Start the application (agent).</p>
+      </item>
+      <item>
+        <p>Load the compiled MIB into the agent.</p>
+      </item>
+    </list>
+    <p>The figures in this section illustrate the steps involved in
+      the development of an SNMP agent.</p>
+    <marker id="image-1"></marker>
+    <image file="snmp-um-1-image-1.gif">
+      <icaption>MIB Compiler Principles</icaption>
+    </image>
+    <p>The compiler parses the SMI file and associates each table or
+      variable with an instrumentation function (see the figure <seealso marker="#image-1">MIB Compiler Principles</seealso>). The actual
+      instrumentation functions are not needed at MIB compile time, only
+      their names.
+      </p>
+    <p>The binary output file produced by the compiler is read by the
+      agent at MIB load time (see the figure <seealso marker="#image-2">Starting the Agent</seealso>). The instrumentation is ordinary Erlang code which
+      is loaded explicitly or automatically the first time it is called.</p>
+    <marker id="image-2"></marker>
+    <image file="snmp-um-1-image-2.gif">
+      <icaption>Starting the Agent</icaption>
+    </image>
+    <p>The SNMP agent system consists of one Master Agent and optional
+      sub-agents. The Master Agent can be seen as a special kind of
+      sub-agent. It implements the core agent functionality, UDP packet
+      processing, type checking, access control, trap distribution, and
+      so on. From a user perspective, it is used as an ordinary
+      sub-agent.
+      </p>
+    <p>Sub-agents are only needed if your application requires special
+      support for distribution from the SNMP toolkit. A sub-agent can
+      also be used if the application requires a more complex set
+      transaction scheme than is found in the master agent.
+      </p>
+    <p>The following illustration shows how a system can look  in runtime.</p>
+    <marker id="snmp_ch2_fig3"></marker>
+    <image file="snmp-um-1-image-3.gif">
+      <icaption>Architecture</icaption>
+    </image>
+    <p>A typical operation could include the following steps:</p>
+    <list type="ordered">
+      <item>The Manager sends a request to the Agent.</item>
+      <item>The Master Agent  decodes the incoming UDP packet.</item>
+      <item>The Master Agent determines which items in the request
+       that should be processed here and which items should be
+       forwarded to its subagent.</item>
+      <item>Step 3 is repeated by all subagents.</item>
+      <item>Each sub-agent calls the instrumentation for its loaded MIBs.</item>
+      <item>The results of calling the instrumentation are propagated
+       back to the Master Agent.</item>
+      <item>The answer to the request is encoded to a UDP Protocol
+       Data Unit (PDU).</item>
+    </list>
+    <p>The sequence of steps shown is probably more complex than
+      normal, but it illustrates the amount of functionality which is
+      available. The following points should be noted:
+      </p>
+    <list type="bulleted">
+      <item>An agent can have many MIBs loaded at the same time.</item>
+      <item>Sub-agents can also have sub-agents. Each sub-agent can have
+       an arbitrary number of child sub-agents registered, forming a
+       hierarchy.</item>
+      <item>One MIB can communicate with many applications.</item>
+      <item>Instrumentation can use Distributed Erlang to communicate
+       with an application.</item>
+    </list>
+    <p>Most applications only need the Master Agent because an agent
+      can have multiple MIBs loaded at the same time.</p>
+  </section>
+
+  <section>
+    <title>Sub-agents and MIB Loading</title>
+    <marker id="sub_agent_mib_loading"></marker>
+    <p>Since applications tend to be transient (they are dynamically
+      loaded and unloaded), the management of these applications must be
+      dynamic as well. For example, if we have an equipment MIB for a
+      rack and different MIBs for boards, which can be installed in the
+      rack, the MIB for a card should be loaded when the card is
+      inserted, and unloaded when the card is removed.
+      </p>
+    <p>In this agent system, there are two ways to dynamically install
+      management information. The most common way is to load an MIB into
+      an agent. The other way is to use a sub-agent, which is controlled
+      by the application and is able to register and unregister itself. A
+      sub-agent can register itself for managing a sub-tree (not to be mixed up
+      with <c>erlang:register</c>). The sub-tree is identified by an
+      Object Identifier. When a sub-agent is registered, it receives all
+      requests for this particular sub-tree and it is responsible for
+      answering them. It should also be noted that a sub-agent can be
+      started and stopped at any time.
+      </p>
+    <p>Compared to other SNMP agent packages, there is a significant
+      difference in this way of using sub-agents. Other packages normally
+      use sub-agents to load and unload MIBs in run-time. In Erlang, it is
+      easy to load code in run-time and it is possible to load an MIB
+      into an existing sub-agent. It is not necessary to create a new process
+      for handling a new MIB.
+      </p>
+    <p>Sub-agents are used for the following reasons:
+      </p>
+    <list type="bulleted">
+      <item>to provide a more complex set-transaction scheme than
+       master agent</item>
+      <item>to avoid unnecessary process communication</item>
+      <item>to provide a more lightweight mechanism for loading and
+       unloading MIBs in run-time</item>
+      <item>to provide interaction with other SNMP agent toolkits.</item>
+    </list>
+    <p>Refer to the chapter 
+      <seealso marker="snmp_advanced_agent">Advanced Agent Topics</seealso> 
+      in this User's Guide for more information about these topics.
+      </p>
+    <p>The communication protocol between sub-agents is the normal
+      message passing which is used in distributed Erlang systems. This
+      implies that sub-agent communication is very efficient compared to
+      SMUX, DPI, AgentX, and similar protocols.</p>
+  </section>
+
+  <section>
+    <title>Contexts and Communities</title>
+    <marker id="context_and_communities"></marker>
+    <p>A context is a collection of management information accessible
+      by an SNMP entity. An instance of a management object may exist in
+      more than one context. An SNMP entity potentially has access to
+      many contexts.</p>
+    <p>Each managed object can exist in many instances within a
+      SNMP entity. To identify the instances, specified by an MIB module,
+      a method to distinguish the actual instance by its 'scope' or 
+      context is used. Often the context is a physical or a logical device. 
+      It can include multiple devices, a subset of a single device or a 
+      subset of multiple devices, but the context is always
+      defined as a subset of a single SNMP entity. To be able to 
+      identify a specific 
+      item of management information within an SNMP entity, the context,
+      the object type and its instance must be used.</p>
+    <p>For example, the managed object type <c>ifDescr</c> from RFC1573, is
+      defined as the description of a network interface.  To identify
+      the description of device-X's first network interface, four pieces
+      of information are needed: the snmpEngineID of the SNMP entity
+      which provides access to the management information at device-X,
+      the <c>contextName</c> (device-X), the managed object type 
+      (<c>ifDescr</c>), and the instance ("1").
+      </p>
+    <p>In SNMPv1 and SNMPv2c, the community string in the message was
+      used for (at least) three different purposes:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>to identify the context</p>
+      </item>
+      <item>
+        <p>to provide authentication</p>
+      </item>
+      <item>
+        <p>to identify a set of trap targets</p>
+      </item>
+    </list>
+    <p>In SNMPv3, each of these usage areas has its own unique
+      mechanism.  A context is identified by the name of the SNMP
+      entity, <c>contextEngineID</c>, and the name of the context,
+      <c>contextName</c>.  Each SNMPv3 message contains values for these
+      two parameters.
+      </p>
+    <p>There is a MIB, SNMP-COMMUNITY-MIB, which maps a community
+      string to a <c>contextEngineID</c> and <c>contextName</c>. Thus, 
+      each message, an SNMPv1, SNMPv2c or an SNMPv3 message, always 
+      uniquely identifies a context.
+      </p>
+    <p>For an agent, the <c>contextEngineID</c> identified by a received
+      message, is always equal to the <c>snmpEngineID</c> of the agent.
+      Otherwise, the message was not intended for the agent.  If the
+      agent is configured with more than one context, the
+      instrumentation code must be able to figure out for which context
+      the request was intended.  There is a function
+      <c>snmpa:current_context/0</c> provided for this purpose.
+      </p>
+    <p>By default, the agent has no knowledge of any other contexts
+      than the default context, <c>""</c>.  If it is to support more
+      contexts, these must be explicitly added, by using an appropriate
+      configuration file 
+      <seealso marker="snmp_agent_config_files">Agent Configuration Files</seealso>.
+      </p>
+  </section>
+
+  <section>
+    <title>Management of the Agent</title>
+    <marker id="management"></marker>
+    <p>There is a set of standard MIBs, which are used to control and
+      configure an SNMP agent.  All of these MIBs, with the exception of
+      the optional SNMP-PROXY-MIB (which is only used for proxy agents),
+      are implemented in this agent.  Further, it is configurable which
+      of these MIBs are actually loaded, and thus made visible to SNMP
+      managers.  For example, in a non-secure environment, it might be a
+      good idea to not make MIBs that define access control visible.
+      Note, the data the MIBs define is used internally in the
+      agent, even if the MIBs not are loaded.  This chapter describes
+      these standard MIBs, and some aspects of their implementation.
+      </p>
+    <p>Any SNMP agent must implement the <c>system</c> group and the
+      <c>snmp</c> group, defined in MIB-II.  The definitions of these
+      groups have changed from SNMPv1 to SNMPv2.   MIBs and implementations
+      for both of these versions are Provided in the
+      distribution.  The MIB file for SNMPv1 is called STANDARD-MIB, and the
+      corresponding for SNMPv2 is called SNMPv2-MIB.  If the agent is
+      configured for SNMPv1 only, the STANDARD-MIB is loaded by default;
+      otherwise, the SNMPv2-MIB is loaded by default.  It is possible to
+      override this default behavior, by explicitly loading another
+      version of this MIB, for example, you could choose to implement
+      the union of all objects in these two MIBs.
+      </p>
+    <p>An SNMPv3 agent must implement the SNMP-FRAMEWORK-MIB and
+      SNMP-MPD-MIB.  These MIBs are loaded by default, if the agent is
+      configured for SNMPv3.  These MIBs can be loaded for other
+      versions as well.
+      </p>
+    <p>There are five other standard MIBs, which also may be loaded
+      into the agent.  These MIBs are:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>SNMP-TARGET-MIB and SNMP-NOTIFICATION-MIB, which defines
+          managed objects for configuration of management targets,
+          i.e. receivers of notifications (traps and informs).  These
+          MIBs can be used with any SNMP version.
+          </p>
+      </item>
+      <item>
+        <p>SNMP-VIEW-BASED-ACM-MIB, which defined managed objects
+          for access control.  This MIB can be used with any SNMP
+          version.
+          </p>
+      </item>
+      <item>
+        <p>SNMP-COMMUNITY-MIB, which defines managed objects for
+          coexistence of SNMPv1 and SNMPv2c with SNMPv3.  This MIB is
+          only useful if SNMPv1 or SNMPv2c is used, possibly in
+          combination with SNMPv3.
+          </p>
+      </item>
+      <item>
+        <p>SNMP-USER-BASED-SM-MIB, which defines managed objects
+          for authentication and privacy.  This MIB is only useful
+          with SNMPv3.
+          </p>
+      </item>
+    </list>
+    <p>All of these MIBs should be loaded into the Master Agent.  Once
+      loaded, these MIBs are always available in all contexts.
+      </p>
+    <p>The ASN.1 code, the Erlang source code, and the generated
+      <c>.hrl</c> files for them are provided in the distribution and are 
+      placed  in the directories <c>mibs</c>, <c>src</c>, and <c>include</c>,
+      respectively, in the <c>snmp</c> application.
+      </p>
+    <p>The <c>.hrl</c> files are generated with
+      <c>snmpc:mib_to_hrl/1</c>.  Include these files in your code as in
+      the following example:
+      </p>
+    <code type="none">
+-include_lib("snmp/include/SNMPv2-MIB.hrl").
+    </code>
+    <p>The initial values for the managed objects defined in these
+      tables, are read at start-up from a set of configuration files.
+      These are described in <seealso marker="snmp_config">Configuration Files</seealso>.
+      </p>
+
+    <section>
+      <title>STANDARD-MIB and SNMPv2-MIB</title>
+      <p>These MIBs contain the <c>snmp-</c> and <c>system</c> groups
+        from MIB-II which is defined in RFC1213 (STANDARD-MIB) or
+        RFC1907 (SNMPv2-MIB).  They are implemented in the
+        <c>snmp_standard_mib</c> module. The <c>snmp</c> counters all
+        reside in volatile memory and the <c>system</c> and
+        <c>snmpEnableAuthenTraps</c> variables in persistent memory,
+        using the SNMP built-in database (refer to the Reference Manual,
+        section <c>snmp</c>, module <c>snmpa_local_db</c> for more
+        details).</p>
+      <p>If another implementation of any of these variables is needed,
+        e.g. to store the persistent variables in a Mnesia database,
+        an own implementation of the variables must be made. That MIB 
+        will be compiled and loaded instead of the default MIB. 
+        The new compiled MIB
+        must have the same name as the original MIB (i.e. STANDARD-MIB
+        or SNMPv2-MIB), and be located in the SNMP configuration
+        directory (see <seealso marker="snmp_config">Configuration Files</seealso>.) 
+        </p>
+      <p>One of these MIBs is always loaded.  If only SNMPv1 is used,
+        STANDARD-MIB is loaded, otherwise SNMPv2-MIB is loaded.
+        </p>
+
+      <section>
+        <title>Data Types</title>
+        <p>There are some new data types in SNMPv2 that are useful in
+          SNMPv1 as well.  In the STANDARD-MIB, three data types are
+          defined, <c>RowStatus</c>, <c>TruthValue</c> and
+          <c>DateAndTime</c>.  These data types are originally defined
+          as textual conventions in SNMPv2-TC (RFC1903).
+          </p>
+      </section>
+    </section>
+
+    <section>
+      <title>SNMP-FRAMEWORK-MIB and SNMP-MPD-MIB</title>
+      <p>The SNMP-FRAMEWORK-MIB and SNMP-MPD-MIB define additional 
+        read-only managed objects, which
+        is used in the generic SNMP framework defined in RFC2271 and the
+        generic message processing and dispatching module defined in
+        RFC2272.  They are generic in the sense that they are not tied
+        to any specific SNMP version.
+        </p>
+      <p>The objects in these MIBs are implemented in the modules
+        <c>snmp_framework_mib</c> and <c>snmp_standard_mib</c>,
+        respectively.  All objects reside in volatile memory, and the
+        configuration files are always reread at start-up.
+        </p>
+      <p>If SNMPv3 is used, these MIBs are loaded by default.
+        </p>
+    </section>
+
+    <section>
+      <title>SNMP-TARGET-MIB and SNMP-NOTIFICATION-MIB</title>
+      <p>The SNMP-TARGET-MIB and SNMP-NOTIFICATION-MIB define managed 
+        objects for configuration of notification receivers.  They 
+        are described in detail in RFC2273.  Only a brief description 
+        is given here.
+        </p>
+      <p>All tables in these MIBs have a column of type
+        <c>StorageType</c>.  The value of this column specifies how each
+        row is stored, and what happens in case of a restart of the
+        agent.  The implementation supports the values <c>volatile</c>
+        and <c>nonVolatile</c>.  When the tables are initially filled
+        with data from the configuration files, these rows will
+        automatically have storage type <c>nonVolatile</c>.  Should the
+        agent restart, all <c>nonVolatile</c> rows survive the restart,
+        while the <c>volatile</c> rows are lost.
+        The configuration files are not read at restart, by default.
+        </p>
+      <p>These MIBs are not loaded by default.
+        </p>
+
+      <section>
+        <title>snmpNotifyTable</title>
+        <p>An entry in the <c>snmpNotifyTable</c> selects a set
+          of management targets, which should receive notifications, 
+          as well as the type (trap or inform) of notification that 
+          should be sent to each selected management target.
+          When an application sends a notification using
+          the function <c>send_notification/5</c> or the function
+          <c>send_trap</c> the parameter <c>NotifyName</c>, specified in
+          the call, is used as an index in the table.  The notification
+          is sent to the management targets selected by that entry.
+          </p>
+      </section>
+
+      <section>
+        <title>snmpTargetAddrTable</title>
+        <p>An entry in the <c>snmpTargetAddrTable</c> defines
+          transport parameters (such as
+          IP address and UDP port) for each management target.  Each row
+          in the <c>snmpNotifyTable</c> refers to potentially many rows
+          in the <c>snmpTargetAddrTable</c>.  Each row in the
+          <c>snmpTargetAddrTable</c>
+          refers to an entry in the <c>snmpTargetParamsTable</c>.
+          </p>
+      </section>
+
+      <section>
+        <title>snmpTargetParamsTable</title>
+        <p>An entry in the <c>snmpTargetParamsTable</c> defines 
+          which SNMP version to use, and which security parameters to use.
+          </p>
+        <p>Which SNMP version to use is implicitly defined by
+          specifying the Message Processing Model.  This version of the
+          agent handles the models <c>v1</c>, <c>v2c</c> and <c>v3</c>.
+          </p>
+        <p>Each row specifies which security model to use, along with
+          security level and security parameters.
+          </p>
+      </section>
+    </section>
+
+    <section>
+      <title>SNMP-VIEW-BASED-ACM-MIB</title>
+      <p>The SNMP-VIEW-BASED-ACM-MIB defines managed objects to
+        control access to the the managed objects for the managers.  
+        The View Based Access Control Module (VACM) can be used with 
+        any SNMP version. However, if it is used with SNMPv1 or SNMPv2c, 
+        the SNMP-COMMUNITY-MIB defines additional objects to map 
+        community strings to VACM parameters.
+        </p>
+      <p>All tables in this MIB have a column of type <c>StorageType</c>.  
+        The value of this column specifies how each
+        row is stored, and what happens in case of a restart of the
+        agent.  The implementation supports the values <c>volatile</c>
+        and <c>nonVolatile</c>.  When the tables are initially filled
+        with data from the configuration files, these rows will
+        automatically have storage type <c>nonVolatile</c>.  Should the
+        agent restart, all <c>nonVolatile</c> rows survive the restart,
+        while the <c>volatile</c> rows are lost.
+        The configuration files are not read at restart by default.
+        </p>
+      <p>This MIB is not loaded by default.
+        </p>
+      <p>VACM is described in detail in RFC2275.  Here is only a brief
+        description given.
+        </p>
+      <p>The basic concept is that of a <em>MIB view</em>.  An MIB view
+        is a subset of all the objects implemented by an agent.  A
+        manager has access to a certain MIB view, depending on which
+        security parameters are used, in which context the request is
+        made, and which type of request is made.
+        </p>
+      <p>The following picture gives an overview of the mechanism to
+        select an MIB view:</p>
+      <image file="MIB_mechanism.gif">
+        <icaption>Overview of the mechanism of MIB selection</icaption>
+      </image>
+
+      <section>
+        <title>vacmContextTable</title>
+        <p>The <c>vacmContextTable</c> is a read-only table that lists all
+          available contexts.
+          </p>
+      </section>
+
+      <section>
+        <title>vacmSecurityToGroupTable</title>
+        <p>The <c>vacmSecurityToGroupTable</c> maps a <c>securityModel</c>
+          and a
+          <c>securityName</c> to a <c>groupName</c>.
+          </p>
+      </section>
+
+      <section>
+        <title>vacmAccessTable</title>
+        <p>The <c>vacmAccessTable</c> maps the <c>groupName</c> (found in
+          <c>vacmSecurityToGroupTable</c>), <c>contextName</c>,
+          <c>securityModel</c>, and <c>securityLevel</c> to an MIB view
+          for each type of operation (read, write, or notify).  The MIB
+          view is represented as a <c>viewName</c>.  The definition of
+          the MIB view represented by the <c>viewName</c> is found in
+          the <c>vacmViewTreeFamilyTable</c></p>
+      </section>
+
+      <section>
+        <title>vacmViewTreeFamilyTable</title>
+        <p>The <c>vacmViewTreeFamilyTable</c> is indexed by the
+          <c>viewName</c>, and defines
+          which objects are included in the MIB view.
+          </p>
+        <p>The MIB definition for the table looks as follows:</p>
+        <pre>
+VacmViewTreeFamilyEntry ::= SEQUENCE
+    {
+        vacmViewTreeFamilyViewName     SnmpAdminString,
+        vacmViewTreeFamilySubtree      OBJECT IDENTIFIER,
+        vacmViewTreeFamilyMask         OCTET STRING,
+        vacmViewTreeFamilyType         INTEGER,
+        vacmViewTreeFamilyStorageType  StorageType,
+        vacmViewTreeFamilyStatus       RowStatus
+    }
+
+INDEX { vacmViewTreeFamilyViewName,
+        vacmViewTreeFamilySubtree
+      }
+        </pre>
+        <p>Each <c>vacmViewTreeFamilyViewName</c> refers to a
+          collection of sub-trees.
+          </p>
+
+        <section>
+          <title>MIB View Semantics</title>
+          <p>An MIB view is a collection of included and excluded
+            sub-trees. A sub-tree is identified by an OBJECT IDENTIFIER. A
+            mask is associated with each sub-tree.
+            </p>
+          <p>For each possible MIB object instance, the instance
+            belongs to a sub-tree if:
+            </p>
+          <list type="bulleted">
+            <item>the OBJECT IDENTIFIER name of that MIB object
+             instance comprises at least as many sub-identifiers as
+             does the sub-tree, and
+            </item>
+            <item>each sub-identifier in the name of that MIB object
+             instance matches the corresponding sub-identifier of the
+             sub-tree whenever the corresponding bit of the associated
+             mask is 1 (0 is a wild card that matches anything).</item>
+          </list>
+          <p>Membership of an object instance in an MIB view is
+            determined by the following algorithm:
+            </p>
+          <list type="bulleted">
+            <item>If an MIB object instance does not belong to any of
+             the relevant sub-trees, then the instance is not in the
+             MIB view.
+            </item>
+            <item>If an MIB object instance belongs to exactly one
+             sub-tree, then the instance is included in, or excluded
+             from, the relevant MIB view according to the type of
+             that entry.
+            </item>
+            <item>If an MIB object instance belongs to more than one
+             sub-tree, then the sub-tree which comprises the greatest
+             number of sub-identifiers, and is the lexicographically
+             greatest, is used.
+            </item>
+          </list>
+          <note>
+            <p>If the OBJECT IDENTIFIER is longer than an OBJECT
+              IDENTIFIER of an object type in the MIB, it refers to
+              object instances. Because of this, it is possible to
+              control whether or not particular rows in a table shall be
+              visible.</p>
+          </note>
+        </section>
+      </section>
+    </section>
+
+    <section>
+      <title>SNMP-COMMUNITY-MIB</title>
+      <p>The SNMP-COMMUNITY-MIB defines managed objects that is used 
+        for coexistence between SNMPv1 and SNMPv2c with SNMPv3.  
+        Specifically, it contains objects for mapping between community 
+        strings and version-independent SNMP message parameters.  In 
+        addition, this MIB provides a mechanism for performing source address
+        validation on incoming requests, and for selecting community
+        strings based on target addresses for outgoing notifications.
+        </p>
+      <p>All tables in this MIB have a column of type
+        <c>StorageType</c>.  The value of this column specifies how each
+        row is stored, and what happens in case of a restart of the
+        agent.  The implementation supports the values <c>volatile</c>
+        and <c>nonVolatile</c>.  When the tables are initially filled
+        with data from the configuration files, these rows will
+        automatically have storage type <c>nonVolatile</c>.  Should the
+        agent restart, all <c>nonVolatile</c> rows survive the restart,
+        while the <c>volatile</c> rows are lost.
+        The configuration files are not read at restart, by default.
+        </p>
+      <p>This MIB is not loaded by default.
+        </p>
+    </section>
+
+    <section>
+      <title>SNMP-USER-BASED-SM-MIB</title>
+      <p>The SNMP-USER-BASED-SM-MIB defines managed objects that is
+        used for the User-Based Security Model.
+        </p>
+      <p>All tables in this MIB have a column of type
+        <c>StorageType</c>.  The value of the column specifies how each
+        row is stored, and what happens in case of a restart of the
+        agent.  The implementation supports the values <c>volatile</c>
+        and <c>nonVolatile</c>.  When the tables are initially filled
+        with data from the configuration files, these rows will
+        automatically have storage type <c>nonVolatile</c>.  Should the
+        agent restart, all <c>nonVolatile</c> rows survive the restart,
+        while the <c>volatile</c> rows are lost.
+        The configuration files are not read at restart, by default.
+        </p>
+      <p>This MIB is not loaded by default.
+        </p>
+    </section>
+
+    <section>
+      <title>OTP-SNMPEA-MIB</title>
+      <p>The OTP-SNMPEA-MIB was used in earlier versions of the agent, before
+        standard MIBs existed for access control, MIB views, and trap
+        target specification.  All objects in this MIB are now obsolete.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Notifications</title>
+    <marker id="notifications"></marker>
+    <p>Notifications are defined in SMIv1 with the TRAP-TYPE macro in
+      the definition of an MIB (see RFC1215).  The corresponding
+      macro in SMIv2 is NOTIFICATION-TYPE.  When an application
+      decides to send a notification, it calls one of the following
+      functions:
+      </p>
+    <code type="none">
+snmpa:send_notification(Agent, Notification, Receiver
+                       [, NotifyName, ContextName, Varbinds])
+snmpa:send_trap(Agent, Notification, Community [, Receiver, Varbinds])
+    </code>
+    <p>providing the registered name or process identifier of the
+      agent where the MIB, which defines the notification is loaded and
+      the symbolic name of the notification.
+      </p>
+    <p>If the <c>send_notification/3,4</c> function is used, all
+      management targets are selected, as defined in RFC2273.  The
+      <c>Receiver</c> parameter defines where the agent should send
+      information about the delivery of inform requests.
+      </p>
+    <p>If the <c>send_notification/5</c> function is used, an
+      <c>NotifyName</c> must be provided.  This parameter is used as an
+      index in the <c>snmpNotifyTable</c>, and the management targets
+      defined by that single entry is used.
+      </p>
+    <p>The <c>send_notification/6</c> function is the most general
+      version of the function.  A <c>ContextName</c> must be specified,
+      from which the notification will be sent.  If this parameter is
+      not specified, the default context (<c>""</c>) is used.
+      </p>
+    <p>The function <c>send_trap</c> is kept for backwards
+      compatibility and should not be used in new code.  Applications
+      that use this function will
+      continue to work.  The <c>snmpNotifyName</c> is used as the
+      community string by the agent when a notification is sent.
+      </p>
+
+    <section>
+      <title>Notification Sending</title>
+      <p>The simplest way to send a notification is to call the function 
+        <c>snmpa:send_notification(Agent, Notification, no_receiver)</c>.
+        In this case, the agent performs a get-operation to retrieve the
+        object values that are defined in the notification
+        specification (with the TRAP-TYPE or NOTIFICATION-TYPE macros).
+        The notification is sent to all managers defined in the target
+        and notify tables, either unacknowledged as traps, or
+        acknowledged as inform requests.
+        </p>
+      <p>If the caller of the function wants to know whether or not
+        acknowledgments are received for a certain notification
+        (provided it is sent as an inform), the <c>Receiver</c>
+        parameter can be specified as <c>{Tag, ProcessName}</c> (refer
+        to the Reference Manual, section snmp, module <c>snmp</c> for
+        more details).  In this case, the agent send a message
+        <c>{snmp_notification, Tag, {got_response, ManagerAddr}}</c> or
+        <c>{snmp_notification, Tag, {no_response, ManagerAddr}}</c> for
+        each management target.
+        </p>
+      <p>Sometimes it is not possible to retrieve the values for some
+        of the objects in the notification specification with a
+        get-operation.  However, they are known when the
+        <c>send_notification</c> function is called. This is the case if
+        an object is an element in a table.  It is possible to give the
+        values of some objects to the <c>send_notification</c> function
+        <c>snmpa:send_notification(Agent, Notification, Receiver, Varbinds)</c>.  In this function, <c>Varbinds</c> is a list of
+        <c>Varbind</c>, where each <c>Varbind</c> is one of:
+        </p>
+      <list type="bulleted">
+        <item><c>{Variable, Value}</c>, where <c>Variable</c> is the
+         symbolic name of a scalar variable referred to in the notification
+         specification.
+        </item>
+        <item><c>{Column, RowIndex, Value}</c>, where <c>Column</c> is
+         the symbolic name of a column variable.  <c>RowIndex</c> is a
+         list of indices for the specified element.  If this is the
+         case, the OBJECT IDENTIFIER sent in the trap is the
+        <c>RowIndex</c> appended to the OBJECT IDENTIFIER for the
+         table column. This is the OBJECT IDENTIFIER which specifies
+         the element.
+        </item>
+        <item><c>{OID, Value}</c>, where <c>OID</c> is the OBJECT
+         IDENTIFIER for an instance of an object, scalar variable or
+         column variable.
+        </item>
+      </list>
+      <p>For example, to specify that <c>sysLocation</c> should have the
+        value <c>"upstairs"</c> in the notification, we could use one of:
+        </p>
+      <list type="bulleted">
+        <item><c>{sysLocation, "upstairs"}</c> or</item>
+        <item><c>{[1,3,6,1,2,1,1,6,0], "upstairs"}</c></item>
+      </list>
+      <p>It is also possible to specify names and values for extra
+        variables that should be sent in the notification, but were not
+        defined in the notification specification.
+        </p>
+      <p>The notification is sent to all management targets found in
+        the tables.  However, make sure that each manager has access to
+        the variables in the notification. If a variable is outside a
+        manager's MIB view, this manager will not receive the
+        notification.
+        </p>
+      <note>
+        <p>By definition, it is not possible to send objects with
+          ACCESS <c>not-accessible</c> in notifications. However,
+          historically this is often done and for this reason we allow
+          it in notification sending. If a variable has ACCESS
+          <c>not-accessible</c>, the user must provide a value for the
+          variable in the <c>Varbinds</c> list. It is not possible for
+          the agent to perform a get-operation to retrieve this value.
+          </p>
+      </note>
+    </section>
+
+    <section>
+      <title>Notification Filters</title>
+      <p>It is possible to add <em>notification filters</em> to an agent.
+        These filters will be called when a notification is to be 
+        sent. Their purpose is to allow modification, suppression or 
+        other type of actions.</p>
+      <p>A notification filter is a module implementing the 
+        <seealso marker="snmpa_notification_filter">snmpa_notification_filter</seealso> behaviour. A filter is added/deleted using the functions:
+        <seealso marker="snmpa#register_notification_filter">snmpa:register_notification_filter</seealso> and 
+        <seealso marker="snmpa#unregister_notification_filter">snmpa:unregister_notification_filter</seealso>.</p>
+      <p>Unless otherwise specified, the order of the registered filters
+        will be the order in which they are registered.</p>
+    </section>
+
+    <section>
+      <title>Sub-agent Path</title>
+      <p>If a value for an object is not given to the
+        <c>send_notification</c> function, the sub-agent will perform a
+        get-operation to retrieve it. If the object is not implemented
+        in this sub-agent, its parent agent tries to perform a
+        get-operation to retrieve it. If the object is not implemented
+        in this agent either, it forwards the object to its parent, and
+        so on. Eventually the Master Agent is reached and at this point
+        all unknown object values must be resolved. If some object is
+        unknown even to the Master Agent, this is regarded as an error
+        and is reported with a call to <c>user_err/2</c> of the 
+        error report module. No notifications are sent in this case.
+        </p>
+      <p>For a given notification, the variables, which are referred to
+        in the notification specification, must be implemented by the
+        agent that has the MIB loaded, or by some parent to this
+        agent. If not, the application must provide values for the
+        unknown variables. The application must also provide values for
+        all elements in tables.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Discovery</title>
+    <marker id="discovery"></marker>
+    <p>The <em>sender</em> is <em>authoritative</em> for messages containing
+      payload which does <em>not</em> expect a response (for example 
+      SNMPv2-Trap, Response or Report PDU). </p>
+    <p>The <em>receiver</em> is <em>authoritative</em> for messages containing
+      payload which expects a response (for example 
+      Get, GetNext, Get-Bulk, Set or Inform PDU). </p>
+    <p>The agent can both perform and respond to discovery.</p>
+    <p>The agent responds to discovery autonomously, without interaction
+      by the user. </p> 
+    <p>Initiating discovery towards a manager is done by calling the 
+      <seealso marker="snmpa#discovery">discovery</seealso> function. 
+      The <c>EngineId</c> field of the target (manager) entry in the 
+      <seealso marker="snmp_agent_config_files#target_addr">target_addr.conf</seealso> file has to have the value <c>discovery</c>. 
+      Note that if the manager does not respond, the <c>Timeout</c> and 
+      <c>RetryCount</c> 
+      fields decide how long the function will hang before it returns. </p>
+    <p>Discovery can only be performed towards one manager at a time.</p>
+  </section>
+
+</chapter>
+

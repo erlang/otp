@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Audit Trail Log</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_audit_trail_log.xml</file>
+  </header>
+  <p>The chapter <em>Audit Trail Log</em> describes the audit trail logging.
+    </p>
+  <p>Both the agent and the manager can be configured to log 
+    incoming and outgoing messages. It uses the Erlang standard log
+    mechanism <c>disk_log</c> for logging. The size and location of
+    the log files are configurable. A wrap log is used, which means
+    that when the log has grown to a maximum size, it starts from the
+    beginning of the log, overwriting existing log records.
+    </p>
+  <p>The log can be either a <c>read</c>, <c>write</c> or a 
+    <c>read_write</c>. 
+    </p>
+
+  <section>
+    <title>Agent Logging</title>
+    <p>For the agent, a <c>write</c>, means that all <c>set</c> 
+      requests and their responses are stored. No <c>get</c> requests
+      or traps are stored in a <c>write</c>. A <c>read_write</c>, 
+      all requests, responses and traps are stored.
+      </p>
+    <p>The log uses a raw data format (basically the BER encoded
+      message), in order to minimize the CPU load needed for the log
+      mechanism.  This means that the log is not human readable, but
+      needs to be formatted off-line before it can be read.  Use the
+      function 
+      <seealso marker="snmpa#log_to_txt">snmpa:log_to_txt</seealso> 
+      for this purpose.
+      </p>
+  </section>
+
+  <section>
+    <title>Manager Logging</title>
+    <p>For the manager, a <c>write</c>, means that all  
+      requests (<c>set</c> and <c>get</c>) and their responses are stored. 
+      No traps are stored in a <c>write</c>. A <c>read_write</c>, 
+      all requests, responses and traps are stored.
+      </p>
+    <p>The log uses a raw data format (basically the BER encoded
+      message), in order to minimize the CPU load needed for the log
+      mechanism. This means that the log is not human readable, but
+      needs to be formatted off-line before it can be read. Use the
+      function 
+      <seealso marker="snmpm#log_to_txt">snmpm:log_to_txt</seealso> 
+      for this purpose.
+      </p>
+  </section>
+</chapter>
+

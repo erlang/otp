@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>SASL Error Logging</title>
+    <prepared>Magnus Fr&ouml;berg</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1999-04-13</date>
+    <rev>B</rev>
+    <file>error_logging.xml</file>
+    </header>
+  <note>
+    <p>The SASL error logging concept described in this section is
+      deprecated since Erlang/OTP 21.0, when the
+      new <seealso marker="kernel:logger_chapter">logging
+      API</seealso> was introduced.</p>
+    <p>The new default behaviour is that the SASL application no
+      longer affects which log events that are logged.
+      <seealso marker="#supervisor_report">Supervisor
+      reports</seealso> and <seealso marker="#crash_report">crash
+      reports</seealso> are logged via the default logger handler
+      which is setup by
+      Kernel. <seealso marker="#progress_report">Progress
+      reports</seealso> are by default not logged, but can be enabled
+      by setting the primary log level to <c>info</c>, for example by
+      using the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_level">
+	<c>logger_level</c></seealso>.</p>
+    <p>The old SASL error logging behaviour can be re-enabled by setting the
+      Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso> to <c>true</c>.</p>
+    <p>The mechanism
+      for <seealso marker="#multi_file_logging">multi-file error report
+      logging</seealso> as described in this section is also kept for
+      backwards compatibility. However, the new logging API also
+      introduces <seealso marker="kernel:logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seealso>, which is a logger
+      handler that can print to multiple files
+      using <seealso marker="kernel:disk_log"><c>disk_log(3)</c></seealso>.</p>
+  </note>
+
+  <section>
+    <title>SASL reports</title>
+  <p>The SASL application introduces three types of reports:</p>
+  <list type="bulleted">
+    <item>Supervisor report</item>
+    <item>Progress report</item>
+    <item>Crash report</item>
+  </list>
+  <p>When the SASL application is started, it adds a Logger handler
+    that formats and writes these reports, as specified in
+    the <seealso marker="sasl_app#deprecated_error_logger_config">configuration
+    parameters for SASL</seealso>.</p>
+
+  <section>
+    <marker id="supervisor_report"/>
+    <title>Supervisor Report</title>
+    <p>A supervisor report is issued when a supervised child terminates
+      unexpectedly. A supervisor report contains the following
+      items:</p>
+    <taglist>
+      <tag><c>Supervisor</c></tag>
+      <item><p>Name of the reporting supervisor.</p></item>
+      <tag><c>Context</c></tag>
+      <item><p>Indicates in which phase the child terminated
+       from the supervisor's point of view. This can be
+       <c>start_error</c>, <c>child_terminated</c>, or
+       <c>shutdown_error</c>.</p></item>
+      <tag><c>Reason</c></tag>
+      <item><p>Termination reason.</p></item>
+      <tag><c>Offender</c></tag>
+      <item><p>Start specification for the child.</p></item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="progress_report"/>
+    <title>Progress Report</title>
+    <p>A progress report is issued when a supervisor starts or
+      restarts a child. A progress report contains the following items:</p>
+    <taglist>
+      <tag><c>Supervisor</c></tag>
+      <item><p>Name of the reporting supervisor.</p></item>
+      <tag><c>Started</c></tag>
+      <item><p>Start specification for the successfully
+       started child.</p></item>
+    </taglist>
+    <marker id="CRASH"></marker>
+  </section>
+
+  <section>
+    <marker id="crash_report"/>
+    <title>Crash Report</title>
+    <p>Processes started with functions 
+      <seealso marker="stdlib:proc_lib#spawn/1"><c>proc_lib:spawn</c></seealso> or
+      <seealso marker="stdlib:proc_lib#spawn_link/1"><c>proc_lib:spawn_link</c></seealso> 
+      are wrapped within a <c>catch</c>. A crash report is issued when such 
+      a process terminates with an unexpected reason, which is any reason 
+      other than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.
+      Processes using behaviors
+      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>,
+      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso> or
+      <seealso marker="stdlib:gen_statem"><c>gen_statem</c></seealso>
+      are examples of such processes. A crash report contains the following items:</p>
+    <taglist>
+      <tag><c>Crasher</c></tag>
+      <item><p>Information about the crashing process, such
+       as initial function call, exit reason, and message queue.</p></item>
+      <tag><c>Neighbours</c></tag>
+      <item><p>Information about processes that are linked to the crashing
+       process and do not trap exits. These processes are the
+       neighbours that terminate because of this process
+       crash. The information gathered is the same as the information
+       for Crasher, described in the previous item.</p></item>
+    </taglist>
+    </section>
+
+    <section>
+      <title>Example</title>
+      <p>The following example shows the reports generated
+        when a process crashes. The example process is a
+        <c>permanent</c> process supervised by the <c>test_sup</c>
+        supervisor. A division by zero is executed and the error is
+        first reported by the faulty process. A crash report is
+        generated, as the process was started using function
+        <seealso marker="stdlib:proc_lib#spawn/3"><c>proc_lib:spawn/3</c></seealso>. 
+	The supervisor generates a
+        supervisor report showing the crashed process. A
+        progress report is generated when the process is finally
+        restarted.</p>
+      <pre>
+        =ERROR REPORT==== 27-May-1996::13:38:56 ===
+        &lt;0.63.0>: Divide by zero !
+        
+        =CRASH REPORT==== 27-May-1996::13:38:56 ===
+        crasher:
+        pid: &lt;0.63.0>
+        registered_name: []
+        error_info: {badarith,{test,s,[]}}
+        initial_call: {test,s,[]}
+        ancestors: [test_sup,&lt;0.46.0>]
+        messages: []
+        links: [&lt;0.47.0>]
+        dictionary: []
+        trap_exit: false
+        status: running
+        heap_size: 128
+        stack_size: 128
+        reductions: 348
+        neighbours:
+        
+        =SUPERVISOR REPORT==== 27-May-1996::13:38:56 ===
+        Supervisor: {local,test_sup}
+        Context:    child_terminated
+        Reason:     {badarith,{test,s,[]}}
+        Offender:   [{pid,&lt;0.63.0>},
+        {name,test},
+        {mfa,{test,t,[]}},
+        {restart_type,permanent},
+        {shutdown,200},
+        {child_type,worker}]
+        
+        =PROGRESS REPORT==== 27-May-1996::13:38:56 ===
+        Supervisor: {local,test_sup}
+        Started:  [{pid,&lt;0.64.0>},
+        {name,test},
+        {mfa,{test,t,[]}},
+        {restart_type,permanent},
+        {shutdown,200},
+        {child_type,worker}]</pre>
+    </section>
+  </section>
+
+  <section>
+    <marker id="multi_file_logging"/>
+    <title>Multi-File Error Report Logging</title>
+    <p>Multi-file error report logging is used to store error messages
+      received by <c>error_logger</c>. The error messages
+      are stored in several files and each file is smaller than a
+      specified number of kilobytes. No more than a specified number
+      of files exist at the same time. The logging is very fast, as
+      each error message is written as a binary term.</p>
+    <p>For more details, see the
+      <seealso marker="sasl_app#deprecated_error_logger_config">
+	<c>sasl(6)</c></seealso>
+      application in the Reference Manual.</p>
+  </section>
+
+  <section>
+    <title>Report Browser</title>
+    <p>The report browser is used to browse and format error reports
+      written by the error logger handler 
+      <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso> 
+      defined in STDLIB.</p>
+    <p>The <c>log_mf_h</c> handler writes all reports to a
+      report logging directory, which is specified when
+      configuring the SASL application.</p>
+    <p>If the report browser is
+      used offline, the reports can be copied to another directory
+      specified when starting the browser. If no such directory
+      is specified, the browser reads reports from the SASL
+      <c>error_logger_mf_dir</c>.</p>
+
+    <section>
+      <title>Starting Report Browser</title>
+      <p>Start the <c>rb_server</c> with function
+        <seealso marker="rb#start/1"><c>rb:start([Options])</c></seealso> 
+	as shown in the following example:</p>
+      <pre>
+        5> <input>rb:start([{max, 20}]).</input>
+        rb: reading report...done.
+        rb: reading report...done.
+        rb: reading report...done.
+        rb: reading report...done.
+        {ok,&lt;0.199.0>}</pre>
+    </section>
+
+    <section>
+      <title>Online Help</title>
+      <p>Enter command 
+      <seealso marker="rb#help/0"><c>rb:help()</c></seealso> 
+      to access the report browser online help system.</p>
+    </section>
+
+    <section>
+      <title>List Reports in Server</title>
+      <p>Use function 
+      <seealso marker="rb#list/0"><c>rb:list()</c></seealso> 
+      to list all loaded reports:</p>
+      <pre>
+        4> <input>rb:list().</input>
+        No                Type          Process       Date     Time
+        ==                ====          =======       ====     ====
+        20            progress         &lt;0.17.0> 1996-10-16 16:14:54
+        19            progress         &lt;0.14.0> 1996-10-16 16:14:55
+        18               error         &lt;0.15.0> 1996-10-16 16:15:02
+        17            progress         &lt;0.14.0> 1996-10-16 16:15:06
+        16            progress         &lt;0.38.0> 1996-10-16 16:15:12
+        15            progress         &lt;0.17.0> 1996-10-16 16:16:14
+        14            progress         &lt;0.17.0> 1996-10-16 16:16:14
+        13            progress         &lt;0.17.0> 1996-10-16 16:16:14
+        12            progress         &lt;0.14.0> 1996-10-16 16:16:14
+        11               error         &lt;0.17.0> 1996-10-16 16:16:21
+        10               error         &lt;0.17.0> 1996-10-16 16:16:21
+        9        crash_report  release_handler 1996-10-16 16:16:21
+        8   supervisor_report         &lt;0.17.0> 1996-10-16 16:16:21
+        7            progress         &lt;0.17.0> 1996-10-16 16:16:21
+        6            progress         &lt;0.17.0> 1996-10-16 16:16:36
+        5            progress         &lt;0.17.0> 1996-10-16 16:16:36
+        4            progress         &lt;0.17.0> 1996-10-16 16:16:36
+        3            progress         &lt;0.14.0> 1996-10-16 16:16:36
+        2               error         &lt;0.15.0> 1996-10-16 16:17:04
+        1            progress         &lt;0.14.0> 1996-10-16 16:17:09
+        ok</pre>
+    </section>
+
+    <section>
+      <title>Show Reports</title>
+      <p>Use function 
+      <seealso marker="rb#show/1"><c>rb:show(Number)</c></seealso> 
+      to show details of a specific report:</p>
+      <pre>
+7> <input>rb:show(4).</input>
+        
+PROGRESS REPORT  &lt;0.20.0>                                   1996-10-16 16:16:36
+===============================================================================
+supervisor                                                     {local,sasl_sup}
+started
+[{pid,&lt;0.24.0>},
+{name,release_handler},
+{mfa,{release_handler,start_link,[]}},
+{restart_type,permanent},
+{shutdown,2000},
+{child_type,worker}]
+        
+ok
+8> <input>rb:show(9).</input>
+        
+CRASH REPORT  &lt;0.24.0>                                      1996-10-16 16:16:21
+===============================================================================
+Crashing process                                                               
+pid                                                                 &lt;0.24.0>
+registered_name                                              release_handler
+error_info                             {undef,{release_handler,mbj_func,[]}}
+initial_call
+{gen,init_it,
+[gen_server,
+&lt;0.20.0>,
+&lt;0.20.0>,
+{erlang,register},
+release_handler,
+release_handler,
+[],
+[]]}
+ancestors                                                [sasl_sup,&lt;0.18.0>]
+messages                                                                  []
+links                                                    [&lt;0.23.0>,&lt;0.20.0>]
+dictionary                                                                []
+trap_exit                                                              false
+status                                                               running
+heap_size                                                                610
+stack_size                                                               142
+reductions                                                                54
+
+ok</pre>
+    </section>
+
+    <section>
+      <title>Search Reports</title>
+      <p>All reports containing a common pattern can be shown.
+        Suppose a process crashes because it tries to call a
+        non-existing function <c>release_handler:mbj_func/1</c>.
+        The reports can then be shown as follows:</p>
+      <pre>
+12> <input>rb:grep("mbj_func").</input>
+Found match in report number 11
+        
+ERROR REPORT  &lt;0.24.0>                                      1996-10-16 16:16:21
+===============================================================================
+        
+** undefined function: release_handler:mbj_func[] **
+Found match in report number 10
+
+ERROR REPORT  &lt;0.24.0>                                      1996-10-16 16:16:21
+===============================================================================
+        
+** Generic server release_handler terminating 
+** Last message in was {unpack_release,hej}
+** When Server state == {state,[],
+"/home/dup/otp2/otp_beam_sunos5_p1g_7",
+[{release,
+"OTP  APN 181 01",
+"P1G",
+undefined,
+[],
+permanent}],
+undefined}
+** Reason for termination == 
+** {undef,{release_handler,mbj_func,[]}}
+Found match in report number 9
+        
+CRASH REPORT  &lt;0.24.0>                                      1996-10-16 16:16:21
+===============================================================================
+Crashing process                                                               
+pid                                                                 &lt;0.24.0>
+registered_name                                              release_handler
+error_info                             {undef,{release_handler,mbj_func,[]}}
+initial_call
+{gen,init_it,
+[gen_server,
+&lt;0.20.0>,
+&lt;0.20.0>,
+{erlang,register},
+release_handler,
+release_handler,
+[],
+[]]}
+ancestors                                                [sasl_sup,&lt;0.18.0>]
+messages                                                                  []
+links                                                    [&lt;0.23.0>,&lt;0.20.0>]
+dictionary                                                                []
+trap_exit                                                              false
+status                                                               running
+heap_size                                                                610
+stack_size                                                               142
+reductions                                                                54
+        
+Found match in report number 8
+        
+SUPERVISOR REPORT  &lt;0.20.0>                                 1996-10-16 16:16:21
+===============================================================================
+Reporting supervisor                                           {local,sasl_sup}
+        
+Child process                                                                  
+errorContext                                                child_terminated
+reason                                 {undef,{release_handler,mbj_func,[]}}
+pid                                                                 &lt;0.24.0>
+name                                                         release_handler
+start_function                               {release_handler,start_link,[]}
+restart_type                                                       permanent
+shutdown                                                                2000
+child_type                                                            worker
+        
+ok</pre>
+    </section>
+
+    <section>
+      <title>Stop Server</title>
+      <p>Use function 
+      <seealso marker="rb#stop/0"><c>rb:stop()</c></seealso> 
+      to stop the <c>rb_server</c>:</p>
+      <pre>
+13> <input>rb:stop().</input>
+ok</pre>
+    </section>
+  </section>
+</chapter>
+

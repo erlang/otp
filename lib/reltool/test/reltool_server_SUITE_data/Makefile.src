@@ -1,0 +1,66 @@
+EFLAGS=+debug_info
+
+OTP9229= \
+     otp_9229/x-1.0/ebin/x.@EMULATOR@ \
+     otp_9229/x-1.0/ebin/mylib.@EMULATOR@ \
+     otp_9229/y-1.0/ebin/y.@EMULATOR@ \
+     otp_9229/y-1.0/ebin/mylib.@EMULATOR@
+
+DEPENDENCIES= \
+     dependencies/x-1.0/ebin/x1.@EMULATOR@ \
+     dependencies/x-1.0/ebin/x2.@EMULATOR@ \
+     dependencies/x-1.0/ebin/x3.@EMULATOR@ \
+     dependencies/y-1.0/ebin/y1.@EMULATOR@ \
+     dependencies/y-1.0/ebin/y2.@EMULATOR@ \
+     dependencies/z-1.0/ebin/z1.@EMULATOR@
+
+ESCRIPT= \
+     escript/someapp-1.0/ebin/mymod.@EMULATOR@
+
+SEL_VSN= \
+     use_selected_vsn/b-1.0/ebin/b.@EMULATOR@ \
+     use_selected_vsn/b-3.0/ebin/b.@EMULATOR@ \
+     use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@
+
+SLIM= \
+     slim/a-1.0/ebin/a_sup.@EMULATOR@ \
+     slim/a-1.0/ebin/a.@EMULATOR@
+
+all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT) $(SEL_VSN) $(SLIM)
+
+otp_9229/x-1.0/ebin/x.@EMULATOR@: otp_9229/x-1.0/src/x.erl
+	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/x.erl
+otp_9229/x-1.0/ebin/mylib.@EMULATOR@: otp_9229/x-1.0/src/mylib.erl
+	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/mylib.erl
+otp_9229/y-1.0/ebin/y.@EMULATOR@: otp_9229/y-1.0/src/y.erl
+	erlc $(EFLAGS) -ootp_9229/y-1.0/ebin otp_9229/y-1.0/src/y.erl
+otp_9229/y-1.0/ebin/mylib.@EMULATOR@: otp_9229/y-1.0/src/mylib.erl
+	erlc $(EFLAGS) -ootp_9229/y-1.0/ebin otp_9229/y-1.0/src/mylib.erl
+
+dependencies/x-1.0/ebin/x1.@EMULATOR@: dependencies/x-1.0/src/x1.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x1.erl
+dependencies/x-1.0/ebin/x2.@EMULATOR@: dependencies/x-1.0/src/x2.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x2.erl
+dependencies/x-1.0/ebin/x3.@EMULATOR@: dependencies/x-1.0/src/x3.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x3.erl
+dependencies/y-1.0/ebin/y1.@EMULATOR@: dependencies/y-1.0/src/y1.erl
+	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y1.erl
+dependencies/y-1.0/ebin/y2.@EMULATOR@: dependencies/y-1.0/src/y2.erl
+	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y2.erl
+dependencies/z-1.0/ebin/z1.@EMULATOR@: dependencies/z-1.0/src/z1.erl
+	erlc $(EFLAGS) -odependencies/z-1.0/ebin dependencies/z-1.0/src/z1.erl
+
+escript/someapp-1.0/ebin/mymod.@EMULATOR@: escript/someapp-1.0/src/mymod.erl
+	erlc $(EFLAGS) -oescript/someapp-1.0/ebin escript/someapp-1.0/src/mymod.erl
+
+use_selected_vsn/b-1.0/ebin/b.@EMULATOR@: use_selected_vsn/b-1.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/b-1.0/ebin use_selected_vsn/b-1.0/src/b.erl
+use_selected_vsn/b-3.0/ebin/b.@EMULATOR@: use_selected_vsn/b-3.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/b-3.0/ebin use_selected_vsn/b-3.0/src/b.erl
+use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@: use_selected_vsn/lib2/b-2.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/lib2/b-2.0/ebin use_selected_vsn/lib2/b-2.0/src/b.erl
+
+slim/a-1.0/ebin/a_sup.@EMULATOR@: slim/a-1.0/src/a_sup.erl
+	erlc $(EFLAGS) -oslim/a-1.0/ebin slim/a-1.0/src/a_sup.erl
+slim/a-1.0/ebin/a.@EMULATOR@: slim/a-1.0/src/a.erl
+	erlc $(EFLAGS) -oslim/a-1.0/ebin slim/a-1.0/src/a.erl

@@ -1,0 +1,72 @@
+#!/bin/sh
+#
+# ``Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+# AB. All Rights Reserved.''
+# 
+#     $Id$
+#
+
+#
+# Usage: save_args <argument storage filename> --- [arguments to save ...]
+#
+
+arg_file=
+begin_marker=false
+
+for arg
+do
+    if test "x$arg" = "x---"; then
+	shift
+	begin_marker=true
+	break
+    elif test "x$arg_file" = "x"; then
+	arg_file=$arg
+	shift
+    else
+	echo "save_args: Unknown argument: $arg" 1>&2
+	exit 1
+    fi
+done
+
+if test "x$arg_file" = "x"; then
+    echo "save_args: Missing argument storage filename" 1>&2
+    exit 1
+fi
+
+if test $begin_marker != true; then
+    echo "save_args: No begin marker found" 1>&2
+    exit 1
+fi
+
+new_args="$@"
+
+if test ! -f $arg_file; then
+    echo "$new_args" > $arg_file
+    echo "save_args: No previusly saved arguments; created $arg_file"
+else
+    old_args=`cat $arg_file`
+    case "$old_args" in
+	"$new_args")
+	    echo "save_args: Same arguments as saved; no need to update $arg_file";;
+	*)
+	    echo "$new_args" > $arg_file
+	    echo "save_args: Not same arguments as saved; updated $arg_file";;
+    esac
+fi
+
+    
+    
+		

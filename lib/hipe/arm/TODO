@@ -1,0 +1,20 @@
+Assembler:
+
+Peephole optimiser:
+- Could e.g. turn "ldr lr,[sp,#OFF]; mov pc,lr"
+  into "ldr pc,[sp#OFF]", but then the LR save slot must
+  be in the caller's frame not the callee's.
+- Also kill "mov r0,r0" which seems to occur often.
+
+hipe_arm:
+- Handle more non-trivial immediates in mk_li/mk_load/mk_store.
+  See e.g. big_list, which has many 11-bit character constants.
+
+Floating point:
+- Drop no_inline_fp. Implement FP ops as calls to C or ASM
+  primops. All FP values passed by reference in memory.
+  This should at least reduce consing costs.
+
+Linear scan:
+- Do not hardcode temp1/temp2/temp3. Instead just take three
+  regs from (All\Fixed)\Params. (Ditto in PowerPC.)

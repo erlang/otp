@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE cites SYSTEM "cites.dtd">
+
+<cites>
+  <cite>
+    <id>4711</id>
+    <shortdef>CCITT</shortdef>
+    <def>
+CCITT, Red Book Vol.-FASCILE VIII.7, Recomm. X400-X.430, Geneva, 1985.    </def>
+    <resp>jocke</resp>
+  </cite>
+  <cite>
+    <id>X.680</id>
+    <shortdef>ITU-T X.680</shortdef>
+    <def>
+ITU-T Recommendation X.680 (1994) | ISO/IEC 8824-1: 1995, Abstract Syntax Notation One (ASN.1): Specification of Basic Notation.    </def>
+  </cite>
+  <cite>
+    <id>X.682</id>
+    <shortdef>ITU-T X.682</shortdef>
+    <def>
+ITU-T Recommendation X.682 (1994) | ISO/IEC 8824-3: 1995, Abstract Syntax Notation One (ASN.1): Constraint Specification.    </def>
+  </cite>
+  <cite>
+    <id>X.690</id>
+    <shortdef>ITU-T X.690</shortdef>
+    <def>
+ITU-T Recommendation X.690 (1994) | ISO/IEC 8825-1: 1995, ASN.1 Encoding Rules: Specification of Basic Encoding Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER).    </def>
+  </cite>
+  <cite>
+    <id>X.691</id>
+    <shortdef>ITU-T X.691</shortdef>
+    <def>
+ITU-T Recommendation X.691 (04/95) | ISO/IEC 8825-2: 1995, ASN.1 Encoding Rules: Specification of Packed Encoding Rules (PER).    </def>
+  </cite>
+  <cite>
+    <id>X.681</id>
+    <shortdef>ITU-T X.681</shortdef>
+    <def>
+ITU-T Recommendation X.681 (1994) | ISO/IEC 8824-2: 1995, Abstract Syntax Notation One (ASN.1): Information Object Specification.    </def>
+  </cite>
+  <cite>
+    <id>X.683</id>
+    <shortdef>ITU-T X.683</shortdef>
+    <def>
+ITU-T Recommendation X.683 (1994) | ISO/IEC 8824-4: 1995, Abstract Syntax Notation One (ASN.1): Parameterization of ASN.1 Specifications.    </def>
+  </cite>
+  <cite>
+    <id>DUBUISSON</id>
+    <shortdef>ASN.1 Communication between Heterogeneous Systems</shortdef>
+    <def>
+Oliver Dubuisson, ASN.1 Communication between Heterogeneous Systems, June 2000 ISBN 0-126333361-0.    </def>
+    <resp>nibe</resp>
+  </cite>
+  <cite>
+    <id>erlbook2</id>
+    <shortdef>Concurrent Programming in ERLANG</shortdef>
+    <def>
+J. Armstrong, R. Virding, C. Wikstrom, M. Williams, Concurrent Programming in ERLANG, Prentice Hall, 1996, ISBN 0-13-508301-X.    </def>
+    <resp>kent</resp>
+  </cite>
+  <cite>
+    <id>practsgml</id>
+    <shortdef>Practical SGML</shortdef>
+    <def>
+Eric van Herwijnen: Practical SGML, Kluwer Academic Publishers, 1990.    </def>
+    <resp>peter</resp>
+  </cite>
+</cites>
+

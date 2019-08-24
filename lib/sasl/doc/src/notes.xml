@@ -1,0 +1,1488 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>SASL Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the SASL application.</p>
+
+<section><title>SASL 3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change the first module called by erts to be named
+	    erl_init instead of otp_ring0. systools in sasl have been
+	    updated to reflect this change.</p>
+          <p>
+	    Own Id: OTP-15336 Aux Id: PR-1825 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>counters</c> and <c>atomics</c> modules supplies
+	    access to highly efficient operations on mutable fixed
+	    word sized variables.</p>
+          <p>
+	    Own Id: OTP-13468</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A new logging API is added to Erlang/OTP, see the
+	    <seealso
+	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
+	    page, and section <seealso
+	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    Kernel User's Guide.</p>
+	    <p>Calls to <c>error_logger</c> are automatically
+	    redirected to the new API, and legacy error logger event
+	    handlers can still be used. It is, however, recommended
+	    to use the Logger API directly when writing new code.</p>
+	    <p>Notice the following potential incompatibilities:</p>
+	    <list> <item><p>Kernel configuration parameters
+	    <c>error_logger</c> still works, but is overruled if the
+	    default handler's output destination is configured with
+	    Kernel configuration parameter <c>logger</c>.</p> <p>In
+	    general, parameters for configuring error logger are
+	    overwritten by new parameters for configuring
+	    Logger.</p></item> <item><p>The concept of SASL error
+	    logging is deprecated, meaning that by default the SASL
+	    application does not affect which log events are
+	    logged.</p> <p>By default, supervisor reports and crash
+	    reports are logged by the default Logger handler started
+	    by Kernel, and end up at the same destination (terminal
+	    or file) as other standard log event from Erlang/OTP.</p>
+	    <p>Progress reports are not logged by default, but can be
+	    enabled by setting the primary log level to info, for
+	    example with the Kernel configuration parameter
+	    <c>logger_level</c>.</p> <p>To obtain backwards
+	    compatibility with the SASL error logging functionality
+	    from earlier releases, set Kernel configuration parameter
+	    <c>logger_sasl_compatible</c> to <c>true</c>. This
+	    prevents the default Logger handler from logging any
+	    supervisor-, crash-, or progress reports. Instead, SASL
+	    adds a separate Logger handler during application start,
+	    which takes care of these log events. The SASL
+	    configuration parameters <c>sasl_error_logger</c> and
+	    <c>sasl_errlog_type</c> specify the destination (terminal
+	    or file) and severity level to log for these
+	    events.</p></item></list>
+          <p>
+	    Since Logger is new in Erlang/OTP 21.0, we do reserve the
+	    right to introduce changes to the Logger API and
+	    functionality in patches following this release. These
+	    changes might or might not be backwards compatible with
+	    the initial version.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13295</p>
+        </item>
+        <item>
+          <p>
+	    The old and outdated "Status Inspection" tool (modules
+	    <c>si</c> and <c>si_sasl_sup</c>) is removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14469</p>
+        </item>
+        <item>
+          <p>
+	    When creating the release tar file, systools now includes
+	    sys.config.src if it exists in the
+	    $ROOT/releases/&lt;vsn&gt;/ directory. This is to allow
+	    adjustments, e.g. resolving environment variables, after
+	    unpacking the release, but before installing it. This
+	    functionality requires a custom tool which uses
+	    sys.config.src as input and creates a correct sys.config
+	    file.</p>
+          <p>
+	    Own Id: OTP-14950 Aux Id: PR-1560 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When upgrading with instruction 'restart_new_emulator',
+	    the generated temporary boot file used 'kernelProcess'
+	    statements from the old release instead of the new
+	    release. This is now corrected.</p>
+          <p>
+	    This correction is needed for upgrade to OTP-21.</p>
+          <p>
+	    Own Id: OTP-15017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Report Browser, rb, could earlier not handle reports
+	    that were not lists, for example generated by
+	    <c>error_logger:info_report({some, tuple})</c>. This term
+	    is allowed as input to error_logger, but rb would state
+	    that "A report on bad form was encountered". This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-13906 Aux Id: ERL-261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+          <p>
+	    Files generated by <c>release_handler</c> and
+	    <c>reltool</c>, which might contain Unicode characters,
+	    are now encoded as UTF-8 and written with format "~tp" or
+	    "~ts". If the file is to be read by
+	    <c>file:consult/1</c>, an encoding comment is added.</p>
+          <p>
+	    Own Id: OTP-14463</p>
+        </item>
+        <item>
+          <p>
+	    The SASL error logger event handler,
+	    <c>sasl_report_file_h</c>, will now by default open its
+	    log file with encoding UTF-8. This can be overridden when
+	    configuring SASL, see configuration parameter
+	    <c>sasl_error_logger</c> in the SASL reference manual.</p>
+          <p>
+	    Own Id: OTP-14618</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Documented default values for the 'mod' and
+	    'start_phases' fields in .app files were not allowed as
+	    actual values in a .app file. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14029</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When both options 'warnings_as_errors' and 'silent' were
+	    given to systools:make_script or systools:make_relup, no
+	    error reason would be returned if warnings occurred.
+	    Instead only the atom 'error' was returned. This is now
+	    corrected.</p>
+          <p>
+	    Options 'warnings_as_errors' and 'no_warn_sasl' are now
+	    also allowed for systools:make_tar.</p>
+          <p>
+	    Own Id: OTP-14170</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>code:add_pathsa/1</c> and command line option
+	    <c>-pa</c> both revert the given list of directories when
+	    adding it at the beginning of the code path. This is now
+	    documented.</p>
+          <p>
+	    Own Id: OTP-13920 Aux Id: ERL-267 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved dirty scheduler support. A purge of a module can
+	    now be performed without having to wait for completion of
+	    all ongoing dirty NIF calls.</p>
+          <p>
+	    Note that when enabling support for dirty schedulers, a
+	    new purge strategy will as of ERTS version 8.1 be
+	    enabled. This new strategy is not fully backwards
+	    compatible with the strategy used by default. For more
+	    information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
+        </item>
+        <item>
+          <p>
+	    A new purge strategy has been introduced. The new
+	    strategy will by default be disabled during the OTP 19
+	    release, but will be the only strategy available as of
+	    the OTP 20 release.</p>
+          <p>
+	    The new strategy is slightly incompatible with the
+	    strategy being used by default in OTP 19. Using the
+	    default strategy, processes holding <c>fun</c>s that
+	    refer to the module being purged either fail a soft
+	    purge, or will be killed during a hard purge. The new
+	    strategy completely ignores <c>fun</c>s. If <c>fun</c>s
+	    referring to the code being purged exist, and are used
+	    after a purge, an exception will be raised upon usage.
+	    That is, the behavior will be exactly the same as the
+	    case when a <c>fun</c> is received by a process after the
+	    purge.</p>
+          <p>
+	    The new strategy can optionally be enabled when building
+	    OTP during OTP 19, and will automatically be enabled if
+	    the runtime system is built with support for dirty
+	    schedulers.</p>
+          <p>
+	    For more information see the documentation of <seealso
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13833</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The module 'overload' is removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13184</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    During upgrade, the release_handler collects a list of
+	    supervisor pids in order to list all processes in the
+	    supervisor tree. If one of the supervisors (legitimately)
+	    exits before release_handler can examine it, then
+	    <c>sys:get_status/1</c> would earlier be called with a
+	    dead pid, causing a <c>'noproc'</c> error. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-13291</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The module <c>overload</c> is deprecated and will be
+	    removed in OTP 19.</p>
+          <p>
+	    Own Id: OTP-13057</p>
+        </item>
+        <item>
+          <p>
+	    Improve implementation of supervisor child count, making
+	    it faster and more accurate for dynamic processes of a
+	    <c>simple_one_for_one</c> supervisor.</p>
+          <p>
+	    Own Id: OTP-13290</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Documentation improvements</p>
+          <p>
+	    Own Id: OTP-13000</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A mechanism for limiting the amount of text that the
+	    built-in error logger events will produce has been
+	    introduced. It is useful for limiting both the size of
+	    log files and the CPU time used to produce them.</p>
+	    <p>This mechanism is experimental in the sense that it
+	    may be changed if it turns out that it does not solve the
+	    problem it is supposed to solve. In that case, there may
+	    be backward incompatible improvements to this
+	    mechanism.</p>
+	    <p>See the documentation for the config parameter
+	    <c>error_logger_format_depth</c> in the Kernel
+	    application for information about how to turn on this
+	    feature.</p>
+          <p>
+	    Own Id: OTP-12864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The undocumented upgrade instruction
+	    <c>{remove_module,PrePurge,PostPurge,DepMods}</c> is
+	    removed. This instruction was added for symmetry reasons
+	    in OTP R7B, but was never documented or tested.</p>
+          <p>
+	    The existing instruction <c>{add_module,Mod,DepMods}</c>
+	    is now documented, and the complementing instruction
+	    <c>{delete_module,Mod,DepMods}</c> is added.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11540</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>sasl_error_logger</c> configuration parameter
+	    now supports the value <c>{file,FileName,Modes}</c> which
+	    allows the log file to be opened in other mode than write
+	    (for example, append mode).</p>
+          <p>
+	    Own Id: OTP-12778</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation erroneously specified that
+	    <c>alarm_handler:clear_alarm/1</c> would clear
+	    <em>all</em> alarms with id <c>AlarmId</c>. This is now
+	    corrected according to the implementation - only the
+	    latest received alarm with the given <c>AlarmId</c> is
+	    cleared by the simple default handler.</p>
+          <p>
+	    Own Id: OTP-12025</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The upgrade instruction 'restart_application' would
+	    earlier ignore the restart type configured in the .rel
+	    file and always restart the application as permanent.
+	    This is now changed, and the restart type from the .rel
+	    file is used. If restart type is 'load', the application
+	    will only be loaded and not started. If the restart type
+	    is 'none', the application will not be loaded nor
+	    started, but all modules in the application will be
+	    loaded. (Thanks to Tobias Schlager for reporting this
+	    problem)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11716</p>
+        </item>
+        <item>
+          <p>
+	    If <c>systools:make_script/2</c> failed with reason
+	    <c>duplicate_modules</c>, and the <c>silent</c> flag was
+	    not used, a crash with reason <c>function_clause</c>
+	    would occur when <c>systools</c> tried to format the
+	    error message. This has been corrected. (Thanks to
+	    Jean-Sébastien Pédron)</p>
+          <p>
+	    Own Id: OTP-11819</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calls to erlang:open_port/2 with 'spawn' are updated to
+	    handle space in the command path.</p>
+          <p>
+	    Own Id: OTP-10842</p>
+        </item>
+        <item>
+          <p>
+	    Some more documentation is added to explain the behavior
+	    when an upgrade includes new versions of ERTS, Kernel,
+	    STDLIB or SASL.</p>
+          <p>
+	    Own Id: OTP-11717</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't try to add the log_mf_h handler in sasl unless
+	    configured to do so. Thanks to Richard Carlsson.</p>
+          <p>
+	    Own Id: OTP-11464</p>
+        </item>
+        <item>
+          <p>
+	    Fix confusing documentation about error handlers in
+	    SASL.(Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-11507</p>
+        </item>
+        <item>
+          <p>
+	    A bug in the mechanism for upgrading core parts of
+	    Erlang/OTP (emulator, kernel, stdlib, sasl) caused a
+	    switch of paths between stdlib and sasl in the
+	    intermediate .script/.boot file. The bug was introduces
+	    along with this upgrade mechanism in R15B. It has now
+	    been corrected. (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11529</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a boot file which skips loading the "$HOME/.erlang"
+	    file on startup. Enable by starting erlang with "erl
+	    -boot no_dot_erlang".</p>
+          <p>
+	    *** INCOMPATIBILITY with false ***</p>
+          <p>
+	    Own Id: OTP-8479 Aux Id: seq11510 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add Fd usage in rb logging. Thanks to Eric Pailleau.</p>
+          <p>
+	    Own Id: OTP-11252</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix receive support in erl_eval with a BEAM module.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11137</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some updates are made to systools and release_handler for
+	    handling of unicode.</p>
+          <p>
+	    Own Id: OTP-10782</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    release_handler_SUITE:otp_9864 deleted parts of the
+	    release_handler_SUITE_data directory so the test suite
+	    could not be executed twice without re-installation. This
+	    has been corrected.</p>
+          <p>
+	    Own Id: OTP-10394 Aux Id: kunagi-187 [98] </p>
+        </item>
+        <item>
+          <p>
+	    It is no longer possible to have <c>{Mod,Vsn}</c> in the
+	    'modules' list in a .app file.</p>
+          <p>
+	    This was earlier possible, although never documented in
+	    the .app file reference manual. It was however visible in
+	    the documentation of <c>application:load/[1,2]</c>, where
+	    the same term as in a .app file can be used as the first
+	    argument.</p>
+          <p>
+	    The possibility has been removed since the <c>Vsn</c>
+	    part was never used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10417</p>
+        </item>
+        <item>
+          <p>
+	    release_handler:upgrade_script and
+	    release_handler:downgrade_script could not read appup
+	    files with regexps. This has been corrected. (Thanks to
+	    Ulf Wiger)</p>
+          <p>
+	    Own Id: OTP-10463</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If sys.config existed, but was not readable or parseable,
+	    this would not be detected until after the upgrade and at
+	    the next node restart. The possibility for this to happen
+	    is now reduced by adding a check to systools:make_tar
+	    which fails the creation of the tar file if sys.config or
+	    relup does not have reasonable contents. Note that there
+	    are no detailed checks, only parsing and erlang term
+	    format check.</p>
+          <p>
+	    Own Id: OTP-9539</p>
+        </item>
+        <item>
+          <p>
+	    systools:make_script would allow {kernel,Vsn,load} in the
+	    .rel file, causing a .boot file which only loaded kernel
+	    and did not start it. This has been corrected. Only start
+	    type 'permanent', which is the default, is now allowed
+	    for kernel and stdlib.</p>
+          <p>
+	    Own Id: OTP-9652</p>
+        </item>
+        <item>
+          <p>
+	    release_handler:remove_release/1 now handles symlinked
+	    files properly</p>
+          <p>
+	    Own Id: OTP-9864</p>
+        </item>
+        <item>
+          <p>
+	    If stdlib was stated with a start type different from
+	    <c>permanent</c> in a .rel file, systools would
+	    incorrectly say that sasl had faulty start type. This has
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-9888</p>
+        </item>
+        <item>
+          <p>
+	    Sasl documentation earlier said that the InclApps
+	    parameters in a .rel file defaults to the empty list.
+	    This is not correct. It defaults to the same value as
+	    specified in the .app file. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9980</p>
+        </item>
+        <item>
+          <p>
+	    Applications that are listed in
+	    <c>{applications,Apps}</c> in the .app file were not
+	    sorted correctly by <c>systools:make_script/1,2</c>. They
+	    got the reverse order of how they were listed in the .app
+	    file. This is corrected so they are now sorted
+	    (internally between each other) in the same order as they
+	    are listed in the .rel file (i.e. the order they are
+	    listed in the .app file does no longer matter).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9984</p>
+        </item>
+        <item>
+          <p>
+	    Documentation of .appup files now also states that
+	    <c>UpFromVsn</c> and <c>DownToVsn</c> can be specified as
+	    regular expressions in order to avoid duplicated upgrade
+	    instructions.</p>
+          <p>
+	    Own Id: OTP-10001</p>
+        </item>
+        <item>
+          <p>
+	    Reltool would sometimes generate a .app file containing
+	    <c>{start_phases,undefined}</c>, which would cause an
+	    exception in systools at parse time. This has been
+	    corrected so reltool now omits the <c>start_phases</c>
+	    entry if the value is <c>undefined</c>. (Thanks to Juan
+	    Jose Comellas)</p>
+          <p>
+	    In order to align with reltool, sasl will also omit
+	    <c>start_phases</c> entries with value <c>undefined</c>
+	    in .script files.</p>
+          <p>
+	    Own Id: OTP-10003</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the mechanism for upgrading emulator.</p>
+          <p>
+	    The appup files for kernel, stdlib and sasl do now
+	    recognize two major releases back and include a
+	    'restart_new_emulator' instruction. </p>
+          <p>
+	    Appup files can include regular expressions for matching
+	    earlier releases.</p>
+          <p>
+	    The mechanism for upgrading the emulator is changed so
+	    'restart_new_emulator' will be the first instruction
+	    executed. The rest of the upgrade instruction will be
+	    executed after the emulator restart.</p>
+          <p>
+	    A new upgrade instruction 'restart_emulator' is added for
+	    the case where the emulator shall be restarted after all
+	    other upgrade instructions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9438</p>
+        </item>
+        <item>
+          <p>
+	    Add release_handler:which_releases/1</p>
+          <p>
+	    This is an extension to which_releases that allows a user
+	    to specify the status of the releases they wish to be
+	    returned. For instance it allows for quickly determining
+	    which release is 'permanent' without the need of parsing
+	    the entire release list. (Thanks to Joe Williams)</p>
+          <p>
+	    Own Id: OTP-9717</p>
+        </item>
+        <item>
+          <p>
+	    Add copy of rel file in releases/Vsn in release tar file</p>
+          <p>
+	    systool:make_tar stores the rel file in the releases
+	    directory. When unpacking with
+	    release_handler:unpack_release, the file is automatically
+	    moved to releases/Vsn/. If, however, the tar file is
+	    unpacked manually, the rel file might not be moved, and
+	    the next release unpacked might overwrite the rel file.
+	    To overcome this, systools:make_tar now stores a copy of
+	    the rel file in releases/Vsn/ directly and it is not
+	    longer necessary to move the file after unpacking.</p>
+          <p>
+	    The reason for keeping the file in the releases directory
+	    also is that is needs to be extracted separately before
+	    the release version (Vsn) is known.</p>
+          <p>
+	    Own Id: OTP-9746</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The release_handler functionality on windows services was
+	    broken. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9306</p>
+        </item>
+        <item>
+          <p>
+	    If a new version of an application did not include any
+	    erlang module changes, the code path of the application
+	    was not updated by the release_handler unless a
+	    'load_object_code' instruction was added for the
+	    application. This would be a problem if e.g. only some
+	    files in the priv dir were changed since calls to
+	    code:lib_dir or code:priv_dir would then point to the old
+	    location of the application. This has been corrected -
+	    now code:replace_path/2 will be called for all
+	    applications that are changed (i.e. when the
+	    application's vsn is changed in the .rel file).</p>
+          <p>
+	    Own Id: OTP-9402</p>
+        </item>
+        <item>
+          <p>
+	    The appup instruction 'delete_module' would cause a crash
+	    during upgrade if the module to be deleted was not
+	    loaded. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9417</p>
+        </item>
+        <item>
+          <p>
+	    If a path was given as ONLY 'ebin' and not for example
+	    './ebin', then systools:make_tar would fail with a
+	    <c>function_clause</c> exception in filename:join/1. This
+	    has been corrected. (Thanks to Nikola Skoric for
+	    reporting).</p>
+          <p>
+	    Own Id: OTP-9507</p>
+        </item>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+        <item>
+          <p>
+	    Improved error information for timeouts during
+	    release_handler:install_release.</p>
+          <p>
+	    This patch addresses two cases where a timeout will occur
+	    during upgrade. 1) if a supervisor is suspended (call to
+	    get children from supervisor will hang) 2) if the child
+	    spec for a supervisor incorrectly states that it is a
+	    worker with a dynamic set of modules (call to get modules
+	    from gen_event will hang)</p>
+          <p>
+	    An error report will now be printed, and the return value
+	    of release_handler:install_release will indicate what
+	    happened. (Thanks to joe williams)</p>
+          <p>
+	    Own Id: OTP-9546</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>release_handler:install_release</c> could be very slow
+	    when there are many processes in the system. Some
+	    optimization work has been done both in erts and in the
+	    release handler in order to improve this. </p>
+          <p>
+	    A new option, <c>purge</c>, is added to
+	    <c>release_handler:check_install_release</c> which can be
+	    called first in order to speed up the execution of
+	    <c>release_handler:install_release</c>.</p>
+          <p>
+	    Own Id: OTP-9395</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove traces of release_handler reading from filesystem
+	    when it has Masters list</p>
+          <p>
+	    There are a couple of places in release_handler and
+	    release_handler_1 that assumed it has a disk to read
+	    from, which in the case of an erl_prim_loader Loader
+	    other than efile is not necessarily true</p>
+          <p>
+	    Add check_paths/2 to do the equivalent of check_path/1
+	    for when there is a Masters list</p>
+          <p>
+	    Change get_vsn to no longer get sent File paths but
+	    instead use the Bin since beam_lib:version being sent a
+	    file path causes it to read the local file system</p>
+          <p>
+	    Add get_current_vsn/1 as an equivalent to
+	    beam_lib:version(code:which(Mod)), but using
+	    erl_prim_loader:get_file instead of reading from local
+	    file system</p>
+          <p>
+	    (Thanks to Steven Gravell)</p>
+          <p>
+	    Own Id: OTP-9142</p>
+        </item>
+        <item>
+          <p>
+	    rb:stop did sometimes return {error,running}. This came
+	    from supervisor:delete_child and happened when the
+	    rb_server has not yet terminated when this function was
+	    called. Instead of having a separate gen_server call to
+	    rb_server for stopping the process,
+	    supervisor:terminate_child is now called. This is a
+	    synchronous function - i.e. it waits for the process to
+	    actually terminate before it returns.</p>
+          <p>
+	    A file descriptor leak in rb:scan_files is corrected. The
+	    index file was never closed after reading.</p>
+          <p>
+	    A mismatch in the behavior of rb:filter, when filter
+	    included 'no', is corrected. Such filters will now return
+	    *all* non-matching reports, not only the 'proplist'
+	    reports.</p>
+          <p>
+	    Own Id: OTP-9149</p>
+        </item>
+        <item>
+          <p>
+	    Start and end date for rb:filter/2 was specified as
+	    {{Y-M-D},...} in the help text instead of {{Y,M,D},...}.
+	    This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9166</p>
+        </item>
+        <item>
+          <p>
+	    If some, but not all, of the sasl environment variables
+	    related to the log_mf_h error handler were missing sasl
+	    would successfully start but silently skip starting
+	    log_mf_h. This is corrected so sasl startup will now fail
+	    if one or two of the three variables are given. If none
+	    of the variables are given, sasl will start as before
+	    without starting log_mf_h.</p>
+          <p>
+	    Own Id: OTP-9185</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change default behaviour to not check src code when
+	    creating release</p>
+          <p>
+	    Add new option <c>src_tests</c> to systools:make_script
+	    and systools:make_tar. The old option
+	    <c>no_module_tests</c> is now ignored as this is the
+	    default behaviour.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9146 Aux Id: seq11803 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Honor start type in .rel files when building relup files</p>
+          <p>
+	    Previously, relup file always included an
+	    application:start(Application, permanent) apply
+	    instruction for every application that appear in the
+	    UpTo/DowFrom release file, whatever their start type in
+	    the release file.</p>
+          <p>
+	    The new implementation fixes this bug by honoring the
+	    start type according to the rel(5) format. If the start
+	    type is none, no apply line is included in the relup. If
+	    the start type is load, the relup includes instruction to
+	    only load the application. Otherwise, the relup includes
+	    an instruction to start the application to the according
+	    type.</p>
+          <p>
+	    The fix is implemented by adding a new parameter to the
+	    add_application high level appup instruction. This new
+	    parameter is documented in appup(5).</p>
+          <p>
+	    Own Id: OTP-9097</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In R13B04 sys:get_status was modified to invoke
+	    format_status/2 in the callback module if the module
+	    exports that function. This resulted in a change to the
+	    term returned from calling sys:get_status on the
+	    supervisor module, since supervisor is a gen_server and
+	    gen_server exports format_status. The sasl
+	    release_handler_1 module had a dependency on the
+	    pre-R13B04 term returned by sys:get_status when invoked
+	    on a supervisor, so the R13B04 change broke that
+	    dependency.</p>
+	    <p>This problem has been fixed by change
+	    release_handler_1 to handle both the pre-R13B04 and
+	    R13B04 terms that sys:get_status can return from a
+	    supervisor.</p>
+          <p>
+	    Own Id: OTP-8619 Aux Id: seq11570 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use an infinity timeout in all calls to
+	    <c>gen_server:call()</c> in the SASL
+	    application.</p>
+          <p>
+	    Own Id: OTP-8506 Aux Id: seq11509 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>re:grep/1</c> function now uses the '<c>re</c>'
+	    module instead of the deprecated '<c>regexp</c>' module.
+	    There are new functions <c>rb:filter/1</c> and
+	    <c>rb:filter/2</c> for easier filtering of reports.
+	    (Thanks to Alvaro Videla.)</p>
+          <p>
+	    Own Id: OTP-8443</p>
+        </item>
+        <item>
+          <p>
+	    There is new function <c>sasl_report:format_report/3</c>
+	    that works like the existing
+	    <c>sasl_report:write_report/3</c> function except that it
+	    returns a formatted string. Note that there is currently
+	    no documentation for the <c>sasl_report</c> module.
+	    (Thanks to Jay Nelson.)</p>
+          <p>
+	    Own Id: OTP-8445</p>
+        </item>
+        <item>
+          <p>
+	    Cleanups suggested by tidier and modernization of types
+	    and specs.</p>
+          <p>
+	    Own Id: OTP-8455</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Windows utility Erlsrv, run in interactive mode now
+	    accepts options for registering internal service name and
+	    description field of Windows registry database.</p>
+          <p>
+	    Own Id: OTP-8132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When using the SASL application configuration
+	    parameter <c>masters</c> the error tuple
+	    <c>{error,{no_such_file,{Master,FileName}}}</c> was
+	    sometimes returned even though the file <c>FileName</c>
+	    existed.</p>
+          <p>
+	    Own Id: OTP-7667</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Missing preloaded modules added</p>
+          <p>
+	    Own Id: OTP-7820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.5.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A Dialyzer warning was eliminated</p>
+          <p>
+	    Own Id: OTP-7635</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor changes.</p>
+          <p>
+	    Own Id: OTP-7388</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 2.1.5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates.</p>
+          <p>
+	    Own Id: OTP-6998</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+  <section>
+    <title>SASL 2.1.5.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>Obsolete guard tests (such as list()) have been replaced
+            with the modern guard tests (such as is_list()).</p>
+          <p>Own Id: OTP-6725</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed some dead code from <c>erlsrv:get_service/2</c>,
+            <c>release_handler:do_write_file/2</c>,
+            <c>systools_relup:foreach_baserel_up/7</c> and
+            <c>systools_relup:foreach_baserel_dn/7</c>.</p>
+          <p>Own Id: OTP-6499</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added an option <c>{outdir,Dir}</c> to the functions in
+            <c>systools</c>, making it possible to specify in which
+            directory a boot script, relup file or release package
+            file should be placed.</p>
+          <p>Also, when using <c>systools:make_tar/2</c> to create a
+            release package file, the boot script, relup file and
+            <c>sys.config</c> are now searched for also in the current
+            working directory and any directory specified by
+            the <c>path</c> option, not only in the directory of
+            the <c>.rel</c> file.</p>
+          <p>As part of the work some minor bugs have been corrected:</p>
+          <list type="bulleted">
+            <item>
+              <p><c>systools:make_script/1,2</c> now returns
+                <c>error</c> if the <c>.script</c> and/or <c>.boot</c>
+                file could not be opened for writing, not <c>ok</c>.</p>
+            </item>
+            <item>
+              <p><c>systools:make_tar/1,2</c> can now handle a
+                <c>RelName</c> argument which includes a path.
+                Previously this would cause the <c>.rel</c> file to end
+                up in the wrong directory in the resulting tar file.</p>
+            </item>
+            <item>
+              <p>A documentation error for <c>systools:make_tar/1,2</c>:
+                The <c>.rel</c> file is placed in the <c>releases</c>
+                directory in the tar file, not <c>releases/RelVsn</c>.</p>
+            </item>
+          </list>
+          <p>Own Id: OTP-6226</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>release_handler:upgrade_app/2</c> and
+            <c>release_handler:downgrade_app/2,3</c> -- used for
+            testing application upgrade and downgrade according to
+            the <c>.appup</c> file -- now update application
+            configuration parameters correctly. (Thanks to Serge
+            Aleynikov)</p>
+          <p>Own Id: OTP-6162</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed some minor bugs in <c>release_handler</c> found by
+            Dialyzer.</p>
+          <p>Own Id: OTP-6039</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added a number of functions to <c>release_handler</c> which
+            makes it possible to test upgrade and downgrade of
+            applications according to an <c>.appup</c> file "on the
+            fly":            <br></br>
+
+            - <c>upgrade_app/2</c>            <br></br>
+
+            - <c>upgrade_script/2</c>            <br></br>
+
+            - <c>downgrade_app/2,3</c>            <br></br>
+
+            - <c>downgrade_script/3</c>            <br></br>
+
+            - <c>eval_appup_script/4</c></p>
+          <p>Own Id: OTP-5858</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>A new option <c>{update_paths,Bool}</c> has been added
+            for <c>release_handler:install_release/2</c>. It
+            indicates if all application code paths should be updated
+            (<c>Bool==true</c>), or if only code paths for modified
+            applications should be updated (<c>Bool==false</c>,
+            default).</p>
+          <p><c>release_handler:set_unpacked/2</c> now returns an
+            error tuple if a specified application directory does not
+            exist.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5761</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SASL 2.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug that made it impossible to call <c>rb:show(N)</c>
+            (<c>N</c> being an integer) twice without getting an error
+            has been fixed.</p>
+          <p>Own Id: OTP-5287</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

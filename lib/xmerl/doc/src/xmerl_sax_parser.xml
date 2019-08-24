@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>xmerl_sax_parser</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <module since="">xmerl_sax_parser</module>
+  <modulesummary>XML SAX parser API</modulesummary>
+
+  <description>
+    <p>
+      A SAX parser for XML that sends the events through a callback interface.
+     SAX is the <em>Simple API for XML</em>, originally a Java-only API. SAX was the first widely adopted API for 
+     XML in Java, and is a <em>de facto</em> standard where there are versions for several programming language 
+     environments other than Java.
+    </p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+
+    <taglist>
+      <tag><c>option()</c></tag>
+       <item>
+       <p>
+         Options used to customize the behaviour of the parser.
+         Possible options are:
+       </p><p></p>
+       <taglist>
+         <tag><c>{continuation_fun, ContinuationFun}</c></tag>
+         <item>
+           <seealso marker="#ContinuationFun/1">ContinuationFun</seealso> is a call back function to decide what to do if 
+           the parser runs into EOF before the document is complete. 
+         </item>
+         <tag><c>{continuation_state, term()}</c></tag>
+         <item>
+           State that is accessible in the continuation call back function. 
+         </item>
+         <tag><c>{event_fun, EventFun}</c></tag>
+         <item>
+           <seealso marker="#EventFun/3">EventFun</seealso> is the call back function for parser events. 
+         </item>
+         <tag><c>{event_state, term()}</c></tag>
+         <item>
+           State that is accessible in the event call back function. 
+         </item>
+         <tag><c>{file_type, FileType}</c></tag>
+         <item>
+           Flag that tells the parser if it's parsing a DTD or a normal XML file (default normal).
+           <list>
+             <item><c>FileType = normal | dtd</c></item>
+           </list>
+         </item>
+         <tag><c>{encoding, Encoding}</c></tag>
+         <item>
+           Set default character set used (default UTF-8). This character set is used only if not explicitly 
+           given by the XML document.
+           <list>
+             <item><c>Encoding = utf8 | {utf16,big} | {utf16,little} | latin1 | list</c></item>
+           </list>
+         </item>
+         <tag><c>skip_external_dtd</c></tag>
+         <item>
+           Skips the external DTD during parsing.
+         </item>
+       </taglist>
+       </item>
+      <tag></tag>
+ <item>
+<p></p>
+       </item>
+      <tag><c>event()</c></tag>
+       <item>
+       <p>
+         The SAX events that are sent to the user via the callback.
+       </p><p></p>
+       <taglist>
+
+         <tag><c>startDocument</c></tag>
+         <item>
+           Receive notification of the beginning of a document. The SAX parser will send this event only once 
+           before any other event callbacks.
+         </item>
+
+         <tag><c>endDocument</c></tag>
+         <item>
+            Receive notification of the end of a document. The SAX parser will send this event only once, and it will 
+            be the last event during the parse. 
+         </item>
+
+         <tag><c>{startPrefixMapping, Prefix, Uri}</c></tag>
+         <item>
+           Begin the scope of a prefix-URI Namespace mapping.
+           Note that start/endPrefixMapping events are not guaranteed to be properly nested relative to each other: 
+           all startPrefixMapping events will occur immediately before the corresponding startElement event, and all 
+           endPrefixMapping  events will occur immediately after the corresponding endElement event, but their 
+           order is not otherwise guaranteed.
+           There will not be start/endPrefixMapping events for the "xml" prefix, since it is predeclared and immutable.
+           <list>
+             <item><c>Prefix = string()</c></item>
+             <item><c>Uri = string()</c></item>
+           </list>
+         </item>
+
+         <tag><c>{endPrefixMapping, Prefix}</c></tag>
+         <item>
+           End the scope of a prefix-URI mapping.
+           <list>
+             <item><c>Prefix = string()</c></item>
+           </list>
+         </item>
+
+         <tag><c>{startElement, Uri, LocalName, QualifiedName, Attributes}</c></tag>
+         <item>
+          Receive notification of the beginning of an element.
+
+          The Parser will send this event at the beginning of every element in the XML document; 
+          there will be a corresponding endElement event for every startElement event (even when the element is empty). 
+          All of the element's content will be reported, in order, before the corresponding endElement event.
+            <list>
+             <item><c>Uri = string()</c></item>
+             <item><c>LocalName = string()</c></item>
+             <item><c>QualifiedName = {Prefix, LocalName}</c></item>
+             <item><c>Prefix = string()</c></item>
+             <item><c>Attributes = [{Uri, Prefix, AttributeName, Value}]</c></item>
+             <item><c>AttributeName = string()</c></item>
+             <item><c>Value = string()</c></item>
+           </list>
+        </item>
+
+         <tag><c>{endElement, Uri, LocalName, QualifiedName}</c></tag>
+         <item>
+          Receive notification of the end of an element.
+
+          The SAX parser will send this event at the end of every element in the XML document;
+          there will be a corresponding startElement event for every endElement event (even when the element is empty).
+            <list>
+             <item><c>Uri = string()</c></item>
+             <item><c>LocalName = string()</c></item>
+             <item><c>QualifiedName = {Prefix, LocalName}</c></item>
+             <item><c>Prefix = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{characters, string()}</c></tag>
+         <item>
+          Receive notification of character data. 
+         </item>
+
+         <tag><c>{ignorableWhitespace, string()}</c></tag>
+         <item>
+           Receive notification of ignorable whitespace in element content.
+         </item>
+
+         <tag><c>{processingInstruction, Target, Data}</c></tag>
+         <item>
+           Receive notification of a processing instruction.
+
+           The Parser will send this event once for each processing instruction found: 
+           note that processing instructions may occur before or after the main document element.
+            <list>
+             <item><c>Target = string()</c></item>
+             <item><c>Data = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{comment, string()}</c></tag>
+         <item>
+           Report an XML comment anywhere in the document (both inside and outside of the document element).
+         </item>
+
+         <tag><c>startCDATA</c></tag>
+         <item>
+           Report the start of a CDATA section. The contents of the CDATA section will be reported 
+           through the regular characters event.
+         </item>
+
+         <tag><c>endCDATA</c></tag>
+         <item>
+           Report the end of a CDATA section.
+         </item>
+
+         <tag><c>{startDTD, Name, PublicId, SystemId}</c></tag>
+         <item>
+           Report the start of DTD declarations, it's reporting the start of the DOCTYPE declaration.
+           If the document has no DOCTYPE declaration, this event will not be sent.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>PublicId = string()</c></item>
+             <item><c>SystemId = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>endDTD</c></tag>
+         <item>
+          Report the end of DTD declarations, it's reporting the end of the DOCTYPE declaration.
+         </item>
+
+         <tag><c>{startEntity, SysId}</c></tag>
+         <item> 
+           Report the beginning of some internal and external XML entities. ???
+         </item>
+
+         <tag><c>{endEntity, SysId}</c></tag>
+         <item>
+           Report the end of an entity. ???
+         </item>
+
+         <tag><c>{elementDecl, Name, Model}</c></tag>
+         <item>
+           Report an element type declaration.   
+           The content model will consist of the string "EMPTY", the string "ANY", or a parenthesised group, 
+           optionally followed by an occurrence indicator. The model will be normalized so that all parameter 
+           entities are fully resolved and all whitespace is removed,and will include the enclosing parentheses. 
+           Other normalization (such as removing redundant parentheses or simplifying occurrence indicators) 
+           is at the discretion of the parser.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>Model = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{attributeDecl, ElementName, AttributeName, Type, Mode, Value}</c></tag>
+         <item>
+           Report an attribute type declaration.
+            <list>
+             <item><c>ElementName = string()</c></item>
+             <item><c>AttributeName = string()</c></item>
+             <item><c>Type = string()</c></item>
+             <item><c>Mode = string()</c></item>
+             <item><c>Value = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{internalEntityDecl, Name, Value}</c></tag>
+         <item>
+          Report an internal entity declaration.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>Value = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{externalEntityDecl, Name, PublicId, SystemId}</c></tag>
+         <item>
+          Report a parsed external entity declaration.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>PublicId = string()</c></item>
+             <item><c>SystemId = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{unparsedEntityDecl, Name, PublicId, SystemId, Ndata}</c></tag>
+         <item>
+           Receive notification of an unparsed entity declaration event.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>PublicId = string()</c></item>
+             <item><c>SystemId = string()</c></item>
+             <item><c>Ndata = string()</c></item>
+            </list>
+         </item>
+
+         <tag><c>{notationDecl, Name, PublicId, SystemId}</c></tag>
+         <item>
+           Receive notification of a notation declaration event.
+            <list>
+             <item><c>Name = string()</c></item>
+             <item><c>PublicId = string()</c></item>
+             <item><c>SystemId = string()</c></item>
+            </list>
+         </item>
+
+       </taglist>
+       </item>
+
+       <tag><c>unicode_char()</c></tag>
+       <item>
+         Integer representing valid unicode codepoint.
+       </item>
+
+       <tag><c>unicode_binary()</c></tag>
+       <item>
+         Binary with characters encoded in UTF-8 or UTF-16.
+       </item>
+
+       <tag><c>latin1_binary()</c></tag>
+       <item>
+         Binary with characters encoded in iso-latin-1.
+       </item>
+
+    </taglist>
+
+  </section>
+
+
+  <funcs>
+
+    <func>
+      <name since="">file(Filename, Options) -> Result</name>
+      <fsummary>Parse file containing an XML document.</fsummary>
+      <type>
+        <v>Filename = string()</v>
+        <v>Options = [option()]</v>
+        <v>Result = {ok, EventState, Rest} |</v>
+        <v>&nbsp;&nbsp;&nbsp;{Tag, Location, Reason, EndTags, EventState}</v>
+        <v>Rest = unicode_binary() | latin1_binary()</v>
+        <v>Tag = atom() (fatal_error, or user defined tag)</v>
+        <v>Location = {CurrentLocation, EntityName, LineNo}</v>
+        <v>CurrentLocation = string()</v>
+        <v>EntityName = string()</v>
+        <v>LineNo = integer()</v>
+        <v>EventState = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Parse file containing an XML document. This functions uses a default continuation function to read the file in blocks.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">stream(Xml, Options) -> Result</name>
+      <fsummary>Parse a stream containing an XML document.</fsummary>
+      <type>
+        <v>Xml = unicode_binary() | latin1_binary() | [unicode_char()]</v>
+        <v>Options = [option()]</v>
+        <v>Result = {ok, EventState, Rest} |</v>
+        <v>&nbsp;&nbsp;&nbsp;{Tag, Location, Reason, EndTags, EventState}</v>
+        <v>Rest =  unicode_binary() | latin1_binary() | [unicode_char()]</v>
+        <v>Tag = atom() (fatal_error or user defined tag)</v>
+        <v>Location = {CurrentLocation, EntityName, LineNo}</v>
+        <v>CurrentLocation = string()</v>
+        <v>EntityName = string()</v>
+        <v>LineNo = integer()</v>
+        <v>EventState = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Parse a stream containing an XML document.</p>
+      </desc>
+    </func>
+
+   </funcs>
+
+  <section>
+    <title>CALLBACK FUNCTIONS</title>
+    <p>
+      The callback interface is based on that the user sends a fun with the 
+      correct signature to the parser.
+   </p>
+  </section>
+
+  <funcs>
+
+    <func>
+      <name since="">ContinuationFun(State) -> {NewBytes, NewState}</name>
+      <fsummary>Continuation call back function.</fsummary>
+      <type>
+        <v>State = NewState = term()</v>
+        <v>NewBytes = binary() | list() (should be same as start input in stream/2)</v>
+      </type>
+      <desc>
+        <p>
+          This function is called whenever the parser runs out of input data.
+          If the function can't get hold of more input an empty list or binary 
+          (depends on start input in stream/2) is returned.
+
+          Other types of errors is handled through exceptions. Use throw/1 to send the 
+          following tuple {Tag = atom(), Reason = string()} if the continuation function encounters a fatal error. 
+          Tag is an atom that identifies the functional entity that sends the exception 
+          and Reason is a string that describes the problem.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">EventFun(Event, Location, State) -> NewState</name>
+      <fsummary>Event call back function.</fsummary>
+      <type>
+        <v>Event = event()</v>
+        <v>Location = {CurrentLocation, Entityname, LineNo}</v>
+        <v>CurrentLocation = string()</v>
+        <v>Entityname = string()</v>
+        <v>LineNo = integer()</v>
+        <v>State = NewState = term()</v>
+      </type>
+      <desc>
+        <p>
+          This function is called for every event sent by the parser. 
+
+          The error handling is done through exceptions. Use throw/1 to send the 
+          following tuple {Tag = atom(), Reason = string()} if the application encounters a fatal error. 
+          Tag is an atom that identifies the functional entity that sends the exception 
+          and Reason is a string that describes the problem.
+        </p>
+      </desc>
+    </func>
+
+  </funcs>
+
+
+
+</erlref>
+

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Xmerl Release Notes</title>
+    <prepared>Bertil Karlsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>06-04-21</date>
+    <rev></rev>
+    <file>notes_history.sgml</file>
+  </header>
+  <p>This document describes the changes made to the Xmerl system
+    from version to version.  The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Xmerl. Each release of Xmerl
+    thus constitutes one section in this document. The title of each
+    section is the version number of Xmerl.</p>
+
+  <section>
+    <title>Xmerl before OTP</title>
+    <p><url href="http://sowap.sourceforge.net">The sorceforge location of the original user contribution</url></p>
+  </section>
+</chapter>
+

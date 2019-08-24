@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>instrument</title>
+    <prepared>Arndt Jonasson</prepared>
+    <responsible>Torbj&ouml;rn Johnsson</responsible>
+    <docno>1</docno>
+    <approved>Bj&ouml;rn Gustavsson</approved>
+    <checked></checked>
+    <date>98-04-01</date>
+    <rev>PA1</rev>
+    <file>instrument.sgml</file>
+  </header>
+  <module since="">instrument</module>
+  <modulesummary>Analysis and Utility Functions for Instrumentation</modulesummary>
+  <description>
+    <p>The module <c>instrument</c> contains support for studying the resource
+      usage in an Erlang runtime system. Currently, only the allocation of memory can
+      be studied.</p>
+    <note>
+      <p>Note that this whole module is experimental, and the representations
+        used as well as the functionality is likely to change in the future.</p>
+    </note>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="block_histogram"/>
+      <desc>
+        <p>A histogram of block sizes where each interval's upper bound is 
+          twice as high as the one before it.</p>
+        <p>The upper bound of the first interval is provided by the function
+           that returned the histogram, and the last interval has no upper
+           bound.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="allocation_summary"/>
+      <desc>
+        <p>A summary of allocated block sizes (including their headers) grouped
+          by their <c><anno>Origin</anno></c> and <c><anno>Type</anno></c>.</p>
+        <p><c><anno>Origin</anno></c> is generally which NIF or driver that
+          allocated the blocks, or 'system' if it could not be determined.</p>
+        <p><c><anno>Type</anno></c> is the allocation category that the blocks
+          belong to, e.g. <c>db_term</c>, <c>message</c> or <c>binary</c>.</p>
+        <p>If one or more carriers could not be scanned in full without harming
+          the responsiveness of the system, <c><anno>UnscannedSize</anno></c>
+          is the number of bytes that had to be skipped.</p>
+       </desc>
+    </datatype>
+    <datatype>
+      <name name="carrier_info_list"/>
+      <desc>
+        <p><c><anno>AllocatorType</anno></c> is the type of the allocator that
+          employs this carrier.</p>
+        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
+          including its header.</p>
+        <p><c><anno>AllocatedSize</anno></c> is the combined size of the
+          carrier's allocated blocks, including their headers.</p>
+        <p><c><anno>AllocatedCount</anno></c> is the number of allocated
+          blocks in the carrier.</p>
+        <p><c><anno>InPool</anno></c> is whether the carrier is in the
+          migration pool.</p>
+        <p><c><anno>FreeBlocks</anno></c> is a histogram of the free block
+          sizes in the carrier.</p>
+        <p>If the carrier could not be scanned in full without harming the
+          responsiveness of the system, <c><anno>UnscannedSize</anno></c> is
+          the number of bytes that had to be skipped.</p>
+       </desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+
+    <func>
+      <name name="allocations" arity="0" since="OTP 21.0"/>
+      <fsummary>Return a summary of all allocations in the system.</fsummary>
+      <desc>
+        <p>Shorthand for
+          <seealso marker="#allocations/1"><c>allocations(#{})</c>.</seealso></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="allocations" arity="1" since="OTP 21.0"/>
+      <fsummary>Return a summary of all allocations filtered by allocator type
+        and scheduler id.</fsummary>
+      <desc>
+        <p>Returns a summary of all tagged allocations in the system,
+          optionally filtered by allocator type and scheduler id.</p>
+        <p>Only binaries and allocations made by NIFs and drivers are tagged by
+          default, but this can be configured an a per-allocator basis with the
+          <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
+          </seealso> emulator option.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
+        <p>The following options can be used:</p>
+        <taglist>
+          <tag><c>allocator_types</c></tag>
+          <item>
+            <p>The allocator types that will be searched. Note that blocks can
+              move freely between allocator types, so restricting the search to
+              certain allocators may return unexpected types (e.g. process
+              heaps when searching binary_alloc), or hide blocks that were
+              migrated out.</p>
+            <p>Defaults to all <c>alloc_util</c> allocators.</p>
+          </item>
+          <tag><c>scheduler_ids</c></tag>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <tag><c>histogram_start</c></tag>
+          <item>
+            <p>The upper bound of the first interval in the allocated block
+              size histograms. Defaults to 128.</p>
+          </item>
+          <tag><c>histogram_width</c></tag>
+          <item>
+            <p>The number of intervals in the allocated block size histograms.
+              Defaults to 18.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <code type="none"><![CDATA[
+> instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
+{ok,{128,0,
+     #{udp_inet =>
+           #{driver_event_state => {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}},
+       system =>
+           #{heap => {0,0,0,0,20,4,2,2,2,3,0,1,0,0,1},
+             db_term => {271,3,1,52,80,1,0,0,0,0,0,0,0,0,0},
+             code => {0,0,0,5,3,6,11,22,19,20,10,2,1,0,0},
+             binary => {18,0,0,0,7,0,0,1,0,0,0,0,0,0,0},
+             message => {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0},
+             ... }
+       spawn_forker =>
+           #{driver_select_data_state =>
+                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       ram_file_drv => #{drv_binary => {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0}},
+       prim_file =>
+           #{process_specific_data => {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             nif_trap_export_entry => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             monitor_extended => {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             drv_binary => {0,0,0,0,0,0,1,0,3,5,0,0,0,1,0},
+             binary => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       prim_buffer =>
+           #{nif_internal => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             binary => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}}}}}
+     ]]></code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="carriers" arity="0" since="OTP 21.0"/>
+      <fsummary>Return a list of all carriers in the system.</fsummary>
+      <desc>
+        <p>Shorthand for
+          <seealso marker="#carriers/1"><c>carriers(#{})</c>.</seealso></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="carriers" arity="1" since="OTP 21.0"/>
+      <fsummary>Return a list of all carriers filtered by allocator type and
+        scheduler id.</fsummary>
+      <desc>
+        <p>Returns a summary of all carriers in the system, optionally filtered
+          by allocator type and scheduler id.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
+        <p>The following options can be used:</p>
+        <taglist>
+          <tag><c>allocator_types</c></tag>
+          <item>
+            <p>The allocator types that will be searched. Defaults to all
+              <c>alloc_util</c> allocators.</p>
+          </item>
+          <tag><c>scheduler_ids</c></tag>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <tag><c>histogram_start</c></tag>
+          <item>
+            <p>The upper bound of the first interval in the free block size
+              histograms. Defaults to 512.</p>
+          </item>
+          <tag><c>histogram_width</c></tag>
+          <item>
+            <p>The number of intervals in the free block size histograms.
+              Defaults to 14.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <code type="none"><![CDATA[
+> instrument:carriers(#{ histogram_start => 512, histogram_width => 8 }).
+{ok,{512,
+     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
+      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
+      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
+      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+      {...}|...]}}
+     ]]></code>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>,
+      <seealso marker="erts:erl">erl(1)</seealso></p>
+  </section>
+</erlref>
+

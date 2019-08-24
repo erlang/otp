@@ -1,0 +1,20 @@
+%%
+%% Release upgrade script for db (data base)
+%%
+
+{
+ "2.1",
+%%% Upgrade from:
+ [
+  {"1.0", [{update, db1, soft, soft_purge, soft_purge, []},
+	   {update, db2, soft, soft_purge, soft_purge, [db1]}]},
+  {"1.1", [{update, db1, soft, soft_purge, soft_purge, []},
+	   {update, db2, soft, soft_purge, soft_purge, [db1]}]}
+ ],
+
+%%% Downgrade to:
+ [
+  {"1.0", [{update, db1, soft, soft_purge, soft_purge, []},
+	   {update, db2, soft, soft_purge, soft_purge, [db1]}]}
+ ]
+}.

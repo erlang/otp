@@ -1,0 +1,905 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Concurrent Programming</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>conc_prog.xml</file>
+  </header>
+
+  <marker id="Distributed Programming"></marker>
+  <section>
+    <title>Processes</title>
+    <p>One of the main reasons for using Erlang instead of other
+      functional languages is Erlang's ability to handle concurrency
+      and distributed programming. By concurrency is meant programs
+      that can handle several threads of execution at the same time.
+      For example, modern operating systems allow you to use a
+      word processor, a spreadsheet, a mail client, and a print job all
+      running at the same time. Each processor (CPU) in
+      the system is probably only handling one thread (or job) at a
+      time, but it swaps between the jobs at such a rate that it gives
+      the illusion of running them all at the same time. It is easy to
+      create parallel threads of execution in an Erlang program and
+      to allow these threads to communicate with each other. In
+      Erlang, each thread of execution is called a <em>process</em>.</p>
+    <p>(Aside: the term "process" is usually used when the threads of
+      execution share no data with each other and the term "thread"
+      when they share data in some way. Threads of execution in Erlang
+      share no data, that is why they are called processes).</p>
+    <p>The Erlang BIF <c>spawn</c> is used to create a new process:
+      <c>spawn(Module, Exported_Function, List of Arguments)</c>.
+      Consider the following module:</p>
+    <code type="none">
+-module(tut14).
+
+-export([start/0, say_something/2]).
+
+say_something(What, 0) ->
+    done;
+say_something(What, Times) ->
+    io:format("~p~n", [What]),
+    say_something(What, Times - 1).
+
+start() ->
+    spawn(tut14, say_something, [hello, 3]),
+    spawn(tut14, say_something, [goodbye, 3]).</code>
+    <pre>
+5> <input>c(tut14).</input>
+{ok,tut14}
+6> <input>tut14:say_something(hello, 3).</input>
+hello
+hello
+hello
+done</pre>
+    <p>As shown, the function <c>say_something</c> writes its first
+      argument the number of times specified by second argument.
+      The function <c>start</c> starts two Erlang processes,
+      one that writes "hello" three times and one that writes
+      "goodbye" three times. Both processes use the function
+      <c>say_something</c>. Notice that a function used in this way by
+      <c>spawn</c>, to start a process, must be exported from the module
+      (that is, in the <c>-export</c> at the start of the module).</p>
+    <pre>
+9> <input>tut14:start().</input>
+hello
+goodbye
+&lt;0.63.0>
+hello
+goodbye
+hello
+goodbye</pre>
+    <p>Notice that it did not write "hello" three times and then
+      "goodbye" three times. Instead, the first process wrote a "hello",
+      the second a "goodbye", the first another "hello" and so forth.
+      But where did the &lt;0.63.0&gt; come from? The return value of a
+      function is the return value of the last "thing" in
+      the function. The last thing in the function <c>start</c> is</p>
+    <code type="none">
+spawn(tut14, say_something, [goodbye, 3]).</code>
+    <p><c>spawn</c> returns a <em>process identifier</em>, or
+      <em>pid</em>, which uniquely identifies the process. So &lt;0.63.0&gt;
+      is the pid of the <c>spawn</c> function call above.
+      The next example shows how to use pids.</p>
+    <p>Notice also that ~p is used instead of ~w in
+      <c>io:format</c>. To quote the manual: "~p Writes the data with
+      standard syntax in the same way as ~w, but breaks terms whose
+      printed representation is longer than one line into many lines
+      and indents each line sensibly. It also tries to detect lists of
+      printable characters and to output these as strings".</p>
+  </section>
+
+  <section>
+    <title>Message Passing</title>
+    <p>In the following example two processes are created and
+    they send messages to each other a number of times.</p>
+    <code type="none">
+-module(tut15).
+
+-export([start/0, ping/2, pong/0]).
+
+ping(0, Pong_PID) ->
+    Pong_PID ! finished,
+    io:format("ping finished~n", []);
+
+ping(N, Pong_PID) ->
+    Pong_PID ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping(N - 1, Pong_PID).
+
+pong() ->
+    receive
+        finished ->
+            io:format("Pong finished~n", []);
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    end.
+
+start() ->
+    Pong_PID = spawn(tut15, pong, []),
+    spawn(tut15, ping, [3, Pong_PID]).</code>
+    <pre>
+1> <input>c(tut15).</input>
+{ok,tut15}
+2> <input>tut15: start().</input>
+&lt;0.36.0>
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+ping finished
+Pong finished</pre>
+    <p>The function <c>start</c> first creates a process,
+      let us call it "pong":</p>
+    <code type="none">
+Pong_PID = spawn(tut15, pong, [])</code>
+    <p>This process executes <c>tut15:pong()</c>. <c>Pong_PID</c> is
+      the process identity of the "pong" process. The function
+      <c>start</c> now creates another process "ping":</p>
+    <code type="none">
+spawn(tut15, ping, [3, Pong_PID]),</code>
+    <p>This process executes:</p>
+    <code type="none">
+tut15:ping(3, Pong_PID)</code>
+    <p>&lt;0.36.0&gt; is the return value from the <c>start</c> function.</p>
+    <p>The process "pong" now does:</p>
+    <code type="none">
+receive
+    finished ->
+        io:format("Pong finished~n", []);
+    {ping, Ping_PID} ->
+        io:format("Pong received ping~n", []),
+        Ping_PID ! pong,
+        pong()
+end.</code>
+    <p>The <c>receive</c> construct is used to allow processes to wait
+      for messages from other processes. It has the following format:</p>
+    <code type="none">
+receive
+   pattern1 ->
+       actions1;
+   pattern2 ->
+       actions2;
+   ....
+   patternN
+       actionsN
+end.</code>
+    <p>Notice there is no ";" before the <c>end</c>.</p>
+    <p>Messages between Erlang processes are simply valid Erlang terms.
+      That is, they can be lists, tuples, integers, atoms, pids,
+      and so on.</p>
+    <p>Each process has its own input queue for messages it receives.
+      New messages received are put at the end of the queue. When a
+      process executes a <c>receive</c>, the first message in the queue
+      is matched against the first pattern in the <c>receive</c>. If
+      this matches, the message is removed from the queue and
+      the actions corresponding to the pattern are executed.</p>
+    <p>However, if the first pattern does not match, the second pattern
+      is tested. If this matches, the message is removed from the queue
+      and the actions corresponding to the second pattern are executed.
+      If the second pattern does not match, the third is tried and so on
+      until there are no more patterns to test. If there are no more
+      patterns to test, the first message is kept in the queue and
+      the second message is tried instead. If this matches any pattern,
+      the appropriate actions are executed and the second message is
+      removed from the queue (keeping the first message and any other
+      messages in the queue). If the second message does not match,
+      the third message is tried, and so on, until the end of
+      the queue is reached. If the end of the queue is reached,
+      the process blocks
+      (stops execution) and waits until a new message is received and
+      this procedure is repeated.</p>
+    <p>The Erlang implementation is "clever" and minimizes
+      the number of times each message is tested against the patterns
+      in each <c>receive</c>.</p>
+    <p>Now back to the ping pong example.</p>
+    <p>"Pong" is waiting for messages. If the atom <c>finished</c> is
+      received, "pong" writes "Pong finished" to the output and, as it
+      has nothing more to do, terminates. If it receives a message with
+      the format:</p>
+    <code type="none">
+{ping, Ping_PID}</code>
+    <p>it writes "Pong received ping" to the output and sends the atom
+      <c>pong</c> to the process "ping":</p>
+    <code type="none">
+Ping_PID ! pong</code>
+    <p>Notice how the operator "!" is used to send messages. The syntax
+      of "!" is:</p>
+    <code type="none">
+Pid ! Message</code>
+    <p>That is, <c>Message</c> (any Erlang term) is sent to the process
+      with identity <c>Pid</c>.</p>
+    <p>After sending the message <c>pong</c> to the process "ping",
+      "pong" calls the <c>pong</c> function again, which causes it to
+      get back to the <c>receive</c> again and wait for another message.</p>
+     <p>Now let us look at the process "ping". Recall that it was started
+      by executing:</p>
+    <code type="none">
+tut15:ping(3, Pong_PID)</code>
+    <p>Looking at the function <c>ping/2</c>, the second
+      clause of <c>ping/2</c> is executed since the value of the first
+      argument is 3 (not 0) (first clause head is
+      <c>ping(0,Pong_PID)</c>, second clause head is
+      <c>ping(N,Pong_PID)</c>, so <c>N</c> becomes 3).</p>
+    <p>The second clause sends a message to "pong":</p>
+    <code type="none">
+Pong_PID ! {ping, self()},</code>
+    <p><c>self()</c> returns the pid of the process that executes
+      <c>self()</c>, in this case the pid of "ping". (Recall the code
+      for "pong", this lands up in the variable <c>Ping_PID</c> in
+      the <c>receive</c> previously explained.)</p>
+    <p>"Ping" now waits for a reply from "pong":</p>
+    <code type="none">
+receive
+    pong ->
+        io:format("Ping received pong~n", [])
+end,</code>
+    <p>It writes "Ping received pong" when this reply arrives, after
+      which "ping" calls the <c>ping</c> function again.</p>
+    <code type="none">
+ping(N - 1, Pong_PID)</code>
+    <p><c>N-1</c> causes the first argument to be decremented until it
+      becomes 0. When this occurs, the first clause of <c>ping/2</c>
+      is executed:</p>
+    <code type="none">
+ping(0, Pong_PID) ->
+    Pong_PID !  finished,
+    io:format("ping finished~n", []);</code>
+    <p>The atom <c>finished</c> is sent to "pong" (causing it to
+      terminate as described above) and "ping finished" is written to
+      the output. "Ping" then terminates as it has nothing left
+      to do.</p>
+  </section>
+
+  <section>
+    <title>Registered Process Names</title>
+    <p>In the above example, "pong" was first created to be able
+      to give the identity of "pong" when "ping" was started. That is, in
+      some way "ping" must be able to know the identity of "pong" to be
+      able to send a message to it. Sometimes processes
+      which need to know each other's identities are started
+      independently of each other. Erlang thus provides a mechanism for
+      processes to be given names so that these names can be used as
+      identities instead of pids. This is done by using
+      the <c>register</c> BIF:</p>
+    <code type="none">
+register(some_atom, Pid)</code>
+    <p>Let us now rewrite the ping pong example using this and give
+      the name <c>pong</c> to the "pong" process:</p>
+    <code type="none">
+-module(tut16).
+
+-export([start/0, ping/1, pong/0]).
+
+ping(0) ->
+    pong ! finished,
+    io:format("ping finished~n", []);
+
+ping(N) ->
+    pong ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping(N - 1).
+
+pong() ->
+    receive
+        finished ->
+            io:format("Pong finished~n", []);
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    end.
+
+start() ->
+    register(pong, spawn(tut16, pong, [])),
+    spawn(tut16, ping, [3]).</code>
+    <pre>
+2> <input>c(tut16).</input>
+{ok, tut16}
+3> <input>tut16:start().</input>
+&lt;0.38.0>
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+ping finished
+Pong finished</pre>
+    <p>Here the <c>start/0</c> function,</p>
+    <code type="none">
+register(pong, spawn(tut16, pong, [])),</code>
+    <p>both spawns the "pong" process and gives it the name <c>pong</c>.
+      In the "ping" process, messages can be sent to <c>pong</c> by:</p>
+    <code type="none">
+pong ! {ping, self()},</code>
+    <p><c>ping/2</c> now becomes <c>ping/1</c> as
+      the argument <c>Pong_PID</c> is not needed.</p>
+  </section>
+
+  <section>
+    <title>Distributed Programming</title>
+    <p>Let us rewrite the ping pong program with "ping" and "pong"
+      on different computers. First a few things
+      are needed to set up to get this to work. The distributed Erlang
+      implementation provides a very basic authentication mechanism to prevent
+      unintentional access to an Erlang system on another computer.
+      Erlang systems which talk to each other must have
+      the same <em>magic cookie</em>. The easiest way to achieve this
+      is by having a file called <c>.erlang.cookie</c> in your home
+      directory on all machines on which you are going to run
+      Erlang systems communicating with each other:
+     </p>
+      <list type="bulleted">
+	<item>On Windows systems the home directory is the directory
+	pointed out by the environment variable $HOME - you may need
+        to set this.</item>
+        <item> On Linux or UNIX
+        you can safely ignore this and simply create a file called
+        <c>.erlang.cookie</c> in the directory you get to after executing
+        the command <c>cd</c> without any argument.</item>
+      </list>
+      <p>The <c>.erlang.cookie</c> file is to contain a line with
+      the same atom. For example, on Linux or UNIX, in the OS shell:</p>
+    <pre>
+$ <input>cd</input>
+$ <input>cat > .erlang.cookie</input>
+this_is_very_secret
+$ <input>chmod 400 .erlang.cookie</input></pre>
+    <p>The <c>chmod</c> above makes the <c>.erlang.cookie</c> file
+      accessible only by the owner of the file. This is a requirement.</p>
+    <p>When you start an Erlang system that is going to talk to other
+      Erlang systems, you must give it a name, for example:</p>
+    <pre>
+$ <input>erl -sname my_name</input></pre>
+    <p>We will see more details of this later. If you want to
+      experiment with distributed Erlang, but you only have one
+      computer to work on, you can start two separate Erlang systems on
+      the same computer but give them different names. Each Erlang
+      system running on a computer is called an <em>Erlang node</em>.</p>
+    <p>(Note: <c>erl -sname</c> assumes that all nodes are in the same
+      IP domain and we can use only the first component of the IP
+      address, if we want to use nodes in different domains we use
+      <c>-name</c> instead, but then all IP address must be given in
+      full.)</p>
+    <p>Here is the ping pong example modified to run on two separate
+      nodes:</p>
+    <code type="none">
+-module(tut17).
+
+-export([start_ping/1, start_pong/0,  ping/2, pong/0]).
+
+ping(0, Pong_Node) ->
+    {pong, Pong_Node} ! finished,
+    io:format("ping finished~n", []);
+
+ping(N, Pong_Node) ->
+    {pong, Pong_Node} ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping(N - 1, Pong_Node).
+
+pong() ->
+    receive
+        finished ->
+            io:format("Pong finished~n", []);
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    end.
+
+start_pong() ->
+    register(pong, spawn(tut17, pong, [])).
+
+start_ping(Pong_Node) ->
+    spawn(tut17, ping, [3, Pong_Node]).</code>
+    <p>Let us assume there are two computers called gollum and kosken.
+      First a node is started on kosken, called ping, and then a node on gollum,
+      called pong.</p>
+    <p>On kosken (on a Linux/UNIX system):</p>
+    <pre>
+kosken> <input>erl -sname ping</input>
+Erlang (BEAM) emulator version 5.2.3.7 [hipe] [threads:0]
+
+Eshell V5.2.3.7  (abort with ^G)
+(ping@kosken)1></pre>
+    <p>On gollum:</p>
+    <pre>
+gollum> <input>erl -sname pong</input>
+Erlang (BEAM) emulator version 5.2.3.7 [hipe] [threads:0]
+
+Eshell V5.2.3.7  (abort with ^G)
+(pong@gollum)1></pre>
+    <p>Now the "pong" process on gollum is started:</p>
+    <pre>
+(pong@gollum)1> <input>tut17:start_pong().</input>
+true</pre>
+    <p>And the "ping" process on kosken is started (from the code above you
+      can see that a parameter of the <c>start_ping</c> function is
+      the node name of the Erlang system where "pong" is running):</p>
+    <pre>
+(ping@kosken)1> <input>tut17:start_ping(pong@gollum).</input>
+&lt;0.37.0>
+Ping received pong
+Ping received pong 
+Ping received pong
+ping finished</pre>
+    <p>As shown, the ping pong program has run. On the "pong" side:</p>
+    <pre>
+(pong@gollum)2>
+Pong received ping                 
+Pong received ping                 
+Pong received ping                 
+Pong finished                      
+(pong@gollum)2></pre>
+    <p>Looking at the <c>tut17</c> code, you see that the <c>pong</c>
+      function itself is unchanged, the following lines work in the same way
+      irrespective of on which node the "ping" process is executes:</p>
+    <code type="none">
+{ping, Ping_PID} ->
+    io:format("Pong received ping~n", []),
+    Ping_PID ! pong,</code>
+    <p>Thus, Erlang pids contain information about
+      where the process executes. So if you know the pid of a process,
+      the "!" operator can be used to send it a message disregarding
+      if the process is on the same node or on a different node.</p>
+    <p>A difference is how messages are sent to a registered process on
+      another node:</p>
+    <code type="none">
+{pong, Pong_Node} ! {ping, self()},</code>
+    <p>A tuple <c>{registered_name,node_name}</c> is used instead of
+      just the <c>registered_name</c>.</p>
+    <p>In the previous example, "ping" and "pong" were started from
+      the shells of two separate Erlang nodes. <c>spawn</c> can also be
+      used to start processes in other nodes.</p>
+      <p>The next example is the ping pong program, yet again,
+      but this time "ping" is started in another node:</p>
+    <code type="none">
+-module(tut18).
+
+-export([start/1,  ping/2, pong/0]).
+
+ping(0, Pong_Node) ->
+    {pong, Pong_Node} ! finished,
+    io:format("ping finished~n", []);
+
+ping(N, Pong_Node) ->
+    {pong, Pong_Node} ! {ping, self()},
+    receive
+        pong ->
+            io:format("Ping received pong~n", [])
+    end,
+    ping(N - 1, Pong_Node).
+
+pong() ->
+    receive
+        finished ->
+            io:format("Pong finished~n", []);
+        {ping, Ping_PID} ->
+            io:format("Pong received ping~n", []),
+            Ping_PID ! pong,
+            pong()
+    end.
+
+start(Ping_Node) ->
+    register(pong, spawn(tut18, pong, [])),
+    spawn(Ping_Node, tut18, ping, [3, node()]).</code>
+    <p>Assuming an Erlang system called ping (but not the "ping"
+      process) has already been started on kosken, then on gollum this is done:</p>
+    <pre>
+(pong@gollum)1> <input>tut18:start(ping@kosken).</input>
+&lt;3934.39.0>
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+Pong received ping
+Ping received pong
+Pong finished
+ping finished</pre>
+    <p>Notice that all the output is received on gollum. This is because
+      the I/O
+      system finds out where the process is spawned from and sends all
+      output there.</p>
+  </section>
+
+  <section>
+    <title>A Larger Example</title>
+    <p>Now for a larger example with a simple
+      "messenger". The messenger is a program that allows users to log
+      in on different nodes and send simple messages to each other.</p>
+    <p>Before starting, notice the following:</p>
+    <list type="bulleted">
+      <item>
+        <p>This example only shows the message passing logic - no
+          attempt has been made to provide a nice graphical user
+          interface, although this can also be done in Erlang.</p>
+      </item>
+      <item>
+        <p>This sort of problem can be solved easier by use of
+          the facilities in OTP, which also provide methods for
+          updating code on the fly and so on (see
+	  <seealso marker="doc/design_principles:des_princ#otp design principles">
+          OTP Design Principles</seealso>).</p>
+      </item>
+      <item>
+        <p>The first program contains some inadequacies
+          regarding handling of nodes which disappear.
+          These are corrected in a later version of the program.</p>
+      </item>
+    </list>
+    <p>The messenger is set up by allowing "clients" to connect to
+      a central server and say who and where they are. That is, a user
+      does not need to know the name of the Erlang node where another user
+      is located to send a message.</p>
+    <p>File <c>messenger.erl</c>:</p>
+    <marker id="ex"></marker>
+    <code type="none">
+%%% Message passing utility.  
+%%% User interface:
+%%% logon(Name)
+%%%     One user at a time can log in from each Erlang node in the
+%%%     system messenger: and choose a suitable Name. If the Name
+%%%     is already logged in at another node or if someone else is
+%%%     already logged in at the same node, login will be rejected
+%%%     with a suitable error message.
+%%% logoff()
+%%%     Logs off anybody at that node
+%%% message(ToName, Message)
+%%%     sends Message to ToName. Error messages if the user of this 
+%%%     function is not logged on or if ToName is not logged on at
+%%%     any node.
+%%%
+%%% One node in the network of Erlang nodes runs a server which maintains
+%%% data about the logged on users. The server is registered as "messenger"
+%%% Each node where there is a user logged on runs a client process registered
+%%% as "mess_client" 
+%%%
+%%% Protocol between the client processes and the server
+%%% ----------------------------------------------------
+%%% 
+%%% To server: {ClientPid, logon, UserName}
+%%% Reply {messenger, stop, user_exists_at_other_node} stops the client
+%%% Reply {messenger, logged_on} logon was successful
+%%%
+%%% To server: {ClientPid, logoff}
+%%% Reply: {messenger, logged_off}
+%%%
+%%% To server: {ClientPid, logoff}
+%%% Reply: no reply
+%%%
+%%% To server: {ClientPid, message_to, ToName, Message} send a message
+%%% Reply: {messenger, stop, you_are_not_logged_on} stops the client
+%%% Reply: {messenger, receiver_not_found} no user with this name logged on
+%%% Reply: {messenger, sent} Message has been sent (but no guarantee)
+%%%
+%%% To client: {message_from, Name, Message},
+%%%
+%%% Protocol between the "commands" and the client
+%%% ----------------------------------------------
+%%%
+%%% Started: messenger:client(Server_Node, Name)
+%%% To client: logoff
+%%% To client: {message_to, ToName, Message}
+%%%
+%%% Configuration: change the server_node() function to return the
+%%% name of the node where the messenger server runs
+
+-module(messenger).
+-export([start_server/0, server/1, logon/1, logoff/0, message/2, client/2]).
+
+%%% Change the function below to return the name of the node where the
+%%% messenger server runs
+server_node() ->
+    messenger@super.
+
+%%% This is the server process for the "messenger"
+%%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]
+server(User_List) ->
+    receive
+        {From, logon, Name} ->
+            New_User_List = server_logon(From, Name, User_List),
+            server(New_User_List);
+        {From, logoff} ->
+            New_User_List = server_logoff(From, User_List),
+            server(New_User_List);
+        {From, message_to, To, Message} ->
+            server_transfer(From, To, Message, User_List),
+            io:format("list is now: ~p~n", [User_List]),
+            server(User_List)
+    end.
+
+%%% Start the server
+start_server() ->
+    register(messenger, spawn(messenger, server, [[]])).
+
+
+%%% Server adds a new user to the user list
+server_logon(From, Name, User_List) ->
+    %% check if logged on anywhere else
+    case lists:keymember(Name, 2, User_List) of
+        true ->
+            From ! {messenger, stop, user_exists_at_other_node},  %reject logon
+            User_List;
+        false ->
+            From ! {messenger, logged_on},
+            [{From, Name} | User_List]        %add user to the list
+    end.
+
+%%% Server deletes a user from the user list
+server_logoff(From, User_List) ->
+    lists:keydelete(From, 1, User_List).
+
+
+%%% Server transfers a message between user
+server_transfer(From, To, Message, User_List) ->
+    %% check that the user is logged on and who he is
+    case lists:keysearch(From, 1, User_List) of
+        false ->
+            From ! {messenger, stop, you_are_not_logged_on};
+        {value, {From, Name}} ->
+            server_transfer(From, Name, To, Message, User_List)
+    end.
+%%% If the user exists, send the message
+server_transfer(From, Name, To, Message, User_List) ->
+    %% Find the receiver and send the message
+    case lists:keysearch(To, 2, User_List) of
+        false ->
+            From ! {messenger, receiver_not_found};
+        {value, {ToPid, To}} ->
+            ToPid ! {message_from, Name, Message}, 
+            From ! {messenger, sent} 
+    end.
+
+
+%%% User Commands
+logon(Name) ->
+    case whereis(mess_client) of 
+        undefined ->
+            register(mess_client, 
+                     spawn(messenger, client, [server_node(), Name]));
+        _ -> already_logged_on
+    end.
+
+logoff() ->
+    mess_client ! logoff.
+
+message(ToName, Message) ->
+    case whereis(mess_client) of % Test if the client is running
+        undefined ->
+            not_logged_on;
+        _ -> mess_client ! {message_to, ToName, Message},
+             ok
+end.
+
+
+%%% The client process which runs on each server node
+client(Server_Node, Name) ->
+    {messenger, Server_Node} ! {self(), logon, Name},
+    await_result(),
+    client(Server_Node).
+
+client(Server_Node) ->
+    receive
+        logoff ->
+            {messenger, Server_Node} ! {self(), logoff},
+            exit(normal);
+        {message_to, ToName, Message} ->
+            {messenger, Server_Node} ! {self(), message_to, ToName, Message},
+            await_result();
+        {message_from, FromName, Message} ->
+            io:format("Message from ~p: ~p~n", [FromName, Message])
+    end,
+    client(Server_Node).
+
+%%% wait for a response from the server
+await_result() ->
+    receive
+        {messenger, stop, Why} -> % Stop the client 
+            io:format("~p~n", [Why]),
+            exit(normal);
+        {messenger, What} ->  % Normal response
+            io:format("~p~n", [What])
+    end.</code>
+    <p>To use this program, you need to:</p>
+    <list type="bulleted">
+      <item>Configure the <c>server_node()</c> function.</item>
+      <item>Copy the compiled code (<c>messenger.beam</c>) to
+       the directory on each computer where you start Erlang.</item>
+    </list>
+    <p>In the following example using this program,
+      nodes are started on four different computers. If you do not have that
+      many machines available on your network, you can start
+      several nodes on the same machine.</p>
+    <p>Four Erlang nodes are started up: messenger@super, c1@bilbo,
+      c2@kosken, c3@gollum.</p>
+    <p>First the server at messenger@super is started up:</p>
+    <pre>
+(messenger@super)1> <input>messenger:start_server().</input>
+true</pre>
+    <p>Now Peter logs on at c1@bilbo:</p>
+    <pre>
+(c1@bilbo)1> <input>messenger:logon(peter).</input>
+true
+logged_on</pre>
+    <p>James logs on at c2@kosken:</p>
+    <pre>
+(c2@kosken)1> <input>messenger:logon(james).</input>
+true
+logged_on</pre>
+    <p>And Fred logs on at c3@gollum:</p>
+    <pre>
+(c3@gollum)1> <input>messenger:logon(fred).</input>
+true
+logged_on</pre>
+    <p>Now Peter sends Fred a message:</p>
+    <pre>
+(c1@bilbo)2> <input>messenger:message(fred, "hello").</input>
+ok
+sent</pre>
+    <p>Fred receives the message and sends a message to Peter and
+      logs off:</p>
+    <pre>
+Message from peter: "hello"
+(c3@gollum)2> <input>messenger:message(peter, "go away, I'm busy").</input>
+ok
+sent
+(c3@gollum)3> <input>messenger:logoff().</input>
+logoff</pre>
+    <p>James now tries to send a message to Fred:</p>
+    <pre>
+(c2@kosken)2> <input>messenger:message(fred, "peter doesn't like you").</input>
+ok
+receiver_not_found</pre>
+    <p>But this fails as Fred has already logged off.</p>
+    <p>First let us look at some of the new concepts that have
+       been introduced.</p>
+    <p>There are two versions of the <c>server_transfer</c> function:
+      one with four arguments (<c>server_transfer/4</c>) and one with
+      five (<c>server_transfer/5</c>). These are regarded by Erlang as
+      two separate functions.</p>
+    <p>Notice how to write the <c>server</c> function so that it calls
+      itself, through <c>server(User_List)</c>, and thus creates a loop.
+      The Erlang compiler is "clever" and optimizes the code so that
+      this really is a sort of loop and not a proper function call. But
+      this only works if there is no code after the call. Otherwise,
+      the compiler expects the call to return and make a proper
+      function call. This would result in the process getting bigger
+      and bigger for every loop.</p>
+    <p>Functions in the <c>lists</c> module are used. This is a very
+      useful module and a study of the manual page is recommended
+      (<c>erl -man lists</c>).
+      <c>lists:keymember(Key,Position,Lists)</c> looks through a list
+      of tuples and looks at <c>Position</c> in each tuple to see if it
+      is the same as <c>Key</c>. The first element is position 1. If it
+      finds a tuple where the element at <c>Position</c> is the same as
+      <c>Key</c>, it returns <c>true</c>, otherwise <c>false</c>.</p>
+    <pre>
+3> <input>lists:keymember(a, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
+true
+4> <input>lists:keymember(p, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
+false</pre>
+    <p><c>lists:keydelete</c> works in the same way but deletes
+      the first tuple found (if any) and returns the remaining list:</p>
+    <pre>
+5> <input>lists:keydelete(a, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
+[{x,y,z},{b,b,b},{q,r,s}]</pre>
+    <p><c>lists:keysearch</c> is like <c>lists:keymember</c>, but it
+      returns <c>{value,Tuple_Found}</c> or the atom <c>false</c>.</p>
+    <p>There are many very useful functions in the <c>lists</c>
+      module.</p>
+    <p>An Erlang process (conceptually) runs until it does a
+      <c>receive</c> and there is no message which it wants to receive
+      in the message queue. "conceptually" is used here because the Erlang
+      system shares the CPU time between the active processes in
+      the system.</p>
+    <p>A process terminates when there is nothing more for it to do,
+      that is, the last function it calls simply returns and does not call
+      another function. Another way for a process to terminate is for
+      it to call <c>exit/1</c>. The argument to <c>exit/1</c> has a
+      special meaning, which is discussed later. In this example,
+      <c>exit(normal)</c> is done, which has the same effect as a
+      process running out of functions to call.</p>
+    <p>The BIF <c>whereis(RegisteredName)</c> checks if a registered
+      process of name <c>RegisteredName</c> exists. If it exists, the pid of
+      that process is returned. If it does not exist, the atom
+      <c>undefined</c> is returned.</p>
+    <p>You should by now be able to understand most of the code in the
+      messenger-module. Let us study one case in detail: a message is
+      sent from one user to another.</p>
+    <p>The first user "sends" the message in the example above by:</p>
+    <code type="none">
+messenger:message(fred, "hello")</code>
+    <p>After testing that the client process exists:</p>
+    <code type="none">
+whereis(mess_client) </code>
+    <p>And a message is sent to <c>mess_client</c>:</p>
+    <code type="none">
+mess_client ! {message_to, fred, "hello"}</code>
+    <p>The client sends the message to the server by:</p>
+    <code type="none">
+{messenger, messenger@super} ! {self(), message_to, fred, "hello"},</code>
+    <p>And waits for a reply from the server.</p>
+    <p>The server receives this message and calls:</p>
+    <code type="none">
+server_transfer(From, fred, "hello", User_List),</code>
+    <p>This checks that the pid <c>From</c> is in the <c>User_List</c>:</p>
+    <code type="none">
+lists:keysearch(From, 1, User_List) </code>
+    <p>If <c>keysearch</c> returns the atom <c>false</c>, some
+      error has occurred and the server sends back the message:</p>
+    <code type="none">
+From ! {messenger, stop, you_are_not_logged_on}</code>
+    <p>This is received by the client, which in turn does
+      <c>exit(normal)</c> and terminates. If <c>keysearch</c> returns
+      <c>{value,{From,Name}}</c> it is certain that the user is logged on and
+      that his name (peter) is in variable <c>Name</c>.</p>
+      <p>Let us now call:</p>
+    <code type="none">
+server_transfer(From, peter, fred, "hello", User_List)</code>
+    <p>Notice that as this is <c>server_transfer/5</c>, it is not the same
+      as the previous function <c>server_transfer/4</c>. Another
+      <c>keysearch</c> is done on <c>User_List</c> to find the pid of
+      the client corresponding to fred:</p>
+    <code type="none">
+lists:keysearch(fred, 2, User_List)</code>
+    <p>This time argument 2 is used, which is the second element in
+      the tuple. If this returns the atom <c>false</c>,
+      fred is not logged on and the following message is sent:</p>
+    <code type="none">
+From ! {messenger, receiver_not_found};</code>
+    <p>This is received by the client.</p>
+    <p> If <c>keysearch</c> returns:</p>
+    <code type="none">
+{value, {ToPid, fred}}</code>
+    <p>The following message is sent to fred's client:</p>
+    <code type="none">
+ToPid ! {message_from, peter, "hello"}, </code>
+    <p>The following message is sent to peter's client:</p>
+    <code type="none">
+From ! {messenger, sent} </code>
+    <p>Fred's client receives the message and prints it:</p>
+    <code type="none">
+{message_from, peter, "hello"} ->
+    io:format("Message from ~p: ~p~n", [peter, "hello"])</code>
+    <p>Peter's client receives the message in
+      the <c>await_result</c> function.</p>
+  </section>
+</chapter>
+

@@ -1,0 +1,4 @@
+
+ewgi_api.erl:55: The call gb_trees:to_list({non_neg_integer(),'nil' | {_,_,_,_}}) does not have an opaque term of type gb_trees:tree(_,_) as 1st argument
+ewgi_testapp.erl:35: The call ewgi_testapp:htmlise_data("request_data",{non_neg_integer(),'nil' | {_,_,_,_}}) does not have a term of type [{_,_}] | gb_trees:tree(_,_) (with opaque subterms) as 2nd argument
+ewgi_testapp.erl:43: The call gb_trees:to_list(T::{non_neg_integer(),'nil' | {_,_,_,_}}) does not have an opaque term of type gb_trees:tree(_,_) as 1st argument

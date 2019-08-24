@@ -1,0 +1,4 @@
+
+no_match.erl:5: Function t1/1 has no clauses that will ever match
+no_match.erl:7: Function t2/1 has no clauses that will ever match
+no_match.erl:9: Function t3/1 has no local return

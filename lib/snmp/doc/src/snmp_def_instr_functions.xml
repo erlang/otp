@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Definition of Instrumentation Functions</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_def_instr_functions.xml</file>
+  </header>
+  <p>The section <em>Definition of Instrumentation Functions</em> describes
+    the user defined functions, which the agent calls at different times.
+    </p>
+
+  <section>
+    <title>Variable Instrumentation</title>
+    <p>For scalar variables, a function <c>f(Operation, ...)</c> must
+      be defined.
+      </p>
+    <p>The <c>Operation</c> can be <c>new</c>, <c>delete</c>,
+      <c>get</c>, <c>is_set_ok</c>, <c>set</c>, or <c>undo</c>.
+      </p>
+    <p>In case of an error, all instrumentation functions may return
+      either an SNMPv1 or an SNMPv2 error code. If it returns an SNMPv2
+      code, it is converted into an SNMPv1 code before it is sent to a
+      SNMPv1 manager.  It is  recommended to use the SNMPv2 error codes
+      for all instrumentation functions, as these provide more
+      details. See <seealso marker="snmp_app_a">Appendix A</seealso> for a
+      description of error code conversions.
+      </p>
+
+    <section>
+      <title>f(new [, ExtraArgs])</title>
+      <p>The function <c>f(new [, ExtraArgs])</c> is called for each
+        variable in the MIB when the
+        MIB is loaded into the agent. This makes it possible to perform
+        necessary initialization.
+        </p>
+      <p>This function is optional. The return value is discarded.</p>
+    </section>
+
+    <section>
+      <title>f(delete [, ExtraArgs])</title>
+      <p>The function <c>f(delete [, ExtraArgs])</c> is called
+        for each object in an MIB when the
+        MIB is unloaded from the agent. This makes it possible to
+        perform necessary clean-up.
+        </p>
+      <p>This function is optional. The return value is discarded.</p>
+    </section>
+
+    <section>
+      <title>f(get [, ExtraArgs])</title>
+      <p>The function <c>f(get [, ExtraArgs])</c> is called when a
+        get-request or a get-next
+        request refers to the variable.
+        </p>
+      <p>This function is mandatory.
+        </p>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item><c>{value, Value}</c>. The <c>Value</c> must be of
+           correct type, length and within ranges, otherwise
+          <c>genErr</c> is returned in the response PDU.  If the
+           object is an enumerated integer, the symbolic enum value
+           may be used as an atom. If the object is of type BITS, the
+           return value shall be an integer or a list of bits that
+           are set.
+          </item>
+          <item><c>{noValue, noSuchName}</c>(SNMPv1)
+          </item>
+          <item><c>{noValue, noSuchObject | noSuchInstance} </c>(SNMPv2)
+          </item>
+          <item><c>genErr</c>.  Used if an error occurred.  Note,
+           this should be an internal processing error, e.g. a caused
+           by a programing fault somewhere.  If the variable does not
+           exist, use <c>{noValue, noSuchName}</c> or
+          <c>{noValue, noSuchInstance}</c>.
+          </item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(is_set_ok, NewValue [, ExtraArgs])</title>
+      <p>The function <c>f(is_set_ok, NewValue [, ExtraArgs])</c> is
+        called in phase one of the set-request
+        processing so that the new value can be checked for
+        inconsistencies.
+        </p>
+      <p><c>NewValue</c> is guaranteed to be of the correct type,
+        length and within ranges, as specified in the MIB.  If the
+        object is an enumerated integer or of type BITS, the integer
+        value is used.
+        </p>
+      <p>This function is optional.
+        </p>
+      <p>If this function is called, it will be called again, either
+        with <c>undo</c> or with <c>set</c> as first argument.
+        </p>
+
+      <section>
+        <title>Valid return values</title>
+        <list type="bulleted">
+          <item><c>noError</c></item>
+          <item><c>badValue | noSuchName | genErr</c>(SNMPv1)
+          </item>
+          <item><c>noAccess | noCreation | inconsistentValue | resourceUnavailable | inconsistentName | genErr</c>(SNMPv2)</item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(undo, NewValue [, ExtraArgs])</title>
+      <p>If an error occurred, this function is called after the
+        <c>is_set_ok</c> function is called. If <c>set</c> is called for
+        this object, <c>undo</c> is not called.
+        </p>
+      <p><c>NewValue</c> is guaranteed to be of the correct type,
+        length and within ranges, as specified in the MIB.  If the
+        object is an enumerated integer or of type BITS, the integer
+        value is used.
+        </p>
+      <p>This function is optional.
+        </p>
+
+      <section>
+        <title>Valid return values</title>
+        <list type="bulleted">
+          <item><c>noError</c></item>
+          <item><c>genErr</c>(SNMPv1)
+          </item>
+          <item><c>undoFailed | genErr</c>(SNMPv2)</item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(set, NewValue [, ExtraArgs])</title>
+      <p>This function is called to perform the set in phase two of
+        the set-request processing. It is only called if the
+        corresponding <c>is_set_ok</c> function is present and returns
+        <c>noError</c>.
+        </p>
+      <p><c>NewValue</c> is guaranteed to be of the correct type,
+        length and within ranges, as specified in the MIB.  If the
+        object is an enumerated integer or of type BITS, the integer
+        value is used.
+        </p>
+      <p>This function is mandatory.
+        </p>
+
+      <section>
+        <title>Valid return values</title>
+        <list type="bulleted">
+          <item><c>noError</c></item>
+          <item><c>genErr</c>(SNMPv1)
+          </item>
+          <item><c>commitFailed | undoFailed | genErr</c>(SNMPv2)</item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Table Instrumentation</title>
+    <p>For tables, a <c>f(Operation, ...)</c> function should be
+      defined (the function shown is exemplified with <c>f</c>).
+      </p>
+    <p>The <c>Operation</c> can be <c>new</c>, <c>delete</c>,
+      <c>get</c>, <c>next</c>, <c>is_set_ok</c>, <c>undo</c> or
+      <c>set</c>.
+      </p>
+    <p>In case of an error, all instrumentation functions may return
+      either an SNMPv1 or an SNMPv2 error code. If it returns an SNMPv2
+      code, it is converted into an SNMPv1 code before it is sent to a
+      SNMPv1 manager. It is  recommended to use the SNMPv2 error codes
+      for all instrumentation functions, as these provide more
+      details. See <seealso marker="snmp_app_a">Appendix A</seealso> for a
+      description of error code conversions.</p>
+
+    <section>
+      <title>f(new [, ExtraArgs])</title>
+      <p>The function <c>f(new [, ExtraArgs])</c> is called for each object in an MIB when the
+        MIB is loaded into the agent. This makes it possible to perform
+        the necessary initialization.
+        </p>
+      <p>This function is optional. The return value is discarded.</p>
+    </section>
+
+    <section>
+      <title>f(delete [, ExtraArgs])</title>
+      <p>The function <c>f(delete [, ExtraArgs])</c> is called for each object in an MIB when the
+        MIB is unloaded from the agent. This makes it possible to
+        perform any necessary clean-up.
+        </p>
+      <p>This function is optional. The return value is discarded.</p>
+    </section>
+
+    <section>
+      <title>f(get, RowIndex, Cols [, ExtraArgs])</title>
+      <p>The function <c>f(get, RowIndex, Cols [, ExtraArgs])</c> is
+        called when a get-request refers to a table.
+        </p>
+      <p>This function is mandatory.
+        </p>
+
+      <section>
+        <title>Arguments</title>
+        <list type="bulleted">
+          <item><c>RowIndex</c> is a list of integers which define the
+           key values for the row. The <c>RowIndex</c> is the list
+           representation (list of integers) which follow the
+          <c>Cols</c> integer in the OBJECT IDENTIFIER.
+          </item>
+          <item><c>Cols</c> is a list of integers which represent the
+           column numbers. The <c>Cols</c> are sorted by increasing
+           value and are guaranteed to be valid column numbers.</item>
+        </list>
+      </section>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item>
+            <p>A list with as many elements as the <c>Cols</c> list,
+              where each element is the value of the corresponding
+              column.  Each element can be:</p>
+            <list type="bulleted">
+              <item><c>{value, Value}</c>. The <c>Value</c> must be of
+               correct type, length and within ranges, otherwise
+              <c>genErr</c> is returned in the response PDU.  If the
+               object is an enumerated integer, the symbolic enum
+               value may be used (as an atom). If the object is of
+               type BITS, the return value shall be an integer or a
+               list of bits that are set.
+              </item>
+              <item><c>{noValue, noSuchName}</c>(SNMPv1)
+              </item>
+              <item><c>{noValue, noSuchObject | noSuchInstance}</c>(SNMPv2)
+              </item>
+            </list>
+          </item>
+          <item><c>{noValue, Error}</c>. If the row does not exist,
+           because all columns have <c>{noValue, Error}</c>), the
+           single tuple <c>{noValue, Error}</c> can be returned.
+           This is a shorthand for a list with all elements
+          <c>{noValue, Error}</c>.
+          </item>
+          <item><c>genErr</c>.  Used if an error occurred.  Note that
+           this should be an internal processing error, e.g. a caused
+           by a programing fault somewhere.  If some column does not
+           exist, use <c>{noValue, noSuchName}</c> or
+          <c>{noValue, noSuchInstance}</c>.
+          </item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(get_next, RowIndex, Cols [, ExtraArgs])</title>
+      <p>The function <c>f(get_next, RowIndex, Cols [, ExtraArgs])</c> is 
+        called when a get-next- or a
+        get-bulk-request refers to the table.
+        </p>
+      <p>The <c>RowIndex</c> argument may refer to an existing row or a
+        non-existing row, or it may be unspecified. The <c>Cols</c> list
+        may refer to inaccessible columns or non-existing columns. For
+        each column in the <c>Cols</c> list, the corresponding next
+        instance is determined, and the last part of its OBJECT
+        IDENTIFIER and its value is returned.
+        </p>
+      <p>This function is mandatory.
+        </p>
+
+      <section>
+        <title>Arguments</title>
+        <list type="bulleted">
+          <item><c>RowIndex</c> is a list of integers (possibly empty)
+           that defines the key values for a row. The <c>RowIndex</c>
+           is the list representation (list of integers), which follow
+           the <c>Cols</c> integer in the OBJECT IDENTIFIER.
+          </item>
+          <item><c>Cols</c> is a list of integers, greater than or
+           equal to zero, which represents the column numbers.</item>
+        </list>
+      </section>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item>
+            <p>A list with as many elements as the <c>Cols</c> list
+              Each element can be:</p>
+            <list type="bulleted">
+              <item><c>{NextOid, NextValue}</c>, where <c>NextOid</c>
+               is the lexicographic next OBJECT IDENTIFIER for the
+               corresponding column. This should be specified as the
+               OBJECT IDENTIFER part following the table entry. This
+               means that the first integer is the column number and
+               the rest is a specification of the keys.
+              <c>NextValue</c> is the value of this element.
+              </item>
+              <item><c>endOfTable</c> if there are no accessible
+               elements after this one.
+              </item>
+            </list>
+          </item>
+          <item><c>{genErr, Column}</c> where <c>Column</c> denotes
+           the column that caused the error.  <c>Column</c> must be
+           one of the columns in the <c>Cols</c> list.  Note that
+           this should be an internal processing error, e.g. a caused
+           by a programing fault somewhere.  If some column does not
+           exist, you must return the next accessible element (or
+          <c>endOfTable</c>). 
+          </item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(is_set_ok, RowIndex, Cols [, ExtraArgs])</title>
+      <p>The function <c>f(is_set_ok, RowIndex, Cols [, ExtraArgs])</c>
+        is called in phase one of the set-request
+        processing so that new values can be checked for
+        inconsistencies.
+        </p>
+      <p>If the function is called, it will be called again with
+        <c>undo</c>, or with <c>set</c> as first argument.
+        </p>
+      <p>This function is optional.
+        </p>
+
+      <section>
+        <title>Arguments</title>
+        <list type="bulleted">
+          <item><c>RowIndex</c> is a list of integers which define the
+           key values for the row. The <c>RowIndex</c> is the list
+           representation (list of integers) which follow the
+          <c>Cols</c> integer in the OBJECT IDENTIFIER.
+          </item>
+          <item><c>Cols</c> is a list of <c>{Column, NewValue}</c>,
+           where <c>Column</c> is an integer, and <c>NewValue</c> is
+           guaranteed to be of the correct type, length and within
+           ranges, as specified in the MIB.  If the object is an
+           enumerated integer or of type BITS, the integer value is
+           used.  The list is sorted by <c>Column</c> (increasing) and
+           each <c>Column</c> is guaranteed to be a valid column
+           number.</item>
+        </list>
+      </section>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item><c>{noError, 0}</c></item>
+          <item><c>{Error, Column}</c>, where <c>Error</c> is the same
+           as for <c>is_set_ok</c> for variables, and <c>Column</c>
+           denotes the faulty column.  <c>Column</c> must be one of the
+           columns in the <c>Cols</c> list.</item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(undo, RowIndex, Cols [, ExtraArgs])</title>
+      <p>If an error occurs, The function
+        <c>f(undo, RowIndex, Cols [, ExtraArgs])</c> is called after the
+        <c>is_set_ok</c> function. If <c>set</c> is called for this
+        object, <c>undo</c> is not called.
+        </p>
+      <p>This function is optional.
+        </p>
+
+      <section>
+        <title>Arguments</title>
+        <list type="bulleted">
+          <item><c>RowIndex</c> is a list of integers which define the
+           key values for the row. The <c>RowIndex</c> is the list
+           representation (list of integers) which follow the
+          <c>Cols</c> integer in the OBJECT IDENTIFIER.
+          </item>
+          <item><c>Cols</c> is a list of <c>{Column, NewValue}</c>,
+           where <c>Column</c> is an integer, and <c>NewValue</c> is
+           guaranteed to be of the correct type, length and within
+           ranges, as specified in the MIB.  If the object is an
+           enumerated integer or of type BITS, the integer value is
+           used.  The list is sorted by <c>Column</c> (increasing) and
+           each <c>Column</c> is guaranteed to be a valid column
+           number.
+          </item>
+        </list>
+      </section>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item><c>{noError, 0}</c></item>
+          <item><c>{Error, Column}</c> where <c>Error</c> is the same
+           as for <c>undo</c> for variables, and <c>Column</c> denotes
+           the faulty column.  <c>Column</c> must be one of the columns
+           in the <c>Cols</c> list.
+          </item>
+        </list>
+      </section>
+    </section>
+
+    <section>
+      <title>f(set, RowIndex, Cols [, ExtraArgs])</title>
+      <p>The function <c>f(set, RowIndex, Cols [, ExtraArgs])</c> is
+        called to perform the set in phase two of
+        the set-request processing. It is only called if the
+        corresponding <c>is_set_ok</c> function did not exist, or
+        returned <c>{noError, 0}</c>.
+        </p>
+      <p>This function is mandatory.
+        </p>
+
+      <section>
+        <title>Arguments</title>
+        <list type="bulleted">
+          <item><c>RowIndex</c> is a list of integers that define the
+           key values for the row. The <c>RowIndex</c> is the list
+           representation (list of integers) which follow the
+          <c>Cols</c> integer in the OBJECT IDENTIFIER.
+          </item>
+          <item><c>Cols</c> is a list of <c>{Column, NewValue}</c>,
+           where <c>Column</c> is an integer, and <c>NewValue</c> is
+           guaranteed to be of the correct type, length and within
+           ranges, as specified in the MIB.  If the object is an
+           enumerated integer or of type BITS, the integer value is
+           used.  The list is sorted by <c>Column</c> (increasing) and
+           each <c>Column</c> is guaranteed to be a valid column
+           number.
+          </item>
+        </list>
+      </section>
+
+      <section>
+        <title>Valid Return Values</title>
+        <list type="bulleted">
+          <item><c>{noError, 0}</c></item>
+          <item><c>{Error, Column}</c> where <c>Error</c> is the same
+           as <c>set</c> for variables, and <c>Column</c> denotes
+           the faulty column.  <c>Column</c> must be one of the columns
+           in the <c>Cols</c> list.</item>
+        </list>
+      </section>
+    </section>
+  </section>
+</chapter>
+

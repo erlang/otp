@@ -1,0 +1,2 @@
+%% -*- erlang -*-
+{incl_app,common_test,details}.

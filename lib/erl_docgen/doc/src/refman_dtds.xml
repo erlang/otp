@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Reference Manual DTDs</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>refman_dtds.xml</file>
+  </header>
+
+  <p>There are five DTDs for writing manual pages about applications,
+    shell commands, C libraries, Erlang modules and files, all with a
+    similar structure:</p>
+
+  <list type="bulleted">
+    <item>A header.</item>
+    <item>Name of the application/command/library/module/file.</item>
+    <item>Short summary (one line).</item>
+    <item>A longer description.</item>
+    <item>"Formal" definitions of functions or commands.</item>
+    <item>Optional sections of free text.</item>
+    <item>Optional section with the name(s) and email(s) of the author(s).</item>
+  </list>
+
+  <p>The differences between the DTDs are the tags for the name,
+    the short summary and some tags inside the "formal" definitions.</p>
+
+  <section>
+    <marker id="applicationDTD"></marker>
+    <title>The application DTD</title>
+
+    <p>The <c>application</c> DTD is intended for a Reference Manual and
+      groups a set of manual pages into one unit. The structure is
+      similar to the part DTD: first an introduction and then the manual
+      pages, written in separate files with the
+      <seealso marker="#apprefDTD">appref</seealso>,
+      <seealso marker="#comrefDTD">comref</seealso>,
+      <seealso marker="#crefDTD">cref</seealso>,
+      <seealso marker="#erlrefDTD">erlref</seealso>, or
+      <seealso marker="#filerefDTD">fileref</seealso> DTD.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE application SYSTEM "application.dtd">
+&lt;application>
+  &lt;header>
+    &lt;title>Application name&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+
+  &lt;description>
+    &lt;p>Application description...&lt;/p>
+  &lt;/description>
+  
+  &lt;include file="module1">
+  &lt;include file="module2">
+&lt;/application>
+    </pre>
+  </section>
+
+  <section>
+    <marker id="applicationTAG"></marker>
+    <title>&lt;application&gt;</title>
+
+    <p>The top level tag of an <c>application</c> DTD.</p>
+
+    <p>Contains a
+      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      an optional
+      <seealso marker="user_guide_dtds#descriptionTAG">&lt;description&gt;</seealso>,
+      followed by one or more
+      <seealso marker="user_guide_dtds#includeTAG">&lt;include&gt;</seealso>.
+    </p>
+  </section>
+
+  <section>
+    <marker id="apprefDTD"></marker>
+    <title>The appref DTD</title>
+
+    <p>This is the DTD for writing an application manual page.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE appref SYSTEM "appref.dtd">
+&lt;appref>
+  &lt;header>
+    &lt;title>Application name&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+
+  &lt;app>Application name&lt;/app>
+
+  &lt;appsummary>A short application summary.&lt;/appsummary>
+
+  &lt;description>
+    &lt;p>A longer description of the application.&lt;/p>
+  &lt;/description>
+  
+  &lt;section>
+    &lt;title>Configuration&lt;/title>
+
+      &lt;p>...&lt;/p>
+  &lt;/section>
+
+  ...
+  
+  &lt;authors>
+    &lt;aname>Name of author&lt;/aname>
+    &lt;email>Email of author&lt;/email>
+  &lt;/authors>
+&lt;/appref>
+    </pre>
+
+    <section>
+      <marker id="apprefTAG"></marker>
+      <title>&lt;appref&gt;</title>
+
+      <p>The top level tag of an <c>appref</c> DTD.</p>
+
+      <p>Contains
+	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
+	<seealso marker="#appTAG">&lt;app&gt;</seealso>,
+	<seealso marker="#appsummaryTAG">&lt;appsummary&gt;</seealso>,
+	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	zero or more
+	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
+	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	followed by zero or more 
+	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+    </section>
+
+    <section>
+      <marker id="appTAG"></marker>
+      <title>&lt;app&gt;</title>
+
+      <p>The application name. Contains plain text.</p>
+    </section>
+
+    <section>
+      <marker id="appsummaryTAG"></marker>
+      <title>&lt;appsummary&gt;</title>
+
+      <p>Short summary. Contains plain text.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="comrefDTD"></marker>
+    <title>The comref DTD</title>
+
+    <p>This is the DTD for writing a command manual page.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE comref SYSTEM "comref.dtd">
+&lt;comref>
+  &lt;header>
+    &lt;title>Command name&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+
+  &lt;com>Command name&lt;/com>
+
+  &lt;comsummary>A short command summary.&lt;/comsummary>
+
+  &lt;description>
+    &lt;p>A long description of the command.&lt;/p>
+  &lt;/description>
+  
+  &lt;funcs>
+    &lt;func>
+      &lt;name>command&lt;/name>
+      &lt;name>command -flag &lt;arg>&lt;/name>
+      &lt;fsummary>A short command summary (max 40 characters).&lt;/fsummary>
+      &lt;desc>
+        &lt;p>An extended command description.
+      &lt;/desc>
+    &lt;/func>
+  &lt;/funcs>
+
+  &lt;section>
+    &lt;title>Options&lt;/title>
+
+    &lt;p>...&lt;/p>
+  &lt;/section>
+  
+  &lt;authors>
+    &lt;aname>Name of author&lt;/aname>
+    &lt;email>Email of author&lt;/email>
+  &lt;/authors>
+&lt;/comref>
+    </pre>
+
+    <section>
+      <marker id="comrefTAG"></marker>
+      <title>&lt;comref&gt;</title>
+
+      <p>The top level tag for a <c>comref</c> DTD.</p>
+
+      <p>Contains
+	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
+	<seealso marker="#comTAG">&lt;com&gt;</seealso>,
+	<seealso marker="#comsummaryTAG">&lt;comsummary&gt;</seealso>,
+	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	zero or more
+	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
+	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	followed by zero or more
+	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+    </section>
+
+    <section>
+      <marker id="comTAG"></marker>
+      <title>&lt;com&gt;</title>
+
+      <p>The command name. Contains plain text.</p>
+    </section>
+
+    <section>
+      <marker id="comsummaryTAG"></marker>
+
+      <title>&lt;comsummary&gt;</title>
+
+      <p>Short summary. Contains plain text.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="crefDTD"></marker>
+    <title>The cref DTD</title>
+
+    <p>This is the DTD for writing a C library manual page.</p>
+
+    <p>Example:</p>
+    <pre><![CDATA[
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+<cref>
+  <header>
+    <title>C library name</title>
+    <prepared/>
+    <docno/>
+    <date/>
+    <rev/>
+  </header>
+
+  <lib>C library name</lib>
+
+  <libsummary>A short C library summary.</libsummary>
+
+  <description>
+    <p>A longer description of the C library.</p>
+  </description>
+  
+  <funcs>
+    <func>
+      <name><ret>void</ret><nametext>start(bar)</nametext></name>
+      <name><ret>void</ret><nametext>start(foo)</nametext></name>
+      <fsummary>A short function summary (max 40 characters).</fsummary>
+      <type>
+        <v>char bar</v>
+        <v>int foo</v>
+      </type>
+      <desc>
+        <p>An extended function description.</p>
+      </desc>
+    </func>
+
+    ...
+  </funcs>
+
+  <section>
+    <title>A title</title>
+
+    <p>Some text...</p>
+  </section>
+  
+  
+</cref>
+    ]]></pre>
+
+    <section>
+      <marker id="crefTAG"></marker>
+      <title>&lt;cref&gt;</title>
+
+      <p>The top level tag for a <c>cref</c> DTD.</p>
+
+      <p>Contains
+	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
+	<seealso marker="#libTAG">&lt;lib&gt;</seealso>,
+	<seealso marker="#libsummaryTAG">&lt;libsummary&gt;</seealso>,
+	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	zero or more
+	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
+	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, followed by
+	zero or more
+	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+    </section>
+
+    <section>
+      <marker id="libTAG"></marker>
+      <title>&lt;lib&gt;</title>
+
+      <p>The C library name or acronym. Contains plain text.</p>
+    </section>
+
+    <section>
+      <marker id="libsummaryTAG"></marker>
+      <title>&lt;libsummary&gt;</title>
+
+      <p>Short summary. Contains plain text.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="erlrefDTD"></marker>
+    <title>The erlref DTD</title>
+
+    <p>This is the DTD for writing Erlang module manual pages.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE erlref SYSTEM "erlref.dtd">
+&lt;erlref>
+  &lt;header>
+    &lt;title>Module name&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+
+  &lt;module>Module name&lt;/module>
+
+  &lt;modulesummary>A short module summary.&lt;/modulesummary>
+
+  &lt;description>
+    &lt;p>A longer description of the module.&lt;/p>
+  &lt;/description>
+  
+  &lt;funcs>
+    &lt;func>
+      &lt;name>start() -> Result&lt;/name>
+      &lt;name>start(N) -> Result&lt;/name>
+      &lt;fsummary>A short function summary (max 40 characters).&lt;/fsummary>
+      &lt;type>
+        &lt;v>Pid = pid()&lt;/v>
+        &lt;v>N = int()&lt;/v>
+        &lt;v>Result = {ok, Pid} | {error, Reason}&lt;/v>
+        &lt;v>Reason = term()&lt;/v>
+        &lt;d>A parameter description.&lt;/d>
+      &lt;/type>
+      &lt;desc>
+        &lt;p>An extended function description.&lt;/p>
+      &lt;/desc>
+    &lt;/func>
+
+    ...
+  &lt;/funcs>
+
+  &lt;section>
+    &lt;title>Some Title&lt;/title>
+    &lt;p>Some text...&lt;/p>
+  &lt;/section>
+  
+  &lt;authors>
+    &lt;aname>Name of author&lt;/aname>
+    &lt;email>Email of author&lt;/email>
+  &lt;/authors>
+&lt;/erlref>
+    </pre>
+
+    <section>
+      <marker id="erlrefTAG"></marker>
+      <title>&lt;erlref&gt;</title>
+
+      <p>The top level tag for an <c>erlref</c> DTD.</p>
+
+      <p>Contains
+	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
+	<seealso marker="#moduleTAG">&lt;module&gt;</seealso>,
+	<seealso marker="#modulesummaryTAG">&lt;modulesummary&gt;</seealso>,
+	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	zero or more
+	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
+	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	followed by zero or more
+	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+    </section>
+
+    <section>
+      <marker id="moduleTAG"></marker>
+      <title>&lt;module&gt;</title>
+
+      <p>The module name. Contains plain text.</p>
+    </section>
+
+    <section>
+      <marker id="modulesummaryTAG"></marker>
+      <title>&lt;modulesummary&gt;</title>
+
+      <p>Short summary. Contains plain text.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="filerefDTD"></marker>
+    <title>The fileref DTD</title>
+
+    <p>This is the DTD for writing file manual pages. In OTP, this DTD
+      is used for defining the format of for example <c>.rel</c> and
+      <c>.app</c> files.</p>
+
+    <p>Example:</p>
+    <pre>
+&lt;?xml version="1.0" encoding="latin1" ?>
+&lt;!DOCTYPE fileref SYSTEM "fileref.dtd">
+&lt;fileref>
+  &lt;header>
+    &lt;title>File name&lt;/title>
+    &lt;prepared/>
+    &lt;docno/>
+    &lt;date/>
+    &lt;rev/>
+  &lt;/header>
+
+  &lt;file>fileref&lt;/file>
+
+  &lt;filesummary>A short file summary.&lt;/filesummary>
+
+  &lt;description>
+    &lt;p>A longer description of the file.&lt;/p>
+  &lt;/description>
+  
+  &lt;section>
+    &lt;title>File format&lt;/title>
+
+    &lt;p>...&lt;/p>
+  &lt;/section>
+  
+  &lt;authors>
+    &lt;aname>Name of author&lt;/aname>
+    &lt;email>Email of author&lt;/email>
+  &lt;/authors>
+&lt;/fileref>
+    </pre>
+
+    <p>The file reference manual can also contain function definitions,
+      similar to the <c>erlref</c> DTD.</p>
+
+    <section>
+      <marker id="filerefTAG"></marker>
+      <title>&lt;fileref&gt;</title>
+
+      <p>The top level tag for a <c>fileref</c> DTD.</p>
+
+      <p>Contains
+	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
+	<seealso marker="#fileTAG">&lt;file&gt;</seealso>,
+	<seealso marker="#filesummaryTAG">&lt;filesummary&gt;</seealso>,
+	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	zero or more
+	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
+	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	followed by zero or more
+	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+    </section>
+
+    <section>
+      <marker id="fileTAG"></marker>
+      <title>&lt;file&gt;</title>
+
+      <p>The name of the file or file type. Contains plain text.</p>
+    </section>
+
+    <section>
+      <marker id="filesummaryTAG"></marker>
+      <title>&lt;filesummary&gt;</title>
+
+      <p>Short summary. Contains plain text.</p>
+    </section>
+  </section>
+
+    <section>
+    <marker id="descriptionTAG"></marker>
+    <title>&lt;description&gt;</title>
+
+    <p>The introduction after the title and before sections and
+      "formal" definitions.</p>
+
+    <p>Contains any combination and any number of
+      <seealso marker="block_tags">block tags</seealso> except
+      <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
+  </section>
+
+  <section>
+    <marker id="sectionTAG"></marker>
+    <title>&lt;section&gt;</title>
+
+    <p>Subdivisions of the document. Contains an optional
+      <seealso marker="inline_tags#markerTAG">&lt;marker&gt;</seealso>,
+      a <seealso marker="user_guide_dtds#titleTAG">&lt;title&gt;</seealso>,
+      
+      followed by any combination and any number of
+      <seealso marker="block_tags">block tags</seealso> except
+      <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
+  </section>
+
+  <section>
+    <marker id="funcsTAG"></marker>
+    <title>&lt;funcs&gt;</title>
+
+    <p>A group of "formal" function definitions.</p>
+    
+    <p>Contains one or more
+      <seealso marker="#funcTAG">&lt;func&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="funcTAG"></marker>
+    <title>&lt;func&gt;</title>
+
+    <p>A "formal" function definition.</p>
+
+    <p>Contains one or more
+      <seealso marker="#nameTAG">&lt;name&gt;</seealso>, followed by
+      <seealso marker="#fsummaryTAG">&lt;fsummary&gt;</seealso>,
+      <seealso marker="#typeTAG">&lt;type&gt;</seealso> (optional) and
+      <seealso marker="#descTAG">&lt;desc&gt;</seealso> (optional).</p>
+  </section>
+
+  <section>
+    <marker id="nameTAG"></marker>
+    <title>&lt;name&gt;</title>
+
+    <p>Function/command signature with name, arguments and return value.
+      Contains plain text, except for the <c>cref</c> DTD where it
+      contains a <c><![CDATA[<ret>]]></c> (return type, plain text) and
+      a <c><![CDATA[<nametext>]]></c> (function name and arguments,
+      plain text).</p>
+
+    <p>In the case of an <c>erlref</c> DTD, it will
+      automatically be added a
+      <seealso marker="inline_tags#markerTAG">marker</seealso>,
+      <c><![CDATA[<marker id="Name/Arity">]]></c> or
+      <c><![CDATA[<marker id="Name">]]></c>, based on the contents of
+      this tag before the function definition.</p>
+
+    <p>Example: Consider the following name definition</p>
+    <pre><![CDATA[
+<name>foo(Arg1, Arg2) -> ok | {error, Reason}</name>
+    ]]></pre>
+
+    <p>Then a marker like this will be added
+      <c><![CDATA[<marker id="foo/2">]]></c> before the function
+      definition in the generated HTML. That is, referring to
+      the function using
+      <c><![CDATA[<seealso marker="#foo/2">foo/2</seealso>]]></c> will
+      automatically work.</p>
+  </section>
+
+  <section>
+    <marker id="fsummaryTAG"></marker>
+    <title>&lt;fsummary&gt;</title>
+
+    <p>Function/command summary. Contains plain text,
+      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso> and
+      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="typeTAG"></marker>
+    <title>&lt;type&gt;</title>
+
+    <p>Type declarations for the function/command.</p>
+
+    <p>Contains one or more pairs of
+      <seealso marker="#vTAG">&lt;v&gt;</seealso> and
+      <seealso marker="#dTAG">&lt;d&gt;</seealso> (optional).</p>
+  </section>
+
+  <section>
+    <marker id="vTAG"></marker>
+    <title>&lt;v&gt;</title>
+
+    <p>Type declaration for an argument or return value. Contains plain
+      text.</p>
+  </section>
+
+  <section>
+    <marker id="dTAG"></marker>
+    <title>&lt;d&gt;</title>
+
+    <p>Description for an argument or return value. Contains plain text,
+      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso> and
+      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="descTAG"></marker>
+    <title>&lt;desc&gt;</title>
+
+    <p>Function/command description. Contains
+      <seealso marker="block_tags">block tags</seealso> except
+      <c>&lt;image&gt;</c> and <c>&lt;table&gt;</c>.</p>
+  </section>
+
+  <section>
+    <marker id="authorsTAG"></marker>
+    <title>&lt;authors&gt;</title>
+
+    <p>Authors of the manual page. The <c>authors</c> element is  optional.</p>
+
+    <p>Contains one or more pairs of
+      <seealso marker="#anameTAG">&lt;aname&gt;</seealso> and
+      <seealso marker="#emailTAG">&lt;email&gt;</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="anameTAG"></marker>
+    <title>&lt;aname&gt;</title>
+
+    <p>Author name. Contains plain text.</p>
+  </section>
+
+  <section>
+    <marker id="emailTAG"></marker>
+    <title>&lt;email&gt;</title>
+
+    <p>Author email address. Contains plain text.</p>
+  </section>
+</chapter>
+

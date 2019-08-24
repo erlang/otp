@@ -1,0 +1,352 @@
+{
+   libc internal error
+   Memcheck:Addr8
+   obj:/lib64/ld-2.3.5.so
+}
+{
+   libc internal error
+   Memcheck:Addr8
+   fun:_dl_start
+}
+{
+   libc internal error
+   Memcheck:Addr8
+   fun:__libc_start_main
+   obj:*
+}
+{
+   libc internal error
+   Memcheck:Addr4
+   fun:__sigjmp_save
+   fun:__libc_start_main
+   obj:*
+}
+{
+   libc internal error
+   Memcheck:Addr8
+   fun:__sigsetjmp
+   fun:__libc_start_main
+   obj:*
+}
+{
+   Intentional error in testcase
+   Memcheck:Param
+   pipe(filedes)
+   fun:pipe
+   fun:chkio_drv_timeout
+}
+{
+   Intentional error in testcase
+   Memcheck:Param
+   pipe(filedes)
+   fun:pipe
+   fun:io_ready_exit_drv_control
+   fun:erts_port_control
+   fun:port_control_3
+   fun:process_main
+}
+{
+   Leak in libc putenv
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:__add_to_environ
+   fun:putenv
+   fun:erts_sys_putenv
+   fun:os_putenv_2
+   ...
+}
+{
+   Leak in libc putenv
+   Memcheck:Leak
+   ...
+   fun:erts_alloc
+   fun:erts_sys_putenv
+   fun:os_putenv_2
+   ...
+}
+{
+   erronous warning
+   Memcheck:Leak
+   fun:malloc
+   fun:erts_sys_alloc
+   fun:fix_core_alloc
+   fun:erts_init_fix_alloc
+   fun:erts_alloc_init
+   fun:early_init
+   fun:erl_start
+}
+{
+   pthread internal error
+   Memcheck:Param
+   futex(utime)
+   fun:__lll_mutex_unlock_wake
+}
+{
+   libc internal error
+   Memcheck:Param
+   socketcall.sendto(msg)
+   ...
+   fun:getifaddrs
+}
+{
+inet_drv; pointer inside allocated block
+Memcheck:Leak
+fun:realloc
+fun:erts_sys_realloc
+...
+fun:erts_realloc_fnf
+fun:erts_bin_realloc_fnf
+fun:driver_realloc_binary
+}
+{
+inet_drv; pointer inside allocated block
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc_fnf
+fun:erts_bin_drv_alloc_fnf
+fun:driver_alloc_binary
+}
+{
+pthread leak or erroneous valgrind warning
+Memcheck:Leak
+fun:calloc
+fun:allocate_dtv
+fun:_dl_allocate_tls
+fun:pthread_create@@GLIBC_2.2.5
+}
+{
+zlib; ok according to zlib developers
+Memcheck:Cond
+...
+fun:deflate_slow
+fun:deflate
+}
+{
+zlib; ok according to zlib developers
+Memcheck:Cond
+...
+fun:deflate_fast
+fun:deflate
+}
+{
+No leak; pointer into block
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc
+fun:erts_init_scheduling
+fun:erl_init
+fun:erl_start
+fun:main
+}
+{
+No leak; pointer into block
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc
+fun:init_db
+fun:erl_init
+fun:erl_start
+fun:main
+}
+{
+No leak; sometimes pointer into block
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc_fnf
+fun:driver_alloc
+fun:get_bufstk
+fun:alloc_buffer
+}
+{
+   Crypto internal...
+Memcheck:Cond
+obj:*/crypto.valgrind.*
+}
+{
+   Crypto internal...
+Memcheck:Cond
+...
+obj:*/libcrypto.*
+}
+{
+   Crypto internal...
+Memcheck:Cond
+obj:*/openssl.*
+}
+{
+   Crypto internal...
+Memcheck:Cond
+obj:*/ssleay.*
+}
+{
+   Crypto internal...
+Memcheck:Value8
+obj:*/crypto.valgrind.*
+}
+{
+   Crypto internal...
+Memcheck:Value8
+...
+obj:*/libcrypto.*
+}
+{
+   Crypto internal...
+Memcheck:Value8
+obj:*/openssl.*
+}
+{
+   Crypto internal...
+Memcheck:Value8
+obj:*/ssleay.*
+}
+{
+   Crypto internal...
+   Memcheck:Cond
+   fun:memset
+   fun:BN_lshift
+   fun:BN_div
+   fun:BN_MONT_CTX_set
+   fun:BN_is_prime_fasttest_ex
+   fun:BN_generate_prime_ex
+   fun:DH_generate_parameters_ex
+   fun:DH_generate_parameters
+   fun:dh_generate_parameters_nif
+   fun:process_main
+   fun:sched_thread_func
+   fun:thr_wrapper
+}
+{
+   Crypto internal...
+   Memcheck:Cond
+   fun:memset
+   fun:BN_lshift
+   fun:BN_div
+   fun:BN_nnmod
+   fun:BN_mod_inverse
+   fun:BN_MONT_CTX_set
+   fun:BN_is_prime_fasttest_ex
+   fun:BN_generate_prime_ex
+   fun:DH_generate_parameters_ex
+   fun:DH_generate_parameters
+   fun:dh_generate_parameters_nif
+   fun:process_main
+}
+{
+   Crypto internal...
+   Memcheck:Value8
+   fun:BN_mod_exp_mont_consttime
+   fun:generate_key
+   fun:dh_generate_key_nif
+   fun:process_main
+   fun:sched_thread_func
+   fun:thr_wrapper
+   fun:start_thread
+   fun:clone
+}
+
+{
+   Harmless assembler bug in openssl
+   Memcheck:Addr8
+   ...
+   fun:AES_cbc_encrypt
+   ...
+}
+{
+   crypto RC4 can do harmless word aligned read past end of input
+   Memcheck:Addr8
+   fun:RC4
+}
+
+{
+Prebuilt constant terms in os_info_init (PossiblyLost)
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc
+fun:os_info_init
+fun:erts_bif_info_init
+fun:erl_init
+fun:erl_start
+fun:main
+}
+
+{
+Permanent cache aligned malloc for array of mseg allocators
+Memcheck:Leak
+fun:malloc
+fun:erts_mseg_init
+fun:erts_alloc_init
+fun:early_init
+fun:erl_start
+fun:main
+}
+
+{
+Early permanent cache aligned erl_process:aux_work_tmo
+Memcheck:Leak
+fun:malloc
+fun:aux_work_timeout_early_init
+fun:erts_early_init_scheduling
+fun:early_init
+fun:erl_start
+fun:main
+}
+
+{
+Early permanent cache aligned ts_event_pool
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+fun:erts_alloc_fnf
+fun:ethr_std_alloc
+fun:ts_event_pool
+fun:init_ts_event_alloc
+fun:ethr_late_init_common__
+fun:ethr_late_init
+fun:erts_thr_late_init
+fun:early_init
+fun:erl_start
+fun:main
+}
+
+{
+Harmless leak of ErtsThrPrgrData from async threads in exiting emulator
+Memcheck:Leak
+...
+fun:erts_alloc
+fun:erts_thr_progress_register_unmanaged_thread
+fun:async_thread_init
+fun:async_main
+...
+}
+
+{
+Deliberate invalid read by test case bif_SUITE:erlang_halt
+Memcheck:Addr4
+...
+fun:erts_print_scheduler_info
+...
+fun:erts_exit
+fun:broken_halt_test
+fun:erts_debug_set_internal_state_2
+fun:process_main
+}
+
+{
+Thread specific dlerror buffer. Either bug in libc or valgrind.
+Memcheck:Leak
+...
+fun:_dlerror_run
+...
+}
+

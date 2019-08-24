@@ -1,0 +1,15 @@
+
+dict_use.erl:41: The attempt to match a term of type dict:dict(_,_) against the pattern 'gazonk' breaks the opacity of the term
+dict_use.erl:45: The attempt to match a term of type dict:dict(_,_) against the pattern [] breaks the opacity of the term
+dict_use.erl:46: The attempt to match a term of type dict:dict(_,_) against the pattern 42 breaks the opacity of the term
+dict_use.erl:51: The attempt to match a term of type dict:dict(_,_) against the pattern [] breaks the opacity of the term
+dict_use.erl:52: The attempt to match a term of type dict:dict(_,_) against the pattern 42 breaks the opacity of the term
+dict_use.erl:58: Attempt to test for equality between a term of type maybe_improper_list() and a term of opaque type dict:dict(_,_)
+dict_use.erl:60: Attempt to test for inequality between a term of type atom() and a term of opaque type dict:dict(_,_)
+dict_use.erl:64: Guard test length(D::dict:dict(_,_)) breaks the opacity of its argument
+dict_use.erl:65: Guard test is_atom(D::dict:dict(_,_)) breaks the opacity of its argument
+dict_use.erl:66: Guard test is_list(D::dict:dict(_,_)) breaks the opacity of its argument
+dict_use.erl:70: The type test is_list(dict:dict(_,_)) breaks the opacity of the term dict:dict(_,_)
+dict_use.erl:73: The call dict:fetch('foo',[1, 2, 3]) does not have an opaque term of type dict:dict(_,_) as 2nd argument
+dict_use.erl:76: The call dict:merge(Fun::any(),42,[1, 2]) does not have opaque terms as 2nd and 3rd arguments
+dict_use.erl:79: The call dict:store(42,'elli',{'dict', 0, 16, 16, 8, 80, 48, {[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []}, {{[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []}}}) does not have an opaque term of type dict:dict(_,_) as 3rd argument

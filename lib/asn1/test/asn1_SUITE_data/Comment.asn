@@ -1,0 +1,21 @@
+Comment DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+/* comments as to the 2002 standard
+
+this is the new added way of commenting multile lines */
+
+/* it is also allowed to have -- old kind of comment signs inside
+this new variant. The two dashes will lose their meaning as a comment
+inside a multiline comment, /* the new type of comment may also be 
+nested */ */
+
+Seq ::= SEQUENCE {
+  a INTEGER,
+  b BOOLEAN
+}
+
+/* another multiline comment, bu t on one line. */
+
+END

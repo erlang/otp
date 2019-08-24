@@ -1,0 +1,38 @@
+
+beam_asm.erl:32: The pattern {'error', Error} can never match the type <<_:64,_:_*8>>
+beam_bool.erl:193: The pattern {[], _} can never match the type {[{_,_,_,_},...],[any()]}
+beam_bool.erl:510: The pattern [{'set', [Dst], _, _}, {'%live', _}] can never match the type [{_,_,_,_}]
+beam_disasm.erl:537: The variable X can never match since previous clauses completely covered the type 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+beam_type.erl:284: The pattern <'pi', 0> can never match the type <_,1 | 2>
+beam_validator.erl:396: Matching of pattern {'vst', 'none', _} tagged with a record name violates the declared type of #vst{current::#st{ct::[]}}
+beam_validator.erl:690: The pattern <'term', OldT> can never match the type <{'tuple',[any(),...]},_>
+beam_validator.erl:693: Guard test or('false','false') can never succeed
+beam_validator.erl:700: Guard test or('false','false') can never succeed
+beam_validator.erl:702: The pattern <'number', OldT = {Type, _}> can never match the type <{'tuple',[any(),...]},_>
+beam_validator.erl:705: The pattern <'bool', {'atom', A}> can never match the type <{'tuple',[any(),...]},_>
+beam_validator.erl:707: The pattern <{'atom', A}, 'bool'> can never match the type <{'tuple',[any(),...]},_>
+beam_validator.erl:713: Guard test is_integer(Sz::[any(),...]) can never succeed
+beam_validator.erl:727: Function upgrade_bool/1 will never be called
+cerl_inline.erl:190: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:219: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:230: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:2333: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:2355: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:238: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:2436: Function filename/1 will never be called
+cerl_inline.erl:244: Function counter_stats/0 will never be called
+cerl_inline.erl:2700: The pattern 'true' can never match the type 'false'
+cerl_inline.erl:2730: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
+cerl_inline.erl:2738: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
+cerl_inline.erl:2750: The pattern <{[], L, D}, Vs> can never match the type <[1..255,...],[any()]>
+cerl_inline.erl:2752: The pattern <{[], _L, D}, Vs> can never match the type <[1..255,...],[any()]>
+cerl_inline.erl:2754: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
+cerl_inline.erl:2756: The pattern <{F, _L, D}, Vs> can never match the type <[1..255,...],[any()]>
+compile.erl:792: The pattern {'error', Es} can never match the type {'ok',<<_:64,_:_*8>>}
+core_lint.erl:473: The pattern <{'c_atom', _, 'all'}, 'binary', _Def, St> can never match the type <_,#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::{_,_} | {_,_,_} | {_,_,_,_},tl::{_,_} | {_,_,_} | {_,_,_,_}},tl::#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::{_,_} | {_,_,_} | {_,_,_,_},tl::{_,_} | {_,_,_} | {_,_,_,_}}},[any()],_>
+core_lint.erl:505: The pattern <_Req, 'unknown', St> can never match the type <non_neg_integer(),non_neg_integer(),_>
+sys_pre_expand.erl:625: Call to missing or unexported function erlang:hash/2
+v3_codegen.erl:1569: The call v3_codegen:load_reg_1(V::any(),I::0,Rs::any(),pos_integer()) will never return since it differs in the 4th argument from the success typing arguments: (any(),0,maybe_improper_list(),0)
+v3_codegen.erl:1571: The call v3_codegen:load_reg_1(V::any(),I::0,[],pos_integer()) will never return since it differs in the 4th argument from the success typing arguments: (any(),0,maybe_improper_list(),0)
+v3_core.erl:646: Matching of pattern {'iprimop', _, _, _} tagged with a record name violates the declared type of #c_nil{anno::[any(),...]} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple' | 'c_var' | 'ibinary' | 'icatch' | 'ireceive1',[any(),...] | {_,_,_,_},_} | #c_cons{anno::[any(),...]} | #c_fname{anno::[any(),...]} | #iletrec{anno::{_,_,_,_},defs::[any(),...],body::[any(),...]} | #icase{anno::{_,_,_,_},args::[any()],clauses::[any()],fc::{_,_,_,_,_,_}} | #ireceive2{anno::{_,_,_,_},clauses::[any()],action::[any()]} | #ifun{anno::{_,_,_,_},id::[any(),...],vars::[any()],clauses::[any(),...],fc::{_,_,_,_,_,_}} | #imatch{anno::{_,_,_,_},guard::[],fc::{_,_,_,_,_,_}} | #itry{anno::{_,_,_,_},args::[any()],vars::[any(),...],body::[any(),...],evars::[any(),...],handler::[any(),...]}
+v3_kernel.erl:1381: Call to missing or unexported function erlang:hash/2

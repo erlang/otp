@@ -1,0 +1,24 @@
+%% -*- erlang -*-
+{"%VSN%",
+
+%% ----- U p g r a d e -------------------------------------------------------
+%% Instruction examples: 
+%% {restart_application, snmp}
+%% {load_module, snmp_pdus, soft_purge, soft_purge, []}
+%% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
+%% {add_module,  snmpm_net_if_mt}
+ [
+  {<<"5\\..*">>, [{restart_application, snmp}]},	
+  {<<"4\\..*">>, [{restart_application, snmp}]}
+ ],
+ 
+%% ------D o w n g r a d e ---------------------------------------------------
+%% Instruction examples: 
+%% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
+ 
+ [
+  {<<"5\\..*">>, [{restart_application, snmp}]},	
+  {<<"4\\..*">>, [{restart_application, snmp}]}
+ ]  	       
+}.	 
+

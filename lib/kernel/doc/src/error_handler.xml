@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>error_handler</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">error_handler</module>
+  <modulesummary>Default system error handler.</modulesummary>
+  <description>
+    <p>This module defines what happens when certain types
+      of errors occur.</p>
+  </description>
+  <funcs>
+    <func>
+      <name name="raise_undef_exception" arity="3" since="OTP R16B"/>
+      <fsummary>Raise an undef exception.</fsummary>
+      <type_desc variable="Args">
+        A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
+      </type_desc>
+      <desc>
+	<p>Raises an <c>undef</c> exception with a stacktrace, indicating
+	that <c><anno>Module</anno>:<anno>Function</anno>/N</c> is
+	undefined.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name name="undefined_function" arity="3" since=""/>
+      <fsummary>Called when an undefined function is encountered.</fsummary>
+      <type_desc variable="Args">
+        A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
+      </type_desc>
+      <desc>
+        <p>This function is called by the runtime system if a call is made to
+          <c><anno>Module</anno>:<anno>Function</anno>(Arg1,.., ArgN)</c> and
+          <c><anno>Module</anno>:<anno>Function</anno>/N</c> is undefined.
+	  Notice that this function is evaluated inside the process
+          making the original call.</p>
+
+	<p>This function first attempts to autoload
+	  <c><anno>Module</anno></c>. If that is not possible,
+	  an <c>undef</c> exception is raised.</p>
+
+	<p>If it is possible to load <c><anno>Module</anno></c>
+	  and function <c><anno>Function</anno>/N</c> is exported,
+	  it is called.</p>
+
+	<p>Otherwise, if function <c>'$handle_undefined_function'/2</c>
+	  is exported, it is called as
+          <c>'$handle_undefined_function'(</c><anno>Function</anno>,
+	  <anno>Args</anno>).
+	</p>
+	<warning>
+	  <p>Defining <c>'$handle_undefined_function'/2</c> in
+	  ordinary application code is highly discouraged. It is very
+	  easy to make subtle errors that can take a long time to
+	  debug. Furthermore, none of the tools for static code
+	  analysis (such as Dialyzer and Xref) supports the use of
+	  <c>'$handle_undefined_function'/2</c> and no such support
+	  will be added. Only use this function after having carefully
+	  considered other, less dangerous, solutions. One example of
+	  potential legitimate use is creating stubs for other
+	  sub-systems during testing and debugging.
+	  </p>
+	</warning>
+	<p>Otherwise an <c>undef</c> exception is raised.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="undefined_lambda" arity="3" since=""/>
+      <fsummary>Called when an undefined lambda (fun) is encountered.</fsummary>
+      <type_desc variable="Args">
+        A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
+      </type_desc>
+      <desc>
+        <p>This function is evaluated if a call is made to
+          <c><anno>Fun</anno>(Arg1,.., ArgN)</c> when the module defining
+	  the fun is not loaded. The function is evaluated inside the process
+          making the original call.</p>
+        <p>If <c><anno>Module</anno></c> is interpreted, the interpreter is invoked
+          and the return value of the interpreted
+          <c><anno>Fun</anno>(Arg1,.., ArgN)</c> call is returned.</p>
+        <p>Otherwise, it returns, if possible, the value of
+          <c>apply(<anno>Fun</anno>, <anno>Args</anno>)</c> after an attempt
+	  is made to autoload <c><anno>Module</anno></c>. If this is not possible,
+	  the call fails with exit reason <c>undef</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes</title>
+    <p>The code in <c>error_handler</c> is complex. Do not
+      change it without fully understanding the interaction between
+      the error handler, the <c>init</c> process of the code server,
+      and the I/O mechanism of the code.</p>
+    <p>Code changes that seem small can cause a deadlock,
+      as unforeseen consequences can occur. The use of <c>input</c> is
+      dangerous in this type of code.</p>
+  </section>
+</erlref>
+

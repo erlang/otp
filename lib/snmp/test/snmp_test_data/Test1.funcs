@@ -1,0 +1,7 @@
+{bits1, {test1, bits1, []}}.
+{bits2, {test1, bits2, []}}.
+{bits3, {test1, bits3, []}}.
+{bits4, {test1, bits4, []}}.
+{opaqueObj, {test1, opaque_obj, []}}.
+{cnt64, {test1, cnt64, []}}.
+{multiStr, {test1, multiStr, []}}.

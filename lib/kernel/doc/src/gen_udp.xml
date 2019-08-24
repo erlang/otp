@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>gen_udp</title>
+    <prepared>tony@erix.ericsson.se</prepared>
+    <docno></docno>
+    <date>1997-12-03</date>
+    <rev>A</rev>
+  </header>
+  <module since="">gen_udp</module>
+  <modulesummary>Interface to UDP sockets.</modulesummary>
+  <description>
+    <p>This module provides functions for communicating
+      with sockets using the UDP protocol.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="option"/>
+    </datatype>
+    <datatype>
+      <name name="option_name"/>
+    </datatype>
+    <datatype>
+      <name>socket()</name>
+      <desc>
+        <p>As returned by
+          <seealso marker="#open/1"><c>open/1,2</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="close" arity="1" since=""/>
+      <fsummary>Close a UDP socket.</fsummary>
+      <desc>
+        <p>Closes a UDP socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="controlling_process" arity="2" since=""/>
+      <fsummary>Change controlling process of a socket.</fsummary>
+      <desc>
+        <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
+          <c><anno>Socket</anno></c>. The controlling process is the process
+          that receives messages from the socket. If called by any other
+          process than the current controlling process,
+          <c>{error, not_owner}</c> is returned. If the process identified
+          by <c><anno>Pid</anno></c> is not an existing local pid,
+          <c>{error, badarg}</c> is returned. <c>{error, badarg}</c> may also
+          be returned in some cases when <c><anno>Socket</anno></c> is closed
+          during the execution of this function.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="1" since=""/>
+      <name name="open" arity="2" since=""/>
+      <fsummary>Associate a UDP port number with the process calling it.</fsummary>
+      <desc>
+        <p>Associates a UDP port number (<c><anno>Port</anno></c>) with the
+          calling process.</p>
+        <p>The following options are available:</p>
+        <taglist>
+          <tag><c>list</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
+          <tag><c>binary</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
+          <tag><c>{ip, Address}</c></tag>
+          <item><p>If the host has many network interfaces, this option
+            specifies which one to use.</p></item>
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+            network interfaces, this option specifies which one to
+            use.</p></item>
+          <tag><c>{fd, integer() >= 0}</c></tag>
+          <item><p>If a socket has somehow been opened without using
+            <c>gen_udp</c>, use this option to pass the file descriptor
+            for it. If <c><anno>Port</anno></c> is not set to <c>0</c> and/or
+            <c>{ip, ip_address()}</c> is combined with this option, the
+            <c>fd</c> is bound to the specified interface and port after it is
+            being opened. If these options are not specified, it is assumed that
+            the <c>fd</c> is already bound appropriately.</p></item>
+          <tag><c>inet6</c></tag>
+          <item><p>Sets up the socket for IPv6.</p></item>
+          <tag><c>inet</c></tag>
+          <item><p>Sets up the socket for IPv4.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
+	    </p>
+          </item>
+          <tag><c>{udp_module, module()}</c></tag>
+          <item><p>Overrides which callback module is used. Defaults to
+            <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p></item>
+          <tag><c>{multicast_if, Address}</c></tag>
+          <item><p>Sets the local device for a multicast socket.</p></item>
+          <tag><c>{multicast_loop, true | false}</c></tag>
+          <item><p>When <c>true</c>, sent multicast packets are looped back to
+            the local sockets.</p></item>
+          <tag><c>{multicast_ttl, Integer}</c></tag>
+          <item><p>Option <c>multicast_ttl</c> changes the time-to-live (TTL)
+            for outgoing multicast datagrams to control the scope of the
+            multicasts.</p>
+            <p>Datagrams with a TTL of 1 are not forwarded beyond the local
+              network. Defaults to <c>1</c>.</p></item>
+          <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item><p>Joins a multicast group.</p></item>
+          <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item><p>Leaves a multicast group.</p></item>
+          <tag><c>Opt</c></tag>
+          <item><p>See
+            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
+            </p></item>
+        </taglist>
+        <p>The returned socket <c><anno>Socket</anno></c> is used to send
+          packets from this port with
+          <seealso marker="#send/4"><c>send/4</c></seealso>.
+          When UDP packets arrive
+          at the opened port, if the socket is in an active mode, the packets
+          are delivered as messages to the controlling process:</p>
+        <code type="none">
+{udp, Socket, IP, InPortNo, Packet} % Without ancillary data
+{udp, Socket, IP, InPortNo, AncData, Packet} % With ancillary data
+	</code>
+	<p>
+	  The message contains an <c>AncData</c> field
+	  if any of the socket
+	  <seealso marker="#type-option">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  or
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  are active, otherwise it does not.
+	</p>
+	<p>
+	</p>
+        <p>If the socket is not in an active mode, data can be
+          retrieved through the
+          <seealso marker="#recv/2"><c>recv/2,3</c></seealso> calls.
+          Notice that arriving UDP packets that are longer than
+          the receive buffer option specifies can be truncated
+          without warning.</p>
+        <p>When a socket in <c>{active, N}</c> mode (see
+          <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+          for details), transitions to passive (<c>{active, false}</c>) mode,
+          the controlling process is notified by a message of the following
+          form:</p>
+        <code type="none">
+{udp_passive, Socket}</code>
+        <p><c>IP</c> and <c>InPortNo</c> define the address from which
+          <c>Packet</c> comes. <c>Packet</c> is a list of bytes if
+          option <c>list</c> is specified. <c>Packet</c> is a
+          binary if option <c>binary</c> is specified.</p>
+        <p>Default value for the receive buffer option is
+          <c>{recbuf, 8192}</c>.</p>
+        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns a free
+          UDP port, use
+          <seealso marker="inet#port/1"><c>inet:port/1</c></seealso>
+          to retrieve it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recv" arity="2" since=""/>
+      <name name="recv" arity="3" since=""/>
+      <fsummary>Receive a packet from a passive socket.</fsummary>
+      <desc>
+        <p>
+	  Receives a packet from a socket in passive mode. Optional parameter
+          <c><anno>Timeout</anno></c> specifies a time-out in milliseconds.
+          Defaults to <c>infinity</c>.
+	</p>
+	<p>
+	  If any of the socket
+	  <seealso marker="#type-option">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  or
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  are active, the <c><anno>RecvData</anno></c> tuple contains an
+	  <c><anno>AncData</anno></c> field,
+	  otherwise it does not.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="3" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Destination</anno></c>.
+	</p>
+	<p>
+	  This function is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="1" since=""/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Host</anno></c>
+	  and <c><anno>Port</anno></c>.
+	</p>
+	<p>
+	  This clause is equivalent to
+	  <seealso marker="#send/5"><c>send(<anno>Socket</anno>, <anno>Host</anno>, <anno>Port</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="2" anchor="send-4-AncData" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Destination</anno></c>
+	  with ancillary data <c><anno>AncData</anno></c>.
+	</p>
+	<note>
+	  <p>
+	    The ancillary data <c><anno>AncData</anno></c>
+	    contains options that for this single message
+	    override the default options for the socket,
+	    an operation that may not be supported on all platforms,
+	    and if so return <c>{error, einval}</c>.
+	    Using more than one of an ancillary data item type
+	    may also not be supported.
+	    <c><anno>AncData</anno> =:= []</c> is always supported.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="3" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Destination</anno></c>.
+	  Since <c><anno>Destination</anno></c> is complete,
+	  <c><anno>PortZero</anno></c> is redundant and has to be <c>0</c>.
+	</p>
+	<p>
+	  This is a legacy clause mostly for
+	  <c><anno>Destination</anno> = {local, Binary}</c>
+	  where <c><anno>PortZero</anno></c> is superfluous.
+	  It is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>, the clause right above here.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="5" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Host</anno></c>
+	  and <c><anno>Port</anno></c>,
+	  with ancillary data <c><anno>AncData</anno></c>.
+	</p>
+	<p>
+	  Argument <c><anno>Host</anno></c> can be
+	  a hostname or a socket address,
+	  and <c><anno>Port</anno></c> can be a port number
+	  or a service name atom.
+	  These are resolved into a <c>Destination</c> and after that
+	  this function is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, Destination, <anno>AncData</anno>, <anno>Packet</anno>)</c></seealso>, read there about ancillary data.
+	</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

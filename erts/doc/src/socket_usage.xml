@@ -1,0 +1,845 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2018</year><year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Socket Usage</title>
+    <prepared>Micael Karlberg</prepared>
+    <docno></docno>
+    <date>2018-07-17</date>
+    <rev>PA1</rev>
+    <file>socket_usage.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The socket interface (module) is basically an "thin" layer on top of
+    the OS socket interface. It is assumed that, unless you have special needs,
+    gen_[tcp|udp|sctp] should be sufficent (when they become available). </p>
+    <p>Note that just because we have a documented and described option,
+    it does <em>not</em> mean that the OS supports it. So its recommended
+    that the user reads the platform specific documentation for the
+    option used. </p>
+    <section>
+      <title>Asynchronous calls</title>
+      <p>Some functions allow for an <i>asynchronous</i> call
+      (<seealso marker="socket#accept_async"><c>accept/2</c></seealso>,
+      <seealso marker="socket#connect_async"><c>connect/3</c></seealso>,
+      <seealso marker="socket#recv_async"><c>recv/3,4</c></seealso>,
+      <seealso marker="socket#recvfrom_async"><c>recvfrom/3,4</c></seealso>,
+      <seealso marker="socket#recvmsg_async"><c>recvmsg/2,3,5</c></seealso>,
+      <seealso marker="socket#send_async"><c>send/3,4</c></seealso>,
+      <seealso marker="socket#sendmsg_async"><c>sendmsg/3,4</c></seealso> and
+      <seealso marker="socket#sendto_async"><c>sendto/4,5</c></seealso>).
+      This is achieved by setting the <c>Timeout</c> argument to
+      <c>nowait</c>. For instance, if calling the
+      <seealso marker="socket#recv_async"><c>recv/3</c></seealso>
+      function with Timeout set to <c>nowait</c> (i.e. 
+      <c>recv(Sock, 0, nowait)</c>)
+      when there is actually nothing to read, it will return with
+      <c>{select, </c>
+      <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso><c>}</c>
+      (<c>SelectInfo</c> contains the
+      <seealso marker="socket#type-select_ref">SelectRef</seealso>).
+      When data eventually arrives a 'select message'
+      will be sent to the caller:</p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
+      </taglist>
+      <p>The caller can then make another
+      call to the recv function and now expect data.</p>
+      <p>The user must also be prepared to receive an abort message: </p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), abort, Info}</c></item>
+      </taglist>
+      <p>If the operation is aborted
+      for whatever reason (e.g. if the socket is closed "by someone else").
+      The <c>Info</c> part contains the abort reason (in this case that
+      the socket has been closed <c>Info = {SelectRef, closed}</c>). </p>
+      <p>Note that all other users are <em>locked out</em> until the
+      'current user' has called the function (recv in this case). So either
+      immediately call the function or
+      <seealso marker="socket#cancel/2"><c>cancel</c></seealso>. </p>
+
+      <p>The general form of the 'socket' message is: </p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', Sock :: socket(), Tag :: atom(), Info :: term()}</c></item>
+      </taglist>
+      <p>Where the format of <c>Info</c> is a function of <c>Tag</c>:</p>
+      <table>
+	<row>
+	  <cell><em>Tag</em></cell>
+	  <cell><em>Info value type</em></cell>
+	</row>
+	<row>
+	  <cell>select</cell>
+	  <cell>select_ref()</cell>
+	</row>
+	<row>
+	  <cell>abort</cell>
+	  <cell>{select_ref(), Reason :: term()}</cell>
+	</row>
+	<tcaption>socket message info value type</tcaption>
+      </table>
+      <p>The <c>select_ref()</c> is the same as was received in the
+      <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso>. </p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="socket_options"></marker>
+    <title>Socket Options</title>
+
+    <p>Options for level <c>otp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>assoc_id</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>type = seqpacket, protocol = sctp, is an association</cell>
+      </row>
+      <row>
+	<cell>debug</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>iow</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>controlling_process</cell>
+	<cell>pid()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rcvbuf</cell>
+	<cell>default | pos_integer() | {pos_integer(), pos_ineteger()}</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>'default' only valid for set.
+	The tuple form is only valid for type 'stream' and protocol 'tcp'.</cell>
+      </row>
+      <row>
+	<cell>rcvctrlbuf</cell>
+	<cell>default | pos_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>default only valid for set</cell>
+      </row>
+      <row>
+	<cell>sndctrlbuf</cell>
+	<cell>default | pos_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>default only valid for set</cell>
+      </row>
+      <row>
+	<cell>fd</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>option levels</tcaption>
+    </table>
+    
+    <p>Options for level <c>socket</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>acceptconn</cell>
+	<cell>boolean()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>bindtodevice</cell>
+	<cell>string()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>Before Linux 3.8, this socket option could be set, but not get.
+	Only works for some socket types (e.g. <c>inet</c>).
+	If empty value is set, the binding is removed.</cell>
+      </row>
+      <row>
+	<cell>broadcast</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
+	<cell>debug</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>may require admin capability</cell>
+      </row>
+      <row>
+	<cell>domain</cell>
+	<cell>domain()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell><em>Not</em> on FreeBSD (for instance)</cell>
+      </row>
+      <row>
+	<cell>dontroute</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>keepalive</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>linger</cell>
+	<cell>abort | linger()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>oobinline</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>peek_off</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>domain = local (unix)</cell>
+      </row>
+      <row>
+	<cell>priority</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>protocol</cell>
+	<cell>protocol()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell><em>Not</em> on (some) Darwin (for instance)</cell>
+      </row>
+      <row>
+	<cell>rcvbuf</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rcvlowat</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rcvtimeo</cell>
+	<cell>timeval()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>reuseaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>reuseport</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>domain = inet | inet6</cell>
+      </row>
+      <row>
+	<cell>sndbuf</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>sndlowat</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>not changeable on Linux</cell>
+      </row>
+      <row>
+	<cell>sndtimeo</cell>
+	<cell>timeval()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>timestamp</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>type</cell>
+	<cell>type()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>socket options</tcaption>
+    </table>
+    
+    <p>Options for level <c>ip</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>add_membership</cell>
+	<cell>ip_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>add_source_membership</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>block_source</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>drop_membership</cell>
+	<cell>ip_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>drop_source_membership</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>freebind</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>hdrincl</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>minttl</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>msfilter</cell>
+	<cell>null | ip_msfilter()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>mtu</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>mtu_discover</cell>
+	<cell>ip_pmtudisc()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_all</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_if</cell>
+	<cell>any | ip4_address()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_loop</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_ttl</cell>
+	<cell>uint8()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>nodefrag</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>pktinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
+	<cell>recvdstaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
+	<cell>recverr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>recvif</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
+	<cell>recvopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
+	<cell>recvorigdstaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>recvttl</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
+	<cell>retopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
+	<cell>router_alert</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>sendsrcaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>tos</cell>
+	<cell>ip_tos()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>some high-priority levels may require superuser capability</cell>
+      </row>
+      <row>
+	<cell>transparent</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>requires admin capability</cell>
+      </row>
+      <row>
+	<cell>ttl</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>unblock_source</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>ip options</tcaption>
+    </table>
+    
+    <p>Options for level <c>ipv6</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>addrform</cell>
+	<cell>inet</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>allowed only for IPv6 sockets that are connected and bound to a
+	v4-mapped-on-v6 address</cell>
+      </row>
+      <row>
+	<cell>add_membership</cell>
+	<cell>ipv6_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>authhdr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, obsolete?</cell>
+      </row>
+      <row>
+	<cell>drop_membership</cell>
+	<cell>ipv6_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>dstopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>flowinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>hoplimit</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>hopopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>mtu</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>Get: Only after the socket has been connected</cell>
+      </row>
+      <row>
+	<cell>mtu_discover</cell>
+	<cell>ipv6_pmtudisc()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_hops</cell>
+	<cell>default | uint8()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_if</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
+	<cell>multicast_loop</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>recverr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>recvpktinfo | pktinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
+	<cell>router_alert</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>rthdr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>unicast_hops</cell>
+	<cell>default | uint8()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>v6only</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>ipv6 options</tcaption>
+    </table>
+    
+    <p>Options for level <c>tcp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>congestion</cell>
+	<cell>string()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>maxseg</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>nodelay</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>tcp options</tcaption>
+    </table>
+    
+    <p>Options for level <c>udp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>cork</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>udp options</tcaption>
+    </table>
+    
+    <p>Options for level <c>sctp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
+      </row>
+      <row>
+	<cell>associnfo</cell>
+	<cell>sctp_assocparams()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>autoclose</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>disable_fragments</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>events</cell>
+	<cell>sctp_event_subscribe()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>initmsg</cell>
+	<cell>sctp_initmsg()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>maxseg</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>nodelay</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rtoinfo</cell>
+	<cell>sctp_rtoinfo()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <tcaption>sctp options</tcaption>
+    </table>
+    
+  </section>
+</chapter>
+

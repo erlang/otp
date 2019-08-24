@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<documentRoot>
+<!-- Test data from 
+     http://www.whitebeam.org/library/guide/TechNotes/xpathtestbed.rhtm -->
+<?value ="2"?>
+<parent name="data" >
+   <child id="1"  name="alpha" >Some Text</child>
+   <child id="2"  name="beta" >
+      <grandchild id="2.1"  name="beta-alpha" ></grandchild>
+      <grandchild id="2.2"  name="beta-beta" ></grandchild>
+   </child>
+   <pet name="tigger"  type="cat" >
+      <data>
+         <birthday month="sept"  day="19" ></birthday>
+         <food name="Acme Cat Food" ></food>
+      </data>
+   </pet>
+   <pet name="Fido"  type="dog" >
+      <description>
+         Large dog!
+      </description>
+      <data>
+         <birthday month="feb"  day="3" ></birthday>
+         <food name="Acme Dog Food" ></food>
+      </data>
+   </pet>
+   <rogue name="is this real?" >
+      <data>
+         Hates dogs!
+      </data>
+   </rogue>
+   <child id="3"  name="gamma"  mark="yes" >
+      <!-- A comment -->
+      <description>
+         Likes all animals - especially dogs!
+      </description>
+      <grandchild id="3.1"  name="gamma-alpha" >
+         <![CDATA[ Some non-parsable character data ]]>
+      </grandchild>
+      <grandchild id="3.2"  name="gamma-beta" ></grandchild>
+   </child>
+</parent>
+</documentRoot>

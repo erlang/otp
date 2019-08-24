@@ -1,0 +1,752 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+%%
+-module(inets_test_lib).
+
+-include("inets_test_lib.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
+-include_lib("public_key/include/public_key.hrl").
+
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
+
+%% -- Misc os command and stuff
+
+has_ipv6_support() ->
+    tsp("has_ipv6_support -> no ipv6_hosts config"),
+    {ok, Hostname} = inet:gethostname(),
+    case inet:getaddrs(Hostname, inet6) of
+	{ok, [Addr|_]} when is_tuple(Addr) andalso 
+			    (element(1, Addr) =/= 0) ->
+	    %% We actually need to test that the addr can be used, 
+	    %% this is done by attempting to create a (tcp) 
+	    %% listen socket
+	    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
+	    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
+		{ok, LSock} ->
+		    tsp("has_ipv6_support -> we are ipv6 host"),
+		    gen_tcp:close(LSock),
+		    {ok, Addr};
+		_ ->
+		    undefined
+	    end;
+	_ ->
+	    undefined
+    end.
+    
+has_ipv6_support(Config) ->
+    case lists:keysearch(ipv6_hosts, 1, Config) of
+	false ->
+	    %% Do a basic check to se if 
+	    %% our own host has a working IPv6 address...
+	    has_ipv6_support();
+
+	{value, {_, Hosts}} when is_list(Hosts) ->
+	    %% Check if our host is in the list of *known* IPv6 hosts
+	    tsp("has_ipv6_support -> Hosts: ~p", [Hosts]),
+	    {ok, Hostname} = inet:gethostname(),
+	    case lists:member(list_to_atom(Hostname), Hosts) of
+		true ->
+		    tsp("has_ipv6_support -> we are known ipv6 host"),
+		    {ok, [Addr|_]} = inet:getaddrs(Hostname, inet6),
+		    {ok, Addr};
+		false ->
+		    undefined
+	    end;
+	
+	_ ->
+	    undefined
+
+    end.
+
+oscmd(Cmd) ->
+  string:strip(os:cmd(Cmd), right, $\n).
+
+
+print_system_info([]) ->
+    do_print_system_info("System Info");
+print_system_info(Prefix) when is_list(Prefix) ->
+    NewPrefix = lists:flatten(io_lib:format("~s: System Info", [Prefix])), 
+    do_print_system_info(NewPrefix).
+
+do_print_system_info(Prefix) ->
+    tsp("~s => "
+	"~n"
+	"~n   OS Type:            ~p"
+	"~n   OS version:         ~p"
+	"~n   Sys Arch:           ~p"
+	"~n   CPU Topology:       ~p"
+	"~n   Num logical procs:  ~p"
+	"~n   SMP support:        ~p"
+	"~n   Num schedulers:     ~p"
+	"~n   Scheduler bindings: ~p"
+	"~n   Wordsize:           ~p"
+	"~n~n", [Prefix, 
+		 os:type(), os:version(), 
+		 erlang:system_info(system_architecture),
+		 erlang:system_info(cpu_topology),
+		 erlang:system_info(logical_processors),
+		 erlang:system_info(smp_support),
+		 erlang:system_info(schedulers),
+		 erlang:system_info(scheduler_bindings),
+		 erlang:system_info(wordsize)]),
+    ok.
+    
+    
+run_on_windows(Fun) ->
+    run_on_os(windows, Fun).
+
+run_on_os(windows, Fun) ->
+    case os:type() of
+	{win32, _} ->
+	    Fun();
+	_ ->
+	    ok
+    end.
+	    
+    
+%% -- Misc node operation wrapper functions --
+
+start_node(Name) ->
+    Pa   = filename:dirname(code:which(?MODULE)),
+    Args = case init:get_argument('CC_TEST') of
+               {ok, [[]]} ->
+                   " -pa /clearcase/otp/libraries/snmp/ebin ";
+               {ok, [[Path]]} ->
+                   " -pa " ++ Path;
+               error ->
+                      ""
+              end,
+    A = Args ++ " -pa " ++ Pa,
+    Opts = [{cleanup,false}, {args, A}],
+    case (catch test_server:start_node(Name, slave, Opts)) of
+        {ok, Node} ->
+            Node;
+        Else ->
+            exit({failed_starting_node, Name, Else})
+    end.
+
+stop_node(Node) ->
+    rpc:cast(Node, erlang, halt, []),
+    await_stopped(Node, 5).
+
+await_stopped(_, 0) ->
+    ok;
+await_stopped(Node, N) ->
+    Nodes = erlang:nodes(),
+    case lists:member(Node, Nodes) of
+        true ->
+            sleep(1000),
+            await_stopped(Node, N-1);
+        false ->
+            ok
+    end.
+
+
+%% ----------------------------------------------------------------
+%% Ensure apps are started
+%% This to ensure we dont attempt to run teatcases on platforms 
+%% where there is no working ssl app.
+
+ensure_started([]) ->
+    ok;
+ensure_started([App|Apps]) ->
+    ensure_started(App),
+    ensure_started(Apps);
+ensure_started(crypto = App) ->
+    %% We have to treat crypto in this special way because 
+    %% only this function ensures that the NIF lib is actually
+    %% loaded. And only by loading that lib can we know if it 
+    %% is even possible to run crypto.
+    do_ensure_started(App, fun() -> crypto:start() end);
+ensure_started(App) when is_atom(App) ->
+    do_ensure_started(App, fun() -> application:start(App) end).
+
+do_ensure_started(App, Start) when is_function(Start) ->
+    case (catch Start()) of
+	ok ->
+	    ok;
+	{error, {already_started, _}} ->
+	    ok;
+	Error ->
+	    throw({error, {failed_starting, App, Error}})
+    end.
+
+
+ensure_loaded(App) ->
+    case application:load(App) of
+	ok ->
+	    ok;
+	{error, {already_loaded,inets}} ->
+	    ok;
+	Error ->
+	    Error
+    end.
+
+
+
+%% ----------------------------------------------------------------
+%% HTTPD starter functions
+%%
+
+start_http_server(Conf) ->
+    start_http_server(Conf, ?HTTP_DEFAULT_SSL_KIND).
+
+start_http_server(Conf, essl = _SslTag) ->
+    tsp("start_http_server(essl) -> try start crypto"),
+    application:start(crypto), 
+    tsp("start_http_server(essl) -> try start public_key"),
+    application:start(public_key), 
+    do_start_http_server(Conf);
+start_http_server(Conf, SslTag) ->
+    tsp("start_http_server(~w) -> entry", [SslTag]),
+    do_start_http_server(Conf).
+
+do_start_http_server(Conf) ->
+    tsp("do_start_http_server -> entry with"
+	"~n   Conf: ~p"
+	"~n", [Conf]),
+    tsp("do_start_http_server -> load inets"),
+    case ensure_loaded(inets) of
+	ok ->
+	    tsp("do_start_http_server -> inets loaded - now set_env for httpd"),
+	    case application:set_env(inets, services, [{httpd, Conf}]) of
+		ok ->
+		    tsp("do_start_http_server -> "
+			"httpd conf stored in inets app env"),
+		    case (catch application:start(inets)) of
+			ok ->
+			    tsp("do_start_http_server -> inets started"),
+			    ok;
+			Error1 ->
+			    tsp("<ERROR> Failed starting application: "
+				"~n   Error1: ~p", [Error1]),
+			    tsf({failed_starting_inets, Error1})
+		    end;
+		Error2 ->
+		    tsp("<ERROR> Failed set application env: "
+			"~n   Error: ~p", [Error2]),
+		    tsf({failed_set_env, Error2})
+	    end;
+	{error, Reason} ->
+	    tsp("do_start_http_server -> failed loading inets"
+		"~n   Reason: ~p", [Reason]),
+	    tsf({failed_loading_inets, Reason})
+    end.
+	    
+start_http_server_ssl(FileName) ->
+    start_http_server_ssl(FileName, ?HTTP_DEFAULT_SSL_KIND).
+
+start_http_server_ssl(FileName, essl = _SslTag) ->
+    application:start(crypto), 
+    do_start_http_server_ssl(FileName);
+start_http_server_ssl(FileName, _SslTag) ->
+    do_start_http_server_ssl(FileName).
+
+do_start_http_server_ssl(FileName) ->
+    tsp("start (ssl) http server with "
+	"~n   FileName: ~p"
+	"~n", [FileName]),
+    application:start(ssl),	       
+    catch do_start_http_server(FileName).
+
+
+
+%% ----------------------------------------------------------------------
+%% print functions
+%%
+
+info(F, A, Mod, Line) ->
+    print("INF ", F, A, Mod, Line).
+
+log(F, A, Mod, Line) ->
+    print("LOG ", F, A, Mod, Line).
+
+debug(F, A, Mod, Line) ->
+    print("DBG ", F, A, Mod, Line).
+
+print(P, F, A, Mod, Line) ->
+    io:format("~s[~p:~p:~p] : " ++ F ++ "~n", [P, self(), Mod, Line| A]).
+
+print(F, A, Mod, Line) ->
+    print("", F, A, Mod, Line).
+
+hostname() ->
+   {ok, Name} = inet:gethostname(),
+    Name.
+
+from(H, [H | T]) -> T;
+from(H, [_ | T]) -> from(H, T);
+from(_, []) -> [].
+
+
+copy_file(File, From, To) ->
+    file:copy(filename:join(From, File), filename:join(To, File)).
+
+copy_files(FromDir, ToDir) -> 
+    {ok, Files} = file:list_dir(FromDir),
+    lists:foreach(fun(File) -> 
+			  FullPath = filename:join(FromDir, File),
+			  case filelib:is_file(FullPath) of
+			      true ->
+				  file:copy(FullPath,
+					    filename:join(ToDir, File));
+			      false ->
+				  ok
+			  end
+		  end, Files).
+
+
+copy_dirs(FromDirRoot, ToDirRoot) ->
+    case file:list_dir(FromDirRoot) of
+	{ok, Files}  ->
+	    lists:foreach(
+	      fun(FileOrDir) -> 
+		      %% Check if it's a directory or a file
+		      case filelib:is_dir(filename:join(FromDirRoot, 
+							FileOrDir)) of
+			  true ->
+			      FromDir = filename:join([FromDirRoot, FileOrDir]),
+			      ToDir   = filename:join([ToDirRoot, FileOrDir]),
+			      case file:make_dir(ToDir) of
+				  ok ->
+				      copy_dirs(FromDir, ToDir);
+				  {error, Reason} ->
+				      tsp("<ERROR> Failed creating directory: "
+					  "~n   ToDir:  ~p"
+					  "~n   Reason: ~p"
+					  "~nwhen"
+					  "~n   ToDirRoot:           ~p"
+					  "~n   ToDirRoot file info: ~p", 
+					  [ToDir, 
+					   Reason, 
+					   ToDirRoot, 
+					   file:read_file_info(ToDirRoot)]),
+				      tsf({failed_copy_dir, ToDir, Reason})
+			      end;
+			  false ->
+			      copy_file(FileOrDir, FromDirRoot, ToDirRoot)
+		      end
+	      end, Files);
+	{error, Reason} ->
+	    tsp("<ERROR> Failed get directory file list: "
+		"~n   FromDirRoot: ~p"
+		"~n   Reason:      ~p"
+		"~nwhen"
+		"~n   FromDirRoot file info: ~p", 
+		[FromDirRoot, 
+		 Reason, 
+		 file:read_file_info(FromDirRoot)]),
+	    tsf({failed_list_dir, FromDirRoot, Reason})
+    end.
+	    
+		
+
+del_dirs(Dir) ->
+    case file:list_dir(Dir) of
+	{ok, []} ->
+	    file:del_dir(Dir);
+	{ok, Files} ->
+	    lists:foreach(fun(File) ->
+				  FullPath = filename:join(Dir,File),
+				  case filelib:is_dir(FullPath) of
+				      true ->
+					  del_dirs(FullPath),
+					  file:del_dir(FullPath);	       
+				      false ->
+					  file:delete(FullPath)
+				  end 
+			  end, Files);
+	_ ->
+	    ok
+    end.
+
+check_body(Body) ->
+    case string:rstr(Body, "</html>") of
+	0 ->
+	    case string:rstr(Body, "</HTML>") of
+		0 ->
+		    tsp("Body ~p", [Body]),
+		    tsf(did_not_receive_whole_body);
+		_ ->
+		    ok
+	    end;
+	_ ->
+	    ok
+    end.
+
+%% ----------------------------------------------------------------
+%% Conditional skip of testcases
+%%
+
+non_pc_tc_maybe_skip(Config, Condition, File, Line)
+  when is_list(Config) andalso is_function(Condition) ->
+    %% Check if we shall skip the skip
+    case os:getenv("TS_OS_BASED_SKIP") of
+        "false" ->
+            ok;
+        _ ->
+            case lists:keysearch(ts, 1, Config) of
+                {value, {ts, inets}} ->
+                    %% Always run the testcase if we are using our own
+                    %% test-server...
+                    ok;
+                _ ->
+                    case (catch Condition()) of
+                        true ->
+                            skip(non_pc_testcase, File, Line);
+                        _ ->
+                            ok
+                    end
+            end
+    end.
+
+
+os_based_skip(any) ->
+    true;
+os_based_skip(Skippable) when is_list(Skippable) ->
+    {OsFam, OsName} =
+        case os:type() of
+            {_Fam, _Name} = FamAndName ->
+                FamAndName;
+            Fam ->
+                {Fam, undefined}
+        end,
+    case lists:member(OsFam, Skippable) of
+        true ->
+            true;
+        false ->
+            case lists:keysearch(OsFam, 1, Skippable) of
+                {value, {OsFam, OsName}} ->
+                    true;
+                {value, {OsFam, OsNames}} when is_list(OsNames) ->
+                    lists:member(OsName, OsNames);
+                _ ->
+                    false
+            end
+    end;
+os_based_skip(_) ->
+    false.
+
+
+%% ----------------------------------------------------------------------
+%% Socket functions:
+%% open(SocketType, Host, Port) -> {ok, Socket} | {error, Reason}
+%% SocketType -> ssl | ip_comm
+%% Host       -> atom() | string() | {A, B, C, D} 
+%% Port       -> integer()
+
+connect_bin(SockType, Host, Port) ->
+    connect_bin(SockType, Host, Port, []).
+
+connect_bin(ssl, Host, Port, Opts0) ->
+    Opts = [binary, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, binary, {packet,0}| Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(ip_comm, Host, Port, Opts0) ->
+    Opts = [binary, {packet, 0} | Opts0],
+    connect(ip_comm, Host, Port, Opts);
+connect_bin(Type, Host, Port, Opts) ->
+    connect(Type, Host, Port, Opts).
+
+connect_byte(SockType, Host, Port) ->
+    connect_byte(SockType, Host, Port, []).
+    
+connect_byte(ssl, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(ip_comm, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0],
+    connect(ip_comm, Host, Port, Opts);
+connect_byte(Type, Host, Port, Opts) ->
+    connect(Type, Host, Port, Opts).
+
+connect(ip_comm, Host, Port, Opts) ->
+    gen_tcp:connect(Host, Port, Opts);
+connect(ssl, Host, Port, Opts) ->
+    ssl:connect(Host, Port, Opts);
+connect(openssl_port, Host, Port, Opts) ->
+    CaCertFile = proplists:get_value(cacertfile, Opts),
+    Cmd = "openssl s_client -quiet -port " ++ integer_to_list(Port)  ++ " -host " ++ Host 
+	++ " -CAfile " ++ CaCertFile,
+    ct:log("openssl cmd: ~p~n", [Cmd]),
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    read_junk(OpensslPort),
+    {ok, OpensslPort}.
+
+send(ssl, Socket, Data) ->
+    ssl:send(Socket, Data);
+send(essl, Socket, Data) ->
+    ssl:send(Socket, Data);
+send(ip_comm,Socket,Data) ->
+    gen_tcp:send(Socket,Data);
+send(openssl_port, Port, Data) ->
+    true = port_command(Port, Data),
+    ok.
+close(ssl,Socket) ->
+    catch ssl:close(Socket);
+close(essl,Socket) ->
+    catch ssl:close(Socket);
+close(ip_comm,Socket) ->
+    catch gen_tcp:close(Socket);
+close(openssl_port, Port) ->
+    exit(Port, normal).
+
+
+hours(N)   -> trunc(N * 1000 * 60 * 60).
+minutes(N) -> trunc(N * 1000 * 60).
+seconds(N) -> trunc(N * 1000).
+
+
+sleep(infinity) ->
+    receive
+    after infinity ->
+            ok
+    end;
+sleep(MSecs) ->
+    receive
+    after trunc(MSecs) ->
+            ok
+    end,
+    ok.
+
+
+skip(Reason, File, Line) ->
+    exit({skipped, {Reason, File, Line}}).
+
+fail(Reason, File, Line) ->
+    String = lists:flatten(io_lib:format("Failure ~p(~p): ~p~n",
+                                         [File, Line, Reason])),
+    tsf(String).
+
+
+
+flush() ->
+    receive
+        Msg ->
+            [Msg | flush()]
+    after 1000 ->
+            []
+    end.
+
+
+tsp(F) ->
+    tsp(F, []).
+tsp(F, A) ->
+    Timestamp = inets_lib:formated_timestamp(),
+    ct:pal("*** ~s ~p ~p " ++ F ++ "~n", 
+		       [Timestamp, node(), self() | A]).
+
+tsf(Reason) ->
+    ct:fail(Reason).
+
+tss(Time) ->
+    ct:sleep(Time).
+
+timestamp() ->
+    http_util:timestamp().
+
+start_apps(Apps) ->
+    lists:foreach(fun(App) ->
+			  application:stop(App),
+			  application:start(App)
+		  end, Apps).
+stop_apps(Apps) ->
+    lists:foreach(fun(App) ->
+			  application:stop(App)
+		  end, Apps).
+
+inet_port(Node) ->
+    {Port, Socket} = do_inet_port(Node),
+     rpc:call(Node, gen_tcp, close, [Socket]),
+     Port.
+
+do_inet_port(Node) ->
+    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
+    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
+    {Port, Socket}.
+
+read_junk(OpensslPort) ->
+    receive
+	{OpensslPort, _} ->
+	    read_junk(OpensslPort)
+    after 500 -> 
+	    ok    
+    end.
+hardcode_rsa_key(1) ->
+    #'RSAPrivateKey'{
+       version = 'two-prime',
+       modulus = 23995666614853919027835084074500048897452890537492185072956789802729257783422306095699263934587064480357348855732149402060270996295002843755712064937715826848741191927820899197493902093529581182351132392364214171173881547273475904587683433713767834856230531387991145055273426806331200574039205571401702219159773947658558490957010003143162250693492642996408861265758000254664396313741422909188635443907373976005987612936763564996605457102336549804831742940035613780926178523017685712710473543251580072875247250504243621640157403744718833162626193206685233710319205099867303242759099560438381385658382486042995679707669,
+       publicExponent = 17,
+       privateExponent = 11292078406990079542510627799764728892919007311761028269626724613049062486316379339152594792746853873109340637991599718616598115903530750002688030558925094987642913848386305504703012749896273497577003478759630198199473669305165131570674557041773098755873191241407597673069847908861741446606684974777271632545629600685952292605647052193819136445675100211504432575554351515262198132231537860917084269870590492135731720141577986787033006338680118008484613510063003323516659048210893001173583018220214626635609151105287049126443102976056146630518124476470236027123782297108342869049542023328584384300970694412006494684657,
+       prime1 = 169371138592582642967021557955633494538845517070305333860805485424261447791289944610138334410987654265476540480228705481960508520379619587635662291973699651583489223555422528867090299996446070521801757353675026048850480903160224210802452555900007597342687137394192939372218903554801584969667104937092080815197,
+       prime2 = 141675062317286527042995673340952251894209529891636708844197799307963834958115010129693036021381525952081167155681637592199810112261679449166276939178032066869788822014115556349519329537177920752776047051833616197615329017439297361972726138285974555338480581117881706656603857310337984049152655480389797687577,
+       exponent1 = 119556097830058336212015217380447172615655659108450823901745048534772786676204666783627059584226579481512852103690850928442711896738555003036938088452023283470698275450886490965004917644550167427154181661417665446247398284583687678213495921811770068712485038160606780733330990744565824684470897602653233516609,
+       exponent2 = 41669135975672507953822256864985956439473391144599032012999352737636422046504414744027363535700448809435637398729893409470532385959317485048904982111185902020526124121798693043976273393287623750816484427009887116945685005129205106462566511260580751570141347387612266663707016855981760014456663376585234613993,
+       coefficient = 76837684977089699359024365285678488693966186052769523357232308621548155587515525857011429902602352279058920284048929101483304120686557782043616693940283344235057989514310975192908256494992960578961614059245280827077951132083993754797053182279229469590276271658395444955906108899267024101096069475145863928441,
+       otherPrimeInfos = asn1_NOVALUE};
+
+hardcode_rsa_key(2) ->
+    #'RSAPrivateKey'{
+       version = 'two-prime',
+       modulus = 21343679768589700771839799834197557895311746244621307033143551583788179817796325695589283169969489517156931770973490560582341832744966317712674900833543896521418422508485833901274928542544381247956820115082240721897193055368570146764204557110415281995205343662628196075590438954399631753508888358737971039058298703003743872818150364935790613286541190842600031570570099801682794056444451081563070538409720109449780410837763602317050353477918147758267825417201591905091231778937606362076129350476690460157227101296599527319242747999737801698427160817755293383890373574621116766934110792127739174475029121017282777887777,
+       publicExponent = 17,
+       privateExponent = 18832658619343853622211588088997845201745658451136447382185486691577805721584993260814073385267196632785528033211903435807948675951440868570007265441362261636545666919252206383477878125774454042314841278013741813438699754736973658909592256273895837054592950290554290654932740253882028017801960316533503857992358685308186680144968293076156011747178275038098868263178095174694099811498968993700538293188879611375604635940554394589807673542938082281934965292051746326331046224291377703201248790910007232374006151098976879987912446997911775904329728563222485791845480864283470332826504617837402078265424772379987120023773,
+       prime1 = 146807662748886761089048448970170315054939768171908279335181627815919052012991509112344782731265837727551849787333310044397991034789843793140419387740928103541736452627413492093463231242466386868459637115999163097726153692593711599245170083315894262154838974616739452594203727376460632750934355508361223110419,
+       prime2 = 145385325050081892763917667176962991350872697916072592966410309213561884732628046256782356731057378829876640317801978404203665761131810712267778698468684631707642938779964806354584156202882543264893826268426566901882487709510744074274965029453915224310656287149777603803201831202222853023280023478269485417083,
+       exponent1 = 51814469205489445090252393754177758254684624060673510353593515699736136004585238510239335081623236845018299924941168250963996835808180162284853901555621683602965806809675350150634081614988136541809283687999704622726877773856604093851236499993845033701707873394143336209718962603456693912094478414715725803677,
+       exponent2 = 51312467664734785681382706062457526359131540440966797517556579722433606376221663384746714140373192528191755406283051201483646739222992016094510128871300458249756331334105225772206172777487956446433115153562317730076172132768497908567634716277852432109643395464627389577600646306666889302334125933506877206029,
+       coefficient = 30504662229874176232343608562807118278893368758027179776313787938167236952567905398252901545019583024374163153775359371298239336609182249464886717948407152570850677549297935773605431024166978281486607154204888016179709037883348099374995148481968169438302456074511782717758301581202874062062542434218011141540,
+       otherPrimeInfos = asn1_NOVALUE};
+hardcode_rsa_key(3) -> 
+    #'RSAPrivateKey'{ 
+       version = 'two-prime',
+       modulus = 25089040456112869869472694987833070928503703615633809313972554887193090845137746668197820419383804666271752525807484521370419854590682661809972833718476098189250708650325307850184923546875260207894844301992963978994451844985784504212035958130279304082438876764367292331581532569155681984449177635856426023931875082020262146075451989132180409962870105455517050416234175675478291534563995772675388370042873175344937421148321291640477650173765084699931690748536036544188863178325887393475703801759010864779559318631816411493486934507417755306337476945299570726975433250753415110141783026008347194577506976486290259135429,
+       publicExponent = 17,
+       privateExponent = 8854955455098659953931539407470495621824836570223697404931489960185796768872145882893348383311931058684147950284994536954265831032005645344696294253579799360912014817761873358888796545955974191021709753644575521998041827642041589721895044045980930852625485916835514940558187965584358347452650930302268008446431977397918214293502821599497633970075862760001650736520566952260001423171553461362588848929781360590057040212831994258783694027013289053834376791974167294527043946669963760259975273650548116897900664646809242902841107022557239712438496384819445301703021164043324282687280801738470244471443835900160721870265,
+       prime1 = 171641816401041100605063917111691927706183918906535463031548413586331728772311589438043965564336865070070922328258143588739626712299625805650832695450270566547004154065267940032684307994238248203186986569945677705100224518137694769557564475390859269797990555863306972197736879644001860925483629009305104925823,
+       prime2 =146170909759497809922264016492088453282310383272504533061020897155289106805616042710009332510822455269704884883705830985184223718261139908416790475825625309815234508695722132706422885088219618698987115562577878897003573425367881351537506046253616435685549396767356003663417208105346307649599145759863108910523,
+       exponent1 = 60579464612132153154728441333538327425711971378777222246428851853999433684345266860486105493295364142377972586444050678378691780811632637288529186629507258781295583787741625893888579292084087601124818789392592131211843947578009918667375697196773859928702549128225990187436545756706539150170692591519448797349,
+       exponent2 = 137572620950115585809189662580789132500998007785886619351549079675566218169991569609420548245479957900898715184664311515467504676010484619686391036071176762179044243478326713135456833024206699951987873470661533079532774988581535389682358631768109586527575902839864474036157372334443583670210960715165278974609,
+       coefficient = 15068630434698373319269196003209754243798959461311186548759287649485250508074064775263867418602372588394608558985183294561315208336731894947137343239541687540387209051236354318837334154993136528453613256169847839789803932725339395739618592522865156272771578671216082079933457043120923342632744996962853951612,
+       otherPrimeInfos = asn1_NOVALUE};
+hardcode_rsa_key(4) -> 
+    #'RSAPrivateKey'{
+       version ='two-prime',
+       modulus = 28617237755030755643854803617273584643843067580642149032833640135949799721163782522787597288521902619948688786051081993247908700824196122780349730169173433743054172191054872553484065655968335396052034378669869864779940355219732200954630251223541048434478476115391643898092650304645086338265930608997389611376417609043761464100338332976874588396803891301015812818307951159858145399281035705713082131199940309445719678087542976246147777388465712394062188801177717719764254900022006288880246925156931391594131839991579403409541227225173269459173129377291869028712271737734702830877034334838181789916127814298794576266389,
+       publicExponent = 17,
+       privateExponent = 26933870828264240605980991639786903194205240075898493207372837775011576208154148256741268036255908348187001210401018346586267012540419880263858569570986761169933338532757527109161473558558433313931326474042230460969355628442100895016122589386862163232450330461545076609969553227901257730132640573174013751883368376011370428995523268034111482031427024082719896108094847702954695363285832195666458915142143884210891427766607838346722974883433132513540317964796373298134261669479023445911856492129270184781873446960437310543998533283339488055776892320162032014809906169940882070478200435536171854883284366514852906334641,
+       prime1 = 177342190816702392178883147766999616783253285436834252111702533617098994535049411784501174309695427674025956656849179054202187436663487378682303508229883753383891163725167367039879190685255046547908384208614573353917213168937832054054779266431207529839577747601879940934691505396807977946728204814969824442867,
+       prime2 = 161367340863680900415977542864139121629424927689088951345472941851682581254789586032968359551717004797621579428672968948552429138154521719743297455351687337112710712475376510559020211584326773715482918387500187602625572442687231345855402020688502483137168684570635690059254866684191216155909970061793538842967,
+       exponent1 = 62591361464718491357252875682470452982324688977706206627659717747211409835899792394529826226951327414362102349476180842659595565881230839534930649963488383547255704844176717778780890830090016428673547367746320007264898765507470136725216211681602657590439205035957626212244060728285168687080542875871702744541,
+       exponent2 = 28476589564178982426348978152495139111074987239250991413906989738532220221433456358759122273832412611344984605059935696803369847909621479954699550944415412431654831613301737157474154985469430655673456186029444871051571607533040825739188591886206320553618003159523945304574388238386685203984112363845918619347,
+       coefficient = 34340318160575773065401929915821192439103777558577109939078671096408836197675640654693301707202885840826672396546056002756167635035389371579540325327619480512374920136684787633921441576901246290213545161954865184290700344352088099063404416346968182170720521708773285279884132629954461545103181082503707725012,
+       otherPrimeInfos = asn1_NOVALUE};
+
+hardcode_rsa_key(5) -> 
+    #'RSAPrivateKey'{ 
+       version= 'two-prime',
+       modulus = 26363170152814518327068346871197765236382539835597898797762992537312221863402655353436079974302838986536256364057947538018476963115004626096654613827403121905035011992899481598437933532388248462251770039307078647864188314916665766359828262009578648593031111569685489178543405615478739906285223620987558499488359880003693226535420421293716164794046859453204135383236667988765227190694994861629971618548127529849059769249520775574008363789050621665120207265361610436965088511042779948238320901918522125988916609088415989475825860046571847719492980547438560049874493788767083330042728150253120940100665370844282489982633,
+       publicExponent = 17,
+       privateExponent = 10855423004100095781734025182257903332628104638187370093196526338893267826106975733767797636477639582691399679317978398007608161282648963686857782164224814902073240232370374775827384395689278778574258251479385325591136364965685903795223402003944149420659869469870495544106108194608892902588033255700759382142132115013969680562678811046675523365751498355532768935784747314021422035957153013494814430893022253205880275287307995039363642554998244274484818208792520243113824379110193356010059999642946040953102866271737127640405568982049887176990990501963784502429481034227543991366980671390566584211881030995602076468001,
+       prime1 =163564135568104310461344551909369650951960301778977149705601170951529791054750122905880591964737953456660497440730575925978769763154927541340839715938951226089095007207042122512586007411328664679011914120351043948122025612160733403945093961374276707993674792189646478659304624413958625254578122842556295400709,
+       prime2 = 161179405627326572739107057023381254841260287988433675196680483761672455172873134522398837271764104320975746111042211695289319249471386600030523328069395763313848583139553961129874895374324504709512019736703349829576024049432816885712623938437949550266365056310544300920756181033500610331519029869549723159637,
+       exponent1 = 115457036871603042678596154288966812436677860079277988027483179495197499568058910286503947269226790675289762899339230065396778656344654735064122152427494983121714122734382674714766593466820233891067233496718383963380253373289929461608301619793607087995535147427985749641862087821617853120878674947686796753441,
+       exponent2 = 142217122612346975946270932667689342506994371754500301644129838613240401623123353990351915239791856753802128921507833848784693455415929352968108818884760967629866396887841730408713142977345151214275311532385308673155315337734838428569962298621720191411498579097539089047726042088382891468987379296661520434973,
+       coefficient = 40624877259097915043489529504071755460170951428490878553842519165800720914888257733191322215286203357356050737713125202129282154441426952501134581314792133018830748896123382106683994268028624341502298766844710276939303555637478596035491641473828661569958212421472263269629366559343208764012473880251174832392,
+       otherPrimeInfos = asn1_NOVALUE};
+hardcode_rsa_key(6) -> 
+    #'RSAPrivateKey'{ 
+       version = 'two-prime',
+       modulus = 22748888494866396715768692484866595111939200209856056370972713870125588774286266397044592487895293134537316190976192161177144143633669641697309689280475257429554879273045671863645233402796222694405634510241820106743648116753479926387434021380537483429927516962909367257212902212159798399531316965145618774905828756510318897899298783143203190245236381440043169622358239226123652592179006905016804587837199618842875361941208299410035232803124113612082221121192550063791073372276763648926636149384299189072950588522522800393261949880796214514243704858378436010975184294077063518776479282353562934591448646412389762167039,
+       publicExponent = 17,
+       privateExponent = 6690849557313646092873144848490175032923294179369428344403739373566349639495960705013115437616262686628622409110644753287395336362844012263914614494257428655751435080307550548130951000822418439531068973600535325512837681398082331290421770994275730420566916753796872722709677121223470117509210872101652580854566448661533030419787125312956120661097410038933324613372774190658239039998357548275441758790939430824924502690997433186652165055694361752689819209062683281242276039100201318203707142383491769671330743466041394101421674581185260900666085723130684175548215193875544802254923825103844262661010117443222587769713,
+       prime1 = 164748737139489923768181260808494855987398781964531448608652166632780898215212977127034263859971474195908846263894581556691971503119888726148555271179103885786024920582830105413607436718060544856016793981261118694063993837665813285582095833772675610567592660039821387740255651489996976698808018635344299728063,
+       prime2 = 138082323967104548254375818343885141517788525705334488282154811252858957969378263753268344088034079842223206527922445018725900110643394926788280539200323021781309918753249061620424428562366627334409266756720941754364262467100514166396917565961434203543659974860389803369482625510495464845206228470088664021953,
+       exponent1 = 19382204369351755737433089506881747763223386113474288071606137250915399790025056132592266336467232258342217207517009594904937823896457497193947678962247515974826461245038835931012639613889475865413740468383661022831058098548919210068481862796785365949128548239978986792971253116470232552800943368864035262125,
+       exponent2 = 48734937870742781736838524121371226418043009072470995864289933383361985165662916618800592031070851709019955245149098241903258862580021738866451955011878713569874088971734962924855680669070574353320917678842685325069739694270769705787147376221682660074232932303666989424523279591939575827719845342384234360689,
+       coefficient = 81173034184183681160439870161505779100040258708276674532866007896310418779840630960490793104541748007902477778658270784073595697910785917474138815202903114440800310078464142273778315781957021015333260021813037604142367434117205299831740956310682461174553260184078272196958146289378701001596552915990080834227,
+       otherPrimeInfos = asn1_NOVALUE}.
+
+gen_pem_config_files(#{server_config := ServerConf,
+                       client_config := ClientConf}, ClientBase, ServerBase) ->
+    
+    ServerCaCertFile = ServerBase ++ "_server_cacerts.pem",
+    ServerCertFile = ServerBase ++ "_server_cert.pem",
+    ServerKeyFile = ServerBase ++ "_server_key.pem",
+    
+    ClientCaCertFile = ClientBase ++ "_client_cacerts.pem",
+    ClientCertFile =  ClientBase ++ "_client_cert.pem",
+    ClientKeyFile = ClientBase ++ "_client_key.pem",
+
+    do_gen_pem_config_files(ServerConf,
+                            ServerCertFile,
+                            ServerKeyFile,
+                            ServerCaCertFile),        
+    do_gen_pem_config_files(ClientConf,
+                            ClientCertFile,
+                            ClientKeyFile,
+                            ClientCaCertFile),
+    [{server_config, [{certfile, ServerCertFile}, 
+                      {keyfile, ServerKeyFile}, {cacertfile, ServerCaCertFile}]}, 
+     {client_config, [{certfile, ClientCertFile}, 
+                      {keyfile, ClientKeyFile}, {cacertfile, ClientCaCertFile}]}].
+extensions(Exts) ->
+    [extension(Ext) || Ext <- Exts].
+
+
+do_gen_pem_config_files(Config, CertFile, KeyFile, CAFile) ->
+    CAs = proplists:get_value(cacerts, Config),
+    Cert = proplists:get_value(cert, Config),
+    Key = proplists:get_value(key, Config),
+    der_to_pem(CertFile, [cert_entry(Cert)]),
+    der_to_pem(KeyFile, [key_entry(Key)]),
+    der_to_pem(CAFile, ca_entries(CAs)).
+
+cert_entry(Cert) ->
+    {'Certificate', Cert, not_encrypted}.
+
+key_entry({'RSAPrivateKey', DERKey}) ->
+    {'RSAPrivateKey', DERKey, not_encrypted};
+key_entry({'DSAPrivateKey', DERKey}) ->
+    {'DSAPrivateKey', DERKey, not_encrypted};
+key_entry({'ECPrivateKey', DERKey}) ->
+    {'ECPrivateKey', DERKey, not_encrypted}.
+
+ca_entries(CAs) ->
+    [{'Certificate', CACert, not_encrypted} || CACert <- CAs].
+
+extension({_, undefined}) ->
+    [];
+extension({basic_constraints, Data}) ->
+    case Data of
+	default ->
+	    #'Extension'{extnID = ?'id-ce-basicConstraints',
+			 extnValue = #'BasicConstraints'{cA=true},
+			 critical=true};
+	false -> 
+	    [];
+	Len when is_integer(Len) ->
+	    #'Extension'{extnID = ?'id-ce-basicConstraints',
+			 extnValue = #'BasicConstraints'{cA=true, pathLenConstraint = Len},
+			 critical = true};
+	_ ->
+	    #'Extension'{extnID = ?'id-ce-basicConstraints',
+			 extnValue = Data}
+    end;
+extension({key_usage, Value}) ->
+    #'Extension'{extnID = ?'id-ce-keyUsage',
+                 extnValue = Value,
+                 critical = false};
+extension({subject_alt, Hostname}) ->
+    #'Extension'{extnID = ?'id-ce-subjectAltName',
+                 extnValue = [{dNSName, Hostname}],
+                 critical = false};
+extension({Id, Data, Critical}) ->
+    #'Extension'{extnID = Id, extnValue = Data, critical = Critical}.
+
+der_to_pem(File, Entries) ->
+    PemBin = public_key:pem_encode(Entries),
+    file:write_file(File, PemBin).

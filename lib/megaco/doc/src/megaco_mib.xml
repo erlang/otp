@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Megaco mib</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_mib.xml</file>
+  </header>
+
+  <section>
+    <title>Intro</title>
+    <p>The Megaco mib is as of yet not standardized and our
+      implementation is based on
+      <em>draft-ietf-megaco-mib-04.txt</em>.  Almost all of the mib
+      cannot easily be implemented by the megaco application. Instead
+      these things should be implemented by a user (of the megaco
+      application). </p>
+    <p>So what part of the mib is implemented? Basically the relevant
+      statistic counters of the <em>MedGwyGatewayStatsEntry</em>.</p>
+  </section>
+
+  <section>
+    <title>Statistics counters</title>
+    <p>The implementation of the statistic counters is
+      lightweight. I.e.  the statistic counters are handled
+      separately by different entities of the application. For
+      instance our two transport module(s) (see <seealso marker="megaco_tcp#stats">megaco_tcp</seealso> and <seealso marker="megaco_udp#stats">megaco_udp</seealso>) maintain their
+      own counters and the application engine (see <seealso marker="megaco#stats">megaco</seealso>) maintain its own
+      counters.</p>
+    <p>This also means that if a user implement their own transport
+      service then it has to maintain its own statistics.</p>
+  </section>
+
+  <section>
+    <title>Distribution</title>
+    <p>Each megaco application maintains its own set of counters. So
+      in a large (distributed) MG/MGC it could be necessary to
+      collect the statistics from several nodes (each) running the
+      megaco application (only one of them with the transport).</p>
+  </section>
+</chapter>
+

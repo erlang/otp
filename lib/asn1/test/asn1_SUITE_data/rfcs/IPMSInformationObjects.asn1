@@ -1,0 +1,626 @@
+-- Module IPMSInformationObjects (X.420:06/1999)
+IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  information-objects(2) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS
+  -- IPMS Extended Body Parts
+  bilaterally-defined-body-part, encrypted-body-part, g3-facsimile-body-part,
+    g4-class1-body-part, ia5-text-body-part, message-body-part,
+    mixed-mode-body-part, nationally-defined-body-part, teletex-body-part,
+    videotex-body-part
+    --==
+    FROM IPMSExtendedBodyPartTypes {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      extended-body-part-types(7) version-1994(0)}
+  general-text-body-part
+    --==
+    FROM IPMSExtendedBodyPartTypes2 {iso standard mhs(10021) ipms(7) 
+      modules(0) extended-body-part-types-2(1)}
+  file-transfer-body-part
+    --==
+    FROM IPMSFileTransferBodyPartType {joint-iso-itu-t mhs(6) ipms(1)
+      modules(0) file-transfer-body-part-type(9)}
+  voice-body-part
+    --==
+    FROM IPMSExtendedVoiceBodyPartType {joint-iso-itu-t mhs(6) ipms(1)
+      modules(0) extended-voice-body-part-type(11)}
+  notification-body-part, report-body-part
+    --==
+    FROM IPMSForwardedReportBodyPartType {joint-iso-itu-t mhs(6) ipms(1)
+      modules(0) forwarded-report-body-part-type(12)}
+  content-body-part{}
+    --==
+    FROM IPMSForwardedContentBodyPartType {joint-iso-itu-t mhs(6) ipms(1)
+      modules(0) forwarded-content-body-part-type(15)}
+  pkcs7-body-part
+    --==
+    FROM PKCS7BodyPartType {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      pkcs7-body-part-type(16)}
+  -- IPMS Heading Extensions
+  authorization-time, auto-submitted, body-part-signatures,
+    circulation-list-indicator, circulation-list-recipients,
+    distribution-codes, extended-subject, incomplete-copy,
+    information-category, ipm-security-label, languages,
+    manual-handling-instructions, originators-reference, precedence,
+    precedence-policy-identifier
+    --==
+    FROM IPMSHeadingExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      heading-extensions(6) version-1999(1)}
+  -- IPMS Security Extensions
+  body-part-encryption-token, BodyPartTokens, forwarded-content-token,
+    ForwardedContentToken, ipn-security-response, recipient-security-request
+    --==
+    FROM IPMSSecurityExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      ipm-security-extensions(14) version-1999(1)}
+  -- IPMS Upper bounds
+  ub-auto-forward-comment, ub-free-form-name, ub-local-ipm-identifier,
+    ub-subject-field, ub-telephone-number
+    --==
+    FROM IPMSUpperBounds {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      upper-bounds(10) version-1999(1)}
+  -- ODIF
+  Interchange-Data-Element
+    --==
+    FROM Interchange-Data-Elements {2 8 1 5 5}
+  -- MTS Abstract Service
+  EncodedInformationTypes, ExtendedCertificates, EXTENSION,
+    G3FacsimileNonBasicParameters, MessageDeliveryTime, ORName,
+    OtherMessageDeliveryFields, SupplementaryInformation,
+    TeletexNonBasicParameters
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- MS Abstract Service
+  MS-EXTENSION, SequenceNumber
+    --==
+    FROM MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      abstract-service(1) version-1999(1)}
+  -- Directory Authentication Framework
+  AlgorithmIdentifier, ENCRYPTED{}
+    --==
+    FROM AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+      authenticationFramework(7) 3}
+  -- IPMS Object Identifiers
+  id-mst-assembly-capability, id-mst-assembly-instructions,
+    id-mst-invalid-assembly-instructions, id-mst-invalid-ipn,
+    id-mst-originator-body-part-encryption-token,
+    id-mst-originator-forwarded-content-token,
+    id-mst-suspend-auto-acknowledgement, id-mst-prevent-nrn-generation,
+    id-on-absence-advice, id-on-change-of-address-advice
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)};
+
+Time ::= UTCTime
+
+-- Information object
+InformationObject ::= CHOICE {ipm  [0]  IPM,
+                              ipn  [1]  IPN
+}
+
+-- IPM
+IPM ::= SEQUENCE {heading  Heading,
+                  body     Body
+}
+
+-- MTS Extensions
+IPMPerRecipientEnvelopeExtensions EXTENSION ::=
+  {blind-copy-recipients | body-part-encryption-token |
+   forwarded-content-token, ...}
+
+-- IPMS Extensions
+IPMSExtension{IPMS-EXTENSION:ChosenFrom} ::= SEQUENCE {
+  type   IPMS-EXTENSION.&id({ChosenFrom}),
+  value  IPMS-EXTENSION.&Type({ChosenFrom}{@type}) DEFAULT NULL:NULL
+}
+
+IPMS-EXTENSION ::= CLASS {&id    OBJECT IDENTIFIER UNIQUE,
+                          &Type  DEFAULT NULL
+}WITH SYNTAX {[VALUE &Type,]
+              IDENTIFIED BY &id
+}
+
+PrivateIPMSExtensions IPMS-EXTENSION ::=
+  {...}
+
+-- Heading
+Heading ::= SET {
+  this-IPM               ThisIPMField,
+  originator             [0]  OriginatorField OPTIONAL,
+  authorizing-users      [1]  AuthorizingUsersField OPTIONAL,
+  primary-recipients     [2]  PrimaryRecipientsField DEFAULT {},
+  copy-recipients        [3]  CopyRecipientsField DEFAULT {},
+  blind-copy-recipients  [4]  BlindCopyRecipientsField OPTIONAL,
+  replied-to-IPM         [5]  RepliedToIPMField OPTIONAL,
+  obsoleted-IPMs         [6]  ObsoletedIPMsField DEFAULT {},
+  related-IPMs           [7]  RelatedIPMsField DEFAULT {},
+  subject                [8] EXPLICIT SubjectField OPTIONAL,
+  expiry-time            [9]  ExpiryTimeField OPTIONAL,
+  reply-time             [10]  ReplyTimeField OPTIONAL,
+  reply-recipients       [11]  ReplyRecipientsField OPTIONAL,
+  importance             [12]  ImportanceField DEFAULT normal,
+  sensitivity            [13]  SensitivityField OPTIONAL,
+  auto-forwarded         [14]  AutoForwardedField DEFAULT FALSE,
+  extensions             [15]  ExtensionsField DEFAULT {}
+}
+
+-- Heading component types
+IPMIdentifier ::= [APPLICATION 11]  SET {
+  user                      ORName OPTIONAL,
+  user-relative-identifier  LocalIPMIdentifier
+}
+
+LocalIPMIdentifier ::= PrintableString(SIZE (0..ub-local-ipm-identifier))
+
+RecipientSpecifier ::= SET {
+  recipient              [0]  ORDescriptor,
+  notification-requests  [1]  NotificationRequests DEFAULT {},
+  reply-requested        [2]  BOOLEAN DEFAULT FALSE,
+  recipient-extensions   [3]  RecipientExtensionsField OPTIONAL
+}
+
+ORDescriptor ::= SET {
+  formal-name       ORName OPTIONAL,
+  free-form-name    [0]  FreeFormName OPTIONAL,
+  telephone-number  [1]  TelephoneNumber OPTIONAL
+}
+
+FreeFormName ::= TeletexString(SIZE (0..ub-free-form-name))
+
+TelephoneNumber ::= PrintableString(SIZE (0..ub-telephone-number))
+
+NotificationRequests ::= BIT STRING {
+  rn(0), nrn(1), ipm-return(2), an-supported(3), suppress-an(4)}
+
+RecipientExtensionsField ::= SET OF IPMSExtension{{RecipientExtensions}}
+
+RecipientExtensions IPMS-EXTENSION ::=
+  {circulation-list-indicator | precedence | recipient-security-request |
+   PrivateIPMSExtensions, ...}
+
+-- This IPM heading field
+ThisIPMField ::= IPMIdentifier
+
+-- Originator heading field
+OriginatorField ::= ORDescriptor
+
+-- Authorizing Users heading field
+AuthorizingUsersField ::= SEQUENCE OF AuthorizingUsersSubfield
+
+AuthorizingUsersSubfield ::= ORDescriptor
+
+-- Primary Recipients heading field
+PrimaryRecipientsField ::= SEQUENCE OF PrimaryRecipientsSubfield
+
+PrimaryRecipientsSubfield ::= RecipientSpecifier
+
+-- Copy Recipients heading field
+CopyRecipientsField ::= SEQUENCE OF CopyRecipientsSubfield
+
+CopyRecipientsSubfield ::= RecipientSpecifier
+
+-- Blind Copy Recipients heading field
+BlindCopyRecipientsField ::= SEQUENCE OF BlindCopyRecipientsSubfield
+
+BlindCopyRecipientsSubfield ::= RecipientSpecifier
+
+-- Blind Copy Recipients envelope field
+blind-copy-recipients EXTENSION ::= {
+  BlindCopyRecipientsField,
+  IDENTIFIED BY  standard-extension:41
+}
+
+-- Replied-to IPM heading field
+RepliedToIPMField ::= IPMIdentifier
+
+-- Obsoleted IPMs heading field
+ObsoletedIPMsField ::= SEQUENCE OF ObsoletedIPMsSubfield
+
+ObsoletedIPMsSubfield ::= IPMIdentifier
+
+-- Related IPMs heading field
+RelatedIPMsField ::= SEQUENCE OF RelatedIPMsSubfield
+
+RelatedIPMsSubfield ::= IPMIdentifier
+
+-- Subject heading field
+SubjectField ::= TeletexString(SIZE (0..ub-subject-field))
+
+-- Expiry Time heading field
+ExpiryTimeField ::= Time
+
+-- Reply Time heading field
+ReplyTimeField ::= Time
+
+-- Reply Recipients heading field
+ReplyRecipientsField ::= SEQUENCE OF ReplyRecipientsSubfield
+
+ReplyRecipientsSubfield ::=
+  ORDescriptor(WITH COMPONENTS {
+                 ...,
+                 formal-name  PRESENT
+               })
+
+-- Importance heading field
+ImportanceField ::= ENUMERATED {low(0), normal(1), high(2)}
+
+-- Sensitivity heading field
+SensitivityField ::= ENUMERATED {
+  personal(1), private(2), company-confidential(3)}
+
+-- Auto-forwarded heading field
+AutoForwardedField ::= BOOLEAN
+
+-- Extensions heading field
+ExtensionsField ::= SET OF IPMSExtension{{HeadingExtensions}}
+
+HeadingExtensions IPMS-EXTENSION ::=
+  {authorization-time | auto-submitted | body-part-signatures |
+   circulation-list-recipients | distribution-codes | extended-subject |
+   incomplete-copy | information-category | ipm-security-label | languages |
+   manual-handling-instructions | originators-reference |
+   precedence-policy-identifier | PrivateIPMSExtensions, ...}
+
+-- Body
+Body ::= SEQUENCE OF BodyPart
+
+BodyPart ::= CHOICE {
+  basic
+    CHOICE {ia5-text             [0]  IA5TextBodyPart,
+            g3-facsimile         [3]  G3FacsimileBodyPart,
+            g4-class1            [4]  G4Class1BodyPart,
+            teletex              [5]  TeletexBodyPart,
+            videotex             [6]  VideotexBodyPart,
+            encrypted            [8]  EncryptedBodyPart,
+            message              [9]  MessageBodyPart,
+            mixed-mode           [11]  MixedModeBodyPart,
+            bilaterally-defined  [14]  BilaterallyDefinedBodyPart,
+            nationally-defined   [7]  NationallyDefinedBodyPart},
+  extended  [15]  ExtendedBodyPart{{IPMBodyPartTable}}
+}
+
+-- Extended body part
+ExtendedBodyPart{EXTENDED-BODY-PART-TYPE:IPMBodyPartTable} ::= SEQUENCE {
+  parameters  [0]  INSTANCE OF TYPE-IDENTIFIER OPTIONAL,
+  data        INSTANCE OF TYPE-IDENTIFIER
+}
+(CONSTRAINED BY { -- must correspond to the &parameters field and &data field of a member of --
+   IPMBodyPartTable})
+
+IPMBodyPartTable EXTENDED-BODY-PART-TYPE ::=
+  {StandardBodyParts | ApplicationSpecificBodyParts}
+
+StandardBodyParts EXTENDED-BODY-PART-TYPE ::=
+  {ia5-text-body-part | g3-facsimile-body-part | g4-class1-body-part |
+   teletex-body-part | videotex-body-part | encrypted-body-part |
+   message-body-part | mixed-mode-body-part | bilaterally-defined-body-part |
+   nationally-defined-body-part | general-text-body-part |
+   file-transfer-body-part | voice-body-part | report-body-part |
+   notification-body-part |
+   content-body-part{{1 2 3 -- RELATIVE-OID to be provided --}} |
+   pkcs7-body-part, ...}
+
+ApplicationSpecificBodyParts EXTENDED-BODY-PART-TYPE ::=
+  {--any body part defined in other Specifications, or for proprietary or private use 
+   ...}
+
+EXTENDED-BODY-PART-TYPE ::= CLASS {
+  &parameters  TYPE-IDENTIFIER OPTIONAL,
+  &data        TYPE-IDENTIFIER
+}WITH SYNTAX {[PARAMETERS &parameters,]
+              DATA &data
+}
+
+-- IA5 Text body part
+IA5TextBodyPart ::= SEQUENCE {
+  parameters  IA5TextParameters,
+  data        IA5TextData
+}
+
+IA5TextParameters ::= SET {repertoire  [0]  Repertoire DEFAULT ia5
+}
+
+IA5TextData ::= IA5String
+
+Repertoire ::= ENUMERATED {ita2(2), ia5(5)}
+
+-- G3 Facsimile body part
+G3FacsimileBodyPart ::= SEQUENCE {
+  parameters  G3FacsimileParameters,
+  data        G3FacsimileData
+}
+
+G3FacsimileParameters ::= SET {
+  number-of-pages       [0]  INTEGER OPTIONAL,
+  non-basic-parameters  [1]  G3FacsimileNonBasicParameters OPTIONAL
+}
+
+G3FacsimileData ::= SEQUENCE OF BIT STRING
+
+-- G4 Class 1 and Mixed-mode body parts
+G4Class1BodyPart ::= SEQUENCE OF Interchange-Data-Element
+
+MixedModeBodyPart ::= SEQUENCE OF Interchange-Data-Element
+
+-- Teletex body part
+TeletexBodyPart ::= SEQUENCE {
+  parameters  TeletexParameters,
+  data        TeletexData
+}
+
+TeletexParameters ::= SET {
+  number-of-pages       [0]  INTEGER OPTIONAL,
+  telex-compatible      [1]  BOOLEAN DEFAULT FALSE,
+  non-basic-parameters  [2]  TeletexNonBasicParameters OPTIONAL
+}
+
+TeletexData ::= SEQUENCE OF TeletexString
+
+-- Videotex body part
+VideotexBodyPart ::= SEQUENCE {
+  parameters  VideotexParameters,
+  data        VideotexData
+}
+
+VideotexParameters ::= SET {syntax  [0]  VideotexSyntax OPTIONAL
+}
+
+VideotexSyntax ::= INTEGER {
+  ids(0), data-syntax1(1), data-syntax2(2), data-syntax3(3)}
+
+VideotexData ::= VideotexString
+
+-- Encrypted body part
+EncryptedBodyPart ::= SEQUENCE {
+  parameters  EncryptedParameters,
+  data        EncryptedData
+}
+
+EncryptedParameters ::= SET {
+  algorithm-identifier     AlgorithmIdentifier,
+  originator-certificates  ExtendedCertificates OPTIONAL,
+  ...
+}
+
+EncryptedData ::= BIT STRING(CONSTRAINED BY {BodyPart})
+
+-- Message body part
+MessageBodyPart ::= SEQUENCE {
+  parameters  MessageParameters,
+  data        MessageData
+}
+
+MessageParameters ::= SET {
+  delivery-time      [0]  MessageDeliveryTime OPTIONAL,
+  delivery-envelope  [1]  OtherMessageDeliveryFields OPTIONAL
+}
+
+MessageData ::= IPM
+
+-- Bilaterally Defined body part
+BilaterallyDefinedBodyPart ::= OCTET STRING
+
+-- Nationally Defined body part
+NATIONAL-BODY-PARTS ::= CLASS {&Type  
+}
+
+NationallyDefinedBodyPart ::= NATIONAL-BODY-PARTS.&Type
+
+-- Provided for Historic reasons. Use is strongly deprecated.
+-- IPN
+IPN ::= SET {
+  -- common-fields --COMPONENTS OF CommonFields,
+  choice
+    [0]  CHOICE {non-receipt-fields              [0]  NonReceiptFields,
+                 receipt-fields                  [1]  ReceiptFields,
+                 other-notification-type-fields
+                   [2]  OtherNotificationTypeFields}
+}
+
+RN ::=
+  IPN
+    (WITH COMPONENTS {
+       ...,
+       choice  (WITH COMPONENTS {
+                  receipt-fields  PRESENT
+                })
+     })
+
+NRN ::=
+  IPN
+    (WITH COMPONENTS {
+       ...,
+       choice  (WITH COMPONENTS {
+                  non-receipt-fields  PRESENT
+                })
+     })
+
+ON ::=
+  IPN
+    (WITH COMPONENTS {
+       ...,
+       choice  (WITH COMPONENTS {
+                  other-notification-type-fields  PRESENT
+                })
+     })
+
+CommonFields ::= SET {
+  subject-ipm              SubjectIPMField,
+  ipn-originator           [1]  IPNOriginatorField OPTIONAL,
+  ipm-intended-recipient   [2]  IPMIntendedRecipientField OPTIONAL,
+  conversion-eits          ConversionEITsField OPTIONAL,
+  notification-extensions  [3]  NotificationExtensionsField OPTIONAL
+}
+
+NonReceiptFields ::= SET {
+  non-receipt-reason    [0]  NonReceiptReasonField,
+  discard-reason        [1]  DiscardReasonField OPTIONAL,
+  auto-forward-comment  [2]  AutoForwardCommentField OPTIONAL,
+  returned-ipm          [3]  ReturnedIPMField OPTIONAL,
+  nrn-extensions        [4]  NRNExtensionsField OPTIONAL
+}
+
+ReceiptFields ::= SET {
+  receipt-time         [0]  ReceiptTimeField,
+  acknowledgment-mode  [1]  AcknowledgmentModeField DEFAULT manual,
+  suppl-receipt-info   [2]  SupplReceiptInfoField OPTIONAL,
+  rn-extensions        [3]  RNExtensionsField OPTIONAL
+}
+
+-- Common fields
+SubjectIPMField ::= IPMIdentifier
+
+IPNOriginatorField ::= ORDescriptor
+
+IPMIntendedRecipientField ::= ORDescriptor
+
+ConversionEITsField ::= EncodedInformationTypes
+
+NotificationExtensionsField ::= SET OF IPMSExtension{{NotificationExtensions}}
+
+NotificationExtensions IPMS-EXTENSION ::=
+  {ipn-security-response | PrivateIPMSExtensions, ...}
+
+-- Non-receipt fields
+NonReceiptReasonField ::= ENUMERATED {
+  ipm-discarded(0), ipm-auto-forwarded(1), ...
+  }
+
+-- ITU-T version: 
+DiscardReasonField ::= ENUMERATED {
+  ipm-expired(0), ipm-obsoleted(1), user-subscription-terminated(2),
+  not-used(3)}
+
+-- ISO/IEC version: 
+--DiscardReasonField ::= ENUMERATED {
+--	ipm-expired                  (0),
+--	ipm-obsoleted                (1),
+--	user-subscription-terminated (2),
+-- The following value may not be supported by implementations of earlier versions of this Specification
+--	ipm-deleted                  (3),
+--	... }
+AutoForwardCommentField ::=
+  AutoForwardComment
+
+AutoForwardComment ::= PrintableString(SIZE (0..ub-auto-forward-comment))
+
+ReturnedIPMField ::= IPM
+
+NRNExtensionsField ::= SET OF IPMSExtension{{NRNExtensions}}
+
+NRNExtensions IPMS-EXTENSION ::= {PrivateIPMSExtensions, ...}
+
+-- Receipt fields
+ReceiptTimeField ::= Time
+
+AcknowledgmentModeField ::= ENUMERATED {manual(0), automatic(1)}
+
+SupplReceiptInfoField ::= SupplementaryInformation
+
+RNExtensionsField ::= SET OF IPMSExtension{{RNExtensions}}
+
+RNExtensions IPMS-EXTENSION ::= {PrivateIPMSExtensions, ...}
+
+-- Other Notification Type fields
+OtherNotificationTypeFields ::= SET OF IPMSExtension{{OtherNotifications}}
+
+OtherNotifications IPMS-EXTENSION ::=
+  {AdviceNotifications | PrivateIPMSExtensions, ...}
+
+AdviceNotifications IPMS-EXTENSION ::=
+  {absence-advice | change-of-address-advice, ...}
+
+-- Advice Notification fields
+absence-advice IPMS-EXTENSION ::= {
+  VALUE          AbsenceAdvice,
+  IDENTIFIED BY  id-on-absence-advice
+}
+
+AbsenceAdvice ::= SEQUENCE {
+  advice          BodyPart OPTIONAL,
+  next-available  Time OPTIONAL
+}
+
+-- at least one component shall be present 
+change-of-address-advice IPMS-EXTENSION ::= {
+  VALUE          ChangeOfAddressAdvice,
+  IDENTIFIED BY  id-on-change-of-address-advice
+}
+
+ChangeOfAddressAdvice ::= SEQUENCE {
+  new-address
+    [0]  ORDescriptor(WITH COMPONENTS {
+                        ...,
+                        formal-name  PRESENT
+                      }),
+  effective-from  [1]  Time OPTIONAL
+}
+
+-- Message Store Realization
+prevent-nrn-generation MS-EXTENSION ::= {
+  NULL
+  IDENTIFIED BY  id-mst-prevent-nrn-generation
+}
+
+suspend-auto-acknowledgement MS-EXTENSION ::= {
+  NULL
+  IDENTIFIED BY  id-mst-suspend-auto-acknowledgement
+}
+
+assembly-capability MS-EXTENSION ::= {
+  NULL
+  IDENTIFIED BY  id-mst-assembly-capability
+}
+
+IPMSubmissionOptions MS-EXTENSION ::=
+  {ipm-assembly-instructions | originator-body-part-encryption-token |
+   originator-forwarded-content-token, ...} -- For future extension additions 
+
+ipm-assembly-instructions MS-EXTENSION ::= {
+  IPMAssemblyInstructions
+  IDENTIFIED BY  id-mst-assembly-instructions
+}
+
+IPMAssemblyInstructions ::= SET {assembly-instructions  [0]  BodyPartReferences
+}
+
+BodyPartReferences ::= SEQUENCE OF BodyPartReference
+
+BodyPartReference ::= CHOICE {
+  stored-entry         [0]  SequenceNumber,
+  stored-content       [1]  SequenceNumber,
+  submitted-body-part  [2]  INTEGER(1..MAX),
+  stored-body-part
+    [3]  SEQUENCE {message-entry     SequenceNumber,
+                   body-part-number  INTEGER(1..MAX)}
+}
+
+originator-body-part-encryption-token MS-EXTENSION ::= {
+  BodyPartTokens
+  IDENTIFIED BY  id-mst-originator-body-part-encryption-token
+}
+
+originator-forwarded-content-token MS-EXTENSION ::= {
+  ForwardedContentToken
+  IDENTIFIED BY  id-mst-originator-forwarded-content-token
+}
+
+IPMSubmissionErrors MS-EXTENSION ::=
+  {invalid-assembly-instructions | invalid-ipn, ...
+  } -- For future extension additions 
+
+invalid-assembly-instructions MS-EXTENSION ::= {
+  BodyPartReferences
+  IDENTIFIED BY  id-mst-invalid-assembly-instructions
+}
+
+invalid-ipn MS-EXTENSION ::= {NULL
+                              IDENTIFIED BY  id-mst-invalid-ipn
+}
+
+END -- of IPMSInformationObjects
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

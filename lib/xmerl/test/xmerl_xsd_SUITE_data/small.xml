@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<purchaseOrder
+  xmlns="small"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="small small.xsd"
+  orderDate="1999-10-20">
+This is the content of the element
+</purchaseOrder>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_lint</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-27</date>
+    <rev>B</rev>
+    <file>erl_lint.xml</file>
+  </header>
+  <module since="">erl_lint</module>
+  <modulesummary>The Erlang code linter.</modulesummary>
+  <description>
+    <p>This module is used to check Erlang code for illegal syntax and
+      other bugs. It also warns against coding practices that are
+      not recommended.</p>
+
+    <p>The errors detected include:</p>
+
+    <list type="bulleted">
+      <item>Redefined and undefined functions</item>
+      <item>Unbound and unsafe variables</item>
+      <item>Illegal record use</item>
+    </list>
+
+    <p>The warnings detected include:</p>
+
+    <list type="bulleted">
+      <item>Unused functions and imports</item>
+      <item>Unused variables</item>
+      <item>Variables imported into matches</item>
+      <item>Variables exported from
+        <c>if</c>/<c>case</c>/<c>receive</c></item>
+      <item>Variables shadowed in funs and list comprehensions</item>
+    </list>
+
+    <p>Some of the warnings are optional, and can be turned on by
+      specifying the appropriate option, described below.</p>
+
+    <p>The functions in this module are invoked automatically by the
+      Erlang compiler. There is no reason to invoke these
+      functions separately unless you have written your own Erlang
+      compiler.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="error_info"/>
+    </datatype>
+    <datatype>
+      <name name="error_description"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Format an error descriptor.</fsummary>
+      <desc>
+        <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns a string
+          that describes the error or warning. This function is usually
+          called implicitly when processing an <c>ErrorInfo</c> structure
+          (see section
+          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_guard_test" arity="1" since=""/>
+      <fsummary>Test for a guard test.</fsummary>
+      <desc>
+        <p>Tests if <c><anno>Expr</anno></c> is a legal guard test.
+          <c><anno>Expr</anno></c> is an Erlang term representing the abstract
+          form for the expression. <seealso marker="erl_parse#parse_exprs/1">
+          <c>erl_parse:parse_exprs(Tokens)</c></seealso>
+          can be used to generate a list of <c><anno>Expr</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="module" arity="1" since=""/>
+      <name name="module" arity="2" since=""/>
+      <name name="module" arity="3" since=""/>
+      <fsummary>Check a module for errors.</fsummary>
+      <desc>
+        <p>Checks all the forms in a module for errors. It returns:</p>
+        <taglist>
+          <tag><c>{ok,<anno>Warnings</anno>}</c></tag>
+          <item>
+            <p>There are no errors in the module.</p>
+          </item>
+          <tag><c>{error,<anno>Errors</anno>,<anno>Warnings</anno>}</c></tag>
+          <item>
+            <p>There are errors in the module.</p>
+          </item>
+        </taglist>
+        <p>As this module is of interest only to the maintainers of the
+          compiler, and to avoid the same description in two places, the
+          elements of <c>Options</c> that control the warnings are
+          only described in the
+          <seealso marker="compiler:compile#erl_lint_options">
+          <c>compile(3)</c></seealso> module.</p>
+        <p><c><anno>AbsForms</anno></c> of a module, which comes from a file
+          that is read through <c>epp</c>, the Erlang preprocessor, can come
+          from many files. This means that any references to errors must
+          include the filename, see the <seealso marker="epp">
+          <c>epp(3)</c></seealso> module or parser (see the
+          <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso> module).
+          The returned errors and warnings have the following format:</p>
+        <code type="none">
+[{<anno>FileName2</anno>,[<anno>ErrorInfo</anno>]}]</code>
+        <p>The errors and warnings are listed in the order in which they are
+          encountered in the forms. The errors from one file can therefore be
+          split into different entries in the list of errors.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="errorinfo"/>
+    <title>Error Information</title>
+    <p><c>ErrorInfo</c> is the standard <c>ErrorInfo</c> structure that is
+      returned from all I/O modules. The format is as follows:</p>
+    <code type="none">
+{ErrorLine, Module, ErrorDescriptor}</code>
+    <p>A string describing the error is obtained with the following call:</p>
+    <code type="none">
+Module:format_error(ErrorDescriptor)</code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="epp"><c>epp(3)</c></seealso>,
+      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso></p>
+  </section>
+</erlref>
+

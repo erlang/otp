@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>HiPE</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>hipe.xml</file>
+  </header>
+  <app>HiPE</app>
+  <appsummary>The HiPE Application</appsummary>
+  <description>
+    <note>
+      <p>
+	HiPE and execution of HiPE compiled code only have limited support by
+	the OTP team at Ericsson. The OTP team only does limited maintenance
+	of HiPE and does not actively develop HiPE. HiPE is mainly supported
+	by the HiPE team at Uppsala University.
+      </p>
+    </note>
+    <p>
+      The normal way to native-compile an Erlang module using HiPE is to include the atom native 
+      in the Erlang compiler options, as in:</p>
+      <pre>
+      1> <input>c(my_module, [native]).</input></pre>
+      <p>Options to the HiPE compiler are then passed as follows:</p>
+      <pre>
+      1> <input>c(my_module, [native,{hipe,Options}]).</input></pre>
+      <p>For on-line help in the Erlang shell, call <c>hipe:help()</c>. 
+      Details on HiPE compiler options are given by <c>hipe:help_options()</c>.</p>
+  </description>  
+  <section>
+    <title>Feature Limitations</title>
+    <p>
+      The HiPE compiler is in general compliant with the normal BEAM compiler,
+      with respect to semantic behavior. There are however features in the BEAM compiler
+      and the runtime system that have limited or no support for HiPE compiled modules.
+    </p>
+    <taglist>
+      <tag>Binary matching</tag>
+      <item><p>The HiPE compiler will crash on modules containing binary
+      matching.</p>
+      </item>
+      <tag>try/catch</tag>
+      <item><p>The HiPE compiler will crash on modules containing 'try' or
+      'catch'.</p>
+      </item>
+
+      <tag>Stack traces</tag>
+      <item><p>Stack traces returned from <seealso marker="erts:erlang#get_stacktrace/0">
+      <c>erlang:get_stacktrace/0</c></seealso> or as part of <c>'EXIT'</c> terms
+      can look incomplete if HiPE compiled functions are involved. Typically a stack trace
+      will contain only BEAM compiled functions or only HiPE compiled functions, depending
+      on where the exception was raised.</p>
+      <p>Source code line numbers in stack traces are also not supported by HiPE compiled functions.</p>
+      </item>
+
+      <tag>Tracing</tag>
+      <item><p>Erlang call trace is not supported by HiPE. Calling
+      <seealso marker="erts:erlang#trace_pattern/3"><c>erlang:trace_pattern({M,F,A}, ...)</c></seealso>
+      does not have any effect on HiPE compiled modules.</p>
+      </item>
+
+      <tag>NIFs</tag>
+      <item><p>Modules compiled with HiPE cannot call <seealso marker="erts:erlang#load_nif-2">
+      <c>erlang:load_nif/2</c></seealso> to load NIFs.</p>
+      </item>
+
+      <tag>-on_load</tag>
+      <item><p>Modules compiled with HiPE cannot use
+      <seealso marker="doc/reference_manual:code_loading#on_load"><c>-on_load()</c></seealso>
+      directives.</p>
+      </item>
+    </taglist>
+
+  </section>
+  <section>
+    <title>Performance Limitations</title>
+    <p>
+      The HiPE compiler does in general produce faster code than the
+      BEAM compiler. There are however some situation when HiPE
+      compiled code will perform worse than BEAM code.
+    </p>
+    <taglist>
+      <tag>Mode switches</tag>
+      <item><p>Every time a process changes from executing code in a
+      HiPE compiled module to a BEAM compiled module (or vice versa),
+      it will do a mode switch. This involves a certain amount of
+      CPU overhead which can have a negative net impact if the
+      process is switching back and forth without getting enough done in
+      each mode.</p>
+      </item>
+
+      <tag>Optimization for <c>receive</c> with unique references</tag>
+      <item>
+	<p>
+	  The BEAM compiler can do an optimization when a receive
+	  statement is only waiting for messages containing a reference
+	  created before the receive. All messages that existed in the
+	  queue when the reference was created will be bypassed, as they
+	  cannot possibly contain the reference. HiPE currently has an
+	  optimization similar this, but it is not guaranteed to
+	  bypass all messages. In the worst case scenario, it cannot
+	  bypass any messages at all.
+	</p>
+	<p>
+	  An example of this is when <c>gen_server:call()</c> waits for
+	  the reply message.
+	</p>
+      </item>
+
+      <tag>Garbage collection after BIFs</tag>
+      <item>
+	<p>
+	  The condition for determining whether a garbage collection
+	  is needed or not has changed in later releases. HiPE has not
+	  been updated regarding this which may cause premature garbage
+	  collections after BIF calls.
+	</p>
+      </item>
+
+    </taglist>
+  </section>
+  <section>
+    <title>Stability Issues</title>
+    <taglist>
+      <tag>Not checking reduction count on function returns</tag>
+      <item>
+	<p>
+	  BEAM checks the reduction count and schedules out the executing
+	  process if needed both when calling a function and when returning
+	  from a function call that was not called using a tail call.
+	  HiPE only checks the reduction count when calling a function.
+	</p>
+	<p>
+	  The runtime system might need to schedule out a process
+	  in order to reclaim memory. If the process isn't scheduled
+	  out soon after the process has entered this state, memory
+	  consumption will quickly grow. Maintaining this state is also
+	  quite expensive performance wise.
+	</p>
+	<p>
+	  Processes executing code that performs large recursions and
+	  produce data after returning from recursive calls may have to
+	  be scheduled out when returning from a function call. Since
+	  HiPE does not check reductions on returns, processes executing
+	  such HiPE compiled code may cause huge peeks in memory
+	  consumption as well as severe performance degradation.
+	</p>
+      </item>
+
+      <tag>Not bumping appropriate amount of reductions in <c>receive</c> statements</tag>
+      <item>
+	<p>
+	  The process signaling improvements made in ERTS version
+	  10.0 moved potentially significant amounts of work into the
+	  receive statement from other places. In order to account for
+	  this work, the reduction count should be bumped on the
+	  executing process. Reductions are not bumped when entering
+	  the <c>receive</c> statement from HiPE compiled code.
+	</p>
+      </item>
+    </taglist>
+  </section>
+  <section>
+    <title>SEE ALSO</title>
+    <p>
+      <seealso marker="stdlib:c">c(3)</seealso>, 
+      <seealso marker="compiler:compile">compile(3)</seealso>
+    </p>
+  </section>
+
+</appref>
+

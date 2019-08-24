@@ -1,0 +1,5 @@
+{specs, separate, "../specs1/flat_spec1"}.
+{specs, separate, "flat_spec2"}.
+{config, "../config1/cfg12"}.
+{suites, "../tests2", t22_SUITE}.
+

@@ -1,0 +1,4 @@
+
+typeflow.erl:14: Function t2/1 has no local return
+typeflow.erl:16: The call lists:sort(integer()) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
+typeflow.erl:9: The variable _ can never match since previous clauses completely covered the type #{'a':=integer(), _=>_}

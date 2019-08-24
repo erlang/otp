@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+    <title>ssl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ssl_session_cache_api.xml</file>
+  </header>
+  <module since="OTP R14B">ssl_session_cache_api</module>
+  <modulesummary>TLS session cache API</modulesummary>
+
+  <description>
+    <p>
+      Defines the API for the TLS session cache so
+      that the data storage scheme can be replaced by
+      defining a new callback module implementing this API.
+    </p>
+  </description>
+
+ <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
+
+  <datatypes>
+    
+      <datatype>
+	<name name="session_cache_ref"/>
+      </datatype>
+
+      <datatype>
+	<name name="session_cache_key"/>
+	<desc>
+	  <p>A key to an entry in the session cache.</p>
+	</desc>
+      </datatype>
+
+        <datatype>
+	  <name name="partial_key"/>
+	<desc>
+	   <p>The opaque part of the key. Does not need to be handled
+	  by the callback.</p>
+	</desc>
+      </datatype>
+      
+       <datatype>
+	<name name="session"/>
+	<desc>
+	   <p>The session data that is stored for each session.</p>
+	</desc>
+      </datatype>  
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name since="OTP R14B">delete(Cache, Key) -> _</name>
+      <fsummary>Deletes a cache entry.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key() </seealso> </v>
+      </type>
+      <desc>
+	<p>Deletes a cache entry. Is only called from the cache
+	handling process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">foldl(Fun, Acc0, Cache) -> Acc</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Fun = fun()</v>
+	<v>Acc0 = Acc = term()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+      </type>
+      <desc>
+	<p>Calls <c>Fun(Elem, AccIn)</c> on successive elements of the
+	cache, starting with <c>AccIn == Acc0</c>. <c>Fun/2</c> must
+	return a new accumulator, which is passed to the next call.
+	The function returns the final value of the accumulator.
+	<c>Acc0</c> is returned if the cache is empty.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0">init(Args) -> Cache </name>
+      <fsummary>Returns cache reference.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Args = <seealso marker="stdlib:proplists#type-proplist">proplists:proplist()</seealso></v>
+      </type>
+      <desc>
+	<p>Includes property <c>{role, client | server}</c>.
+	Currently this is the only predefined property,
+	there can also be user-defined properties. See also
+	application environment variable
+	<seealso marker="ssl_app">session_cb_init_args</seealso>.
+	</p>
+	<p>Performs possible initializations of the cache and returns
+	a reference to it that is used as parameter to the other
+	API functions. Is called by the cache handling processes
+	<c>init</c> function, hence putting the same requirements on it
+	as a normal process <c>init</c> function. This function is
+	called twice when starting the SSL application, once with
+	the role client and once with the role server, as the SSL
+	application must be prepared to take on both roles.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">lookup(Cache, Key) -> Entry</name>
+      <fsummary>Looks up a cache entry.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key()</seealso> </v>
+	<v>Session = <seealso marker="#type-session">session()</seealso> | undefined</v>
+      </type>
+      <desc>
+	<p>Looks up a cache entry. Is to be callable from any
+         process.
+         </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">select_session(Cache, PartialKey) -> [Session]</name>
+      <fsummary>Selects sessions that can be reused.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>PartialKey = <seealso marker="#type-partial_key"> partial_key() </seealso></v>
+	<v>Session = <seealso marker="#type-session">session()</seealso></v>
+      </type>
+      <desc>
+	<p>Selects sessions that can be reused. Is to be callable
+	from any process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.3">size(Cache) -> integer()</name>
+      <fsummary>Returns the number of sessions in the cache.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+      </type>
+      <desc>
+	<p>Returns the number of sessions in the cache. If size
+	exceeds the maximum number of sessions, the current cache
+	entries will be invalidated regardless of their remaining
+	lifetime. Is to be callable from any process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">terminate(Cache) -> _</name>
+      <fsummary>Called by the process that handles the cache when it
+      is about to terminate.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<d>As returned by init/0</d>
+      </type>
+      <desc>
+	<p>Takes care of possible cleanup that is needed when the
+	cache handling process terminates.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">update(Cache, Key, Session) -> _</name>
+      <fsummary>Caches a new session or updates an already cached one.</fsummary>
+      <type>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key()</seealso> </v>
+	<v>Session = <seealso marker="#type-session">session()</seealso></v>
+      </type>
+      <desc>
+	<p>Caches a new session or updates an already cached one. Is
+	only called from the cache handling process.
+	</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>

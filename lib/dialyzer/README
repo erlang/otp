@@ -1,0 +1,82 @@
+##----------------------------------------------------------------------------
+## File:      README
+## Author(s): Tobias Lindahl <tobias.lindahl@it.uu.se>
+##	      Kostis Sagonas <kostis@it.uu.se>
+##
+## Copyright: Held by the authors; all rights reserved (2004 - 2010).
+##----------------------------------------------------------------------------
+
+The DIALYZER, a DIscrepancy AnaLYZer for ERlang programs.
+
+
+-----------------------------------------------
+--
+-- Starting the Dialyzer
+--
+-----------------------------------------------
+
+You can use Dialyzer either in its GUI mode, simply by:
+
+	./dialyzer
+
+or in its command-line mode, as e.g. by:
+
+	./dialyzer -r OTP_DIR/lib/inets
+
+which analyzes all the bytecode (.beam) files of the "inets" application of
+the Erlang/OTP installation for discrepancies.
+
+The complete set of Dialyzer options is:
+
+	dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
+                 [-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
+                 [--output_plt file] [-Wwarn]* [--src] 
+                 [-c applications] [-r applications] [-o outfile]
+                 [--build_plt] [--add_to_plt] [--remove_from_plt] [--check_plt]
+                 [--plt_info] [--get_warnings]
+
+Use "dialyzer --help" to see an explanation of these options as well as
+a description of the various options to turn on or suppress certain types
+of warnings (for the latter only type "dialyzer -Whelp").
+
+
+The Persistent Lookup Table
+===========================
+Most Dialyzer uses require information about functions in the Erlang/OTP
+standard libraries.  This information is stored in a Persistent Lookup
+Table (PLT) and is the starting point for later analyses.  Before the
+first use of Dialyzer, the PLT needs to be built explicitly by the user
+using a command of the form:
+
+  dialyzer --build_plt -r lib/kernel/ebin lib/stdlib/ebin ... OTHER LIBS
+
+At each subsequent startup of Dialyzer the validity of this PLT is checked,
+and if something has changed in the libraries and applications that were
+included in it when the PLT was initially created, the PLT will be rebuilt.
+
+It is possible to have multiple PLTs and select dynamically among them.
+It is also possible to build PLTs incrementally.  For more information
+refer to the documentation of the relevant options.
+
+
+-----------------------------------------------
+--
+-- More information about using the Dialyzer
+--
+-----------------------------------------------
+
+Start up the Dialyzer and click on its Help menu (in the upmost right corner)
+to read a brief overview and a user manual.
+
+
+-----------------------------------------------
+--
+-- Feedback & bug reports
+--
+-----------------------------------------------
+
+We welcome all sorts of user feedback (even wish-lists!). If you notice
+something weird, please send an error report describing the symptoms and
+how to reproduce them to:
+
+	tobias.lindahl@it.uu.se, kostis@it.uu.se

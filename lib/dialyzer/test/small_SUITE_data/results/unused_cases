@@ -1,0 +1,4 @@
+
+unused_cases.erl:21: The variable OTHER can never match since previous clauses completely covered the type {42,42}
+unused_cases.erl:27: The pattern 'weird' can never match the type 'false'
+unused_cases.erl:35: The variable OTHER can never match since previous clauses completely covered the type boolean()

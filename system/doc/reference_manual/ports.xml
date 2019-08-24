@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Ports and Port Drivers</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ports.xml</file>
+  </header>
+  <p>Examples of how to use ports and port drivers are provided in
+    <seealso marker="doc/tutorial:introduction#interoperability tutorial">
+    Interoperability Tutorial</seealso>.
+    For information about the BIFs mentioned, see the
+    <seealso marker="erts:erlang">erlang(3)</seealso> manual
+    page in ERTS.</p>
+
+  <section>
+    <title>Ports</title>
+    <p><em>Ports</em> provide the basic mechanism for communication
+      with the external world, from Erlang's point of view. They
+      provide a byte-oriented interface to an external program. When a
+      port has been created, Erlang can communicate with it by sending
+      and receiving lists of bytes, including binaries.</p>
+    <p>The Erlang process creating a port is said to be
+      the <em>port owner</em>, or the <em>connected process</em> of
+      the port. All communication to and from the port must go through
+      the port owner. If the port owner terminates, so does the port
+      (and the external program, if it is written correctly).</p>
+    <p>The external program resides in another OS process. By default,
+      it reads from standard input (file descriptor 0) and writes
+      to standard output (file descriptor 1). The external program
+      is to terminate when the port is closed.</p>
+  </section>
+
+  <section>
+    <title>Port Drivers</title>
+    <p>It is possible to write a driver in C according to certain
+      principles and dynamically link it to the Erlang runtime system.
+      The linked-in driver looks like a port from the Erlang
+      programmer's point of view and is called a <em>port driver</em>.</p>
+    <warning>
+      <p>An erroneous port driver causes the entire Erlang runtime
+        system to leak memory, hang or crash.</p>
+    </warning>
+    <p>For information about port drivers, see the
+      <seealso marker="erts:erl_driver">erl_driver(4)</seealso>
+      manual page in ERTS,
+      <seealso marker="erts:driver_entry">driver_entry(1)</seealso>
+      manual page in ERTS, and
+      <seealso marker="kernel:erl_ddll">erl_ddll(3)</seealso>
+      manual page in Kernel.</p>
+  </section>
+
+  <section>
+    <title>Port BIFs</title>
+    <p>To create a port:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><c>open_port(PortName, PortSettings</c></cell>
+        <cell align="left" valign="middle">Returns a port identifier
+        <c>Port</c> as the result of opening a new Erlang port.
+        Messages can be sent to, and received from, a port identifier,
+        just like a pid. Port identifiers can also be linked to
+        using <c>link/1</c>, or registered under a name using
+        <c>register/2</c>.</cell>
+      </row>
+      <tcaption>Port Creation BIF</tcaption>
+    </table>
+    <p><c>PortName</c> is usually a tuple <c>{spawn,Command}</c>, where
+      the string <c>Command</c> is the name of the external program.
+      The external program runs outside the Erlang workspace, unless a
+      port driver with the name <c>Command</c> is found. If <c>Command</c>
+      is found, that driver is started.</p>
+    <p><c>PortSettings</c> is a list of settings (options) for the port.
+      The list typically contains at least a tuple <c>{packet,N}</c>,
+      which specifies that data sent between the port and the external
+      program are preceded by an N-byte length indicator. Valid values
+      for N are 1, 2, or 4. If binaries are to be used instead of lists
+      of bytes, the option <c>binary</c> must be included.</p>
+    <p>The port owner <c>Pid</c> can communicate with the port
+      <c>Port</c> by sending and receiving messages. (In fact, any
+      process can send the messages to the port, but the port owner must
+      be identified in the message).</p>
+    <p>As of Erlang/OTP R16, messages sent to ports are delivered truly
+      asynchronously. The underlying implementation previously
+      delivered messages to ports synchronously. Message passing has
+      however always been documented as an asynchronous operation. Hence,
+      this is not to be an issue for an Erlang program communicating
+      with ports, unless false assumptions about ports have been made.</p>
+    <p>In the following tables of examples, <c>Data</c> must be an I/O list.
+      An I/O list is a binary or a (possibly deep) list of binaries
+      or integers in the range 0..255:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Message</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Pid,{command,Data}}</c></cell>
+        <cell align="left" valign="middle">Sends <c>Data</c> to the port.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Pid,close}</c></cell>
+        <cell align="left" valign="middle">Closes the port. Unless the
+        port is already closed, the port replies with
+        <c>{Port,closed}</c> when all buffers have been flushed
+        and the port really closes.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Pid,{connect,NewPid}}</c></cell>
+        <cell align="left" valign="middle">Sets the port owner of
+        <c>Port</c>to <c>NewPid</c>. Unless the port is already closed,
+        the port replies with<c>{Port,connected}</c> to the old
+        port owner. Note that the old port owner is still linked
+        to the port, but the new port owner is not.</cell>
+      </row>
+      <tcaption>Messages Sent To a Port</tcaption>
+    </table>
+    <p></p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Message</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Port,{data,Data}}</c></cell>
+        <cell align="left" valign="middle"><c>Data</c> is received from the external program.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Port,closed}</c></cell>
+        <cell align="left" valign="middle">Reply to <c>Port ! {Pid,close}</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{Port,connected}</c></cell>
+        <cell align="left" valign="middle">Reply to <c>Port ! {Pid,{connect,NewPid}}</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{'EXIT',Port,Reason}</c></cell>
+        <cell align="left" valign="middle">If the port has terminated for some reason.</cell>
+      </row>
+      <tcaption>Messages Received From a Port</tcaption>
+    </table>
+    <p>Instead of sending and receiving messages, there are also a
+      number of BIFs that can be used:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Port BIF</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>port_command(Port,Data)</c></cell>
+        <cell align="left" valign="middle">Sends <c>Data</c> to the port.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>port_close(Port)</c></cell>
+        <cell align="left" valign="middle">Closes the port.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>port_connect(Port,NewPid)</c></cell>
+        <cell align="left" valign="middle">Sets the port owner of
+        <c>Port</c>to <c>NewPid</c>. The old port owner <c>Pid</c>
+        stays linked to the port and must call <c>unlink(Port)</c>
+        if this is not desired.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>erlang:port_info(Port,Item)</c></cell>
+        <cell align="left" valign="middle">Returns information as specified by <c>Item</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>erlang:ports()</c></cell>
+        <cell align="left" valign="middle">Returns a list of all ports on the current node.</cell>
+      </row>
+      <tcaption>Port BIFs</tcaption>
+    </table>
+    <p>Some additional BIFs that apply to port drivers:
+      <c>port_control/3</c> and <c>erlang:port_call/3</c>.</p>
+  </section>
+</chapter>
+

@@ -1,0 +1,14 @@
+
+tuple_set_crash.erl:103: Invalid type specification for function tuple_set_crash:parse_device_properties/1. The success typing is (<<_:48>>) -> [{'controller_description',binary()} | {'controller_name',binary()} | {'controller_status',byte()} | {'fw_version',<<_:24>>}]
+tuple_set_crash.erl:123: Invalid type specification for function tuple_set_crash:parse_video_target_info/1. The success typing is (<<_:48>>) -> [{'status',byte()} | {'target_id',non_neg_integer()},...]
+tuple_set_crash.erl:127: Invalid type specification for function tuple_set_crash:parse_audio_target_info/1. The success typing is (<<_:48>>) -> [{'master_volume',char()} | {'status',byte()} | {'target_id',non_neg_integer()},...]
+tuple_set_crash.erl:138: Invalid type specification for function tuple_set_crash:parse_av_device_info/1. The success typing is (<<_:48>>) -> [{'address',byte()} | {'device_id',non_neg_integer()} | {'model',binary()} | {'status',byte()},...]
+tuple_set_crash.erl:143: The pattern <<TargetId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
+tuple_set_crash.erl:155: Invalid type specification for function tuple_set_crash:parse_video_output_info/1. The success typing is (<<_:48>>) -> [{'audio_volume',char()} | {'display_type',binary()} | {'output_id',non_neg_integer()},...]
+tuple_set_crash.erl:160: The pattern <<DeviceId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
+tuple_set_crash.erl:171: Invalid type specification for function tuple_set_crash:parse_audio_output_info/1. The success typing is (<<_:48>>) -> [{'output_id',non_neg_integer()},...]
+tuple_set_crash.erl:176: The pattern <<DeviceId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
+tuple_set_crash.erl:179: The pattern <<AudioVolume:16/integer-little-unit:1,Rest2/binary>> can never match the type <<_:8>>
+tuple_set_crash.erl:182: The pattern <<Delay:16/integer-little-unit:1,_Padding/binary>> can never match the type <<_:8>>
+tuple_set_crash.erl:62: The pattern {'play_list', _Playlist} can never match the type 'ok' | {'device_properties',[{atom(),_}]} | {'error',[{atom(),_}]}
+tuple_set_crash.erl:64: The pattern {'error', 17} can never match the type 'ok' | {'device_properties',[{atom(),_}]} | {'error',[{atom(),_}]}

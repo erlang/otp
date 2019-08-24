@@ -1,0 +1,67 @@
+
+ObjIdValues
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+ObjIdType ::= OBJECT IDENTIFIER
+
+mobileDomainId OBJECT IDENTIFIER ::=
+	{ccitt (0) identified-organization (4) etsi (0) mobileDomain (0)}
+mobileDomainId-Alt1 OBJECT IDENTIFIER ::=
+	{ccitt identified-organization etsi (0) mobileDomain (0)}
+mobileDomainId-Alt2 OBJECT IDENTIFIER ::=
+	{0 4 0 0}
+
+gsm-NetworkId OBJECT IDENTIFIER ::=
+	{mobileDomainId gsm-Network (1)}
+
+CommonComponentId ::= INTEGER (0..9)
+
+as-Id CommonComponentId ::= 1
+
+map-DialogueAS OBJECT IDENTIFIER ::=
+{gsm-NetworkId as-Id map-DialoguePDU (1) version1 (1)}
+
+-- test for OTP-4354
+-- But it only caused a warning
+objid OBJECT IDENTIFIER ::= {mobileDomainId-Alt2 as-Id}
+
+itu-t-a OBJECT IDENTIFIER ::= {itu-t recommendation a}
+itu-t-b OBJECT IDENTIFIER ::= {itu-t recommendation b}
+itu-t-c OBJECT IDENTIFIER ::= {itu-t recommendation c}
+itu-t-d OBJECT IDENTIFIER ::= {itu-t recommendation d}
+itu-t-e OBJECT IDENTIFIER ::= {itu-t recommendation e}
+itu-t-f OBJECT IDENTIFIER ::= {itu-t recommendation f}
+itu-t-g OBJECT IDENTIFIER ::= {itu-t recommendation g}
+itu-t-h OBJECT IDENTIFIER ::= {itu-t recommendation h}
+itu-t-i OBJECT IDENTIFIER ::= {itu-t recommendation i}
+itu-t-j OBJECT IDENTIFIER ::= {itu-t recommendation j}
+itu-t-k OBJECT IDENTIFIER ::= {itu-t recommendation k}
+itu-t-l OBJECT IDENTIFIER ::= {itu-t recommendation l}
+itu-t-m OBJECT IDENTIFIER ::= {itu-t recommendation m}
+itu-t-n OBJECT IDENTIFIER ::= {itu-t recommendation n}
+itu-t-o OBJECT IDENTIFIER ::= {itu-t recommendation o}
+itu-t-p OBJECT IDENTIFIER ::= {itu-t recommendation p}
+itu-t-q OBJECT IDENTIFIER ::= {itu-t recommendation q}
+itu-t-r OBJECT IDENTIFIER ::= {itu-t recommendation r}
+itu-t-s OBJECT IDENTIFIER ::= {itu-t recommendation s}
+itu-t-t OBJECT IDENTIFIER ::= {itu-t recommendation t}
+itu-t-u OBJECT IDENTIFIER ::= {itu-t recommendation u}
+itu-t-v OBJECT IDENTIFIER ::= {itu-t recommendation v}
+itu-t-w OBJECT IDENTIFIER ::= {itu-t recommendation w}
+itu-t-x OBJECT IDENTIFIER ::= {itu-t recommendation x}
+itu-t-y OBJECT IDENTIFIER ::= {itu-t recommendation y}
+itu-t-z OBJECT IDENTIFIER ::= {itu-t recommendation z}
+ccitt-q OBJECT IDENTIFIER ::= {ccitt question}
+ccitt-a OBJECT IDENTIFIER ::= {ccitt administration}
+ccitt-n OBJECT IDENTIFIER ::= {ccitt network-operator}
+iso-i OBJECT IDENTIFIER ::= {iso identified-organization}
+joint-iso OBJECT IDENTIFIER ::= {joint-iso-ccitt}
+
+END

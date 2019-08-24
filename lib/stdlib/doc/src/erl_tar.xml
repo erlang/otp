@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>erl_tar</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <responsible>Bjorn Gustavsson</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>2003-01-21</date>
+    <rev>A</rev>
+    <file>erl_tar.xml</file>
+  </header>
+  <module since="">erl_tar</module>
+  <modulesummary>Unix 'tar' utility for reading and writing tar archives.
+  </modulesummary>
+  <description>
+    <p>This module archives and extract files to and from
+    a tar file. This module supports reading most common tar formats,
+    namely v7, STAR, USTAR, and PAX, as well as some of GNU tar's extensions
+    to the USTAR format (sparse files most notably). It produces tar archives
+    in USTAR format, unless the files being archived require PAX format due to
+    restrictions in USTAR (such as unicode metadata, filename length, and more).
+    As such, <c>erl_tar</c> supports tar archives produced by most all modern
+    tar utilities, and produces tarballs which should be similarly portable.</p>
+    <p>By convention, the name of a tar file is to end in "<c>.tar</c>".
+      To abide to the convention, add "<c>.tar</c>" to the name.</p>
+
+    <p>Tar files can be created in one operation using function
+      <seealso marker="#create/2"><c>create/2</c></seealso> or
+      <seealso marker="#create/3"><c>create/3</c></seealso>.</p>
+
+    <p>Alternatively, for more control, use functions
+      <seealso marker="#open/2"><c>open/2</c></seealso>,
+      <seealso marker="#add/3"><c>add/3,4</c></seealso>, and
+      <seealso marker="#close/1"><c>close/1</c></seealso>.</p>
+
+    <p>To extract all files from a tar file, use function
+      <seealso marker="#extract/1"><c>extract/1</c></seealso>.
+      To extract only some files or to be able to specify some more options,
+      use function <seealso marker="#extract/2"><c>extract/2</c></seealso>.</p>
+
+    <p>To return a list of the files in a tar file,
+      use function <seealso marker="#table/1"><c>table/1</c></seealso> or
+      <seealso marker="#table/2"><c>table/2</c></seealso>.
+      To print a list of files to the Erlang shell,
+      use function <seealso marker="#t/1"><c>t/1</c></seealso> or
+      <seealso marker="#tt/1"><c>tt/1</c></seealso>.</p>
+
+    <p>To convert an error term returned from one of the functions
+      above to a readable message, use function
+      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.</p>
+  </description>
+
+  <section>
+    <title>Unicode Support</title>
+    <p>If <seealso marker="kernel:file#native_name_encoding/0">
+      <c>file:native_name_encoding/0</c></seealso>
+      returns <c>utf8</c>, path names are encoded in UTF-8 when
+      creating tar files, and path names are assumed to be encoded in
+      UTF-8 when extracting tar files.</p>
+
+    <p>If <seealso marker="kernel:file#native_name_encoding/0">
+      <c>file:native_name_encoding/0</c></seealso>
+      returns <c>latin1</c>, no translation of path names is done.</p>
+
+    <p>Unicode metadata stored in PAX headers is preserved</p>
+  </section>
+
+  <section>
+    <title>Other Storage Media</title>
+    <p>The <seealso marker="ftp:ftp"><c>ftp</c></seealso>
+      module normally accesses the tar file on disk using
+      the <seealso marker="kernel:file"><c>file</c></seealso> module.
+      When other needs arise, you can define your own low-level Erlang
+      functions to perform the writing and reading on the storage media;
+      use function <seealso marker="#init/3"><c>init/3</c></seealso>.</p>
+
+    <p>An example of this is the SFTP support in
+      <seealso marker="ssh:ssh_sftp#open_tar/3">
+      <c>ssh_sftp:open_tar/3</c></seealso>. This function opens a tar file
+      on a remote machine using an SFTP channel.</p>
+  </section>
+
+  <section>
+    <title>Limitations</title>
+    <list type="bulleted">
+      <item>
+        <p>If you must remain compatible with the USTAR tar format, you must ensure file paths being
+        stored are less than 255 bytes in total, with a maximum filename component
+        length of 100 bytes. USTAR uses a header field (prefix) in addition to the name field, and
+        splits file paths longer than 100 bytes into two parts. This split is done on a directory boundary,
+        and is done in such a way to make the best use of the space available in those two fields, but in practice
+        this will often mean that you have less than 255 bytes for a path. <c>erl_tar</c> will
+        automatically upgrade the format to PAX to handle longer filenames, so this is only an issue if you
+        need to extract the archive with an older implementation of <c>erl_tar</c> or <c>tar</c> which does
+        not support PAX. In this case, the PAX headers will be extracted as regular files, and you will need to
+        apply them manually.</p>
+      </item>
+      <item>
+        <p>Like the above, if you must remain USTAR compatible, you must also ensure than paths for
+        symbolic/hard links are no more than 100 bytes, otherwise PAX headers will be used.</p>
+      </item>
+    </list>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">add(TarDescriptor, Filename, Options) -> RetValue</name>
+      <fsummary>Add a file to an open tar file.</fsummary>
+      <type>
+        <v>TarDescriptor = term()</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>NameInArchive = filename()</v>
+        <v>Filename = filename()|{NameInArchive,FilenameOrBin}</v>
+        <v>Options = [Option]</v>
+        <v>Option = dereference|verbose|{chunks,ChunkSize}</v>
+           <v>|{atime,non_neg_integer()}|{mtime,non_neg_integer()}</v>
+           <v>|{ctime,non_neg_integer()}|{uid,non_neg_integer()}</v>
+           <v>|{gid,non_neg_integer()}</v>
+        <v>ChunkSize = positive_integer()</v>
+        <v>RetValue = ok|{error,{Filename,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a file to a tar file that has been opened for writing by
+          <seealso marker="#open/2"><c>open/1</c></seealso>.</p>
+        <p><c>NameInArchive</c> is the name under which the file becomes
+          stored in the tar file. The file gets this name when it is
+          extracted from the tar file.</p>
+        <p>Options:</p>
+        <taglist>
+          <tag><c>dereference</c></tag>
+          <item>
+            <p>By default, symbolic links are stored as symbolic links
+              in the tar file. To override the default and store the file
+              that the symbolic link points to into the tar file, use
+              option <c>dereference</c>.</p>
+          </item>
+          <tag><c>verbose</c></tag>
+          <item>
+            <p>Prints an informational message about the added file.</p>
+          </item>
+          <tag><c>{chunks,ChunkSize}</c></tag>
+          <item>
+            <p>Reads data in parts from the file. This is intended for
+              memory-limited machines that, for example, builds a tar file
+              on a remote machine over SFTP, see
+              <seealso marker="ssh:ssh_sftp#open_tar/3">
+              <c>ssh_sftp:open_tar/3</c></seealso>.</p>
+          </item>
+          <tag><c>{atime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was read. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{mtime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was written. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{ctime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was created. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{uid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the file owner.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{gid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the group that the file owner belongs to.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">add(TarDescriptor, FilenameOrBin, NameInArchive, Options) ->
+        RetValue </name>
+      <fsummary>Add a file to an open tar file.</fsummary>
+      <type>
+        <v>TarDescriptor = term()</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>Filename = filename()</v>
+        <v>NameInArchive = filename()</v>
+        <v>Options = [Option]</v>
+        <v>Option = dereference|verbose</v>
+        <v>RetValue = ok|{error,{Filename,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Adds a file to a tar file that has been opened for writing by
+          <seealso marker="#open/2"><c>open/2</c></seealso>. This function
+          accepts the same options as
+          <seealso marker="#add/3"><c>add/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">close(TarDescriptor)</name>
+      <fsummary>Close an open tar file.</fsummary>
+      <type>
+        <v>TarDescriptor = term()</v>
+      </type>
+      <desc>
+        <p>Closes a tar file
+          opened by <seealso marker="#open/2"><c>open/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">create(Name, FileList) ->RetValue </name>
+      <fsummary>Create a tar archive.</fsummary>
+      <type>
+        <v>Name = filename()</v>
+        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>Filename = filename()</v>
+        <v>NameInArchive = filename()</v>
+        <v>RetValue = ok|{error,{Name,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates a tar file and archives the files whose names are specified
+          in <c>FileList</c> into it. The files can either be read from disk
+          or be specified as binaries.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">create(Name, FileList, OptionList)</name>
+      <fsummary>Create a tar archive with options.</fsummary>
+      <type>
+        <v>Name = filename()</v>
+        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>Filename = filename()</v>
+        <v>NameInArchive = filename()</v>
+        <v>OptionList = [Option]</v>
+        <v>Option = compressed|cooked|dereference|verbose</v>
+        <v>RetValue = ok|{error,{Name,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates a tar file and archives the files whose names are specified
+          in <c>FileList</c> into it. The files can either be read from disk
+          or be specified as binaries.</p>
+        <p>The options in <c>OptionList</c> modify the defaults as follows:</p>
+        <taglist>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>The entire tar file is compressed, as if it has
+              been run through the <c>gzip</c> program. To abide to the
+              convention that a compressed tar file is to end in
+              "<c>.tar.gz</c>" or "<c>.tgz</c>", add the appropriate
+              extension.</p>
+          </item>
+          <tag><c>cooked</c></tag>
+          <item>
+            <p>By default, function <c>open/2</c> opens the tar file in
+              <c>raw</c> mode, which is faster but does not allow a remote
+              (Erlang) file server to be used. Adding <c>cooked</c> to the
+              mode list overrides the default and opens the tar file without
+              option <c>raw</c>.</p>
+          </item>
+          <tag><c>dereference</c></tag>
+          <item>
+            <p>By default, symbolic links are stored as symbolic links in
+              the tar file. To override the default and store the file that
+              the symbolic link points to into the tar file, use
+              option <c>dereference</c>.</p>
+          </item>
+          <tag><c>verbose</c></tag>
+          <item>
+            <p>Prints an informational message about each added file.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">extract(Name) -> RetValue</name>
+      <fsummary>Extract all files from a tar file.</fsummary>
+      <type>
+        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
+        <v>Fd = file_descriptor()</v>
+        <v>RetValue = ok|{error,{Name,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Extracts all files from a tar archive.</p>
+        <p>If argument <c>Name</c> is specified as <c>{binary,Binary}</c>,
+          the contents of the binary is assumed to be a tar archive.</p>
+        <p>If argument <c>Name</c> is specified as <c>{file,Fd}</c>,
+          <c>Fd</c> is assumed to be a file descriptor returned from function
+          <c>file:open/2</c>.</p>
+        <p>Otherwise, <c>Name</c> is to be a filename.</p>
+	<note><p>Leading slashes in tar member names will be removed before
+	writing the file. That is, absolute paths will be turned into
+	relative paths. There will be an info message written to the error
+	logger when paths are changed in this way.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">extract(Name, OptionList)</name>
+      <fsummary>Extract files from a tar file.</fsummary>
+      <type>
+        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
+        <v>Fd = file_descriptor()</v>
+        <v>OptionList = [Option]</v>
+        <v>Option = {cwd,Cwd}|{files,FileList}|keep_old_files|verbose|memory</v>
+        <v>Cwd = [dirname()]</v>
+        <v>FileList = [filename()]</v>
+        <v>RetValue = ok|MemoryRetValue|{error,{Name,Reason}}</v>
+        <v>MemoryRetValue = {ok, [{NameInArchive,binary()}]}</v>
+        <v>NameInArchive = filename()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Extracts files from a tar archive.</p>
+        <p>If argument <c>Name</c> is specified as <c>{binary,Binary}</c>,
+          the contents of the binary is assumed to be a tar archive.</p>
+        <p>If argument <c>Name</c> is specified as <c>{file,Fd}</c>,
+          <c>Fd</c> is assumed to be a file descriptor returned from function
+          <c>file:open/2</c>.</p>
+        <p>Otherwise, <c>Name</c> is to be a filename.</p>
+        <p>The following options modify the defaults for the extraction as
+          follows:</p>
+        <taglist>
+          <tag><c>{cwd,Cwd}</c></tag>
+          <item>
+            <p>Files with relative filenames are by default extracted
+              to the current working directory. With this option, files are
+              instead extracted into directory <c>Cwd</c>.</p>
+          </item>
+          <tag><c>{files,FileList}</c></tag>
+          <item>
+            <p>By default, all files are extracted from the tar file. With
+              this option, only those files are extracted whose names are
+              included in <c>FileList</c>.</p>
+          </item>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>With this option, the file is uncompressed while extracting.
+              If the tar file is not compressed, this option is ignored.</p>
+          </item>
+          <tag><c>cooked</c></tag>
+          <item>
+            <p>By default, function <c>open/2</c> function opens the tar file
+              in <c>raw</c> mode, which is faster but does not allow a remote
+              (Erlang) file server to be used. Adding <c>cooked</c> to the mode
+              list overrides the default and opens the tar file without option
+              <c>raw</c>.</p>
+          </item>
+          <tag><c>memory</c></tag>
+          <item>
+            <p>Instead of extracting to a directory, this option gives the
+	      result as a list of tuples <c>{Filename, Binary}</c>, where
+	      <c>Binary</c> is a binary containing the extracted data of the
+              file named <c>Filename</c> in the tar file.</p>
+          </item>
+          <tag><c>keep_old_files</c></tag>
+          <item>
+            <p>By default, all existing files with the same name as files in
+              the tar file are overwritten. With this option, existing
+              files are not overwriten.</p>
+          </item>
+          <tag><c>verbose</c></tag>
+          <item>
+            <p>Prints an informational message for each extracted file.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format_error(Reason) -> string()</name>
+      <fsummary>Convert error term to a readable string.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Converts an error reason term to a human-readable error message
+          string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.4">init(UserPrivate, AccessMode, Fun) ->
+        {ok,TarDescriptor} | {error,Reason}</name>
+      <fsummary>Create a <c>TarDescriptor</c> used in subsequent tar operations
+        when defining own low-level storage access functions.</fsummary>
+      <type>
+        <v>UserPrivate = term()</v>
+        <v>AccessMode = [write] | [read]</v>
+        <v>Fun when AccessMode is [write] =
+          fun(write, {UserPrivate,DataToWrite})->...;
+          (position,{UserPrivate,Position})->...;
+          (close, UserPrivate)->... end</v>
+        <v>Fun when AccessMode is [read] =
+          fun(read2, {UserPrivate,Size})->...;
+          (position,{UserPrivate,Position})->...;
+          (close,   UserPrivate)->... end</v>
+        <v>TarDescriptor = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>The <c>Fun</c> is the definition of what to do when the different
+          storage operations functions are to be called from the higher tar
+          handling functions (such as <c>add/3</c>, <c>add/4</c>, and
+          <c>close/1</c>).</p>
+        <p>The <c>Fun</c> is called when the tar function wants to do a
+          low-level operation, like writing a block to a file. The <c>Fun</c>
+          is called as <c>Fun(Op, {UserPrivate,Parameters...})</c>, where
+          <c>Op</c> is the operation name, <c>UserPrivate</c> is the term
+          passed as the first argument to <c>init/1</c> and
+          <c>Parameters...</c> are the data added by the tar function to be
+          passed down to the storage handling function.</p>
+        <p>Parameter <c>UserPrivate</c> is typically the result of opening a
+          low-level structure like a file descriptor or an SFTP channel id.
+          The different <c>Fun</c> clauses operate on that very term.</p>
+        <p>The following are the fun clauses parameter lists:</p>
+        <taglist>
+          <tag><c>(write, {UserPrivate,DataToWrite})</c></tag>
+          <item>
+            <p>Writes term <c>DataToWrite</c> using <c>UserPrivate</c>.</p>
+          </item>
+          <tag><c>(close, UserPrivate)</c></tag>
+          <item>
+            <p>Closes the access.</p>
+          </item>
+          <tag><c>(read2, {UserPrivate,Size})</c></tag>
+          <item>
+            <p>Reads using <c>UserPrivate</c> but only <c>Size</c> bytes.
+            Notice that there is only an arity-2 read function, not an arity-1
+            function.</p>
+          </item>
+          <tag><c>(position,{UserPrivate,Position})</c></tag>
+          <item>
+            <p>Sets the position of <c>UserPrivate</c> as defined for files in
+              <seealso marker="kernel:file#position-2">
+              <c>file:position/2</c></seealso></p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <p>The following is a complete <c>Fun</c> parameter for reading and
+          writing on files using the
+          <seealso marker="kernel:file"><c>file</c></seealso> module:</p>
+        <code type="none">
+ExampleFun = 
+   fun(write, {Fd,Data}) ->  file:write(Fd, Data);
+      (position, {Fd,Pos}) -> file:position(Fd, Pos);
+      (read2, {Fd,Size}) -> file:read(Fd, Size);
+      (close, Fd) -> file:close(Fd)
+   end</code>
+        <p>Here <c>Fd</c> was specified to function <c>init/3</c> as:</p>
+        <code>
+{ok,Fd} = file:open(Name, ...).
+{ok,TarDesc} = erl_tar:init(Fd, [write], ExampleFun),</code>
+        <p><c>TarDesc</c> is then used:</p>
+        <code>
+erl_tar:add(TarDesc, SomeValueIwantToAdd, FileNameInTarFile),
+...,
+erl_tar:close(TarDesc)</code>
+        <p>When the <c>erl_tar</c> core wants to, for example, write a piece
+          of <c>Data</c>, it would call
+          <c>ExampleFun(write, {UserPrivate,Data})</c>.</p>
+        <note>
+          <p>This example with the <c>file</c> module operations is
+            not necessary to use directly, as that is what function
+            <seealso marker="#open/2"><c>open/2</c></seealso> in principle
+            does.</p>
+        </note>
+        <warning>
+          <p>The <c>TarDescriptor</c> term is not a file descriptor. You are
+            advised not to rely on the specific contents of this term, as it
+            can change in future Erlang/OTP releases when more features are
+            added to this module.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">open(Name, OpenModeList) -> RetValue</name>
+      <fsummary>Open a tar file for writing.</fsummary>
+      <type>
+        <v>Name = filename()</v>
+        <v>OpenModeList = [OpenMode]</v>
+        <v>Mode = write|compressed|cooked</v>
+        <v>RetValue = {ok,TarDescriptor}|{error,{Name,Reason}}</v>
+        <v>TarDescriptor = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates a tar file for writing (any existing file with the same
+          name is truncated).</p>
+        <p>By convention, the name of a tar file is to end in "<c>.tar</c>".
+          To abide to the convention, add "<c>.tar</c>" to the name.</p>
+        <p>Except for the <c>write</c> atom, the following atoms
+          can be added to <c>OpenModeList</c>:</p>
+        <taglist>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>The entire tar file is compressed, as if it has been run
+              through the <c>gzip</c> program. To abide to the convention
+              that a compressed tar file is to end in "<c>.tar.gz</c>" or
+              "<c>.tgz</c>", add the appropriate extension.</p>
+          </item>
+          <tag><c>cooked</c></tag>
+          <item>
+            <p>By default, the tar file is opened in <c>raw</c> mode, which is
+              faster but does not allow a remote (Erlang) file server to be
+              used. Adding <c>cooked</c> to the mode list overrides the
+              default and opens the tar file without option <c>raw</c>.</p>
+          </item>
+        </taglist>
+        <p>To add one file at the time into an opened tar file, use function
+          <seealso marker="#add/3"><c>add/3,4</c></seealso>. When you are
+          finished adding files, use function <seealso marker="#close/1">
+          <c>close/1</c></seealso> to close the tar file.</p>
+        <warning>
+          <p>The <c>TarDescriptor</c> term is not a file descriptor. You are
+            advised not to rely on the specific contents of this term, as it
+            can change in future Erlang/OTP releases when more features are
+            added to this module..</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table(Name) -> RetValue</name>
+      <fsummary>Retrieve the name of all files in a tar file.</fsummary>
+      <type>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
+        <v>RetValue = {ok,[string()]}|{error,{Name,Reason}}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieves the names of all files in the tar file <c>Name</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">table(Name, Options)</name>
+      <fsummary>Retrieve name and information of all files in a tar file.
+      </fsummary>
+      <type>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
+      </type>
+      <desc>
+        <p>Retrieves the names of all files in the tar file <c>Name</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">t(Name)</name>
+      <fsummary>Print the name of each file in a tar file.</fsummary>
+      <type>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
+      </type>
+      <desc>
+        <p>Prints the names of all files in the tar file <c>Name</c> to the
+          Erlang shell (similar to "<c>tar&nbsp;t</c>").</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tt(Name)</name>
+      <fsummary>Print name and information for each file in a tar file.
+      </fsummary>
+      <type>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
+      </type>
+      <desc>
+        <p>Prints names and information about all files in the tar file
+          <c>Name</c> to the Erlang shell (similar to "<c>tar&nbsp;tv</c>").</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

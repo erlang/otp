@@ -1,0 +1,345 @@
+CCSNARG3 DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+CallCentreServiceNotificationArg ::= SEQUENCE {
+   scriptInformation      [0] ScriptToScriptInformation,
+   eventInformation       [1] EventInformation OPTIONAL
+    
+   
+}
+
+EventInformation ::=      
+     CHOICE 
+     {   callEvent        [0] CallEvent,
+         billingReport    [1] BillingInformation
+     } 
+
+
+ScriptToScriptInformation ::= SEQUENCE {
+   scriptKey         [0] INTEGER (0..214783647),
+   scriptAttribute1  [1] Attribute1 OPTIONAL,
+   scriptAttribute2  [2] Attribute2 OPTIONAL,
+   scriptAttribute3  [3] Attribute3 OPTIONAL,
+   scriptAttribute4  [4] Attribute4 OPTIONAL,
+   scriptAttribute5  [5] Attribute5 OPTIONAL,
+   scriptAttribute6  [6] Attribute6 OPTIONAL,
+   scriptAttribute7  [7] Attribute7 OPTIONAL,
+   scriptAttribute8  [8] Attribute8 OPTIONAL,
+   scriptAttribute9  [9] Attribute9 OPTIONAL,
+   scriptAttribute10 [10] Attribute10 OPTIONAL,
+   scriptAttribute11 [11] Attribute11 OPTIONAL,
+   scriptAttribute12 [12] Attribute12 OPTIONAL,
+   scriptAttribute13 [13] Attribute13 OPTIONAL,
+   scriptAttribute14 [14] Attribute14 OPTIONAL,
+   scriptAttribute15 [15] Attribute15 OPTIONAL,
+   scriptAttribute16 [16] Attribute16 OPTIONAL,
+   scriptAttribute17 [17] Attribute17 OPTIONAL,
+   scriptAttribute18 [18] Attribute18 OPTIONAL,
+   scriptAttribute19 [19] Attribute19 OPTIONAL,
+   scriptAttribute20 [20] Attribute20 OPTIONAL,
+   scriptAttribute21 [21] Attribute21 OPTIONAL,
+   scriptAttribute22 [22] Attribute22 OPTIONAL,
+   scriptAttribute23 [23] Attribute23 OPTIONAL,
+   scriptAttribute24 [24] Attribute24 OPTIONAL,
+   scriptAttribute25 [25] Attribute25 OPTIONAL,
+   scriptAttribute26 [26] Attribute26 OPTIONAL,
+   scriptAttribute27 [27] Attribute27 OPTIONAL,
+   scriptAttribute28 [28] Attribute28 OPTIONAL,
+   scriptAttribute29 [29] Attribute29 OPTIONAL,
+   scriptAttribute30 [30] Attribute30 OPTIONAL
+   }
+
+
+CallEvent ::= SEQUENCE {
+   eventTypeBCSM                     [0] EventTypeBCSM           OPTIONAL,
+                                                           
+   miscCallInfo                      [1] MiscCallInfo            OPTIONAL,
+   iNlegID                           [2] LegType                 OPTIONAL,
+   announcementInfo                  [3] INTEGER
+      { announcementstarted(0), announcementcompleted(1) } (0..1) OPTIONAL,
+   callAttemptElapsedTimeValue       [4] INTEGER (0..255)        OPTIONAL,
+   callStopTimeValue                 [5] DateAndTime             OPTIONAL,
+   callConnectedElapsedTimeValue     [6] INTEGER (0..4294967295) OPTIONAL,
+   calledAddressValue                [7] GenericNumber		  OPTIONAL,
+   releaseCause                      [8] Cause                   OPTIONAL
+   }
+
+EventTypeBCSM ::= INTEGER {
+      origAttemptauthorized(1),
+      collectedInfo(2),
+      analyzedInformation(3),
+      routeSelectFailure(4),
+      oCalledPartyBusy(5),
+      oAlerting(255),                
+      oCalledPartyNotReachable(254), 
+      oNoAnswer(6),
+      oAnswer(7),
+      oMidCall(8),
+      oSuspended(253),               
+      oReAnswer(252),                
+      oDisconnect(9),
+      oAbandon(10),
+      termAttemptauthorized(12)     
+   } (0..255)
+
+
+BackwardCallIndicators ::= OCTET STRING (SIZE (2))
+
+BackwardGVNSIndicator ::= OCTET STRING(SIZE(1))
+
+
+MiscCallInfo::= INTEGER {
+      request      (0),
+      notification (1)
+      } (0..1)
+
+LegType ::= INTEGER (1..30)
+
+DateAndTime ::= OCTET STRING (SIZE(6)) 
+
+GenericNumber ::= OCTET STRING (SIZE(1..16))
+
+GenericDigits ::= OCTET STRING (SIZE(1..16))
+
+Number ::= OCTET STRING (SIZE(1..16))
+
+Cause::= OCTET STRING (SIZE(2))
+
+
+BillingInformation ::= SEQUENCE {
+   billingKey [0] INTEGER (0..214783647),
+   billingAttribute1 [1] Attribute1 OPTIONAL,
+   billingAttribute2 [2] Attribute2 OPTIONAL,
+   billingAttribute3 [3] Attribute3 OPTIONAL,
+   billingAttribute4 [4] Attribute4 OPTIONAL,
+   billingAttribute5 [5] Attribute5 OPTIONAL,
+   billingAttribute6 [6] Attribute6 OPTIONAL,
+   billingAttribute7 [7] Attribute7 OPTIONAL,
+   billingAttribute8 [8] Attribute8 OPTIONAL,
+   billingAttribute9 [9] Attribute9 OPTIONAL,
+   billingAttribute10 [10] Attribute10 OPTIONAL,
+   billingAttribute11 [11] Attribute11 OPTIONAL,
+   billingAttribute12 [12] Attribute12 OPTIONAL,
+   billingAttribute13 [13] Attribute13 OPTIONAL,
+   billingAttribute14 [14] Attribute14 OPTIONAL,
+   billingAttribute15 [15] Attribute15 OPTIONAL,
+   billingAttribute16 [16] Attribute16 OPTIONAL,
+   billingAttribute17 [17] Attribute17 OPTIONAL,
+   billingAttribute18 [18] Attribute18 OPTIONAL,
+   billingAttribute19 [19] Attribute19 OPTIONAL,
+   billingAttribute20 [20] Attribute20 OPTIONAL
+}
+
+
+Attribute1 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute2 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute3 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute4 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute5 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute6 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute7 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute8 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute9 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute10 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute11 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute12 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute13::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute14 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute15 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute16 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute17 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute18 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute19::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute20 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute21 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute22 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute23 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute24 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute25 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute26 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute27::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute28 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute29 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+Attribute30 ::= CHOICE {
+  integerValue       [0] INTEGER (0..65535),
+  longIntValue       [1] INTEGER (0..4294967295),
+  numberValue        [2] Number,
+  genDigitValue      [3] GenericDigits
+  }
+
+
+END

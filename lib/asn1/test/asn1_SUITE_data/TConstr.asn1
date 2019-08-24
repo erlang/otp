@@ -1,0 +1,135 @@
+-- The idea with this spec is to gather definitions that has a
+-- complicated structure of table constraints.
+TConstr DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+MYCLASS ::= CLASS {
+  &id    OBJECT IDENTIFIER UNIQUE,
+  &Type,
+  &Result     OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  TYPE &Type
+  [RESULT &Result]
+}
+
+object1 MYCLASS ::= {ID id-object1 TYPE Type-object1 RESULT INTEGER}
+object2 MYCLASS ::= {ID id-object2 TYPE Type-object2}
+object3 MYCLASS ::= {ID id-object3 TYPE Type-object3 RESULT BOOLEAN}
+
+ObjectSet MYCLASS ::= {object1 | object2 | object3}
+
+id-object1 OBJECT IDENTIFIER ::= {2 4}
+id-object2 OBJECT IDENTIFIER ::= {2 5}
+id-object3 OBJECT IDENTIFIER ::= {2 6 7}
+
+
+Type-object1 ::= SEQUENCE {
+  a INTEGER,
+  b BOOLEAN
+}
+
+Type-object2 ::= ENUMERATED {first, second, third}
+
+Type-object3 ::= CHOICE {
+  first   SEQUENCE {a BOOLEAN, b INTEGER},
+  second  INTEGER
+}
+
+Seq1 ::= SEQUENCE {
+  a  SEQUENCE {aa INTEGER, ab MYCLASS.&id ({ObjectSet})},
+  b  SEQUENCE {ba INTEGER, bb MYCLASS.&Type ({ObjectSet}{@a.ab})}
+}
+
+Seq2 ::= SEQUENCE {
+  identity INTEGER,
+  content SEQUENCE {
+    subid MYCLASS.&id ({ObjectSet}),
+    subcontent MYCLASS.&Type ({ObjectSet}{@content.subid}),
+    subresult  MYCLASS.&Result ({ObjectSet}{@content.subid})
+  }
+}
+
+Deeper ::= SEQUENCE {
+  a  SEQUENCE {aa INTEGER,
+               s SEQUENCE { ab MYCLASS.&id ({ObjectSet}),
+	                    ac INTEGER }},
+  b  SEQUENCE {ba INTEGER, bb MYCLASS.&Type ({ObjectSet}{@a.s.ab})}
+}
+
+Seq3 ::= SEQUENCE {
+  a SEQUENCE {
+              aa INTEGER,
+	      ab MYCLASS.&id ({ObjectSet})
+    },
+  -- Multiple references from the same SEQUENCE...
+  b SEQUENCE {
+              ba MYCLASS.&Type ({ObjectSet}{@a.ab}),
+              bb MYCLASS.&Result ({ObjectSet}{@a.ab}),
+	      -- ... and references from multiple SEQUENCEs...
+	      bc SEQUENCE {
+	         bca MYCLASS.&Result ({ObjectSet}{@a.ab}),
+		 bcb MYCLASS.&Type ({ObjectSet}{@a.ab})
+              }
+    }
+}
+
+Seq3-Opt ::= SEQUENCE {
+  a SEQUENCE {
+              aa INTEGER,
+	      ab MYCLASS.&id ({ObjectSet})
+    },
+  -- Multiple references from the same SEQUENCE...
+  b SEQUENCE {
+              ba MYCLASS.&Type ({ObjectSet}{@a.ab}) OPTIONAL,
+              bb MYCLASS.&Result ({ObjectSet}{@a.ab}) OPTIONAL,
+	      -- ... and references from multiple SEQUENCEs...
+	      bc SEQUENCE {
+	         bca MYCLASS.&Result ({ObjectSet}{@a.ab}),
+		 bcb MYCLASS.&Type ({ObjectSet}{@a.ab})
+              } OPTIONAL
+    }
+}
+
+-- following from Peter's definitions
+
+
+MY-CLASS ::= CLASS {
+        &id OBJECT IDENTIFIER UNIQUE,
+        &Type }
+   WITH SYNTAX {
+        ID &id
+        TYPE &Type }
+        
+Info ::=  SEQUENCE  {
+     xyz SEQUENCE {
+               abc MY-CLASS.&id({Supported}) 
+               }, 
+     uvw MY-CLASS.&Type ({Supported}{@xyz.abc}) }
+
+Supported MY-CLASS ::= { dsa | rsa }
+
+-- dsa
+
+   id-dsa OBJECT IDENTIFIER ::= { 1 2 }
+
+   DSAPublicKey ::= INTEGER  -- public key, y
+
+   dsa MY-CLASS ::= {
+       ID id-dsa
+       TYPE DSAPublicKey }
+
+-- rsa
+
+   rsaEncryption OBJECT IDENTIFIER ::=  { 1 3 4 }
+
+   RSAPublicKey ::= SEQUENCE {
+      modulus            INTEGER,    -- n
+      publicExponent     INTEGER  }  -- e
+
+   rsa MY-CLASS ::= {
+        ID rsaEncryption
+        TYPE RSAPublicKey }
+
+END

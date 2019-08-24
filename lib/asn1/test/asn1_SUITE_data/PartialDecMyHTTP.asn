@@ -1,0 +1,19 @@
+PartialDecMyHTTP DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN 
+
+GetRequest ::= SEQUENCE { 
+  header-only BOOLEAN, 
+  lock BOOLEAN, 
+  accept-types AcceptTypes, 
+  url Url, ... 
+} 
+
+AcceptTypes ::= SET { 
+  standards BIT STRING {html(0), plain-text(1), gif(2), jpeg(3)} (SIZE (4)) OPTIONAL, 
+  others SEQUENCE OF VisibleString (SIZE (4)) OPTIONAL 
+} 
+
+Url ::= VisibleString (FROM ("a".."z"|"A".."Z"|"0".."9"| "./-_~%#")) 
+
+END

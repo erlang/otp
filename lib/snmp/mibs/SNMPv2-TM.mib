@@ -1,0 +1,151 @@
+SNMPv2-TM DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-IDENTITY, snmpDomains, snmpProxys, snmpModules
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC;
+
+snmpv2TM MODULE-IDENTITY
+    LAST-UPDATED "9709250900Z"
+    ORGANIZATION "IETF SNMPv2 Working Group"
+    CONTACT-INFO
+            "        Marshall T. Rose
+
+             Postal: Dover Beach Consulting, Inc.
+                     420 Whisman Court
+                     Mountain View, CA  94043-2186
+                     US
+
+                Tel: +1 415 968 1052
+
+             E-mail: mrose@dbc.mtview.ca.us"
+    DESCRIPTION
+            "The MIB module for SNMPv2 Transport Mappings."
+    REVISION      "9709250900Z"
+    DESCRIPTION
+            "This MIB module is extracted from RFC 1906.  It is
+            modified by mbj@erlang.ericsson.se to be
+            compilable.  The MODULE-IDENTITY specification was
+            added."
+    ::= { snmpModules 0 } -- dummy
+
+-- SNMPv2 over UDP over IPv4
+
+snmpUDPDomain  OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The SNMPv2 over UDP transport domain.  The corresponding
+            transport address is of type SnmpUDPAddress."
+    ::= { snmpDomains 1 }
+
+SnmpUDPAddress ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "1d.1d.1d.1d/2d"
+    STATUS       current
+    DESCRIPTION
+            "Represents a UDP address:
+
+               octets   contents        encoding
+                1-4     IP-address      network-byte order
+                5-6     UDP-port        network-byte order
+            "
+    SYNTAX       OCTET STRING (SIZE (6))
+
+
+-- SNMPv2 over OSI
+
+snmpCLNSDomain OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The SNMPv2 over CLNS transport domain.  The corresponding
+            transport address is of type SnmpOSIAddress."
+    ::= { snmpDomains 2 }
+
+snmpCONSDomain OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The SNMPv2 over CONS transport domain.  The corresponding
+            transport address is of type SnmpOSIAddress."
+    ::= { snmpDomains 3 }
+
+SnmpOSIAddress ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "*1x:/1x:"
+    STATUS       current
+    DESCRIPTION
+            "Represents an OSI transport-address:
+
+               octets   contents           encoding
+                  1     length of NSAP     'n' as an unsigned-integer
+                                              (either 0 or from 3 to 20)
+               2..(n+1) NSAP                concrete binary representation
+               (n+2)..m TSEL                string of (up to 64) octets
+            "
+    SYNTAX       OCTET STRING (SIZE (1 | 4..85))
+
+
+-- SNMPv2 over DDP
+
+snmpDDPDomain  OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The SNMPv2 over DDP transport domain.  The corresponding
+            transport address is of type SnmpNBPAddress."
+    ::= { snmpDomains 4 }
+
+SnmpNBPAddress ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+            "Represents an NBP name:
+
+                 octets        contents          encoding
+                    1          length of object  'n' as an unsigned integer
+                  2..(n+1)     object            string of (up to 32) octets
+                   n+2         length of type    'p' as an unsigned integer
+              (n+3)..(n+2+p)   type              string of (up to 32) octets
+                  n+3+p        length of zone    'q' as an unsigned integer
+            (n+4+p)..(n+3+p+q) zone              string of (up to 32) octets
+
+            For comparison purposes, strings are case-insensitive All
+            strings may contain any octet other than 255 (hex ff)."
+    SYNTAX       OCTET STRING (SIZE (3..99))
+
+
+-- SNMPv2 over IPX
+
+snmpIPXDomain  OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The SNMPv2 over IPX transport domain.  The corresponding
+            transport address is of type SnmpIPXAddress."
+    ::= { snmpDomains 5 }
+
+SnmpIPXAddress ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "4x.1x:1x:1x:1x:1x:1x.2d"
+    STATUS       current
+    DESCRIPTION
+            "Represents an IPX address:
+
+               octets   contents            encoding
+                1-4     network-number      network-byte order
+                5-10    physical-address    network-byte order
+               11-12    socket-number       network-byte order
+            "
+    SYNTAX       OCTET STRING (SIZE (12))
+
+
+-- for proxy to SNMPv1 (RFC 1157)
+
+rfc1157Proxy   OBJECT IDENTIFIER ::= { snmpProxys 1 }
+
+rfc1157Domain  OBJECT-IDENTITY
+    STATUS     current
+    DESCRIPTION
+            "The transport domain for SNMPv1 over UDP.  The
+            corresponding transport address is of type SnmpUDPAddress."
+    ::= { rfc1157Proxy 1 }
+
+--  ::= { rfc1157Proxy 2 }            this OID is obsolete
+
+
+END
+

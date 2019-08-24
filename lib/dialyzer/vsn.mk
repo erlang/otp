@@ -1,0 +1,1 @@
+DIALYZER_VSN = 4.0.3

@@ -1,0 +1,872 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>sys</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1996-06-06</date>
+    <rev></rev>
+    <file>sys.xml</file>
+  </header>
+  <module since="">sys</module>
+  <modulesummary>A functional interface to system messages.</modulesummary>
+  <description>
+    <p>This module contains functions for sending system messages used by
+      programs, and messages used for debugging purposes.</p>
+    <p>Functions used for implementation of processes are also expected to
+      understand system messages, such as debug messages and code change. These
+      functions must be used to implement the use of system messages for a
+      process; either directly, or through standard behaviors, such as
+      <seealso marker="gen_server"><c>gen_server</c></seealso>.</p>
+    <p>The default time-out is 5000 ms, unless otherwise specified.
+      <c>timeout</c> defines the time to wait for the process to
+      respond to a request. If the process does not respond, the
+      function evaluates <c>exit({timeout, {M, F, A}})</c>.
+      </p>
+    <marker id="dbg_opt"/>
+    <p>The functions make references to a debug structure.
+      The debug structure is a list of <c>dbg_opt()</c>, which is an internal
+      data type used by function <seealso marker="#handle_system_msg/6">
+      <c>handle_system_msg/6</c></seealso>. No debugging is performed if it is 
+      an empty list.</p>
+  </description>
+
+  <section>
+    <title>System Messages</title>
+    <p>Processes that are not implemented as one of the standard
+      behaviors must still understand system messages. The following 
+      three messages must be understood:</p>
+    <list type="bulleted">
+      <item>
+        <p>Plain system messages. These are received as
+          <c>{system, From, Msg}</c>. The content and meaning of
+          this message are not interpreted by the
+          receiving process module. When a system message is received, function 
+	  <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso>
+          is called to handle the request.</p>
+      </item>
+      <item>
+        <p>Shutdown messages. If the process traps exits, it must
+          be able to handle a shutdown request from its parent, the
+          supervisor. The message <c>{'EXIT', Parent, Reason}</c>
+          from the parent is an order to terminate. The process must 
+	  terminate when this message is received, normally with the
+          same <c>Reason</c> as <c>Parent</c>.
+          </p>
+      </item>
+      <item>
+        <p>If the modules used to implement the process change dynamically
+          during runtime, the process must understand one more message. An
+          example is the <seealso marker="gen_event"><c>gen_event</c></seealso>
+          processes. The message is <c>{_Label, {From, Ref}, get_modules}</c>.
+          The reply to this message is <c>From ! {Ref, Modules}</c>, where
+          <c>Modules</c> is a list of the currently active modules in the
+          process.</p>
+        <p>This message is used by the release handler to find which
+          processes that execute a certain module. The process can later be
+          suspended and ordered to perform a code change for one of its
+          modules.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>System Events</title>
+    <p>When debugging a process with the functions of this
+      module, the process generates <em>system_events</em>, which are
+      then treated in the debug function. For example, <c>trace</c>
+      formats the system events to the terminal.
+      </p>
+    <p>Four predefined system events are used when a
+      process receives or sends a message. The process can also define its
+      own system events. It is always up to the process itself
+      to format these events.</p>
+  </section>
+
+  <datatypes>
+    <datatype>
+      <name name="name"/>
+    </datatype>
+    <datatype>
+      <name name="system_event"/>
+      <desc>
+	<taglist>
+	  <tag><c>{in,<anno>Msg</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c> and <c>gen_event</c>
+	      when the message <c>Msg</c> arrives.
+	    </p>
+	  </item>
+	  <tag><c>{in,<anno>Msg</anno>,<anno>State</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c>Msg</c> arrives in state <c>State</c>.
+	    </p>
+	    <p>
+	      For <c>gen_statem</c> the <c><anno>Msg</anno></c> term is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag><c>{out,<anno>Msg</anno>,<anno>To</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c> when the reply <c>Msg</c>
+	      is sent back to <c>To</c> by returning
+	      a <c>{reply,To,Msg}</c> action from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>To</anno></c> is of the same type
+	      as the first argument to <c>gen_statem:reply/2</c>.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{out,<anno>Msg</anno>,<anno>To</anno>,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when the reply <c><anno>Msg</anno></c>
+	      is sent back to <c><anno>To</anno></c>
+	      by returning a <c>{reply,...}</c> tuple
+	      from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>To</anno></c> is of the same type
+	      as the first argument to <c>gen_server:reply/2</c>.
+	    </p>
+	    <p>
+	      <c><anno>State</anno></c> is the new server state.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{noreply,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when a <c>{noreply,...}</c> tuple is returned
+	      from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>State</anno></c> is the new server state.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{continue,<anno>Continuation</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when a <c>{continue,<anno>Continuation</anno>}</c>
+	      tuple is returned from the callback module.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{code_change,<anno>Event</anno>,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      arrives in state <c><anno>State</anno></c>
+	      as the first event after a code change.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {postpone,<anno>Event</anno>,<anno>State</anno>,<anno>NextState</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      is postponed in state <c><anno>State</anno></c>.
+	      <c><anno>NextState</anno></c> is the new state.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {consume,<anno>Event</anno>,<anno>State</anno>,<anno>NextState</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      is consumed in state <c><anno>State</anno></c>.
+	      <c><anno>NextState</anno></c> is the new state.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {enter,<anno>State</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the first state <c><anno>State</anno></c> is entered.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {terminate,<anno>Reason</anno>,<anno>State</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when it terminates with reason <c><anno>Reason</anno></c>
+	      in state <c><anno>State</anno></c>.
+	    </p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="dbg_opt"/>
+      <desc><p>See the introduction of this manual page.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="dbg_fun"/>
+    </datatype>
+    <datatype>
+      <name name="debug_option"/>
+    </datatype>
+    <datatype>
+      <name name="format_fun"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="change_code" arity="4" since=""/>
+      <name name="change_code" arity="5" since=""/>
+      <fsummary>Send the code change system message to the process.</fsummary>
+      <desc>
+        <p>Tells the process to change code. The process must be
+          suspended to handle this message. Argument <c><anno>Extra</anno></c>
+          is reserved for each process to use as its own. Function
+          <c><anno>Module</anno>:system_code_change/4</c> is called.
+	  <c><anno>OldVsn</anno></c> is the old version of the
+          <c><anno>Module</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_state" arity="1" since="OTP R16B01"/>
+      <name name="get_state" arity="2" since="OTP R16B01"/>
+      <fsummary>Get the state of the process.</fsummary>
+      <desc>
+        <p>Gets the state of the process.</p>
+        <note>
+          <p>These functions are intended only to help with debugging. They are
+            provided for convenience, allowing developers to avoid having to
+            create their own state extraction functions and also avoid having
+            to interactively extract the state from the return values of
+            <seealso marker="#get_status-1"><c>get_status/1</c></seealso> or
+            <seealso marker="#get_status-2"><c>get_status/2</c></seealso>
+            while debugging.</p>
+        </note>
+        <p>The value of <c><anno>State</anno></c> varies for different types of
+          processes, as follows:</p>
+        <list type="bulleted">
+          <item>
+            <p>For a
+              <seealso marker="gen_server"><c>gen_server</c></seealso>
+              process, the returned <c><anno>State</anno></c>
+              is the state of the callback module.</p>
+          </item>
+          <item>
+            <p>For a
+              <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+              process, <c><anno>State</anno></c> is the tuple
+              <c>{CurrentState,CurrentData}</c>.</p>
+          </item>
+          <item>
+            <p>For a
+              <seealso marker="gen_event"><c>gen_event</c></seealso>
+              process, <c><anno>State</anno></c> is a list of tuples,
+              where each tuple corresponds to an event handler registered
+              in the process and contains <c>{Module, Id, HandlerState}</c>,
+              as follows:</p>
+            <taglist>
+              <tag><c>Module</c></tag>
+              <item>
+                <p>The module name of the event handler.</p>
+              </item>
+              <tag><c>Id</c></tag>
+              <item>
+                <p>The ID of the handler (which is <c>false</c> if it was 
+                  registered without an ID).</p>
+              </item>
+              <tag><c>HandlerState</c></tag>
+              <item>
+                <p>The state of the handler.</p>
+              </item>
+            </taglist>
+          </item>
+        </list>
+        <p>If the callback module exports a function <c>system_get_state/1</c>,
+          it is called in the target process to get its state. Its argument is
+          the same as the <c>Misc</c> value returned by
+          <seealso marker="#get_status-1"><c>get_status/1,2</c></seealso>, and
+          function <seealso marker="#Module:system_get_state/1">
+          <c>Module:system_get_state/1</c></seealso> is expected to extract the
+          state of the callback module from it. Function
+          <c>system_get_state/1</c> must return <c>{ok, State}</c>, where
+          <c>State</c> is the state of the callback module.</p>
+        <p>If the callback module does not export a <c>system_get_state/1</c>
+          function, <c>get_state/1,2</c> assumes that the <c>Misc</c> value is
+          the state of the callback module and returns it directly instead.</p>
+        <p>If the callback module's <c>system_get_state/1</c> function crashes
+          or throws an exception, the caller exits with error 
+          <c>{callback_failed, {Module, system_get_state}, {Class, Reason}}</c>,
+          where <c>Module</c> is the name of the callback module and
+          <c>Class</c> and <c>Reason</c> indicate details of the exception.</p>
+        <p>Function <c>system_get_state/1</c> is primarily useful for
+          user-defined behaviors and modules that implement OTP
+          <seealso marker="#special_process">special processes</seealso>. 
+          The <c>gen_server</c>,
+	  <c>gen_statem</c>, and <c>gen_event</c> OTP
+          behavior modules export this function, so callback modules for those
+          behaviors need not to supply their own.</p>
+        <p>For more information about a process, including its state, see
+          <seealso marker="#get_status-1"><c>get_status/1</c></seealso> and
+          <seealso marker="#get_status-2"><c>get_status/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_status" arity="1" since=""/>
+      <name name="get_status" arity="2" since=""/>
+      <fsummary>Get the status of the process.</fsummary>
+      <desc>
+        <p>Gets the status of the process.</p>
+        <p>The value of <c><anno>Misc</anno></c> varies for different types of
+          processes, for example:</p>
+        <list type="bulleted">
+          <item>
+            <p>A <seealso marker="gen_server"><c>gen_server</c></seealso>
+              process returns the state of the callback module.</p>
+          </item>
+          <item>
+            <p>A <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+              process returns information, such as its current
+              state name and state data.</p>
+          </item>
+          <item>
+            <p>A <seealso marker="gen_event"><c>gen_event</c></seealso>
+              process returns information about each of its
+              registered handlers.</p>
+          </item>
+        </list>
+        <p>Callback modules for <c>gen_server</c>,
+	  <c>gen_statem</c>, and <c>gen_event</c>
+	  can also change the value of <c><anno>Misc</anno></c>
+          by exporting a function <c>format_status/2</c>, which contributes
+          module-specific information. For details, see
+          <seealso marker="gen_server#Module:format_status/2">
+          <c>gen_server:format_status/2</c></seealso>,
+          <seealso marker="gen_statem#Module:format_status/2">
+          <c>gen_statem:format_status/2</c></seealso>, and
+          <seealso marker="gen_event#Module:format_status/2">
+          <c>gen_event:format_status/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="install" arity="2" since=""/>
+      <name name="install" arity="3" since=""/>
+      <fsummary>Install a debug function in the process.</fsummary>
+      <desc>
+        <p>Enables installation of alternative debug functions. An example of
+          such a function is a trigger, a function that waits for some
+          special event and performs some action when the event is
+          generated. For example, turning on low-level tracing.</p>
+        <p><c><anno>Func</anno></c> is called whenever a system event is
+          generated. This function is to return <c>done</c>, or a new
+          <c>Func</c> state. In the first case, the function is removed. It is 
+          also removed if the function fails. If one debug function should be 
+          installed more times, a unique <c><anno>FuncId</anno></c> must be 
+          specified for each installation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="log" arity="2" since=""/>
+      <name name="log" arity="3" since=""/>
+      <fsummary>Log system events in memory.</fsummary>
+      <desc>
+        <p>Turns the logging of system events on or off. If on, a
+          maximum of <c><anno>N</anno></c> events are kept in the
+          debug structure (default is 10).</p>
+        <p>If <c><anno>Flag</anno></c> is <c>get</c>, a list of all logged
+          events is returned.</p>
+        <p>If <c><anno>Flag</anno></c> is <c>print</c>, the logged events
+          are printed to <c>standard_io</c>.</p>
+        <p>The events are formatted with a function that is defined by the
+          process that generated the event (with a call to
+          <seealso marker="#handle_debug/4">
+          <c>handle_debug/4</c>)</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="log_to_file" arity="2" since=""/>
+      <name name="log_to_file" arity="3" since=""/>
+      <fsummary>Log system events to the specified file.</fsummary>
+      <desc>
+        <p>Enables or disables the logging of all system events in text
+          format to the file. The events are formatted with a function that is 
+          defined by the process that generated the event (with a call to
+          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>).
+	  The file is opened with encoding UTF-8.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="no_debug" arity="1" since=""/>
+      <name name="no_debug" arity="2" since=""/>
+      <fsummary>Turn off debugging.</fsummary>
+      <desc>
+        <p>Turns off all debugging for the process. This includes
+          functions that are installed explicitly with function
+          <seealso marker="#install/2"><c>install/2,3</c></seealso>,
+          for example, triggers.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remove" arity="2" since=""/>
+      <name name="remove" arity="3" since=""/>
+      <fsummary>Remove a debug function from the process.</fsummary>
+      <desc>
+        <p>Removes an installed debug function from the
+          process. <c><anno>Func</anno></c> or <c><anno>FuncId</anno></c> must be 
+          the same as previously installed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="replace_state" arity="2" since="OTP R16B01"/>
+      <name name="replace_state" arity="3" since="OTP R16B01"/>
+      <fsummary>Replace the state of the process.</fsummary>
+      <desc>
+        <p>Replaces the state of the process, and returns the new state.</p>
+        <note>
+          <p>These functions are intended only to help with debugging, and are
+            not to be called from normal code. They are provided for
+            convenience, allowing developers to avoid having to create their own
+            custom state replacement functions.</p>
+        </note>
+        <p>Function <c><anno>StateFun</anno></c> provides a new state for the
+          process. Argument <c><anno>State</anno></c> and the
+          <c><anno>NewState</anno></c> return value of
+          <c><anno>StateFun</anno></c> vary for different types of 
+          processes as follows:</p>
+        <list type="bulleted">
+          <item>
+            <p>For a <seealso marker="gen_server"><c>gen_server</c></seealso>
+              process, <c><anno>State</anno></c> is the state of the callback
+              module and <c><anno>NewState</anno></c> 
+              is a new instance of that state.</p>
+          </item>
+          <item>
+            <p>For a <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+	      process, <c><anno>State</anno></c> is the
+	      tuple <c>{CurrentState,CurrentData}</c>,
+	      and <c><anno>NewState</anno></c> is a
+              similar tuple, which can contain
+              a new current state, new state data, or both.</p>
+          </item>
+          <item>
+            <p>For a <seealso marker="gen_event"><c>gen_event</c></seealso>
+              process, <c><anno>State</anno></c> is the
+              tuple <c>{Module, Id, HandlerState}</c> as follows:</p>
+            <taglist>
+              <tag><c>Module</c></tag>
+              <item>
+                <p>The module name of the event handler.</p>
+              </item>
+              <tag><c>Id</c></tag>
+              <item>
+                <p>The ID of the handler (which is <c>false</c> if it was
+                  registered without an ID).</p>
+              </item>
+              <tag><c>HandlerState</c></tag>
+              <item>
+                <p>The state of the handler.</p>
+              </item>
+            </taglist>
+            <p><c><anno>NewState</anno></c> is a similar tuple where
+              <c>Module</c> and <c>Id</c> are to have the same values as in
+              <c><anno>State</anno></c>, but the value of <c>HandlerState</c>
+              can be different. Returning a <c><anno>NewState</anno></c>, whose
+              <c>Module</c> or <c>Id</c> values differ from those of
+              <c><anno>State</anno></c>, leaves the state of the event handler
+              unchanged. For a <c>gen_event</c> process,
+              <c><anno>StateFun</anno></c> is called once for each event handler
+              registered in the <c>gen_event</c> process.</p>
+          </item>
+        </list>
+        <p>If a <c><anno>StateFun</anno></c> function decides not to effect any
+          change in process state, then regardless of process type, it can
+          return its <c><anno>State</anno></c> argument.</p>
+        <p>If a <c><anno>StateFun</anno></c> function crashes or throws an
+          exception, the original state of the process is unchanged for
+          <c>gen_server</c>, and <c>gen_statem</c> processes.
+	  For <c>gen_event</c> processes, a crashing or
+	  failing <c><anno>StateFun</anno></c> function
+          means that only the state of the particular event handler it was
+          working on when it failed or crashed is unchanged; it can still
+          succeed in changing the states of other event
+          handlers registered in the same <c>gen_event</c> process.</p>
+        <p>If the callback module exports a 
+          <seealso marker="#Module:system_replace_state/2">
+          <c>system_replace_state/2</c></seealso> function, it is called in the
+          target process to replace its state using <c>StateFun</c>. Its two
+          arguments are <c>StateFun</c> and <c>Misc</c>, where 
+          <c>Misc</c> is the same as the <c>Misc</c> value returned by
+          <seealso marker="#get_status-1"><c>get_status/1,2</c></seealso>.
+          A <c>system_replace_state/2</c> function is expected to return 
+          <c>{ok, NewState, NewMisc}</c>, where <c>NewState</c> is the new state
+          of the callback module, obtained by calling <c>StateFun</c>, and
+          <c>NewMisc</c> is
+          a possibly new value used to replace the original <c>Misc</c>
+          (required as <c>Misc</c> often contains the state of the callback
+          module within it).</p>
+        <p>If the callback module does not export a
+          <c>system_replace_state/2</c> function,
+          <seealso marker="#replace_state/2"><c>replace_state/2,3</c></seealso>
+          assumes that <c>Misc</c> is the state of the callback module,
+	  passes it to <c>StateFun</c> and uses the return value as
+	  both the new state and as the new value of <c>Misc</c>.</p>
+        <p>If the callback module's function <c>system_replace_state/2</c>
+          crashes or throws an exception, the caller exits with error
+          <c>{callback_failed, {Module, system_replace_state}, {Class,
+          Reason}}</c>, where <c>Module</c> is the name of the callback module
+          and <c>Class</c> and <c>Reason</c> indicate details of the exception.
+          If the callback module does not provide a
+          <c>system_replace_state/2</c> function and <c>StateFun</c> crashes or
+          throws an exception, the caller exits with error
+          <c>{callback_failed, StateFun, {Class, Reason}}</c>.</p>
+        <p>Function <c>system_replace_state/2</c> is primarily useful for
+          user-defined behaviors and modules that implement OTP
+          <seealso marker="#special_process">special processes</seealso>. The
+          OTP behavior modules <c>gen_server</c>,
+	  <c>gen_statem</c>, and <c>gen_event</c>
+	  export this function, so callback modules for those
+          behaviors need not to supply their own.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resume" arity="1" since=""/>
+      <name name="resume" arity="2" since=""/>
+      <fsummary>Resume a suspended process.</fsummary>
+      <desc>
+        <p>Resumes a suspended process.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="2" since=""/>
+      <name name="statistics" arity="3" since=""/>
+      <fsummary>Enable or disable the collections of statistics.</fsummary>
+      <desc>
+        <p>Enables or disables the collection of statistics. If 
+          <c><anno>Flag</anno></c> is <c>get</c>, 
+          the statistical collection is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="suspend" arity="1" since=""/>
+      <name name="suspend" arity="2" since=""/>
+      <fsummary>Suspend the process.</fsummary>
+      <desc>
+        <p>Suspends the process. When the process is suspended, it
+          only responds to other system messages, but not other
+          messages.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="terminate" arity="2" since="OTP 18.0"/>
+      <name name="terminate" arity="3" since="OTP 18.0"/>
+      <fsummary>Terminate the process.</fsummary>
+      <desc>
+        <p>Orders the process to terminate with the
+          specified <c><anno>Reason</anno></c>. The termination is done
+          asynchronously, so it is not guaranteed that the process is
+          terminated when the function returns.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="trace" arity="2" since=""/>
+      <name name="trace" arity="3" since=""/>
+      <fsummary>Print all system events on <c>standard_io</c>.</fsummary>
+      <desc>
+        <p>Prints all system events on <c>standard_io</c>. The events are
+          formatted with a function that is defined by the process that
+          generated the event (with a call to
+          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>).
+        </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Process Implementation Functions</title>
+    <marker id="special_process"/>
+    <p>The following functions are used when implementing a
+      special process. This is an ordinary process, which does not use a
+      standard behavior, but a process that understands the standard system
+     messages.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name name="debug_options" arity="1" since=""/>
+      <fsummary>Convert a list of options to a debug structure.</fsummary>
+      <desc>
+        <p>Can be used by a process that initiates a debug
+          structure from a list of options. The values of argument
+          <c><anno>Opt</anno></c> are the same as for the corresponding
+          functions.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_debug" arity="3" since=""/>
+      <fsummary>Get the data associated with a debug option.</fsummary>
+      <desc>
+	<warning>
+	  <p>
+	    <c>get_debug/3</c> is deprecated since it returns
+	    data of an internal type only useful for debugging.
+	  </p>
+	</warning>
+        <p>Gets the data associated with a debug option.
+          <c><anno>Default</anno></c>
+          is returned if <c><anno>Item</anno></c> is not found. Can be
+          used by the process to retrieve debug data for printing before it
+          terminates.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="handle_debug" arity="4" since=""/>
+      <fsummary>Generate a system event.</fsummary>
+      <desc>
+        <p>This function is called by a process when it generates a
+          system event. <c><anno>FormFunc</anno></c> is a formatting
+          function, called as <c><anno>FormFunc</anno>(Device,
+          <anno>Event</anno>, <anno>Extra</anno>)</c> to print the events, 
+          which is necessary if tracing is activated.
+          <c><anno>Extra</anno></c> is any extra information that the
+          process needs in the format function, for example, the process
+          name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="handle_system_msg" arity="6" since=""/>
+      <fsummary>Take care of system messages.</fsummary>
+      <desc>
+        <p>This function is used by a process module to take care of system
+          messages. The process receives a 
+          <c>{system, <anno>From</anno>, <anno>Msg</anno>}</c> message and
+          passes <c><anno>Msg</anno></c> and <c><anno>From</anno></c> to this
+          function.</p>
+        <p>This function <em>never</em> returns. It calls either of the
+          following functions:</p>
+        <list type="bulleted">
+          <item>
+            <p><c><anno>Module</anno>:system_continue(<anno>Parent</anno>,
+              NDebug, <anno>Misc</anno>)</c>,
+	      where the process continues the execution.</p>
+          </item>
+          <item>
+            <p><c><anno>Module</anno>:system_terminate(Reason,
+              <anno>Parent</anno>, <anno>Debug</anno>, <anno>Misc</anno>)</c>,
+              if the process is to terminate.</p>
+          </item>
+        </list>
+        <p><c><anno>Module</anno></c> must export the following:</p>
+        <list type="bulleted">
+          <item><c>system_continue/3</c></item>
+          <item><c>system_terminate/4</c></item>
+          <item><c>system_code_change/4</c></item>
+          <item><c>system_get_state/1</c></item>
+          <item><c>system_replace_state/2</c></item>
+        </list>
+        <p>Argument <c><anno>Misc</anno></c> can be used to save internal data
+          in a process, for example, its state. It is sent to
+          <c><anno>Module</anno>:system_continue/3</c> or
+          <c><anno>Module</anno>:system_terminate/4</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="print_log" arity="1" since=""/>
+      <fsummary>Print the logged events in the debug structure.</fsummary>
+      <desc>
+        <p>Prints the logged system events in the debug structure,
+          using <c>FormFunc</c> as defined when the event was
+          generated by a call to
+          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_log" arity="1" since="OTP-22.0"/>
+      <fsummary>Return the logged events in the debug structure.</fsummary>
+      <desc>
+        <p>
+	  Returns the logged system events in the debug structure,
+	  that is the last argument to
+          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:system_code_change(Misc, Module, OldVsn, Extra) ->
+        {ok, NMisc}</name>
+      <fsummary>Called when the process is to perform a code change.</fsummary>
+      <type>
+        <v>Misc = term()</v>
+        <v>OldVsn = undefined | term()</v>
+        <v>Module = atom()</v>
+        <v>Extra = term()</v>
+        <v>NMisc = term()</v>
+      </type>
+      <desc>
+        <p>Called from <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso> when the process is to perform a
+          code change. The code change is used when the
+          internal data structure has changed. This function
+          converts argument <c>Misc</c> to the new data
+          structure. <c>OldVsn</c> is attribute <em>vsn</em> of the
+          old version of the <c>Module</c>. If no such attribute is
+          defined, the atom <c>undefined</c> is sent.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:system_continue(Parent, Debug, Misc) -> none()</name>
+      <fsummary>Called when the process is to continue its execution.</fsummary>
+      <type>
+        <v>Parent = pid()</v>
+        <v>Debug = [<seealso marker="#type-dbg_opt">dbg_opt()</seealso>]</v>
+        <v>Misc = term()</v>
+      </type>
+      <desc>
+        <p>Called from <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso> when the process is to continue
+          its execution (for example, after it has been
+          suspended). This function never returns.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.0">Module:system_get_state(Misc) -> {ok, State}</name>
+      <fsummary>Called when the process is to return its current state.
+      </fsummary>
+      <type>
+        <v>Misc = term()</v>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>Called from <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso>
+          when the process is to return a term that reflects its current state. 
+          <c>State</c> is the value returned by 
+          <seealso marker="#get_state/2"><c>get_state/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.0">Module:system_replace_state(StateFun, Misc) ->
+        {ok, NState, NMisc}</name>
+      <fsummary>Called when the process is to replace its current state.
+      </fsummary>
+      <type>
+        <v>StateFun = fun((State :: term()) -> NState)</v>
+        <v>Misc = term()</v>
+        <v>NState = term()</v>
+        <v>NMisc = term()</v>
+      </type>
+      <desc>
+        <p>Called from <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso> when the process is to replace
+          its current state. <c>NState</c> is the value returned by
+          <seealso marker="#replace_state/3"><c>replace_state/3</c></seealso>.
+          </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:system_terminate(Reason, Parent, Debug, Misc) -> none()</name>
+      <fsummary>Called when the process is to terminate.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+        <v>Parent = pid()</v>
+        <v>Debug = [<seealso marker="#type-dbg_opt">dbg_opt()</seealso>]</v>
+        <v>Misc = term()</v>
+      </type>
+      <desc>
+        <p>Called from <seealso marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seealso> when the process is to terminate.
+          For example, this function is called when
+          the process is suspended and its parent orders shutdown.
+          It gives the process a chance to do a cleanup. This function never
+          returns.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

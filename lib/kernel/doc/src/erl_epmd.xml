@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_epmd</title>
+    <prepared>Timmo Verlaan</prepared>
+    <docno>1</docno>
+    <date>2018-02-19</date>
+    <rev>A</rev>
+  </header>
+  <module since="OTP R14B">erl_epmd</module>
+  <modulesummary>
+    Erlang interface towards epmd
+  </modulesummary>
+  <description>
+    <p>This module communicates with the EPMD daemon, see <seealso
+    marker="erts:epmd">epmd</seealso>. To implement your own epmd module please
+    see <seealso marker="erts:alt_disco">ERTS User's Guide: How to Implement an
+    Alternative Service Discovery for Erlang Distribution</seealso></p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="start_link" arity="0" since="OTP 21.0"/>
+      <fsummary>Callback for erl_distribution supervisor.</fsummary>
+      <desc>
+        <p>This function is invoked as this module is added as a child of the
+        <c>erl_distribution</c> supervisor.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="register_node" arity="2" since="OTP 21.0"/>
+      <name name="register_node" arity="3" since="OTP 21.0"/>
+      <fsummary>Registers the node with <c>epmd</c>.</fsummary>
+      <desc>
+        <p>Registers the node with <c>epmd</c> and tells epmd what port will be
+        used for the current node. It returns a creation number. This number is
+        incremented on each register to help with identifying if a node is
+        reconnecting to epmd.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="port_please" arity="2" since="OTP 21.0"/>
+      <name name="port_please" arity="3" since="OTP 21.0"/>
+      <fsummary>Returns the port number for a given node.</fsummary>
+      <desc>
+        <p>Requests the distribution port for the given node of an EPMD
+        instance. Together with the port it returns a distribution protocol
+        version which has been 5 since Erlang/OTP R6.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="address_please" arity="3" since="OTP 21.0"/>
+      <fsummary>Returns address and port.</fsummary>
+      <desc>
+        <p>Called by the distribution module. Resolves the <c>Host</c> to an IP
+        address.</p>
+        <p>Another epmd module may return port and distribution protocol version
+        as well.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="names" arity="1" since="OTP 21.0"/>
+      <fsummary>Names of Erlang nodes at a host.</fsummary>
+      <desc>
+        <p>Called by <seealso marker="net_adm"><c>net_adm:names/0</c></seealso>.
+        <c>Host</c> defaults to the localhost. Returns the names and associated
+        port numbers of the Erlang nodes that <c>epmd</c> registered at the
+        specified host. Returns <c>{error, address}</c> if <c>epmd</c> is not
+        operational.</p>
+        <p><em>Example:</em></p>
+        <pre>
+(arne@dunn)1> <input>erl_epmd:names(localhost).</input>
+{ok,[{"arne",40262}]}</pre>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

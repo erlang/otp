@@ -1,0 +1,1580 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct.xml</file>
+  </header>
+  <module since="">ct</module>
+  <modulesummary>Main user interface for the Common Test framework.</modulesummary>
+
+  <description>
+
+     <p>Main user interface for the <c>Common Test</c> framework.</p>
+
+     <p>This module implements the command-line interface for running
+       tests and basic functions for <c>Common Test</c> case issues, such as
+       configuration and logging.</p>
+
+     <p><em>Test Suite Support Macros</em></p> 
+
+     <p>The <c>config</c> macro is defined in <c>ct.hrl</c>. This macro is
+       to be used to retrieve information from the <c>Config</c> variable sent
+       to all test cases. It is used with two arguments; the first is the name
+       of the configuration variable to retrieve, the second is the
+       <c>Config</c> variable supplied to the test case.</p>
+
+    <p>Possible configuration variables include:</p>
+
+    <list type="bulleted">
+      <item><p><c>data_dir</c> - Data file directory</p></item>
+      <item><p><c>priv_dir</c> - Scratch file directory</p></item>
+      <item><p>Whatever added by
+      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
+      or
+      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+      in the test suite.</p></item>
+    </list>
+
+  </description>
+
+  <section>
+    <title>Data Types</title>
+    <marker id="types"/>
+    <taglist>
+
+      <tag>
+	<marker id="type-handle"/>
+	<c>handle() = pid()</c>
+      </tag>
+      <item>
+        <p>The identity (handle) of a connection.</p>
+      </item>
+
+      <tag>
+	<marker id="type-config_key"/>
+	<c>config_key() = atom()</c>
+      </tag>
+      <item>
+	<p>A configuration key which exists in a configuration file</p>
+      </item>
+
+      <tag>
+	<marker id="type-target_name"/><c>target_name() = atom()</c>
+      </tag>
+      <item>
+        <p>A name and association to configuration data introduced
+          through a require statement, or a call to
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
+          for example,
+          <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
+      </item>
+
+      <tag>
+	<marker id="type-key_or_name"/>
+	<c>key_or_name() = config_key() | target_name()</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_options"/>
+	<c>conn_log_options() = [conn_log_option()]</c>
+      </tag>
+      <item>
+	<p>Options that can be given to the <c>cth_conn_log</c> hook,
+	  which is used for logging of NETCONF and Telnet
+	  connections. See
+	  <seealso marker="ct_netconfc#Logging">ct_netconfc</seealso>
+	  or <seealso marker="ct_telnet#Logging">ct_telnet</seealso>
+	  for description and examples of how to use this hook.</p>
+      </item>
+
+      <tag>
+	<marker id="type-conn_log_option"/>
+	<c>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_type"/>
+	<c>conn_log_type() = raw | pretty | html | silent</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_mod"/>
+	<c>conn_log_mod() = ct_netconfc | ct_telnet</c>
+      </tag>
+      <item/>
+
+    </taglist>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
+      <fsummary>Aborts the currently executing test case.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+        <v>ErrorReason = no_testcase_running | parallel_group</v>
+      </type>
+      <desc><marker id="abort_current_testcase-1"/>
+        <p>Aborts the currently executing test case. The user must know with
+          certainty which test case is currently executing. The function is
+          therefore only safe to call from a function that has been called
+          (or synchronously invoked) by the test case.</p>
+
+        <p><c>Reason</c>, the reason for aborting the test case, is printed
+          in the test case log.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
+      <fsummary>Loads configuration variables using the specified callback
+        module and configuration string.</fsummary>
+      <type>
+        <v>Callback = atom()</v>
+        <v>Config = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="add_config-2"/>
+        <p>Loads configuration variables using the specified callback module and
+          configuration string. The callback module is to be either loaded or
+          present in the code part. Loaded configuration variables can later
+          be removed using function
+          <seealso marker="#remove_config-2"><c>ct:remove_config/2</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">break(Comment) -&gt; ok | {error, Reason}</name>
+      <fsummary>Cancels any active timetrap and pause the execution of the
+        current test case until the user calls function continue/0.</fsummary>
+      <type>
+        <v>Comment = string()</v>
+        <v>Reason = {multiple_cases_running, TestCases} | 'enable break with release_shell option'</v>
+        <v>TestCases = [atom()]</v>
+      </type>
+      <desc><marker id="break-1"/>
+        <p>Cancels any active timetrap and pauses the execution of the
+          current test case until the user calls function <c>continue/0</c>.
+          The user can then interact with the Erlang node running the tests,
+          for example, for debugging purposes or for manually executing a
+          part of the test case. If a parallel group is executing,
+          <seealso marker="#break-2"><c>ct:break/2</c></seealso> is to be
+          called instead.</p>
+       <p>A cancelled timetrap is not automatically reactivated after the
+         break, but must be started exlicitly with
+         <seealso marker="#timetrap-1"><c>ct:timetrap/1</c></seealso>.</p>
+       <p>In order for the break/continue functionality to work, <c>Common
+         Test</c> must release the shell process controlling <c>stdin</c>.
+         This is done by setting start option <c>release_shell</c>
+         to <c>true</c>. For details, see section
+         <seealso marker="run_test_chapter#erlang_shell_or_program">Running
+         Tests from the Erlang Shell or from an Erlang Program</seealso>
+         in the User's Guide.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
+      <fsummary>Works the same way as break/1, only argument TestCase makes it
+        possible to pause a test case executing in a parallel group.</fsummary>
+      <type>
+        <v>TestCase = atom()</v>
+        <v>Comment = string()</v>
+        <v>Reason = 'test case not running' | 'enable break with release_shell option'</v>
+      </type>
+      <desc><marker id="break-2"/>
+        <p>Works the same way as
+          <seealso marker="#break-1"><c>ct:break/1</c></seealso>, only
+          argument <c>TestCase</c> makes it possible to pause a test case
+          executing in a parallel group. Function
+          <seealso marker="#continue-1"><c>ct:continue/1</c></seealso> is to
+          be used to resume execution of <c>TestCase</c>.</p>
+
+        <p>For details, see
+          <seealso marker="#break/1"><c>ct:break/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">capture_get() -&gt; ListOfStrings</name>
+      <fsummary>Equivalent to capture_get([default]).</fsummary>
+      <type>
+        <v>ListOfStrings = [string()]</v>
+      </type>
+      <desc><marker id="capture_get-0"/>
+        <p>Equivalent to
+          <seealso marker="#capture_get-1">ct:capture_get([default])</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">capture_get(ExclCategories) -&gt; ListOfStrings</name>
+      <fsummary>Returns and purges the list of text strings buffered during
+        the latest session of capturing printouts to stdout.</fsummary>
+      <type>
+        <v>ExclCategories = [atom()]</v>
+        <v>ListOfStrings = [string()]</v>
+      </type>
+      <desc><marker id="capture_get-1"/>
+        <p>Returns and purges the list of text strings buffered during the
+          latest session of capturing printouts to <c>stdout</c>. Log
+          categories that are to be ignored in <c>ListOfStrings</c> can be
+          specified with <c>ExclCategories</c>.
+          If <c>ExclCategories = []</c>, no filtering takes place.</p>
+
+        <p>See also
+          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>,
+          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>,
+          <seealso marker="#log-3"><c>ct:log/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">capture_start() -&gt; ok</name>
+      <fsummary>Starts capturing all text strings printed to stdout
+        during execution of the test case.</fsummary>
+        <desc><marker id="capture_start-0"/>
+        <p>Starts capturing all text strings printed to <c>stdout</c>
+          during execution of the test case.</p>
+
+        <p>See also
+          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
+          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">capture_stop() -&gt; ok</name>
+      <fsummary>Stops capturing text strings (a session started with
+        capture_start/0).</fsummary>
+      <desc><marker id="capture_stop-0"/>
+        <p>Stops capturing text strings (a session started with
+          <c>capture_start/0</c>).</p>
+
+        <p>See also
+          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
+          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>.</p>
+       </desc>
+    </func>
+
+    <func>
+      <name since="">comment(Comment) -&gt; ok</name>
+      <fsummary>Prints the specified Comment in the comment field in the
+        table on the test suite result page.</fsummary>
+      <type>
+        <v>Comment = term()</v>
+      </type>
+      <desc><marker id="comment-1"/>
+        <p>Prints the specified <c>Comment</c> in the comment field in the
+          table on the test suite result page.</p>
+
+        <p>If called several times, only the last comment is printed. The
+          test case return value <c>{comment,Comment}</c> overwrites the
+          string set by this function.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">comment(Format, Args) -&gt; ok</name>
+      <fsummary>Prints the formatted string in the comment field in the
+        table on the test suite result page.</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Args = list()</v>
+      </type>
+      <desc><marker id="comment-2"/>
+        <p>Prints the formatted string in the comment field in the table
+          on the test suite result page.</p>
+
+        <p>Arguments <c>Format</c> and <c>Args</c> are used in a call to
+          <c>io_lib:format/2</c> to create the comment string. The behavior
+          of <c>comment/2</c> is otherwise the same as function
+          <seealso marker="#comment-1"><c>ct:comment/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">continue() -&gt; ok</name>
+      <fsummary>This function must be called to continue after a test
+        case (not executing in a parallel group) has called break/1.</fsummary>
+      <desc><marker id="continue-0"/>
+        <p>This function must be called to continue after a test case
+          (not executing in a parallel group) has called function
+          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">continue(TestCase) -&gt; ok</name>
+      <fsummary>This function must be called to continue after a test case
+        has called break/2.</fsummary>
+      <type>
+        <v>TestCase = atom()</v>
+      </type>
+      <desc><marker id="continue-1"/>
+        <p>This function must be called to continue after a test case has
+          called <seealso marker="#break-2"><c>ct:break/2</c></seealso>.
+          If the paused test case, <c>TestCase</c>, executes in a parallel
+          group, this function, rather than <c>continue/0</c>, must be used
+          to let the test case proceed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
+      <fsummary>Decrypts EncryptFileName, previously generated with
+        encrypt_config_file/2,3.</fsummary>
+      <type>
+        <v>EncryptFileName = string()</v>
+        <v>TargetFileName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="decrypt_config_file-2"/>
+        <p>Decrypts <c>EncryptFileName</c>, previously generated with
+          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          The original file contents is saved in the target file. The
+          encryption key, a string, must be available in a text file named
+          <c>.ct_config.crypt</c>, either in the current directory, or the
+          home directory of the user (it is searched for in that order).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Decrypts EncryptFileName, previously generated with
+        encrypt_config_file/2,3.</fsummary>
+      <type>
+        <v>EncryptFileName = string()</v>
+        <v>TargetFileName = string()</v>
+        <v>KeyOrFile = {key, string()} | {file, string()}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="decrypt_config_file-3"/>
+        <p>Decrypts <c>EncryptFileName</c>, previously generated with
+          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          The original file contents is saved in the target file. The key
+          must have the same value as that used for encryption.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
+      <fsummary>Encrypts the source configuration file with DES3 and saves the
+        result in file EncryptFileName.</fsummary>
+      <type>
+        <v>SrcFileName = string()</v>
+        <v>EncryptFileName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="encrypt_config_file-2"/>
+        <p>Encrypts the source configuration file with DES3 and saves the result
+          in file <c>EncryptFileName</c>. The key, a string, must be
+          available in a text file named <c>.ct_config.crypt</c>, either
+          in the current directory, or the home directory of the user (it
+          is searched for in that order).</p>
+
+        <p>For information about using encrypted configuration files when
+          running tests, see section
+          <seealso marker="config_file_chapter#encrypted_config_files">Encrypted
+          Configuration Files</seealso> in the User's Guide.</p>
+
+        <p>For details on DES3 encryption/decryption, see application
+          <seealso marker="crypto:index"><c>Crypto</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Encrypts the source configuration file with DES3 and saves the
+       result in the target file EncryptFileName.</fsummary>
+      <type>
+        <v>SrcFileName = string()</v>
+        <v>EncryptFileName = string()</v>
+        <v>KeyOrFile = {key, string()} | {file, string()}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="encrypt_config_file-3"/>
+        <p>Encrypts the source configuration file with DES3 and saves the result
+          in the target file <c>EncryptFileName</c>. The encryption key
+          to use is either the value in <c>{key,Key}</c> or the value
+          stored in the file specified by <c>{file,File}</c>.</p>
+
+        <p>For information about using encrypted configuration files when
+          running tests, see section
+          <seealso marker="config_file_chapter#encrypted_config_files">Encrypted
+          Configuration Files</seealso> in the User's Guide.</p>
+
+        <p>For details on DES3 encryption/decryption, see application
+          <seealso marker="crypto:index"><c>Crypto</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">fail(Reason) -&gt; ok</name>
+      <fsummary>Terminates a test case with the specified error
+        Reason.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="fail-1"/>
+        <p>Terminates a test case with the specified error <c>Reason</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">fail(Format, Args) -&gt; ok</name>
+      <fsummary>Terminates a test case with an error message specified by
+        a format string and a list of values (used as arguments to
+        io_lib:format/2).</fsummary>
+        <type>
+          <v>Format = string()</v>
+          <v>Args = list()</v>
+       </type>
+      <desc><marker id="fail-2"/>
+        <p>Terminates a test case with an error message specified by a
+          format string and a list of values (used as arguments to
+          <c>io_lib:format/2</c>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_config(Required) -&gt; Value</name>
+      <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
+      <desc><marker id="get_config-1"/>
+        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
+          undefined, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_config(Required, Default) -&gt; Value</name>
+      <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
+      <desc><marker id="get_config-2"/>
+        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
+          Default, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
+      <fsummary>Reads configuration data values.</fsummary>
+      <type>
+        <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
+        <v>KeyOrName = atom()</v>
+        <v>SubKey = atom()</v>
+        <v>Default = term()</v>
+        <v>Opts = [Opt] | []</v>
+        <v>Opt = element | all</v>
+        <v>ValueOrElement = term() | Default</v>
+      </type>
+      <desc><marker id="get_config-3"/>
+        <p>Reads configuration data values.</p>
+
+        <p>Returns the matching values or configuration elements, given a
+          configuration variable key or its associated name (if one has been
+          specified with
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement).</p>
+
+        <p><em>Example:</em></p>
+
+        <p>Given the following configuration file:</p>
+
+        <pre>
+ {unix,[{telnet,IpAddr},
+        {user,[{username,Username},
+               {password,Password}]}]}.</pre>
+
+        <p>Then:</p>
+
+        <pre>
+ ct:get_config(unix,Default) -&gt; [{telnet,IpAddr}, 
+  {user, [{username,Username}, {password,Password}]}]
+ ct:get_config({unix,telnet},Default) -&gt; IpAddr
+ ct:get_config({unix,user,username},Default) -&gt; Username
+ ct:get_config({unix,ftp},Default) -&gt; Default
+ ct:get_config(unknownkey,Default) -&gt; Default</pre>
+
+        <p>If a configuration variable key has been associated with a name (by
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement), the name can be used instead
+          of the key to read the value:</p>
+
+        <pre>
+ ct:require(myuser,{unix,user}) -&gt; ok.
+ ct:get_config(myuser,Default) -&gt; [{username,Username}, {password,Password}]</pre>
+  
+        <p>If a configuration variable is defined in multiple files, use option
+         <c>all</c> to access all possible values. The values are returned
+          in a list. The order of the elements corresponds to the order
+          that the configuration files were specified at startup.</p>
+
+        <p>If configuration elements (key-value tuples) are to be returned as
+          result instead of values, use option <c>element</c>. The
+          returned elements are then on the form <c>{Required,Value}</c>.</p>
+
+        <p>See also
+          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#require-1"><c>ct:require/1</c></seealso>,
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; EvMgrRef</name>
+      <fsummary>Gets a reference to the <c>Common Test</c> event manager.</fsummary>
+        <type>
+          <v>EvMgrRef = atom()</v>
+        </type>
+        <desc><marker id="get_event_mgr_ref-0"/>
+          <p>Gets a reference to the <c>Common Test</c> event manager.
+            The reference can be used to, for example, add a user-specific
+            event handler while tests are running.</p>
+
+          <p><em>Example:</em></p>
+
+          <pre>
+ gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">get_progname() -&gt; string()</name>
+      <fsummary>Returns the command used to start this Erlang instance.</fsummary>
+      <desc><marker id="get_progname-0"/>
+        <p>Returns the command used to start this Erlang instance.
+           If this information could not be found, the string
+           <c>"no_prog_name"</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
+      <fsummary>Returns status of ongoing test.</fsummary>
+      <type>
+        <v>TestStatus = [StatusElem]</v>
+        <v>StatusElem = {current, TestCaseInfo} | {successful, Successful} | {failed, Failed} | {skipped, Skipped} | {total, Total}</v>
+        <v>TestCaseInfo = {Suite, TestCase} | [{Suite, TestCase}]</v>
+        <v>Suite = atom()</v>
+        <v>TestCase = atom()</v>
+        <v>Successful = integer()</v>
+        <v>Failed = integer()</v>
+        <v>Skipped = {UserSkipped, AutoSkipped}</v>
+        <v>UserSkipped = integer()</v>
+        <v>AutoSkipped = integer()</v>
+        <v>Total = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="get_status-0"/>
+        <p>Returns status of ongoing test. The returned list contains
+          information about which test case is executing (a list of cases
+          when a parallel test case group is executing), as well as
+          counters for successful, failed, skipped, and total test cases
+          so far.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
+      <fsummary>Returns the name of the target that the specified connection
+        belongs to.</fsummary>
+      <type>
+        <v>Handle = handle()</v>
+        <v>TargetName = target_name()</v>
+      </type>
+      <desc><marker id="get_target_name-1"/>
+        <p>Returns the name of the target that the specified connection
+          belongs to.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0">get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
+      <fsummary>Gets a list of all test specification terms used to
+        configure and run this test.</fsummary>
+      <type>
+        <v>TestSpecTerms = [{Tag, Value}]</v>
+        <v>Value = [term()]</v>
+      </type>
+      <desc><marker id="get_testspec_terms-0"/>
+        <p>Gets a list of all test specification terms used to configure
+          and run this test.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0">get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
+      <fsummary>Reads one or more terms from the test specification used to
+        configure and run this test.</fsummary>
+      <type>
+        <v>Tags = [Tag] | Tag</v>
+        <v>Tag = atom()</v>
+        <v>TestSpecTerms = [{Tag, Value}] | {Tag, Value}</v>
+        <v>Value = [{Node, term()}] | [term()]</v>
+        <v>Node = atom()</v>
+      </type>
+      <desc><marker id="get_testspec_terms-1"/>
+        <p>Reads one or more terms from the test specification used to
+          configure and run this test. <c>Tag</c> is any valid test
+          specification tag, for example, <c>label</c>, <c>config</c>, or
+          <c>logdir</c>. User-specific terms are also available to read if
+          option <c>allow_user_terms</c> is set.</p>
+        <p>All value tuples returned, except user terms, have the node
+          name as first element.</p>
+        <p>To read test terms, use <c>Tag = tests</c> (rather than
+          <c>suites</c>, <c>groups</c>, or <c>cases</c>). <c>Value</c> is
+          then the list of <em>all</em> tests on the form
+          <c>[{Node,Dir,[{TestSpec,GroupsAndCases1},...]},...]</c>, where
+          <c>GroupsAndCases = [{Group,[Case]}] | [Case]</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
+      <fsummary>Reads information about the timetrap set for the current
+        test case.</fsummary>
+      <type>
+        <v>Time = integer() | infinity</v>
+        <v>Scaling = true | false</v>
+        <v>ScaleVal = integer()</v>
+      </type>
+     <desc><marker id="get_timetrap_info-0"/>
+        <p>Reads information about the timetrap set for the current test
+          case. <c>Scaling</c> indicates if <c>Common Test</c> will attempt
+          to compensate timetraps automatically for runtime delays
+          introduced by, for example, tools like cover. <c>ScaleVal</c> is
+	  the value of the current scaling multipler (always 1 if scaling is
+	  disabled). Note the <c>Time</c> is not the scaled result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.1">get_verbosity(Category) -&gt; Level | undefined</name>
+      <fsummary>Read the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="get_verbosity-1"/>
+        <p>This function returns the verbosity level for the specified logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to read
+	the general verbosity level.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">install(Opts) -&gt; ok | {error, Reason}</name>
+      <fsummary>Installs configuration files and event handlers.</fsummary>
+      <type>
+        <v>Opts = [Opt]</v>
+        <v>Opt = {config, ConfigFiles} | {event_handler, Modules} | {decrypt, KeyOrFile}</v>
+        <v>ConfigFiles = [ConfigFile]</v>
+        <v>ConfigFile = string()</v>
+        <v>Modules = [atom()]</v>
+        <v>KeyOrFile = {key, Key} | {file, KeyFile}</v>
+        <v>Key = string()</v>
+        <v>KeyFile = string()</v>
+      </type>
+      <desc><marker id="install-1"/>
+        <p>Installs configuration files and event handlers.</p>
+
+        <p>Run this function once before the first test.</p>
+
+        <p><em>Example:</em></p>
+
+        <pre>
+ install([{config,["config_node.ctc","config_user.ctc"]}])</pre>
+
+        <p>This function is automatically run by program <c>ct_run</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">listenv(Telnet) -&gt; [Env]</name>
+      <fsummary>Performs command listenv on the specified Telnet connection
+        and returns the result as a list of key-value pairs.</fsummary>
+      <type>
+        <v>Telnet = term()</v>
+        <v>Env = {Key, Value}</v>
+        <v>Key = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc><marker id="listenv-1"/>
+        <p>Performs command <c>listenv</c> on the specified Telnet connection
+          and returns the result as a list of key-value pairs.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">log(Format) -&gt; ok</name>
+      <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
+      <desc><marker id="log-1"/>
+        <p>Equivalent to
+          <seealso marker="#log-5"><c>ct:log(default, 50, Format, [], [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">log(X1, X2) -&gt; ok</name>
+      <fsummary>Equivalent to log(Category, Importance, Format,
+        FormatArgs, []).</fsummary>
+      <type>
+        <v>X1 = Category | Importance | Format</v>
+        <v>X2 = Format | FormatArgs</v>
+      </type>
+      <desc><marker id="log-2"/>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">log(X1, X2, X3) -&gt; ok</name>
+      <fsummary>Equivalent to log(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="log-3"/>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">log(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to log(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="log-4"/>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.3">log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <fsummary>Prints from a test case to the log file.</fsummary>
+      <type>
+        <v>Category = atom()</v>
+        <v>Importance = integer()</v>
+        <v>Format = string()</v>
+        <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()} | no_css | esc_chars</v>
+      </type>
+      <desc><marker id="log-5"/>
+        <p>Prints from a test case to the log file.</p>
+
+        <p>This function is meant for printing a string directly from a
+          test case to the test case log file.</p>
+
+        <p>Default <c>Category</c> is <c>default</c>,
+          default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
+
+        <p>For details on <c>Category</c>, <c>Importance</c> and the <c>no_css</c>
+	option, see section <seealso marker="write_test_chapter#logging">
+	Logging - Categories and Verbosity Levels</seealso> in the User's Guide.</p>
+
+	<p>Common Test will not escape special HTML characters (&lt;, &gt; and &amp;)
+	   in the text printed with this function, unless the <c>esc_chars</c>
+	   option is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">make_priv_dir() -&gt; ok | {error, Reason}</name>
+      <fsummary>If the test has been started with option create_priv_dir
+        set to manual_per_tc, in order for the test case to use the private
+        directory, it must first create it by calling this function.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="make_priv_dir-0"/>
+        <p>If the test is started with option <c>create_priv_dir</c>
+          set to <c>manual_per_tc</c>, in order for the test case to use
+          the private directory, it must first create it by calling this
+          function.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">notify(Name, Data) -&gt; ok</name>
+      <fsummary>Sends an asynchronous notification of type Name with Data
+        to the <c>Common Test</c> event manager.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Data = term()</v>
+      </type>
+      <desc><marker id="notify-2"/>
+        <p>Sends an asynchronous notification of type <c>Name</c> with
+          <c>Data</c>to the Common Test event manager. This can later be
+          caught by any installed event manager.</p>
+
+        <p>See also
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">pal(Format) -&gt; ok</name>
+      <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
+      <desc><marker id="pal-1"/>
+        <p>Equivalent to
+          <seealso marker="#pal-5"><c>ct:pal(default, 50, Format,
+            [], [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">pal(X1, X2) -&gt; ok</name>
+      <fsummary>Equivalent to pal(Category, Importance, Format,
+        FormatArgs, []).</fsummary>
+      <type>
+        <v>X1 = Category | Importance | Format</v>
+        <v>X2 = Format | FormatArgs</v>
+      </type>
+      <desc><marker id="pal-2"/>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">pal(X1, X2, X3) -&gt; ok</name>
+      <fsummary>Equivalent to pal(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="pal-3"/>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">pal(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to pal(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="pal-4"/>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.2">pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <fsummary>Prints and logs from a test case.</fsummary>
+      <type>
+        <v>Category = atom()</v>
+        <v>Importance = integer()</v>
+        <v>Format = string()</v>
+        <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()} | no_css</v>
+      </type>
+      <desc><marker id="pal-5"/>
+        <p>Prints and logs from a test case.</p>
+
+        <p>This function is meant for printing a string from a test case,
+          both to the test case log file and to the console.</p>
+
+        <p>Default <c>Category</c> is <c>default</c>,
+          default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
+
+        <p>For details on <c>Category</c> and <c>Importance</c>, see section
+          <seealso marker="write_test_chapter#logging">Logging - Categories
+          and Verbosity Levels</seealso> in the User's Guide.</p>
+
+	<p>Note that special characters in the text (&lt;, &gt; and &amp;) will
+	   be escaped by Common Test before the text is printed to the log
+	   file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">parse_table(Data) -&gt; {Heading, Table}</name>
+      <fsummary>Parses the printout from an SQL table and returns a list of
+        tuples.</fsummary>
+      <type>
+        <v>Data = [string()]</v>
+        <v>Heading = tuple()</v>
+        <v>Table = [tuple()]</v>
+      </type>
+      <desc><marker id="parse_table-1"/>
+        <p>Parses the printout from an SQL table and returns a list of
+          tuples.</p>
+
+        <p>The printout to parse is typically the result of a <c>select</c>
+          command in SQL. The returned <c>Table</c> is a list of tuples,
+          where each tuple is a row in the table.</p>
+
+        <p><c>Heading</c> is a tuple of strings representing the headings
+          of each column in the table.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">print(Format) -&gt; ok</name>
+      <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
+      <desc><marker id="print-1"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
+        50, Format, [], [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">print(X1, X2) -&gt; ok</name>
+      <fsummary>Equivalent to print(Category, Importance, Format,
+        FormatArgs, []).</fsummary>
+      <type>
+        <v>X1 = Category | Importance | Format</v>
+        <v>X2 = Format | FormatArgs</v>
+      </type>
+      <desc><marker id="print-2"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">print(X1, X2, X3) -&gt; ok</name>
+      <fsummary>Equivalent to print(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="print-3"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">print(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to print(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="print-4"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.2">print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <fsummary>Prints from a test case to the console.</fsummary>
+      <type>
+        <v>Category = atom()</v>
+        <v>Importance = integer()</v>
+        <v>Format = string()</v>
+        <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()}</v>
+      </type>
+      <desc><marker id="print-5"/>
+        <p>Prints from a test case to the console.</p>
+
+        <p>This function is meant for printing a string from a test case to
+          the console.</p>
+
+        <p>Default <c>Category</c> is <c>default</c>,
+          default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
+
+        <p>For details on <c>Category</c> and <c>Importance</c>, see section
+          <seealso marker="write_test_chapter#logging">Logging - Categories
+          and Verbosity Levels</seealso> in the User's Guide.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
+      <fsummary>Reloads configuration file containing specified configuration
+        key.</fsummary>
+      <type>
+        <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
+        <v>KeyOrName = atom()</v>
+        <v>SubKey = atom()</v>
+        <v>ValueOrElement = term()</v>
+      </type>
+      <desc><marker id="reload_config-1"/>
+        <p>Reloads configuration file containing specified configuration key.</p>
+
+        <p>This function updates the configuration data from which the
+          specified configuration variable was read, and returns the (possibly)
+          new value of this variable.</p>
+
+        <p>If some variables were present in the configuration, but are
+          not loaded using this function, they are removed from the
+          configuration table together with their aliases.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="OTP 20.2">remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <fsummary>>This function will return the identity of test- and group
+       leader processes that are still running at the time of this call.</fsummary>
+      <type>
+        <v>TestProcs = [{pid(),GL}]</v>
+	<v>GL = pid()</v>
+        <v>SharedGL = pid()</v>
+        <v>OtherGLs = [pid()]</v>
+      </type>
+      <desc><marker id="remaining_test_procs-0"/>
+        <p>This function will return the identity of test- and group
+	leader processes that are still running at the time of this call.
+	<c>TestProcs</c> are processes in the system that have a Common Test IO
+	process as group leader. <c>SharedGL</c> is the central Common Test
+	IO process, responsible for printing to log files for configuration
+	functions and sequentially executing test cases. <c>OtherGLs</c> are
+	Common Test IO processes that print to log files for test cases
+	in parallel test case groups.</p>
+	<p>The process information returned by this function may be
+	used to locate and terminate remaining processes after tests have
+	finished executing. The function would typically by called from
+	Common Test Hook functions.</p>
+	<p>Note that processes that execute configuration functions or
+	test cases are never included in <c>TestProcs</c>. It is therefore safe
+	to use post configuration hook functions (such as post_end_per_suite,
+	post_end_per_group, post_end_per_testcase) to terminate all processes
+	in <c>TestProcs</c> that have the current group leader process as its group
+	leader.</p>
+	<p>Note also that the shared group leader (<c>SharedGL</c>) must never be
+	terminated by the user, only by Common Test. Group leader processes
+	for parallel test case groups (<c>OtherGLs</c>) may however be terminated
+	in post_end_per_group hook functions.</p>
+      </desc>
+    </func>   
+
+    <func>
+      <name since="OTP R14B">remove_config(Callback, Config) -&gt; ok</name>
+      <fsummary>Removes configuration variables (together with
+        their aliases) that were loaded with specified callback module and
+        configuration string.</fsummary>
+      <type>
+        <v>Callback = atom()</v>
+        <v>Config = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="remove_config-2"/>
+        <p>Removes configuration variables (together wih their aliases)
+          that were loaded with specified callback module and configuration
+          string.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">require(Required) -&gt; ok | {error, Reason}</name>
+      <fsummary>Checks if the required configuration is available.</fsummary>
+      <type>
+        <v>Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</v>
+        <v>Key = atom()</v>
+        <v>SubKeys = SubKey | [SubKey]</v>
+        <v>SubKey = atom()</v>
+      </type>
+      <desc><marker id="require-1"/>
+        <p>Checks if the required configuration is available. Arbitrarily
+          deep tuples can be specified as <c>Required</c>. Only the last
+          element of the tuple can be a list of <c>SubKey</c>s.</p>
+
+        <p><em>Example 1.</em> Require the variable <c>myvar</c>:</p>
+
+        <pre>
+ ok = ct:require(myvar).</pre>
+ 
+        <p>In this case the configuration file must at least contain:</p>
+
+        <pre>
+ {myvar,Value}.</pre>
+  
+        <p><em>Example 2.</em> Require key <c>myvar</c> with subkeys
+          <c>sub1</c> and <c>sub2</c>:</p>
+
+        <pre>
+ ok = ct:require({myvar,[sub1,sub2]}).</pre>
+
+        <p>In this case the configuration file must at least contain:</p>
+
+        <pre>
+ {myvar,[{sub1,Value},{sub2,Value}]}.</pre>
+
+        <p><em>Example 3.</em> Require key <c>myvar</c> with subkey
+          <c>sub1</c> with <c>subsub1</c>:</p>
+
+        <pre>
+ ok = ct:require({myvar,sub1,sub2}).</pre>
+
+        <p>In this case the configuration file must at least contain:</p>
+
+        <pre>
+ {myvar,[{sub1,[{sub2,Value}]}]}.</pre>
+
+        <p>See also
+          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+        </desc>
+    </func>
+
+    <func>
+      <name since="">require(Name, Required) -&gt; ok | {error, Reason}</name>
+      <fsummary>Checks if the required configuration is available and gives
+        it a name.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Required = Key | {Key, SubKey} | {Key, SubKey, SubKey}</v>
+        <v>SubKey = Key</v>
+        <v>Key = atom()</v>
+      </type>
+      <desc><marker id="require-2"/>
+        <p>Checks if the required configuration is available and gives it a
+          name. The semantics for <c>Required</c> is the same as in
+          <seealso marker="#require-1"><c>ct:require/1</c></seealso> except
+          that a list of <c>SubKey</c>s cannot be specified.</p>
+
+       <p>If the requested data is available, the subentry is associated
+         with <c>Name</c> so that the value of the element can be read with
+         <seealso marker="#get_config-1"><c>ct:get_config/1,2</c></seealso>
+         provided <c>Name</c> is used instead of the whole <c>Required</c>
+         term.</p>
+
+       <p><em>Example:</em></p>
+
+       <p>Require one node with a Telnet connection and an FTP connection.
+         Name the node <c>a</c>:</p>
+
+       <pre>
+ ok = ct:require(a,{machine,node}).</pre>
+
+        <p>All references to this node can then use the node name. For
+          example, a file over FTP is fetched like follows:</p>
+
+        <pre>
+ ok = ct:ftp_get(a,RemoteFile,LocalFile).</pre>
+
+        <p>For this to work, the configuration file must at least contain:</p>
+
+        <pre>
+ {machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre>
+
+        <note><p>The behavior of this function changed radically in
+          <c>Common Test</c> 1.6.2. To keep some backwards compatability,
+          it is still possible to do:<br/>
+          <c>ct:require(a,{node,[telnet,ftp]}).</c><br/>
+          This associates the name <c>a</c> with the top-level <c>node</c>
+          entry. For this to work, the configuration file must at least
+          contain:<br/>
+          <c>{node,[{telnet,IpAddr},{ftp,IpAddr}]}.</c></p>
+        </note>
+
+        <p>See also
+          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
+          <seealso marker="#require-1"><c>ct:require/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run(TestDirs) -&gt; Result</name>
+      <fsummary>Runs all test cases in all suites in the specified
+        directories.</fsummary>
+      <type>
+        <v>TestDirs = TestDir | [TestDir]</v>
+      </type>
+      <desc><marker id="run-1"/>
+        <p>Runs all test cases in all suites in the specified directories.</p>
+
+        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run(TestDir, Suite) -&gt; Result</name>
+      <fsummary>Runs all test cases in the specified suite.</fsummary>
+      <desc><marker id="run-2"/>
+        <p>Runs all test cases in the specified suite.</p>
+
+        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run(TestDir, Suite, Cases) -&gt; Result</name>
+      <fsummary>Runs the specified test cases.</fsummary>
+      <type>
+        <v>TestDir = string()</v>
+        <v>Suite = atom()</v>
+        <v>Cases = atom() | [atom()]</v>
+        <v>Result = [TestResult] | {error, Reason}</v>
+      </type>
+      <desc><marker id="run-3"/>
+        <p>Runs the specified test cases.</p>
+
+        <p>Requires that
+          <seealso marker="#install-1"><c>ct:install/1</c></seealso> has been
+            run first.</p>
+
+        <p>Suites (<c>*_SUITE.erl</c>) files must be stored in <c>TestDir</c>
+          or <c>TestDir/test</c>. All suites are compiled when the test is
+          run.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_test(Opts) -&gt; Result</name>
+      <fsummary>Runs tests as specified by the combination of options in
+        Opts.</fsummary>
+      <type>
+        <v>Opts = [OptTuples]</v>
+        <v>OptTuples = {dir, TestDirs} | {suite, Suites} | {group, Groups} | {testcase, Cases} | {spec, TestSpecs} | {join_specs, Bool} | {label, Label} | {config, CfgFiles} | {userconfig, UserConfig} | {allow_user_terms, Bool} | {logdir, LogDir} | {silent_connections, Conns} | {stylesheet, CSSFile} | {cover, CoverSpecFile} | {cover_stop, Bool} | {step, StepOpts} | {event_handler, EventHandlers} | {include, InclDirs} | {auto_compile, Bool} | {abort_if_missing_suites, Bool} | {create_priv_dir, CreatePrivDir} | {multiply_timetraps, M} | {scale_timetraps, Bool} | {repeat, N} | {duration, DurTime} | {until, StopTime} | {force_stop, ForceStop} | {decrypt, DecryptKeyOrFile} | {refresh_logs, LogDir} | {logopts, LogOpts} | {verbosity, VLevels} | {basic_html, Bool} | {esc_chars, Bool} | {keep_logs,KeepSpec} | {ct_hooks, CTHs} | {enable_builtin_hooks, Bool} | {release_shell, Bool}</v>
+        <v>TestDirs = [string()] | string()</v>
+        <v>Suites = [string()] | [atom()] | string() | atom()</v>
+        <v>Cases = [atom()] | atom()</v>
+        <v>Groups = GroupNameOrPath | [GroupNameOrPath]</v>
+        <v>GroupNameOrPath = [atom()] | atom() | all</v>
+        <v>TestSpecs = [string()] | string()</v>
+        <v>Label = string() | atom()</v>
+        <v>CfgFiles = [string()] | string()</v>
+        <v>UserConfig = [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings}</v>
+        <v>CallbackMod = atom()</v>
+        <v>CfgStrings = [string()] | string()</v>
+        <v>LogDir = string()</v>
+        <v>Conns = all | [atom()]</v>
+        <v>CSSFile = string()</v>
+        <v>CoverSpecFile = string()</v>
+        <v>StepOpts = [StepOpt] | []</v>
+        <v>StepOpt = config | keep_inactive</v>
+        <v>EventHandlers = EH | [EH]</v>
+        <v>EH = atom() | {atom(), InitArgs} | {[atom()], InitArgs}</v>
+        <v>InitArgs = [term()]</v>
+        <v>InclDirs = [string()] | string()</v>
+        <v>CreatePrivDir = auto_per_run | auto_per_tc | manual_per_tc</v>
+        <v>M = integer()</v>
+        <v>N = integer()</v>
+        <v>DurTime = string(HHMMSS)</v>
+        <v>StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)</v>
+        <v>ForceStop = skip_rest | Bool</v>
+        <v>DecryptKeyOrFile = {key, DecryptKey} | {file, DecryptFile}</v>
+        <v>DecryptKey = string()</v>
+        <v>DecryptFile = string()</v>
+        <v>LogOpts = [LogOpt]</v>
+        <v>LogOpt = no_nl | no_src</v>
+        <v>VLevels = VLevel | [{Category, VLevel}]</v>
+        <v>VLevel = integer()</v>
+        <v>Category = atom()</v>
+	<v>KeepSpec = all | pos_integer()</v>
+        <v>CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</v>
+        <v>CTHModule = atom()</v>
+        <v>CTHInitArgs = term()</v>
+        <v>Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | TestRunnerPid | {error, Reason}</v>
+        <v>Ok = integer()</v>
+        <v>Failed = integer()</v>
+        <v>UserSkipped = integer()</v>
+        <v>AutoSkipped = integer()</v>
+        <v>TestRunnerPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="run_test-1"/>
+        <p>Runs tests as specified by the combination of options in
+          <c>Opts</c>. The options are the same as those used with program
+          <c>ct_run</c>, see <seealso marker="ct_run#ct_run">Run Tests from
+          Command Line</seealso> in the <c>ct_run</c> manual page.</p>
+        <p>Here a <c>TestDir</c> can be used to point out the path to a
+          <c>Suite</c>. Option <c>testcase</c> corresponds to option
+          <c>-case</c> in program <c>ct_run</c>. Configuration files
+          specified in <c>Opts</c> are installed automatically at startup.</p>
+
+        <p><c>TestRunnerPid</c> is returned if <c>release_shell == true</c>.
+          For details, see
+          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+
+        <p><c>Reason</c> indicates the type of error encountered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_testspec(TestSpec) -&gt; Result</name>
+      <fsummary>Runs a test specified by TestSpec.</fsummary>
+      <type>
+        <v>TestSpec = [term()]</v>
+        <v>Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | {error, Reason}</v>
+        <v>Ok = integer()</v>
+        <v>Failed = integer()</v>
+        <v>UserSkipped = integer()</v>
+        <v>AutoSkipped = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="run_testspec-1"/>
+        <p>Runs a test specified by <c>TestSpec</c>. The same terms are used
+          as in test specification files.</p>
+
+        <p><c>Reason</c> indicates the type of error encountered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 19.1">set_verbosity(Category, Level) -&gt; ok</name>
+      <fsummary>Set the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="set_verbosity-2"/>
+        <p>Use this function to set, or modify, the verbosity level for a logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to set the
+	general verbosity level.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">sleep(Time) -&gt; ok</name>
+      <fsummary>This function, similar to timer:sleep/1, suspends the
+        test case for a specified time.</fsummary>
+      <type>
+        <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity</v>
+        <v>Hours = integer()</v>
+        <v>Mins = integer()</v>
+        <v>Secs = integer()</v>
+        <v>Millisecs = integer() | float()</v>
+      </type>
+      <desc><marker id="sleep-1"/>
+        <p>This function, similar to <c>timer:sleep/1</c> in STDLIB,
+          suspends the test case for a specified time.
+          However, this function also multiplies <c>Time</c> with the
+          <c>multiply_timetraps</c> value (if set) and under certain
+          circumstances also scales up the time automatically if
+          <c>scale_timetraps</c> is set to <c>true</c> (default is
+          <c>false</c>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_interactive() -&gt; ok</name>
+      <fsummary>Starts <c>Common Test</c> in interactive mode.</fsummary>
+      <desc><marker id="start_interactive-0"/>
+        <p>Starts <c>Common Test</c> in interactive mode.</p>
+
+        <p>From this mode, all test case support functions can be executed
+          directly from the Erlang shell. The interactive mode can also be
+          started from the OS command line with <c>ct_run -shell
+          [-config File...]</c>.</p>
+
+        <p>If any functions (for example, Telnet or FTP) using
+          "required configuration data" are to be called from the Erlang shell,
+          configuration data must first be required with
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+
+        <p><em>Example:</em></p>
+
+        <pre>
+ &gt; ct:require(unix_telnet, unix).
+ ok
+ &gt; ct_telnet:open(unix_telnet).
+ {ok,&lt;0.105.0&gt;}
+ &gt; ct_telnet:cmd(unix_telnet, "ls .").
+ {ok,["ls","file1  ...",...]}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">step(TestDir, Suite, Case) -&gt; Result</name>
+      <fsummary>Steps through a test case with the debugger.</fsummary>
+      <type>
+        <v>Case = atom()</v>
+      </type>
+      <desc><marker id="step-3"/>
+        <p>Steps through a test case with the debugger.</p>
+
+        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">step(TestDir, Suite, Case, Opts) -&gt; Result</name>
+      <fsummary>Steps through a test case with the debugger.</fsummary>
+      <type>
+        <v>Case = atom()</v>
+        <v>Opts = [Opt] | []</v>
+        <v>Opt = config | keep_inactive</v>
+      </type>
+      <desc><marker id="step-4"/>
+        <p>Steps through a test case with the debugger. If option
+          <c>config</c> has been specifed, breakpoints are also set on
+          the configuration functions in <c>Suite</c>.</p>
+
+        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">stop_interactive() -&gt; ok</name>
+      <fsummary>Exits the interactive mode.</fsummary>
+      <desc><marker id="stop_interactive-0"/>
+        <p>Exits the interactive mode.</p>
+
+        <p>See also
+          <seealso marker="#start_interactive-0"><c>ct:start_interactive/0</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">sync_notify(Name, Data) -&gt; ok</name>
+      <fsummary>Sends a synchronous notification of type Name with Data to
+        the <c>Common Test</c> event manager.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Data = term()</v>
+      </type>
+      <desc><marker id="sync_notify-2"/>
+        <p>Sends a synchronous notification of type <c>Name</c> with
+          <c>Data</c> to the <c>Common Test</c> event manager. This can later be
+          caught by any installed event manager.</p>
+
+        <p>See also
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
+      <fsummary>Returns all test cases in the specified suite.</fsummary>
+      <type>
+        <v>TestDir = string()</v>
+        <v>Suite = atom()</v>
+        <v>Testcases = list()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="testcases-2"/>
+        <p>Returns all test cases in the specified suite.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">timetrap(Time) -&gt; ok</name>
+      <fsummary>Sets a new timetrap for the running test case.</fsummary>
+      <type>
+        <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</v>
+        <v>Hours = integer()</v>
+        <v>Mins = integer()</v>
+        <v>Secs = integer()</v>
+        <v>Millisecs = integer()</v>
+        <v>Func = {M, F, A} | function()</v>
+        <v>M = atom()</v>
+        <v>F = atom()</v>
+        <v>A = list()</v>
+      </type>
+      <desc><marker id="timetrap-1"/>
+        <p>Sets a new timetrap for the running test case.</p>
+
+        <p>If the argument is <c>Func</c>, the timetrap is triggered when
+          this function returns. <c>Func</c> can also return a new
+          <c>Time</c> value, which in that case is the value for the new
+          timetrap.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
+      <fsummary>Returns any data specified with tag userdata in the list of
+        tuples returned from Suite:suite/0.</fsummary>
+      <type>
+        <v>TestDir = string()</v>
+        <v>Suite = atom()</v>
+        <v>SuiteUserData = [term()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="userdata-2"/>
+        <p>Returns any data specified with tag <c>userdata</c> in the list
+          of tuples returned from
+          <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
+      <fsummary>Returns any data specified with tag userdata in the list of
+        tuples returned from Suite:group(GroupName) or Suite:Case().</fsummary>
+      <type>
+        <v>TestDir = string()</v>
+        <v>Suite = atom()</v>
+        <v>GroupOrCase = {group, GroupName} | atom()</v>
+        <v>GroupName = atom()</v>
+        <v>TCUserData = [term()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="userdata-3"/>
+        <p>Returns any data specified with tag <c>userdata</c> in the list
+          of tuples returned from <c>Suite:group(GroupName)</c> or
+          <c>Suite:Case()</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

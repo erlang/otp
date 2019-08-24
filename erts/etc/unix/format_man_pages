@@ -1,0 +1,137 @@
+#!/bin/sh
+# 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+#  Format man_pages
+#
+
+ERL_ROOT=$1
+
+echo "Formatting manual pages (this may take a while...)"
+
+if [ -z "$ERL_ROOT" -o ! -d "$ERL_ROOT" ]
+then
+	echo "Install: need ERL_ROOT directory as argument"
+	exit 1
+fi
+
+if [ `echo $ERL_ROOT | awk '{ print substr($1,1,1) }'` != "/" ]
+then
+	echo "Install: need an absolute path to ERL_ROOT"
+	exit 1
+fi
+
+#
+# Fetch target system.
+#
+SYS=`(uname -s) 2>/dev/null` || SYS=unknown
+REL=`(uname -r) 2>/dev/null` || REL=unknown
+case $SYS:$REL in
+	        SunOS:5.*)
+	                TARGET=sunos5 ;;
+	        Linux:*)
+	                TARGET=linux ;;
+                Darwin:9.*)
+                        TARGET=darwin ;;
+                OpenBSD:3.*)
+                        TARGET=openbsd ;;
+	        *)
+	                TARGET="" ;;
+esac
+
+#
+# Create the 'cat' directories (probably not needed)
+#
+
+cd $ERL_ROOT/man
+
+for d in 0 1 2 3 4 5 6 7 8 9
+do
+  if [ ! -d cat$d ]
+      then
+      mkdir cat$d
+  fi
+
+done
+
+#
+# Cleanup old formatting
+#
+
+rm -f whatis windex
+
+# Remove old cat files
+rm -f cat*/*.[0-9]* *.txt
+
+#
+# Create new formatted pages
+#
+
+case :"$TARGET" in
+:linux|:darwin)
+    # Do not build whatis database, since makewhatis can only run by root
+    # echo "whatis database not created, since makewhatis can only be run by root."
+    ## We would have run
+    ## /usr/sbin/makewhatis -v $ERL_ROOT/man -c $ERL_ROOT/man > /dev/null 2>&1
+
+    if [ ! -x /usr/bin/groff ]; then
+	echo "Cannot find groff - no formating of manual pages"
+	exit
+    fi
+
+    echo "Creating cat files ..."
+
+    # Create cat files
+    for dir in man*
+    do
+	cd $dir
+	for file in *.[0-9]*
+	do
+	    if [ -f $file ]; then
+		name=`echo $file | sed 's/\.[^.]*$//'`
+		sec=`echo $file | sed 's/.*\.//'`
+		/usr/bin/groff -Tutf8 -mandoc $ERL_ROOT/man/man$sec/$file \
+			> $ERL_ROOT/man/cat$sec/$file
+	    fi
+	done
+	cd ..
+    done
+    ;;
+:*)
+    if [ -f "/vmunix" ]; then 
+	CATMAN=/usr/etc/catman
+    elif [ "$TARGET" = "openbsd" ]; then
+        CATMAN=/usr/sbin/catman
+    else
+	CATMAN=/usr/bin/catman
+    fi
+
+    if [ "$TARGET" = "sunos5" ]
+    then
+	# Special processing of footer
+	rm -f /tmp/erltmac_an
+	sed 's/Last change://g' /usr/share/lib/tmac/an > /tmp/erltmac_an
+	$CATMAN -M $ERL_ROOT/man -T /tmp/erltmac_an > /dev/null 2>&1
+	rm -f /tmp/erltmac_an
+    fi
+
+    $CATMAN -M $ERL_ROOT/man > /dev/null 2>&1
+    ;;
+esac

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_format</title>
+    <prepared>Torbj&ouml;rn T&ouml;rnkvist</prepared>
+    <responsible>Torbj&ouml;rn T&ouml;rnkvist</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
+    <date>1996-10-16</date>
+    <rev>A</rev>
+    <file>erl_format.xml</file>
+  </header>
+  <lib>erl_format</lib>
+  <libsummary>Create and match Erlang terms.</libsummary>
+  <description>
+    <p>This module contains two routines: one general function for
+      creating Erlang terms and one for pattern matching Erlang terms.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since=""><ret>ETERM *</ret><nametext>erl_format(FormatStr, ...)</nametext></name>
+      <fsummary>Create an Erlang term.</fsummary>
+      <type>
+        <v>char *FormatStr;</v>
+      </type>
+      <desc>
+        <p>A general function for creating Erlang terms using
+          a format specifier and a corresponding set of arguments, much
+          in the way <c>printf()</c> works.</p>
+        <p><c>FormatStr</c> is a format specification string.
+          The valid format specifiers are as follows:</p>
+        <list type="bulleted">
+          <item><c>~i</c> - Integer</item>
+          <item><c>~f</c> - Floating point</item>
+          <item><c>~a</c> - Atom</item>
+          <item><c>~s</c> - String</item>
+          <item><c>~w</c> - Arbitrary Erlang term</item>
+        </list>
+        <p>For each format specifier included in <c>FormatStr</c>,
+          there must be a corresponding argument following
+          <c>FormatStr</c>. An Erlang term is built according to
+          <c>FormatStr</c> with values and Erlang terms substituted
+          from the corresponding arguments, and according to the individual
+          format specifiers. For example:</p>
+        <code type="none"><![CDATA[
+erl_format("[{name,~a},{age,~i},{data,~w}]",
+           "madonna",
+           21,
+           erl_format("[{adr,~s,~i}]","E-street",42));
+        ]]></code>
+        <p>This creates an <c>(ETERM *)</c> structure corresponding
+          to the Erlang term
+          <c>[{name,madonna},{age,21},{data,[{adr,"E-street",42}]}]</c></p>
+        <p>The function returns an Erlang term, or <c>NULL</c> if
+          <c>FormatStr</c> does not describe a valid Erlang
+          term.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_match(Pattern, Term)</nametext></name>
+      <fsummary>Perform pattern matching.</fsummary>
+      <type>
+        <v>ETERM *Pattern,*Term;</v>
+      </type>
+      <desc>
+        <p>This function is used to perform pattern matching similar
+          to that done in Erlang. For matching rules and more examples, see
+          section <seealso marker="doc/reference_manual:patterns">
+          Pattern Matching</seealso> in the Erlang Reference Manual.</p>
+        <list type="bulleted">
+          <item><c>Pattern</c> is an Erlang term, possibly
+            containing unbound variables.</item>
+          <item><c>Term</c> is an Erlang term that we wish to match
+            against <c>Pattern</c>.</item>
+        </list>
+        <p><c>Term</c> and <c>Pattern</c> are compared
+          and any unbound variables in <c>Pattern</c> are bound to
+          corresponding values in <c>Term</c>.</p>
+        <p>If <c>Term</c> and <c>Pattern</c> can be
+          matched, the function returns a non-zero value and binds any unbound
+          variables in <c>Pattern</c>. If <c>Term</c>
+          and <c>Pattern</c> do
+          not match, <c>0</c> is returned. For example:</p>
+        <code type="none"><![CDATA[
+ETERM *term, *pattern, *pattern2;
+term1    = erl_format("{14,21}");
+term2    = erl_format("{19,19}");
+pattern1 = erl_format("{A,B}");
+pattern2 = erl_format("{F,F}");
+if (erl_match(pattern1, term1)) {
+  /* match succeeds:
+   * A gets bound to 14, 
+   * B gets bound to 21 
+   */
+  ...  
+}
+if (erl_match(pattern2, term1)) {
+  /* match fails because F cannot be 
+   * bound to two separate values, 14 and 21
+   */
+  ...
+}
+if (erl_match(pattern2, term2)) {
+  /* match succeeds and F gets bound to 19 */
+  ...
+}
+        ]]></code>
+        <p><c>erl_var_content()</c> can be used to retrieve the
+          content of any variables bound as a result of a call to
+          <c>erl_match()</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</cref>

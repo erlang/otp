@@ -1,0 +1,46 @@
+ChoExtension DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+ChoExt1 ::=  CHOICE 
+{
+  bool BOOLEAN,
+  int INTEGER,
+  ...
+}
+
+ChoExt1x ::=  CHOICE 
+{
+  bool BOOLEAN,
+  int INTEGER,
+  ...,
+  str OCTET STRING
+}
+
+ChoExt2 ::=  CHOICE 
+{
+  bool BOOLEAN,
+  ...,
+  int INTEGER
+}
+
+ChoExt3 ::=  CHOICE 
+{
+  str OCTET STRING,
+--  ...,
+  bool BOOLEAN,
+  int INTEGER
+}
+
+ChoExt4 ::= CHOICE
+{
+  bool BOOLEAN,
+  int INTEGER,
+  ...,
+  str OCTET STRING
+}
+
+choExt1 ChoExt1 ::= int : 1
+
+END

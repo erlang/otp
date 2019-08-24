@@ -1,0 +1,11 @@
+%% -*- erlang -*-
+%% You can test this file using this command.
+%%    file:script("observer.dynspec", [{'Os',"Unix"}]).
+
+case erlang:system_info(modified_timing_level) of
+    undefined ->
+	[];
+    _ ->
+	Reason = "Return trace limitation for spawn BIFs when +T is used",
+	[{skip,{ttb_SUITE,Reason}}]
+end.

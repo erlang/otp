@@ -1,0 +1,103 @@
+//
+// %CopyrightBegin%
+// 
+// Copyright Ericsson AB 1997-2016. All Rights Reserved.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// 
+// %CopyrightEnd%
+//
+#include <windows.h>
+#include "resource.h"
+
+1           ICON    DISCARDABLE     "erlang.ico"
+2           ICON    DISCARDABLE     "erl_icon.ico"
+3           ICON    DISCARDABLE     "hrl_icon.ico"
+4           ICON    DISCARDABLE     "beam_icon.ico"
+1           BITMAP  MOVEABLE PURE   "toolbar.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+1 MENU DISCARDABLE 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Open Logfile...",            IDMENU_STARTLOG
+        MENUITEM "&Close Logfile",              IDMENU_STOPLOG
+        MENUITEM SEPARATOR
+        MENUITEM "&Exit\tAlt+F4",               IDMENU_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Copy\tCtrl+C",               IDMENU_COPY
+        MENUITEM "&Paste\tCtrl+V",              IDMENU_PASTE
+        MENUITEM SEPARATOR
+        MENUITEM "Select A&ll",                 IDMENU_SELALL
+    END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "&Select Font...",             IDMENU_FONT
+        MENUITEM "Select &Background...",       IDMENU_SELECTBKG
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Toolbar",             	IDMENU_TOOLBAR
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About",                      IDMENU_ABOUT
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+AboutBox DIALOG DISCARDABLE  0, 0, 217, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Erlang Shell"
+FONT 8, "MS Sans Serif"
+BEGIN
+    ICON            1,-1,11,17,18,20
+    LTEXT           "Erlang Shell Version 1.0",ID_VERSIONSTRING,40,10,119,8,
+                    SS_NOPREFIX
+    LTEXT           "Copyright © Ericsson Telecom AB",-1,40,25,
+                    119,8
+    DEFPUSHBUTTON   "OK",IDOK,178,7,32,14,WS_GROUP
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerators
+//
+
+1 ACCELERATORS
+{
+    VK_CANCEL, ID_BREAK,     VIRTKEY, CONTROL
+    "^C",      IDMENU_COPY
+    VK_INSERT, IDMENU_COPY,  VIRTKEY, CONTROL
+    "^V",      IDMENU_PASTE
+    VK_INSERT, IDMENU_PASTE, VIRTKEY, SHIFT
+    VK_F1,     IDMENU_ABOUT, VIRTKEY
+}
+
+
+
+
+
+
+
+
+

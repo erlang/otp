@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Processes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>processes.xml</file>
+  </header>
+
+  <section>
+    <title>Processes</title>
+    <p>Erlang is designed for massive concurrency. Erlang processes are
+      lightweight (grow and shrink dynamically) with small memory
+      footprint, fast to create and terminate, and the scheduling
+      overhead is low.</p>
+  </section>
+
+  <section>
+    <title>Process Creation</title>
+    <p>A process is created by calling <c>spawn</c>:</p>
+    <pre>
+spawn(Module, Name, Args) -> pid()
+  Module = Name = atom()
+  Args = [Arg1,...,ArgN]
+    ArgI = term()</pre>
+    <p><c>spawn</c> creates a new process and returns the pid.</p>
+    <p>The new process starts executing in
+      <c>Module:Name(Arg1,...,ArgN)</c> where the arguments are
+      the elements of the (possible empty) <c>Args</c> argument list.</p>
+    <p>There exist a number of other <c>spawn</c> BIFs, for example,
+      <c>spawn/4</c> for spawning a process at another node.</p>
+  </section>
+
+  <section>
+    <title>Registered Processes</title>
+    <p>Besides addressing a process by using its pid, there are also
+      BIFs for registering a process under a name. The name must be an
+      atom and is automatically unregistered if the process terminates:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>BIF</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>register(Name, Pid)</c></cell>
+        <cell align="left" valign="middle">Associates the name <c>Name</c>, an atom, with the process <c>Pid</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>registered()</c></cell>
+        <cell align="left" valign="middle">Returns a list of names that
+        have been registered using <c>register/2</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>whereis(Name)</c></cell>
+        <cell align="left" valign="middle">Returns the pid registered
+        under <c>Name</c>, or <c>undefined </c>if the name is not
+        registered.</cell>
+      </row>
+      <tcaption>Name Registration BIFs</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <marker id="term"></marker>
+    <title>Process Termination</title>
+    <p>When a process terminates, it always terminates with an
+      <em>exit reason</em>. The reason can be any term.</p>
+    <p>A process is said to terminate <em>normally</em>, if the exit
+      reason is the atom <c>normal</c>. A process with no more code to
+      execute terminates normally.</p>
+    <p>A process terminates with an exit reason <c>{Reason,Stack}</c>
+      when a run-time error occurs. See
+      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+    <p>A process can terminate itself by calling one of the
+       following BIFs:</p>
+    <list type="bulleted">
+      <item><c>exit(Reason)</c></item>
+      <item><c>erlang:error(Reason)</c></item>
+      <item><c>erlang:error(Reason, Args)</c></item>
+    </list>
+    <p>The process then terminates with reason <c>Reason</c> for
+      <c>exit/1</c> or <c>{Reason,Stack}</c> for the others.</p>
+    <p>A process can also be terminated if it receives an exit signal
+      with another exit reason than <c>normal</c>, see
+      <seealso marker="#errors">Error Handling</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Message Sending</title>
+    <p>Processes communicate by sending and receiving messages.
+      Messages are sent by using
+      the <seealso marker="expressions#send">send operator !</seealso>
+      and received by calling
+      <seealso marker="expressions#receive">receive</seealso>.</p>
+    <p>Message sending is asynchronous and safe, the message is
+      guaranteed to eventually reach the recipient, provided that
+      the recipient exists.</p>
+  </section>
+
+  <section>
+    <title>Links</title>
+    <p>Two processes can be <em>linked</em> to each other. A link
+      between two processes <c>Pid1</c> and <c>Pid2</c> is created
+      by <c>Pid1</c> calling the BIF <c>link(Pid2)</c> (or conversely).
+      There also exist a number of <c>spawn_link</c> BIFs, which spawn
+      and link to a process in one operation.</p>
+    <p>Links are bidirectional and there can only be one link between
+      two processes. Repeated calls to <c>link(Pid)</c> have no effect.</p>
+    <p>A link can be removed by calling the BIF <c>unlink(Pid)</c>.</p>
+    <p>Links are used to monitor the behaviour of other processes, see
+      <seealso marker="#errors">Error Handling</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="errors"></marker>
+    <title>Error Handling</title>
+    <p>Erlang has a built-in feature for error handling between
+      processes. Terminating processes emit exit signals to all
+      linked processes, which can terminate as well or handle the exit
+      in some way. This feature can be used to build hierarchical
+      program structures where some processes are supervising other
+      processes, for example, restarting them if they terminate
+      abnormally.</p>
+    <p>See <seealso marker=
+      "doc/design_principles:des_princ#otp design principles">
+      OTP Design Principles</seealso> for more information about
+      OTP supervision trees, which use this feature.</p>
+
+    <section>
+      <title>Emitting Exit Signals</title>
+      <p>When a process terminates, it terminates with an
+        <em>exit reason</em> as explained in <seealso marker="#term">
+        Process Termination</seealso>. This exit reason is emitted in
+        an <em>exit signal</em> to all linked processes.</p>
+      <p>A process can also call the function <c>exit(Pid,Reason)</c>.
+        This results in an exit signal with exit reason
+        <c>Reason</c> being emitted to <c>Pid</c>, but does not affect
+        the calling process.</p>
+    </section>
+
+    <section>
+      <title>Receiving Exit Signals</title>
+      <p>The default behaviour when a process receives an exit signal
+        with an exit reason other than <c>normal</c>, is to terminate
+        and in turn emit exit signals with the same exit reason to its
+        linked processes. An exit signal with reason <c>normal</c> is
+        ignored.</p>
+      <p>A process can be set to trap exit signals by calling:</p>
+      <pre>
+process_flag(trap_exit, true)</pre>
+      <p>When a process is trapping exits, it does not terminate when
+        an exit signal is received. Instead, the signal is transformed
+        into a message <c>{'EXIT',FromPid,Reason}</c>, which is put into
+        the mailbox of the process, just like a regular message.</p>
+      <p>An exception to the above is if the exit reason is <c>kill</c>,
+        that is if <c>exit(Pid,kill)</c> has been called. This
+        unconditionally terminates the process, regardless of if it is
+        trapping exit signals.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Monitors</title>
+    <p>An alternative to links are <em>monitors</em>. A process
+      <c>Pid1</c> can create a monitor for <c>Pid2</c> by calling
+      the BIF <c>erlang:monitor(process, Pid2)</c>. The function returns
+      a reference <c>Ref</c>.</p>
+    <p>If <c>Pid2</c> terminates with exit reason <c>Reason</c>, a
+      'DOWN' message is sent to <c>Pid1</c>:</p>
+    <code type="none">
+{'DOWN', Ref, process, Pid2, Reason}</code>
+    <p>If <c>Pid2</c> does not exist, the 'DOWN' message is sent
+      immediately with <c>Reason</c> set to <c>noproc</c>.</p>
+    <p>Monitors are unidirectional. Repeated calls to
+      <c>erlang:monitor(process, Pid)</c> creates several
+      independent monitors, and each one sends a 'DOWN' message when
+      <c>Pid</c> terminates.</p>
+    <p>A monitor can be removed by calling
+      <c>erlang:demonitor(Ref)</c>.</p>
+    <p>Monitors can be created for processes with registered
+      names, also at other nodes.</p>
+  </section>
+
+  <section>
+    <title>Process Dictionary</title>
+    <p>Each process has its own process dictionary, accessed by calling
+      the following BIFs:</p>
+    <pre>
+put(Key, Value)
+get(Key)
+get()
+get_keys(Value)
+erase(Key)
+erase()</pre>
+  </section>
+</chapter>
+

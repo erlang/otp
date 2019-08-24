@@ -1,0 +1,209 @@
+/* Stylesheet for Common Test */
+
+body {
+    padding: 10px; margin: 10px;
+    -webkit-font-smoothing: antialiased; 
+    background-color: #FBFFFC;
+}
+
+a:link {
+    color: #2B507D;
+}
+
+a:visited {
+    color: #85ABD5
+}
+
+h1 {
+    font-family: verdana, arial, sans-serif; font-size: 200%; 
+    letter-spacing: -2px; word-spacing: 2px; font-weight: bold;
+    color: #3F3F3F;
+}
+
+h2 {
+    font-family: verdana, arial, sans-serif; font-size: 175%;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: normal;
+    color: #3F3F3F;
+}
+
+h3 {
+    font-family: verdana, arial, sans-serif; font-size: 140%;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: bold;
+    color: #3F3F3F;
+}
+
+h4 {
+    font-family: verdana, arial, sans-serif; font-size: 120%;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: normal;
+    color: #3F3F3F;
+}
+
+p {
+    font-family: "Trebuchet MS", "Lucida Sans Unicode", verdana, arial, sans-serif;
+    font-size: .9em; color: #000000;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0em;
+    margin:  1em;
+}
+li {
+    font-size: 0.95em; color: #000000;
+    margin: .3em 0;
+}
+
+pre {
+    color: black; 
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: .8em;
+    }
+
+code {
+    color: black; 
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: .8em;
+}
+
+div.mono_sm {
+    font-family: "Courier New", monospace; font-size: .75em;
+    word-spacing: 1px; color: #000000;
+}
+
+div.mono_la {
+    font-family: "Courier New", monospace; font-size: .8em;
+    color: #000000;
+}
+
+div.copyright {
+    padding: 20px 0px 0px 0px; 
+    font-family: "Courier New", monospace; font-size: .7em;
+    color: #000000;
+}
+
+div.ct_internal {
+    background: lightgrey; color: black; 
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: .95em;
+    margin: .2em 0 0 0;
+}
+
+div.ct_error_notify { 
+    background: #CC0000;
+    color: #FFFFFF;
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: 1.05em;
+    margin: .2em 0 0 0;
+}
+
+div.ct_error_notify a:link {
+    color: #D0D0D0;
+}
+
+div.ct_error_notify a:visited {
+    color: #AAAAAA;
+}
+
+div.default { 
+    background: lightgreen; color: black; 
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: 1.05em;
+    margin: .2em 0 0 0;
+}
+
+div.label {
+    font-family: verdana, arial, sans-serif; font-size: 200%; 
+    letter-spacing: -2.5px; word-spacing: 2px;
+    font-weight: bold; color: #2B507D;
+}
+
+table {
+    border-collapse: collapse; border: 6px solid #3F3F3F;
+    background: #FFFFFF;
+    font: .8em/1.2em "Lucida Sans Unicode", verdana, arial, sans-serif; 
+    color: #222;
+}
+
+caption {
+    font-size: 1.3em; font-weight: bold;
+    text-align: center; padding: 1em 4px;
+}
+
+td, th {
+    padding: .5em 7px .5em 7px; line-height: 1.3em; 
+    border-bottom: 3px solid #F5C4C1;
+    border-left: 2px dashed #809FFF;
+}
+
+th {
+    background: #3F3F3F; color: #fff; 
+    font-family: arial, sans-serif; font-size: 120%;
+    letter-spacing: -0.5px;
+    font-weight: bold; text-align: center; 
+    padding-right: .5em; vertical-align: top;
+}
+
+thead th {
+    background: #3F3F3F; color: #fff; 
+    font-family: arial, sans-serif; font-size: 120%;
+    letter-spacing: -0.5px;
+    font-weight: bold; text-align: center; 
+    padding-right: .5em; vertical-align: top;
+    text-decoration: underline;
+}
+
+tfoot td {
+    font-family: arial, sans-serif; font-size: 110%;
+    letter-spacing: -0.5px;
+    font-weight: bold;
+}
+
+.odd td {
+    background: #F3F3F3;
+}
+.odd th {
+    background: #F3F3F3;
+}
+
+td a, td a:link {
+    color: #2B507D;
+}
+
+td a:visited {
+    color: #85ABD5;
+}
+
+tr:hover th[scope=row], tr:hover td { 
+    background-color: #D1D1D1;
+    color: #fff;
+} 
+
+td a:hover, td a:focus {
+    color: #85ABD5;
+}
+
+th a, td a:active {
+    color: #85ABD5;
+}
+
+th + td {
+    padding-left: .5em;
+}
+
+#button_holder {
+    display: block; float: center;
+    font-family: arial, verdana, sans-serif;
+    font-size: 12px; text-shadow: 1px 1px lightgray;
+} 
+
+.btn a {
+    padding: 6px 12px; float: center; 
+    text-decoration: none; color: #3F3F3F;
+    font-weight: bold; border: 3px outset #3F3F3F;
+    background-color: #F3F3F3;
+}
+
+.btn a:hover {
+    color: #fff;
+    background-color: #809FFF;
+}

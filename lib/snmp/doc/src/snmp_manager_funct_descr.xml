@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Manager Functional Description</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_manager_funct_descr.xml</file>
+  </header>
+
+  <section>
+    <title>Features</title>
+    <marker id="features"></marker>
+    <p>The manager provided with the tool is a lightweight manager
+      that basically provides a means to communicate with agents.</p>
+    <p>It does not really implement any management capabilities by 
+      itself. That is up to the <em>user</em>. 
+      </p>
+    <p>A <em>user</em> in this context is basically a module implementing
+      the <seealso marker="snmpm_user">snmpm_user</seealso> behaviour. 
+      A <em>user</em> can issue snmp requests and receive 
+      notification/traps.</p>
+    <p>Agents to be accessed by the manager needs to be registered by 
+      a user. Once registered, they can be accessed by all registered 
+      users.</p>
+    <p>Notifications/traps from an agent is delivered to the user that 
+      did the registration.</p>
+    <p>Any message from an agent that is not registered is delivered to 
+      the <em>default user</em>.</p>
+    <p>By default, the <em>default user</em> is set to the 
+      <c>snmpm_user_default</c> module, which simply sends an info message
+      to the error_logger. It is however highly recommended that this
+      module be replaced by another that does something useful
+      (see <seealso marker="snmp_config#configuration_params">configuration params</seealso> for more info).</p>
+    <p>When using version 3, then (at least one) <em>usm user</em> has to 
+      be registered.</p>
+    <p>Requests can be issued in two different ways. Synchronous (see
+      <seealso marker="snmpm#sync_set">sync_set</seealso>,
+      <seealso marker="snmpm#sync_get">sync_get</seealso>, 
+      <seealso marker="snmpm#sync_get_next">sync_get_next</seealso> and 
+      <seealso marker="snmpm#sync_get_bulk">sync_get_bulk</seealso>)
+      and asynchronous (see 
+      <seealso marker="snmpm#async_set">async_set</seealso>,
+      <seealso marker="snmpm#async_get">async_get</seealso>, 
+      <seealso marker="snmpm#async_get_next">async_get_next</seealso> and  
+      <seealso marker="snmpm#async_get_bulk">async_get_bulk</seealso>). 
+      With synchronous 
+      the snmp reply is returned by the function. With asynchronous,
+      the reply will instead be delivered through a call to one of the
+      <c>handle_pdu</c> callback function defined by the 
+      <seealso marker="snmpm_user#handle_pdu">handle_pdu</seealso> 
+      behaviour.</p>
+  </section>
+
+  <section>
+    <title>Operation</title>
+    <marker id="operation"></marker>
+    <p>The following steps are needed to get the manager running:</p>
+    <list type="ordered">
+      <item>
+        <p>[optional] Implement the default user.</p>
+      </item>
+      <item>
+        <p>Implement the user(s).</p>
+      </item>
+      <item>
+        <p>Configure the application (manager).</p>
+      </item>
+      <item>
+        <p>Start the application (manager).</p>
+      </item>
+      <item>
+        <p>Register the user(s).</p>
+      </item>
+      <item>
+        <p>The user(s) register their agents.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>MIB loading</title>
+    <marker id="mib_loading"></marker>
+    <p>It is possible to load mibs into the manager, but this is not 
+      necessary for normal operation, and not recommended.</p>
+  </section>
+</chapter>
+

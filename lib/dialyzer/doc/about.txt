@@ -1,0 +1,5 @@
+		    This is DIALYZER version 2.1.0
+	DIALYZER is a DIscrepancy AnaLYZer for ERlang programs.
+
+	Copyright (C) Tobias Lindahl <tobiasl@it.uu.se>
+		      Kostis Sagonas <kostis@it.uu.se>

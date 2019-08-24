@@ -1,0 +1,20 @@
+
+failing_funs.erl:101: The created fun has no local return
+failing_funs.erl:104: The created fun has no local return
+failing_funs.erl:127: The created fun has no local return
+failing_funs.erl:135: The created fun has no local return
+failing_funs.erl:138: The created fun has no local return
+failing_funs.erl:13: Function foo3/0 has no local return
+failing_funs.erl:13: The pattern 'b' can never match the type 'a'
+failing_funs.erl:161: The created fun has no local return
+failing_funs.erl:169: The created fun has no local return
+failing_funs.erl:172: The created fun has no local return
+failing_funs.erl:17: The pattern 'b' can never match the type 'a'
+failing_funs.erl:195: The created fun has no local return
+failing_funs.erl:203: The created fun has no local return
+failing_funs.erl:206: The created fun has no local return
+failing_funs.erl:229: The created fun has no local return
+failing_funs.erl:55: The created fun has no local return
+failing_funs.erl:62: The created fun has no local return
+failing_funs.erl:69: The created fun has no local return
+failing_funs.erl:76: The created fun has no local return

@@ -1,0 +1,107 @@
+SeqOf DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+Seq1 ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF SeqIn DEFAULT {}
+}
+
+Seq2 ::= SEQUENCE 
+{
+  seq2  SEQUENCE OF SeqIn DEFAULT {},
+  bool2  BOOLEAN,
+  int2  INTEGER
+}
+
+Seq3 ::= SEQUENCE 
+{
+  bool3  BOOLEAN,
+  seq3  SEQUENCE OF SeqIn DEFAULT {},
+  int3  INTEGER
+}
+
+Seq4 ::= SEQUENCE 
+{
+  seq41 [41] SEQUENCE OF SeqIn DEFAULT {},
+  seq42 [42] SEQUENCE OF SeqIn DEFAULT {},
+  seq43 [43] SEQUENCE OF SeqIn DEFAULT {}
+}
+
+Seq5 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (0..3) OF OCTET STRING (SIZE (0..3)),
+  -- If 's' is empty, 'magic' should not be aligned.
+  magic INTEGER (0..127)
+}
+
+Seq6 ::= SEQUENCE {
+  a SEQUENCE OF INTEGER (0..7),
+  b SEQUENCE (SIZE (0..7)) OF INTEGER (0..7),
+  -- 'magic' should never be aligned.
+  magic INTEGER (0..127)
+}
+
+Seq7 ::= SEQUENCE {
+  a SEQUENCE OF INTEGER (1..512),
+  b SEQUENCE (SIZE (0..255)) OF INTEGER (1..512),
+  i INTEGER
+}
+
+Seq8 ::= SEQUENCE {
+    sof SEQUENCE (SIZE (0..3)) OF OCTET STRING (SIZE (3)),
+    -- Not aligned here if the size of 'sof' is zero.
+    i INTEGER (0..127)
+}
+
+Seq9 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (0..3) OF OCTET STRING (SIZE (0..3)),
+  magic INTEGER (0..127)
+}
+
+Seq10 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (1..3) OF OCTET STRING (SIZE (0..3)),
+  magic INTEGER (0..127)
+}
+
+SeqIn ::= SEQUENCE 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+
+SeqOs ::= SEQUENCE OF OCTET STRING
+SeqOsImp ::= [23] SEQUENCE OF OCTET STRING
+SeqOsExp ::= [24] EXPLICIT SEQUENCE OF OCTET STRING
+
+SeqCho ::= SEQUENCE OF CHOICE {bool BOOLEAN,
+                               int INTEGER,
+                               last NULL}
+
+SeqOfInt ::= SEQUENCE OF INTEGER
+
+SeqEmp ::= SEQUENCE 
+{
+  seq1  SEQUENCE OF Empty DEFAULT {}
+}
+
+Empty ::= SEQUENCE 
+{
+}
+
+SeqExt ::= SEQUENCE
+{
+  b1 BOOLEAN,
+  s1 SEQUENCE SIZE (1..3, ...) OF SeqIn,
+  b2 BOOLEAN,
+  s2 SEQUENCE SIZE (0..1024, ...) OF SeqIn,
+  magic INTEGER
+}
+
+END

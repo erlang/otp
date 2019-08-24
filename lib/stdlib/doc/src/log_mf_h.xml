@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>log_mf_h</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Martin Bj&ouml;rklund</checked>
+    <date>1996-10-31</date>
+    <rev>A</rev>
+    <file>log_mf_h.xml</file>
+  </header>
+  <module since="">log_mf_h</module>
+  <modulesummary>An event handler that logs events to disk.</modulesummary>
+  <description>
+    <p>This module is a <c>gen_event</c> handler module that can be installed
+      in any <c>gen_event</c> process. It logs onto disk all events that are
+      sent to an event manager. Each event is written as a binary, which makes
+      the logging very fast. However, a tool such as the Report Browser
+      (<seealso marker="sasl:rb"><c>rb(3)</c></seealso>) must be used to read
+      the files. The events are written to multiple files. When all files have
+      been used, the first one is reused and overwritten. The directory
+      location, the number of files, and the size of each file are configurable.
+      The directory will include one file called <c>index</c>, and report files
+      <c>1, 2, ...</c>.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="args"/>
+      <desc><p>Term to be sent to <seealso marker="gen_event#add_handler/3">
+        <c>gen_event:add_handler/3</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="init" arity="3" since=""/>
+      <name name="init" arity="4" since=""/>
+      <fsummary>Initiate the event handler.</fsummary>
+      <desc>
+        <p>Initiates the event handler. Returns <c><anno>Args</anno></c>, which
+          is to be used in a call to
+          <c>gen_event:add_handler(EventMgr, log_mf_h, <anno>Args</anno>)</c>.
+        </p>
+        <p><c><anno>Dir</anno></c> specifies which directory to use for the log
+          files. <c><anno>MaxBytes</anno></c> specifies the size of each
+          individual file. <c><anno>MaxFiles</anno></c> specifies how many
+          files are used. <c><anno>Pred</anno></c> is a predicate function used
+          to filter the events. If no predicate function is specified, all
+          events are logged.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
+      <seealso marker="sasl:rb"><c>rb(3)</c></seealso></p>
+  </section>
+</erlref>
+

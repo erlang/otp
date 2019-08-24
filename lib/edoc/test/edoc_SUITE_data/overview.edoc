@@ -1,0 +1,910 @@
+			-*- html -*-
+
+	EDoc overview page
+
+
+@author Richard Carlsson <richardc@it.uu.se>
+@copyright 2003-2006 Richard Carlsson
+@version {@vsn}
+@title Welcome to EDoc
+
+@doc EDoc is the Erlang program documentation generator. Inspired by the
+Javadoc<sup><font size="-3">TM</font></sup> tool for the Java<sup><font
+size="-3">TM</font></sup> programming language, EDoc is adapted to the
+conventions of the Erlang world, and has several features not found in
+Javadoc.
+
+== Contents ==
+
+<ol>
+  <li>{@section Introduction}</li>
+  <li>{@section Running EDoc}</li>
+  <li>{@section Generic tags}</li>
+  <li>{@section Overview tags}</li>
+  <li>{@section Module tags}</li>
+  <li>{@section Function tags}</li>
+  <li>{@section References}</li>
+  <li>{@section Notes on XHTML}</li>
+  <li>{@section Wiki notation}</li>
+  <li>{@section Macro expansion}</li>
+  <li>{@section Type specifications}</li>
+  <li>{@section Acknowledgements}</li>
+</ol>
+
+== Introduction ==
+
+EDoc lets you write the documentation of an Erlang program as
+comments in the source code itself, using <em>tags</em> on the form
+"`@Name ...'". A source file does not have to contain tags
+for EDoc to generate its documentation, but without tags the result will
+only contain the basic available information that can be extracted from
+the module.
+
+A tag must be the first thing on a comment line, except for leading
+'`%'' characters and whitespace. The comment must be between
+program declarations, and not on the same line as any program text. All
+the following text - including consecutive comment lines - up until the
+end of the comment or the next tagged line, is taken as the
+<em>content</em> of the tag.
+
+Tags are associated with the nearest following program construct "of
+significance" (the module name declaration and function
+definitions). Other constructs are ignored; e.g., in:
+```
+   %% @doc Prints the value X.
+
+   -record(foo, {x, y, z}).
+
+   print(X) -> ...
+'''
+the `@doc' tag is associated with the function `print/1'.
+
+Note that in a comment such as:
+```% % @doc ...'''
+the tag is ignored, because only the first '`%'' character is
+considered "leading". This allows tags to be "commented out".
+
+Some tags, such as `@type', do not need to be associated
+with any program construct. These may be placed at the end of the file,
+in the "footer".
+
+
+== Running EDoc ==
+
+The following are the main functions for running EDoc:
+    <ul>
+      <li>{@link edoc:application/2}: Creates documentation for a
+	  typical Erlang application.</li>
+      <li>{@link edoc:packages/2}: Creates documentation for one or
+	  more packages, automatically locating source files.</li>
+      <li>{@link edoc:files/2}: Creates documentation for a
+	  specified set of source files.</li>
+      <li>{@link edoc:run/3}: General interface function; the common
+          back-end for the above functions. Options are documented here.</li>
+    </ul>
+
+Note that the function {@link edoc:file/2} belongs to the old, deprecated
+interface (from EDoc version 0.1), and should not be used.
+
+
+== Generic tags ==
+
+The following tags can be used anywhere within a module:
+<dl>
+  <dt><a name="gtag-clear">`@clear'</a></dt>
+
+      <dd>This tag causes all tags above it (up to the previous program
+	construct), to be discarded, including the `@clear'
+	tag itself. The text following the tag
+	is also ignored. <em>This is typically only useful in code
+	containing conditional compilation, when preprocessing is turned
+	on.</em> (Preprocessing is turned off by default.) E.g., in
+```-ifdef(DEBUG).
+   %% @doc ...
+   foo(...) -> ...
+   -endif.
+   %% @clear
+
+   %% @doc ...
+   bar(...) -> ...'''
+        the `@clear' tag makes sure that EDoc does not see
+	two `@doc' tags before the function `bar',
+	even if the code for function `foo' is removed by
+	preprocessing. (There is no way for EDoc to see what the first
+	`@doc' tag "really" belongs to, since preprocessing
+	strips away all such information.)</dd>
+
+  <dt><a name="gtag-end">`@end'</a></dt>
+      <dd>The text following this tag is always ignored. Use this to
+      mark the end of the previous tag, when necessary, as e.g. in:
+```%% ----------------------------------
+   %% ...
+   %% @doc ...
+   %% ...
+   %% @end
+   %% ----------------------------------'''
+      to avoid including the last "ruler" line in the
+      `@doc' tag.
+
+      <em>Note: using some other "dummy" `@'-tag for
+      the same purpose might work in a particular implementation of
+      EDoc, but is not guaranteed to.  Always use `@end'
+      to ensure future compatibility.</em></dd>
+
+  <dt><a name="gtag-todo">`@todo' (or `@TODO')</a></dt>
+      <dd>Attaches a To-Do note to a function, module, package, or
+      overview-page. The content can be any XHTML text describing
+      the issue, e.g.:
+```%% @TODO Finish writing the documentation.'''
+      or
+```%% @todo Implement <a href="http://www.ietf.org/rfc/rfc2549.txt">RFC 2549</a>.'''
+      To-Do notes are normally not shown unless the `todo' option is
+      turned on (see {@link edoc:get_doc/2}).</dd>
+
+  <dt><a name="gtag-type">`@type'</a></dt>
+      <dd>Documents an abstract data type or type alias. The content
+      consists of a type declaration or definition, optionally
+      followed by a period ('`.'') separator and XHTML
+      text describing the type (i.e., its purpose, use, etc.). There
+      must be at least one whitespace character between the
+      '`.'' and the text. See {@section Type specifications} below
+      for syntax and examples.
+      All data type descriptions are placed in a separate section of
+      the documentation, regardless of where the tags occur.</dd>
+
+</dl>
+
+
+
+== Overview tags ==
+
+The following tags can only be used in an overview file:
+<dl>
+  <dt><a name="otag-title">`@title'</a></dt>
+      <dd>Specifies a title for the overview page. The content
+      can be arbitrary text.</dd>
+</dl>
+
+
+== Module tags ==
+
+The following tags can be used before a module declaration:
+<dl>
+  <dt><a name="mtag-author">`@author'</a></dt>
+      <dd>Specifies the name of an author, along with contact
+      information. An e-mail address can be given within `<...>'
+      delimiters, and a URI within `[...]' delimiters. Both e-mail and
+      URI are optional, and any surrounding whitespace is stripped from
+      all strings.
+
+      The name is the first nonempty string that is not within `<...>'
+      or `[...]', and does not contain only whitespace. (In other words,
+      the name can come before, between, or after the e-mail and URI,
+      but cannot be split up; any sections after the first are ignored.)
+      If an e-mail address is given, but no name, the e-mail string will
+      be used also for the name. If no `<...>' section is present, but
+      the name string contains an '`@'' character, it is assumed to be
+      an e-mail address. Not both name and e-mail may be left out.
+
+      Examples:
+```%% @author Richard Carlsson'''
+
+```%% @author Richard Carlsson <richardc@it.uu.se>
+   %%   [http://user.it.uu.se/~richardc/]'''
+
+```%% @author <richardc@it.uu.se>'''
+
+```%% @author richardc@it.uu.se [http://user.it.uu.se/~richardc/]'''
+      </dd>
+
+<dt><a name="mtag-copyright">`@copyright'</a></dt>
+      <dd>Specifies the module copyrights. The content can be
+      arbitrary text; for example:
+```
+   %% @copyright 2001-2003 Richard Carlsson'''
+      </dd>
+
+  <dt><a name="mtag-deprecated">`@deprecated'</a></dt>
+      <dd>Mark the module as deprecated, indicating that it should no
+      longer be used. The content must be well-formed XHTML, and should
+      preferably include a `@{@link}' reference to a
+      replacement; as in:
+```
+   %% @deprecated Please use the module @{@link foo} instead.'''
+      </dd>
+
+  <dt><a name="mtag-doc">`@doc'</a></dt>
+      <dd>Describes the module, using well-formed XHTML text. The
+      first sentence is used as a summary (see the
+      <a href="#ftag-doc">`@doc' function tag</a> below
+      for details). For example.:
+```%% @doc This is a <em>very</em> useful module. It is ...'''</dd>
+
+  <dt><a name="mtag-hidden">`@hidden'</a></dt>
+      <dd>Marks the module so that it will not appear in the
+      documentation (even if "private" documentation is generated).
+      Useful for sample code, test modules, etc. The content can be
+      used as a comment; it is ignored by EDoc.</dd>
+
+  <dt><a name="mtag-private">`@private'</a></dt>
+      <dd>Marks the module as private (i.e., not part of the public
+      interface), so that it will not appear in the normal
+      documentation. (If "private" documentation is generated, the
+      module will be included.) The content can be used as a comment; it
+      is ignored by EDoc.</dd>
+
+  <dt><a name="mtag-reference">`@reference'</a></dt>
+      <dd>Specifies a reference to some arbitrary external resource,
+      such as an article, book, or web site. The content must be
+      well-formed XHTML text. Examples:
+```%% @reference Pratchett, T., <em>Interesting Times</em>,
+   %% Victor Gollancz Ltd, 1994.'''
+
+```%% @reference See <a href="www.google.com">Google</a> for
+   %% more information.'''
+      </dd>
+
+  <dt><a name="mtag-see">`@see'</a></dt>
+      <dd>See the <a href="#ftag-see">`@see' function tag</a>
+      below for details.</dd>
+
+  <dt><a name="mtag-since">`@since'</a></dt>
+      <dd>Specifies when the module was introduced, with respect to
+      the application, package, release or distribution it is part
+      of. The content can be arbitrary text.</dd>
+
+  <dt><a name="mtag-version">`@version'</a></dt>
+      <dd>Specifies the module version. The content can be arbitrary
+      text.</dd>
+
+</dl>
+
+
+
+== Function tags ==
+
+The following tags can be used before a function definition:
+<dl>
+  <dt><a name="ftag-deprecated">`@deprecated'</a></dt>
+      <dd>See the <a href="#mtag-deprecated">`@deprecated'
+      module tag</a> for details.</dd>
+
+  <dt><a name="ftag-doc">`@doc'</a></dt>
+      <dd>XHTML text describing the function. The first
+      sentence of the text is used as a quick summary; this ends at
+      the first period character ('`.'') or exclamation mark
+      ('`!'') that is followed by a whitespace character, a
+      line break, or the end of the tag text, and is not within XML
+      markup. (As an exception, the first sentence may be within an
+      initial paragraph element)</dd>
+
+  <dt><a name="ftag-equiv">`@equiv'</a></dt>
+      <dd>Specify equivalence to another function call/expression.
+      The content must be a proper Erlang expression. If the
+      expression is a function call, a cross-reference to the called
+      function is created automatically. Typically, this tag is used
+      instead of `@doc'. </dd>
+
+  <dt><a name="ftag-hidden">`@hidden'</a></dt>
+      <dd>Marks the function so that it will not appear in the
+      documentation (even if "private" documentation is generated).
+      Useful for debug/test functions, etc. The content can be
+      used as a comment; it is ignored by EDoc.</dd>
+
+  <dt><a name="ftag-private">`@private'</a></dt>
+      <dd>Marks the function as private (i.e., not part of the public
+      interface), so that it will not appear in the normal
+      documentation. (If "private" documentation is generated, the
+      function will be included.) Only useful for exported functions,
+      e.g. entry points for `spawn'. (Non-exported functions are
+      always "private".) The content can be used as a comment; it is
+      ignored by EDoc.</dd>
+
+  <dt><a name="ftag-see">`@see'</a></dt>
+      <dd>Make a reference to a module, function, datatype, or
+      application. (See {@section References} below.)
+      The content consists of a reference, optionally followed by a
+      period ('`.''), one or more whitespace characters, and
+      XHTML text to be used for the label; for example "`@see edoc'" or
+      "`@see edoc. <b>EDoc</b>'". If no label text is specified, the
+      reference itself is used as the label.</dd>
+
+  <dt><a name="ftag-since">`@since'</a></dt>
+      <dd>Specifies in what version of the module the function was
+      introduced; cf. the
+      <a href="#mtag-version">`@version'
+      module tag</a>. The content can be arbitrary text.</dd>
+
+  <dt><a name="ftag-spec">`@spec'</a></dt>
+      <dd>Used to specify the function type; see {@section Type
+      specifications} below for syntax. If the function name is
+      included in the specification, it must match the name in the
+      actual code. When parameter names are not given in the
+      specification, suitable names will be taken from the source
+      code if possible, and otherwise synthesized.</dd>
+
+  <dt><a name="ftag-throws">`@throws'</a></dt>
+      <dd>Specifies which types of terms may be thrown by the
+      function, if its execution terminates abruptly due to a call to
+      `erlang:throw(Term)'. The content is a type expression (see {@section
+      Type specifications}), and can be a union type.
+
+      Note that exceptions of type `exit' (as caused by calls to
+      `erlang:exit(Term)') and `error' (run-time errors such as `badarg'
+      or `badarith') are not viewed as part of the normal interface of
+      the function, and cannot be documented with the `@throws' tag.</dd>
+
+  <dt><a name="ftag-type">`@type'</a></dt>
+      <dd>See the <a href="#gtag-type">`@type' generic tag</a>
+      for details. Placing a `@type' tag by a function
+      definition may be convenient, but does not affect where the
+      description is placed in the generated documentation.</dd>
+</dl>
+
+
+
+== References ==
+
+In several contexts (`@see' tags, `@link' macros, etc.), EDoc lets
+you refer to the generated documentation for modules, functions,
+datatypes, and applications, using a simple and compact syntax. The
+possible formats for references are:
+<table border="1" summary="reference syntax">
+  <tr><th>Reference syntax</th><th>Example</th><th>Scope</th></tr>
+  <tr><td>`Module'</td><td>{@link edoc_run}, `erl.lang.list'</td><td>Global</td></tr>
+  <tr><td>`Package.*'</td><td>`erl.lang.*'</td><td>Global</td></tr>
+  <tr><td>`Function/Arity'</td><td>`file/2'</td><td>Within module</td></tr>
+  <tr><td>`Module:Function/Arity'</td><td>{@link edoc:application/2}</td><td>Global</td></tr>
+  <tr><td>`Type()'</td><td>`filename()'</td><td>Within module</td></tr>
+  <tr><td>`Module:Type()'</td><td>{@link edoc:edoc_module()}</td><td>Global</td></tr>
+  <tr><td>`//Application'</td><td>{@link //edoc}</td><td>Global</td></tr>
+  <tr><td>`//Application/Module'</td><td>{@link //edoc/edoc_doclet}</td><td>Global</td></tr>
+  <tr><td>`//Application/Module:Function/Arity'</td><td>{@link //edoc/edoc_run:file/1}</td><td>Global</td></tr>
+  <tr><td>`//Application/Module:Type()'</td><td>{@link //edoc/edoc:edoc_module()}</td><td>Global</td></tr>
+</table>
+
+
+EDoc will resolve references using the information it finds in
+`edoc-info'-files at the locations specified with the `doc_path'
+option. EDoc will automatically (and somewhat intelligently) try to find
+any local `edoc-info'-files using the current code path, and add them to
+the end of the `doc_path' list. The target doc-directory is also
+searched for an existing info file; this allows documentation to be
+built incrementally. (Use the `new' option to ignore any old info
+file.)
+
+Note that if the name of a module, function or datatype is explicitly
+qualified with an application (as in "`//edoc/edoc_run'"), this
+overrides any other information about that name, and the reference will
+be made relative to the location of the application (if it can be
+found). This makes it possible to refer to e.g. a module "`fred'" as
+"`//foo/fred'" without accidentally getting a reference to
+"`//bar/fred'". You should not use this form of explicit references for
+names that are local to the application you are currently creating -
+they will always be resolved correctly.
+
+Note that module-local references such as `file/2' only work properly
+within a module. In an overview-page like this (i.e., the one you are
+currently reading), no module context is available.
+
+== Notes on XHTML ==
+
+In several places, XHTML markup can be used in the documentation
+text, in particular in `@doc' tags. The main differences from
+HTML are the following:
+<ul>
+  <li>All elements must have explicit start and end tags, and be
+      correctly nested. This means that you cannot e.g. write a
+      `<li>' tag without also writing a corresponding `</li>'
+      tag in the right place. This could be an annoyance
+      at times, but has the great advantage that EDoc can report all
+      malformed XHTML in your source code, rather than propagate the
+      errors to the generated documentation.</li>
+  <li>XHTML tag and attribute names should always be lower-case.</li>
+  <li>Attributes must be quoted, as in e.g. `<a
+      name="top">'.</li>
+</ul>
+To write an element like the HTML `<br>', which has no actual content,
+you can write either the full `<br></br>', or better, use the XHTML
+abbreviated form `<br/>'.
+
+Since the purpose of EDoc is to document programs, there is also a
+limited form of "wiki"-syntax available for making program code easier
+to write inline (and to make the doc-comments easier to read).
+See {@section Wiki notation} below for details.
+
+The HTML heading tags `h1' and `h2' are reserved for use by EDoc.
+Headings in documentation source code should start at `h3'. There is
+however a special syntax for writing headings which avoids using
+specific level numbers altogether; see {@section Headings} below for details.
+
+EDoc uses {@link //xmerl. XMerL} to parse and export XML markup.
+
+
+== Wiki notation ==
+
+When EDoc parses XHTML, it does additional pre- and post-processing of
+the text in order to expand certain notation specific to EDoc into
+proper XHTML markup. This "wiki" ([http://en.wikipedia.org/wiki/Wiki])
+notation is intended to make it easier to write source code
+documentation.
+
+ === Empty lines separate paragraphs ===
+
+Leaving an empty line in XHTML text (i.e., a line which except for
+any leading start-of-comment '<tt>%</tt>' characters contains only
+whitespace), will make EDoc split the text before and
+after the empty line into separate paragraphs. For example:
+```%% @doc This will all be part of the first paragraph.
+   %% It can stretch over several lines and contain <em>any
+   %% XHTML markup</em>.
+   %% 
+   %% This is the second paragraph. The above line is
+   %% regarded as "empty" by EDoc, even though it ends with
+   %% a space.'''
+will generate the following text:
+<blockquote><p>This will all be part of the first paragraph. It can
+stretch over several lines and contain <em>any XHTML markup</em>.</p>
+This is the second paragraph. The above line is regarded as "empty" by
+EDoc, even though it ends with a space.</blockquote>
+
+Paragraph splitting takes place after the actual XHTML parsing. It only
+affects block-level text, and not e.g., text within `<pre>' markup, or
+text that is already within `<p>' markup.
+
+ === Headings ===
+
+Section headings, sub-headings, and sub-sub-headings, can be written
+using the following notation:
+```== Heading ==
+   === Sub-heading ===
+   ==== Sub-sub-heading ===='''
+Such a heading must be alone on a line, except for whitespace, and
+cannot be split over several lines. A link target is automatically
+created for the heading, by replacing any whitespace within the text by
+a single underscore character. E.g.,
+```== Concerning Hobbits =='''
+is equivalent to
+```<h3><a name="Concerning_Hobbits">Concerning Hobbits</a></h3>'''
+Thus, headings using this notation should not contain characters that
+may not be part of URL labels, except for whitespace. If you need to
+create such headings, you have to use the explicit XHTML markup.
+
+A hypertext link to a heading written this way can be created using the
+`@section' macro, which transforms the argument text into a label as
+described above. E.g.,
+```@{@section Concerning Hobbits}'''
+is equivalent to writing
+```<a href="#Concerning_Hobbits">Concerning Hobbits</a>'''
+
+The above expansions take place before XML parsing.
+
+ === External links ===
+
+Writing a URL within brackets, as in "`[http://www.w3c.org/]'", will
+generate a hyperlink such as [http://www.w3c.org/], using the URL both
+for the destination and the label of the reference, equivalent to writing
+"`<a href="http://www.w3c.org/"><tt>http://www.w3c.org/</tt></a>'". This
+short-hand keeps external URL references short and readable. The
+recognized protocols are `http', `ftp', and `file'. This expansion takes
+place before XML parsing.
+
+ === Verbatim quoting ===
+
+In XHTML text, the '<code>&#x60;</code>' character (Unicode `000060',
+known as "grave accent" or "back-quote") can be used for verbatim
+quoting. This expansion takes place before XML parsing.
+
+<ul>
+  <li>A character sequence "<code>&#x60;...'</code>" or
+      "<code>&#x60;&#x60;...''</code>" will be expanded to
+      "`<code>...</code>'", where all occurrences of the special XML
+      characters '`<'' and '`&'' (and for completeness, also '`>'') in
+      the quoted text have been escaped to "`&lt;'", "`&amp;'", and
+      "`&gt;'", respectively.
+      All whitespace is stripped from the beginning and end of the
+      quoted text.
+
+      Double back-quotes "<code>&#x60;&#x60;...''</code>" can be used
+      to quote text containing single '`` ' ''' characters. The automatic
+      stripping of any surrounding whitespace makes it possible to write
+      things like "<code>&#x60;&#x60; 'foo@bar' ''</code>".
+
+      To quote text containing "<code>''</code>" verbatim,
+      explicit `<code>' markup or similar must be used.</li>
+
+  <li>A character sequence "<code>&#x60;&#x60;&#x60;...'''</code>"
+      will be expanded to "`<pre><![CDATA[...]]></pre>'", which disables
+      all XML markup within the quoted text, and displays the result in
+      fixed-font with preserved indentation. Whitespace is stripped from
+      the end of the quoted text, but not from the beginning, except for
+      whole leading lines of whitespace. This is
+      useful for multi-line code examples, or displayed
+      one-liners.</li>
+
+  <li>To produce a single '<code>&#x60;</code>'-character in XML
+      without beginning a new quote, you can write "<code>&#x60;'</code>"
+      (no space between the '<code>&#x60;</code>' and the '<code>'</code>').
+      You can of course also use the XML character entity
+      "`&#x60;'".</li>
+</ul>
+
+Examples:
+  ```%% @doc ...where the variable `Foo' refers to... '''
+
+  ```%% @doc ...returns the atom `` 'foo@erlang.org' ''... '''
+
+  <pre>
+     %% @doc ...use the command &#x60;&#x60;&#x60;erl -name foo''' to...</pre>
+
+  <pre>
+     %% @doc ...as in the following code:
+     %% &#x60;&#x60;&#x60;f(X) ->
+     %%       case X of
+     %%          ...
+     %%       end'''</pre>
+
+  <pre>
+     %% @doc ...or in the following:
+     %% &#x60;&#x60;&#x60;
+     %%     g(X) ->
+     %%       fun () -> ... end
+     %% '''</pre>
+
+
+== Macro expansion ==
+
+Before the content of a tag is parsed, the text undergoes <em>macro
+expansion</em>. The syntax for macro calls is:
+<pre>
+    @{@<em>name</em>}</pre>
+or
+<pre>
+    @{@<em>name</em> <em>argument</em>}</pre>
+where <em>name</em> and <em>argument</em> are separated by one or more
+whitespace characters. The argument can be any text, which may contain
+other macro calls. The number of non-escaped "<code>@{@</code>" and
+"`}'" delimiters must be balanced.
+
+ The argument text is first expanded in the current environment, and
+the result is bound to the <em>macro parameter</em>, written
+<code>@{@?}</code>. (If no argument is given, <code>@{@?}</code> is
+bound to the empty string.)  The macro definition is then substituted
+for the call, and expansion continues over the resulting text. Recursive
+macro expansions are not allowed.
+
+ === User-defined macros ===
+
+Users can define their own macros by using the `def' EDoc
+option; see {@link edoc:file/2} and {@link edoc:get_doc/2} for more
+information.
+
+ === Predefined macros ===
+
+<dl>
+  <dt><a name="predefmacro-date"><code>@{@date}</code></a></dt>
+      <dd>Expands to the current date, as "<tt>Month Day Year</tt>",
+      e.g. "{@date}".</dd>
+
+  <dt><a name="predefmacro-docRoot"><code>@{@docRoot}</code></a></dt>
+      <dd>Expands to the relative URL path (such as
+      `"../../.."') from the current page to the root
+      directory of the generated documentation. This can be used to
+      create XHTML references such as `<img
+      src="@{@docRoot}/images/logo.jpeg">' that are independent of how
+      deep down in a package structure they occur. If packages are not
+      used (i.e., if all modules are in the "empty" package),
+      <code>@{@docRoot}</code> will always resolve to the empty
+      string.</dd>
+
+  <dt><a name="predefmacro-link"><code>@{@link <em>reference</em>.
+		    <em>description</em>}</code></a></dt>
+      <dd>This creates a hypertext link; cf. the
+      <a href="#ftag-see">`@see' function tag</a> above for
+      details. The description text (including the period separator)
+      is optional; if no text is given, the reference itself is
+      used. For example, <code>@{@link edoc:file/2}</code> creates the
+      link {@link edoc:file/2}, and `@{@link edoc:file/2. <em>this link</em>}'
+      creates {@link edoc:file/2. <em>this link</em>}.</dd>
+
+  <dt><a name="predefmacro-module"><code>@{@module}</code></a></dt>
+      <dd>Expands to the name of the current module. Only defined when a
+      module is being processed.</dd>
+
+  <dt><a name="predefmacro-package"><code>@{@package}</code></a></dt>
+      <dd>Expands to the name of the current package.</dd>
+
+  <dt><a name="predefmacro-section"><code>@{@section
+        <em>heading</em>}</code></a></dt>
+      <dd>Expands to a hypertext link to the specified section heading;
+      see {@section Headings} for more information.</dd>
+
+  <dt><a name="predefmacro-type"><code>@{@type
+      <em>type-expression</em>}</code></a></dt>
+      <dd>Formats a type expression within `<code>...</code>'
+      markup and with hypertext links for data types. For example,
+      <code>@{@type {options, List::edoc:option_list()@@}}</code>
+      generates "{@type {options, List::edoc:option_list()@}}". (Cf.
+      {@section Escape sequences} below.)</dd>
+
+  <dt><a name="predefmacro-time"><code>@{@time}</code></a></dt>
+      <dd>Expands to the current time, as "<tt>Hr:Min:Sec</tt>",
+      e.g. "{@time}".</dd>
+</dl>
+
+ === Escape sequences ===
+
+To prevent certain characters from being interpreted as delimiters,
+for example to produce the text "<code>@{@</code>" in the output, or use a
+'`}'' character in the argument text of a macro call, the
+following escape sequences may be used: <dl>
+  <dt><code>@@{</code></dt>
+      <dd>Expands to "`{'". Example:
+```
+   %% @doc A macro call starts with the sequence "@@@{@".'''
+      </dd>
+  <dt><code>@@}</code></dt>
+      <dd>Expands to "`}'". Example:
+```
+   %% @doc ...@{@foo ...{Key, Value@@}...}...'''
+      </dd>
+  <dt><code>@@@@</code></dt>
+      <dd>Expands to "`@'". Example:
+```
+   %% @doc Contact us at support@@@@@{@hostname}'''
+      Will generate the text "Contact us at support@vaporware.acme.com"
+      if the macro `hostname' is bound to
+      "`vaporware.acme.com'". Also:
+```
+   %% @doc You might want to write something like
+   %% @@@@foo that will expand to @@foo and does not start
+   %% a new tag even if it appears first in a line.'''
+      </dd>
+</dl>
+
+
+== Type specifications ==
+
+ === Function specifications ===
+
+The following grammar describes the form of the specifications  
+following a `@spec' tag:
+
+<table summary="specification syntax grammar">
+  <tr>
+    <td><code>Spec</code></td>
+    <td>::=</td>
+    <td><code>FunType Def*
+	  <br/>| FunctionName FunType Def*</code></td>
+  </tr>
+  <tr>
+    <td><code>FunctionName</code></td>
+    <td>::=</td>
+    <td><code>Atom</code></td>
+  </tr>
+  <tr>
+    <td><code>FunType</code></td>
+    <td>::=</td>
+    <td><code>"(" UnionTypes? ")" "->" UnionType</code></td>
+  </tr>
+  <tr>
+    <td><code>UnionTypes</code></td>
+    <td>::=</td>
+    <td><code>UnionType
+	  <br/>| UnionType "," UnionTypes</code></td>
+  </tr>
+  <tr>
+    <td><code>UnionType</code></td>
+    <td>::=</td>
+    <td><code>UnionList
+	  <br/>| Name "::" UnionList</code></td>
+  </tr>
+  <tr>
+    <td><code>Name</code></td>
+    <td>::=</td>
+    <td><code>Variable</code></td>
+  </tr>
+  <tr>
+    <td><code>UnionList</code></td>
+    <td>::=</td>
+    <td><code>Type
+	  <br/>| Type "+" UnionList
+	  <br/>| Type "|" UnionList</code></td>
+  </tr>
+  <tr>
+    <td><code>Type</code></td>
+    <td>::=</td>
+    <td><code>TypeVariable
+	  <br/>| Atom
+	  <br/>| Integer
+	  <br/>| Float
+	  <br/>| FunType
+	  <br/>| "{" UnionTypes? "}"
+	  <br/>| "[" "]"
+	  <br/>| "[" UnionType "]"
+	  <br/>| TypeName "(" UnionTypes? ")"
+	  <br/>| ModuleName ":" TypeName "(" UnionTypes? ")"
+	  <br/>| "//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"</code></td>
+  </tr>
+  <tr>
+    <td><code>TypeVariable</code></td>
+    <td>::=</td>
+    <td><code>Variable</code></td>
+  </tr>
+  <tr>
+    <td><code>TypeName</code></td>
+    <td>::=</td>
+    <td><code>Atom</code></td>
+  </tr>
+  <tr>
+    <td><code>ModuleName</code></td>
+    <td>::=</td>
+    <td><code>Atom
+          <br/>| ModuleName "." Atom</code></td>
+  </tr>
+  <tr>
+    <td><code>AppName</code></td>
+    <td>::=</td>
+    <td><code>Atom</code></td>
+  </tr>
+  <tr>
+    <td><code>Def</code></td>
+    <td>::=</td>
+    <td><code>TypeVariable "=" UnionType
+	  <br/>| TypeName "(" TypeVariables? ")" "=" UnionType</code></td>
+  </tr>
+  <tr>
+    <td><code>TypeVariables</code></td>
+    <td>::=</td>
+    <td><code>TypeVariable
+	  <br/>| TypeVariable "," TypeVariables</code></td>
+  </tr>
+</table>
+
+
+Examples:
+```
+    %% @spec my_function(X::integer()) -> integer()'''
+```
+    %% @spec (X::integer()) -> integer()'''
+```
+    %% @spec sqrt(float()) -> float()'''
+```
+    %% @spec pair(S, T) -> {S, T}'''
+```
+    %% @spec append(List, List) -> List
+    %%           List = [term()]'''
+```
+    %% @spec append(A::List, B::List) -> List
+    %%           List = [term()]'''
+```
+    %% @spec open(File::filename()) -> file_descriptor()
+    %%           filename() = string() + atom()'''
+```
+    %% @spec close(graphics:window()) -> ok'''
+
+In the above examples, `X', `A', `B',
+and `File' are parameter names, used for referring to the
+parameters from the documentation text. The <em>type variables</em>
+`S', `T' and `List' are used to
+simplify the type specifications, and may be supplied with
+definitions. It is also possible to give definitions for named types,
+which means that the name is simply an alias. (Use the
+`@type' tag to document abstract data types.) If a named type
+is defined in another module, it can be referred to as
+`Module:TypeName(...)'.
+
+Both the '`|'' and the '`+'' character may be
+used to separate alternatives in union types; there is no semantic
+difference. Note that the notation `[Type]' means "proper
+(nil-terminated) list whose elements all belong to `Type'";
+For example, `[atom()|integer()]' means the same thing as
+`[atom()+integer()]', i.e., a proper list of atoms and/or
+integers.
+
+If only a type variable is given for a parameter, as in
+"`pair(S, T) -> ...'", the same variable name may implicitly
+be used as the parameter name; there is no need to write
+"`pair(S::S, T::T) -> ...'".
+
+EDoc automatically extracts possible parameter names from the source
+code, to be used if no parameter name is given in the specification (or
+if the specification is missing altogether). If this fails, EDoc will
+generate a dummy parameter name, such as `X1'. This way, EDoc
+can often produce helpful documentation even for code that does not
+contain any annotations at all.
+
+ === Type definitions ===
+
+The following grammar (see above for auxiliary definitions) describes
+the form of the definitions that may follow a `@type' tag:
+
+<table summary="type definition grammar">
+  <tr>
+    <td><code>Typedef</code></td>
+    <td>::=</td>
+    <td><code>TypeName "(" TypeVariables? ")" Def*
+	  <br/>| TypeName "(" TypeVariables? ")" "=" UnionType Def*</code></td>
+  </tr>
+</table>
+
+(For a truly abstract data type, no equivalence is specified.) The main
+definition may be followed by additional local definitions. Examples:
+```
+    %% @type myList(X). A special kind of lists ...'''
+```
+    %% @type filename() = string(). Atoms not allowed!'''
+```
+    %% @type thing(A) = {thong, A}
+    %%           A = term().
+    %%   A kind of wrapper type thingy.'''
+
+
+ === Pre-defined data types ===
+
+The following data types are predefined by EDoc, and may not be
+redefined:
+```
+    any()
+    atom()
+    binary()
+    bool()
+    char()
+    cons()
+    deep_string()
+    float()
+    function()
+    integer()
+    list()
+    nil()
+    none()
+    number()
+    pid()
+    port()
+    reference()
+    string()
+    term()
+    tuple()
+'''
+Details:
+<ul>
+  <li>`any()' means "any Erlang data type".
+      `term()' is simply an alias for `any()'.</li>
+  <li>`atom()', `binary()',
+      `float()', `function()',
+      `integer()', `pid()', `port()'
+      and `reference()' are primitive data types of
+      the Erlang programming language.</li>
+  <li>`bool()' is the subset of `atom()' consisting
+      of the atoms `true' and `false'.</li>
+  <li>`char()' is a subset of
+      `integer()' representing character codes.</li>
+  <li>`tuple()' is the set of all tuples `{...}'.</li>
+  <li>`list(T)' is just an alias for `[T]'.</li>
+  <li>`nil()' is an alias for the empty list `[]'.</li>
+  <li>`cons(H,T)' is the list constructor. This is usually not
+      used directly. It is possible to recursively define `list(T)
+      := nil()+cons(T,list(T))'.</li>
+  <li>`string()' is an alias for `[char()]'.</li>
+  <li>`deep_string()' is recursively defined as
+      `[char()+deep_string()]'.</li>
+  <li>`none()' means "no data type". E.g., a function
+      that never returns has type `(...) -> none()'</li>
+</ul>
+
+
+== Acknowledgements ==
+
+Since the first version of EDoc, several people have come up with
+suggestions (Luke Gorrie, Joe Armstrong, Erik Stenman, Sean Hinde, Ulf
+Wiger, ...), and some have even submitted code to demonstrate their
+ideas (Vlad Dumitrescu, Johan Blom, Vijay Hirani, ...). None of that
+code was actually included in the Great Rewriting that followed the
+initial public release (EDoc version 0.1), but most of the central
+points were addressed in the new system, such as better modularization
+and possibility to plug in different layout engines, and making EDoc
+understand the application directory layout.
+
+It is now getting too hard to keep track of all the people who have made
+further suggestions or submitted bug reports, but your input is always
+appreciated. Thank you.

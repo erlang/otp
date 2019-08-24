@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>gen_server Behaviour</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>gen_server_concepts.xml</file>
+  </header>
+  <marker id="gen_server"></marker>
+  <p>This section is to be read with the
+    <seealso marker="stdlib:gen_server">gen_server(3)</seealso>
+    manual page in <c>stdlib</c>, where all interface functions and
+    callback functions are described in detail.</p>
+
+  <section>
+    <title>Client-Server Principles</title>
+    <p>The client-server model is characterized by a central server
+      and an arbitrary number of clients. The client-server model is
+      used for resource management operations, where several
+      different clients want to share a common resource. The server is
+      responsible for managing this resource.</p>
+    <marker id="clientserver"></marker>
+    <image file="../design_principles/clientserver.gif">
+      <icaption>Client-Server Model</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Example</title>
+    <p>An example of a simple server written in plain Erlang is
+      provided in
+      <seealso marker="des_princ#ch1">Overview</seealso>.
+      The server can be reimplemented using <c>gen_server</c>,
+      resulting in this callback module:</p>
+    <marker id="ex"></marker>
+    <code type="none">
+-module(ch3).
+-behaviour(gen_server).
+
+-export([start_link/0]).
+-export([alloc/0, free/1]).
+-export([init/1, handle_call/3, handle_cast/2]).
+
+start_link() ->
+    gen_server:start_link({local, ch3}, ch3, [], []).
+
+alloc() ->
+    gen_server:call(ch3, alloc).
+
+free(Ch) ->
+    gen_server:cast(ch3, {free, Ch}).
+
+init(_Args) ->
+    {ok, channels()}.
+
+handle_call(alloc, _From, Chs) ->
+    {Ch, Chs2} = alloc(Chs),
+    {reply, Ch, Chs2}.
+
+handle_cast({free, Ch}, Chs) ->
+    Chs2 = free(Ch, Chs),
+    {noreply, Chs2}.</code>
+    <p>The code is explained in the next sections.</p>
+  </section>
+
+  <section>
+    <title>Starting a Gen_Server</title>
+    <p>In the example in the previous section, <c>gen_server</c> is
+    started by calling <c>ch3:start_link()</c>:</p>
+    <code type="none">
+start_link() ->
+    gen_server:start_link({local, ch3}, ch3, [], []) => {ok, Pid}</code>
+    <p><c>start_link</c> calls function <c>gen_server:start_link/4</c>.
+    This function spawns and links to a new process, a
+    <c>gen_server</c>.</p>
+    <list type="bulleted">
+      <item>
+        <p>The first argument, <c>{local, ch3}</c>, specifies the name.
+          The gen_server is then locally registered as <c>ch3</c>.</p>
+        <p>If the name is omitted, the <c>gen_server</c> is not registered.
+          Instead its pid must be used. The name can also be given
+          as <c>{global, Name}</c>, in which case the <c>gen_server</c> is
+          registered using <c>global:register_name/2</c>.</p>
+      </item>
+      <item>
+        <p>The second argument, <c>ch3</c>, is the name of the callback
+          module, that is, the module where the callback functions are
+          located.</p>
+        <p>The interface functions (<c>start_link</c>, <c>alloc</c>,
+	  and <c>free</c>) are then located in the same module
+          as the callback functions (<c>init</c>, <c>handle_call</c>, and
+          <c>handle_cast</c>). This is normally good programming
+          practice, to have the code corresponding to one process
+          contained in one module.</p>
+      </item>
+      <item>
+        <p>The third argument, <c>[]</c>, is a term that is passed as is
+	  to the callback function <c>init</c>. Here, <c>init</c> does not
+          need any indata and ignores the argument.</p>
+      </item>
+      <item>
+        <p>The fourth argument, <c>[]</c>, is a list of options. See the
+          <c>gen_server(3)</c> manual page for available options.</p>
+      </item>
+    </list>
+    <p>If name registration succeeds, the new <c>gen_server</c> process
+      calls the callback function <c>ch3:init([])</c>. <c>init</c> is
+      expected to return <c>{ok, State}</c>, where <c>State</c> is the
+      internal state of the <c>gen_server</c>. In this case, the state
+      is the available channels.</p>
+    <code type="none">
+init(_Args) ->
+    {ok, channels()}.</code>
+    <p><c>gen_server:start_link</c> is synchronous. It does not return
+      until the <c>gen_server</c> has been initialized and is ready
+      to receive requests.</p>
+    <p><c>gen_server:start_link</c> must be used if the <c>gen_server</c>
+      is part of a supervision tree, that is, started by a supervisor.
+      There is another function, <c>gen_server:start</c>, to start a
+      standalone <c>gen_server</c>, that is, a <c>gen_server</c> that
+      is not part of a supervision tree.</p>
+  </section>
+
+  <section>
+    <title>Synchronous Requests - Call</title>
+    <p>The synchronous request <c>alloc()</c> is implemented using
+      <c>gen_server:call/2</c>:</p>
+    <code type="none">
+alloc() ->
+    gen_server:call(ch3, alloc).</code>
+    <p><c>ch3</c> is the name of the <c>gen_server</c> and must agree
+      with the name used to start it. <c>alloc</c> is the actual
+      request.</p>
+    <p>The request is made into a message and sent to the
+      <c>gen_server</c>. When the request is received, the
+      <c>gen_server</c> calls
+      <c>handle_call(Request, From, State)</c>, which is expected to
+      return a tuple <c>{reply,Reply,State1}</c>. <c>Reply</c> is
+      the reply that is to be sent back to the client, and
+      <c>State1</c> is a new value for the state of the
+      <c>gen_server</c>.</p>
+    <code type="none">
+handle_call(alloc, _From, Chs) ->
+    {Ch, Chs2} = alloc(Chs),
+    {reply, Ch, Chs2}.</code>
+    <p>In this case, the reply is the allocated channel <c>Ch</c> and
+      the new state is the set of remaining available channels
+      <c>Chs2</c>.</p>
+    <p>Thus, the call <c>ch3:alloc()</c> returns the allocated channel
+      <c>Ch</c> and the <c>gen_server</c> then waits for new requests,
+      now with an updated list of available channels.</p>
+  </section>
+
+  <section>
+    <title>Asynchronous Requests - Cast</title>
+    <p>The asynchronous request <c>free(Ch)</c> is implemented using
+      <c>gen_server:cast/2</c>:</p>
+    <code type="none">
+free(Ch) ->
+    gen_server:cast(ch3, {free, Ch}).</code>
+    <p><c>ch3</c> is the name of the <c>gen_server</c>.
+      <c>{free, Ch}</c> is the actual request.</p>
+    <p>The request is made into a message and sent to the
+      <c>gen_server</c>.
+      <c>cast</c>, and thus <c>free</c>, then returns <c>ok</c>.</p>
+    <p>When the request is received, the <c>gen_server</c> calls
+      <c>handle_cast(Request, State)</c>, which is expected to
+      return a tuple <c>{noreply,State1}</c>. <c>State1</c> is a new
+      value for the state of the <c>gen_server</c>.</p>
+    <code type="none">
+handle_cast({free, Ch}, Chs) ->
+    Chs2 = free(Ch, Chs),
+    {noreply, Chs2}.</code>
+    <p>In this case, the new state is the updated list of available
+      channels <c>Chs2</c>. The <c>gen_server</c> is now ready for new
+      requests.</p>
+  </section>
+
+  <section>
+    <title>Stopping</title>
+
+    <section>
+      <title>In a Supervision Tree</title>
+      <p>If the <c>gen_server</c> is part of a supervision tree, no stop
+        function is needed. The <c>gen_server</c> is automatically
+        terminated by its supervisor. Exactly how this is done is
+        defined by a
+        <seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+        set in the supervisor.</p>
+      <p>If it is necessary to clean up before termination, the shutdown
+        strategy must be a time-out value and the <c>gen_server</c> must
+	be set to trap exit signals in function <c>init</c>. When ordered
+        to shutdown, the <c>gen_server</c> then calls the callback
+	function <c>terminate(shutdown, State)</c>:</p>
+      <code type="none">
+init(Args) ->
+    ...,
+    process_flag(trap_exit, true),
+    ...,
+    {ok, State}.
+
+...
+
+terminate(shutdown, State) ->
+    ..code for cleaning up here..
+    ok.</code>
+    </section>
+
+    <section>
+      <title>Standalone Gen_Servers</title>
+      <p>If the <c>gen_server</c> is not part of a supervision tree, a
+        stop function can be useful, for example:</p>
+      <code type="none">
+...
+export([stop/0]).
+...
+
+stop() ->
+    gen_server:cast(ch3, stop).
+...
+
+handle_cast(stop, State) ->
+    {stop, normal, State};
+handle_cast({free, Ch}, State) ->
+    ....
+
+...
+
+terminate(normal, State) ->
+    ok.</code>
+      <p>The callback function handling the <c>stop</c> request returns
+        a tuple <c>{stop,normal,State1}</c>, where <c>normal</c>
+        specifies that it is a normal termination and <c>State1</c> is
+        a new value for the state of the <c>gen_server</c>. This causes
+        the <c>gen_server</c> to call <c>terminate(normal, State1)</c>
+	and then it terminates gracefully.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Handling Other Messages</title>
+    <p>If the <c>gen_server</c> is to be able to receive other messages
+      than requests, the callback function <c>handle_info(Info, State)</c>
+      must be implemented to handle them. Examples of other messages
+      are exit messages, if the <c>gen_server</c> is linked to other
+      processes (than the supervisor) and trapping exit signals.</p>
+    <code type="none">
+handle_info({'EXIT', Pid, Reason}, State) ->
+    ..code to handle exits here..
+    {noreply, State1}.</code>
+    <p>The <c>code_change</c> method must also be implemented.</p>
+    <code type="none">
+code_change(OldVsn, State, Extra) ->
+    ..code to convert state (and more) during code change
+    {ok, NewState}.</code>
+  </section>
+</chapter>
+

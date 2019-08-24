@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2015</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>OTP team</prepared>
+    <docno></docno>
+    <date>2015-03-05</date>
+    <rev>A</rev>
+    <file>ssl_introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p>Transport Layer Security (TLS) and its predecessor, the Secure
+    Sockets Layer (SSL), are cryptographic protocols designed to
+    provide communications security over a computer network. The protocols
+    use X.509 certificates and hence public key (asymmetric) cryptography to
+    authenticate the counterpart with whom they communicate,
+    and to exchange a symmetric key for payload encryption. The protocol provides
+    data/message confidentiality (encryption), integrity (through message authentication code checks)
+    and host verification (through certificate path validation). DTLS (Datagram Transport Layer Security) that
+    is based on TLS but datagram oriented instead of stream oriented.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+    programming language, the concepts of OTP, and has a basic
+    understanding of SSL/TLS/DTLS.</p>
+  </section>
+
+</chapter>

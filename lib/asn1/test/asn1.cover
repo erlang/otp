@@ -1,0 +1,3 @@
+{incl_app,asn1,details}.
+
+{excl_mods, asn1, [asn1rt_nif]}.

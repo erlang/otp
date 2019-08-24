@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Tools Reference Manual</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <description>
+    <p>The <em>Tools</em> application contains a number of stand-alone
+      tools, which are useful when developing Erlang programs.</p>
+    <taglist>
+      <tag><em>cover</em></tag>
+      <item>A coverage analysis tool for Erlang.</item>
+      <tag><em>cprof</em></tag>
+      <item>A profiling tool that shows how many
+       times each function is called. Uses a kind of local call trace
+       breakpoints containing counters to achieve very low runtime
+       performance degradation.</item>
+      <tag><em>erlang.el</em>- Erlang mode for Emacs</tag>
+      <item>Editing support such as indentation, syntax highlighting,
+       electric commands, module name verification, comment support
+       including paragraph filling, skeletons, tags support and more
+       for erlang source code. </item>
+      <tag><em>eprof</em></tag>
+      <item>A time profiling tool; measure how time is used in Erlang
+       programs. Predecessor of <em>fprof</em> (see below).</item>
+      <tag><em>fprof</em></tag>
+      <item>Another Erlang profiler; measure how time is used in your
+       Erlang programs. Uses trace to file to minimize runtime
+       performance impact, and displays time for calling and called 
+       functions.</item>
+
+      <tag><em>instrument</em></tag>
+      <item>Utility functions for obtaining and analysing resource usage
+       in an instrumented Erlang runtime system.</item>
+
+      <tag><em>lcnt</em></tag>
+      <item>A lock profiling tool for the Erlang runtime system.</item>
+
+      <tag><em>make</em></tag>
+      <item>A make utility for Erlang similar to UNIX make.</item>
+      <tag><em>tags</em></tag>
+      <item>A tool for generating Emacs TAGS files from Erlang source
+       files.</item>
+      <tag><em>xref</em></tag>
+      <item>A cross reference tool. Can be used to check dependencies 
+       between functions, modules, applications and releases.</item>
+    </taglist>
+  </description>
+  <xi:include href="cover.xml"/>
+  <xi:include href="cprof.xml"/>
+  <xi:include href="eprof.xml"/>
+  <xi:include href="erlang_mode.xml"/>
+  <xi:include href="fprof.xml"/>
+  <xi:include href="instrument.xml"/>
+  <xi:include href="lcnt.xml"/>
+  <xi:include href="make.xml"/>
+  <xi:include href="tags.xml"/>
+  <xi:include href="xref.xml"/>
+</application>
+

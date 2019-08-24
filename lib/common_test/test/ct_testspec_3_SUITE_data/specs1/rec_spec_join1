@@ -1,0 +1,2 @@
+{specs,join,"spec_join1"}.
+{specs,join,"../specs2/spec_join2"}.

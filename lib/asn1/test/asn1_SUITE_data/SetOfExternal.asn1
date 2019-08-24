@@ -1,0 +1,42 @@
+SetOfExternal DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSetNT, XSetImp, XSetExp FROM External;
+
+
+NT ::= SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [21] SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [22] EXPLICIT SET {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+NTNT ::= SET OF NT
+ImpNT ::= [3] SET OF NT
+ExpNT ::= [4] EXPLICIT SET OF NT
+
+NTImp ::= SET OF Imp
+ImpImp ::= [5] SET OF Imp
+ExpImp ::= [6] EXPLICIT SET OF Imp
+
+NTExp ::= SET OF Exp
+ImpExp ::= [7] SET OF Exp
+ExpExp ::= [8] EXPLICIT SET OF Exp
+
+XNTNT ::= SET OF XSetNT
+XImpNT ::= [3] SET OF XSetNT
+XExpNT ::= [4] EXPLICIT SET OF XSetNT
+
+XNTImp ::= SET OF XSetImp
+XImpImp ::= [5] SET OF XSetImp
+XExpImp ::= [6] EXPLICIT SET OF XSetImp
+
+XNTExp ::= SET OF XSetExp
+XImpExp ::= [7] SET OF XSetExp
+XExpExp ::= [8] EXPLICIT SET OF XSetExp
+
+END

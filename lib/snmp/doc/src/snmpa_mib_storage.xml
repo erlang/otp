@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2013</year><year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_mib_storage</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_mib_storage.xml</file>
+  </header>
+
+  <module since="OTP R16B01">snmpa_mib_storage</module>
+  <modulesummary>
+    Behaviour module for the SNMP agent mib storage. 
+  </modulesummary>
+  <description>
+    <p>This module defines the behaviour of the SNMP agent mib storage. </p>
+    <p>The mib storage is used by the agent to store internal mib-
+    related information. The mib storage module is used by several entities, 
+    not just the mib-server. </p>
+
+    <p>A <c>snmpa_mib_storage</c> compliant module 
+    must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+	<seealso marker="#open">open/5</seealso>
+      </item>
+      <item>
+	<seealso marker="#close">close/1</seealso>
+      </item>
+      <item>
+	<seealso marker="#read">read/2</seealso>
+      </item>
+      <item>
+	<seealso marker="#write">write/2</seealso>
+      </item>
+      <item>
+	<seealso marker="#delete1">delete/1</seealso>
+      </item>
+      <item>
+	<seealso marker="#delete2">delete/2</seealso>
+      </item>
+      <item>
+	<seealso marker="#match_object">match_object/2</seealso>
+      </item>
+      <item>
+	<seealso marker="#match_delete">match_delete/2</seealso>
+      </item>
+      <item>
+	<seealso marker="#tab2list">tab2list/1</seealso>
+      </item>
+      <item>
+	<seealso marker="#info">info/1</seealso>
+      </item>
+      <item>
+	<seealso marker="#sync">sync/1</seealso>
+      </item>
+      <item>
+	<seealso marker="#backup">backup/2</seealso>
+      </item>
+    </list>
+
+    <p>The semantics of them and their exact signatures are 
+    explained below. </p>
+
+  </description>
+
+  <section>
+    <title>CALLBACK FUNCTIONS</title>
+    <p>The following functions must be exported from a 
+    <c>mib-server</c> data callback module: </p>
+
+    <marker id="open"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="OTP R16B01">Module:open(Name, RecordName, Fields, Type, Options) -> {ok, TabId} | {error, Reason}</name>
+      <fsummary>Create new (mib-server) data instance</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>RecordName = atom()</v>
+        <v>Fields = [atom()]</v>
+        <v>Type = set | bag()</v>
+        <v>Options = list()</v>
+        <v>TabId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Create or open a mib storage table. </p>
+	<p>Note that the <c>RecordName</c> and <c>Fields</c> arguments 
+	my not be used in all implementations (they are actually only 
+	needed for mnesia-based implementations). </p>
+
+	<p>Note also that the <c>Options</c> argument comes from
+	the <c>options</c> config option of the mib-storage config option, 
+	and is passed on as is. </p>
+
+        <marker id="close"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:close(TabId) -> void()</name>
+      <fsummary>Close the mib-storage table</fsummary>
+      <type>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>Close the mib-storage table.</p>
+
+        <marker id="read"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:read(TabId, Key) -> false | {value, Record}</name>
+      <fsummary>Read a record from the mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Key = term()</v>
+        <v>Record = tuple()</v>
+      </type>
+      <desc>
+        <p>Read a record from the mib-storage table. </p>
+
+        <marker id="write"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:write(TabId, Record) -> ok | {error, Reason}</name>
+      <fsummary>Write a record to the mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Record = tuple()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Write a record to the mib-storage table. </p>
+
+        <marker id="delete1"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:delete(TabId) -> void()</name>
+      <fsummary>Delete an entire mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+      </type>
+      <desc>
+        <p>Delete an entire mib-storage table. </p>
+
+        <marker id="delete2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:delete(TabId, Key) -> ok | {error, Reason}</name>
+      <fsummary>Delete a record from the mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Key = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Delete a record from the mib-storage table. </p>
+
+        <marker id="match_object"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:match_object(TabId, Pattern) -> Recs | {error, Reason}</name>
+      <fsummary>Search the mib-storage table for record matching pattern</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Pattern = match_pattern()</v>
+        <v>Recs = [tuple()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Search the mib-storage table for record that match the
+	specified pattern. </p>
+
+        <marker id="match_delete"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:match_delete(TabId, Pattern) -> Recs | {error, Reason}</name>
+      <fsummary>Delete records in the mib-storage table matching pattern</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Pattern = match_pattern()</v>
+        <v>Recs = [tuple()]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Search the mib-storage table for record that match the
+	specified pattern and then delete them. The records deleted are
+	also returned. </p>
+
+        <marker id="tab2list"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:tab2list(TabId) -> Recs</name>
+      <fsummary>Return all records of the mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Recs = [tuple()]</v>
+      </type>
+      <desc>
+        <p>Return all records in the mib-storage table in the form 
+	of a list. </p>
+
+        <marker id="info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:info(TabId) -> {ok, Info} | {error, Reason}</name>
+      <fsummary>Returns information about the mib-storage table. </fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>Info = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieve implementation dependent mib-storage table 
+	information. </p>
+
+        <marker id="sync"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:sync(TabId) -> void()</name>
+      <fsummary>Synchronize mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+      </type>
+      <desc>
+        <p>Synchronize the mib-storage table. </p>
+	<p>What this means, if anything, is implementation dependent. </p>
+
+        <marker id="backup"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B01">Module:backup(TabId, BackupDir) -> ok | {error, Reason}</name>
+      <fsummary>Perform a backup of the mib-storage table</fsummary>
+      <type>
+        <v>TabId = term()</v>
+        <v>BackupDir = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Perform a backup of the mib-storage table. </p>
+        <p>What this means, if anything, is implementation dependent. </p>
+
+      </desc>
+    </func>
+
+  </funcs>
+  
+</erlref>
+

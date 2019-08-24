@@ -1,0 +1,1527 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>snmpm</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpm.xml</file>
+  </header>
+  <module since="">snmpm</module>
+  <modulesummary>Interface functions to the SNMP toolkit manager</modulesummary>
+  <description>
+    <p>The module <c>snmpm</c> contains interface functions to the 
+      SNMP manager. </p>
+  </description>
+
+  <section>
+    <title>Common Data Types</title>
+    <p>The following data types are used in the functions below:</p>
+<code type="none"><![CDATA[
+oid() = [byte()]  -  The oid() type is used to represent an ASN.1 OBJECT IDENTIFIER
+snmp_reply() = {error_status(), error_index(), varbinds()}
+error_status() = noError | atom()
+error_index() = integer()
+varbinds() = [varbind()]
+atl_type() = read | write | read_write
+target_name() = string()  -  Is a unique *non-empty* string
+vars_and_vals() = [var_and_val()]
+var_and_val() = {oid(), value_type(), value()} | {oid(), value()}
+value_type() = o ('OBJECT IDENTIFIER') | 
+               i ('INTEGER') | 
+               u ('Unsigned32') | 
+               g ('Unsigned32') | 
+               s ('OCTET SRING') | 
+               b ('BITS') | 
+               ip ('IpAddress') | 
+               op ('Opaque') | 
+               c32 ('Counter32') | 
+               c64 ('Counter64') | 
+               tt ('TimeTicks')
+value() = term()
+community() = string()
+sec_model() = any | v1 | v2c | usm
+sec_name() = string()
+sec_level() = noAuthNoPriv | authNoPriv | authPriv
+]]></code>
+
+    <p>See also the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+
+    <marker id="monitor"></marker>
+  </section>
+  <funcs>
+    <func>
+      <name since="">monitor() -> Ref</name>
+      <fsummary>Monitor the snmp manager</fsummary>
+      <type>
+        <v>Ref = reference()</v>
+      </type>
+      <desc>
+        <p>Monitor the SNMP manager. In case of a crash, the calling 
+          (monitoring) process will get a 'DOWN' message (see the erlang 
+          module for more info). </p>
+
+        <marker id="demonitor"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">demonitor(Ref) -> void()</name>
+      <fsummary>Turn off monitoring of the snmp manager</fsummary>
+      <type>
+        <v>Ref = reference()</v>
+      </type>
+      <desc>
+        <p>Turn off monitoring of the SNMP manager. </p>
+
+        <marker id="notify_started"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">notify_started(Timeout) -> Pid</name>
+      <fsummary>Request to be notified when manager started</fsummary>
+      <type>
+        <v>Timeout = integer()</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Request a notification (message) when the SNMP manager has 
+          started. </p>
+        <p>The <c>Timeout</c> is the time the request is valid. The 
+          value has to be greater then zero. </p>
+        <p>The <c>Pid</c> is the process handling the supervision of the 
+          SNMP manager start. When the manager has started a completion
+          message will be sent to the client from this process: 
+          <c>{snmpm_started, Pid}</c>. If the SNMP manager was not started 
+          in time, a timeout message will be sent to the client: 
+          <c>{snmpm_start_timeout, Pid}</c>. </p>
+        <p>A client application that is dependent on the SNMP manager 
+          will use this function in order to be notified of when the
+          manager has started. There are two situations when this 
+          is useful:</p>
+        <list type="bulleted">
+          <item>
+            <p>During the start of a system, when a client application 
+              <em>could</em> start prior to the SNMP manager but is dependent
+              upon it, and therefor has to wait for it to start.</p>
+          </item>
+          <item>
+            <p>When the SNMP manager has crashed, the dependent client 
+              application has to wait for the SNMP manager to be restarted
+              before it can <em>reconnect</em>.</p>
+          </item>
+        </list>
+        <p>The function returns the pid() of a handler process, that does
+          the supervision on behalf of the client application. Note that the 
+          client application is linked to this handler. </p>
+        <p>This function is used in conjunction with the monitor function.</p>
+
+        <marker id="cancel_notify_started"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">cancel_notify_started(Pid) -> void()</name>
+      <fsummary>Cancel request to be notified when manager started</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Cancel a previous request to be notified of SNMP manager start.</p>
+
+        <marker id="register_user"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_user(Id, Module, Data) -> ok | {error, Reason}</name>
+      <name since="">register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
+      <fsummary>Register a user of the manager</fsummary>
+      <type>
+        <v>Id = term()</v>
+        <v>Module = snmpm_user()</v>
+        <v>Data = term()</v>
+        <v>DefaultAgentConfig = [default_agent_config()]</v>
+        <v>default_agent_config() = {Item, Val}</v>
+        <v>Item = community | timeout | max_message_size | version | sec_model | sec_name | sec_level</v>
+        <v>Val = term()</v>
+        <v>Reason = term()</v>
+        <v>snmpm_user() = Module implementing the snmpm_user behaviour</v>
+      </type>
+      <desc>
+        <p>Register the manager entity (=user) responsible for specific 
+	agent(s). </p>
+
+        <p><c>Module</c> is the callback module (snmpm_user behaviour) which 
+	will be called whenever something happens (detected 
+	agent, incoming reply or incoming trap/notification).
+	Note that this could have already been done as a 
+	consequence of the node config. (see users.conf).</p>
+
+        <p>The argument <c>DefaultAgentConfig</c> is used as default 
+	values when this user register agents.</p>
+
+        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
+<code type="none"><![CDATA[
+community = string()
+timeout = integer() | snmp_timer()
+max_message_size = integer()
+version = v1 | v2 | v3 
+sec_model = any | v1 | v2c | usm 
+sec_name = string() 
+sec_level = noAuthNoPriv | authNoPriv | authPriv
+        ]]></code>
+
+        <marker id="register_user_monitor"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_user_monitor(Id, Module, Data) -> ok | {error, Reason}</name>
+      <name since="">register_user_monitor(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
+      <fsummary>Register a monitored user of the manager</fsummary>
+      <type>
+        <v>Id = term()</v>
+        <v>Module = snmpm_user()</v>
+        <v>DefaultAgentConfig = [default_agent_config()]</v>
+        <v>default_agent_config() = {Item, Val}</v>
+        <v>Item = community | timeout | max_message_size | version | sec_model | sec_name | sec_level</v>
+        <v>Val = term()</v>
+        <v>Data = term()</v>
+        <v>Reason = term()</v>
+        <v>snmpm_user() = Module implementing the snmpm_user behaviour</v>
+      </type>
+      <desc>
+        <p>Register the monitored manager entity (=user) responsible 
+          for specific agent(s). </p>
+
+        <p>The process performing the registration will be monitored. 
+          Which means that if that process should die, all agents 
+          registered by that user process will be unregistered. All 
+          outstanding requests will be canceled. </p>
+
+        <p><c>Module</c> is the callback module (snmpm_user behaviour) which 
+          will be called whenever something happens (detected 
+          agent, incoming reply or incoming trap/notification).
+          Note that this could have already been done as a 
+          consequence of the node config. (see users.conf).</p>
+
+        <p>The argument <c>DefaultAgentConfig</c> is used as default values when 
+          this user register agents.</p>
+
+        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
+<code type="none"><![CDATA[
+community = string()
+timeout = integer() | snmp_timer()
+max_message_size = integer()
+version = v1 | v2 | v3 
+sec_model = any | v1 | v2c | usm 
+sec_name = string() 
+sec_level = noAuthNoPriv | authNoPriv | authPriv
+        ]]></code>
+
+        <marker id="unregister_user"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_user(Id) -> ok | {error, Reason}</name>
+      <fsummary>Unregister the user</fsummary>
+      <type>
+        <v>Id = term()</v>
+      </type>
+      <desc>
+        <p>Unregister the user.</p>
+
+        <marker id="which_users"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_users() -> Users</name>
+      <fsummary>Get a list of all users</fsummary>
+      <type>
+        <v>Users = [UserId]</v>
+        <v>UserId = term()</v>
+      </type>
+      <desc>
+        <p>Get a list of the identities of all registered users.</p>
+
+        <marker id="register_agent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_agent(UserId, TargetName, Config) -> ok | {error, Reason}</name>
+      <fsummary>Register this agent</fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Config = [agent_config()]</v>
+        <v>agent_config() = {Item, Val}</v>
+        <v>Item = engine_id | address | port | community | timeout | max_message_size | version | sec_model | sec_name | sec_level | tdomain</v>
+        <v>Val = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Explicitly instruct the manager to handle this agent, with
+	<c>UserId</c> as the responsible user. </p>
+        <p>Called to instruct the manager that this agent shall be handled. 
+	This function is used when the user knows in advance which agents 
+	the manager shall handle.
+	Note that there is an alternate way to do the same thing:
+	Add the agent to the manager config files (see 
+	<seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>).</p>
+        <p><c>TargetName</c> is a non-empty string, 
+	uniquely identifying the agent. </p>
+	<p>The type of <c>Val</c> depends on <c>Item</c>: </p>
+<code type="none"><![CDATA[
+[mandatory] engine_id = string()
+[mandatory] tadress = transportAddress()  % Depends on tdomain
+[optional]  port = inet:port_number()
+[optional]  tdomain = transportDomain()
+[optional]  community = string()
+[optional]  timeout = integer() | snmp_timer()
+[optional]  max_message_size = integer()
+[optional]  version = v1 | v2 | v3 
+[optional]  sec_model = any | v1 | v2c | usm 
+[optional]  sec_name = string() 
+[optional]  sec_level = noAuthNoPriv | authNoPriv | authPriv
+]]></code>
+        <p>Note that if no <c>tdomain</c> is given, the default value,
+	<c>transportDomainUdpIpv4</c>, is used.</p>
+        <p>Note that if no <c>port</c> is given and if <c>taddress</c> does not
+	contain a port number, the default value is used.</p>
+
+        <marker id="unregister_agent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_agent(UserId, TargetName) -> ok | {error, Reason}</name>
+      <fsummary>Unregister the user</fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+      </type>
+      <desc>
+        <p>Unregister the agent.</p>
+
+        <marker id="agent_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">agent_info(TargetName, Item) -> {ok, Val} | {error, Reason}</name>
+      <fsummary>Retrieve agent config</fsummary>
+      <type>
+        <v>TargetName = target_name()</v>
+        <v>Item = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieve agent config.</p>
+
+        <marker id="update_agent_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B04">update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason}</name>
+      <name since="">update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}</name>
+      <fsummary>Update agent config</fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Info = [{item(), item_value()}]</v>
+        <v>Item = item()</v>
+        <v>item() = atom()</v>
+        <v>Val = item_value()</v>
+        <v>item_value() = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Update agent config. The function <c>update_agent_info/3</c> 
+	should be used when several values needs to be updated atomically. </p>
+	<p>See function 
+	<seealso marker="#register_agent">register_agent</seealso>
+	for more info about what kind of items are allowed. </p>
+
+        <marker id="which_agents"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_agents() -> Agents</name>
+      <name since="">which_agents(UserId) -> Agents</name>
+      <fsummary>List the registered agents</fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>Agents = [TargetName]</v>
+        <v>TargetName = target_name()</v>
+      </type>
+      <desc>
+        <p>Get a list of all registered agents or all agents registered
+          by a specific user.</p>
+
+        <marker id="register_usm_user"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason}</name>
+      <fsummary>Register this USM user</fsummary>
+      <type>
+        <v>EngineID = string()</v>
+        <v>UserName = string()</v>
+        <v>Conf = [usm_config()]</v>
+        <v>usm_config() = {Item, Val}</v>
+        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
+        <v>Val = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Explicitly instruct the manager to handle this USM user.
+          Note that there is an alternate way to do the same thing:
+          Add the usm user to the manager config files (see 
+          <seealso marker="snmp_manager_config_files#usm_user">usm.conf</seealso>).</p>
+        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
+<code type="none"><![CDATA[
+sec_name = string()
+auth = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocoltimeout
+auth_key = [integer()]   (length 16 if auth = usmHMACMD5AuthProtocol, 
+                          length 20 if auth = usmHMACSHAAuthProtocol)
+priv = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol
+priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb128Protocol).
+]]></code>
+
+        <marker id="unregister_usm_user"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unregister_usm_user(EngineID, UserName) -> ok | {error, Reason}</name>
+      <fsummary>Unregister this USM user</fsummary>
+      <type>
+        <v>EngineID = string()</v>
+        <v>UserName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Unregister this USM user.</p>
+
+        <marker id="which_usm_users1"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason}</name>
+      <fsummary>Retrieve usm user config</fsummary>
+      <type>
+        <v>EngineID = string()</v>
+        <v>UsmName = string()</v>
+        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieve usm user config.</p>
+
+        <marker id="update_usm_user_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason}</name>
+      <fsummary>Update agent config</fsummary>
+      <type>
+        <v>EngineID = string()</v>
+        <v>UsmName = string()</v>
+        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
+        <v>Val = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Update usm user config.</p>
+
+        <marker id="which_usm_users"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_usm_users() -> UsmUsers</name>
+      <fsummary>List all the registered usm users</fsummary>
+      <type>
+        <v>UsmUsers = [{EngineID,UserName}]</v>
+        <v>EngineID = string()</v>
+        <v>UsmName = string()</v>
+      </type>
+      <desc>
+        <p>Get a list of all registered usm users.</p>
+
+        <marker id="which_usm_users2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_usm_users(EngineID) -> UsmUsers</name>
+      <fsummary>List the registered usm users</fsummary>
+      <type>
+        <v>UsmUsers = [UserName]</v>
+        <v>UserName = string()</v>
+      </type>
+      <desc>
+        <p>Get a list of all registered usm users with engine-id 
+          <c>EngineID</c>.</p>
+
+        <marker id="sync_get2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get"></marker>
+      </desc>
+    </func>
+
+   <func>
+      <name since="">sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Timeout = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, R} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>R = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-request</c>. </p>
+        <p><c>Remaining</c> is the remaining time of the given or 
+	default timeout time.</p>
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+        <p>For <c>SnmpInfo</c>, see the user callback function 
+          <seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+        <marker id="async_get2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-request</c>.</p>
+
+        <p>The reply, if it arrives, will be delivered to the user 
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+
+        <p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+        <marker id="async_get"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Expire = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-request</c>.</p>
+        <p>The reply, if it arrives, will be delivered to the user 
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+        <marker id="sync_get_next2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-next-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get_next"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Timeout = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, R} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>R = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-next-request</c>. </p>
+        <p><c>Remaining</c> time of the given or default timeout time.</p>
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
+        <marker id="async_get_next2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-next-request</c>. </p>
+
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+	<p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_get_next"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Expire = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-next-request</c>. </p>
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+        <p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+        <marker id="sync_set2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>set-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_set"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>ContextName = string()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>Timeout = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ActualReason = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>set-request</c>. </p>
+        <p><c>Remaining</c> time of the given or default timeout time.</p>
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+        <marker id="async_set2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>set-request</c>. </p>
+
+	<p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+	<p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_set"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>Expire = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>set-request</c>. </p>
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+        <p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
+        <marker id="sync_get_bulk2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get_bulk"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Timeout = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, R} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
+        <p><c>Remaining</c> time of the given or default timeout time.</p>
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+        <marker id="async_get_bulk2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
+
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+        <p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+        <p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
+	
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_get_bulk"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>ContextName = string()</v>
+        <v>Oids = [oid()]</v>
+        <v>Expire = integer()</v>
+        <v>ExtraInfo = term()</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+        <p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+        <marker id="cancel_async_request"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">cancel_async_request(UserId, ReqId) -> ok | {error, Reason}</name>
+      <fsummary>Cancel a asynchronous request</fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Cancel a previous asynchronous request.</p>
+
+        <marker id="log_to_txt"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B03">log_to_txt(LogDir)</name>
+      <name since="">log_to_txt(LogDir, Block | Mibs)</name>
+      <name since="">log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Block = boolean()</v>
+        <v>OutFile = string()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
+        <v>disk_log_open_error() = {LogName, term()}</v>
+        <v>file_open_error() = {OutFile, term()}</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable text file. 
+	<c>OutFile</c> defaults to "./snmpm_log.txt". 
+	<c>LogName</c> defaults to "snmpm_log". 
+	<c>LogFile</c> defaults to "snmpm.log".</p>
+	<p>The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	for more info.</p>
+
+        <marker id="log_to_io"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>Block = boolean()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
+        <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
+        <v>disk_log_open_error() = {LogName, term()}</v>
+        <v>file_open_error() = {OutFile, term()}</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable format and 
+	prints it on stdio. 
+	<c>LogName</c> defaults to "snmpm_log". 
+	<c>LogFile</c> defaults to "snmpm.log".</p>
+	<p>The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	for more info.</p>
+
+        <marker id="change_log_size"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">change_log_size(NewSize) -> ok | {error, Reason}</name>
+      <fsummary>Change the size of the Audit Trail Log</fsummary>
+      <type>
+        <v>NewSize = {MaxBytes, MaxFiles}</v>
+        <v>MaxBytes = integer()</v>
+        <v>MaxFiles = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the log size of the Audit Trail Log. The application must 
+          be configured to use the audit trail log function. Please refer to 
+          disk_log(3) in Kernel Reference Manual for a description of how to 
+          change the log size.
+          </p>
+        <p>The change is permanent, as long as the log is not deleted. 
+          That means, the log size is remembered across reboots.</p>
+
+        <marker id="set_log_type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
+      <fsummary>Change the Audit Trail Log type</fsummary>
+      <type>
+        <v>NewType = OldType = atl_type()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Changes the run-time Audit Trail log type. </p>
+        <p>Note that this has no effect on the application configuration as
+          defined by configuration files, so a node restart will revert the 
+          config to whatever is in those files. </p>
+        <p>This function is primarily useful in testing/debugging 
+          scenarios. </p>
+
+        <marker id="load_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">load_mib(Mib) -> ok | {error, Reason}</name>
+      <fsummary>Load a MIB into the manager</fsummary>
+      <type>
+        <v>Mib = MibName</v>
+        <v>MibName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Load a <c>Mib</c> into the manager. The <c>MibName</c> is the 
+          name of the Mib, including the path to where the compiled mib is 
+          found.  For example,</p>
+        <code type="none">
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
+          snmpm:load_mib(Dir ++ "MY-MIB").
+        </code>
+
+        <marker id="unload_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">unload_mib(Mib) -> ok | {error, Reason}</name>
+      <fsummary>Unload a MIB from the manager</fsummary>
+      <type>
+        <v>Mib = MibName</v>
+        <v>MibName = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Unload a <c>Mib</c> from the manager. The <c>MibName</c> is the 
+          name of the Mib, including the path to where the compiled mib is 
+          found.  For example,</p>
+        <code type="none">
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
+          snmpm:unload_mib(Dir ++ "MY-MIB").
+        </code>
+
+        <marker id="which_mibs"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">which_mibs() -> Mibs</name>
+      <fsummary>Which mibs are loaded into the manager</fsummary>
+      <type>
+        <v>Mibs = [{MibName, MibFile}]</v>
+        <v>MibName = atom()</v>
+        <v>MibFile = string()</v>
+      </type>
+      <desc>
+        <p>Get a list of all the mib's loaded into the manager.</p>
+
+        <marker id="name_to_oid"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">name_to_oid(Name) -> {ok, Oids} | {error, Reason}</name>
+      <fsummary>Get all the possible oid's for an alias-name</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Oids = [oid()]</v>
+      </type>
+      <desc>
+        <p>Transform a alias-name to its oid.</p>
+        <p>Note that an alias-name is only unique within the mib, so
+          when loading several mib's into a manager, there might be
+          several instances of the same aliasname.</p>
+
+        <marker id="oid_to_name"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">oid_to_name(Oid) -> {ok, Name} | {error, Reason}</name>
+      <fsummary>Get the alias-name of the oid </fsummary>
+      <type>
+        <v>Oid = oid()</v>
+        <v>Name = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Transform a oid to its aliasname.</p>
+
+        <marker id="oid_to_type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">oid_to_type(Oid) -> {ok, Type} | {error, Reason}</name>
+      <fsummary>Get the type of the the oid</fsummary>
+      <type>
+        <v>Oid = oid()</v>
+        <v>Type = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retreive the type (asn1 bertype) of an oid.</p>
+
+        <marker id="backup"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
+      <fsummary>Backup manager data</fsummary>
+      <type>
+        <v>BackupDir = string()</v>
+      </type>
+      <desc>
+        <p>Backup persistent data handled by the manager. </p>
+        <p>BackupDir cannot be identical to DbDir. </p>
+
+        <marker id="info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">info() -> [{Key, Value}]</name>
+      <fsummary>Return information about the manager</fsummary>
+      <type>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Returns a list (a dictionary) containing information about
+          the manager. Information includes statistics counters, 
+          miscellaneous info about each process (e.g. memory allocation), 
+          and so on.</p>
+
+        <marker id="verbosity"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">verbosity(Ref, Verbosity) -> void()</name>
+      <fsummary>Assign a new verbosity for the process</fsummary>
+      <type>
+        <v>Ref = server | config | net_if | note_store | all</v>
+        <v>Verbosity = verbosity()</v>
+        <v>verbosity() = silence | info | log | debug | trace </v>
+      </type>
+      <desc>
+        <p>Sets verbosity for the designated process. For the lowest 
+          verbosity <c>silence</c>, nothing is printed. The higher the
+          verbosity, the more is printed.</p>
+
+        <marker id="format_reason"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format_reason(Reason) -> string()</name>
+      <name since="">format_reason(Prefix, Reason) -> string()</name>
+      <fsummary>Assign a new verbosity for the process</fsummary>
+      <type>
+        <v>Reason = term()</v>
+        <v>Prefix = integer() | string()</v>
+      </type>
+      <desc>
+        <p>This utility function is used to create a formatted 
+          (pretty printable) string of the error reason received
+          from either:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p>The <c>Reason</c> returned value if any of the 
+              sync/async get/get-next/set/get-bulk
+              functions returns <c>{error, Reason}</c></p>
+          </item>
+          <item>
+            <p>The <c>Reason</c> parameter in the 
+              <seealso marker="snmpm_user#handle_error">handle_error</seealso> user callback function.</p>
+          </item>
+        </list>
+        <p><c>Prefix</c> should either be an indention string
+          (e.g. a list of spaces) or a positive integer (which will be used
+          to create the indention string of that length).</p>
+      </desc>
+    </func>
+  </funcs>
+
+  
+</erlref>
+

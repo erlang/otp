@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>sets</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1999-07-27</date>
+    <rev>A</rev>
+    <file>sets.xml</file>
+  </header>
+  <module since="">sets</module>
+  <modulesummary>Functions for set manipulation.</modulesummary>
+  <description>
+    <p>Sets are collections of elements with no duplicate elements.
+      The representation of a set is undefined.</p>
+
+    <p>This module provides the same interface as the
+      <seealso marker="ordsets"><c>ordsets(3)</c></seealso> module
+      but with an undefined representation. One difference is
+      that while this module considers two elements as different if they
+      do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
+      different if and only if they do not compare equal (<c>==</c>).</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="set" n_vars="1"/>
+      <desc><p>As returned by
+        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="set" n_vars="0"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="add_element" arity="2" since=""/>
+      <fsummary>Add an element to a <c>Set</c>.</fsummary>
+      <desc>
+        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
+          <c><anno>Element</anno></c> inserted.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="del_element" arity="2" since=""/>
+      <fsummary>Remove an element from a <c>Set</c>.</fsummary>
+      <desc>
+        <p>Returns <c><anno>Set1</anno></c>, but with
+          <c><anno>Element</anno></c> removed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filter" arity="2" since=""/>
+      <fsummary>Filter set elements.</fsummary>
+      <desc>
+        <p>Filters elements in <c><anno>Set1</anno></c> with boolean function
+          <c><anno>Pred</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold" arity="3" since=""/>
+      <fsummary>Fold over set elements.</fsummary>
+      <desc>
+        <p>Folds <c><anno>Function</anno></c> over every element in
+          <c><anno>Set</anno></c> and returns the final value of the
+          accumulator. The evaluation order is undefined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_list" arity="1" since=""/>
+      <fsummary>Convert a list into a <c>Set</c>.</fsummary>
+      <desc>
+        <p>Returns a set of the elements in <c><anno>List</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="intersection" arity="1" since=""/>
+      <fsummary>Return the intersection of a list of <c>Sets</c>.</fsummary>
+      <desc>
+        <p>Returns the intersection of the non-empty list of sets.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="intersection" arity="2" since=""/>
+      <fsummary>Return the intersection of two <c>Sets</c>.</fsummary>
+      <desc>
+        <p>Returns the intersection of <c><anno>Set1</anno></c> and
+          <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_disjoint" arity="2" since=""/>
+      <fsummary>Check whether two <c>Sets</c> are disjoint.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Set1</anno></c> and
+          <c><anno>Set2</anno></c> are disjoint (have no elements in common),
+	  otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_element" arity="2" since=""/>
+      <fsummary>Test for membership of a <c>Set</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
+          <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_empty" arity="1" since="OTP 21.0"/>
+      <fsummary>Test for empty set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is an empty set,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_set" arity="1" since=""/>
+      <fsummary>Test for a <c>Set</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is a set of
+          elements, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_subset" arity="2" since=""/>
+      <fsummary>Test for subset.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> when every element of <c><anno>Set1</anno></c> is
+          also a member of <c><anno>Set2</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="0" since=""/>
+      <fsummary>Return an empty set.</fsummary>
+      <desc>
+        <p>Returns a new empty set.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="size" arity="1" since=""/>
+      <fsummary>Return the number of elements in a set.</fsummary>
+      <desc>
+        <p>Returns the number of elements in <c><anno>Set</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="subtract" arity="2" since=""/>
+      <fsummary>Return the difference of two <c>Sets</c>.</fsummary>
+      <desc>
+        <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
+          also elements of <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_list" arity="1" since=""/>
+      <fsummary>Convert a <c>Set</c>into a list.</fsummary>
+      <desc>
+        <p>Returns the elements of <c><anno>Set</anno></c> as a list.
+          The order of the returned elements is undefined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="union" arity="1" since=""/>
+      <fsummary>Return the union of a list of <c>Sets</c>.</fsummary>
+      <desc>
+        <p>Returns the merged (union) set of the list of sets.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="union" arity="2" since=""/>
+      <fsummary>Return the union of two <c>Sets</c>.</fsummary>
+      <desc>
+        <p>Returns the merged (union) set of <c><anno>Set1</anno></c> and
+          <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="gb_sets"><c>gb_sets(3)</c></seealso>,
+      <seealso marker="ordsets"><c>ordsets(3)</c></seealso></p>
+  </section>
+</erlref>
+

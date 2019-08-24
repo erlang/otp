@@ -1,0 +1,184 @@
+-- Module BasicAccessControl (X.501:08/1997)
+BasicAccessControl {joint-iso-itu-t ds(5) module(1) basicAccessControl(24) 3}
+DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All 
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  id-aca, id-acScheme, informationFramework, upperBounds,
+    selectedAttributeTypes, directoryAbstractService
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  ATTRIBUTE, AttributeType, DistinguishedName, ContextAssertion,
+    SubtreeSpecification, SupportedAttributes, MATCHING-RULE,
+    objectIdentifierMatch, Refinement
+    FROM InformationFramework informationFramework
+  Filter
+    FROM DirectoryAbstractService directoryAbstractService
+  ub-tag
+    FROM UpperBounds upperBounds
+  NameAndOptionalUID, directoryStringFirstComponentMatch, DirectoryString{}
+    FROM SelectedAttributeTypes selectedAttributeTypes;
+
+-- types 
+ACIItem ::= SEQUENCE {
+  identificationTag    DirectoryString{ub-tag},
+  precedence           Precedence,
+  authenticationLevel  AuthenticationLevel,
+  itemOrUserFirst
+    CHOICE {itemFirst
+              [0]  SEQUENCE {protectedItems   ProtectedItems,
+                             itemPermissions  SET OF ItemPermission},
+            userFirst
+              [1]  SEQUENCE {userClasses      UserClasses,
+                             userPermissions  SET OF UserPermission}}
+}
+
+Precedence ::= INTEGER(0..255)
+
+ProtectedItems ::= SEQUENCE {
+  entry                           [0]  NULL OPTIONAL,
+  allUserAttributeTypes           [1]  NULL OPTIONAL,
+  attributeType
+    [2]  SET SIZE (1..MAX) OF AttributeType OPTIONAL,
+  allAttributeValues
+    [3]  SET SIZE (1..MAX) OF AttributeType OPTIONAL,
+  allUserAttributeTypesAndValues  [4]  NULL OPTIONAL,
+  attributeValue
+    [5]  SET SIZE (1..MAX) OF AttributeTypeAndValue OPTIONAL,
+  selfValue
+    [6]  SET SIZE (1..MAX) OF AttributeType OPTIONAL,
+  rangeOfValues                   [7]  Filter OPTIONAL,
+  maxValueCount
+    [8]  SET SIZE (1..MAX) OF MaxValueCount OPTIONAL,
+  maxImmSub                       [9]  INTEGER OPTIONAL,
+  restrictedBy
+    [10]  SET SIZE (1..MAX) OF RestrictedValue OPTIONAL,
+  contexts
+    [11]  SET SIZE (1..MAX) OF ContextAssertion OPTIONAL,
+  classes                         [12]  Refinement OPTIONAL
+}
+
+MaxValueCount ::= SEQUENCE {type      AttributeType,
+                            maxCount  INTEGER
+}
+
+RestrictedValue ::= SEQUENCE {type      AttributeType,
+                              valuesIn  AttributeType
+}
+
+UserClasses ::= SEQUENCE {
+  allUsers   [0]  NULL OPTIONAL,
+  thisEntry  [1]  NULL OPTIONAL,
+  name       [2]  SET SIZE (1..MAX) OF NameAndOptionalUID OPTIONAL,
+  userGroup  [3]  SET SIZE (1..MAX) OF NameAndOptionalUID OPTIONAL,
+  -- dn component must be the name of an
+  -- entry of GroupOfUniqueNames 
+  subtree    [4]  SET SIZE (1..MAX) OF SubtreeSpecification OPTIONAL
+}
+
+ItemPermission ::= SEQUENCE {
+  precedence        Precedence OPTIONAL,
+  -- defaults to precedence in ACIItem
+  userClasses       UserClasses,
+  grantsAndDenials  GrantsAndDenials
+}
+
+UserPermission ::= SEQUENCE {
+  precedence        Precedence OPTIONAL,
+  -- defaults to precedence in ACIItem
+  protectedItems    ProtectedItems,
+  grantsAndDenials  GrantsAndDenials
+}
+
+AuthenticationLevel ::= CHOICE {
+  basicLevels
+    SEQUENCE {level           ENUMERATED {none(0), simple(1), strong(2)},
+              localQualifier  INTEGER OPTIONAL,
+              signed          BOOLEAN DEFAULT FALSE},
+  other        EXTERNAL
+}
+
+GrantsAndDenials ::= BIT STRING {
+  -- permissions that may be used in conjunction
+  -- with any component of ProtectedItems 
+  grantAdd(0), denyAdd(1), grantDiscloseOnError(2), denyDiscloseOnError(3),
+  grantRead(4), denyRead(5), grantRemove(6),
+  denyRemove(7),
+  -- permissions that may be used only in conjunction
+  -- with the entry component
+  grantBrowse(8), denyBrowse(9), grantExport(10), denyExport(11),
+  grantImport(12), denyImport(13), grantModify(14), denyModify(15),
+  grantRename(16), denyRename(17), grantReturnDN(18),
+  denyReturnDN(19),
+  -- permissions that may be used in conjunction
+  -- with any component, except entry, of ProtectedItems
+  grantCompare(20), denyCompare(21), grantFilterMatch(22), denyFilterMatch(23),
+  grantInvoke(24), denyInvoke(25)}
+
+AttributeTypeAndValue ::= SEQUENCE {
+  type   ATTRIBUTE.&id({SupportedAttributes}),
+  value  ATTRIBUTE.&Type({SupportedAttributes}{@type})
+}
+
+-- attributes 
+accessControlScheme ATTRIBUTE ::= {
+  WITH SYNTAX             OBJECT IDENTIFIER
+  EQUALITY MATCHING RULE  objectIdentifierMatch
+  SINGLE VALUE            TRUE
+  USAGE                   directoryOperation
+  ID                      id-aca-accessControlScheme
+}
+
+prescriptiveACI ATTRIBUTE ::= {
+  WITH SYNTAX             ACIItem
+  EQUALITY MATCHING RULE  directoryStringFirstComponentMatch
+  USAGE                   directoryOperation
+  ID                      id-aca-prescriptiveACI
+}
+
+entryACI ATTRIBUTE ::= {
+  WITH SYNTAX             ACIItem
+  EQUALITY MATCHING RULE  directoryStringFirstComponentMatch
+  USAGE                   directoryOperation
+  ID                      id-aca-entryACI
+}
+
+subentryACI ATTRIBUTE ::= {
+  WITH SYNTAX             ACIItem
+  EQUALITY MATCHING RULE  directoryStringFirstComponentMatch
+  USAGE                   directoryOperation
+  ID                      id-aca-subentryACI
+}
+
+-- object identifier assignments 
+-- attributes 
+id-aca-accessControlScheme OBJECT IDENTIFIER ::=
+  {id-aca 1}
+
+id-aca-prescriptiveACI OBJECT IDENTIFIER ::= {id-aca 4}
+
+id-aca-entryACI OBJECT IDENTIFIER ::= {id-aca 5}
+
+id-aca-subentryACI OBJECT IDENTIFIER ::= {id-aca 6}
+
+-- access control schemes -
+basicAccessControlScheme OBJECT IDENTIFIER ::=
+  {id-acScheme 1}
+
+simplifiedAccessControlScheme OBJECT IDENTIFIER ::= {id-acScheme 2}
+
+rule-based-access-control OBJECT IDENTIFIER ::= {id-acScheme 3}
+
+rule-and-basic-access-control OBJECT IDENTIFIER ::= {id-acScheme 4}
+
+rule-and-simple-access-control OBJECT IDENTIFIER ::= {id-acScheme 5}
+
+END -- BasicAccessControl
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

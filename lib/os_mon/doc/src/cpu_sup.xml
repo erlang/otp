@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>cpu_sup</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">cpu_sup</module>
+  <modulesummary>A CPU Load and CPU Utilization Supervisor Process</modulesummary>
+  <description>
+    <p><c>cpu_sup</c> is a process which supervises the CPU load
+      and CPU utilization. It is part of the OS_Mon application, see
+      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for Unix,
+      although CPU utilization values (<c>util/0,1</c>) are only
+      available for Solaris, Linux and FreeBSD.</p>
+    <p>The load values are proportional to how long time a runnable
+      Unix process has to spend in the run queue before it is scheduled.
+      Accordingly, higher values mean more system load. The returned
+      value divided by 256 produces the figure displayed by <c>rup</c>
+      and <c>top</c>. What is displayed as 2.00 in <c>rup</c>, is
+      displayed as load up to the second mark in <c>xload</c>.</p>
+    <p>For example, <c>rup</c> displays a load of 128 as 0.50, and
+      512 as 2.00.</p>
+    <p>If the user wants to view load values as percentage of machine
+      capacity, then this way of measuring presents a problem, because
+      the load values are not restricted to a fixed interval. In this
+      case, the following simple mathematical transformation can
+      produce the load value as a percentage:</p>
+    <code type="none">
+      PercentLoad = 100 * (1 - D/(D + Load))
+    </code>
+    <p><c>D</c> determines which load value should be associated with
+      which percentage. Choosing <c>D</c> = 50 means that 128 is 60% 
+      load, 256 is 80%, 512 is 90%, and so on.</p>
+    <p>Another way of measuring system load is to divide the number of
+      busy CPU cycles by the total number of CPU cycles. This produces 
+      values in the 0-100 range immediately. However, this method hides 
+      the fact that a machine can be more or less saturated. CPU
+      utilization is therefore a better name than system load for this
+      measure.</p>
+    <p>A server which receives just enough requests to never become
+      idle will score a CPU utilization of 100%. If the server receives
+      50% more requests, it will still score 100%. When the system load
+      is calculated with the percentage formula shown previously,
+      the load will increase from 80% to 87%.</p>
+    <p>The <c>avg1/0</c>, <c>avg5/0</c>, and <c>avg15/0</c> functions
+      can be used for retrieving system load values, and
+      the <c>util/0</c> and <c>util/1</c> functions can be used for
+      retrieving CPU utilization values.</p>
+    <p>When run on Linux, <c>cpu_sup</c> assumes that the <c>/proc</c>
+      file system is present and accessible by <c>cpu_sup</c>. If it is
+      not, <c>cpu_sup</c> will terminate.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">nprocs() -> UnixProcesses | {error, Reason}</name>
+      <fsummary>Get the number of UNIX processes running on this host</fsummary>
+      <type>
+        <v>UnixProcesses = int()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns the number of UNIX processes running on this machine.
+          This is a crude way of measuring the system load, but it may
+          be of interest in some cases.</p>
+        <p>Returns 0 if <c>cpu_sup</c> is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">avg1() -> SystemLoad | {error, Reason}</name>
+      <fsummary>Get the system load average for the last minute</fsummary>
+      <type>
+        <v>SystemLoad = int()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns the average system load in the last minute, as
+          described above. 0 represents no load, 256 represents the load
+          reported as 1.00 by <c>rup</c>.</p>
+        <p>Returns 0 if <c>cpu_sup</c> is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">avg5() -> SystemLoad | {error, Reason}</name>
+      <fsummary>Get the system load average for the last five minutes</fsummary>
+      <type>
+        <v>SystemLoad = int()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns the average system load in the last five minutes, as
+          described above. 0 represents no load, 256 represents the load
+          reported as 1.00 by <c>rup</c>.</p>
+        <p>Returns 0 if <c>cpu_sup</c> is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">avg15() -> SystemLoad | {error, Reason}</name>
+      <fsummary>Get the system load average for the last fifteen minutes</fsummary>
+      <type>
+        <v>SystemLoad = int()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns the average system load in the last 15 minutes, as
+          described above. 0 represents no load, 256 represents the load
+          reported as 1.00 by <c>rup</c>.</p>
+        <p>Returns 0 if <c>cpu_sup</c> is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">util() -> CpuUtil | {error, Reason}</name>
+      <fsummary>Get the CPU utilization</fsummary>
+      <type>
+        <v>CpuUtil = float()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns CPU utilization since the last call to
+          <c>util/0</c> or <c>util/1</c> by the calling process.</p>
+        <note>
+          <p>The returned value of the first call to <c>util/0</c> or
+            <c>util/1</c> by a process will on most systems be the CPU
+            utilization since system boot, but this is not guaranteed
+            and the value should therefore be regarded as garbage. This
+            also applies to the first call after a restart of
+            <c>cpu_sup</c>.</p>
+        </note>
+        <p>The CPU utilization is defined as the sum of the percentage
+          shares of the CPU cycles spent in all busy processor states
+          (see <c>util/1</c> below) in average on all CPUs.</p>
+        <p>Returns 0 if <c>cpu_sup</c> is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">util(Opts) -> UtilSpec | {error, Reason}</name>
+      <fsummary>Get the CPU utilization</fsummary>
+      <type>
+        <v>Opts = [detailed | per_cpu]</v>
+        <v>UtilSpec = UtilDesc | [UtilDesc]</v>
+        <v>&nbsp;UtilDesc = {Cpus, Busy, NonBusy, Misc}</v>
+        <v>&nbsp;&nbsp;Cpus = all | int() | [int()]()</v>
+        <v>&nbsp;&nbsp;Busy = NonBusy = {State, Share} | Share</v>
+        <v>&nbsp;&nbsp;&nbsp;State = user | nice_user | kernel</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;| wait | idle | atom()</v>
+        <v>&nbsp;&nbsp;&nbsp;Share = float()</v>
+        <v>&nbsp;&nbsp;Misc = []</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns CPU utilization since the last call to
+          <c>util/0</c> or <c>util/1</c> by the calling process, in
+          more detail than <c>util/0</c>.</p>
+        <note>
+          <p>The returned value of the first call to <c>util/0</c> or
+            <c>util/1</c> by a process will on most systems be the CPU
+            utilization since system boot, but this is not guaranteed
+            and the value should therefore be regarded as garbage. This
+            also applies to the first call after a restart of
+            <c>cpu_sup</c>.</p>
+        </note>
+        <p>Currently recognized options:</p>
+        <taglist>
+          <tag><c>detailed</c></tag>
+          <item>
+            <p>The returned <c>UtilDesc</c>(s) will be even more
+              detailed.</p>
+          </item>
+          <tag><c>per_cpu</c></tag>
+          <item>
+            <p>Each CPU will be specified separately (assuming this
+              information can be retrieved from the operating system),
+              that is, a list with one <c>UtilDesc</c> per CPU will be
+              returned.</p>
+          </item>
+        </taglist>
+        <p>Description of <c>UtilDesc = {Cpus, Busy, NonBusy, Misc}</c>:</p>
+        <taglist>
+          <tag><c>Cpus</c></tag>
+          <item>
+            <p>If the <c>detailed</c> and/or <c>per_cpu</c> option is
+              given, this is the CPU number, or a list of the CPU
+              numbers.</p>
+            <p>If not, this is the atom <c>all</c> which implies that
+              the <c>UtilDesc</c> contains information about all CPUs.</p>
+          </item>
+          <tag><c>Busy</c></tag>
+          <item>
+            <p>If the <c>detailed</c> option is given, this is a list
+              of <c>{State, Share}</c> tuples, where each tuple
+              contains information about a processor state that has
+              been identified as a busy processor state (see below).
+              The atom <c>State</c> is the name of the state, and
+              the float <c>Share</c> represents the percentage share of
+              the CPU cycles spent in this state since the last call to
+              <c>util/0</c> or <c>util/1</c>.</p>
+            <p>If not, this is the sum of the percentage shares of
+              the CPU cycles spent in all states identified as busy.</p>
+            <p>If the <c>per_cpu</c> is not given, the value(s)
+              presented are the average of all CPUs.</p>
+          </item>
+          <tag><c>NonBusy</c></tag>
+          <item>
+            <p>Similar to <c>Busy</c>, but for processor states that
+              have been identified as non-busy (see below).</p>
+          </item>
+          <tag><c>Misc</c></tag>
+          <item>
+            <p>Currently unused; reserved for future use.</p>
+          </item>
+        </taglist>
+        <p>Currently these processor states are identified as busy:</p>
+        <taglist>
+          <tag><c>user</c></tag>
+          <item>
+            <p>Executing code in user mode.</p>
+          </item>
+          <tag><c>nice_user</c></tag>
+          <item>
+            <p>Executing code in low priority (nice) user mode.
+              This state is currently only identified on Linux.</p>
+          </item>
+          <tag><c>kernel</c></tag>
+          <item>
+            <p>Executing code in kernel mode.</p>
+          </item>
+        </taglist>
+        <p>Currently these processor states are identified as non-busy:</p>
+        <taglist>
+          <tag><c>wait</c></tag>
+          <item>
+            <p>Waiting. This state is currently only identified on
+              Solaris.</p>
+          </item>
+          <tag><c>idle</c></tag>
+          <item>
+            <p>Idle.</p>
+          </item>
+        </taglist>
+        <note>
+          <p>Identified processor states may be different on different
+            operating systems and may change between different versions
+            of <c>cpu_sup</c> on the same operating system. The sum of
+            the percentage shares of the CPU cycles spent in all busy
+            and all non-busy processor states will always add up to
+            100%, though.</p>
+        </note>
+        <p>Returns <c>{all,0,0,[]}</c> if <c>cpu_sup</c> is not
+          available.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="os_mon_app">os_mon(3)</seealso></p>
+  </section>
+</erlref>
+

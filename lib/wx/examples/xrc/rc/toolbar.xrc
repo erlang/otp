@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxToolBar" name="main_toolbar">
+    <style>wxTB_FLAT|wxTB_DOCKABLE</style>
+    <margins>2,2</margins>
+    <object class="tool" name="non_derived_dialog_tool_or_menuitem">
+        <tooltip>Non-Derived Dialog Example</tooltip>
+        <bitmap>basicdlg.xpm</bitmap>
+        <longhelp>The basic instance of wxDialog loaded via XRC</longhelp>
+    </object>
+    <object class="tool" name="derived_tool_or_menuitem">
+        <tooltip>Derived Dialog Example</tooltip>
+        <bitmap>derivdlg.xpm</bitmap>
+        <longhelp>The most important example: load an XRC for a derived dialog</longhelp>
+    </object>
+    <object class="tool" name="controls_tool_or_menuitem">
+        <tooltip>Controls Example</tooltip>
+        <bitmap>controls.xpm</bitmap>
+        <longhelp>A notebook displaying all the wxWidgets controls</longhelp>
+    </object>        
+    <object class="tool" name="uncentered_tool_or_menuitem">
+        <tooltip>Uncentered Example</tooltip>
+        <bitmap>uncenter.xpm</bitmap>
+        <longhelp>Disable autocentering of a dialog on its parent</longhelp>
+    </object>  
+    <separator/>
+    <object class="tool" name="custom_class_tool_or_menuitem">
+        <tooltip>Custom Class Example</tooltip>
+        <bitmap>custclas.xpm</bitmap>
+        <longhelp>Embed your own custom classes into an XRC</longhelp>
+    </object>  
+    <object class="tool" name="platform_property_tool_or_menuitem">
+        <tooltip>Platform Specific Example</tooltip>
+        <bitmap>platform.xpm</bitmap>
+        <longhelp>Customize parts of an interface for a desired platform</longhelp>
+    </object>
+    <object class="tool" name="art_provider_tool_or_menuitem">
+        <tooltip>wxArtProvider Example</tooltip>
+        <bitmap>artprov.xpm</bitmap>
+        <longhelp>Use wxArtProvider to insert desired icons at runtime</longhelp>
+    </object>
+    <object class="tool" name="variable_expansion_tool_or_menuitem">
+        <tooltip>Variable Expansion Example</tooltip>
+        <bitmap>variable.xpm</bitmap>
+        <longhelp>Replace variables in the XRC file at runtime</longhelp>
+    </object>        
+</object>
+ 
+</resource>

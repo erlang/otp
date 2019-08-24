@@ -1,0 +1,50 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2017. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+@name   diameter_gen_doic_rfc7683
+@prefix diameter_doic
+
+@avp_types
+
+   OC-Supported-Features     621         Grouped        -
+   OC-Feature-Vector         622         Unsigned64     -
+   OC-OLR                    623         Grouped        -
+   OC-Sequence-Number        624         Unsigned64     -
+   OC-Validity-Duration      625         Unsigned32     -
+   OC-Report-Type            626         Enumerated     -
+   OC-Reduction-Percentage   627         Unsigned32     -
+
+@enum OC-Report-Type
+
+   HOST_REPORT     0
+   REALM_REPORT    1
+
+@grouped
+
+      OC-Supported-Features ::= < AVP Header: 621 >
+                                [ OC-Feature-Vector ]
+                              * [ AVP ]
+
+      OC-OLR ::= < AVP Header: 623 >
+                 < OC-Sequence-Number >
+                 < OC-Report-Type >
+                 [ OC-Reduction-Percentage ]
+                 [ OC-Validity-Duration ]
+               * [ AVP ]

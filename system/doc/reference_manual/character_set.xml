@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Character Set and Source File Encoding</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>character_set.xml</file>
+  </header>
+
+  <section>
+    <title>Character Set</title>
+    <p>The syntax of Erlang tokens allow the use of the full
+    ISO-8859-1 (Latin-1) character set. This is noticeable in the
+    following ways:</p>
+    <list type="bulleted">
+      <item>
+        <p>All the Latin-1 printable characters can be used and are
+          shown without the escape backslash convention.</p>
+      </item>
+      <item>
+        <p>Atoms and variables can use all Latin-1 letters.</p>
+      </item>
+    </list>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Octal</em></cell>
+        <cell align="left" valign="middle"><em>Decimal</em></cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle"><em>Class</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">200 - 237</cell>
+        <cell align="left" valign="middle">128 - 159</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Control characters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">240 - 277</cell>
+        <cell align="left" valign="middle">160 - 191</cell>
+        <cell align="right" valign="middle">- &iquest;</cell>
+        <cell align="left" valign="middle">Punctuation characters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">300 - 326</cell>
+        <cell align="left" valign="middle">192 - 214</cell>
+        <cell align="center" valign="middle">&Agrave; - &Ouml;</cell>
+        <cell align="left" valign="middle">Uppercase letters</cell>
+      </row>
+      <row>
+        <cell align="center" valign="middle">327</cell>
+        <cell align="center" valign="middle">215</cell>
+        <cell align="center" valign="middle">&times;</cell>
+        <cell align="left" valign="middle">Punctuation character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">330 - 336</cell>
+        <cell align="left" valign="middle">216 - 222</cell>
+        <cell align="center" valign="middle">&Oslash; - &THORN;</cell>
+        <cell align="left" valign="middle">Uppercase letters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">337 - 366</cell>
+        <cell align="left" valign="middle">223 - 246</cell>
+        <cell align="center" valign="middle">&szlig; - &ouml;</cell>
+        <cell align="left" valign="middle">Lowercase letters</cell>
+      </row>
+      <row>
+        <cell align="center" valign="middle">367</cell>
+        <cell align="center" valign="middle">247</cell>
+        <cell align="center" valign="middle">&divide;</cell>
+        <cell align="left" valign="middle">Punctuation character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">370 - 377</cell>
+        <cell align="left" valign="middle">248 - 255</cell>
+        <cell align="center" valign="middle">&oslash; - &yuml;</cell>
+        <cell align="left" valign="middle">Lowercase letters</cell>
+      </row>
+      <tcaption>Character Classes</tcaption>
+    </table>
+    <p>In Erlang/OTP R16B the syntax of Erlang tokens was extended to
+       handle Unicode. The support was limited to
+       string literals and comments.
+       More about the usage of Unicode in Erlang source files
+       can be found in <seealso
+       marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User's
+       Guide</seealso>.</p>
+       <p>From Erlang/OTP 20, atoms and function names are also allowed
+       to contain Unicode characters outside the ISO-Latin-1 range.
+       Module names, application names, and node names are still
+       restricted to the ISO-Latin-1 range.</p>
+  </section>
+  <section>
+    <title>Source File Encoding</title>
+    <marker id="encoding"></marker>
+    <p>The Erlang source file <c>encoding</c> is selected by a
+      comment in one of the first two lines of the source file. The
+      first string that matches the regular expression
+      <c>coding\s*[:=]\s*([-a-zA-Z0-9])+</c> selects the encoding. If
+      the matching string is an invalid encoding, it is ignored. The
+      valid encodings are <c>Latin-1</c> and <c>UTF-8</c>, where the
+      case of the characters can be chosen freely.</p>
+    <p>The following example selects UTF-8 as default encoding:</p>
+      <pre>
+%% coding: utf-8</pre>
+    <p>Two more examples, both selecting Latin-1 as default encoding:</p>
+      <pre>
+%% For this file we have chosen encoding = Latin-1</pre>
+      <pre>
+%% -*- coding: latin-1 -*-</pre>
+    <p>The default encoding for Erlang source files is changed from
+      Latin-1 to UTF-8 since Erlang/OTP 17.0.</p>
+  </section>
+</chapter>

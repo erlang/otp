@@ -1,0 +1,3084 @@
+MULTIMEDIA-SYSTEM-CONTROL DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+-- Export all symbols
+
+-- ===================================================================================
+-- Top level Messages
+-- ===================================================================================
+
+MultimediaSystemControlMessage	::=CHOICE
+{
+	request	RequestMessage,
+	response	ResponseMessage,
+	command	CommandMessage,
+	indication	IndicationMessage,
+	...
+}
+
+-- A RequestMessage results in action and requires an immediate response
+
+RequestMessage	::=CHOICE
+{
+	nonStandard	NonStandardMessage,
+
+	masterSlaveDetermination	MasterSlaveDetermination,
+
+	terminalCapabilitySet	TerminalCapabilitySet,
+
+	openLogicalChannel	OpenLogicalChannel,
+	closeLogicalChannel	CloseLogicalChannel,
+
+	requestChannelClose	RequestChannelClose,
+
+	multiplexEntrySend	MultiplexEntrySend,
+
+	requestMultiplexEntry	RequestMultiplexEntry,
+
+	requestMode	RequestMode,
+
+	roundTripDelayRequest	RoundTripDelayRequest,
+
+	maintenanceLoopRequest	MaintenanceLoopRequest,
+
+	...,
+	communicationModeRequest	CommunicationModeRequest,
+	conferenceRequest	ConferenceRequest
+}
+
+-- A ResponseMessage is the response to a request Message
+
+ResponseMessage	::=CHOICE
+{
+	nonStandard	NonStandardMessage,
+
+	masterSlaveDeterminationAck	MasterSlaveDeterminationAck,
+	masterSlaveDeterminationReject	MasterSlaveDeterminationReject,
+
+	terminalCapabilitySetAck	TerminalCapabilitySetAck,
+	terminalCapabilitySetReject	TerminalCapabilitySetReject,
+
+	openLogicalChannelAck	OpenLogicalChannelAck,
+	openLogicalChannelReject	OpenLogicalChannelReject,
+	closeLogicalChannelAck	CloseLogicalChannelAck,
+
+	requestChannelCloseAck	RequestChannelCloseAck,
+	requestChannelCloseReject	RequestChannelCloseReject,
+
+	multiplexEntrySendAck	MultiplexEntrySendAck,
+	multiplexEntrySendReject	MultiplexEntrySendReject,
+
+	requestMultiplexEntryAck	RequestMultiplexEntryAck,
+	requestMultiplexEntryReject	RequestMultiplexEntryReject,
+
+	requestModeAck	RequestModeAck,
+	requestModeReject	RequestModeReject,
+
+	roundTripDelayResponse	RoundTripDelayResponse,
+
+	maintenanceLoopAck	MaintenanceLoopAck,
+	maintenanceLoopReject	MaintenanceLoopReject,
+
+	...,
+	communicationModeResponse	CommunicationModeResponse,
+
+	conferenceResponse	ConferenceResponse
+	
+
+}
+
+-- A CommandMessage requires action, but no explicit response
+
+CommandMessage	::=CHOICE
+{
+	nonStandard	NonStandardMessage,
+
+	maintenanceLoopOffCommand	MaintenanceLoopOffCommand,
+
+	sendTerminalCapabilitySet	SendTerminalCapabilitySet,
+
+	encryptionCommand	EncryptionCommand,
+
+	flowControlCommand	FlowControlCommand,
+
+	endSessionCommand	EndSessionCommand,
+
+	miscellaneousCommand	MiscellaneousCommand,
+
+	...,
+	communicationModeCommand	CommunicationModeCommand,
+
+	conferenceCommand	ConferenceCommand,
+
+	h223MultiplexReconfiguration	H223MultiplexReconfiguration
+
+}
+
+-- An IndicationMessage is information that does not require action or response
+
+IndicationMessage	::=CHOICE
+{
+	nonStandard	NonStandardMessage,
+
+	functionNotUnderstood	FunctionNotUnderstood, 
+	
+	masterSlaveDeterminationRelease	MasterSlaveDeterminationRelease,
+
+	terminalCapabilitySetRelease	TerminalCapabilitySetRelease,
+
+	openLogicalChannelConfirm	OpenLogicalChannelConfirm,
+
+	requestChannelCloseRelease	RequestChannelCloseRelease,
+
+	multiplexEntrySendRelease	MultiplexEntrySendRelease,
+
+	requestMultiplexEntryRelease	RequestMultiplexEntryRelease,
+
+	requestModeRelease	RequestModeRelease,
+
+	miscellaneousIndication	MiscellaneousIndication,
+
+	jitterIndication	JitterIndication,
+
+	h223SkewIndication	H223SkewIndication,
+
+	newATMVCIndication	NewATMVCIndication,
+
+	userInput	UserInputIndication,
+	...,
+	h2250MaximumSkewIndication	H2250MaximumSkewIndication,
+
+	mcLocationIndication	MCLocationIndication,
+
+	conferenceIndication	ConferenceIndication,
+
+	vendorIdentification	VendorIdentification,
+	
+	functionNotSupported	FunctionNotSupported
+
+}
+
+-- SequenceNumber is defined here as it is used in a number of Messages
+SequenceNumber	::=INTEGER (0..255)
+
+-- ===================================================================================
+-- Non standard Message definitions
+-- ===================================================================================
+
+NonStandardMessage	::=SEQUENCE
+{
+	nonStandardData	NonStandardParameter,
+	...
+}
+
+NonStandardParameter	::=SEQUENCE
+{
+	nonStandardIdentifier	NonStandardIdentifier,
+	data		OCTET STRING
+}
+
+NonStandardIdentifier	::=CHOICE
+{
+	object		OBJECT IDENTIFIER,
+	h221NonStandard	SEQUENCE
+	{
+		t35CountryCode	INTEGER (0..255),	-- country, per T.35
+		t35Extension	INTEGER (0..255),	-- assigned nationally
+		manufacturerCode	INTEGER (0..65535)	-- assigned nationally
+	}
+}
+
+-- ===================================================================================
+-- Master-slave determination definitions
+-- ===================================================================================
+
+MasterSlaveDetermination	::=SEQUENCE
+{
+	terminalType	INTEGER (0..255),
+	statusDeterminationNumber	INTEGER (0..16777215),
+	...
+}
+
+MasterSlaveDeterminationAck	::=SEQUENCE
+{
+	decision	CHOICE
+	{
+		master	NULL,
+		slave	NULL
+	},
+	...
+}
+
+MasterSlaveDeterminationReject	::=SEQUENCE
+{
+	cause		CHOICE
+	{
+		identicalNumbers	NULL,
+		...
+	},
+	...
+}
+
+MasterSlaveDeterminationRelease	::=SEQUENCE
+{
+	...
+}
+
+ -- ===================================================================================
+-- Capability exchange definitions
+-- ===================================================================================
+
+TerminalCapabilitySet	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+
+	protocolIdentifier	OBJECT IDENTIFIER,
+				-- shall be set to the value
+				-- {itu-t (0) recommendation (0) h (8) 245 version (0) 3}
+				
+
+	multiplexCapability	MultiplexCapability OPTIONAL,
+
+	capabilityTable	SET SIZE (1..256) OF CapabilityTableEntry OPTIONAL,
+
+	capabilityDescriptors	SET SIZE (1..256) OF CapabilityDescriptor OPTIONAL,
+
+	...
+}
+
+CapabilityTableEntry	::=SEQUENCE
+{
+	capabilityTableEntryNumber	CapabilityTableEntryNumber,
+	capability	Capability OPTIONAL
+}
+
+CapabilityDescriptor	::=SEQUENCE
+{
+	capabilityDescriptorNumber	CapabilityDescriptorNumber,
+	simultaneousCapabilities	SET SIZE (1..256) OF AlternativeCapabilitySet OPTIONAL
+}
+
+AlternativeCapabilitySet	::=SEQUENCE SIZE (1..256) OF CapabilityTableEntryNumber
+
+CapabilityTableEntryNumber	::=INTEGER (1..65535)
+
+CapabilityDescriptorNumber	::=INTEGER (0..255)
+
+TerminalCapabilitySetAck	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	...
+}
+
+TerminalCapabilitySetReject	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	cause		CHOICE
+	{
+		unspecified	NULL,
+		undefinedTableEntryUsed	NULL,
+		descriptorCapacityExceeded	NULL,
+		tableEntryCapacityExceeded	CHOICE
+		{
+			highestEntryNumberProcessed	CapabilityTableEntryNumber,
+			noneProcessed	NULL
+		},
+		...
+	},
+	...
+}
+
+TerminalCapabilitySetRelease	::=SEQUENCE
+{
+	...
+}
+
+-- ===================================================================================
+-- Capability exchange definitions: top level capability description
+-- ===================================================================================
+
+Capability		::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+
+	receiveVideoCapability	VideoCapability,
+	transmitVideoCapability	VideoCapability,
+	receiveAndTransmitVideoCapability	VideoCapability,
+
+	receiveAudioCapability	AudioCapability,
+	transmitAudioCapability	AudioCapability,
+	receiveAndTransmitAudioCapability	AudioCapability,
+
+	receiveDataApplicationCapability	DataApplicationCapability,
+	transmitDataApplicationCapability	DataApplicationCapability,
+	receiveAndTransmitDataApplicationCapability	DataApplicationCapability,
+
+	h233EncryptionTransmitCapability	BOOLEAN,
+	h233EncryptionReceiveCapability	SEQUENCE
+	{
+		h233IVResponseTime	INTEGER (0..255),	-- units milliseconds	
+		...
+	},
+	...,
+	conferenceCapability	ConferenceCapability,
+	h235SecurityCapability	H235SecurityCapability,
+	maxPendingReplacementFor	INTEGER (0..255),
+	receiveUserInputCapability	UserInputCapability,
+	transmitUserInputCapability	UserInputCapability,
+	receiveAndTransmitUserInputCapability	UserInputCapability
+
+}
+
+H235SecurityCapability	::=SEQUENCE
+{
+	encryptionAuthenticationAndIntegrity	EncryptionAuthenticationAndIntegrity,
+
+	mediaCapability	CapabilityTableEntryNumber,
+		-- Note: the mediaCapability shall refer to Capability Table Entries that do contain a transmit,
+		-- receive, or receiveAndTransmit AudioCapability, VideoCapability,
+		-- DataApplicationCapability, or similar capability indicated by a NonStandardParameter only
+
+	...
+}
+
+-- ===================================================================================
+-- Capability exchange definitions: Multiplex capabilities
+-- ===================================================================================
+
+MultiplexCapability	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	h222Capability	H222Capability,
+	h223Capability	H223Capability,
+	v76Capability	V76Capability,
+	...,
+	h2250Capability	H2250Capability
+	
+}
+
+H222Capability	::= SEQUENCE
+{
+	numberOfVCs	INTEGER (1..256),
+	vcCapability	SET OF VCCapability,
+	...
+}
+
+VCCapability	::=SEQUENCE
+{
+	aal1		SEQUENCE
+	{
+		nullClockRecovery	BOOLEAN,
+		srtsClockRecovery	BOOLEAN,
+		adaptiveClockRecovery	BOOLEAN,
+		nullErrorCorrection	BOOLEAN,
+		longInterleaver	BOOLEAN,
+		shortInterleaver	BOOLEAN,
+		errorCorrectionOnly	BOOLEAN,
+		structuredDataTransfer	BOOLEAN,
+		partiallyFilledCells	BOOLEAN,
+		...
+	} OPTIONAL,
+	aal5		SEQUENCE
+	{
+		forwardMaximumSDUSize	INTEGER (0..65535),	-- units octets
+		backwardMaximumSDUSize	INTEGER (0..65535),	-- units octets
+		...
+	} OPTIONAL,
+	transportStream	BOOLEAN,
+	programStream	BOOLEAN,
+	availableBitRates	SEQUENCE
+	{
+		type	CHOICE
+		{
+			singleBitRate	INTEGER (1..65535),	-- units 64 kbit/s
+			rangeOfBitRates	SEQUENCE
+			{
+				lowerBitRate	INTEGER (1..65535),	-- units 64 kbit/s
+				higherBitRate	INTEGER (1..65535)	-- units 64 kbit/s
+			}
+		},
+		...
+	},
+	...
+}
+
+H223Capability	::=SEQUENCE
+{
+	transportWithI-frames	BOOLEAN,	-- I-frame transport of H.245
+
+	videoWithAL1	BOOLEAN,
+	videoWithAL2	BOOLEAN,
+	videoWithAL3	BOOLEAN,
+	audioWithAL1	BOOLEAN,
+	audioWithAL2	BOOLEAN,
+	audioWithAL3	BOOLEAN,
+	dataWithAL1	BOOLEAN,
+	dataWithAL2	BOOLEAN,
+	dataWithAL3	BOOLEAN,
+
+	maximumAl2SDUSize	INTEGER (0..65535),	-- units octets
+	maximumAl3SDUSize	INTEGER (0..65535),	-- units octets
+
+	maximumDelayJitter	INTEGER (0..1023),	-- units milliseconds
+
+	h223MultiplexTableCapability	CHOICE
+	{
+		basic	NULL,
+		enhanced	SEQUENCE
+		{
+			maximumNestingDepth	INTEGER (1..15),
+			maximumElementListSize	INTEGER (2..255),
+			maximumSubElementListSize	INTEGER (2..255),
+			...
+		}
+	},
+	...,
+	maxMUXPDUSizeCapability	BOOLEAN,
+	nsrpSupport	BOOLEAN,
+	mobileOperationTransmitCapability	SEQUENCE
+	{
+		modeChangeCapability	BOOLEAN,
+		h223AnnexA	BOOLEAN,
+		h223AnnexADoubleFlag	BOOLEAN,
+		h223AnnexB	BOOLEAN,
+		h223AnnexBwithHeader	BOOLEAN,
+		...
+	} OPTIONAL,
+	h223AnnexCCapability	H223AnnexCCapability OPTIONAL
+
+}
+
+H223AnnexCCapability	::= SEQUENCE
+{
+	videoWithAL1M	BOOLEAN,
+	videoWithAL2M	BOOLEAN,
+	videoWithAL3M	BOOLEAN,
+	audioWithAL1M	BOOLEAN,
+	audioWithAL2M	BOOLEAN,
+	audioWithAL3M	BOOLEAN,
+	dataWithAL1M	BOOLEAN,
+	dataWithAL2M	BOOLEAN,
+	dataWithAL3M	BOOLEAN,
+ 	alpduInterleaving	BOOLEAN,
+
+	maximumAL1MPDUSize	INTEGER (0..65535),	-- units octets
+	maximumAL2MSDUSize	INTEGER (0..65535),	-- units octets
+	maximumAL3MSDUSize	INTEGER (0..65535),	-- units octets
+	...
+}
+
+V76Capability	::=SEQUENCE
+{
+	suspendResumeCapabilitywAddress	BOOLEAN,
+	suspendResumeCapabilitywoAddress	BOOLEAN,
+	rejCapability	BOOLEAN,
+	sREJCapability	BOOLEAN,
+	mREJCapability	BOOLEAN,
+	crc8bitCapability	BOOLEAN,
+	crc16bitCapability	BOOLEAN, 
+	crc32bitCapability	BOOLEAN,
+	uihCapability	BOOLEAN,
+	numOfDLCS	INTEGER (2..8191),
+	twoOctetAddressFieldCapability	BOOLEAN,
+	loopBackTestCapability	BOOLEAN,
+	n401Capability	INTEGER (1..4095),
+	maxWindowSizeCapability	INTEGER (1..127),
+	v75Capability	V75Capability,
+	...
+}
+
+V75Capability	::=SEQUENCE
+{
+	audioHeader	BOOLEAN,
+	...
+}
+
+H2250Capability	::=SEQUENCE
+{
+	maximumAudioDelayJitter	INTEGER(0..1023),	-- units in milliseconds
+	receiveMultipointCapability	MultipointCapability,
+	transmitMultipointCapability	MultipointCapability,
+	receiveAndTransmitMultipointCapability	MultipointCapability,
+	mcCapability	SEQUENCE
+	{
+		centralizedConferenceMC	BOOLEAN,
+		decentralizedConferenceMC	BOOLEAN,
+		...
+	},
+	rtcpVideoControlCapability	BOOLEAN,	-- FIR and NACK
+	mediaPacketizationCapability	MediaPacketizationCapability,
+	...,
+	transportCapability	TransportCapability OPTIONAL,
+	redundancyEncodingCapability	SEQUENCE SIZE(1..256) OF RedundancyEncodingCapability OPTIONAL,
+	logicalChannelSwitchingCapability	BOOLEAN,
+	t120DynamicPortCapability	BOOLEAN
+
+}
+
+MediaPacketizationCapability	::=SEQUENCE
+{
+	h261aVideoPacketization	BOOLEAN,
+	...,
+	rtpPayloadType	SEQUENCE SIZE(1..256) OF RTPPayloadType OPTIONAL
+}
+
+RSVPParameters	::=SEQUENCE
+{
+	qosMode	QOSMode OPTIONAL,
+	tokenRate	INTEGER (1..4294967295) OPTIONAL,
+				        -- rate in bytes/sec
+	bucketSize	INTEGER (1..4294967295) OPTIONAL,        -- size in bytes
+	peakRate	INTEGER (1..4294967295) OPTIONAL,
+				        -- peak bandwidth bytes/sec
+	minPoliced	INTEGER (1..4294967295) OPTIONAL,        -- 
+	maxPktSize	INTEGER (1..4294967295) OPTIONAL,        -- size in bytes
+	...
+}
+
+QOSMode		::=CHOICE
+{
+	guaranteedQOS	NULL,
+	controlledLoad	NULL,
+	...
+} 
+
+-- Ed. Replace with ITU-T ATM Transfer Capability Types
+ATMParameters	::=SEQUENCE
+{		
+	maxNTUSize	INTEGER(0..65535),        --units in octets
+	atmUBR	BOOLEAN,                       --unspecified bit rate
+	atmrtVBR	BOOLEAN,                       --real time variable bit rate
+	atmnrtVBR	BOOLEAN,                       --non real time variable bit rate
+	atmABR	BOOLEAN,                       --available bit rate
+	atmCBR	BOOLEAN,                       --constant bit rate
+	...
+}
+
+QOSCapability	::=SEQUENCE
+{
+	nonStandardData	NonStandardParameter OPTIONAL,
+	rsvpParameters	RSVPParameters OPTIONAL,
+	atmParameters	ATMParameters OPTIONAL,
+	...
+}
+
+MediaTransportType	::=CHOICE
+{
+	ip-UDP		NULL,
+	ip-TCP		NULL,
+	atm-AAL5-UNIDIR	NULL, -- virtual circuits used as unidirectional 
+	atm-AAL5-BIDIR	NULL, -- virtual circuits used as bidirectional
+	...
+}
+
+MediaChannelCapability	::=SEQUENCE
+{
+		mediaTransport	MediaTransportType  OPTIONAL,
+			...
+}
+
+TransportCapability	::=SEQUENCE
+{
+  	nonStandard            	NonStandardParameter OPTIONAL,
+	qOSCapabilities	SEQUENCE SIZE(1..256) OF QOSCapability OPTIONAL,
+	mediaChannelCapabilities	SEQUENCE SIZE(1..256) OF MediaChannelCapability OPTIONAL,
+	...
+}
+
+RedundancyEncodingCapability	::=SEQUENCE
+{
+	redundancyEncodingMethod	RedundancyEncodingMethod,
+	primaryEncoding	CapabilityTableEntryNumber,
+	secondaryEncoding	SEQUENCE SIZE(1..256) OF CapabilityTableEntryNumber OPTIONAL,
+	...
+}
+
+RedundancyEncodingMethod	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	rtpAudioRedundancyEncoding	NULL,
+	...,
+	rtpH263VideoRedundancyEncoding	RTPH263VideoRedundancyEncoding
+}
+
+RTPH263VideoRedundancyEncoding	::= SEQUENCE
+{
+	numberOfThreads	INTEGER (1..16),
+	framesBetweenSyncPoints	INTEGER (1..256),
+	frameToThreadMapping	CHOICE
+	{
+			roundrobin	NULL,
+			custom	SEQUENCE SIZE(1..256) OF 
+				RTPH263VideoRedundancyFrameMapping,
+-- empty SEQUENCE for capability negotiation
+-- meaningful contents only OpenLogicalChannel
+			...
+	},
+	containedThreads	SEQUENCE SIZE(1..256) OF INTEGER (0..15) OPTIONAL,
+				-- only used for opening of logical channels
+	...
+}
+
+RTPH263VideoRedundancyFrameMapping	::= SEQUENCE
+{
+	threadNumber	INTEGER (0..15),
+	frameSequence	SEQUENCE SIZE(1..256) OF INTEGER (0..255),
+	...
+}
+
+MultipointCapability	::=SEQUENCE
+{
+	multicastCapability	BOOLEAN,	
+	multiUniCastConference	BOOLEAN,	
+	mediaDistributionCapability	SEQUENCE OF MediaDistributionCapability,
+	...
+}
+
+MediaDistributionCapability	::=SEQUENCE
+{
+	centralizedControl	BOOLEAN,
+	distributedControl	BOOLEAN,	-- for further study in H.323
+	centralizedAudio	BOOLEAN,
+	distributedAudio	BOOLEAN,
+	centralizedVideo	BOOLEAN,
+	distributedVideo	BOOLEAN,
+	centralizedData	SEQUENCE OF DataApplicationCapability OPTIONAL,
+	distributedData	SEQUENCE OF DataApplicationCapability OPTIONAL,	
+						-- for further study in H.323
+	...
+}
+
+
+
+-- ===================================================================================
+-- Capability exchange definitions: Video capabilities
+-- ===================================================================================
+
+VideoCapability	::=CHOICE
+{
+	nonStandard	NonStandardParameter ,
+	h261VideoCapability	H261VideoCapability,
+	h262VideoCapability	H262VideoCapability,
+	h263VideoCapability	H263VideoCapability,
+	is11172VideoCapability	IS11172VideoCapability,
+	...
+}
+
+H261VideoCapability	::=SEQUENCE
+{
+	qcifMPI	INTEGER (1..4) OPTIONAL,	-- units 1/29.97 Hz
+	cifMPI		INTEGER (1..4) OPTIONAL,	-- units 1/29.97 Hz
+	temporalSpatialTradeOffCapability	BOOLEAN,
+	maxBitRate	INTEGER (1..19200),	-- units of 100 bit/s
+	stillImageTransmission	BOOLEAN,	-- Annex D of H.261
+	...
+}
+
+H262VideoCapability	::=SEQUENCE
+{
+	profileAndLevel-SPatML	BOOLEAN,
+	profileAndLevel-MPatLL	BOOLEAN,
+	profileAndLevel-MPatML	BOOLEAN,
+	profileAndLevel-MPatH-14	BOOLEAN,
+	profileAndLevel-MPatHL	BOOLEAN,
+	profileAndLevel-SNRatLL	BOOLEAN,
+	profileAndLevel-SNRatML	BOOLEAN,
+	profileAndLevel-SpatialatH-14	BOOLEAN,
+	profileAndLevel-HPatML	BOOLEAN,
+	profileAndLevel-HPatH-14	BOOLEAN,
+	profileAndLevel-HPatHL	BOOLEAN,
+	videoBitRate	INTEGER (0.. 1073741823) OPTIONAL,	-- units 400 bit/s
+	vbvBufferSize	INTEGER (0.. 262143) OPTIONAL,	-- units 16384 bits
+	samplesPerLine	INTEGER (0..16383) OPTIONAL,	-- units samples/line
+	linesPerFrame	INTEGER (0..16383) OPTIONAL,	-- units lines/frame
+	framesPerSecond	INTEGER (0..15) OPTIONAL,	-- frame_rate_code
+	luminanceSampleRate	INTEGER (0..4294967295) OPTIONAL,	-- units samples/sec
+	...
+}
+
+H263VideoCapability	::=SEQUENCE
+{
+	sqcifMPI	INTEGER (1..32) OPTIONAL,	-- units 1/29.97 Hz
+	qcifMPI	INTEGER (1..32) OPTIONAL,	-- units 1/29.97 Hz
+	cifMPI		INTEGER (1..32) OPTIONAL,	-- units 1/29.97 Hz
+	cif4MPI	INTEGER (1..32) OPTIONAL,	-- units 1/29.97 Hz
+	cif16MPI	INTEGER (1..32) OPTIONAL,	-- units 1/29.97 Hz
+	maxBitRate	INTEGER (1..192400),	-- units 100 bit/s
+	unrestrictedVector	BOOLEAN,
+	arithmeticCoding	BOOLEAN,
+	advancedPrediction	BOOLEAN,
+	pbFrames	BOOLEAN,
+	temporalSpatialTradeOffCapability	BOOLEAN,
+	hrd-B		INTEGER (0..524287) OPTIONAL,	-- units 128 bits
+	bppMaxKb	INTEGER (0..65535) OPTIONAL,	-- units 1024 bits
+	...,
+
+	slowSqcifMPI	INTEGER (1..3600) OPTIONAL,	-- units seconds/frame
+	slowQcifMPI	INTEGER (1..3600) OPTIONAL, --units seconds/frame
+	slowCifMPI	INTEGER (1..3600) OPTIONAL, --units seconds/frame
+	slowCif4MPI	INTEGER (1..3600) OPTIONAL, --units seconds/frame
+	slowCif16MPI	INTEGER (1..3600) OPTIONAL, --units seconds/frame
+	errorCompensation	BOOLEAN,
+
+	enhancementLayerInfo	EnhancementLayerInfo OPTIONAL,
+	h263Options	H263Options OPTIONAL
+
+}
+
+EnhancementLayerInfo	::=SEQUENCE
+{
+	baseBitRateConstrained	BOOLEAN,
+	snrEnhancement 	SET SIZE(1..14) OF EnhancementOptions OPTIONAL,
+	spatialEnhancement 	SET SIZE(1..14) OF EnhancementOptions OPTIONAL,
+	bPictureEnhancement	SET SIZE(1..14) OF BEnhancementParameters OPTIONAL,
+	...
+}
+
+BEnhancementParameters	::=SEQUENCE
+{
+	enhancementOptions	EnhancementOptions,
+	numberOfBPictures	INTEGER (1..64),
+	...
+}
+
+EnhancementOptions	::=SEQUENCE
+{
+	sqcifMPI	INTEGER (1..32) OPTIONAL,  -- units 1/29.97 Hz
+	qcifMPI	INTEGER (1..32) OPTIONAL,  -- units 1/29.97 Hz
+	cifMPI		INTEGER (1..32) OPTIONAL,  -- units 1/29.97 Hz
+	cif4MPI 	INTEGER (1..32) OPTIONAL,  -- units 1/29.97 Hz
+	cif16MPI	INTEGER (1..32) OPTIONAL,  -- units 1/29.97 Hz
+	maxBitRate	INTEGER (1..192400),             -- units 100 bit/s
+	unrestrictedVector	BOOLEAN,
+	arithmeticCoding	BOOLEAN,
+	temporalSpatialTradeOffCapability	BOOLEAN,
+	slowSqcifMPI	INTEGER (1..3600) OPTIONAL,  -- units econds/frame
+	slowQcifMPI	INTEGER (1..3600) OPTIONAL,   --units seconds/frame
+	slowCifMPI	INTEGER (1..3600) OPTIONAL,   --units seconds/frame
+	slowCif4MPI	INTEGER (1..3600) OPTIONAL,   --units seconds/frame
+	slowCif16MPI	INTEGER (1..3600) OPTIONAL,   --units seconds/frame
+	errorCompensation	BOOLEAN,
+	h263Options	H263Options OPTIONAL,
+	...
+}
+
+H263Options	::= SEQUENCE
+{
+	advancedIntraCodingMode	BOOLEAN,
+	deblockingFilterMode	BOOLEAN,
+	improvedPBFramesMode	BOOLEAN,
+
+	unlimitedMotionVectors	BOOLEAN,
+
+	fullPictureFreeze	BOOLEAN,
+	partialPictureFreezeAndRelease	BOOLEAN,
+	resizingPartPicFreezeAndRelease	BOOLEAN,
+	fullPictureSnapshot	BOOLEAN,
+	partialPictureSnapshot	BOOLEAN,
+	videoSegmentTagging	BOOLEAN,
+	progressiveRefinement	BOOLEAN,
+
+	dynamicPictureResizingByFour	BOOLEAN,
+	dynamicPictureResizingSixteenthPel	BOOLEAN,
+	dynamicWarpingHalfPel	BOOLEAN,
+	dynamicWarpingSixteenthPel	BOOLEAN,
+
+	independentSegmentDecoding	BOOLEAN,
+
+	slicesInOrder-NonRect	BOOLEAN,
+	slicesInOrder-Rect	BOOLEAN,
+	slicesNoOrder-NonRect	BOOLEAN,
+	slicesNoOrder-Rect	BOOLEAN,
+
+	alternateInterVLCMode	BOOLEAN,
+	modifiedQuantizationMode	BOOLEAN,
+	reducedResolutionUpdate	BOOLEAN,
+
+	transparencyParameters	TransparencyParameters OPTIONAL,
+	separateVideoBackChannel	BOOLEAN,
+	refPictureSelection	RefPictureSelection OPTIONAL,
+	customPictureClockFrequency	SET SIZE (1..16) OF CustomPictureClockFrequency	 OPTIONAL,
+	customPictureFormat	SET SIZE (1..16) OF CustomPictureFormat OPTIONAL,
+	modeCombos	SET SIZE (1..16) OF H263VideoModeCombos OPTIONAL,
+	...
+}
+
+TransparencyParameters	::= SEQUENCE
+{
+	presentationOrder	INTEGER(1..256),
+	offset-x	INTEGER(-262144..262143), -- 1/8 pixels
+	offset-y	INTEGER(-262144..262143), -- 1/8 pixels
+	scale-x		INTEGER(1..255),
+	scale-y		INTEGER(1..255),
+	...
+}
+
+RefPictureSelection	::=SEQUENCE
+{
+	additionalPictureMemory	SEQUENCE
+	{
+		sqcifAdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		qcifAdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		cifAdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		cif4AdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		cif16AdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		bigCpfAdditionalPictureMemory	INTEGER (1..256) OPTIONAL,	-- units frame
+		...
+	} OPTIONAL,
+	videoMux	BOOLEAN,
+	videoBackChannelSend	CHOICE
+	{
+		none	NULL,
+		ackMessageOnly	NULL,
+		nackMessageOnly	NULL,
+		ackOrNackMessageOnly	NULL,
+		ackAndNackMessage	NULL,
+		...
+	},
+	...
+}
+
+CustomPictureClockFrequency	::=SEQUENCE
+{
+	clockConversionCode	INTEGER(1000..1001),
+	clockDivisor	INTEGER(1..127),
+	sqcifMPI	INTEGER (1..2048) OPTIONAL,
+	qcifMPI	INTEGER (1..2048) OPTIONAL,
+	cifMPI		INTEGER (1..2048) OPTIONAL,
+	cif4MPI	INTEGER (1..2048) OPTIONAL,
+	cif16MPI	INTEGER (1..2048) OPTIONAL,
+	...
+} 
+
+CustomPictureFormat	::=SEQUENCE
+{
+	maxCustomPictureWidth	INTEGER(1..2048),	-- units 4 pixels
+	maxCustomPictureHeight	INTEGER(1..2048),	-- units 4 pixels
+	minCustomPictureWidth	INTEGER(1..2048),	-- units 4 pixels
+	minCustomPictureHeight	INTEGER(1..2048),	-- units 4 pixels
+	mPI			SEQUENCE
+	{
+		standardMPI	INTEGER (1..31) OPTIONAL,
+		customPCF	SET SIZE (1..16) OF SEQUENCE 
+		{
+			clockConversionCode	INTEGER (1000..1001),
+			clockDivisor	INTEGER (1..127),
+			customMPI	INTEGER (1..2048),
+			...
+		} OPTIONAL,
+		...
+	},
+
+	pixelAspectInformation	CHOICE
+	{
+		anyPixelAspectRatio	BOOLEAN,
+		pixelAspectCode	SET SIZE (1..14) OF INTEGER(1..14),
+		extendedPAR	SET SIZE (1..256) OF SEQUENCE
+		{
+			width	INTEGER(1..255),
+			height	INTEGER(1..255),
+			...
+		},
+		...
+	} ,
+	...
+} 
+
+H263VideoModeCombos	::= SEQUENCE
+{
+	h263VideoUncoupledModes	H263ModeComboFlags,
+	h263VideoCoupledModes	SET SIZE (1..16) OF H263ModeComboFlags,
+	...
+}
+
+H263ModeComboFlags	::= SEQUENCE
+{
+	unrestrictedVector	BOOLEAN,
+	arithmeticCoding	BOOLEAN,
+	advancedPrediction	BOOLEAN,
+	pbFrames	BOOLEAN,
+	advancedIntraCodingMode	BOOLEAN,
+	deblockingFilterMode	BOOLEAN,
+	unlimitedMotionVectors	BOOLEAN,
+	slicesInOrder-NonRect	BOOLEAN,
+	slicesInOrder-Rect	BOOLEAN,
+	slicesNoOrder-NonRect	BOOLEAN,
+	slicesNoOrder-Rect	BOOLEAN,
+	improvedPBFramesMode	BOOLEAN,
+	referencePicSelect	BOOLEAN,
+	dynamicPictureResizingByFour	BOOLEAN,
+	dynamicPictureResizingSixteenthPel	BOOLEAN,
+	dynamicWarpingHalfPel	BOOLEAN,
+	dynamicWarpingSixteenthPel	BOOLEAN,
+	reducedResolutionUpdate	BOOLEAN,
+	independentSegmentDecoding	BOOLEAN,
+	alternateInterVLCMode	BOOLEAN,
+	modifiedQuantizationMode	BOOLEAN,
+	...
+}
+
+IS11172VideoCapability	::=SEQUENCE
+{
+	constrainedBitstream	BOOLEAN,
+	videoBitRate	INTEGER (0.. 1073741823) OPTIONAL,	-- units 400 bit/s
+	vbvBufferSize	INTEGER (0.. 262143) OPTIONAL,	-- units 16384 bits
+	samplesPerLine	INTEGER (0..16383) OPTIONAL,	-- units samples/line
+	linesPerFrame	INTEGER (0..16383) OPTIONAL,	-- units lines/frame
+	pictureRate	INTEGER (0..15) OPTIONAL,	
+	luminanceSampleRate	INTEGER (0..4294967295) OPTIONAL,	-- units samples/sec
+	...
+}
+
+-- ===================================================================================
+-- Capability exchange definitions: Audio capabilities
+-- ===================================================================================
+
+-- For an H.222 multiplex, the integers indicate the size of the STD buffer in units of 256 octets
+-- For an H.223 multiplex, the integers indicate the maximum number of audio frames per AL-SDU
+-- For an H.225.0 multiplex, the integers indicate the maximum number of audio frames per packet
+
+AudioCapability	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	g711Alaw64k	INTEGER (1..256),
+	g711Alaw56k	INTEGER (1..256),
+	g711Ulaw64k	INTEGER (1..256),
+	g711Ulaw56k	INTEGER (1..256),
+
+	g722-64k	INTEGER (1..256),
+	g722-56k	INTEGER (1..256),
+	g722-48k	INTEGER (1..256),
+
+	g7231		SEQUENCE
+	{
+		maxAl-sduAudioFrames	INTEGER (1..256),
+		silenceSuppression	BOOLEAN
+	},
+				
+	g728		INTEGER (1..256),
+	g729		INTEGER (1..256),
+	g729AnnexA	INTEGER (1..256),
+	is11172AudioCapability	IS11172AudioCapability,
+	is13818AudioCapability	IS13818AudioCapability,
+	 ...,
+	g729wAnnexB	INTEGER(1..256),
+	g729AnnexAwAnnexB	INTEGER(1..256),
+	g7231AnnexCCapability	G7231AnnexCCapability,
+	gsmFullRate	GSMAudioCapability,
+	gsmHalfRate	GSMAudioCapability,
+	gsmEnhancedFullRate	GSMAudioCapability
+}
+
+G7231AnnexCCapability	::= SEQUENCE
+{
+	maxAl-sduAudioFrames	INTEGER (1..256),
+	silenceSuppression	BOOLEAN,
+	g723AnnexCAudioMode	SEQUENCE
+	{
+		highRateMode0	INTEGER (27..78),	-- units octets
+		highRateMode1	INTEGER (27..78),	-- units octets
+		lowRateMode0	INTEGER (23..66),	-- units octets
+		lowRateMode1	INTEGER (23..66),	-- units octets
+		sidMode0	INTEGER (6..17),	-- units octets
+		sidMode1	INTEGER (6..17),	-- units octets
+		...
+	} OPTIONAL,
+	...
+}
+
+IS11172AudioCapability	::=SEQUENCE
+{
+	audioLayer1	BOOLEAN,
+	audioLayer2	BOOLEAN,
+	audioLayer3	BOOLEAN,
+
+	audioSampling32k	BOOLEAN,
+	audioSampling44k1	BOOLEAN,
+	audioSampling48k	BOOLEAN,
+
+	singleChannel	BOOLEAN,
+	twoChannels	BOOLEAN,
+
+	bitRate	INTEGER (1..448),	-- units kbit/s
+	...
+}
+
+IS13818AudioCapability	::=SEQUENCE
+{
+	audioLayer1	BOOLEAN,
+	audioLayer2	BOOLEAN,
+	audioLayer3	BOOLEAN,
+
+	audioSampling16k	BOOLEAN,
+	audioSampling22k05	BOOLEAN,
+	audioSampling24k	BOOLEAN,
+	audioSampling32k	BOOLEAN,
+	audioSampling44k1	BOOLEAN,
+	audioSampling48k	BOOLEAN,
+
+	singleChannel	BOOLEAN,
+	twoChannels	BOOLEAN,
+	threeChannels2-1	BOOLEAN,
+	threeChannels3-0	BOOLEAN,
+	fourChannels2-0-2-0	BOOLEAN,
+	fourChannels2-2	BOOLEAN,
+	fourChannels3-1	BOOLEAN,
+	fiveChannels3-0-2-0	BOOLEAN,
+	fiveChannels3-2	BOOLEAN,
+
+	lowFrequencyEnhancement	BOOLEAN,
+
+	multilingual	BOOLEAN,
+
+	bitRate	INTEGER (1..1130),	-- units kbit/s
+	...
+}
+
+GSMAudioCapability	::= SEQUENCE
+{
+	audioUnitSize	INTEGER (1..256),
+	comfortNoise	BOOLEAN,
+	scrambled	BOOLEAN,
+	...
+}
+
+-- ===================================================================================
+-- Capability exchange definitions: Data capabilities
+-- ===================================================================================
+
+DataApplicationCapability	::=SEQUENCE
+{
+	application	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		t120	DataProtocolCapability,
+		dsm-cc	DataProtocolCapability,
+		userData	DataProtocolCapability,
+		t84	SEQUENCE
+		{
+			t84Protocol	DataProtocolCapability,
+			t84Profile	T84Profile
+		},
+		t434	DataProtocolCapability,
+		h224	DataProtocolCapability,
+		nlpid	SEQUENCE
+		{
+			nlpidProtocol	DataProtocolCapability,
+			nlpidData	OCTET STRING
+		},
+		dsvdControl	NULL,
+		h222DataPartitioning	DataProtocolCapability,
+		...,
+		t30fax	DataProtocolCapability,
+		t140	DataProtocolCapability
+	},
+	maxBitRate	INTEGER (0..4294967295),	-- units 100 bit/s
+	...
+}
+
+DataProtocolCapability	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	v14buffered	NULL,
+	v42lapm	NULL,	-- may negotiate to V.42bis
+	hdlcFrameTunnelling	NULL,
+	h310SeparateVCStack	NULL,
+	h310SingleVCStack	NULL,
+	transparent	NULL,
+	...,
+	segmentationAndReassembly	NULL,
+	hdlcFrameTunnelingwSAR	NULL,
+	v120		NULL,	-- as in H.230
+	separateLANStack	NULL,
+       v76wCompression         	CHOICE
+	{
+		transmitCompression     	CompressionType,       
+		receiveCompression  	CompressionType,       
+		transmitAndReceiveCompression 	CompressionType,       
+		...
+	}
+}
+
+CompressionType 	::=CHOICE       	 
+{
+	v42bis		V42bis,     	 
+	...                     			 
+}
+
+V42bis			::=SEQUENCE      
+{
+	numberOfCodewords	INTEGER (1..65536),  
+	maximumStringLength	INTEGER (1..256),
+	...
+}
+
+T84Profile		::=CHOICE
+{
+	t84Unrestricted	NULL,
+	t84Restricted	SEQUENCE
+	{
+		qcif	BOOLEAN,
+		cif		BOOLEAN,
+		ccir601Seq	BOOLEAN,
+		ccir601Prog	BOOLEAN,
+		hdtvSeq	BOOLEAN,
+		hdtvProg	BOOLEAN,
+
+		g3FacsMH200x100	BOOLEAN,
+		g3FacsMH200x200	BOOLEAN,
+		g4FacsMMR200x100	BOOLEAN,
+		g4FacsMMR200x200	BOOLEAN,
+		jbig200x200Seq	BOOLEAN,
+		jbig200x200Prog	BOOLEAN,
+		jbig300x300Seq	BOOLEAN,
+		jbig300x300Prog	BOOLEAN,
+
+		digPhotoLow	BOOLEAN,
+		digPhotoMedSeq	BOOLEAN,
+		digPhotoMedProg	BOOLEAN,
+		digPhotoHighSeq	BOOLEAN,
+		digPhotoHighProg	BOOLEAN,
+
+		...
+	}
+}
+
+-- ===================================================================================
+-- Encryption Capability Definitions: 
+-- ===================================================================================
+
+EncryptionAuthenticationAndIntegrity	::=SEQUENCE
+{
+	encryptionCapability	EncryptionCapability OPTIONAL,
+	authenticationCapability	AuthenticationCapability OPTIONAL,
+	integrityCapability	IntegrityCapability OPTIONAL,
+	...
+}
+
+EncryptionCapability	::=SEQUENCE SIZE(1..256) OF MediaEncryptionAlgorithm
+
+MediaEncryptionAlgorithm	 ::=CHOICE 
+{
+	nonStandard            	NonStandardParameter,
+	algorithm	OBJECT IDENTIFIER,   -- many defined in ISO/IEC 9979
+	...
+}
+
+AuthenticationCapability	::=SEQUENCE
+{
+	nonStandard            	NonStandardParameter OPTIONAL,
+	...
+}
+
+IntegrityCapability	::=SEQUENCE
+{
+	nonStandard            	NonStandardParameter OPTIONAL,
+	...
+}
+
+-- ================================================================================
+-- Capability Exchange Definitions: UserInput
+-- ================================================================================
+
+UserInputCapability	::= CHOICE
+{
+	nonStandard	SEQUENCE SIZE(1..16) OF NonStandardParameter,
+	basicString	NULL,  -- alphanumeric
+	iA5String	NULL,  -- alphanumeric
+	generalString	NULL,  -- alphanumeric
+	dtmf		NULL,  -- supports dtmf using signal and signalUpdate
+	hookflash	NULL,  -- supports hookflash using signal
+	...
+}
+
+-- ===================================================================================
+-- Capability Exchange Definitions: Conference
+-- ===================================================================================
+
+ConferenceCapability	::=SEQUENCE
+{
+	nonStandardData	SEQUENCE OF NonStandardParameter OPTIONAL,
+	chairControlCapability	BOOLEAN,
+	...
+}
+ -- ===================================================================================
+-- Logical channel signalling definitions
+-- ===================================================================================
+
+-- "Forward" is used to refer to transmission in the direction from the terminal making the
+-- original request for a logical channel to the other terminal, and "reverse" is used to refer
+-- to the opposite direction of transmission, in the case of a bi-directional channel request.
+
+OpenLogicalChannel	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+
+	forwardLogicalChannelParameters	SEQUENCE
+	{
+		portNumber	INTEGER (0..65535) OPTIONAL,
+		dataType	DataType,
+		multiplexParameters	CHOICE
+		{
+			h222LogicalChannelParameters	H222LogicalChannelParameters,
+			h223LogicalChannelParameters	H223LogicalChannelParameters,
+			v76LogicalChannelParameters	V76LogicalChannelParameters,
+			...,
+			h2250LogicalChannelParameters	H2250LogicalChannelParameters,
+			none	NULL  -- for use with Separate Stack when
+				  -- multiplexParameters are not required
+				  -- or appropriate
+
+		},
+		...,
+		forwardLogicalChannelDependency	LogicalChannelNumber OPTIONAL,
+			-- also used to refer to the primary logical channel when using video redundancy coding
+		replacementFor	LogicalChannelNumber OPTIONAL
+
+	},
+
+	-- Used to specify the reverse channel for bi-directional open request
+
+	reverseLogicalChannelParameters	SEQUENCE
+	{
+		dataType	DataType,
+		multiplexParameters	CHOICE
+		{
+			-- H.222 parameters are never present in reverse direction
+			h223LogicalChannelParameters	H223LogicalChannelParameters,
+			v76LogicalChannelParameters	V76LogicalChannelParameters,
+			...,
+			h2250LogicalChannelParameters H2250LogicalChannelParameters
+
+		} OPTIONAL,	-- Not present for H.222
+		...,
+		reverseLogicalChannelDependency	LogicalChannelNumber OPTIONAL,
+			-- also used to refer to the primary logical channel when using video redundancy coding
+		replacementFor	LogicalChannelNumber OPTIONAL
+
+	} OPTIONAL,	-- Not present for uni-directional channel request
+	...,
+	separateStack	NetworkAccessParameters OPTIONAL,
+				-- for Open responder to establish the stack
+	encryptionSync	EncryptionSync OPTIONAL	-- used only by Master
+
+
+}
+
+LogicalChannelNumber	::=INTEGER (1..65535)
+
+NetworkAccessParameters	::=SEQUENCE
+{
+	distribution	CHOICE
+	{
+		unicast	NULL,
+		multicast	NULL,	-- For Further Study in T.120
+		...
+	} OPTIONAL,
+
+	networkAddress	CHOICE
+	{
+		q2931Address	Q2931Address,
+		e164Address	IA5String(SIZE(1..128)) (FROM ("0123456789#*,")),
+		localAreaAddress	TransportAddress,
+		...
+	},
+	associateConference	BOOLEAN,
+	externalReference	OCTET STRING(SIZE(1..255)) OPTIONAL,
+	...,
+	t120SetupProcedure	CHOICE
+	{
+
+		originateCall	NULL,
+		waitForCall	NULL,
+		issueQuery	NULL,
+		...
+	} OPTIONAL
+}
+
+Q2931Address	::=SEQUENCE
+{
+	address	CHOICE
+	{
+		internationalNumber	NumericString(SIZE(1..16)),
+		nsapAddress	OCTET STRING (SIZE(1..20)),
+		...
+	},
+	subaddress	OCTET STRING (SIZE(1..20)) OPTIONAL,
+	...
+}
+
+V75Parameters	::= SEQUENCE
+{
+	audioHeaderPresent	BOOLEAN,
+	 ...
+}	
+
+
+DataType		::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	nullData	NULL,
+	videoData	VideoCapability,	
+	audioData	AudioCapability,
+	data		DataApplicationCapability,
+	encryptionData	EncryptionMode,
+	...,
+	h235Control	NonStandardParameter,
+	h235Media	H235Media
+}
+
+H235Media		::=SEQUENCE
+{
+	encryptionAuthenticationAndIntegrity	EncryptionAuthenticationAndIntegrity,
+
+	mediaType	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		videoData	VideoCapability,	
+		audioData	AudioCapability,
+		data	DataApplicationCapability,
+		...
+	},
+
+	...
+}
+
+H222LogicalChannelParameters	::=SEQUENCE
+{
+	resourceID	INTEGER (0..65535),
+	subChannelID	INTEGER (0..8191),
+	pcr-pid	INTEGER (0..8191) OPTIONAL,
+	programDescriptors	OCTET STRING OPTIONAL,
+	streamDescriptors	OCTET STRING OPTIONAL,
+	...
+}
+
+H223LogicalChannelParameters	::=SEQUENCE
+{
+	adaptationLayerType	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		al1Framed	NULL,
+		al1NotFramed	NULL,
+		al2WithoutSequenceNumbers	NULL,
+		al2WithSequenceNumbers	NULL,
+		al3		SEQUENCE
+		{
+			controlFieldOctets	INTEGER (0..2),
+			sendBufferSize	INTEGER (0..16777215)	-- units octets
+		},
+		...,
+		al1M	H223AL1MParameters,
+		al2M	H223AL2MParameters,
+		al3M	H223AL3MParameters
+	},
+
+	segmentableFlag	BOOLEAN,
+	...
+}	
+
+H223AL1MParameters	::=SEQUENCE
+{
+	transferMode	CHOICE
+	{
+		framed	NULL,
+		unframed	NULL,
+		...
+	},
+	headerFEC	CHOICE
+	{
+		sebch16-7	NULL,
+		golay24-12	NULL,
+		...
+	},
+	crcLength	CHOICE
+	{
+		crc4bit	NULL,
+		crc12bit	NULL,
+		crc20bit	NULL,
+		crc28bit	NULL,
+		...
+	},
+
+	rcpcCodeRate	INTEGER (8..32),
+
+	arqType	CHOICE
+	{
+		noArq	NULL,
+		typeIArq	H223AnnexCArqParameters,
+		typeIIArq	H223AnnexCArqParameters,
+		...
+	},
+	alpduInterleaving	BOOLEAN,
+	alsduSplitting	BOOLEAN,
+	...
+}
+
+H223AL2MParameters	::=SEQUENCE
+{
+	headerFEC	CHOICE
+	{
+		sebch16-5	NULL,
+		golay24-12	NULL,
+		...
+	},
+	alpduInterleaving	BOOLEAN,
+	...
+}
+
+H223AL3MParameters	::=SEQUENCE
+{
+	headerFormat	CHOICE
+	{
+		sebch16-7	NULL,
+		golay24-12	NULL,
+		...
+	},
+	crcLength	CHOICE
+	{
+		crc4bit	NULL,
+		crc12bit	NULL,
+		crc20bit	NULL,
+		crc28bit	NULL,
+		...
+	},
+
+	rcpcCodeRate	INTEGER (8..32),
+
+	arqType	CHOICE
+	{
+		noArq	NULL,
+		typeIArq	H223AnnexCArqParameters,
+		typeIIArq	H223AnnexCArqParameters,
+		...
+	},
+	
+	alpduInterleaving	BOOLEAN,
+	...
+}
+	
+
+H223AnnexCArqParameters	::=SEQUENCE
+{
+	numberOfRetransmissions	CHOICE
+	{
+		finite	INTEGER (0..16),
+		infinite	NULL,
+		...
+	},
+	sendBufferSize	INTEGER (0..16777215),	-- units octets
+	...
+}
+
+V76LogicalChannelParameters	::=SEQUENCE
+{
+	hdlcParameters	V76HDLCParameters,
+	suspendResume	CHOICE
+	{ 
+		noSuspendResume	NULL,
+		suspendResumewAddress	NULL,
+          	suspendResumewoAddress    	NULL,
+		...
+	},
+	uIH			BOOLEAN,
+	mode		CHOICE
+	{
+		eRM	SEQUENCE
+		{
+			windowSize	INTEGER (1..127) ,
+			recovery	CHOICE
+			{
+				rej	NULL,
+				sREJ	NULL,
+				mSREJ	NULL,
+				...
+			},
+			...
+		},
+	 	uNERM	NULL,
+		...
+	},
+	v75Parameters	V75Parameters,
+	...
+}
+
+
+
+V76HDLCParameters	::=SEQUENCE
+{
+	crcLength	CRCLength,
+	n401		INTEGER (1..4095),
+	loopbackTestProcedure	BOOLEAN,
+	...
+}
+
+
+CRCLength	::=CHOICE
+{
+	crc8bit		NULL,
+	crc16bit	NULL,
+	crc32bit	NULL,
+	...
+}
+
+H2250LogicalChannelParameters	::=SEQUENCE
+{
+	nonStandard	SEQUENCE OF NonStandardParameter OPTIONAL,
+	sessionID	INTEGER(0..255),
+	associatedSessionID	INTEGER(1..255) OPTIONAL,
+	mediaChannel	TransportAddress OPTIONAL,
+	mediaGuaranteedDelivery	BOOLEAN OPTIONAL,
+	mediaControlChannel	TransportAddress OPTIONAL,  -- reverse RTCP channel
+	mediaControlGuaranteedDelivery	BOOLEAN OPTIONAL,
+	silenceSuppression	BOOLEAN OPTIONAL,
+	destination	TerminalLabel OPTIONAL,
+	
+	dynamicRTPPayloadType	INTEGER(96..127) OPTIONAL,
+	mediaPacketization	CHOICE
+	{
+		h261aVideoPacketization	NULL,
+		...,
+		rtpPayloadType	RTPPayloadType
+	} OPTIONAL,
+	...,
+	transportCapability	TransportCapability OPTIONAL,
+	redundancyEncoding	RedundancyEncoding OPTIONAL,
+	source		TerminalLabel OPTIONAL
+}
+
+RTPPayloadType	::= SEQUENCE
+{
+	payloadDescriptor	CHOICE
+	{
+		nonStandardIdentifier	NonStandardParameter,
+		rfc-number	INTEGER (1..32768, ...),
+		oid	OBJECT IDENTIFIER,
+		...
+	},
+	payloadType	INTEGER (0..127) OPTIONAL,
+	...
+}
+
+RedundancyEncoding	::=SEQUENCE
+{
+	redundancyEncodingMethod	RedundancyEncodingMethod,
+	secondaryEncoding	DataType OPTIONAL,	-- depends on method
+	...
+}
+
+TransportAddress	::=CHOICE
+{
+	unicastAddress	UnicastAddress,
+	multicastAddress	MulticastAddress,
+	...
+}
+
+UnicastAddress	::=CHOICE
+{
+	iPAddress	SEQUENCE
+	{
+		network	OCTET STRING (SIZE(4)),
+		tsapIdentifier	INTEGER(0..65535),
+		...
+	},
+	iPXAddress	SEQUENCE
+	{
+		node	OCTET STRING (SIZE(6)),
+		netnum	OCTET STRING (SIZE(4)),
+		tsapIdentifier	OCTET STRING (SIZE(2)),
+		...
+	},
+	iP6Address	SEQUENCE
+	{
+		network	OCTET STRING (SIZE(16)),
+		tsapIdentifier	INTEGER(0..65535), 
+		...
+	},
+	netBios	OCTET STRING (SIZE(16)),
+	iPSourceRouteAddress	SEQUENCE
+	{
+		routing	CHOICE
+		{
+			strict	NULL,
+			loose	NULL
+		},
+		network	OCTET STRING (SIZE(4)),
+		tsapIdentifier	INTEGER(0..65535),
+		route	SEQUENCE OF OCTET STRING (SIZE(4)),
+		...
+	},
+	...,
+	nsap		OCTET STRING (SIZE(1..20)),
+	nonStandardAddress	NonStandardParameter
+}
+
+MulticastAddress	::=CHOICE
+{
+	iPAddress	SEQUENCE
+	{
+		network	OCTET STRING (SIZE(4)),
+		tsapIdentifier	INTEGER(0..65535),
+		...
+	},
+	iP6Address	SEQUENCE
+	{
+		network	OCTET STRING (SIZE(16)),
+		tsapIdentifier	INTEGER(0..65535), 
+		...
+	},
+	...,
+	nsap		OCTET STRING (SIZE(1..20)),
+	nonStandardAddress	NonStandardParameter
+}
+
+EncryptionSync	::=SEQUENCE 
+					 -- used to supply new key and synchronization point
+{
+	nonStandard            	NonStandardParameter OPTIONAL,
+	synchFlag	INTEGER(0..255) , 	-- may need to be larger for H.324, etc
+					-- shall be the Dynamic Payload# for H.323 
+	h235Key	OCTET STRING (SIZE(1..65535)),  -- H.235 encoded value
+	escrowentry	SEQUENCE SIZE(1..256) OF EscrowData OPTIONAL,
+	...
+}
+
+EscrowData	::=SEQUENCE
+{
+	escrowID	OBJECT IDENTIFIER,
+	escrowValue	BIT STRING (SIZE(1..65535)),
+	...
+}
+
+OpenLogicalChannelAck	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+
+	reverseLogicalChannelParameters	SEQUENCE
+	{
+		reverseLogicalChannelNumber	LogicalChannelNumber,
+		portNumber	INTEGER (0..65535) OPTIONAL,
+		multiplexParameters	CHOICE
+		{
+			h222LogicalChannelParameters	H222LogicalChannelParameters,
+			-- H.223 parameters are never present in reverse direction
+			...,
+			h2250LogicalChannelParameters H2250LogicalChannelParameters
+
+		} OPTIONAL,	-- Not present for H.223
+		...,
+		replacementFor	LogicalChannelNumber OPTIONAL
+
+	} OPTIONAL,	-- Not present for uni-directional channel request
+	...,
+	separateStack	NetworkAccessParameters OPTIONAL, 
+				-- for Open requester to establish the stack
+	forwardMultiplexAckParameters	CHOICE
+	{
+		-- H.222 parameters are never present in the Ack
+		-- H.223 parameters are never present in the Ack
+		--V.76 parameters are never present in the Ack
+		h2250LogicalChannelAckParameters H2250LogicalChannelAckParameters,
+		...
+	} OPTIONAL,
+	encryptionSync	EncryptionSync OPTIONAL	-- used only by Master
+}
+
+OpenLogicalChannelReject	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	cause		CHOICE
+	{
+		unspecified	NULL,
+		unsuitableReverseParameters	NULL,
+		dataTypeNotSupported	NULL,
+		dataTypeNotAvailable	NULL,
+		unknownDataType	NULL,
+		dataTypeALCombinationNotSupported	NULL,
+		...,
+		multicastChannelNotAllowed	NULL,
+		insufficientBandwidth	NULL,
+		separateStackEstablishmentFailed	NULL,
+		invalidSessionID	NULL,
+		masterSlaveConflict	NULL,
+		waitForCommunicationMode	NULL,
+		invalidDependentChannel	NULL,
+		replacementForRejected	NULL
+	},
+	...
+}
+
+OpenLogicalChannelConfirm	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	...
+}
+
+H2250LogicalChannelAckParameters	::=SEQUENCE
+{
+	nonStandard	SEQUENCE OF NonStandardParameter OPTIONAL,
+	sessionID	INTEGER(1..255) OPTIONAL,
+	mediaChannel	TransportAddress OPTIONAL,
+	mediaControlChannel	TransportAddress OPTIONAL, -- forward RTCP channel
+	dynamicRTPPayloadType	INTEGER(96..127) OPTIONAL, -- used only by the master or MC
+	...,
+	flowControlToZero	BOOLEAN
+}
+
+
+
+CloseLogicalChannel	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	source		CHOICE
+	{
+		user	NULL,
+		lcse	NULL
+	},
+	...,
+	reason		CHOICE
+	{
+		unknown	NULL,
+		reopen	NULL,
+		reservationFailure	NULL,
+		...
+	}
+}
+
+CloseLogicalChannelAck	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	...
+}
+
+RequestChannelClose	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	...,
+	qosCapability	QOSCapability OPTIONAL,
+	reason		CHOICE
+	{
+		unknown	NULL,
+		normal	NULL,
+		reopen	NULL,
+		reservationFailure	NULL,
+		...
+	}
+}
+
+RequestChannelCloseAck	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	...
+}
+
+RequestChannelCloseReject	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	cause		CHOICE
+	{
+		unspecified	NULL,
+		...
+	},
+	...
+}
+
+RequestChannelCloseRelease	::=SEQUENCE
+{
+	forwardLogicalChannelNumber	LogicalChannelNumber,
+	...
+}
+
+ -- ===================================================================================
+-- H.223 multiplex table definitions
+-- ===================================================================================
+
+MultiplexEntrySend	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	multiplexEntryDescriptors	SET SIZE (1..15) OF MultiplexEntryDescriptor,
+	...
+}
+
+MultiplexEntryDescriptor	::=SEQUENCE
+{
+	multiplexTableEntryNumber	MultiplexTableEntryNumber,
+	elementList	SEQUENCE SIZE (1..256) OF MultiplexElement OPTIONAL
+}
+
+MultiplexElement	::=SEQUENCE
+{
+	type		CHOICE
+	{
+		logicalChannelNumber	INTEGER(0..65535),
+		subElementList	SEQUENCE SIZE (2..255) OF MultiplexElement
+	},
+	repeatCount	CHOICE
+	{
+		finite	INTEGER (1..65535),	-- repeats of type
+		untilClosingFlag	NULL	-- used for last element 
+	}
+}
+
+MultiplexTableEntryNumber	::=INTEGER (1..15)
+
+MultiplexEntrySendAck	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	multiplexTableEntryNumber	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	...
+}
+
+MultiplexEntrySendReject	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	rejectionDescriptions	SET SIZE (1..15) OF MultiplexEntryRejectionDescriptions,
+	...
+}
+
+MultiplexEntryRejectionDescriptions	::=SEQUENCE
+{
+	multiplexTableEntryNumber	MultiplexTableEntryNumber,
+	cause		CHOICE
+	{
+		unspecifiedCause	NULL,
+		descriptorTooComplex	NULL,
+		...
+	},
+	...
+}
+
+MultiplexEntrySendRelease	::=SEQUENCE
+{
+	multiplexTableEntryNumber	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	...
+}
+
+RequestMultiplexEntry	::=SEQUENCE
+{
+	entryNumbers	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	...
+}
+
+RequestMultiplexEntryAck	::=SEQUENCE
+{
+	entryNumbers	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	...
+}
+
+RequestMultiplexEntryReject	::=SEQUENCE
+{
+	entryNumbers	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	rejectionDescriptions	SET SIZE (1..15) OF RequestMultiplexEntryRejectionDescriptions,
+	...
+}
+
+RequestMultiplexEntryRejectionDescriptions	::=SEQUENCE
+{
+	multiplexTableEntryNumber	MultiplexTableEntryNumber,
+	cause		CHOICE
+	{
+		unspecifiedCause	NULL,
+		...
+	},
+	...
+}
+
+RequestMultiplexEntryRelease	::=SEQUENCE
+{
+	entryNumbers	SET SIZE (1..15) OF MultiplexTableEntryNumber,
+	...
+}
+
+ -- ===================================================================================
+-- Request mode definitions
+-- ===================================================================================
+
+-- RequestMode is a list, in order or preference, of modes that a terminal would like
+-- to have transmitted to it.
+
+RequestMode	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	requestedModes	SEQUENCE SIZE (1..256) OF ModeDescription,
+	...
+}
+
+RequestModeAck	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	response	CHOICE
+	{
+		willTransmitMostPreferredMode	NULL,
+		willTransmitLessPreferredMode	NULL,
+		...
+	},
+	...
+}
+
+RequestModeReject	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	cause		CHOICE
+	{
+		modeUnavailable	NULL,
+		multipointConstraint	NULL,
+		requestDenied	NULL,
+		...
+	},
+	...
+}
+
+RequestModeRelease	::=SEQUENCE
+{
+	...
+}
+
+-- ===================================================================================
+-- Request mode definitions: Mode description
+-- ===================================================================================
+
+ModeDescription	::=SET SIZE (1..256) OF ModeElement
+
+ModeElement	::= SEQUENCE
+{
+	type		CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		videoMode	VideoMode,
+		audioMode	AudioMode,
+		dataMode	DataMode,
+		encryptionMode	EncryptionMode,
+		...,
+		h235Mode	H235Mode
+	},
+
+	h223ModeParameters	H223ModeParameters OPTIONAL,
+	...,
+	v76ModeParameters	V76ModeParameters OPTIONAL,
+	h2250ModeParameters	H2250ModeParameters OPTIONAL
+
+							 
+}
+
+H235Mode		::=SEQUENCE
+{
+	encryptionAuthenticationAndIntegrity	EncryptionAuthenticationAndIntegrity,
+
+	mediaMode	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		videoMode	VideoMode,
+		audioMode	AudioMode,
+		dataMode	DataMode,
+		...
+	},
+	...
+}
+
+H223ModeParameters	::=SEQUENCE
+{
+	adaptationLayerType	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		al1Framed	NULL,
+		al1NotFramed	NULL,
+		al2WithoutSequenceNumbers	NULL,
+		al2WithSequenceNumbers	NULL,
+		al3		SEQUENCE
+		{
+			controlFieldOctets	INTEGER(0..2),
+			sendBufferSize	INTEGER(0..16777215)	-- units octets
+		},
+		...,
+		al1M	H223AL1MParameters,
+		al2M	H223AL2MParameters,
+		al3M	H223AL3MParameters
+
+	},
+
+	segmentableFlag	BOOLEAN,
+	...
+}
+
+V76ModeParameters	::=CHOICE
+{
+	suspendResumewAddress	NULL,
+	suspendResumewoAddress	NULL,
+	...
+}
+
+H2250ModeParameters	::=SEQUENCE
+{
+	redundancyEncodingMode	RedundancyEncodingMode OPTIONAL,
+	...
+}
+
+RedundancyEncodingMode	::=SEQUENCE
+{
+	redundancyEncodingMethod	RedundancyEncodingMethod,
+	secondaryEncoding	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		audioData	AudioMode,
+		...
+	} OPTIONAL,
+	...
+}
+
+-- ===================================================================================
+-- Request mode definitions: Video modes
+-- ===================================================================================
+
+VideoMode		::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	h261VideoMode	H261VideoMode,
+	h262VideoMode	H262VideoMode,
+	h263VideoMode	H263VideoMode,
+	is11172VideoMode	IS11172VideoMode,
+	...
+}
+
+H261VideoMode	::=SEQUENCE
+{
+	resolution	CHOICE
+	{
+		qcif	NULL,
+		cif		NULL
+	},
+	bitRate	INTEGER (1..19200),	-- units 100 bit/s
+	stillImageTransmission	BOOLEAN,
+	...
+}
+
+H262VideoMode	::=SEQUENCE
+{
+	profileAndLevel	CHOICE
+	{
+		profileAndLevel-SPatML	NULL,
+		profileAndLevel-MPatLL	NULL,
+		profileAndLevel-MPatML	NULL,
+		profileAndLevel-MPatH-14	NULL,
+		profileAndLevel-MPatHL	NULL,
+		profileAndLevel-SNRatLL	NULL,
+		profileAndLevel-SNRatML	NULL,
+		profileAndLevel-SpatialatH-14	NULL,
+		profileAndLevel-HPatML	NULL,
+		profileAndLevel-HPatH-14	NULL,
+		profileAndLevel-HPatHL	NULL,
+		...
+	},
+	videoBitRate	INTEGER(0..1073741823) OPTIONAL,	-- units 400bit/s
+	vbvBufferSize	INTEGER(0..262143) OPTIONAL,	-- units 16384bits
+	samplesPerLine	INTEGER(0..16383) OPTIONAL,	-- units samples/line
+	linesPerFrame	INTEGER(0..16383) OPTIONAL,	-- units lines/frame
+	framesPerSecond	INTEGER(0..15) OPTIONAL,	-- frame_rate_code
+	luminanceSampleRate	INTEGER(0..4294967295) OPTIONAL,	-- units samples/sec
+	...
+}
+
+H263VideoMode	::=SEQUENCE
+{
+	resolution	CHOICE
+	{
+		sqcif	NULL,	
+		qcif	NULL,
+		cif		NULL,
+		cif4	NULL,
+		cif16	NULL,
+		...
+	},
+	bitRate	INTEGER (1..19200),	-- units 100 bit/s
+	unrestrictedVector	BOOLEAN,
+	arithmeticCoding	BOOLEAN,
+	advancedPrediction	BOOLEAN,
+	pbFrames	BOOLEAN,
+	...,
+								
+	errorCompensation	BOOLEAN,
+	enhancementLayerInfo	EnhancementLayerInfo OPTIONAL,
+	h263Options	H263Options OPTIONAL
+}
+
+IS11172VideoMode	::=SEQUENCE
+{
+	constrainedBitstream	BOOLEAN,
+	videoBitRate	INTEGER(0..1073741823) OPTIONAL,	-- units 400bit/s
+	vbvBufferSize	INTEGER(0..262143) OPTIONAL,	-- units 16384bits
+	samplesPerLine	INTEGER(0..16383) OPTIONAL,	-- units samples/line
+	linesPerFrame	INTEGER(0..16383) OPTIONAL,	-- units lines/frame
+	pictureRate	INTEGER(0..15) OPTIONAL,
+	luminanceSampleRate	INTEGER(0..4294967295) OPTIONAL,	-- units samples/sec
+	...
+}
+
+-- ===================================================================================
+-- Request mode definitions: Audio modes
+-- ===================================================================================
+
+AudioMode	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	g711Alaw64k	NULL,
+	g711Alaw56k	NULL,
+	g711Ulaw64k	NULL,
+	g711Ulaw56k	NULL,
+
+	g722-64k	NULL,
+	g722-56k	NULL,
+	g722-48k	NULL,
+
+	g728		NULL,
+	g729		NULL,
+	g729AnnexA	NULL,
+
+	g7231		CHOICE
+	{
+		noSilenceSuppressionLowRate	NULL,
+		noSilenceSuppressionHighRate	NULL,
+		silenceSuppressionLowRate	NULL,
+		silenceSuppressionHighRate	NULL
+	},
+
+	is11172AudioMode	IS11172AudioMode,
+	is13818AudioMode	IS13818AudioMode,
+
+	...,
+	g729wAnnexB	INTEGER(1..256),
+	g729AnnexAwAnnexB	INTEGER(1..256),
+	g7231AnnexCMode	G7231AnnexCMode,
+	gsmFullRate	GSMAudioCapability,
+	gsmHalfRate	GSMAudioCapability,
+	gsmEnhancedFullRate	GSMAudioCapability
+
+}
+
+IS11172AudioMode	::=SEQUENCE
+{
+	audioLayer	CHOICE
+	{
+		audioLayer1	NULL,
+		audioLayer2	NULL,
+		audioLayer3	NULL
+	},
+
+	audioSampling	CHOICE
+	{
+		audioSampling32k	NULL,
+		audioSampling44k1	NULL,
+		audioSampling48k	NULL
+	},
+
+	multichannelType	CHOICE
+	{
+		singleChannel	NULL,
+		twoChannelStereo	NULL,
+		twoChannelDual	NULL
+	},
+
+	bitRate	INTEGER (1..448),	--units kbit/s
+	...
+}
+
+IS13818AudioMode	::=SEQUENCE
+{
+	audioLayer	CHOICE
+	{
+		audioLayer1	NULL,
+		audioLayer2	NULL,
+		audioLayer3	NULL
+	},
+
+	audioSampling	CHOICE
+	{
+		audioSampling16k	NULL,
+		audioSampling22k05	NULL,
+		audioSampling24k	NULL,
+		audioSampling32k	NULL,
+		audioSampling44k1	NULL,
+		audioSampling48k	NULL
+	},
+
+	multichannelType	CHOICE
+	{
+		singleChannel	NULL,
+		twoChannelStereo	NULL,
+		twoChannelDual	NULL,
+		threeChannels2-1	NULL,
+		threeChannels3-0	NULL,
+		fourChannels2-0-2-0	NULL,
+		fourChannels2-2	NULL,
+		fourChannels3-1	NULL,
+		fiveChannels3-0-2-0	NULL,
+		fiveChannels3-2	NULL
+	},
+
+	lowFrequencyEnhancement	BOOLEAN,
+
+	multilingual	BOOLEAN,
+
+	bitRate	INTEGER (1..1130),	--units kbit/s
+	...
+}
+
+G7231AnnexCMode	::= SEQUENCE
+{
+	maxAl-sduAudioFrames	INTEGER (1..256),
+	silenceSuppression	BOOLEAN,
+	g723AnnexCAudioMode	SEQUENCE
+	{
+		highRateMode0	INTEGER (27..78),	-- units octets
+		highRateMode1	INTEGER (27..78),	-- units octets
+		lowRateMode0	INTEGER (23..66),	-- units octets
+		lowRateMode1	INTEGER (23..66),	-- units octets
+		sidMode0	INTEGER (6..17),	-- units octets
+		sidMode1	INTEGER (6..17),	-- units octets
+		...
+	},
+	...
+}
+
+-- ===================================================================================
+-- Request mode definitions: Data modes
+-- ===================================================================================
+
+DataMode		::=SEQUENCE
+{
+	application	CHOICE
+	{
+		nonStandard	NonStandardParameter,
+		t120	DataProtocolCapability,
+		dsm-cc	DataProtocolCapability,
+		userData	DataProtocolCapability,
+		t84	DataProtocolCapability,
+		t434	DataProtocolCapability,
+		h224	DataProtocolCapability,
+		nlpid	SEQUENCE
+		{
+			nlpidProtocol	DataProtocolCapability,
+			nlpidData	OCTET STRING
+		},
+		dsvdControl	NULL,
+		h222DataPartitioning	DataProtocolCapability,
+		...,
+		t30fax	DataProtocolCapability,
+		t140	DataProtocolCapability
+	},
+	bitRate	INTEGER (0..4294967295),	-- units 100 bit/s
+	...
+}
+
+-- ===================================================================================
+-- Request mode definitions: Encryption modes
+-- ===================================================================================
+
+EncryptionMode	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	h233Encryption	NULL,
+	...
+}
+
+ -- ===================================================================================
+-- Round Trip Delay definitions
+-- ===================================================================================
+
+RoundTripDelayRequest	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	...
+}
+
+RoundTripDelayResponse	::=SEQUENCE
+{
+	sequenceNumber	SequenceNumber,
+	...
+}
+
+-- ===================================================================================
+-- Maintenance Loop definitions
+-- ===================================================================================
+
+MaintenanceLoopRequest	::=SEQUENCE
+{
+	type		CHOICE
+	{
+		systemLoop	NULL,
+		mediaLoop	LogicalChannelNumber,
+		logicalChannelLoop	LogicalChannelNumber,
+		...
+	},
+	...
+}
+
+MaintenanceLoopAck	::=SEQUENCE
+{
+	type		CHOICE
+	{
+		systemLoop	NULL,
+		mediaLoop	LogicalChannelNumber,
+		logicalChannelLoop	LogicalChannelNumber,
+		...
+	},
+	...
+}
+
+MaintenanceLoopReject	::=SEQUENCE
+{
+	type		CHOICE
+	{
+		systemLoop	NULL,
+		mediaLoop	LogicalChannelNumber,
+		logicalChannelLoop	LogicalChannelNumber,
+		...
+	},
+	cause		CHOICE
+	{
+		canNotPerformLoop	NULL,
+		...
+	},
+	...
+}
+
+MaintenanceLoopOffCommand	::=SEQUENCE
+{
+	...
+}
+
+-- ===================================================================================
+-- Communication Mode definitions
+-- ===================================================================================
+
+CommunicationModeCommand	::=SEQUENCE
+{
+	communicationModeTable	SET SIZE(1..256) OF CommunicationModeTableEntry,
+	...
+}
+
+CommunicationModeRequest	::=SEQUENCE
+{
+	...
+}
+
+CommunicationModeResponse	::=CHOICE
+{
+	communicationModeTable	SET SIZE(1..256) OF CommunicationModeTableEntry,
+	...
+}
+
+CommunicationModeTableEntry	::=SEQUENCE
+{
+	nonStandard	SEQUENCE OF NonStandardParameter OPTIONAL,
+	sessionID	INTEGER(1..255),
+	associatedSessionID	INTEGER(1..255) OPTIONAL,
+
+	terminalLabel	TerminalLabel OPTIONAL, -- if not present, 
+					-- it refers to all participants 
+					-- in the conference
+	sessionDescription	BMPString (SIZE(1..128)) ,
+				  -- Basic ISO/IEC 10646-1 (Unicode) 
+	dataType	CHOICE
+	{
+		videoData	VideoCapability,
+		audioData	AudioCapability,
+		data	DataApplicationCapability,
+		...
+	},
+	mediaChannel	TransportAddress OPTIONAL,
+	mediaGuaranteedDelivery	BOOLEAN OPTIONAL,
+	mediaControlChannel	TransportAddress OPTIONAL,  -- reverse RTCP channel
+	mediaControlGuaranteedDelivery	BOOLEAN OPTIONAL,
+	...,
+	redundancyEncoding	RedundancyEncoding OPTIONAL,
+	sessionDependency	INTEGER (1..255) OPTIONAL,
+	destination	TerminalLabel OPTIONAL
+}
+
+-- ===================================================================================
+-- Conference Request definitions
+-- ===================================================================================
+
+ConferenceRequest	::=CHOICE
+{
+	
+	terminalListRequest	NULL,                    -- same as H.230 TCU (term->MC)
+
+	makeMeChair	NULL,                    -- same as H.230 CCA (term->MC)
+	cancelMakeMeChair	NULL,                    -- same as H.230 CIS (term->MC)
+
+	dropTerminal	TerminalLabel,       -- same as H.230 CCD(term->MC)
+
+	requestTerminalID	TerminalLabel,       -- sames as TCP (term->MC)
+
+	enterH243Password	NULL,                    -- same as H.230 TCS1(MC->term)
+	enterH243TerminalID	NULL,                    -- same as H.230 TCS2/TCI
+						--  (MC->term)
+	enterH243ConferenceID	NULL,                    -- same as H.230 TCS3 (MC->term)
+	...,
+	enterExtensionAddress	NULL,                     -- same as H.230 TCS4 (GW->term)
+	requestChairTokenOwner	NULL,                    -- same as H.230 TCA (term->MC)
+	requestTerminalCertificate 	SEQUENCE
+	{
+		terminalLabel	TerminalLabel OPTIONAL,
+		certSelectionCriteria	CertSelectionCriteria OPTIONAL,
+		sRandom	INTEGER (1..4294967295) OPTIONAL,
+					-- this is the requester's challenge
+		...
+	},
+	broadcastMyLogicalChannel	LogicalChannelNumber,	-- similar to H.230 MCV
+	makeTerminalBroadcaster	TerminalLabel,	-- similar to H.230 VCB
+	sendThisSource	TerminalLabel,	-- similar to H.230 VCS
+	requestAllTerminalIDs	NULL,
+	remoteMCRequest	RemoteMCRequest	
+}
+
+CertSelectionCriteria	::=SEQUENCE SIZE (1..16) OF Criteria
+
+Criteria			::=SEQUENCE
+{
+	field		OBJECT IDENTIFIER, -- may include certificate type
+	value		OCTET STRING (SIZE(1..65535)),
+	...
+}
+
+TerminalLabel	::=SEQUENCE
+{
+		mcuNumber	McuNumber,
+		terminalNumber	TerminalNumber,
+		...
+}
+
+McuNumber	::=INTEGER(0..192)
+TerminalNumber	::=INTEGER(0..192)
+
+-- ===================================================================================
+-- Conference Response definitions
+-- ===================================================================================
+
+ConferenceResponse	::=CHOICE
+{
+	mCTerminalIDResponse	SEQUENCE             -- response to TCP(same as TIP)
+	{				-- sent by MC only
+		terminalLabel	TerminalLabel,
+		terminalID	TerminalID,
+		...
+	},
+
+	terminalIDResponse	SEQUENCE	-- response to TCS2 or TCI
+	{				-- same as IIS
+		terminalLabel	TerminalLabel,	-- (term->MC)
+		terminalID	TerminalID,
+		...
+	},
+
+	conferenceIDResponse	SEQUENCE	-- response to TCS3
+	{				-- same as IIS
+		terminalLabel	TerminalLabel,	-- (term->MC)
+		conferenceID	ConferenceID,
+		...
+	},
+
+	passwordResponse	SEQUENCE	-- response to TCS1
+	{				-- same as IIS
+		terminalLabel	TerminalLabel,	-- (term->MC)
+		password	Password,
+		...
+	},
+
+	terminalListResponse	SET SIZE (1..256) OF TerminalLabel,
+
+	videoCommandReject	NULL,	-- same as H.230 VCR
+	terminalDropReject	NULL,	-- same as H.230 CIR
+
+	makeMeChairResponse	CHOICE	-- same as H.230 CCR
+	{
+		grantedChairToken	NULL,	-- same as H.230 CIT
+		deniedChairToken	NULL,	-- same as H.230 CCR
+		...
+	},
+	...,
+	extensionAddressResponse	SEQUENCE	-- response to TCS4
+	{
+		extensionAddress	TerminalID,	-- same as IIS (term->GW)
+		...
+	},
+	chairTokenOwnerResponse	SEQUENCE    -- response to TCA(same as TIR) sent by MC only
+	{
+		terminalLabel	TerminalLabel,
+		terminalID	TerminalID,
+		...
+	},
+	terminalCertificateResponse  	SEQUENCE
+	{
+       		terminalLabel           	TerminalLabel OPTIONAL,
+       		certificateResponse           	OCTET STRING (SIZE(1..65535)) OPTIONAL, 
+		...
+   	},
+	broadcastMyLogicalChannelResponse	CHOICE
+	{
+		grantedBroadcastMyLogicalChannel	NULL,
+		deniedBroadcastMyLogicalChannel	NULL,
+		...
+	},
+	makeTerminalBroadcasterResponse	CHOICE
+	{
+		grantedMakeTerminalBroadcaster	NULL,
+		deniedMakeTerminalBroadcaster	NULL,
+		...
+	},
+	sendThisSourceResponse	CHOICE
+	{
+		grantedSendThisSource	NULL,
+		deniedSendThisSource	NULL,
+		...
+	},
+	requestAllTerminalIDsResponse	RequestAllTerminalIDsResponse,
+	remoteMCResponse	RemoteMCResponse
+}
+
+TerminalID 	::=OCTET STRING (SIZE(1..128))	-- as per H.230
+ConferenceID	::=OCTET STRING (SIZE(1..32))
+Password		::=OCTET STRING (SIZE(1..32))
+
+RequestAllTerminalIDsResponse 	::=SEQUENCE
+{
+	terminalInformation	SEQUENCE OF TerminalInformation,
+	...
+}
+
+TerminalInformation	::=SEQUENCE
+{
+	terminalLabel	TerminalLabel,
+	terminalID	TerminalID,
+	...
+}
+
+-- ===================================================================================
+-- Remote MC Request definitions
+-- ===================================================================================
+
+	RemoteMCRequest	::=CHOICE
+	{
+		masterActivate	NULL,
+		slaveActivate	NULL,
+		deActivate	NULL,
+		...
+	}
+
+	RemoteMCResponse	::=CHOICE
+	{
+		accept	NULL,
+		reject	CHOICE
+		{
+			unspecified	NULL,
+			functionNotSupported	NULL,
+			...
+		},
+		...
+	}
+
+-- ===================================================================================
+-- Command Message definitions
+-- ===================================================================================
+
+-- ===================================================================================
+-- Command Message : Send Terminal Capability Set
+-- ===================================================================================
+
+SendTerminalCapabilitySet	::=CHOICE
+{
+	specificRequest	SEQUENCE
+	{
+		multiplexCapability	BOOLEAN,
+
+		capabilityTableEntryNumbers	SET SIZE (1..65535) OF CapabilityTableEntryNumber OPTIONAL,
+
+		capabilityDescriptorNumbers	SET SIZE (1..256) OF CapabilityDescriptorNumber OPTIONAL,
+		...
+	},
+	genericRequest	NULL,
+	...
+}
+
+-- ===================================================================================
+-- Command Message : Encryption
+-- ===================================================================================
+
+EncryptionCommand	::=CHOICE
+{
+	encryptionSE	OCTET STRING,	-- per H.233, but no error protection
+	encryptionIVRequest	NULL,	-- requests new IV
+	encryptionAlgorithmID	SEQUENCE
+	{
+		h233AlgorithmIdentifier	SequenceNumber,
+		associatedAlgorithm	NonStandardParameter
+	},
+	...
+}
+
+-- ===================================================================================
+-- Command Message : Flow Control
+-- ===================================================================================
+
+FlowControlCommand	::=SEQUENCE
+{
+	scope		CHOICE
+	{
+		logicalChannelNumber	LogicalChannelNumber,
+		resourceID	INTEGER (0..65535),
+		wholeMultiplex	NULL
+	},
+	restriction	CHOICE
+	{
+		maximumBitRate	INTEGER (0..16777215),	-- units 100 bit/s 
+		noRestriction	NULL
+	},
+	...
+}
+
+-- ===================================================================================
+-- Command Message : Change or End Session
+-- ===================================================================================
+
+EndSessionCommand	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+
+	disconnect	NULL,
+
+	gstnOptions	CHOICE
+	{
+		telephonyMode	NULL,
+		v8bis	NULL,
+		v34DSVD	NULL,
+		v34DuplexFAX	NULL,
+		v34H324	NULL,
+		...
+	},
+
+	...,
+	isdnOptions	CHOICE
+	{
+		telephonyMode	NULL,
+		v140	NULL,
+		terminalOnHold	NULL,
+		...
+	}
+}
+
+-- ===================================================================================
+-- Command Message : Conference Commands
+-- ===================================================================================
+
+ConferenceCommand	::=CHOICE
+{
+	broadcastMyLogicalChannel	LogicalChannelNumber,	-- similar to H.230 MCV
+	cancelBroadcastMyLogicalChannel	LogicalChannelNumber, -- similar to H.230 Cancel-MCV
+
+	makeTerminalBroadcaster	TerminalLabel,	-- same as H.230 VCB
+	cancelMakeTerminalBroadcaster	NULL,	-- same as H.230 Cancel-VCB
+		
+	sendThisSource	TerminalLabel,	-- same as H.230 VCS
+	cancelSendThisSource	NULL,	-- same as H.230 cancel VCS
+
+	dropConference	NULL,	-- same as H.230 CCK
+	...,
+	substituteConferenceIDCommand	SubstituteConferenceIDCommand
+}
+
+SubstituteConferenceIDCommand	::=SEQUENCE
+{
+	conferenceIdentifier	OCTET STRING (SIZE(16)),
+	...
+}
+
+-- ===================================================================================
+-- Command Message : Miscellaneous H.230-like commands
+-- ===================================================================================
+
+MiscellaneousCommand	::=SEQUENCE
+{
+	logicalChannelNumber	LogicalChannelNumber,
+	type		CHOICE
+	{
+		equaliseDelay	NULL,	-- same as H.230 ACE
+		zeroDelay	NULL,	-- same as H.230 ACZ
+		multipointModeCommand	NULL,
+		cancelMultipointModeCommand	NULL,
+		videoFreezePicture	NULL,
+		videoFastUpdatePicture	NULL,
+
+		videoFastUpdateGOB	SEQUENCE
+		{
+			firstGOB	INTEGER (0..17),
+			numberOfGOBs	INTEGER (1..18)
+		},
+
+		videoTemporalSpatialTradeOff	INTEGER (0..31),	-- commands a trade-off value
+
+		videoSendSyncEveryGOB	NULL,
+		videoSendSyncEveryGOBCancel	NULL,
+
+		...,
+		videoFastUpdateMB	SEQUENCE
+		{
+			firstGOB	INTEGER (0..255) OPTIONAL,	
+			firstMB	INTEGER (1..8192) OPTIONAL,
+			numberOfMBs	INTEGER (1..8192),
+			...
+		},
+		maxH223MUXPDUsize	INTEGER(1..65535),	-- units octets
+		encryptionUpdate	EncryptionSync, 
+		encryptionUpdateRequest	EncryptionUpdateRequest,
+		switchReceiveMediaOff	NULL,
+		switchReceiveMediaOn	NULL,
+
+		progressiveRefinementStart	SEQUENCE
+		{
+			repeatCount	CHOICE
+			{
+				doOneProgression		NULL,
+				doContinuousProgressions		NULL,
+				doOneIndependentProgression	NULL,
+				doContinuousIndependentProgressions	NULL,
+				...
+			},
+			...
+		},
+		progressiveRefinementAbortOne		NULL,
+		progressiveRefinementAbortContinuous		NULL
+
+	},
+
+	...
+}
+
+KeyProtectionMethod	::=SEQUENCE -- specify how the new key is to be protected
+{
+	secureChannel	BOOLEAN,
+	sharedSecret	BOOLEAN,
+	certProtectedKey	BOOLEAN,
+	...
+}
+
+EncryptionUpdateRequest	::=SEQUENCE
+{
+	keyProtectionMethod	KeyProtectionMethod OPTIONAL,
+	...
+}
+
+-- ===================================================================================
+-- Command Message : H.223 Multiplex Reconfiguration
+-- ===================================================================================
+
+H223MultiplexReconfiguration	::=CHOICE
+{
+	h223ModeChange	CHOICE
+	{
+		toLevel0	NULL,
+		toLevel1	NULL,
+		toLevel2	NULL,
+		toLevel2withOptionalHeader	NULL,
+		...
+	},
+
+	h223AnnexADoubleFlag	CHOICE
+	{
+		start	NULL,
+		stop	NULL,
+		...
+	},
+
+	...
+}
+ -- ===================================================================================
+-- Indication Message definitions
+-- ===================================================================================
+
+-- ===================================================================================
+-- Indication Message : Function not understood
+-- ===================================================================================
+
+-- This is used to return a request, response or command that is not understood
+
+FunctionNotUnderstood	::=CHOICE
+{
+	request	RequestMessage,
+	response	ResponseMessage,
+	command	CommandMessage
+}
+
+-- ===================================================================================
+-- Indication Message : Function not Supported
+-- ===================================================================================
+
+-- This is used to return a complete request, response or command that is not recognized
+
+FunctionNotSupported	::=SEQUENCE
+{
+	cause		CHOICE
+	{
+		syntaxError	NULL,
+		semanticError	NULL,
+		unknownFunction	NULL,
+		...
+	},
+	returnedFunction	OCTET STRING OPTIONAL,
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : Conference
+-- ===================================================================================
+
+ConferenceIndication	::=CHOICE
+{
+	sbeNumber		INTEGER (0..9),	-- same as H.230 SBE Number
+		
+	terminalNumberAssign		TerminalLabel,	-- same as H.230 TIA
+
+	terminalJoinedConference		TerminalLabel,	-- same as H.230 TIN
+
+	terminalLeftConference		TerminalLabel,	-- same as H.230 TID
+
+	seenByAtLeastOneOther		NULL,	-- same as H.230 MIV
+	cancelSeenByAtLeastOneOther		NULL,	-- same as H.230 cancel MIV
+
+	seenByAll		NULL,	-- like H.230 MIV
+	cancelSeenByAll		NULL,	-- like H.230 MIV
+
+	terminalYouAreSeeing		TerminalLabel,	-- same as H.230 VIN
+
+	requestForFloor	NULL,	-- same as H.230 TIF
+
+	...,
+	withdrawChairToken	NULL,	-- same as H.230 CCR
+					-- MC-> chair
+	floorRequested	TerminalLabel	-- same as H.230 TIF
+					-- MC-> chair
+}
+
+
+-- ===================================================================================
+-- Indication Message : Miscellaneous H.230-like indication
+-- ===================================================================================
+
+MiscellaneousIndication	::=SEQUENCE
+{
+	logicalChannelNumber	LogicalChannelNumber,
+	type		CHOICE
+	{
+		logicalChannelActive	NULL,	-- same as H.230 AIA and VIA
+		logicalChannelInactive	NULL,	-- same as H.230 AIM and VIS
+
+		multipointConference	NULL,	
+		cancelMultipointConference	NULL,	
+
+		multipointZeroComm	NULL,	-- same as H.230 MIZ
+		cancelMultipointZeroComm	NULL,	-- same as H.230 cancel MIZ
+
+		multipointSecondaryStatus	NULL,	-- same as H.230 MIS
+		cancelMultipointSecondaryStatus	NULL,	-- same as H.230 cancel MIS
+
+		videoIndicateReadyToActivate	NULL,	-- same as H.230 VIR
+
+		videoTemporalSpatialTradeOff	INTEGER (0..31),	-- indicates current trade-off
+
+		...,
+		videoNotDecodedMBs	SEQUENCE
+		{
+			firstMB	INTEGER (1..8192),
+			numberOfMBs	INTEGER (1..8192),
+			temporalReference	INTEGER (0..255),
+			...
+		},
+		transportCapability	TransportCapability
+	},
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : Jitter Indication
+-- ===================================================================================
+
+JitterIndication	::=SEQUENCE
+{
+	scope		CHOICE
+	{
+		logicalChannelNumber	LogicalChannelNumber,
+		resourceID	INTEGER (0..65535),
+		wholeMultiplex	NULL
+	},
+	estimatedReceivedJitterMantissa	INTEGER (0..3),
+	estimatedReceivedJitterExponent	INTEGER (0..7),
+	skippedFrameCount	INTEGER (0..15) OPTIONAL,
+	additionalDecoderBuffer	INTEGER (0..262143) OPTIONAL,	-- 262143 is 2^18 - 1
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : H.223 logical channel skew
+-- ===================================================================================
+
+H223SkewIndication	::=SEQUENCE
+{
+	logicalChannelNumber1	LogicalChannelNumber,
+	logicalChannelNumber2	LogicalChannelNumber,
+	skew		INTEGER (0..4095),	-- units milliseconds
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : H.225.0 maximum logical channel skew
+-- ===================================================================================
+
+H2250MaximumSkewIndication	::=SEQUENCE
+{
+	logicalChannelNumber1	LogicalChannelNumber,
+	logicalChannelNumber2	LogicalChannelNumber,
+	maximumSkew	INTEGER (0..4095),	-- units milliseconds
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : MC Location Indication
+-- ===================================================================================
+
+MCLocationIndication	::=SEQUENCE
+{
+	signalAddress	TransportAddress, -- this is the H.323 Call Signalling
+					-- address of the entity which
+					-- contains the MC
+	...
+}
+
+-- ===================================================================================
+-- Indication Message : Vendor Identification
+-- ===================================================================================
+
+	VendorIdentification		::=SEQUENCE
+	{
+		vendor				NonStandardIdentifier,
+		productNumber		OCTET STRING (SIZE(1..256)) OPTIONAL,  -- per  vendor
+		versionNumber		OCTET STRING (SIZE(1..256)) OPTIONAL,  -- per productNumber
+		...
+	}
+
+
+-- ===================================================================================
+-- Indication Message : New ATM virtual channel indication
+-- ===================================================================================
+
+NewATMVCIndication	::=SEQUENCE
+{
+	resourceID	INTEGER(0..65535),
+	bitRate	INTEGER(1..65535),	-- units 64 kbit/s
+	bitRateLockedToPCRClock	BOOLEAN,
+	bitRateLockedToNetworkClock	BOOLEAN,
+	aal			CHOICE
+	{
+		aal1	SEQUENCE
+		{
+			clockRecovery	CHOICE
+			{
+				nullClockRecovery	NULL,
+				srtsClockRecovery	NULL,
+				adaptiveClockRecovery	NULL,
+				...
+			},
+			errorCorrection	CHOICE
+			{
+				nullErrorCorrection	NULL,
+				longInterleaver	NULL,
+				shortInterleaver	NULL,
+				errorCorrectionOnly	NULL,
+				...
+			},
+			structuredDataTransfer	BOOLEAN,
+			partiallyFilledCells	BOOLEAN,
+			...
+		},
+		aal5	SEQUENCE
+		{
+			forwardMaximumSDUSize	INTEGER (0..65535),	-- units octets
+			backwardMaximumSDUSize	INTEGER (0..65535),	-- units octets
+			...
+		},
+		...
+	},
+	multiplex	CHOICE
+	{
+		noMultiplex	NULL,
+		transportStream	NULL,
+		programStream	NULL,
+		...
+	},
+	...,
+	reverseParameters	SEQUENCE
+	{
+		bitRate	INTEGER(1..65535),	-- units 64 kbit/s
+		bitRateLockedToPCRClock	BOOLEAN,
+		bitRateLockedToNetworkClock	BOOLEAN,
+		multiplex	CHOICE
+		{
+			noMultiplex	NULL,
+			transportStream	NULL,
+			programStream	NULL,
+			...
+		},
+		...
+	}
+}
+
+-- ===================================================================================
+-- Indication Message : user input
+-- ===================================================================================
+
+UserInputIndication	::=CHOICE
+{
+	nonStandard	NonStandardParameter,
+	alphanumeric	GeneralString,
+	...,
+	userInputSupportIndication	CHOICE
+	{
+		nonStandard 	NonStandardParameter,
+		basicString	NULL,
+		iA5String	NULL,
+		generalString	NULL,
+		...
+	},
+	signal			SEQUENCE
+	{
+		signalType	IA5String (SIZE (1) ^ FROM ("0123456789#*ABCD!")),
+--		signalType	IA5String (SIZE (1)) (FROM ("0123456789#*ABCD!")),
+		duration	INTEGER (1..65535) OPTIONAL,  -- milliseconds
+		rtp			SEQUENCE
+		{
+			timestamp	INTEGER (0..4294967295) OPTIONAL,
+			expirationTime	INTEGER (0..4294967295) OPTIONAL,
+			logicalChannelNumber	LogicalChannelNumber,
+			...
+		} OPTIONAL,
+		...
+	},
+	signalUpdate	SEQUENCE
+	{
+		duration	INTEGER (1..65535),  -- milliseconds
+		rtp			SEQUENCE
+		{
+			logicalChannelNumber	LogicalChannelNumber,
+			...
+		} OPTIONAL,
+		...
+	}
+}
+
+
+END
+
+
+
+
+
+
+

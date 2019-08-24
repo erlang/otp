@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Internal form and its encodings</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_encode.xml</file>
+  </header>
+  <p>This version of the stack is compliant with: </p>
+  <list type="bulleted">
+    <item>
+      <p>Megaco/H.248 version 1 (RFC3525)
+        updated according to Implementors Guide version 10-13.</p>
+    </item>
+    <item>
+      <p>Megaco/H.248 version 2 as defined by 
+        draft-ietf-megaco-h248v2-04
+        updated according to Implementors Guide version 10-13.</p>
+    </item>
+    <item>
+      <p>Megaco/H.248 version 3 as defined by 
+        ITU H.248.1 (09/2005).</p>
+    </item>
+  </list>
+
+  <section>
+    <title>Internal form of messages</title>
+    <p>We use the same internal form for both the binary and text
+      encoding.  Our internal form of Megaco/H.248 messages is heavily
+      influenced by the internal format used by ASN.1
+      encoders/decoders:</p>
+    <list type="bulleted">
+      <item>
+        <p>"SEQUENCE OF" is represented as a list.</p>
+      </item>
+      <item>
+        <p>"CHOICE" is represented as a tagged tuple with size 2.</p>
+      </item>
+      <item>
+        <p>"SEQUENCE" is represented as a record, defined in
+          "megaco/include/megaco_message_v1.hrl".</p>
+      </item>
+      <item>
+        <p>"OPTIONAL" is represented as an ordinary field in a
+          record which defaults to 'asn1_NOVALUE', meaning that the
+          field has no value.</p>
+      </item>
+      <item>
+        <p>"OCTET STRING" is represented as a list of unsigned integers.</p>
+      </item>
+      <item>
+        <p>"ENUMERATED" is represented as a single atom.</p>
+      </item>
+      <item>
+        <p>"BIT STRING" is represented as a list of atoms.</p>
+      </item>
+      <item>
+        <p>"BOOLEAN" is represented as the atom 'true' or 'false'.</p>
+      </item>
+      <item>
+        <p>"INTEGER" is represented as an integer.</p>
+      </item>
+      <item>
+        <p>"IA5String" is represented as a list of integers,
+          where each integer is the ASCII value of the corresponding
+          character.</p>
+      </item>
+      <item>
+        <p>"NULL" is represented as the atom 'NULL'.</p>
+      </item>
+    </list>
+    <p>In order to fully understand the internal form you must get
+      hold on a ASN.1 specification for the Megaco/H.248 protocol, 
+      and apply the rules above.
+      Please, see the documentation of the ASN.1 compiler in
+      Erlang/OTP for more details of the semantics in mapping between
+      ASN.1 and the corresponding internal form.</p>
+    <p>Observe that the 'TerminationId' record is not used in the
+      internal form. It has been replaced with a megaco_term_id record
+      (defined in "megaco/include/megaco.hrl").</p>
+  </section>
+
+  <section>
+    <title>The different encodings</title>
+    <p>The Megaco/H.248 standard defines both a plain text encoding
+      and a binary encoding (ASN.1 BER) and we have implemented
+      encoders and decoders for both. We do in fact supply five
+      different encoding/decoding modules.</p>
+    <p>In the text encoding, implementors have the choice of using a
+      mix of short and long keywords. It is also possible to add white
+      spaces to improve readability. We use the term compact for text
+      messages with the shortest possible keywords and no optional
+      white spaces, and the term pretty for a well indented text
+      format using long keywords and an indentation style like the
+      text examples in the Megaco/H.248 specification).</p>
+    <p>Here follows an example of a text message to give a feeling
+      of the difference between the pretty and compact versions of
+      text messages. First the pretty, well indented version with long
+      keywords:</p>
+    <pre>
+   MEGACO/1 [124.124.124.222]
+   Transaction = 9998 {
+           Context = - {
+                   ServiceChange = ROOT {
+                           Services {
+                                   Method = Restart,
+                                   ServiceChangeAddress = 55555,
+                                   Profile = ResGW/1,
+                                   Reason = "901 Cold Boot"
+                           }
+                   }
+           }
+   }    </pre>
+    <p>Then the compact version without indentation and with short keywords:</p>
+    <pre>
+ 
+   !/1 [124.124.124.222]
+   T=9998{C=-{SC=ROOT{SV{MT=RS,AD=55555,PF=ResGW/1,RE="901 Cold Boot"}}}}    </pre>
+    <p>And the programmers view of the same message.
+      First a list of ActionRequest records are constructed and
+      then it is sent with one of the send functions in the API:</p>
+    <pre>
+  Prof = #'ServiceChangeProfile'{profileName = "resgw", version = 1},
+  Parm = #'ServiceChangeParm'{serviceChangeMethod  = restart,
+                              serviceChangeAddress = {portNumber, 55555},
+                              serviceChangeReason  = "901 Cold Boot",
+                              serviceChangeProfile = Prof},
+  Req = #'ServiceChangeRequest'{terminationID = [?megaco_root_termination_id],
+                                serviceChangeParms = Parm},
+  Actions = [#'ActionRequest'{contextId = ?megaco_null_context_id,
+                              commandRequests = {serviceChangeReq, Req}}],
+  megaco:call(ConnHandle, Actions, Config).    </pre>
+    <p>And finally a print-out of the entire internal form:</p>
+    <pre>
+  {'MegacoMessage',
+   asn1_NOVALUE,
+   {'Message',
+    1,
+    {ip4Address,{'IP4Address', [124,124,124,222], asn1_NOVALUE}},
+    {transactions,
+     [
+      {transactionRequest,
+       {'TransactionRequest',
+         9998,
+         [{'ActionRequest',
+           0,
+           asn1_NOVALUE,
+           asn1_NOVALUE,
+           [
+            {'CommandRequest',
+             {serviceChangeReq,
+              {'ServiceChangeRequest',
+               [
+                {megaco_term_id, false, ["root"]}],
+                {'ServiceChangeParm',
+                 restart,
+                 {portNumber, 55555},
+                 asn1_NOVALUE,
+                 {'ServiceChangeProfile', "resgw", version = 1},
+                 "901 MG Cold Boot",
+                 asn1_NOVALUE,
+                 asn1_NOVALUE,
+                 asn1_NOVALUE
+                }
+              }
+             },
+             asn1_NOVALUE,
+             asn1_NOVALUE
+            }
+           ]
+          }
+         ]
+       }
+      }
+     ]
+    }
+   }
+  }     </pre>
+    <p>The following encoding modules are provided:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>megaco_pretty_text_encoder - encodes messages into
+          pretty text format, decodes both pretty as well as compact
+          text.</p>
+      </item>
+      <item>
+        <p>megaco_compact_text_encoder - encodes messages into
+          compact text format, decodes both pretty as well as compact
+          text.</p>
+      </item>
+      <item>
+        <p>megaco_binary_encoder - encode/decode ASN.1 BER messages.
+          This encoder implements the fastest of the BER encoders/decoders.
+          Recommended binary codec.</p>
+      </item>
+      <item>
+        <p>megaco_ber_encoder - encode/decode ASN.1 BER 
+          messages.</p>
+      </item>
+      <item>
+        <p>megaco_per_encoder - encode/decode ASN.1 PER
+          messages. N.B. that this format is not included in the
+          Megaco standard.</p>
+      </item>
+      <item>
+        <p>megaco_erl_dist_encoder - encodes messages into Erlangs
+          distribution format. It is rather verbose but encoding and
+          decoding is blinding fast. N.B. that this format is not 
+          included in the Megaco standard.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="erl_dist_config"></marker>
+    <title>Configuration of Erlang distribution encoding module</title>
+    <p>The encoding_config of the megaco_erl_dist_encoder module
+      may be one of these:</p>
+    <list type="bulleted">
+      <item>
+        <p><c><![CDATA[[]]]></c> - Encodes the messages to the standard distribution
+          format. It is rather verbose but encoding and decoding is
+          blinding fast.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[megaco_compressed]]]></c> - Encodes the messages to the
+          standard distribution format after an internal transformation. 
+          It is less verbose, but the total time of the encoding and 
+          decoding will on the other hand be somewhat slower (see the 
+          <seealso marker="megaco_performance">performance</seealso> 
+          chapter for more info).</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[{megaco_compressed, Module}]]]></c> - Works in the same
+          way as the megaco_compressed config parameter, only here the 
+          user provide their own compress module. This module must 
+          implement the 
+          <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso> 
+          behaviour.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[compressed]]]></c> - Encodes the messages to a compressed
+          form of the standard distribution format. It is less
+          verbose, but the encoding and decoding will on the other
+          hand be slower.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="text_config"></marker>
+    <title>Configuration of text encoding module(s)</title>
+    <p>When using text encoding(s), there is actually two different
+      configs controlling what software to use:</p>
+    <list type="bulleted">
+      <item>
+        <p><c><![CDATA[[]]]></c> - An empty list indicates that the erlang
+          scanner should be used.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[{flex, port()}]]]></c> - Use the flex scanner when 
+          decoding (not optimized for SMP). See 
+          <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+          for more info.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[{flex, ports()}]]]></c> - Use the flex scanner when 
+          decoding (optimized for SMP). See 
+          <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+          for more info.</p>
+      </item>
+    </list>
+    <p>The Flex scanner is a Megaco scanner written as a linked in driver 
+      (in C). There are two ways to get this working:</p>
+    <list type="bulleted">
+      <item>
+        <p>Let the Megaco stack start the flex scanner 
+          (load the driver).</p>
+        <p>To make this happen the megaco stack has to be configured: </p>
+        <list type="bulleted">
+          <item>
+            <p>Add the <c><![CDATA[{scanner, flex}]]></c> (or similar) directive to an 
+              Erlang system config file for the megaco app (see 
+              <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+              chapter for details). </p>
+          </item>
+          <item>
+            <p>Retrieve the encoding-config using the
+              <seealso marker="megaco#system_info">system_info</seealso> 
+              function (with <c>Item = text_config</c>). </p>
+          </item>
+          <item>
+            <p>Update the receive handle with the encoding-config 
+              (the <c>encoding_config</c> field). </p>
+          </item>
+        </list>
+        <p>The benefit of this is that Megaco handles the starting, holding
+          and the supervision of the driver and port.</p>
+      </item>
+      <item>
+        <p>The Megaco client (user) starts the flex scanner (load the driver).</p>
+        <p>When starting the flex scanner a port to the linked in driver is 
+          created. This port has to be owned by a process. This process must not
+          die. If it does the port will also terminate. Therefor:</p>
+        <p></p>
+        <list type="bulleted">
+          <item>
+            <p>Create a permanent process. Make sure this process is
+              supervised (so that if it does die, this will be noticed).</p>
+          </item>
+          <item>
+            <p>Let this process start the flex scanner by calling the 
+              <c><![CDATA[megaco_flex_scanner:start/0,1]]></c> function.</p>
+          </item>
+          <item>
+            <p>Retrieve the encoding-config and when initiating
+              the <c><![CDATA[megaco_receive_handle]]></c>, set the 
+              field <c>encoding_config</c> accordingly.</p>
+          </item>
+          <item>
+            <p>Pass the <c><![CDATA[megaco_receive_handle]]></c> to the 
+              transport module.</p>
+          </item>
+        </list>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="binary_config"></marker>
+    <title>Configuration of binary encoding module(s)</title>
+    <p>When using binary encoding, the structure of the termination id's 
+      needs to be specified.</p>
+    <list type="bulleted">
+      <item>
+        <p><c><![CDATA[[native]]]></c> - skips the transformation phase, i.e. 
+          the decoded message(s) will not be transformed into our internal
+          form.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[[integer()]]]></c> - A list containing the size (the number 
+          of bits) of each level. Example: <c><![CDATA[[3,8,5,8]]]></c>.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[integer()]]></c> - Number of one byte (8 bits) levels.
+          N.B. This is currently converted into the previous config. 
+          Example: <c><![CDATA[3]]></c> (<c><![CDATA[[8,8,8]]]></c>).</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="handling_versions"></marker>
+    <title>Handling megaco versions</title>
+    <p>Since the version 3 implemented, in this version of the Megaco 
+      application, is preliminary, it is necessary to have a way
+      to handle different version 3 implementations. For this reason
+      the encoding config option <c><![CDATA[{version3, version3()}]]></c> has been 
+      introduced. This option, if present, has to be <em>first</em> in the 
+      encoding config list. Version 1 and 2 codec's ignore this option, if 
+      found. </p>
+    <code type="none"><![CDATA[
+version3() -> prev3a | prev3b | prev3c | v3    ]]></code>
+    <list type="bulleted">
+      <item>
+        <p><em>prev3a</em></p>
+        <p>Preliminary version 3, based on TD-33</p>
+      </item>
+      <item>
+        <p><em>prev3b</em></p>
+        <p>Preliminary version 3, based on TD-33, but text encoding 
+          updated with the final solution for priority in 
+          <c><![CDATA[contextProperty]]></c> (which is backward compatible with v2).</p>
+      </item>
+      <item>
+        <p><em>prev3c</em></p>
+        <p>Preliminary version 3, based on the final version of the 
+          v3-standard, but <em>excluding</em> segments!</p>
+      </item>
+      <item>
+        <p><em>v3</em></p>
+        <p>Full version 3. Including segmentation. This is the default
+          version 3 variant (i.e. if a version 3 messages is to be 
+          encoded/decoded and no version3 encoding config is found, 
+          then v3 is assumed).</p>
+      </item>
+    </list>
+    <p>There are two ways to handle the different megaco encoding versions.
+      Either using <em>dynamic version detection</em> (only valid for
+      for incoming messages) or by <em>explicit version</em> setting in 
+      the connection info.</p>
+    <p>For incoming messages:</p>
+    <list type="bulleted">
+      <item>
+        <p>Dynamic version detection</p>
+        <p>Set the protocol version in the megaco_receive_handle to 
+          <c><![CDATA[dynamic]]></c> (this is the default).
+          <br></br>This works for those codecs that support partial decode of the 
+          version, currently <em>text</em>, and ber_bin 
+          (<c><![CDATA[megaco_binary_encoder]]></c> and <c><![CDATA[megaco_ber_bin_encoder]]></c>). 
+          <br></br>This way the decoder will detect which version is used and 
+          then use the proper decoder. </p>
+      </item>
+      <item>
+        <p>Explicit version</p>
+        <p>Explicitly set the actual protocol version in the 
+          megaco_receive_handle.
+          <br></br>Start with version 1. When the initial service change has been 
+          performed and version 2 has been negotiated, upgrade the 
+          megaco_receive_handle of the transport process (control_pid) to 
+          version 2.
+          See 
+          <seealso marker="megaco_tcp#upgrade_receive_handle">megaco_tcp</seealso>
+          and 
+          <seealso marker="megaco_udp#upgrade_receive_handle">megaco_udp</seealso>.
+          <br></br>Note that if <c><![CDATA[udp]]></c> is used, the same transport process 
+          could be used for several connections. This could make upgrading 
+          impossible.
+          <br></br>For codecs that does not support partial decode of the version, 
+          currently <c><![CDATA[megaco_ber_encoder]]></c>, <c><![CDATA[megaco_per_encoder]]></c>
+          and <c><![CDATA[megaco_per_bin_encoder]]></c>, <c><![CDATA[dynamic]]></c> will revert to 
+          version 1.</p>
+      </item>
+    </list>
+    <p>For outgoing messages:</p>
+    <list type="bulleted">
+      <item>
+        <p>Update the connection info protocol_version.</p>
+      </item>
+      <item>
+        <p>Override protocol version when sending a message by adding the
+          item <c><![CDATA[{protocol_version, integer()}]]></c> to the Options.
+          See 
+          <seealso marker="megaco#call">call</seealso> or
+          <seealso marker="megaco#cast">cast</seealso>.
+          <br></br>Note that this does not effect the messages that are sent
+          autonomously by the stack. They use the protocol_version of the
+          connection info.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Encoder callback functions</title>
+    <p>The encoder callback interface is defined by the <c><![CDATA[megaco_encoder]]></c> 
+      behaviour, see <seealso marker="megaco_encoder">megaco_encoder</seealso>.</p>
+  </section>
+</chapter>
+

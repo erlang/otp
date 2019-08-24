@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Appendix C: Fragmented Table Hashing Callback Interface</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>Mnesia_App_C.xml</file>
+  </header>
+
+  <section>
+    <title>mnesia_frag_hash Callback Behavior</title>
+    <p></p>
+    <codeinclude file="../../src/mnesia_frag_hash.erl" tag="%header_doc_include" type="erl"></codeinclude>
+    <p></p>
+    <codeinclude file="../../src/mnesia_frag_hash.erl" tag="%impl_doc_include" type="erl"></codeinclude>
+  </section>
+</chapter>
+

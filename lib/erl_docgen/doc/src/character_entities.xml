@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Character Entities</title>
+    <prepared/>
+    <docno/>
+    <date/>
+    <rev/>
+    <file>character_entities.xml</file>
+  </header>
+
+  <section>
+    <title>Added Latin 1</title>
+
+    <p>The OTP DTD suite uses the same character entities as
+      defined in HTML 3.2
+      (<c>ISO 8879-1986//ENTITIES Added Latin 1//EN//HTML</c>). That is:
+      for an &amp; (ampersand), use the entity: <c>&amp;amp;</c>, for
+      &ouml; use the entity <c>&amp;ouml;</c> and so on.</p>
+
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Character</em></cell>
+        <cell align="left" valign="middle"><em>Entity</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&amp;</cell>
+        <cell align="left" valign="middle">&amp;amp;</cell>
+        <cell align="left" valign="middle">ampersand</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&gt;</cell>
+        <cell align="left" valign="middle">&amp;gt;</cell>
+        <cell align="left" valign="middle">greater than</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&lt;</cell>
+        <cell align="left" valign="middle">&amp;lt;</cell>
+        <cell align="left" valign="middle">less than</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">&amp;nbsp;</cell>
+        <cell align="left" valign="middle">no-break space</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&iexcl;</cell>
+        <cell align="left" valign="middle">&amp;iexcl;</cell>
+        <cell align="left" valign="middle">inverted exclamation mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&cent;</cell>
+        <cell align="left" valign="middle">&amp;cent;</cell>
+        <cell align="left" valign="middle">cent sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&pound;</cell>
+        <cell align="left" valign="middle">&amp;pound;</cell>
+        <cell align="left" valign="middle">pound sterling sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&curren;</cell>
+        <cell align="left" valign="middle">&amp;curren;</cell>
+        <cell align="left" valign="middle">general currency sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&yen;</cell>
+        <cell align="left" valign="middle">&amp;yen;</cell>
+        <cell align="left" valign="middle">yen sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&brvbar;</cell>
+        <cell align="left" valign="middle">&amp;brvbar;</cell>
+        <cell align="left" valign="middle">broken (vertical) bar</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&sect;</cell>
+        <cell align="left" valign="middle">&amp;sect;</cell>
+        <cell align="left" valign="middle">section sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&uml;</cell>
+        <cell align="left" valign="middle">&amp;uml;</cell>
+        <cell align="left" valign="middle">umlaut (dieresis)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&copy;</cell>
+        <cell align="left" valign="middle">&amp;copy;</cell>
+        <cell align="left" valign="middle">copyright sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ordf;</cell>
+        <cell align="left" valign="middle">&amp;ordf;</cell>
+        <cell align="left" valign="middle">ordinal indicator, feminine</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&laquo;</cell>
+        <cell align="left" valign="middle">&amp;laquo;</cell>
+        <cell align="left" valign="middle">angle quotation mark, left</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&not;</cell>
+        <cell align="left" valign="middle">&amp;not;</cell>
+        <cell align="left" valign="middle">not sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell> <!-- a space is used instead of &shy; due to bug in fop 1.0 -->
+        <cell align="left" valign="middle">&amp;shy;</cell>
+        <cell align="left" valign="middle">soft hyphen</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&reg;</cell>
+        <cell align="left" valign="middle">&amp;reg;</cell>
+        <cell align="left" valign="middle">registered sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&macr;</cell>
+        <cell align="left" valign="middle">&amp;macr;</cell>
+        <cell align="left" valign="middle">macron</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&deg;</cell>
+        <cell align="left" valign="middle">&amp;deg;</cell>
+        <cell align="left" valign="middle">degree sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&plusmn;</cell>
+        <cell align="left" valign="middle">&amp;plusmn;</cell>
+        <cell align="left" valign="middle">plus-or-minus</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&sup2;</cell>
+        <cell align="left" valign="middle">&amp;sup2;</cell>
+        <cell align="left" valign="middle">superscript two</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&sup3;</cell>
+        <cell align="left" valign="middle">&amp;sup3;</cell>
+        <cell align="left" valign="middle">superscript three</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&acute;</cell>
+        <cell align="left" valign="middle">&amp;acute;</cell>
+        <cell align="left" valign="middle">acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&micro;</cell>
+        <cell align="left" valign="middle">&amp;micro;</cell>
+        <cell align="left" valign="middle">micro sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&para;</cell>
+        <cell align="left" valign="middle">&amp;para;</cell>
+        <cell align="left" valign="middle">pilcrow (paragraph sign)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&middot;</cell>
+        <cell align="left" valign="middle">&amp;middot;</cell>
+        <cell align="left" valign="middle">middle dot</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&cedil;</cell>
+        <cell align="left" valign="middle">&amp;cedil;</cell>
+        <cell align="left" valign="middle">cedilla</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&sup1;</cell>
+        <cell align="left" valign="middle">&amp;sup1;</cell>
+        <cell align="left" valign="middle">superscript one</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ordm;</cell>
+        <cell align="left" valign="middle">&amp;ordm;</cell>
+        <cell align="left" valign="middle">ordinal indicator, masculine</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&raquo;</cell>
+        <cell align="left" valign="middle">&amp;raquo;</cell>
+        <cell align="left" valign="middle">angle quotation mark, right</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&frac14;</cell>
+        <cell align="left" valign="middle">&amp;frac14;</cell>
+        <cell align="left" valign="middle">fraction one-quarter</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&frac12;</cell>
+        <cell align="left" valign="middle">&amp;frac12;</cell>
+        <cell align="left" valign="middle">fraction one-half</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&frac34;</cell>
+        <cell align="left" valign="middle">&amp;frac34;</cell>
+        <cell align="left" valign="middle">fraction three-quarters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&iquest;</cell>
+        <cell align="left" valign="middle">&amp;iquest;</cell>
+        <cell align="left" valign="middle">inverted question mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Agrave;</cell>
+        <cell align="left" valign="middle">&amp;Agrave;</cell>
+        <cell align="left" valign="middle">capital A, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Aacute;</cell>
+        <cell align="left" valign="middle">&amp;Aacute;</cell>
+        <cell align="left" valign="middle">capital A, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Acirc;</cell>
+        <cell align="left" valign="middle">&amp;Acirc;</cell>
+        <cell align="left" valign="middle">capital A, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Atilde;</cell>
+        <cell align="left" valign="middle">&amp;Atilde;</cell>
+        <cell align="left" valign="middle">capital A, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Auml;</cell>
+        <cell align="left" valign="middle">&amp;Auml;</cell>
+        <cell align="left" valign="middle">capital A, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Aring;</cell>
+        <cell align="left" valign="middle">&amp;Aring;</cell>
+        <cell align="left" valign="middle">capital A, ring</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&AElig;</cell>
+        <cell align="left" valign="middle">&amp;AElig;</cell>
+        <cell align="left" valign="middle">capital AE diphthong (ligature)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ccedil;</cell>
+        <cell align="left" valign="middle">&amp;Ccedil;</cell>
+        <cell align="left" valign="middle">capital C, cedilla</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Egrave;</cell>
+        <cell align="left" valign="middle">&amp;Egrave;</cell>
+        <cell align="left" valign="middle">capital E, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Eacute;</cell>
+        <cell align="left" valign="middle">&amp;Eacute;</cell>
+        <cell align="left" valign="middle">capital E, acute accen</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ecirc;</cell>
+        <cell align="left" valign="middle">&amp;Ecirc;</cell>
+        <cell align="left" valign="middle">capital E, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Euml;</cell>
+        <cell align="left" valign="middle">&amp;Euml;</cell>
+        <cell align="left" valign="middle">capital E, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Igrave;</cell>
+        <cell align="left" valign="middle">&amp;Igrave;</cell>
+        <cell align="left" valign="middle">capital I, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Iacute;</cell>
+        <cell align="left" valign="middle">&amp;Iacute;</cell>
+        <cell align="left" valign="middle">capital I, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Icirc;</cell>
+        <cell align="left" valign="middle">&amp;Icirc;</cell>
+        <cell align="left" valign="middle">capital I, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Iuml;</cell>
+        <cell align="left" valign="middle">&amp;Iuml;</cell>
+        <cell align="left" valign="middle">capital I, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ETH;</cell>
+        <cell align="left" valign="middle">&amp;ETH;</cell>
+        <cell align="left" valign="middle">capital Eth, Icelandic</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ntilde;</cell>
+        <cell align="left" valign="middle">&amp;Ntilde;</cell>
+        <cell align="left" valign="middle">capital N, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ograve;</cell>
+        <cell align="left" valign="middle">&amp;Ograve;</cell>
+        <cell align="left" valign="middle">capital O, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Oacute;</cell>
+        <cell align="left" valign="middle">&amp;Oacute;</cell>
+        <cell align="left" valign="middle">capital O, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ocirc;</cell>
+        <cell align="left" valign="middle">&amp;Ocirc;</cell>
+        <cell align="left" valign="middle">capital O, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Otilde;</cell>
+        <cell align="left" valign="middle">&amp;Otilde;</cell>
+        <cell align="left" valign="middle">capital O, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ouml;</cell>
+        <cell align="left" valign="middle">&amp;Ouml;</cell>
+        <cell align="left" valign="middle">capital O, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&times;</cell>
+        <cell align="left" valign="middle">&amp;times;</cell>
+        <cell align="left" valign="middle">multiply sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Oslash;</cell>
+        <cell align="left" valign="middle">&amp;Oslash;</cell>
+        <cell align="left" valign="middle">capital O, slash</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ugrave;</cell>
+        <cell align="left" valign="middle">&amp;Ugrave;</cell>
+        <cell align="left" valign="middle">capital U, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Uacute;</cell>
+        <cell align="left" valign="middle">&amp;Uacute;</cell>
+        <cell align="left" valign="middle">capital U, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Ucirc;</cell>
+        <cell align="left" valign="middle">&amp;Ucirc;</cell>
+        <cell align="left" valign="middle">capital U, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Uuml;</cell>
+        <cell align="left" valign="middle">&amp;Uuml;</cell>
+        <cell align="left" valign="middle">capital U, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&Yacute;</cell>
+        <cell align="left" valign="middle">&amp;Yacute;</cell>
+        <cell align="left" valign="middle">capital Y, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&THORN;</cell>
+        <cell align="left" valign="middle">&amp;THORN;</cell>
+        <cell align="left" valign="middle">capital THORN, Icelandic</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&szlig;</cell>
+        <cell align="left" valign="middle">&amp;szlig;</cell>
+        <cell align="left" valign="middle">small sharp s, German (sz ligature)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&agrave;</cell>
+        <cell align="left" valign="middle">&amp;agrave;</cell>
+        <cell align="left" valign="middle">small a, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&aacute;</cell>
+        <cell align="left" valign="middle">&amp;aacute;</cell>
+        <cell align="left" valign="middle">small a, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&acirc;</cell>
+        <cell align="left" valign="middle">&amp;acirc;</cell>
+        <cell align="left" valign="middle">small a, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&atilde;</cell>
+        <cell align="left" valign="middle">&amp;atilde;</cell>
+        <cell align="left" valign="middle">small a, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&auml;</cell>
+        <cell align="left" valign="middle">&amp;auml;</cell>
+        <cell align="left" valign="middle">small a, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&aring;</cell>
+        <cell align="left" valign="middle">&amp;aring;</cell>
+        <cell align="left" valign="middle">small a, ring</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&aelig;</cell>
+        <cell align="left" valign="middle">&amp;aelig;</cell>
+        <cell align="left" valign="middle">small ae diphthong (ligature)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ccedil;</cell>
+        <cell align="left" valign="middle">&amp;ccedil;</cell>
+        <cell align="left" valign="middle">small c, cedilla</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&egrave;</cell>
+        <cell align="left" valign="middle">&amp;egrave;</cell>
+        <cell align="left" valign="middle">small e, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&eacute;</cell>
+        <cell align="left" valign="middle">&amp;eacute;</cell>
+        <cell align="left" valign="middle">small e, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ecirc;</cell>
+        <cell align="left" valign="middle">&amp;ecirc;</cell>
+        <cell align="left" valign="middle">small e, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&euml;</cell>
+        <cell align="left" valign="middle">&amp;euml;</cell>
+        <cell align="left" valign="middle">small e, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&igrave;</cell>
+        <cell align="left" valign="middle">&amp;igrave;</cell>
+        <cell align="left" valign="middle">small i, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&iacute;</cell>
+        <cell align="left" valign="middle">&amp;iacute;</cell>
+        <cell align="left" valign="middle">small i, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&icirc;</cell>
+        <cell align="left" valign="middle">&amp;icirc;</cell>
+        <cell align="left" valign="middle">small i, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&iuml;</cell>
+        <cell align="left" valign="middle">&amp;iuml;</cell>
+        <cell align="left" valign="middle">small i, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&eth;</cell>
+        <cell align="left" valign="middle">&amp;eth;</cell>
+        <cell align="left" valign="middle">small eth, Icelandic</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ntilde;</cell>
+        <cell align="left" valign="middle">&amp;ntilde;</cell>
+        <cell align="left" valign="middle">small n, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ograve;</cell>
+        <cell align="left" valign="middle">&amp;ograve;</cell>
+        <cell align="left" valign="middle">small o, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&oacute;</cell>
+        <cell align="left" valign="middle">&amp;oacute;</cell>
+        <cell align="left" valign="middle">small o, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ocirc;</cell>
+        <cell align="left" valign="middle">&amp;ocirc;</cell>
+        <cell align="left" valign="middle">small o, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&otilde;</cell>
+        <cell align="left" valign="middle">&amp;otilde;</cell>
+        <cell align="left" valign="middle">small o, tilde</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ouml;</cell>
+        <cell align="left" valign="middle">&amp;ouml;</cell>
+        <cell align="left" valign="middle">small o, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&divide;</cell>
+        <cell align="left" valign="middle">&amp;divide;</cell>
+        <cell align="left" valign="middle">divide sign</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&oslash;</cell>
+        <cell align="left" valign="middle">&amp;oslash;</cell>
+        <cell align="left" valign="middle">small o, slash</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ugrave;</cell>
+        <cell align="left" valign="middle">&amp;ugrave;</cell>
+        <cell align="left" valign="middle">small u, grave accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&uacute;</cell>
+        <cell align="left" valign="middle">&amp;uacute;</cell>
+        <cell align="left" valign="middle">small u, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&ucirc;</cell>
+        <cell align="left" valign="middle">&amp;ucirc;</cell>
+        <cell align="left" valign="middle">small u, circumflex accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&uuml;</cell>
+        <cell align="left" valign="middle">&amp;uuml;</cell>
+        <cell align="left" valign="middle">small u, dieresis or umlaut mark</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&yacute;</cell>
+        <cell align="left" valign="middle">&amp;yacute;</cell>
+        <cell align="left" valign="middle">small y, acute accent</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&thorn;</cell>
+        <cell align="left" valign="middle">&amp;thorn;</cell>
+        <cell align="left" valign="middle">small thorn, Icelandic</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&yuml;</cell>
+        <cell align="left" valign="middle">&amp;yuml;</cell>
+        <cell align="left" valign="middle">small y, dieresis or umlaut mark</cell>
+      </row>
+      <tcaption>Accented Latin-1 alphabetic characters.</tcaption>
+    </table>
+  </section>
+</chapter>
+

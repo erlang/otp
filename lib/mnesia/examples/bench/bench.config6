@@ -1,0 +1,27 @@
+{cookie,                        bench_cookie}.
+{generator_profile,      	random}.
+{statistics_detail,             debug}.
+{generator_warmup,  		120000}.
+{generator_duration,  		900000}.
+{generator_cooldown,  		120000}.
+{generator_nodes,         	
+ [bench@wppgpb1,
+  bench@wppgpb2,
+  bench@wppgpb3,
+  bench@wppgpb4
+ ]}.
+{use_binary_subscriber_key, 	false}.
+{n_generators_per_node, 	2}.
+{write_lock_type,		sticky_write}.
+{table_nodes,         	
+ [bench@wppgpb5,
+  bench@wppgpb6,
+  bench@wppgpb7,
+  bench@wppgpb8
+ ]}.
+{storage_type, 			ram_copies}.
+{n_replicas,   			2}.
+{n_fragments,  			100}.
+{n_subscribers,		        500000}.
+{n_groups,     		        100}.
+{n_servers,    		        20}.

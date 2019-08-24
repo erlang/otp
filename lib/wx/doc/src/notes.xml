@@ -1,0 +1,981 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>wxErlang Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the wxErlang
+    application.</p>
+
+<section><title>Wx 1.8.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved support for wxWidgets 3.1.3 which have changed
+	    <c>wxFONTWEIGTH</c>, also added <c>wxGCDC</c> and
+	    <c>wxDisplay</c> modules.</p>
+          <p>
+	    Fixed a crash on Mojave and check for events more often.</p>
+          <p>
+	    Own Id: OTP-15587</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed delayed delete bug which caused wx applications to
+	    crash on Mojave.</p>
+          <p>
+	    Own Id: OTP-15426 Aux Id: ERL-755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compilation warning on Darwin.</p>
+          <p>
+	    Own Id: OTP-15230 Aux Id: PR-1860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed implementation so wx can now be built towards
+	    wxWidgets-3.1.1.</p>
+          <p>
+	    Own Id: OTP-15027</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx crashes in otp 20.1 if empty binaries was sent down as
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-14688</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not deprecate
+	    <c>wxGraphicsContext:createLinearGradientBrush/7</c> and
+	    <c>wxGraphicsContext:createRadialGradientBrush/8</c>
+	    which are still available in wxWidgets-3.0.</p>
+          <p>
+	    Own Id: OTP-14539</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a livelock that could be caused by <c>wx:batch/1</c>.</p>
+          <p>
+	    Own Id: OTP-14289</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Allow string arguments to be binaries as specified, i.e.
+	    unicode:chardata().</p>
+          <p>
+	    Own Id: OTP-13934 Aux Id: ERL-270 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxWindow:dragAcceptFiles/2 and wxDropFilesEvent to
+	    support simple drag and drop from file browser.</p>
+          <p>
+	    Own Id: OTP-13933</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increased the stacksize for the wx thread. The default
+	    stacksize on Windows is 1MB which is not enough if the
+	    user created many nested dialogs.</p>
+          <p>
+	    Own Id: OTP-13816</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bugs which could cause called functions to be
+	    invoked twice or not at all when callbacks where invoked
+	    at the same time.</p>
+          <p>
+	    Own Id: OTP-13491</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed atom 'boolean' fields in #wxMouseState{} to
+	    'boolean()'.</p>
+          <p>
+	    Moved out arguments in wxListCtrl:hitTest to result.</p>
+          <p>
+	    Removed no-op functions in wxGauge that have been removed
+	    from wxWidgets-3.1.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13553</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed commands with multiple binaries, such as
+	    <c>wxImage:new/4</c>. Added
+	    <c>wxWindow:SetDoubleBuffered/1</c>,
+	    <c>wxWindow:isDoubleBuffered/1</c>,
+	    <c>wxWindow:setTransparent/2</c> and
+	    <c>wxWindow:canSetTransparent/1</c>. Fixed timing issues.</p>
+          <p>
+	    Own Id: OTP-13404</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add wxOverlay and make wxPostScripDC optional to make
+	    it easier to build on windows.</p> <p>Correct some
+	    function specifications.</p> <p>The driver implementation
+	    have been optimized and now invokes commands after events
+	    have been sent to erlang.</p>
+          <p>
+	    Own Id: OTP-13160</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend AUI functionality.</p>
+          <p>
+	    Own Id: OTP-12961</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The undocumented option <c>generic_debug</c> for
+	    <c>gen_server</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-12183</p>
+        </item>
+        <item>
+          <p>
+	    Remove raise condition where <c>wx</c> could crash during
+	    emulator stoppage.</p>
+          <p>
+	    Own Id: OTP-12734</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use wxWidgets-3.0, if found, as default backend on
+	    windows.</p>
+          <p>
+	    Own Id: OTP-12632</p>
+        </item>
+        <item>
+          <p>
+	    Add missing fields in some events records. May require a
+	    recompilation of user applications.</p>
+          <p>
+	    Own Id: OTP-12660</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing related crash during wx application stop.</p>
+          <p>
+	    Own Id: OTP-12374</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a minor typo in the graphicsContext example.</p>
+          <p>
+	    Own Id: OTP-12259</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix delayed destroy for wxPaintDC objects which could
+	    cause an eternal loop for modal dialogs.</p> <p>Fix
+	    wxSL_LABELS compatibility between wxWidgets-2.8 and
+	    wxWidgets-3.0 versions</p>
+          <p>
+	    Own Id: OTP-11985</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add missing classes wxPopup[Transient]Window,
+	    wxActivateEvent and wxTextCtrl:cahngeValue/2 function.</p>
+          <p>
+	    Own Id: OTP-11986</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Refactored C++ code, fixed crashes and a deadlock on
+	    linux.</p>
+          <p>
+	    Own Id: OTP-11586</p>
+        </item>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+        <item>
+          <p>
+	    Reworked the internal event handling to avoid crashes in
+	    destroy objects. Thanks Tom for the bug report.</p>
+          <p>
+	    Own Id: OTP-11699</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a problem which caused the debugger to crash when
+	    closing a window. Fixed static linking on mac.</p>
+          <p>
+	    Own Id: OTP-11444</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx initialization hanged with wxWidgets-3.0 on mac. Fixed
+	    a crash with wxListBox on wxWidgets-3.0 (thanks Sergei
+	    Golovan) Fixed documentation links. Fixed event callbacks
+	    cleanup.</p>
+          <p>
+	    Own Id: OTP-11393</p>
+        </item>
+        <item>
+          <p>
+	    Improve documentation (Thanks to Boris Mühmer)</p>
+          <p>
+	    Own Id: OTP-11505</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix silent make rules (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add {silent_start, boolean()} option to wx:new/1 in order
+	    to be able to suppress error messages during startup of
+	    wx. (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-10585</p>
+        </item>
+        <item>
+          <p>
+	    Fix wxTreeCtrl:getBoundingRect/2 and
+	    wxTreeCtrl:hitTest/1. wxTreeCtrl:hitTest now returns a
+	    tuple not bug compatible with previous releases but
+	    needed.</p>
+          <p>
+	    Own Id: OTP-10743</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The wx application now compiles and is usable with the
+	    unstable development branch of wxWidgets-2.9. Some
+	    functions are currently not available in wxWidgets-2.9
+	    and their erlang counterparts are marked as deprecated.
+	    They will generate an error if called when linked against
+	    wxWidgets-2.9 libraries. This means that wx can now be
+	    built on 64bit MacOsX, but keep in mind that
+	    wxWidgets-2.9 is still a development branch and needs (a
+	    lot) more work before it becomes stable.</p>
+          <p>
+	    Own Id: OTP-10407 Aux Id: kunagi-262 [173] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.99.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix errors in wxDC and wxGraphicsContext api.</p>
+	    <p>Add wxTaskBarIcon.</p> <p>Add
+	    wxStyledTextControl:setEdgeMode/2.</p> <p>Add type and
+	    specs for all functions and records.</p>
+          <p>
+	    Own Id: OTP-9947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.99.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a deadlock in the driver, which could happen if a
+	    callback caused another callback to be invoked.</p>
+          <p>
+	    Own Id: OTP-9725</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented wxSystemOptions.</p>
+          <p>
+	    Load Opengl from libGL.so.1 instead libGL.so to work
+	    around linux problems.</p>
+          <p>
+	    Own Id: OTP-9702</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.99</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx: fix obsolete guard warning (list/1) (Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9513</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support virtual tables in wxListCtrl.</p>
+          <p>
+	    Own Id: OTP-9415</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx app files on mac and solaris. Thanks Jachym
+	    Holecek and Joe Williams.</p>
+          <p>
+	    Own Id: OTP-9324</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Wx crashed if graphics could not be initiated, for
+	    instance if DISPLAY was not available.</p> <p>Wx could
+	    crash during startup, thanks Boris Muhmer for extra
+	    ordinary testing.</p>
+          <p>
+	    Own Id: OTP-9080</p>
+        </item>
+        <item>
+          <p>
+	    Wx on MacOS X generated complains on stderr about certain
+	    cocoa functions not beeing called from the "Main thread".
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9081</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add wxSystemSettings which was missing in the previous
+	    release, despite previous comments.</p> <p>Fix an
+	    external loop when stopping erlang nicely.</p>
+	    <p>Separate OpenGL to it's own dynamic loaded library, so
+	    other graphic libraries can reuse the gl module and it
+	    will not waste memory if not used.</p>
+          <p>
+	    Own Id: OTP-8951</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash (segmentation fault) in callback handling.</p>
+          <p>
+	    Own Id: OTP-8766</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxSystemSettings module.</p>
+          <p>
+	    Add wxTreeCtrl:editLabel/2.</p>
+          <p>
+	    Own Id: OTP-8767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Calling <c>sys:get_status()</c> for processes that have
+            globally registered names that were not atoms would cause
+            a crash. Corrected. (Thanks to Steve Vinoski.)</p>
+          <p>
+            Own Id: OTP-8656</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Corrected incorrectly generated wxFileDialog:getPaths/1.
+            Reported by Jason/hornja.</p>
+          <p>
+            Own Id: OTP-8330</p>
+        </item>
+        <item>
+          <p>
+            Fixed a memory reference bug which caused unexplained
+            {badarg, Int} exits when running multiple wx
+            applications.</p>
+          <p>
+            Own Id: OTP-8461</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added <c>wxListCtrl:getEditCtrl/1</c> (not available on
+            Mac).</p>
+          <p>
+            Own Id: OTP-8408</p>
+        </item>
+        <item>
+          <p>
+            Cleanups suggested by tidier and modernization of types
+            and specs.</p>
+          <p>
+            Own Id: OTP-8455</p>
+        </item>
+        <item>
+            <p> Changed representation of wxTreeItem to be an
+            integer. This saves memory, where the driver do not need
+            to keep a object reference to each tree item. </p> <p>
+            Added getFirstChild and getNextChild to wxTreeCtrl.</p>
+          <p>
+            Own Id: OTP-8462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Added wx_object improvements from Mazen.</p> <p>Fixed
+            pid issues, reported by Mazen.</p> <p>Added wxLogNull
+            class, reported by Amit Murthy.</p> <p>Various configure
+            fixes.</p>
+          <p>
+            Own Id: OTP-8243 Aux Id: seq11418 </p>
+        </item>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+        <item>
+          <p>
+            wx now builds with wxWidgets 2.8.4 or a later 2.8
+            release, thanks Nico Kruber.</p>
+          <p>
+            Own Id: OTP-8292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Added wxListCtrl sorting and build fixes supplied by Paul
+            Hampson. Thanks.</p>
+          <p>
+            Own Id: OTP-8126</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>wxHtmlWindow class implemented.</p> <p>All exceptions
+            from callbacks are now catched and written to the
+            log.</p> <p>Some defines where wrong in 'wx.hrl'.</p>
+            <p><c>wx:batch/1</c> and friends could hang forever if
+            for instance a breakpoint was set inside the fun. That
+            caused all wx applications to hang.</p> <p>Added missing
+            wxAuiPaneInfo constructor and destructor.</p> <p>Added
+            wxAuiNotebookEvent and wxAuiManagerEvent.</p> <p>Calling
+            non supported wxWidgets functions hanged instead of
+            crashed.</p> <p>Update OpenGL to version 3.1 and added
+            some of the missing glu functions.</p> <p>Fixed
+            wxRadioBox which inherited the wrong class, thanks Atilla
+            Erdodi.</p>
+          <p>
+            Own Id: OTP-8083</p>
+        </item>
+        <item>
+          <p>
+            Removed some of the automatic garbage collecting after
+            application exit, user will get a warning instead so he
+            can correct the code.</p>
+          <p>
+            Own Id: OTP-8138</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Olle Mattson have made a large demo, see
+            <c>examples/demo/</c>, that triggered the following bugs
+            and new features:</p> <p>New book controls.</p> <p>Added
+            wxToolbar:addTool/6.</p> <p>Empty binaries will be used
+            to indicate NULL where applicable.</p>
+          <p>
+            Own Id: OTP-7943</p>
+        </item>
+	<item>
+          <p>Applied patch from Nico Kruber,
+	    which fixes building on some wxwidgets installations.
+	  </p>
+          <p>Open source</p>            
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Wx 0.98.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Added <c>xrcctrl/3</c> to wxXmlResource and added a
+            resource example.</p> <p>Added several event types and
+            events records and fixed a couple of event related
+            bugs.</p> <p>Event callbacks can now use
+            <c>wxEvtHandler:connect/2</c>.</p> <p>Error handling and
+            debugging aid have been improved.</p> <p>Added
+            wxSplitterWindow and wxGauge:pulse and a couple of
+            missing macros in <c>wx.hrl</c>.</p> <p>Thanks to Steve
+            Davis for feedback and bug reports.</p>
+          <p>
+            Own Id: OTP-7875</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+  <section><title>Wx 0.98</title>
+    
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            A first beta release of wxErlang.</p>
+          <p>
+            Own Id: OTP-7859</p>
+        </item>
+      </list>
+    </section>
+    
+</section>
+
+</chapter>
+

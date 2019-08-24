@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_marshal</title>
+    <prepared>Torbj&ouml;rn T&ouml;rnkvist</prepared>
+    <responsible>Torbj&ouml;rn T&ouml;rnkvist</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
+    <date>1998-07-03</date>
+    <rev>A</rev>
+    <file>erl_marshal.xml</file>
+  </header>
+  <lib>erl_marshal</lib>
+  <libsummary>Encoding and decoding of Erlang terms.</libsummary>
+  <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
+    <p>This module contains functions for encoding Erlang terms into
+      a sequence of bytes, and for decoding Erlang terms from a
+      sequence of bytes.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_compare_ext(bufp1, bufp2)</nametext></name>
+      <fsummary>Compare encoded byte sequences.</fsummary>
+      <type>
+        <v>unsigned char *bufp1,*bufp2;</v>
+      </type>
+      <desc>
+        <p>Compares two encoded terms.</p>
+        <list type="bulleted">
+          <item><c>bufp1</c> is a buffer containing an encoded
+            Erlang term term1.</item>
+          <item><c>bufp2</c> is a buffer containing an encoded
+            Erlang term term2.</item>
+        </list>
+        <p>Returns <c>0</c> if the terms are equal, <c>-1</c> if
+          <c>term1</c> &lt; <c>term2</c>, or <c>1</c> if <c>term2</c> &lt;
+          <c>term1</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>ETERM *</ret><nametext>erl_decode(bufp)</nametext></name>
+      <name since=""><ret>ETERM *</ret><nametext>erl_decode_buf(bufpp)</nametext></name>
+      <fsummary>Convert a term from Erlang external format.</fsummary>
+      <type>
+        <v>unsigned char *bufp;</v>
+        <v>unsigned char **bufpp;</v>
+      </type>
+      <desc>
+        <p><c>erl_decode()</c> and
+          <c>erl_decode_buf()</c> decode
+          the contents of a buffer and return the corresponding
+          Erlang term. <c>erl_decode_buf()</c> provides a simple
+          mechanism for dealing with several encoded terms stored
+          consecutively in the buffer.</p>
+        <list type="bulleted">
+          <item>
+            <p><c>bufp</c> is a pointer to a buffer containing one
+              or more encoded Erlang terms.</p>
+          </item>
+          <item>
+            <p><c>bufpp</c> is the address of a buffer pointer. The
+              buffer contains one or more consecutively encoded Erlang terms.
+              Following a successful call to
+              <c>erl_decode_buf()</c>, <c>bufpp</c> is
+              updated so that it points to the next encoded term.</p>
+          </item>
+        </list>
+        <p><c>erl_decode()</c> returns an Erlang term
+          corresponding to the contents of <c>bufp</c> on success,
+          otherwise <c>NULL</c>. <c>erl_decode_buf()</c>
+          returns an Erlang
+          term corresponding to the first of the consecutive terms in
+          <c>bufpp</c> and moves <c>bufpp</c> forward
+          to point to the
+          next term in the buffer. On failure, each of the functions
+          return <c>NULL</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_encode(term, bufp)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_encode_buf(term, bufpp)</nametext></name>
+      <fsummary>Convert a term into Erlang external format.</fsummary>
+      <type>
+        <v>ETERM *term;</v>
+        <v>unsigned char *bufp;</v>
+        <v>unsigned char **bufpp;</v>
+      </type>
+      <desc>
+        <p><c>erl_encode()</c> and
+          <c>erl_encode_buf()</c> encode
+          Erlang terms into external format for storage or transmission.
+          <c>erl_encode_buf()</c> provides a simple mechanism for
+          encoding several terms consecutively in the same buffer.</p>
+        <list type="bulleted">
+          <item>
+            <p><c>term</c> is an Erlang term to be encoded.</p>
+          </item>
+          <item>
+            <p><c>bufp</c> is a pointer to a buffer containing one or
+              more encoded Erlang terms.</p>
+          </item>
+          <item>
+            <p><c>bufpp</c> is a pointer to a pointer to a buffer
+              containing one or more consecutively encoded Erlang terms.
+              Following a successful call to
+              <c>erl_encode_buf()</c>, <c>bufpp</c> is updated so
+              that it points to the
+              position for the next encoded term.</p>
+          </item>
+        </list>
+        <p>These functions return the number of bytes written to buffer
+	  on success, otherwise <c>0</c>.</p>
+        <p>Notice that no bounds checking is done on the buffer. It is
+          the caller's responsibility to ensure that the buffer is
+          large enough to hold the encoded terms. You can either use a
+          static buffer that is large enough to hold the terms you expect
+          to need in your program, or use <c>erl_term_len()</c>
+          to determine the exact requirements for a given term.</p>
+        <p>The following can help you estimate the buffer
+          requirements for a term. Notice that this information is
+          implementation-specific, and can change in future versions.
+          If you are unsure, use <c>erl_term_len()</c>.</p>
+        <p>Erlang terms are encoded with a 1 byte tag that
+          identifies the type of object, a 2- or 4-byte length field,
+          and then the data itself. Specifically:</p>
+        <taglist>
+          <tag><c>Tuples</c></tag>
+          <item>Need 5 bytes, plus the space for each element.</item>
+          <tag><c>Lists</c></tag>
+          <item>Need 5 bytes, plus the space for each element, and 1
+            more byte for the empty list at the end.</item>
+          <tag><c>Strings and atoms</c></tag>
+          <item>Need 3 bytes, plus 1 byte for each character (the
+            terminating 0 is not encoded). Really long strings (more
+            than 64k characters) are encoded as lists. Atoms cannot
+            contain more than 256 characters.</item>
+          <tag><c>Integers</c></tag>
+          <item>Need 5 bytes.</item>
+          <tag><c>Characters</c></tag>
+          <item>(Integers &lt; 256) need 2 bytes.</item>
+          <tag><c>Floating point numbers</c></tag>
+          <item>Need 32 bytes.</item>
+          <tag><c>Pids</c></tag>
+          <item>Need 10 bytes, plus the space for the node name, which
+            is an atom.</item>
+          <tag><c>Ports and Refs</c></tag>
+          <item>Need 6 bytes, plus the space for the node name, which
+            is an atom.</item>
+        </taglist>
+        <p>The total space required is the result calculated
+          from the information above, plus 1 more byte for a 
+          version identifier.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_ext_size(bufp)</nametext></name>
+      <fsummary>Count elements in encoded term.</fsummary>
+      <type>
+        <v>unsigned char *bufp;</v>
+      </type>
+      <desc>
+        <p>Returns the number of elements in an encoded term.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>unsigned char</ret><nametext>erl_ext_type(bufp)</nametext></name>
+      <fsummary>Determine type of an encoded byte sequence.</fsummary>
+      <type>
+        <v>unsigned char *bufp;</v>
+      </type>
+      <desc>
+        <p>Identifies and returns the type of Erlang term encoded
+          in a buffer. It skips a trailing <em>magic</em> identifier.</p>
+        <p>Returns <c>0</c> if the type cannot be determined or
+          one of:</p>
+        <list type="bulleted">
+          <item><c>ERL_INTEGER</c>
+          </item>
+          <item><c>ERL_ATOM</c>
+          </item>
+          <item><c>ERL_PID</c> (Erlang process identifier)
+          </item>
+          <item><c>ERL_PORT</c>
+          </item>
+          <item><c>ERL_REF</c> (Erlang reference)
+          </item>
+          <item><c>ERL_EMPTY_LIST</c>
+          </item>
+          <item><c>ERL_LIST</c>
+          </item>
+          <item><c>ERL_TUPLE</c>
+          </item>
+          <item><c>ERL_FLOAT</c>
+          </item>
+          <item><c>ERL_BINARY</c>
+          </item>
+          <item><c>ERL_FUNCTION</c>
+          </item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>unsigned char *</ret><nametext>erl_peek_ext(bufp, pos)</nametext></name>
+      <fsummary>Step over encoded term.</fsummary>
+      <type>
+        <v>unsigned char *bufp;</v>
+        <v>int pos;</v>
+      </type>
+      <desc>
+        <p>This function is used for stepping over one or more
+          encoded terms in a buffer, to directly access later term.</p>
+        <list type="bulleted">
+          <item><c>bufp</c> is a pointer to a buffer containing one
+            or more encoded Erlang terms.</item>
+          <item><c>pos</c> indicates how many terms to step over in
+            the buffer.</item>
+        </list>
+        <p>Returns a pointer to a subterm that can be
+          used in a later call to <c>erl_decode()</c> to retrieve
+          the term at that position. If there is no term, or
+          <c>pos</c> would exceed the size of the terms in the
+          buffer, <c>NULL</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_term_len(t)</nametext></name>
+      <fsummary>Determine encoded size of term.</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Determines the buffer space that would be
+          needed by <c>t</c> if it were encoded into Erlang external
+          format by <c>erl_encode()</c>.</p>
+        <p>Returns the size in bytes.</p>
+      </desc>
+    </func>
+  </funcs>
+</cref>

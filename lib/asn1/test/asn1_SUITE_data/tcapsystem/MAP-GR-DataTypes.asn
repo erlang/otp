@@ -1,0 +1,122 @@
+MAP-GR-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-GR-DataTypes (23) version9 (9)}
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+	PrepareGroupCallArg,
+	PrepareGroupCallRes,
+	SendGroupCallEndSignalArg,
+	SendGroupCallEndSignalRes,
+	ForwardGroupCallSignallingArg,
+	ProcessGroupCallSignallingArg
+;
+
+IMPORTS
+	ISDN-AddressString,
+	IMSI,
+	EMLPP-Priority,
+	ASCI-CallReference
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+	Ext-TeleserviceCode
+FROM MAP-TS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-TS-Code (19) version9 (9)}
+
+	Kc
+FROM MAP-MS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-MS-DataTypes (11) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+;
+
+
+PrepareGroupCallArg ::= SEQUENCE {
+	teleservice	Ext-TeleserviceCode,
+	asciCallReference	ASCI-CallReference,
+	codec-Info	CODEC-Info,
+	cipheringAlgorithm	CipheringAlgorithm,
+	groupKeyNumber	[0] GroupKeyNumber	OPTIONAL,
+	groupKey		[1] Kc		OPTIONAL,
+	priority		[2] EMLPP-Priority	OPTIONAL,
+	uplinkFree	[3] NULL		OPTIONAL,
+	extensionContainer	[4] ExtensionContainer	OPTIONAL,
+	...}
+
+PrepareGroupCallRes ::= SEQUENCE {
+	groupCallNumber	ISDN-AddressString,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SendGroupCallEndSignalArg ::= SEQUENCE {
+	imsi			IMSI			OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SendGroupCallEndSignalRes ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ForwardGroupCallSignallingArg ::= SEQUENCE {
+	imsi			IMSI			OPTIONAL,
+	uplinkRequestAck	[0] NULL		OPTIONAL,
+	uplinkReleaseIndication	[1] NULL		OPTIONAL,
+	uplinkRejectCommand	[2] NULL		OPTIONAL,
+	uplinkSeizedCommand	[3] NULL		OPTIONAL,
+	uplinkReleaseCommand	[4] NULL		OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	..., 
+	stateAttributes	[5] StateAttributes	OPTIONAL }
+
+ProcessGroupCallSignallingArg ::= SEQUENCE {
+	uplinkRequest	[0] NULL		OPTIONAL,
+	uplinkReleaseIndication	[1] NULL		OPTIONAL,
+	releaseGroupCall	[2] NULL		OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+GroupKeyNumber ::= INTEGER (0..15)
+
+CODEC-Info ::= OCTET STRING (SIZE (5..10))
+	-- Refers to channel type
+	-- coded according to 3GPP TS 48.008 [49] and including Element identifier and Length	
+
+CipheringAlgorithm ::= OCTET STRING (SIZE (1))
+	-- Refers to 'permitted algorithms' in 'encryption information'
+	-- coded according to 3GPP TS 48.008 [49]:
+	
+	-- Bits 8-1 
+	-- 8765 4321
+	-- 0000 0001	No encryption
+	-- 0000 0010	GSM A5/1
+	-- 0000 0100	GSM A5/2
+	-- 0000 1000	GSM A5/3
+	-- 0001 0000	GSM A5/4
+	-- 0010 0000	GSM A5/5
+	-- 0100 0000	GSM A5/6
+	-- 1000 0000	GSM A5/7
+
+StateAttributes ::= SEQUENCE {
+	downlinkAttached			[5] NULL		OPTIONAL,
+	uplinkAttached			[6] NULL		OPTIONAL,
+	dualCommunication			[7] NULL		OPTIONAL,
+	callOriginator			[8] NULL		OPTIONAL }
+
+	-- Refers to 3GPP TS 44.068 for definitions of StateAttributes fields. 
+
+
+END

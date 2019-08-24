@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>nteventlog</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">nteventlog</module>
+  <modulesummary>Interface to Windows Event Log</modulesummary>
+  <description>
+    <p><c>nteventlog</c> provides a generic interface to the Windows
+      event log. It is part of the OS_Mon application, see
+      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for
+      Windows versions where the event log is available. That is, not
+      for Windows 98 and some other older Windows versions, but for most
+      (all?) newer Windows versions.</p>
+    <p>This module is used as the Windows backend for <c>os_sup</c>, see
+      <seealso marker="os_sup">os_sup(3)</seealso>.</p>
+    <p>To retain backwards compatibility, this module can also be used
+      to start a standalone <c>nteventlog</c> process which is not part
+      of the OS_Mon supervision tree. When starting such a process,
+      the user has to supply an identifier as well as a callback
+      function to handle the messages.</p>
+    <p>The identifier, an arbitrary string, should be reused whenever
+      the same application (or node) wants to start the process.
+      <c>nteventlog</c> is informed about all events that have arrived
+      to the eventlog since the last accepted message for the current
+      identifier. As long as the same identifier is used, the same
+      eventlog record will not be sent to <c>nteventlog</c> more than
+      once (with the exception of when graved system failures arise, in
+      which case the last records written before the failure may be
+      sent to Erlang again after reboot).</p>
+    <p>If the event log is configured to wrap around automatically,
+      records that have arrived to the log and been overwritten when
+      <c>nteventlog</c> was not running are lost. It however detects
+      this state and loses no records that are not overwritten.</p>
+    <p>The callback function works as described in <c>os_sup(3)</c>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">start(Identifier, MFA) -> Result</name>
+      <name since="">start_link(Identifier, MFA) -> Result</name>
+      <fsummary>Start the NT eventlog server</fsummary>
+      <type>
+        <v>Identifier = string() | atom()</v>
+        <v>MFA = {Mod, Func, Args}</v>
+        <v>&nbsp;Mod = Func = atom()</v>
+        <v>&nbsp;Args = [term()]</v>
+        <v>Result = {ok, Pid} | {error, {already_started, Pid}}</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>This function starts the standalone <c>nteventlog</c> process
+          and, if <c>start_link/2</c> is used, links to it.</p>
+        <p><c>Identifier</c> is an identifier as described above.</p>
+        <p><c>MFA</c> is the supplied callback function. When
+          <c>nteventlog</c> receives information about a new event, this
+          function will be called as <c>apply(Mod, Func, [Event|Args])</c> where <c>Event</c> is a tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> stopped</name>
+      <fsummary>Stop the NT eventlog server</fsummary>
+      <type>
+        <v>Result = stopped</v>
+      </type>
+      <desc>
+        <p>Stops <c>nteventlog</c>. Usually only used during
+          development. The server does not have to be shut down
+          gracefully to maintain its state.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="os_mon_app">os_mon(6)</seealso>,
+      <seealso marker="os_sup">os_sup(3)</seealso></p>
+    <p>Windows NT documentation</p>
+  </section>
+</erlref>
+

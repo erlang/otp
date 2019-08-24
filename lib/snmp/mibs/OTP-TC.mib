@@ -1,0 +1,93 @@
+--
+-- %CopyrightBegin%
+-- 
+-- Copyright Ericsson AB 1997-2016. All Rights Reserved.
+-- 
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+-- 
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+-- 
+-- %CopyrightEnd%
+--
+
+OTP-TC DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, DisplayString
+        FROM SNMPv2-TC
+    otpModules
+        FROM OTP-REG
+    ;
+
+otpTcModule MODULE-IDENTITY
+    LAST-UPDATED "200305090900Z"
+    ORGANIZATION "Ericsson"
+    CONTACT-INFO
+       "Contact:  Erlang Support see license agreement for Erlang/OTP."
+    DESCRIPTION
+        "This MIB is part of the OTP MIB.  It defines common
+        Textual Conventions used in other OTP mib modules."
+    
+    REVISION     "200305090900Z"
+    DESCRIPTION
+        "Changed CONTACT-INFO as it was outdated, made it more generic
+	to avoid such changes in the future."
+  
+    
+    REVISION     "199712010900Z"
+    DESCRIPTION
+        "The initial version of this module."
+    ::= { otpModules 2 }
+
+OwnerString ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION
+        "An OwnerString identifies the initiator or owner of a row
+        in a table. This label is set by the initiator to provide
+        for the following possibilities:
+
+            o A management station may recognize resources it owns
+              and no longer needs.
+            o A network operator can find the management station that
+              owns the resource and negotiate for it to be freed.
+            o A network operator may decide to unilaterally free
+              resources another network operator has reserved.
+            o Upon initialization, a management station may recognize
+              resources it had reserved in the past.  With this
+              information it may free the resources if it no longer
+              needs them.
+
+        Management stations and agent systems should support any format
+        of the OwnerString dictated by the local policy of the
+        organization.  It is suggested that this name contain one or
+        more of the following: IP address, management station name,
+        network manager's name, location, or phone number.  This
+        information will help users to share the resources more
+        effectively.
+
+        There is often default functionality that the device or the
+        administrator of the agent (often the network administrator) wishes
+        to set up.  The resources associated with this functionality are then
+        owned by the device itself or by the network administrator, and are
+        intended to be long-lived.  In this case, the device or the
+        administrator will set the relevant owner object to a string starting
+        with 'local'.  Indiscriminate modification of the local
+        configuration by network management stations is discouraged.  In
+        fact, a network management station should only modify these objects
+        under the direction of the administrator of the agent system."
+    REFERENCE
+        "RFC1757, RMON-MIB"
+    SYNTAX  DisplayString (SIZE (0..127))
+
+END

@@ -1,0 +1,286 @@
+   PKIX1Algorithms88 { iso(1) identified-organization(3) dod(6)
+   internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+   id-mod-pkix1-algorithms(17) }
+
+   DEFINITIONS EXPLICIT TAGS ::= BEGIN
+
+   -- EXPORTS All;
+
+   -- IMPORTS NONE;
+
+   --
+   --   One-way Hash Functions
+   -- md2, md5, id-sha1 see PKCS-1
+
+   --
+   --   DSA Keys and Signatures
+   --
+
+   -- OID for DSA public key
+
+   id-dsa OBJECT IDENTIFIER ::= {
+        iso(1) member-body(2) us(840) x9-57(10040) x9algorithm(4) 1 }
+
+   -- encoding for DSA public key
+
+   DSAPublicKey ::= INTEGER  -- public key, y
+
+   Dss-Parms  ::=  SEQUENCE  {
+      p             INTEGER,
+      q             INTEGER,
+      g             INTEGER  }
+
+   -- OID for DSA signature generated with SHA-1 hash
+
+   id-dsa-with-sha1 OBJECT IDENTIFIER ::=  {
+        iso(1) member-body(2) us(840) x9-57 (10040) x9algorithm(4) 3 }
+
+   id-dsaWithSHA1 OBJECT IDENTIFIER ::= {
+	iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) dsaWithSHA1(27)
+  }
+   -- encoding for DSA signature generated with SHA-1 hash
+
+   Dss-Sig-Value  ::=  SEQUENCE  {
+      r       INTEGER,
+      s       INTEGER  }
+
+   --
+   --   RSA Keys and Signatures, see PKCS-1 
+   --
+   
+   --
+   --   Diffie-Hellman Keys
+   --
+
+   dhpublicnumber OBJECT IDENTIFIER ::= {
+        iso(1) member-body(2) us(840) ansi-x942(10046)
+        number-type(2) 1 }
+
+   -- encoding for DSA public key
+
+   DHPublicKey ::= INTEGER  -- public key, y = g^x mod p
+
+   DomainParameters ::= SEQUENCE {
+      p       INTEGER,           -- odd prime, p=jq +1
+      g       INTEGER,           -- generator, g
+      q       INTEGER,           -- factor of p-1
+      j       INTEGER OPTIONAL,  -- subgroup factor, j>= 2
+      validationParms  ValidationParms OPTIONAL }
+
+   ValidationParms ::= SEQUENCE {
+      seed             BIT STRING,
+      pgenCounter      INTEGER }
+
+   --
+   --   KEA Keys
+   --
+
+   id-keyExchangeAlgorithm  OBJECT IDENTIFIER  ::=
+        { 2 16 840 1 101 2 1 1 22 }
+
+   KEA-Parms-Id ::= OCTET STRING
+
+   --
+   --   Elliptic Curve Keys, Signatures, and Curves
+   --
+
+   ansi-X9-62 OBJECT IDENTIFIER ::= {
+        iso(1) member-body(2) us(840) 10045 }
+
+   FieldID ::= SEQUENCE {                    -- Finite field
+      fieldType   OBJECT IDENTIFIER,
+      parameters  ANY DEFINED BY fieldType }
+
+   -- Arc for ECDSA signature OIDS
+
+   id-ecSigType OBJECT IDENTIFIER ::= { ansi-X9-62 signatures(4) }
+
+   -- OID for ECDSA signatures with SHA-1
+
+   ecdsa-with-SHA1 OBJECT IDENTIFIER ::= { id-ecSigType 1 }
+   ecdsa-with-SHA2 OBJECT IDENTIFIER ::= { id-ecSigType 3 }
+   ecdsa-with-SHA224 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 1 }
+   ecdsa-with-SHA256 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 2 }
+   ecdsa-with-SHA384 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 3 }
+   ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 4 }
+
+   -- OID for an elliptic curve signature
+   -- format for the value of an ECDSA signature value
+
+   ECDSA-Sig-Value ::= SEQUENCE {
+      r     INTEGER,
+      s     INTEGER }
+
+   -- recognized field type OIDs are defined in the following arc
+
+   id-fieldType OBJECT IDENTIFIER ::= { ansi-X9-62 fieldType(1) }
+
+   -- where fieldType is prime-field, the parameters are of type Prime-p
+
+   prime-field OBJECT IDENTIFIER ::= { id-fieldType 1 }
+
+   Prime-p ::= INTEGER -- Finite field F(p), where p is an odd prime
+
+   -- where fieldType is characteristic-two-field, the parameters are
+   -- of type Characteristic-two
+
+   characteristic-two-field OBJECT IDENTIFIER ::= { id-fieldType 2 }
+
+   Characteristic-two ::= SEQUENCE {
+      m           INTEGER,                   -- Field size 2^m
+      basis       OBJECT IDENTIFIER,
+      parameters  ANY DEFINED BY basis }
+
+   -- recognized basis type OIDs are defined in the following arc
+
+   id-characteristic-two-basis OBJECT IDENTIFIER ::= {
+        characteristic-two-field basisType(3) }
+
+   -- gnbasis is identified by OID gnBasis and indicates
+   -- parameters are NULL
+
+   gnBasis OBJECT IDENTIFIER ::= { id-characteristic-two-basis 1 }
+
+   -- parameters for this basis are NULL
+
+   -- trinomial basis is identified by OID tpBasis and indicates
+   -- parameters of type Pentanomial
+
+   tpBasis OBJECT IDENTIFIER ::= { id-characteristic-two-basis 2 }
+
+   -- Trinomial basis representation of F2^m
+   -- Integer k for reduction polynomial xm + xk + 1
+
+   Trinomial ::= INTEGER
+
+   -- for pentanomial basis is identified by OID ppBasis and indicates
+   -- parameters of type Pentanomial
+
+   ppBasis OBJECT IDENTIFIER ::= { id-characteristic-two-basis 3 }
+
+   -- Pentanomial basis representation of F2^m
+   -- reduction polynomial integers k1, k2, k3
+   -- f(x) = x**m + x**k3 + x**k2 + x**k1 + 1
+
+   Pentanomial ::= SEQUENCE {
+      k1  INTEGER,
+      k2  INTEGER,
+      k3  INTEGER }
+
+   -- The object identifiers gnBasis, tpBasis and ppBasis name
+   -- three kinds of basis for characteristic-two finite fields
+
+   FieldElement ::= OCTET STRING             -- Finite field element
+
+   ECPoint  ::= OCTET STRING                 -- Elliptic curve point
+
+   -- Elliptic Curve parameters may be specified explicitly,
+   -- specified implicitly through a "named curve", or
+   -- inherited from the CA
+
+   EcpkParameters ::= CHOICE {
+      ecParameters  ECParameters,
+      namedCurve    OBJECT IDENTIFIER,
+      implicitlyCA  NULL }
+
+   ECParameters  ::= SEQUENCE {         -- Elliptic curve parameters
+      version   ECPVer,
+      fieldID   FieldID,
+      curve     Curve,
+      base      ECPoint,                -- Base point G
+      order     INTEGER,                -- Order n of the base point
+      cofactor  INTEGER  OPTIONAL }     -- The integer h = #E(Fq)/n
+
+   ECPVer ::= INTEGER {ecpVer1(1)}
+
+   Curve  ::= SEQUENCE {
+      a     FieldElement,            -- Elliptic curve coefficient a
+      b     FieldElement,            -- Elliptic curve coefficient b
+      seed  BIT STRING  OPTIONAL }
+
+   id-publicKeyType OBJECT IDENTIFIER  ::= { ansi-X9-62 keyType(2) }
+
+   id-ecPublicKey OBJECT IDENTIFIER ::= { id-publicKeyType 1 }
+
+   -- Named Elliptic Curves in ANSI X9.62.
+
+   --   ellipticCurve OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) }
+
+   --   c-TwoCurve OBJECT IDENTIFIER ::= {
+   --        ansi-ellipticCurve characteristicTwo(0) }
+
+   --   c2pnb163v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  1 }
+   --   c2pnb163v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  2 }
+   --   c2pnb163v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  3 }
+   --   c2pnb176w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  4 }
+   --   c2tnb191v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  5 }
+   --   c2tnb191v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  6 }
+   --   c2tnb191v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  7 }
+   --   c2onb191v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve  8 }
+   --   c2onb191v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve  9 }
+   --   c2pnb208w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 10 }
+   --   c2tnb239v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 11 }
+   --   c2tnb239v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve 12 }
+   --   c2tnb239v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve 13 }
+   --   c2onb239v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve 14 }
+   --   c2onb239v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve 15 }
+   --   c2pnb272w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 16 }
+   --   c2pnb304w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 17 }
+   --   c2tnb359v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 18 }
+   --   c2pnb368w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 19 }
+   --   c2tnb431r1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 20 }
+
+   --   primeCurve OBJECT IDENTIFIER ::= { ansi-ellipticCurve prime(1) }
+
+   --   prime192v1  OBJECT IDENTIFIER  ::=  { primeCurve  1 }
+   --   prime192v2  OBJECT IDENTIFIER  ::=  { primeCurve  2 }
+   --   prime192v3  OBJECT IDENTIFIER  ::=  { primeCurve  3 }
+   --   prime239v1  OBJECT IDENTIFIER  ::=  { primeCurve  4 }
+   --   prime239v2  OBJECT IDENTIFIER  ::=  { primeCurve  5 }
+   --   prime239v3  OBJECT IDENTIFIER  ::=  { primeCurve  6 }
+   --   prime256v1  OBJECT IDENTIFIER  ::=  { primeCurve  7 }
+
+   certicom-arc OBJECT IDENTIFIER ::= {
+        iso(1) identified-organization(3) certicom(132)
+   }
+
+   ellipticCurve OBJECT IDENTIFIER ::= {
+        iso(1) identified-organization(3) certicom(132) curve(0)
+   }
+
+   secp192r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 1 }
+   secp256r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 7 }
+
+   sect163k1 OBJECT IDENTIFIER ::= { ellipticCurve 1 }
+   sect163r1 OBJECT IDENTIFIER ::= { ellipticCurve 2 }
+   sect239k1 OBJECT IDENTIFIER ::= { ellipticCurve 3 }
+   sect113r1 OBJECT IDENTIFIER ::= { ellipticCurve 4 }
+   sect113r2 OBJECT IDENTIFIER ::= { ellipticCurve 5 }
+   secp112r1 OBJECT IDENTIFIER ::= { ellipticCurve 6 }
+   secp112r2 OBJECT IDENTIFIER ::= { ellipticCurve 7 }
+   secp160r1 OBJECT IDENTIFIER ::= { ellipticCurve 8 }
+   secp160k1 OBJECT IDENTIFIER ::= { ellipticCurve 9 }
+   secp256k1 OBJECT IDENTIFIER ::= { ellipticCurve 10 }
+   sect163r2 OBJECT IDENTIFIER ::= { ellipticCurve 15 }
+   sect283k1 OBJECT IDENTIFIER ::= { ellipticCurve 16 }
+   sect283r1 OBJECT IDENTIFIER ::= { ellipticCurve 17 }
+   sect131r1 OBJECT IDENTIFIER ::= { ellipticCurve 22 }
+   sect131r2 OBJECT IDENTIFIER ::= { ellipticCurve 23 }
+   sect193r1 OBJECT IDENTIFIER ::= { ellipticCurve 24 }
+   sect193r2 OBJECT IDENTIFIER ::= { ellipticCurve 25 }
+   sect233k1 OBJECT IDENTIFIER ::= { ellipticCurve 26 }
+   sect233r1 OBJECT IDENTIFIER ::= { ellipticCurve 27 }
+   secp128r1 OBJECT IDENTIFIER ::= { ellipticCurve 28 }
+   secp128r2 OBJECT IDENTIFIER ::= { ellipticCurve 29 }
+   secp160r2 OBJECT IDENTIFIER ::= { ellipticCurve 30 }
+   secp192k1 OBJECT IDENTIFIER ::= { ellipticCurve 31 }
+   secp224k1 OBJECT IDENTIFIER ::= { ellipticCurve 32 }
+   secp224r1 OBJECT IDENTIFIER ::= { ellipticCurve 33 }
+   secp384r1 OBJECT IDENTIFIER ::= { ellipticCurve 34 }
+   secp521r1 OBJECT IDENTIFIER ::= { ellipticCurve 35 }
+   sect409k1 OBJECT IDENTIFIER ::= { ellipticCurve 36 }
+   sect409r1 OBJECT IDENTIFIER ::= { ellipticCurve 37 }
+   sect571k1 OBJECT IDENTIFIER ::= { ellipticCurve 38 }
+   sect571r1 OBJECT IDENTIFIER ::= { ellipticCurve 39 }
+
+   END

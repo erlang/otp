@@ -1,0 +1,3 @@
+{incl_app,runtime_tools,details}.
+
+{excl_mods, runtime_tools, [observer_backend]}.

@@ -1,0 +1,324 @@
+/* standard OTP style sheet */
+body {
+  background: #fefefe;
+  color: #1a1a1a;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: scroll;
+  height: 100%;
+  max-height: 100%;
+  line-height: 1.2em;
+  font-size: 16px;
+}
+
+h1, h2, h3, h4, h5, h6{
+ line-height: 1.2em;
+}
+
+p             { max-width: 42em }
+
+.header       { background: #222; color: #fefefe }
+.top          { background: #efe }
+.otp          { background: #efe }
+.erlang       { background: #ffe }
+.otp2         { background: #efe }
+.app          { background: #ffe }
+
+a:link         { color: #1862ab; text-decoration: none }
+a:active       { color: #1c7cd6; text-decoration: none }
+a:visited      { color: #1b6ec2; text-decoration: none }
+
+#container {
+  width: 100%;
+  margin: 0;
+  background-color: #fefefe;
+}
+
+#leftnav {
+  position: fixed;
+  float: left;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300px;
+  overflow:auto;
+  margin: 0;
+  padding: 1px;
+  border-right: 1px solid #ccc;
+}
+
+#content {
+  margin-left: 340px; /* set left value to WidthOfFrameDiv */
+  max-width: 42em;
+}
+
+.frontpage 
+{
+  padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
+}
+
+.innertube 
+{
+  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+}
+
+.footer 
+{
+  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+  text-align: center;
+}
+
+.bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
+
+/* Invisible table for function specs,
+ * just to get since-version out in right margin */
+.func-table, .func-tr, .func-td, .cfunc-td, .func-since-td {
+    width: 200%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.func-tr:nth-child(n) {
+    background: inherit  /* turn off zebra striped rows */
+}
+
+.func-td {
+    width: 50%;
+}
+
+.cfunc-td {
+    width: 50%;
+    padding-left: 100px;
+    text-indent: -100px;
+}
+
+.func-since-td {
+    width: 50%;
+    padding-left: 1em
+}
+
+.func-td:hover {
+ background-color: #f5f5f5;
+}
+
+.code        {
+ font-family: mono, Courier, monospace;
+ font-weight: normal;
+ background-color: #f3f3f3;
+}
+
+.note, .warning, .do, .dont {
+  border: 1px solid #495057;
+  margin: 1em 0;
+}
+.note .label {
+  background-color: #2b8a3e;
+  color: #fefefe;
+  font-weight: bold;
+  padding: 0.5em 1em;
+}
+.note .content {
+  background: #f8f9fa;
+  line-height: 120%;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+}
+.warning .label {
+  background: #c92a2a;
+  color: #fefefe;
+  font-weight: bold;
+  padding: 0.5em 1em;
+}
+.warning .content {
+  background-color: #f8f9fa;
+  line-height: 120%;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+}
+.do .label {
+  background-color: #2b8a3e;
+  color: #fefefe;
+  font-weight: bold;
+  padding: 0.5em 1em;
+}
+.do .content {
+  background: #f8f9fa;
+  line-height: 120%;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+}
+.dont .label {
+  background: #c92a2a;
+  color: #fefefe;
+  font-weight: bold;
+  padding: 0.5em 1em;
+}
+.dont .content {
+  background-color: #f8f9fa;
+  line-height: 120%;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+}
+
+.quote {
+    font-style: italic
+}
+
+.example {
+  background-color:#f1f3f5;
+  border: 1px solid #dee2e6;
+  padding: 0.5em 1em;
+  margin: 1em 0;
+  font-size: 0.7em;
+}
+.extrafrontpageinfo {
+  color: #C00;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+pre {
+ font-family: mono, Courier, monospace;
+ font-weight: normal;
+ margin: 0;
+}
+
+
+.exports-body, .data-types-body, .REFBODY{
+ margin-left: 2em;
+}
+.REFTYPES    { margin-left: 1.5em }
+
+footer       { }
+
+.erlang-logo-wrapper{
+ text-align: center;
+ margin-bottom: 1em;
+}
+
+.main-title{
+ text-align: center;
+}
+
+.main-description{
+ text-align: center;
+ margin: 2em 0;
+ font-size: 1.5em;
+ line-height: 1.5em;
+}
+
+.doc-table-wrapper, .doc-image-wrapper{
+ width: 100%;
+}
+
+.doc-image-wrapper{
+ text-align: center;
+}
+
+.doc-table, .doc-image{
+ min-width: 50%;
+ margin: 0 auto;
+ font-size: 0.7em;
+}
+
+.doc-table-caption, .doc-image-caption{
+ margin-top: 1em;
+ font-style: italic;
+ text-align: center;
+}
+
+table {
+ border-collapse: collapse;
+ min-width: 50%;
+ margin: 1em;
+}
+
+table, th, td {
+ border: 1px solid #666;
+}
+
+th, td {
+ padding: 0.5em;
+ text-align: left;
+}
+
+tr:hover {
+ background-color: #f5f5f5;
+}
+
+tr:nth-child(even) {
+ background-color: #f2f2f2;
+}
+
+th {
+ background-color: #777;
+ color: #fefefe;
+}
+
+.section-title, .section-subtitle, .section-version{
+ text-align: center;
+ margin: 0;
+}
+
+.section-title{
+ font-weight: bold;
+}
+
+.section-version{
+ font-size: small;
+}
+
+.expand-collapse-items{
+ font-size: small;
+}
+
+.title_link {
+    color: #1a1a1a !important;
+    outline: none;
+}
+
+.ghlink {
+    margin-left: -2.7em; /* .pencil.font-size + .pencil.padding.left + .pencil.padding.right = 2.7 */
+    visibility: hidden;
+}
+
+.pencil:before {
+    transform: rotateZ(90deg);
+    content: "\270E";
+    color: #1a1a1a !important;
+    font-weight: bold;
+    font-size: 1.5em;
+    padding: .3em .6em .6em;
+    line-height: 1em;
+    font-family: mono;
+}
+
+hr{
+  border: 0;
+  border-top: 1px solid #aaa;
+}
+
+.section-links, .panel-sections, .expand-collapse-items{
+ padding: 0 1em;
+}
+
+.section-links, .panel-sections{
+ margin-top: 0;
+}
+
+a > .code {
+ color: #1862ab;
+}
+
+.func-types-title{
+ font-size: 1em;
+}
+
+.since{
+    color: gray;
+    font-weight: normal;
+    font-size: small;
+}

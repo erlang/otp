@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!ELEMENT motorcycles (bike,date?)+ >
+<!ELEMENT bike        (name,engine,kind,drive, accessories?,comment?) >
+<!ELEMENT name        (manufacturer,brandName,additionalName?) >
+<!ELEMENT manufacturer       (#PCDATA)>
+<!ELEMENT brandName         (#PCDATA)>
+<!ELEMENT additionalName    (#PCDATA)>
+<!ELEMENT engine             (#PCDATA)>
+<!ELEMENT kind               (#PCDATA)>
+<!ELEMENT drive              (#PCDATA)>
+<!ELEMENT comment            (#PCDATA)>
+<!ELEMENT accessories        (#PCDATA)>
+
+<!-- Date of the format yyyy.mm.dd -->
+<!ELEMENT date              (#PCDATA)>
+<!ATTLIST  bike year NMTOKEN #REQUIRED
+                color NMTOKENS #REQUIRED
+                condition (useless | bad | serviceable | moderate | good |
+                           excellent | new | outstanding) "excellent" >

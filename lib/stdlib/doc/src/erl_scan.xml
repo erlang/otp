@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_scan</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-24</date>
+    <rev>B</rev>
+    <file>erl_scan.xml</file>
+  </header>
+  <module since="">erl_scan</module>
+  <modulesummary>The Erlang token scanner.</modulesummary>
+  <description>
+    <p>This module contains functions for tokenizing (scanning) characters into
+      Erlang tokens.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="category"></name>
+    </datatype>
+    <datatype>
+      <name name="error_description"></name>
+    </datatype>
+    <datatype>
+      <name name="error_info"></name>
+    </datatype>
+    <datatype>
+      <name name="option"></name>
+    </datatype>
+    <datatype>
+      <name name="options"></name>
+    </datatype>
+    <datatype>
+      <name name="symbol"></name>
+    </datatype>
+    <datatype>
+      <name name="resword_fun"></name>
+    </datatype>
+    <datatype>
+      <name name="token"></name>
+    </datatype>
+    <datatype>
+      <name name="tokens"></name>
+    </datatype>
+    <datatype>
+      <name name="tokens_result"></name>
+    </datatype>
+  </datatypes>
+ 
+  <funcs>
+    <func>
+      <name name="category" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the category.</fsummary>
+      <desc>
+        <p>Returns the category of <c><anno>Token</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="column" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the column.</fsummary>
+      <desc>
+        <p>Returns the column of <c><anno>Token</anno></c>'s
+          collection of annotations.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="end_location" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the end location of the text.</fsummary>
+      <desc>
+        <p>Returns the end location of the text of
+          <c><anno>Token</anno></c>'s collection of annotations. If
+            there is no text, <c>undefined</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Format an error descriptor.</fsummary>
+      <desc>
+        <p>Uses an <c><anno>ErrorDescriptor</anno></c> and returns a string 
+          that describes the error or warning. This function is usually
+          called implicitly when an <c>ErrorInfo</c> structure is
+          processed (see section
+          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="line" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the line.</fsummary>
+      <desc>
+        <p>Returns the line of <c><anno>Token</anno></c>'s collection
+          of annotations.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="location" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the location.</fsummary>
+      <desc>
+        <p>Returns the location of <c><anno>Token</anno></c>'s
+          collection of annotations.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reserved_word" arity="1" since=""/>
+      <fsummary>Test for a reserved word.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Atom</anno></c> is an
+         Erlang reserved word, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="string" arity="1" since=""/>
+      <name name="string" arity="2" since=""/>
+      <name name="string" arity="3" since=""/>
+      <fsummary>Scan a string and return the Erlang tokens.</fsummary>
+      <desc>
+        <p>Takes the list of characters <c><anno>String</anno></c> and tries to
+          scan (tokenize) them. Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, <anno>Tokens</anno>, <anno>EndLocation</anno>}</c></tag>
+          <item>
+            <p><c><anno>Tokens</anno></c> are the Erlang tokens from
+            <c><anno>String</anno></c>. <c><anno>EndLocation</anno></c>
+            is the first location after the last token.</p>
+          </item>
+          <tag><c>{error, <anno>ErrorInfo</anno>,
+            <anno>ErrorLocation</anno>}</c></tag>
+          <item>
+            <p>An error occurred. <c><anno>ErrorLocation</anno></c> is the
+              first location after the erroneous token.</p>
+          </item>
+        </taglist>
+        <p><c>string(<anno>String</anno>)</c> is equivalent to
+          <c>string(<anno>String</anno>, 1)</c>, and
+          <c>string(<anno>String</anno>,
+          <anno>StartLocation</anno>)</c> is equivalent to
+          <c>string(<anno>String</anno>,
+          <anno>StartLocation</anno>, [])</c>.</p>
+        <p><c><anno>StartLocation</anno></c> indicates the initial location
+          when scanning starts. If <c><anno>StartLocation</anno></c> is a line,
+          <c>Anno</c>, <c><anno>EndLocation</anno></c>, and
+          <c><anno>ErrorLocation</anno></c> are lines. If
+          <c><anno>StartLocation</anno></c> is a pair of a line and a column,
+          <c>Anno</c> takes the form of an opaque compound
+          data type, and <c><anno>EndLocation</anno></c> and
+          <c><anno>ErrorLocation</anno></c>
+          are pairs of a line and a column. The <em>token
+          annotations</em> contain information about the column and the
+          line where the token begins, as well as the text of the
+          token (if option <c>text</c> is specified), all of which can
+          be accessed by calling
+          <seealso marker="#column/1"><c>column/1</c></seealso>,
+          <seealso marker="#line/1"><c>line/1</c></seealso>,
+          <seealso marker="#location/1"><c>location/1</c></seealso>, and
+          <seealso marker="#text/1"><c>text/1</c></seealso>.</p>
+        <p>A <em>token</em> is a tuple containing information about
+          syntactic category, the token annotations, and the
+          terminal symbol. For punctuation characters (such as <c>;</c> and 
+          <c>|</c>) and reserved words, the category and the symbol
+          coincide, and the token is represented by a two-tuple.
+          Three-tuples have one of the following forms:</p>
+        <list type="bulleted">
+          <item><c>{atom, Anno, atom()}</c></item>
+          <item><c>{char, Anno, char()}</c></item>
+          <item><c>{comment, Anno, string()}</c></item>
+          <item><c>{float, Anno, float()}</c></item>
+          <item><c>{integer, Anno, integer()}</c></item>
+          <item><c>{var, Anno, atom()}</c></item>
+          <item><c>{white_space, Anno, string()}</c></item>
+        </list>
+        <p>Valid options:</p>
+        <taglist>
+          <tag><c>{reserved_word_fun, reserved_word_fun()}</c></tag>
+          <item><p>A callback function that is called when the scanner
+            has found an unquoted atom. If the function returns
+            <c>true</c>, the unquoted atom itself becomes the category
+            of the token. If the function returns <c>false</c>,
+            <c>atom</c> becomes the category of the unquoted atom.</p>
+          </item>
+          <tag><c>return_comments</c></tag>
+          <item><p>Return comment tokens.</p>
+          </item>
+          <tag><c>return_white_spaces</c></tag>
+          <item><p>Return white space tokens. By convention, a newline
+            character, if present, is always the first character of the
+            text (there cannot be more than one newline in a white space
+            token).</p>
+          </item>
+          <tag><c>return</c></tag>
+          <item><p>Short for <c>[return_comments, return_white_spaces]</c>.</p>
+          </item>
+          <tag><c>text</c></tag>
+          <item><p>Include the token text in the token annotation. The
+            text is the part of the input corresponding to the token.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="symbol" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the symbol.</fsummary>
+      <desc>
+        <p>Returns the symbol of <c><anno>Token</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="text" arity="1" since="OTP 18.0"/>
+      <fsummary>Return the text.</fsummary>
+      <desc>
+        <p>Returns the text of <c><anno>Token</anno></c>'s collection
+          of annotations. If there is no text, <c>undefined</c> is
+          returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tokens" arity="3" since=""/>
+      <name name="tokens" arity="4" since=""/>
+      <fsummary>Re-entrant scanner.</fsummary>
+      <type name="char_spec"/>
+      <type name="return_cont"/>
+      <type_desc name="return_cont">An opaque continuation.</type_desc>
+      <desc>
+        <p>This is the re-entrant scanner, which scans characters until
+          either a <em>dot</em> ('.' followed by a white space) or
+          <c>eof</c> is reached. It returns:</p>
+        <taglist>
+          <tag><c>{done, <anno>Result</anno>, <anno>LeftOverChars</anno>}</c>
+          </tag>
+          <item>
+            <p>Indicates that there is sufficient input
+              data to get a result. <c><anno>Result</anno></c> is:</p>
+            <taglist>
+              <tag><c>{ok, Tokens, EndLocation}</c></tag>
+              <item>
+                <p>The scanning was successful. <c>Tokens</c>
+                  is the list of tokens including <em>dot</em>.</p>
+              </item>
+              <tag><c>{eof, EndLocation}</c></tag>
+              <item>
+                <p>End of file was encountered before any more tokens.</p>
+              </item>
+              <tag><c>{error, ErrorInfo, EndLocation}</c></tag>
+              <item>
+                <p>An error occurred. <c><anno>LeftOverChars</anno></c>
+                  is the remaining characters of the input data,
+                  starting from <c>EndLocation</c>.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>{more, <anno>Continuation1</anno>}</c></tag>
+          <item>
+            <p>More data is required for building a term.
+              <c><anno>Continuation1</anno></c> must be passed in a new call to
+              <c>tokens/3,4</c> when more data is available.</p>
+          </item>
+        </taglist>
+        <p>The <c><anno>CharSpec</anno></c> <c>eof</c> signals end of file.
+        <c><anno>LeftOverChars</anno></c> then takes the value <c>eof</c>
+          as well.</p>
+        <p><c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
+          <anno>StartLocation</anno>)</c> is equivalent to
+          <c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
+          <anno>StartLocation</anno>, [])</c>.</p>
+        <p>For a description of the options, see
+          <seealso marker="#string/3"><c>string/3</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="errorinfo"/>
+    <title>Error Information</title>
+    <p><c>ErrorInfo</c> is the standard <c>ErrorInfo</c> structure that is
+      returned from all I/O modules. The format is as follows:</p>
+    <code type="none">
+{ErrorLocation, Module, ErrorDescriptor}</code>
+    <p>A string describing the error is obtained with the following call:</p>
+    <code type="none">
+Module:format_error(ErrorDescriptor)</code>
+  </section>
+
+  <section>
+    <title>Notes</title>
+    <p>The continuation of the first call to the re-entrant input
+      functions must be <c>[]</c>. For a complete description of how the
+      re-entrant input scheme works, see Armstrong, Virding and
+      Williams: 'Concurrent Programming in Erlang', Chapter 13.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_anno"><c>erl_anno(3)</c></seealso>,
+      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
+      <seealso marker="io"><c>io(3)</c></seealso></p>
+  </section>
+</erlref>

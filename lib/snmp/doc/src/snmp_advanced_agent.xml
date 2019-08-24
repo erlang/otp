@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2013</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Advanced Agent Topics</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_advanced_agent.xml</file>
+  </header>
+  <p>The chapter <em>Advanced Agent Topics</em> describes the more advanced 
+    agent related features of the SNMP development tool. The following topics 
+    are covered:
+    </p>
+  <list type="bulleted">
+    <item>When to use a Sub-agent</item>
+    <item>Agent semantics</item>
+    <item>Sub-agents and dependencies</item>
+    <item>Distributed tables</item>
+    <item>Fault tolerance</item>
+    <item>Using Mnesia tables as SNMP tables</item>
+    <item>Audit Trail Logging</item>
+    <item>Deviations from the standard
+    </item>
+  </list>
+
+  <section>
+    <title>When to use a Sub-agent</title>
+    <p>The section <em>When to use a Sub-agent</em> describes situations
+      where the mechanism of loading and unloading MIBs is insufficient. 
+      In these cases a sub-agent is needed.
+      </p>
+
+    <section>
+      <title>Special Set Transaction Mechanism</title>
+      <p>Each sub-agent can implement its own mechanisms for
+        <c>set</c>, <c>get</c> and <c>get-next</c>. For example, if the
+        application requires the <c>get</c> mechanism to be
+        asynchronous, or needs a N-phase <c>set</c> mechanism, a
+        specialized sub-agent should be used.
+        </p>
+      <p>The toolkit allows different kinds of sub-agents at the same
+        time. Accordingly, different MIBs can have different <c>set</c>
+        or <c>get</c> mechanisms.
+        </p>
+    </section>
+
+    <section>
+      <title>Process Communication</title>
+      <p>A simple distributed agent can be managed without sub-agents. 
+        The instrumentation functions can use distributed Erlang to 
+        communicate with other parts of the application. However, a 
+        sub-agent can be used on each node if this generates too much 
+        unnecessary traffic. A sub-agent processes requests per 
+        incoming SNMP request, not per variable. Therefore the network 
+        traffic is minimized.
+        </p>
+      <p>If the instrumentation functions communicate with UNIX
+        processes, it might be a good idea to use a special
+        sub-agent. This sub-agent sends the SNMP request to the other
+        process in one packet in order to minimize context switches. For
+        example, if a whole MIB is implemented on the C level in UNIX,
+        but you still want to use the Erlang SNMP tool, then you may
+        have one special sub-agent, which sends the variables in the
+        request as a single operation down to C.
+        </p>
+    </section>
+
+    <section>
+      <title>Frequent Loading of MIBs</title>
+      <p>Loading and unloading of MIBs are quite cheap
+        operations. However, if the application does this very often,
+        perhaps several times per minute, it should load the MIBs once
+        and for all in a sub-agent. This sub-agent only registers and
+        unregisters itself under another agent instead of loading the
+        MIBs each time. This is cheaper than loading an MIB.
+        </p>
+    </section>
+
+    <section>
+      <title>Interaction With Other SNMP Agent Toolkits</title>
+      <p>If the SNMP agent needs to interact with sub-agents
+        constructed in another package, a special sub-agent should be
+        used, which communicates through a protocol specified by the
+        other package.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Agent Semantics</title>
+    <p>The agent can be configured to be multi-threaded, to process
+      one incoming request at a time, or to have a request limit
+      enabled (this can be used for load control or to limit the effect
+      of DoS attacks). If it is multi-threaded, read requests (<c>get</c>, 
+      <c>get-next</c> and <c>get-bulk</c>) and traps are processed in 
+      parallel with each other and <c>set</c> requests. However, all 
+      <c>set</c> requests are serialized, which means that if the agent 
+      is waiting for the application to complete a complicated write 
+      operation, it will not process any new write requests until this 
+      operation is finished. It processes read requests and sends traps, 
+      concurrently. The reason for not handle write requests in parallel is 
+      that a complex locking mechanism would be needed even in the simplest 
+      cases. Even with the scheme described above, the user must be 
+      careful not to violate that the <c>set</c> requests are atoms. 
+      If this is hard to do, do not use the multi-threaded feature.
+      </p>
+    <p>The order within an request is undefined and variables are not
+      processed in a defined order. Do not assume that the first
+      variable in the PDU will be processed before the second, even if
+      the agent processes variables in this order. It
+      cannot even be  assumed that requests belonging to different
+      sub-agents have any order.
+      </p>
+    <p>If the manager tries to set the same variable many times in the
+      same PDU, the agent is free to improvise. There is no definition
+      which determines if the instrumentation will be called once or
+      twice. If called once only, there is no definition that determines 
+      which of the new values is going to be supplied.
+      </p>
+    <p>When the agent receives a request, it keeps the request ID for
+      one second after the response is sent. If the agent receives
+      another request with the same request ID during this time, from
+      the same IP address and UDP port, that request will be
+      discarded. This mechanism has nothing to do with the function
+      <c>snmpa:current_request_id/0</c>.</p>
+  </section>
+
+  <section>
+    <title>Sub-agents and Dependencies </title>
+    <p>The toolkit supports the use of different types of sub-agents,
+      but not the construction of sub-agents.
+      </p>
+    <p>Also, the toolkit does not support dependencies between
+      sub-agents. A sub-agent should by definition be stand alone and it is
+      therefore not good design to create dependencies between them.
+      </p>
+  </section>
+
+  <section>
+    <title>Distributed Tables</title>
+    <p>A common situation in more complex systems is that the data in
+      a table is distributed. Different table rows are implemented in
+      different places. Some SNMP tool-kits dedicate an SNMP sub-agent for
+      each part of the table and load the corresponding MIB into all
+      sub-agents. The Master Agent is responsible for presenting the
+      distributed table as a single table to the manager. The toolkit
+      supplied uses a different method.
+      </p>
+    <p>The method used to implement distributed tables with this SNMP
+      tool is to implement a table coordinator process responsible for 
+      coordinating the processes, which hold the table data and they 
+      are called  table holders. All table holders must in some way be 
+      known by the coordinator; the structure of the table data 
+      determines how this is achieved. The coordinator may require 
+      that the table holders explicitly register themselves and specify 
+      their information. In other cases, the table holders can be 
+      determined once at compile time.
+      </p>
+    <p>When the instrumentation function for the distributed table is
+      called, the request should be forwarded to the table
+      coordinator. The coordinator finds the requested information among
+      the table holders and then returns the answer to the
+      instrumentation function. The SNMP toolkit contains no support for
+      coordination of tables since this must be independent of the
+      implementation.
+      </p>
+    <p>The advantages of separating the table coordinator from the
+      SNMP tool are:
+      </p>
+    <list type="bulleted">
+      <item>We do not need a sub-agent for each table holder. Normally,
+       the sub-agent is needed to take care of communication, but in
+       Distributed Erlang we use ordinary message passing.
+      </item>
+      <item>Most likely, some type of table coordinator already
+       exists. This process should take care of the instrumentation for
+       the table.
+      </item>
+      <item>The method used to present a distributed table is strongly
+       application dependent. The use of different masking techniques
+       is only valid for a small subset of problems and registering
+       every row in a distributed table makes it non-distributed.
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Fault Tolerance</title>
+    <p>The SNMP agent toolkit gets input from three different sources:
+      </p>
+    <list type="bulleted">
+      <item>UDP packets from the network</item>
+      <item>return values from the user defined instrumentation functions</item>
+      <item>return values from the MIB.
+      </item>
+    </list>
+    <p>The agent is highly fault tolerant. If the manager gets an
+      unexpected response from the agent, it is possible that some
+      instrumentation function has returned an erroneous value. The
+      agent will not crash even if the instrumentation does. It should
+      be noted that if an instrumentation function enters an infinite
+      loop, the agent will also be blocked forever. The supervisor ,or
+      the application, specifies how to restart the agent.
+      </p>
+
+    <section>
+      <title>Using the SNMP Agent in a Distributed Environment</title>
+      <p>The normal way to use the agent in a distributed
+        environment is to use one master agent located at one node,
+        and zero or more sub-agents located on other nodes.  However,
+        this configuration makes the master agent node a single point
+        of failure.  If that node goes down, the agent will not work.
+        </p>
+      <p>One solution to this problem is to make the snmp application
+        a distributed Erlang application, and that means, the agent
+        may be configured to run on one of several nodes.  If the node
+        where it runs goes down, another node restarts the agent.
+        This is called <em>failover</em>.  When the node starts again,
+        it may  <em>takeover</em> the application.  This solution to
+        the problem adds another problem.  Generally, the new node has
+        another IP address than the first one, which may cause
+        problems in the  communication between the SNMP managers and
+        the agent.
+        </p>
+      <p>If the snmp agent is configured as a distributed Erlang
+        application, it will during takeover try to load the same MIBs
+        that were loaded at the old node. It uses the same filenames
+        as the old node. If the MIBs are not located in the same
+        paths at the different nodes, the MIBs must be loaded
+        explicitly after takeover.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Using Mnesia Tables as SNMP Tables</title>
+    <p>The Mnesia DBMS can be used for storing data of SNMP
+      tables. This means that an SNMP table can be implemented as a
+      Mnesia table, and that a Mnesia table can be made visible via
+      SNMP. This mapping is largely automated.
+      </p>
+    <p>There are three main reasons for using this mapping:
+      </p>
+    <list type="bulleted">
+      <item>We get all features of Mnesia, such as fault tolerance,
+       persistent data storage, replication, and so on.
+      </item>
+      <item>Much of the work involved is automated. This includes
+      <c>get-next</c> processing and <c>RowStatus</c> handling.
+      </item>
+      <item>The table may be used as an ordinary Mnesia table, using
+       the Mnesia API internally in the application at the same time as
+       it is visible through SNMP.
+      </item>
+    </list>
+    <p>When this mapping is used, insertion and deletion in the
+      original Mnesia table is slower, with a factor O(log n). The read
+      access is not affected.
+      </p>
+    <p>A drawback with implementing an SNMP table as a Mnesia table is
+      that the internal resource is forced to use the table definition
+      from the MIB, which means that the external data model must be
+      used internally. Actually, this is only partially true. The Mnesia
+      table may extend the SNMP table, which means that the Mnesia table
+      may have columns which are use internally and are not seen by
+      SNMP. Still, the data model from SNMP must be maintained. Although
+      this is undesirable, it is a pragmatic compromise in many
+      situations where simple and efficient implementation is preferable
+      to abstraction.
+      </p>
+
+    <section>
+      <title>Creating the Mnesia Table</title>
+      <p>The table must be created in Mnesia before the manager can
+        use it. The table must be declared as type <c>snmp</c>.  This
+        makes the table ordered in accordance with the lexicographical
+        ordering rules of SNMP.  The name of the Mnesia table must be
+        identical to the SNMP table name.  The types of the INDEX fields
+        in the corresponding SNMP table must be specified.
+        </p>
+      <p>If the SNMP table has more than one INDEX column, the
+        corresponding Mnesia row is a tuple, where the first element 
+        is a tuple with the INDEX columns. Generally, if the SNMP table 
+        has <em>N</em> INDEX columns and <em>C</em> data columns, the 
+        Mnesia table is of arity <em>(C-N)+1</em>, where the key is a 
+        tuple of arity <em>N</em> if <em>N > 1</em>, or a single term 
+        if <em>N = 1</em>.
+        </p>
+      <p>Refer to the Mnesia User's Guide for information on how to
+        declare a Mnesia table as an SNMP table.
+        </p>
+      <p>The following example illustrates a situation in which we
+        have an SNMP table that we wish to implement as a Mnesia
+        table. The table stores information about employees at a
+        company. Each employee is indexed with the department number and
+        the name.
+        </p>
+      <code type="none">
+       empTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF EmpEntry
+              ACCESS      not-accessible
+              STATUS      mandatory
+              DESCRIPTION
+                      "A table with information about employees."
+       ::= { emp 1}
+       empEntry OBJECT-TYPE
+              SYNTAX      EmpEntry
+              ACCESS      not-accessible
+              STATUS      mandatory
+              DESCRIPTION
+                 ""
+              INDEX      { empDepNo, empName }
+       ::= { empTable 1 }
+       EmpEntry ::=
+              SEQUENCE {
+                  empDepNo         INTEGER,
+                  empName          DisplayString,
+                  empTelNo         DisplayString,
+                  empStatus        RowStatus
+              }
+      </code>
+      <p>The corresponding Mnesia table is specified as follows:
+        </p>
+      <code type="none">
+mnesia:create_table([{name, employees},
+                     {snmp, [{key, {integer, string}}]},
+                     {attributes, [key, telno, row_status]}]).
+      </code>
+      <note>
+        <p>In the Mnesia tables, the two key columns are stored as a
+          tuple with two elements. Therefore, the arity of the table is
+          3.</p>
+      </note>
+    </section>
+
+    <section>
+      <title>Instrumentation Functions</title>
+      <p>The MIB table shown in the previous section can be compiled
+        as follows:
+        </p>
+      <pre>
+1> <input>snmpc:compile("EmpMIB", [{db, mnesia}]).</input>
+      </pre>
+      <p>This is all that has to be done! Now the manager can read,
+        add, and modify rows. Also, you can use the ordinary Mnesia API
+        to access the table from your programs. The only explicit action
+        is to create the Mnesia table, an action the user has to perform
+        in order to create the required table schemas.</p>
+    </section>
+
+    <section>
+      <title>Adding Own Actions</title>
+      <p>It is often necessary to take some specific action when a
+        table is modified. This is accomplished with an instrumentation
+        function. It executes some specific code when the table is set,
+        and passes all other requests down to the pre-defined function.
+        </p>
+      <p>The following example illustrates this idea:
+        </p>
+      <code type="none">
+emp_table(set, RowIndex, Cols) ->
+    notify_internal_resources(RowIndex, Cols),
+    snmp_generic:table_func(set, RowIndex, Cols, {empTable, mnesia});
+emp_table(Op, RowIndex, Cols) ->
+    snmp_generic:table_func(Op, RowIndex, Cols, {empTable, mnesia}).
+      </code>
+      <p>The default instrumentation functions are defined in the
+        module <c>snmp_generic</c>. Refer to the Reference Manual,
+        section SNMP, module <c>snmp_generic</c> for details.</p>
+    </section>
+
+    <section>
+      <title>Extending the Mnesia Table</title>
+      <p>A table may contain columns that are used internally, but
+        should not be visible to a manager. These internal columns must
+        be the last columns in the table. The <c>set</c> operation will
+        not work with this arrangement, because there are columns that
+        the agent does not know about. This situation is handled by
+        adding values for the internal columns in the <c>set</c>
+        function.
+        </p>
+      <p>To illustrate this, suppose we extend our Mnesia
+        <c>empTable</c> with one internal column. We create it as
+        before, but with an arity of 4, by adding another attribute.
+        </p>
+      <code type="none">
+mnesia:create_table([{name, employees},
+                     {snmp, [{key, {integer, string}}]},
+                     {attributes, {key, telno, row_status, internal_col}}]).
+      </code>
+      <p>The last column is the internal column. When performing a
+        <c>set</c> operation, which creates a row, we must give a
+        value to the internal column. The instrumentation functions will now
+        look as follows:
+        </p>
+      <code type="none">
+-define(createAndGo, 4).
+-define(createAndWait, 5).
+
+emp_table(set, RowIndex, Cols) ->
+  notify_internal_resources(RowIndex, Cols),
+  NewCols =
+    case is_row_created(empTable, Cols) of
+      true -> Cols ++ [{4, "internal"}]; % add internal column
+      false -> Cols                      % keep original cols
+  end,
+  snmp_generic:table_func(set, RowIndex, NewCols, {empTable, mnesia});
+emp_table(Op, RowIndex, Cols) ->
+  snmp_generic:table_func(Op, RowIndex, Cols, {empTable, mnesia}).
+
+is_row_created(Name, Cols) ->
+  case snmp_generic:get_status_col(Name, Cols) of
+    {ok, ?createAndGo} -> true;
+    {ok, ?createAndWait} -> true;
+    _ -> false
+  end.
+      </code>
+      <p>If a row is created, we always set the internal column to
+        <c>"internal"</c>.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Deviations from the Standard</title>
+    <p>In some aspects the agent does not implement SNMP fully.  Here
+      are the differences:
+      </p>
+    <list type="bulleted">
+      <item>The default functions and <c>snmp_generic</c> cannot
+       handle an object of type <c>NetworkAddress</c> as INDEX
+       (SNMPv1 only!).  Use <c>IpAddress</c> instead.
+      </item>
+      <item>The agent does not check complex ranges specified for
+       INTEGER objects.  In these cases it just checks that the value
+       lies within the minimum and maximum values specified.  For
+       example, if the range is specified as <c>1..10 | 12..20</c>
+       the agent would let 11 through, but not 0 or 21.  The
+       instrumentation functions must check the complex ranges
+       itself.
+      </item>
+      <item>The agent will never generate the <c>wrongEncoding</c>
+       error.  If a variable binding is erroneous encoded, the
+      <c>asn1ParseError</c> counter will be incremented.
+      </item>
+      <item>A <c>tooBig</c> error in an SNMPv1 packet will always use
+       the <c>'NULL'</c> value in all variable bindings.
+      </item>
+      <item>The default functions and <c>snmp_generic</c> do not check
+       the range of each OCTET in textual conventions derived from
+       OCTET STRING, e.g. <c>DisplayString</c> and
+      <c>DateAndTime</c>.  This must be checked in an overloaded
+      <c>is_set_ok</c> function.
+      </item>
+    </list>
+  </section>
+</chapter>
+

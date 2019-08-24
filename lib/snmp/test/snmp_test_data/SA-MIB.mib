@@ -1,0 +1,93 @@
+SA-MIB DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  Counter, TimeTicks, IpAddress
+                      FROM RFC1155-SMI
+                  OBJECT-TYPE
+                      FROM RFC-1212
+                  mgmt, NetworkAddress, IpAddress, Counter, Gauge,
+                          TimeTicks, enterprises
+                      FROM RFC1155-SMI
+                  DisplayString, mib-2
+                      FROM RFC1213-MIB
+                  sysContact
+                      FROM STANDARD-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212
+                  intViewSubtree
+                      FROM OLD-SNMPEA-MIB;
+ 
+ 
+ericsson		OBJECT IDENTIFIER ::= {enterprises 193}
+sa                      OBJECT IDENTIFIER ::= { ericsson 2 }
+
+ 
+          saTest OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      should include the full name and version
+                      identification of the system's hardware type,
+                      software operating-system, and networking
+                      software.  It is mandatory that this only contain
+                      printable ASCII characters."
+              ::= { sa 1 }
+ 
+ 
+          saBadValue OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+	            "The instrum is_set_ok will return badValue"
+              ::= { sa 2 }
+ 
+          saGenErr OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+	            "The instrum set will return genErr"
+              ::= { sa 3 }
+ 
+          saTooBig OBJECT-TYPE
+              SYNTAX  OCTET STRING
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+	            "The instrum get will return a 500 byte list"
+              ::= { sa 4 }
+ 
+          saFel OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+	            "The instrumget will return undefined"
+              ::= { sa 5 }
+ 
+
+          saTrap TRAP-TYPE
+              ENTERPRISE  ericsson
+              VARIABLES   { sysContact, saTest }
+              DESCRIPTION
+                          "A linkUp trap signifies that the sending
+                          protocol entity recognizes that one of the
+                          communication links represented in the agent's
+                          configuration has come up."
+              ::= 1
+ 
+          saTrap2 TRAP-TYPE
+              ENTERPRISE  ericsson
+              VARIABLES   { sysContact, saTest, intViewSubtree }
+              DESCRIPTION
+                          "A linkUp trap signifies that the sending
+                          protocol entity recognizes that one of the
+                          communication links represented in the agent's
+                          configuration has come up."
+              ::= 2
+ 
+
+END

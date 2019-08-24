@@ -1,0 +1,3 @@
+
+my_sofs.erl:34: Matching of pattern {'Set', _, _} tagged with a record name violates the declared type of #'OrdSet'{}
+my_sofs.erl:54: Matching of pattern {'Set', _, _} tagged with a record name violates the declared type of #'OrdSet'{}

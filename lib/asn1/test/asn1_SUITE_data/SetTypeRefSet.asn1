@@ -1,0 +1,110 @@
+SetTypeRefSet DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+Set1 ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  SetIn
+}
+
+Set2 ::= SET 
+{
+  set2  SetIn,
+  bool2  BOOLEAN,
+  int2  INTEGER
+}
+
+Set3 ::= SET 
+{
+  bool3  BOOLEAN,
+  set3  SetIn,
+  int3  INTEGER
+}
+
+Set4 ::= SEQUENCE 
+{
+  set41  SetIn,
+  set42  SetIn,
+  set43  SetIn
+}
+
+
+SetIn ::= SET 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+
+SetS1 ::= SET 
+{
+  boolS1  BOOLEAN,
+  intS1  INTEGER,
+  setS1  SET { boolIn BOOLEAN,
+               intIn  INTEGER }
+}
+
+SetS2 ::= SET 
+{
+  setS2  SET { boolIn BOOLEAN,
+               intIn  INTEGER },
+  boolS2  BOOLEAN,
+  intS2  INTEGER
+
+}
+
+SetS3 ::= SET 
+{
+  boolS3  BOOLEAN,
+  setS3  SET { boolIn BOOLEAN,
+               intIn  INTEGER },
+  intS3  INTEGER
+
+}
+
+SetSTag ::= SET 
+{
+  setS1  SET { b1 BOOLEAN,
+               i1  INTEGER },
+  setS2  [7] SET { b2 BOOLEAN,
+                   i2  INTEGER },
+  setS3  [8] EXPLICIT SET { b3 BOOLEAN,
+                            i3  INTEGER }
+}
+
+
+SetTRset ::=  SET 
+{
+  setSet SetSet,
+  setSetI [124] SetSet,
+  setSetE [125] EXPLICIT SetSet,
+
+  setSet-I SetSetImp,
+  setSetI-I [224] SetSetImp,
+  setSetE-I [225] EXPLICIT SetSetImp,
+
+  setSet-E SetSetExp,
+  setSetI-E [324] SetSetExp,
+  setSetE-E [325] EXPLICIT SetSetExp
+
+}
+
+SetSet ::= SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+SetSetImp ::= [54] SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+SetSetExp ::= [55] EXPLICIT SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+
+END

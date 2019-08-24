@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Erl_Interface Release Notes History</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <section>
+    <title>Erl_Interface 3.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c><![CDATA[erl_print_term()]]></c> and <c><![CDATA[erl_copy_term()]]></c> could not
+            previously handle uints. This bug has now been fixed.</p>
+          <p>Own Id: OTP-4061 Aux Id: seq7079</p>
+        </item>
+        <item>
+          <p><c><![CDATA[ei_x_format()]]></c> was not working correctly for floating
+            point arguments on some platforms. This is now corrected.</p>
+          <p>Own Id: OTP-4379</p>
+        </item>
+        <item>
+          <p><c><![CDATA[erl_compare_ext()]]></c> did not compare the node parts of
+            pids, ports, and references. This has now been fixed.
+            Comparison between two pids, ports, or references does now
+            conform to the Erlang specification.</p>
+          <p>Own Id: OTP-4512 Aux Id: OTP-4511</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Erl_Interface and EI now supports 64 bit architectures.</p>
+          <p>Own Id: OTP-4772</p>
+        </item>
+        <item>
+          <p>There are new functions that support the GCC and Visual
+            C++ 64 bit extended integer types.</p>
+          <code type="none"><![CDATA[
+int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
+int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);
+int ei_encode_longlong(char *buf, int *index, EI_LONGLONG p);
+int ei_encode_ulonglong(char *buf, int *index, EI_ULONGLONG p);
+int ei_x_encode_longlong(ei_x_buff* x, EI_LONGLONG n);
+int ei_x_encode_ulonglong(ei_x_buff* x, EI_ULONGLONG n);
+          ]]></code>
+          <p>Own Id: OTP-4772</p>
+        </item>
+        <item>
+          <p>If you compile the library from source you can use the ei
+            library together with GMP, the GNU multi precision
+            library, to convert integers larger than 64 bits from and
+            to the external format.</p>
+          <code type="none"><![CDATA[
+int ei_decode_bignum(const char *buf, int *index, mpz_t obj);
+int ei_encode_bignum(char *buf, int *index, mpz_t obj);
+int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
+          ]]></code>
+          <p>Own Id: OTP-4772</p>
+        </item>
+        <item>
+          <p>Some general code improvements where done like correcting
+            buffer sizes, added more error checking etc.</p>
+          <p>Own Id: OTP-4772</p>
+        </item>
+        <item>
+          <p>In order to conform to the Erlang specification,
+            comparison between two pids was changed in the R9B
+            release. This change did however break a deadlock
+            prevention algorithm used by Mnesia during release
+            upgrade. Therefore, comparison between two pids has been
+            changed back so that R9B nodes are compatible with Erlang
+            nodes running pre-R9 releases.</p>
+          <p>Pre-R9 comparison between two pids which now is used
+            again: If t1 and t2 are both pids, t1 will precede t2 if
+            and only if either</p>
+          <list type="bulleted">
+            <item>the node local id of t1 precedes the node local id
+             of t2, or</item>
+            <item>the node local ids of t1 and t2 are equal, and
+             node(t1) precedes node(t2), or</item>
+            <item>the node local ids of t1 and t2 are equal, and also
+             node(t1) and node(t2) are equal, and node(t1) was
+             created before node(t2).</item>
+          </list>
+          <p>The node local id consist of two integers; serial which
+            is most significant, and number.</p>
+          <p>The Erlang specification states: If t1 and t2 are both
+            refs, both PIDs, or both ports, then t1 precedes t2 if
+            and only if either</p>
+          <list type="bulleted">
+            <item>node(t1) precedes node(t2), or</item>
+            <item>node(t1) equals node(t2) and t1 was created before
+             t2.</item>
+          </list>
+          <p>Note that comparisons between two refs, or two ports will
+            still conform to the Erlang specification.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4715 Aux Id: OTP-4511, OTP-4512</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ErlInterface 3.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Erl_Interface has been rewritten extensively. The library
+            <c><![CDATA[ei]]></c> is now documented and supported. The old
+            <c><![CDATA[erl_interface]]></c> is considered obsolete, and provided
+            only for backward compatibility.</p>
+        </item>
+        <item>
+          <p>Erl_Interface is now thread-safe, and multiple C-nodes may
+            run from the same process.</p>
+        </item>
+        <item>
+          <p>New functions are added for connecting and accepting
+            connections from <c><![CDATA[ei]]></c>; these are documented in
+            <c><![CDATA[ei_connect]]></c>.</p>
+        </item>
+        <item>
+          <p>New functions are added for converting to and from Erlang
+            binary format; these are documented in <c><![CDATA[ei]]></c>.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.2.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Changed back the return values from <c><![CDATA[erl_send()]]></c> and
+            <c><![CDATA[erl_reg_send()]]></c> to 1 (as they used to be).
+            Incompatible with plain R7, compatible with previous
+            versions.</p>
+          <p>*** INCOMPATIBILITY with R7B ***</p>
+          <p>Own Id: OTP-3772</p>
+        </item>
+        <item>
+          <p>A race-condition bug in the term allocation routines was
+            corrected.</p>
+          <p>Own Id: OTP-3809</p>
+        </item>
+        <item>
+          <p>Erl_Interface could not be linked with pthreads.</p>
+          <p>Own Id: OTP-3810 Aux Id: Seq 5032</p>
+        </item>
+        <item>
+          <p>The TCB of VxWorks processes no longer grows when
+            <c><![CDATA[erl_errno]]></c> is accessed. On Pthreads platforms
+            the use of <c><![CDATA[erl_errno]]></c> no longer crashes programs
+            using multithreading.</p>
+          <p>Own Id: OTP-3820</p>
+        </item>
+        <item>
+          <p>Name clashes between Erlang emulator and Erl_Interface
+            on VxWorks removed.</p>
+          <p>Own Id: OTP-3824</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.2.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Memory lossage affecting pids, ports and refs fixed.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.2.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>An error reporting facility <c><![CDATA[erl_errno]]></c> has been
+            introduced.</p>
+          <p>Own Id: OTP-3641</p>
+        </item>
+        <item>
+          <p>ETERMs are now shrunk to a more reasonable size.</p>
+          <p>Own Id: OTP-3648</p>
+          <p></p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.2.1</title>
+
+    <section>
+      <title>Fixed Errors and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Lists containing negative numbers were incorrectly
+            encoded by <c><![CDATA[erl_encode()]]></c>. This has been corrected.</p>
+          <p>Own Id: OTP-3535</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The reference type has been extended from 18 bits to
+            82 bits. For compatibility with older nodes, an R6 node
+            can send a ref to an older node; if the older node sends
+            it back, it has lost all but its 18 least significant
+            bits, but still compares equal to the original ref.
+            The external format has been extended to represent the new
+            longer refs; that means for example that binaries with
+            refs, produced on an R6 node, cannot be converted to a
+            term on an older node.
+            In <c><![CDATA[erl_interface]]></c>, a function <c><![CDATA[erl_mk_long_ref]]></c>
+            has been added, and macros <c><![CDATA[ERL_REF_NUMBERS]]></c> and
+            <c><![CDATA[ERL_REF_LEN]]></c>.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-3140 Aux Id: OTP-3139</p>
+        </item>
+        <item>
+          <p>The function <c><![CDATA[erl_receive_msg]]></c> has the problem that
+            a fixed buffer must be given - a larger message than
+            expected is simply discarded. A function
+            <c><![CDATA[erl_xreceive_msg]]></c> has been introduced, which
+            dynamically resizes the buffer given to it, if needed.</p>
+          <p>Own Id: OTP-3313 Aux Id: OTP-2927</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.1.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p><c><![CDATA[#ifdef __cplusplus extern C {]]></c> is added to all the 
+            <c><![CDATA[erl*.h]]></c> and <c><![CDATA[ei*.h]]></c> files in order to support 
+            use from C++.</p>
+          <p>On Unix the object files are now produced with
+            the <c><![CDATA[-fPIC]]></c> option to make it possible to include
+            them in a shared library.</p>
+          <p>Own Id: OTP-3138 Aux Id: Seq 1722</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A buffer overflow in <c><![CDATA[erl_connect()]]></c> was causing
+            C-node crashes on Linux.</p>
+          <p>Own Id: OTP-2743</p>
+        </item>
+        <item>
+          <p>When decoding very long strings (more than 65535
+            characters) the terminating 0 was left out.</p>
+          <p>Own Id: OTP-2744</p>
+        </item>
+        <item>
+          <p><c><![CDATA[erl_accept()]]></c> was not handshaking properly with
+            Erlang, causing incoming connection attempts to fail.</p>
+          <p>Own Id: OTP-2862</p>
+        </item>
+        <item>
+          <p>Very large negative numbers are no longer encoded
+            incorrectly.</p>
+          <p>Own Id: OTP-2897</p>
+        </item>
+        <item>
+          <p>Atoms could sometimes contain an unterminated string.
+            This is fixed.</p>
+          <p>Own Id: OTP-2956</p>
+        </item>
+        <item>
+          <p>Erl_Interface now uses the SENS resolver functions if
+            they are available at runtime. This primarily concerns
+            use on the VxWorks platform.</p>
+          <p>Own Id: OTP-3034 Aux Id: Seq 1559</p>
+        </item>
+        <item>
+          <p>The documentation for <c><![CDATA[erl_connect_init()]]></c> no longer
+            makes erroneous reference to the remote node.</p>
+          <p>Own Id: OTP-3102 Aux Id: Seq 1671</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Erl_Interface has been moved out of the Erlang runtime
+            system (ERTS) and is now a separate application. This has
+            implications for all users of Erl_Interface, who will
+            need to make changes to the Makefiles used to build
+            applications based on Erl_Interface. In particular,
+            header and library files are no longer in
+            <c><![CDATA[$(OTPROOT)/usr/]]></c>. The <c><![CDATA[include]]></c> and <c><![CDATA[lib]]></c>
+            directories are now located in the directory
+            <c><![CDATA[$(OTPROOT)/lib/erl_interface-3.1]]></c> (i.e.
+            the directory name is now version specific).</p>
+          <p>Own Id: OTP-3082</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2015</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>rand</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>rand.xml</file>
+  </header>
+  <module since="OTP 18.0">rand</module>
+  <modulesummary>Pseudo random number generation.</modulesummary>
+  <description>
+    <p>
+      This module provides a pseudo random number generator.
+      The module contains a number of algorithms.
+      The uniform distribution algorithms are based on the
+      <url href="http://xorshift.di.unimi.it">
+	Xoroshiro and Xorshift algorithms
+      </url>
+      by Sebastiano Vigna.
+      The normal distribution algorithm uses the
+      <url href="http://www.jstatsoft.org/v05/i08">
+	Ziggurat Method by Marsaglia and Tsang
+      </url>
+      on top of the uniform distribution algorithm.
+    </p>
+    <p>
+      For most algorithms, jump functions are provided for generating
+      non-overlapping sequences for parallel computations.
+      The jump functions perform calculations
+      equivalent to perform a large number of repeated calls
+      for calculating new states.
+    </p>
+
+    <p>The following algorithms are provided:</p>
+
+    <taglist>
+      <tag><c>exsss</c></tag>
+      <item>
+        <p>Xorshift116**, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is the Xorshift116 generator combined with the StarStar scrambler
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	</p>
+	<p>
+	  The generator does not need 58-bit rotates so it is faster
+	  than the Xoroshiro116 generator, and when combined with
+	  the StarStar scrambler it does not have any weak low bits
+	  like <c>exrop</c> (Xoroshiro116+).
+	</p>
+	<p>
+	  Alas, this combination is about 10% slower than <c>exrop</c>,
+	  but is despite that the default algorithm thanks to its
+	  statistical qualities.
+	</p>
+      </item>
+      <tag><c>exro928ss</c></tag>
+      <item>
+        <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+	<p>
+	  This is a 58 bit version of Xoroshiro1024**,
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	  that on a 64 bit Erlang system executes only about 40% slower than
+	  the default <c>exsss</c> algorithm but with much longer period
+	  and better statistical properties, and on the flip side
+	  a larger state.
+	</p>
+	<p>
+	  Many thanks to Sebastiano Vigna for his help with
+	  the 58 bit adaption.
+	</p>
+      </item>
+      <tag><c>exrop</c></tag>
+      <item>
+        <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+      </item>
+      <tag><c>exs1024s</c></tag>
+      <item>
+        <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+      </item>
+      <tag><c>exsp</c></tag>
+      <item>
+        <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is a corrected version of the previous default algorithm,
+	  that now has been superseded by Xoroshiro116+ (<c>exrop</c>).
+	  Since there is no native 58 bit rotate instruction this
+	  algorithm executes a little (say &lt; 15%) faster than <c>exrop</c>.
+	  See the 
+	  <url href="http://xorshift.di.unimi.it">algorithms' homepage</url>.
+	</p>
+      </item>
+    </taglist>
+
+    <p>
+      The default algorithm is <c>exsss</c> (Xorshift116**).
+      If a specific algorithm is
+      required, ensure to always use <seealso marker="#seed-1">
+      <c>seed/1</c></seealso> to initialize the state.
+    </p>
+
+    <p>
+      Undocumented (old) algorithms are deprecated but still implemented
+      so old code relying on them will produce
+      the same pseudo random sequences as before.
+    </p>
+
+    <note>
+      <p>
+	There were a number of problems in the implementation
+	of the now undocumented algorithms, which is why
+	they are deprecated.  The new algorithms are a bit slower
+	but do not have these problems:
+      </p>
+      <p>
+	Uniform integer ranges had a skew in the probability distribution
+	that was not noticable for small ranges but for large ranges
+	less than the generator's precision the probability to produce
+	a low number could be twice the probability for a high.
+      </p>
+      <p>
+	Uniform integer ranges larger than or equal to the generator's
+	precision used a floating point fallback that only calculated
+	with 52 bits which is smaller than the requested range
+	and therefore were not all numbers in the requested range
+	even possible to produce.
+      </p>
+      <p>
+	Uniform floats had a non-uniform density so small values
+	i.e less than 0.5 had got smaller intervals decreasing
+	as the generated value approached 0.0 although still uniformly
+	distributed for sufficiently large subranges.  The new algorithms
+	produces uniformly distributed floats on the form N * 2.0^(-53)
+	hence equally spaced.
+      </p>
+    </note>
+
+    <p>Every time a random number is requested, a state is used to
+      calculate it and a new state is produced. The state can either be
+      implicit or be an explicit argument and return value.</p>
+
+    <p>The functions with implicit state use the process dictionary
+      variable <c>rand_seed</c> to remember the current state.</p>
+
+    <p>If a process calls
+      <seealso marker="#uniform-0"><c>uniform/0</c></seealso>,
+      <seealso marker="#uniform-1"><c>uniform/1</c></seealso> or
+      <seealso marker="#uniform_real-0"><c>uniform_real/0</c></seealso> without
+      setting a seed first, <seealso marker="#seed-1"><c>seed/1</c></seealso>
+      is called automatically with the default algorithm and creates a
+      non-constant seed.</p>
+
+    <p>The functions with explicit state never use the process dictionary.</p>
+
+    <p><em>Examples:</em></p>
+
+    <p>Simple use; creates and seeds the default algorithm
+      with a non-constant seed if not already done:</p>
+
+    <pre>
+R0 = rand:uniform(),
+R1 = rand:uniform(),</pre>
+
+    <p>Use a specified algorithm:</p>
+
+    <pre>
+_ = rand:seed(exs928ss),
+R2 = rand:uniform(),</pre>
+
+    <p>Use a specified algorithm with a constant seed:</p>
+
+    <pre>
+_ = rand:seed(exs928ss, {123, 123534, 345345}),
+R3 = rand:uniform(),</pre>
+
+   <p>Use the functional API with a non-constant seed:</p>
+
+   <pre>
+S0 = rand:seed_s(exsss),
+{R4, S1} = rand:uniform_s(S0),</pre>
+
+   <p>Textbook basic form Box-Muller standard normal deviate</p>
+
+   <pre>
+R5 = rand:uniform_real(),
+R6 = rand:uniform(),
+SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
+
+   <p>Create a standard normal deviate:</p>
+
+   <pre>
+{SND1, S2} = rand:normal_s(S1),</pre>
+
+   <p>Create a normal deviate with mean -3 and variance 0.5:</p>
+
+   <pre>
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),</pre>
+
+    <note>
+      <p>The builtin random number generator algorithms are not
+        cryptographically strong. If a cryptographically strong
+        random number generator is needed, use something like
+        <seealso marker="crypto:crypto#rand_seed-0"><c>crypto:rand_seed/0</c></seealso>.
+      </p>
+    </note>
+
+    <p>
+      For all these generators except <c>exro928ss</c> and <c>exsss</c>
+      the lowest bit(s) has got a slightly less
+      random behaviour than all other bits.
+      1 bit for <c>exrop</c> (and <c>exsp</c>),
+      and 3 bits for <c>exs1024s</c>.
+      See for example the explanation in the
+      <url href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c">
+	Xoroshiro128+
+      </url>
+      generator source code:
+    </p>
+    <pre>
+Beside passing BigCrush, this generator passes the PractRand test suite
+up to (and included) 16TB, with the exception of binary rank tests,
+which fail due to the lowest bit being an LFSR; all other bits pass all
+tests. We suggest to use a sign test to extract a random Boolean value.</pre>
+    <p>
+      If this is a problem; to generate a boolean with these algorithms
+      use something like this:
+    </p>
+    <pre>(rand:uniform(16) > 8)</pre>
+    <p>
+      And for a general range, with <c>N = 1</c> for <c>exrop</c>,
+      and <c>N = 3</c> for <c>exs1024s</c>:
+    </p>
+    <pre>(((rand:uniform(Range bsl N) - 1) bsr N) + 1)</pre>
+    <p>
+      The floating point generating functions in this module
+      waste the lowest bits when converting from an integer
+      so they avoid this snag.
+    </p>
+
+
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="builtin_alg"/>
+    </datatype>
+    <datatype>
+      <name name="alg"/>
+    </datatype>
+    <datatype>
+      <name name="alg_handler"/>
+    </datatype>
+    <datatype>
+      <name name="alg_state"/>
+    </datatype>
+    <datatype>
+      <name name="state"/>
+      <desc><p>Algorithm-dependent state.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="export_state"/>
+      <desc>
+	<p>
+	  Algorithm-dependent state that can be printed or saved to file.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="seed"/>
+      <desc>
+	<p>
+	  A seed value for the generator.
+	</p>
+	<p>
+	  A list of integers sets the generator's internal state directly,
+	  after algorithm-dependent checks of the value
+	  and masking to the proper word size.
+	</p>
+	<p>
+	  An integer is used as the initial state for a SplitMix64 generator.
+	  The output values of that is then used for setting
+	  the generator's internal state
+	  after masking to the proper word size
+	  and if needed avoiding zero values.
+	</p>
+	<p>
+	  A traditional 3-tuple of integers seed is passed through
+	  algorithm-dependent hashing functions to create
+	  the generator's initial state.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="exsplus_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exro928_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exrop_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exs1024_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exs64_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="export_seed" arity="0" since="OTP 18.0"/>
+      <fsummary>Export the random number generation state.</fsummary>
+      <desc><marker id="export_seed-0"/>
+        <p>Returns the random number state in an external format.
+          To be used with <seealso marker="#seed-1"><c>seed/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="export_seed_s" arity="1" since="OTP 18.0"/>
+      <fsummary>Export the random number generation state.</fsummary>
+      <desc><marker id="export_seed_s-1"/>
+        <p>Returns the random number generator state in an external format.
+          To be used with <seealso marker="#seed-1"><c>seed/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="jump" arity="0" since="OTP 20.0"/>
+      <fsummary>Return the seed after performing jump calculation
+          to the state in the process dictionary.</fsummary>
+      <desc><marker id="jump-0" />
+          <p>Returns the state
+              after performing jump calculation
+              to the state in the process dictionary.</p>
+      <p>This function generates a <c>not_implemented</c> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state
+           in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="jump" arity="1" since="OTP 20.0"/>
+      <fsummary>Return the seed after performing jump calculation.</fsummary>
+      <desc><marker id="jump-1" />
+          <p>Returns the state after performing jump calculation
+              to the given state. </p>
+      <p>This function generates a <c>not_implemented</c> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal" arity="0" since="OTP 18.0"/>
+      <fsummary>Return a standard normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns a standard normal deviate float (that is, the mean
+          is 0 and the standard deviation is 1) and updates the state in
+          the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal" arity="2" since="OTP 20.0"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns a normal N(Mean, Variance) deviate float
+          and updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal_s" arity="1" since="OTP 18.0"/>
+      <fsummary>Return a standard normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns, for a specified state, a standard normal
+          deviate float (that is, the mean is 0 and the standard
+          deviation is 1) and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal_s" arity="3" since="OTP 20.0"/>
+      <fsummary>Return a normal distributed random float.</fsummary>
+      <desc>
+        <p>Returns, for a specified state, a normal N(Mean, Variance)
+          deviate float and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed" arity="1" since="OTP 18.0"/>
+      <fsummary>Seed random number generator.</fsummary>
+      <desc>
+        <marker id="seed-1"/>
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
+	  is an algorithm.
+	</p>
+        <p>Otherwise recreates the exported seed in the process dictionary,
+          and returns the state. See also
+          <seealso marker="#export_seed-0"><c>export_seed/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed" arity="2" since="OTP 18.0"/>
+      <fsummary>Seed the random number generation.</fsummary>
+      <desc>
+        <p>Seeds random number generation with the specified algorithm and
+          integers in the process dictionary and returns the state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed_s" arity="1" since="OTP 18.0"/>
+      <fsummary>Seed random number generator.</fsummary>
+      <desc>
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
+	  is an algorithm.
+	</p>
+        <p>Otherwise recreates the exported seed and returns the state.
+          See also <seealso marker="#export_seed-0">
+          <c>export_seed/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seed_s" arity="2" since="OTP 18.0"/>
+      <fsummary>Seed the random number generation.</fsummary>
+      <desc>
+        <p>Seeds random number generation with the specified algorithm and
+          integers and returns the state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="0" since="OTP 18.0"/>
+      <fsummary>Return a random float.</fsummary>
+      <desc><marker id="uniform-0"/>
+        <p>
+	  Returns a random float uniformly distributed in the value
+          range <c>0.0 =&lt; <anno>X</anno> &lt; 1.0</c> and
+          updates the state in the process dictionary.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<warning>
+	  <p>
+	    This function may return exactly <c>0.0</c> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <c>(1.0 - rand:uniform())</c> to get the
+	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
+	    <seealso marker="#uniform_real-0"><c>uniform_real/0</c></seealso>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre>
+my_uniform() ->
+    case rand:uniform() of
+        0.0 -> my_uniform();
+	X -> X
+    end
+end.</pre>
+	</warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_real" arity="0" since="OTP 21.0"/>
+      <fsummary>Return a random float.</fsummary>
+      <desc><marker id="uniform_real-0"/>
+        <p>
+	  Returns a random float
+	  uniformly distributed in the value range
+	  <c>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</c>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <c>R</c> is generated
+	  from the interval <c>0 =&lt; R &lt; 1</c> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<note>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <seealso marker="#uniform-0"><c>uniform/0</c></seealso>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <c>1.0 / <anno>X</anno></c> or <c>math:log(<anno>X</anno>)</c>.
+	  </p>
+	</note>
+	<p>
+	  See
+	  <seealso marker="#uniform_real_s-1"><c>uniform_real_s/1</c></seealso>
+	  for more explanation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="1" since="OTP 18.0"/>
+      <fsummary>Return a random integer.</fsummary>
+      <desc><marker id="uniform-1"/>
+        <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>,
+          a random integer uniformly distributed in the value range
+          <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and
+          updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_s" arity="1" since="OTP 18.0"/>
+      <fsummary>Return a random float.</fsummary>
+      <desc>
+        <p>
+	  Returns, for a specified state, random float
+          uniformly distributed in the value range <c>0.0 =&lt;
+          <anno>X</anno> &lt; 1.0</c> and a new state.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<warning>
+	  <p>
+	    This function may return exactly <c>0.0</c> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <c>(1.0 - rand:uniform(State))</c> to get the
+	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
+	    <seealso marker="#uniform_real_s-1"><c>uniform_real_s/1</c></seealso>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre>
+my_uniform(State) ->
+    case rand:uniform(State) of
+        {0.0, NewState} -> my_uniform(NewState);
+	Result -> Result
+    end
+end.</pre>
+	</warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_real_s" arity="1" since="OTP 21.0"/>
+      <fsummary>Return a random float.</fsummary>
+      <desc>
+        <p>
+	  Returns, for a specified state, a random float
+	  uniformly distributed in the value range
+	  <c>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</c>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <c>R</c> is generated
+	  from the interval <c>0 =&lt; R &lt; 1</c> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<note>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <c>1.0 / <anno>X</anno></c> or <c>math:log(<anno>X</anno>)</c>.
+	  </p>
+	</note>
+	<p>
+	  The concept implicates that the probability to get
+	  exactly zero is extremely low; so low that this function
+	  is in fact guaranteed to never return zero.  The smallest
+	  number that it might return is <c>DBL_MIN</c>, which is
+	  2.0^(-1022).
+	</p>
+	<p>
+	  The value range stated at the top of this function
+	  description is technically correct, but
+	  <c>0.0 =&lt; <anno>X</anno> &lt; 1.0</c>
+	  is a better description of the generated numbers'
+	  statistical distribution.  Except that exactly 0.0
+	  is never returned, which is not possible to observe
+	  statistically.
+	</p>
+	<p>
+	  For example; for all sub ranges
+	  <c>N*2.0^(-53) =&lt; X &lt; (N+1)*2.0^(-53)</c>
+	  where
+	  <c>0 =&lt; integer(N) &lt; 2.0^53</c>
+	  the probability is the same.
+	  Compare that with the form of the numbers generated by
+	  <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>.
+	</p>
+	<p>
+	  Having to generate extra random bits for
+	  small numbers costs a little performance.
+	  This function is about 20% slower than the regular
+	  <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform_s" arity="2" since="OTP 18.0"/>
+      <fsummary>Return a random integer.</fsummary>
+      <desc>
+        <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>
+          and a state, a random integer uniformly distributed in the value
+          range <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and a
+          new state.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

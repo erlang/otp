@@ -1,0 +1,33 @@
+Hi, 
+
+This is 'eldap', the Erlang LDAP library.
+
+It exports an API that can do all possible operations
+you may want to do against an LDAP server. The code has
+been tested to work at some point, but only the bind
+and search operations are running daily in our products,
+so there may be bugs lurking in some parts of the code.
+
+To just use eldap for doing authentication, do like in:
+
+ {ok,X} = eldap:open(["ldap.mycorp.com"], []).
+ eldap:simple_bind(X, "uid=tobbe,ou=People,dc=mycorp,dc=com", "passwd").
+
+In the doc/README.example you'll find a trace from a
+Erlang shell session as an example on how to setup a
+connection, authenticate (bind) and perform a search.
+Note that by using the option {ssl, true}, you should
+be able to setup an SSL tunnel (LDAPS) if your Erlang
+system has been configured with SSL.
+
+In the test directory there are some hints and examples
+on how to test the code and how to setup and populate 
+an OpenLDAP server. The 'eldap' code has been tested
+against OpenLDAP, IPlanet and ActiveDirectory servers.
+
+If you plan to incorporate this code into your system
+I suggest that you build a server/supervisor harnesk
+that uses 'eldap' (as we have done in our products).
+
+Good luck ! 
+/Tobbe

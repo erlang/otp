@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>et_collector</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_collector.xml</file>
+  </header>
+  <module since="">et_collector</module>
+  <modulesummary>Collect trace events and provide a backing storage appropriate for iteration </modulesummary>
+  <description>
+    <p>Interface module for the Event Trace (ET) application</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">start_link(Options) -> {ok, CollectorPid} | {error, Reason}</name>
+      <fsummary>Start a collector process</fsummary>
+      <type>
+        <v>Options = [option()]</v>
+        <v>option() = {parent_pid, pid()} | {event_order, event_order()} | {dict_insert, {filter, collector}, collector_fun()} | {dict_insert, {filter, event_filter_name()}, event_filter_fun()} | {dict_insert, {subscriber, pid()}, dict_val()} | {dict_insert, dict_key(), dict_val()} | {dict_delete, dict_key()} | {trace_client, trace_client()} | {trace_global, boolean()} |  {trace_pattern, trace_pattern()} | {trace_port, integer()} |  {trace_max_queue, integer()}</v>
+        <v>event_order() = trace_ts | event_ts</v>
+        <v>trace_pattern() = {report_module(), extended_dbg_match_spec()} | undefined</v>
+        <v>report_module() = atom() | undefined</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
+        <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
+        <v>trace_client() =  {event_file, file_name()} | {dbg_trace_type(), dbg_trace_parameters()}</v>
+        <v>file_name() = string()</v>
+        <v>collector_fun() = trace_filter_fun() | event_filter_fun()</v>
+        <v>trace_filter_fun() = fun(TraceData) -> false | true | {true, NewEvent}</v>
+        <v>event_filter_fun() = fun(Event) -> false | true | {true, NewEvent}</v>
+        <v>event_filter_name() = atom()</v>
+        <v>TraceData = erlang_trace_data()</v>
+        <v>Event = NewEvent = record(event)</v>
+        <v>dict_key() = term()</v>
+        <v>dict_val() = term()</v>
+        <v>CollectorPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Start a collector process.</p>
+        <p>The collector collects trace events and keeps them ordered by their
+          timestamp. The timestamp may either reflect the time when the
+          actual trace data was generated (trace_ts) or when the trace data
+          was transformed into an event record (event_ts). If the time stamp
+          is missing in the trace data (missing timestamp option to
+          erlang:trace/4) the trace_ts will be set to the event_ts.</p>
+        <p>Events are reported to the collector directly with the report
+          function or indirectly via one or more trace clients. All reported
+          events are first filtered thru the collector filter before they are
+          stored by the collector. By replacing the default collector filter
+          with a customized dito it is possible to allow any trace data as
+          input. The collector filter is a dictionary entry with the
+          predefined key {filter, collector} and the value is a fun of
+          arity 1. See et_selector:make_event/1 for interface details,
+          such as which erlang:trace/1 tuples that are accepted.</p>
+        <p>The collector has a built-in dictionary service. Any term may be
+          stored as value in the dictionary and bound to a unique key. When
+          new values are inserted with an existing key, the new values will
+          overwrite the existing ones. Processes may subscribe on dictionary
+          updates by using {subscriber, pid()} as dictionary key. All
+          dictionary updates will be propagated to the subscriber processes
+          matching the pattern {{subscriber, '_'}, '_'} where the first '_'
+          is interpreted as a pid().</p>
+
+        <p>In global trace mode, the collector will automatically
+        start tracing on all connected Erlang nodes. When a node
+        connects, a port tracer will be started on that node and a
+        corresponding trace client on the collector node.</p>
+
+        <p>Default values:</p>
+        <list type="bulleted">
+          <item>parent_pid - self().</item>
+          <item>event_order - trace_ts.</item>
+          <item>trace_global - false.</item>
+          <item>trace_pattern - undefined.</item>
+          <item>trace_port - 4711.</item>
+          <item>trace_max_queue - 50.</item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop(CollectorPid) -> ok</name>
+      <fsummary>Stop a collector process</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+      </type>
+      <desc>
+        <p>Stop a collector process.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">save_event_file(CollectorPid, FileName, Options) -> ok | {error, Reason}</name>
+      <fsummary>Save the events to a file</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>FileName = string()</v>
+        <v>Options = [option()]</v>
+        <v>Reason = term()</v>
+        <v>option() = event_option() | file_option() | table_option()</v>
+        <v>event_option() = existing</v>
+        <v>file_option() = write | append</v>
+        <v>table_option() = keep | clear</v>
+      </type>
+      <desc>
+        <p>Save the events to a file.</p>
+        <p>By default the currently stored events (existing) are
+          written to a brand new file (write) and the events are
+          kept (keep) after they have been written to the file.</p>
+        <p>Instead of keeping the events after writing them to file,
+          it is possible to remove all stored events after they
+          have successfully written to file (clear).</p>
+        <p>The options defaults to existing, write and keep.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">load_event_file(CollectorPid, FileName) -> {ok, BadBytes} | exit(Reason)</name>
+      <fsummary>Load the event table from a file</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>FileName = string()</v>
+        <v>BadBytes = integer(X) where X >= 0</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Load the event table from a file.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">report(Handle, TraceOrEvent) -> {ok, Continuation} | exit(Reason)</name>
+      <name since="">report_event(Handle, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
+      <name since="">report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
+      <fsummary>Report an event to the collector</fsummary>
+      <type>
+        <v>Handle = Initial | Continuation</v>
+        <v>Initial = collector_pid()</v>
+        <v>collector_pid() = pid()</v>
+        <v>Continuation = record(table_handle)</v>
+        <v>TraceOrEvent = record(event) | dbg_trace_tuple() | end_of_trace</v>
+        <v>Reason = term()</v>
+        <v>DetailLevel = integer(X) when X =&lt; 0, X >= 100</v>
+        <v>From        = actor()</v>
+        <v>To          = actor()</v>
+        <v>FromTo      = actor()</v>
+        <v>Label       = atom() | string() | term()</v>
+        <v>Contents    = [{Key, Value}] | term()</v>
+        <v>actor()  = term()</v>
+      </type>
+      <desc>
+        <p>Report an event to the collector.</p>
+        <p>All events are filtered thru the collector filter, which
+          optionally may transform or discard the event. The first
+          call should use the pid of the collector process as
+          report handle, while subsequent calls should use the
+          table handle.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">make_key(Type, Stuff) -> Key</name>
+      <fsummary>Make a key out of an event record or an old key</fsummary>
+      <type>
+        <v>Type = record(table_handle) | trace_ts | event_ts</v>
+        <v>Stuff = record(event) | Key</v>
+        <v>Key = record(event_ts) | record(trace_ts)</v>
+      </type>
+      <desc>
+        <p>Make a key out of an event record or an old key.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_table_handle(CollectorPid) -> Handle</name>
+      <fsummary>Return a table handle</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>Handle = record(table_handle)</v>
+      </type>
+      <desc>
+        <p>Return a table handle.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_global_pid() -> CollectorPid | exit(Reason)</name>
+      <fsummary>Return a the identity of the globally registered collector if there is any</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Return a the identity of the globally registered
+          collector if there is any.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern}</name>
+      <fsummary>Change active trace pattern globally on all trace nodes</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>RawPattern = {report_module(), extended_dbg_match_spec()}</v>
+        <v>report_module() = atom() | undefined</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
+        <v>RawPattern = detail_level()</v>
+        <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
+        <v>TracePattern = {report_module(), dbg_match_spec_match_spec()}</v>
+      </type>
+      <desc>
+        <p>Change active trace pattern globally on all trace nodes.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dict_insert(CollectorPid, {filter, collector}, FilterFun) -> ok</name>
+      <name since="">dict_insert(CollectorPid, {subscriber, SubscriberPid}, Void) -> ok</name>
+      <name since="">dict_insert(CollectorPid, Key, Val) -> ok</name>
+      <fsummary>Insert a dictionary entry and send a {et, {dict_insert, Key, Val}} tuple to all registered subscribers.</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>FilterFun = filter_fun() </v>
+        <v>SubscriberPid = pid()</v>
+        <v>Void = term()</v>
+        <v>Key = term()</v>
+        <v>Val = term()</v>
+      </type>
+      <desc>
+        <p>Insert a dictionary entry
+          and send a {et, {dict_insert, Key, Val}} tuple
+          to all registered subscribers.</p>
+        <p>If the entry is a new subscriber, it will imply that
+          the new subscriber process first will get one message
+          for each already stored dictionary entry, before it
+          and all old subscribers will get this particular entry.
+          The collector process links to and then supervises the
+          subscriber process. If the subscriber process dies it
+          will imply that it gets unregistered as with a normal
+          dict_delete/2.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dict_lookup(CollectorPid, Key) -> [Val]</name>
+      <fsummary>Lookup a dictionary entry and return zero or one value</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>FilterFun = filter_fun() </v>
+        <v>CollectorPid = pid()</v>
+        <v>Key = term()</v>
+        <v>Val = term()</v>
+      </type>
+      <desc>
+        <p>Lookup a dictionary entry and return zero or one value.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dict_delete(CollectorPid, Key) -> ok</name>
+      <fsummary>Delete a dictionary entry and send a {et, {dict_delete, Key}} tuple to all registered subscribers.</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>SubscriberPid = pid()</v>
+        <v>Key = {subscriber, SubscriberPid} | term()</v>
+      </type>
+      <desc>
+        <p>Delete a dictionary entry
+          and send a {et, {dict_delete, Key}} tuple
+          to all registered subscribers.</p>
+        <p>If the deleted entry is a registered subscriber, it will
+          imply that the subscriber process gets is unregistered as
+          subscriber as well as it gets it final message.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dict_match(CollectorPid, Pattern) -> [Match]</name>
+      <fsummary>Match some dictionary entries</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>Pattern = '_' | {key_pattern(), val_pattern()}</v>
+        <v>key_pattern() = ets_match_object_pattern()</v>
+        <v>val_pattern() = ets_match_object_pattern()</v>
+        <v>Match = {key(), val()}</v>
+        <v>key() = term()</v>
+        <v>val() = term()</v>
+      </type>
+      <desc>
+        <p>Match some dictionary entries</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">multicast(_CollectorPid, Msg) -> ok</name>
+      <fsummary>Sends a message to all registered subscribers</fsummary>
+      <type>
+        <v>CollectorPid = pid()</v>
+        <v>CollectorPid = pid()</v>
+        <v>Msg = term()</v>
+      </type>
+      <desc>
+        <p>Sends a message to all registered subscribers.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start_trace_client(CollectorPid, Type, Parameters) -> file_loaded | {trace_client_pid, pid()} | exit(Reason)</name>
+      <fsummary>Load raw Erlang trace from a file, port or process.</fsummary>
+      <type>
+        <v>Type       = dbg_trace_client_type()</v>
+        <v>Parameters = dbg_trace_client_parameters()</v>
+        <v>Pid        = dbg_trace_client_pid()</v>
+      </type>
+      <desc>
+        <p>Load raw Erlang trace from a file, port or process.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">iterate(Handle, Prev, Limit) -> NewAcc</name>
+      <fsummary>Iterates over the currently stored events</fsummary>
+      <desc>
+        <p>Short for iterate(Handle, Prev, Limit, undefined, Prev) -&gt; NewAcc</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">iterate(Handle, Prev, Limit, Fun, Acc) -> NewAcc</name>
+      <fsummary>Iterate over the currently stored events</fsummary>
+      <type>
+        <v>Handle = collector_pid() | table_handle()</v>
+        <v>Prev = first | last | event_key()</v>
+        <v>Limit = done() | forward() | backward()</v>
+        <v>collector_pid() = pid()</v>
+        <v>table_handle() = record(table_handle)</v>
+        <v>event_key() = record(event) | record(event_ts) | record(trace_ts)</v>
+        <v>done() = 0</v>
+        <v>forward() = infinity | integer(X) where X > 0</v>
+        <v>backward() = '-infinity' | integer(X) where X &lt; 0</v>
+        <v>Fun = fun(Event, Acc) -> NewAcc</v>
+        <v>Acc = NewAcc = term()</v>
+      </type>
+      <desc>
+        <p>Iterate over the currently stored events.</p>
+        <p>Iterates over the currently stored events and applies
+          a function for each event. The iteration may be performed
+          forwards or backwards and may be limited to a maximum
+          number of events (abs(Limit)).</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">clear_table(Handle) -> ok</name>
+      <fsummary>Clear the event table</fsummary>
+      <type>
+        <v>Handle = collector_pid() | table_handle()</v>
+        <v>collector_pid() = pid()</v>
+        <v>table_handle() = record(table_handle)</v>
+      </type>
+      <desc>
+        <p>Clear the event table.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

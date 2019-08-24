@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>epp</title>
+    <prepared>Kenneth Lundin</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>1997-01-31</date>
+    <rev>B</rev>
+    <file>epp.xml</file>
+  </header>
+  <module since="">epp</module>
+  <modulesummary>An Erlang code preprocessor.</modulesummary>
+  <description>
+    <p>The Erlang code preprocessor includes functions that are used by the
+      <seealso marker="compiler:compile"><c>compile</c></seealso>
+      module to preprocess macros and include files before
+      the parsing takes place.</p>
+
+    <p>The Erlang source file <marker
+      id="encoding"/><em>encoding</em> is selected by a
+      comment in one of the first two lines of the source file. The
+      first string matching the regular expression
+      <c>coding\s*[:=]\s*([-a-zA-Z0-9])+</c> selects the encoding. If
+      the matching string is not a valid encoding, it is ignored. The
+      valid encodings are <c>Latin-1</c> and <c>UTF-8</c>, where the
+      case of the characters can be chosen freely.</p>
+
+    <p><em>Examples:</em></p>
+
+    <pre>
+%% coding: utf-8</pre>
+
+    <pre>
+%% For this file we have chosen encoding = Latin-1</pre>
+
+    <pre>
+%% -*- coding: latin-1 -*-</pre>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="macros"></name>
+    </datatype>
+    <datatype>
+      <name name="epp_handle"></name>
+      <desc><p>Handle to the <c>epp</c> server.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="source_encoding"></name>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="close" arity="1" since=""/>
+      <fsummary>Close the preprocessing of the file associated with <c>Epp</c>.
+      </fsummary>
+      <desc>
+        <p>Closes the preprocessing of a file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="default_encoding" arity="0" since="OTP R16B"/>
+      <fsummary>Return the default encoding of Erlang source files.</fsummary>
+      <desc>
+        <p>Returns the default encoding of Erlang source files.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="encoding_to_string" arity="1" since="OTP R16B"/>
+      <fsummary>Return a string representation of an encoding.</fsummary>
+      <desc>
+        <p>Returns a string representation of an encoding. The string
+          is recognized by
+          <seealso marker="#read_encoding/1"><c>read_encoding/1,2</c></seealso>,
+          <seealso marker="#read_encoding_from_binary/1">
+          <c>read_encoding_from_binary/1,2</c></seealso>, and
+          <seealso marker="#set_encoding/1"><c>set_encoding/1,2</c></seealso>
+          as a valid encoding.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format_error" arity="1" since="OTP R14B03"/>
+      <fsummary>Format an error descriptor.</fsummary>
+      <desc>
+        <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns
+          a string that
+          describes the error or warning. This function is usually
+          called implicitly when processing an <c>ErrorInfo</c>
+          structure (see section
+          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="1" since="OTP 17.0"/>
+      <fsummary>Open a file for preprocessing.</fsummary>
+      <desc>
+        <p>Opens a file for preprocessing.</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
+        <p>If <c>extra</c> is specified in
+          <c><anno>Options</anno></c>, the return value is
+          <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
+          of <c>{ok, <anno>Epp</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="2" since=""/>
+      <fsummary>Open a file for preprocessing.</fsummary>
+      <desc>
+        <p>Equivalent to
+          <c>epp:open([{name, FileName}, {includes, IncludePath}])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="3" since=""/>
+      <fsummary>Open a file for preprocessing.</fsummary>
+      <desc>
+        <p>Equivalent to <c>epp:open([{name, FileName}, {includes, IncludePath},
+          {macros, PredefMacros}])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_erl_form" arity="1" since=""/>
+      <fsummary>Return the next Erlang form from the opened Erlang source file.
+      </fsummary>
+      <type name="warning_info"/>
+      <desc>
+        <p>Returns the next Erlang form from the opened Erlang source file.
+          Tuple <c>{eof, <anno>Line</anno>}</c> is returned at the end of the
+          file. The first form corresponds to an implicit attribute
+          <c>-file(File,1).</c>, where <c>File</c> is the file name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_file" arity="2" since="OTP 17.0"/>
+      <fsummary>Preprocess and parse an Erlang source file.</fsummary>
+      <desc>
+        <p>Preprocesses and parses an Erlang source file.
+          Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
+          end of the file is included as a "form".</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
+        <p>If <c>extra</c> is specified in
+         <c><anno>Options</anno></c>, the return value is
+         <c>{ok, [<anno>Form</anno>], <anno>Extra</anno>}</c> instead
+         of <c>{ok, [<anno>Form</anno>]}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse_file" arity="3" since=""/>
+      <fsummary>Preprocess and parse an Erlang source file.</fsummary>
+      <desc>
+        <p>Equivalent to <c>epp:parse_file(FileName, [{includes, IncludePath},
+          {macros, PredefMacros}])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_encoding" arity="1" since="OTP R16B"/>
+      <name name="read_encoding" arity="2" since="OTP R16B"/>
+      <fsummary>Read the encoding from a file.</fsummary>
+      <desc>
+        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+          a file. Returns the read encoding, or <c>none</c> if no
+          valid encoding is found.</p>
+        <p>Option <c>in_comment_only</c> is <c>true</c> by
+          default, which is correct for Erlang source files. If set to
+          <c>false</c>, the encoding string does not necessarily have to
+          occur in a comment.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_encoding_from_binary" arity="1" since="OTP R16B"/>
+      <name name="read_encoding_from_binary" arity="2" since="OTP R16B"/>
+      <fsummary>Read the encoding from a binary.</fsummary>
+      <desc>
+        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+          a binary. Returns the read encoding, or <c>none</c> if no
+          valid encoding is found.</p>
+        <p>Option <c>in_comment_only</c> is <c>true</c> by
+          default, which is correct for Erlang source files. If set to
+          <c>false</c>, the encoding string does not necessarily have to
+          occur in a comment.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_encoding" arity="1" since="OTP R16B"/>
+      <fsummary>Read and set the encoding of an I/O device.</fsummary>
+      <desc>
+        <p>Reads the <seealso marker="#encoding">encoding</seealso> from
+          an I/O device and sets the encoding of the device
+          accordingly. The position of the I/O device referenced by
+          <c><anno>File</anno></c> is not affected. If no valid
+          encoding can be read from the I/O device, the encoding of the
+          I/O device is set to the default encoding.</p>
+        <p>Returns the read encoding, or <c>none</c> if no valid
+          encoding is found.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_encoding" arity="2" since="OTP 17.0"/>
+      <fsummary>Read and set the encoding of an I/O device.</fsummary>
+      <desc>
+        <p>Reads the <seealso marker="#encoding">encoding</seealso> from
+          an I/O device and sets the encoding of the device
+          accordingly. The position of the I/O device referenced by
+          <c><anno>File</anno></c> is not affected. If no valid
+          encoding can be read from the I/O device, the encoding of the
+          I/O device is set to the
+          <seealso marker="#encoding">encoding</seealso> specified by
+          <c><anno>Default</anno></c>.</p>
+        <p>Returns the read encoding, or <c>none</c> if no valid
+          encoding is found.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Error Information</title>
+    <marker id="errorinfo"/>
+    <p><c>ErrorInfo</c> is the standard <c>ErrorInfo</c> structure that is
+      returned from all I/O modules. The format is as follows:</p>
+    <code type="none">
+{ErrorLine, Module, ErrorDescriptor}</code>
+    <p>A string describing the error is obtained with the following call:</p>
+    <code type="none">
+Module:format_error(ErrorDescriptor)</code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso></p>
+  </section>
+</erlref>
+

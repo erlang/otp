@@ -1,0 +1,1243 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- $Id: controls.xrc 43684 2006-11-27 15:02:49Z VZ $ -->
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxDialog" name="controls_dialog">
+    <title>Controls Example</title>
+    <style>wxCAPTION|wxSYSTEM_MENU|wxRESIZE_BORDER</style>
+    <exstyle>wxDIALOG_EX_CONTEXTHELP</exstyle>
+    <centered>1</centered>
+    <object class="wxFlexGridSizer">
+        <cols>1</cols>
+        <rows>0</rows>
+        <vgap>0</vgap>
+        <hgap>0</hgap>
+        <growablecols>0</growablecols>
+        <growablerows>0</growablerows>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxNotebook" name="controls_notebook">
+                <usenotebooksizer>1</usenotebooksizer>
+                <size>550,250</size>
+                <object class="notebookpage">
+                    <label>wxTreebook</label>
+                                <object class="wxTreebook" name="controls_treebook">
+                                    <size>350,280</size>
+                                    <style>wxSUNKEN_BORDER</style>
+                                    <object class="treebookpage">
+                                        <label>Page 1</label>
+                                        <depth>0</depth>
+                                        <object class="wxButton" name="controls_treebook_button1">
+                                            <size>200,180</size>
+                                            <label>Button N1</label>
+                                        </object>
+                                    </object>
+                                    <object class="treebookpage">
+                                        <label>Empty Page 2</label>
+                                        <depth>1</depth>
+                                    </object>
+                                    <object class="treebookpage">
+                                        <label>Page 3</label>
+                                        <depth>2</depth>
+                                        <object class="wxButton" name="controls_treebook_button3">
+                                            <size>200,180</size>
+                                            <label>Button N3</label>
+                                        </object>
+                                    </object>
+                                    <object class="treebookpage">
+                                        <label>Page 4</label>
+                                        <depth>1</depth>
+                                        <object class="wxButton" name="controls_treebook_button4">
+                                            <size>200,180</size>
+                                            <label>Button N4</label>
+                                        </object>
+                                    </object>
+                                </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxToolBar</label>
+                    <object class="wxPanel" name="button">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_normal_button">
+                                    <label>Transparent background:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <size>300,60</size>
+                                <object class="wxToolBar">
+                                    <style>wxTB_FLAT|wxTB_NODIVIDER</style>
+                                    <margins>2,2</margins>
+                                    <object class="tool" name="non_derived_dialog_tool_or_menuitem">
+                                        <tooltip>Non-Derived Dialog Example</tooltip>
+                                        <bitmap>basicdlg.xpm</bitmap>
+                                        <longhelp>The basic instance of wxDialog loaded via XRC</longhelp>
+                                    </object>
+                                    <object class="tool" name="derived_tool_or_menuitem">
+                                        <tooltip>Derived Dialog Example</tooltip>
+                                        <bitmap>derivdlg.xpm</bitmap>
+                                        <longhelp>The most important example: load an XRC for a derived dialog</longhelp>
+                                    </object>
+                                    <object class="tool" name="controls_tool_or_menuitem">
+                                        <tooltip>Controls Example</tooltip>
+                                        <bitmap>controls.xpm</bitmap>
+                                        <longhelp>A notebook displaying all the wxWidgets controls</longhelp>
+                                    </object>
+                                    <object class="tool" name="uncentered_tool_or_menuitem">
+                                        <tooltip>Uncentered Example</tooltip>
+                                        <bitmap>uncenter.xpm</bitmap>
+                                        <longhelp>Disable autocentering of a dialog on its parent</longhelp>
+                                    </object>
+                                    <separator/>
+                                     <object class="tool" name="custom_class_tool_or_menuitem">
+                                        <tooltip>Custom Class Example</tooltip>
+                                        <bitmap>custclas.xpm</bitmap>
+                                        <longhelp>Embed your own custom classes into an XRC</longhelp>
+                                    </object>
+                                    <object class="tool" name="platform_property_tool_or_menuitem">
+                                        <tooltip>Platform Specific Example</tooltip>
+                                        <bitmap>platform.xpm</bitmap>
+                                        <longhelp>Customize parts of an interface for a desired platform</longhelp>
+                                    </object>
+                                    <object class="tool" name="art_provider_tool_or_menuitem">
+                                        <tooltip>wxArtProvider Example</tooltip>
+                                        <bitmap>artprov.xpm</bitmap>
+                                        <longhelp>Use wxArtProvider to insert desired icons at runtime</longhelp>
+                                    </object>
+                                    <object class="tool" name="variable_expansion_tool_or_menuitem">
+                                        <tooltip>Variable Expansion Example</tooltip>
+                                        <bitmap>variable.xpm</bitmap>
+                                        <longhelp>Replace variables in the XRC file at runtime</longhelp>
+                                    </object>
+                                    <object class="wxComboBox">
+                                        <content>
+                                            <item>Just</item>
+                                            <item>a combobox</item>
+                                            <item>in the toolbar</item>
+                                        </content>
+                                    </object>
+                                    <object class="wxOwnerDrawnComboBox">
+                                        <content>
+                                            <item>Owner Drawn</item>
+                                            <item>combobox</item>
+                                            <item>in the toolbar</item>
+                                        </content>
+                                    </object>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_statictext2_button">
+                                    <label>Fixed color background:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxToolBar">
+                                    <style>wxTB_FLAT|wxTB_NODIVIDER</style>
+                                    <bg>#bbbbff</bg>
+                                    <margins>2,2</margins>
+                                    <object class="tool" name="non_derived_dialog_tool_or_menuitem">
+                                        <tooltip>Non-Derived Dialog Example</tooltip>
+                                        <bitmap>basicdlg.xpm</bitmap>
+                                        <longhelp>The basic instance of wxDialog loaded via XRC</longhelp>
+                                    </object>
+                                    <object class="tool" name="derived_tool_or_menuitem">
+                                        <tooltip>Derived Dialog Example</tooltip>
+                                        <bitmap>derivdlg.xpm</bitmap>
+                                        <longhelp>The most important example: load an XRC for a derived dialog</longhelp>
+                                    </object>
+                                    <object class="tool" name="controls_tool_or_menuitem">
+                                        <tooltip>Controls Example</tooltip>
+                                        <bitmap>controls.xpm</bitmap>
+                                        <longhelp>A notebook displaying all the wxWidgets controls</longhelp>
+                                    </object>
+                                    <object class="tool" name="uncentered_tool_or_menuitem">
+                                        <tooltip>Uncentered Example</tooltip>
+                                        <bitmap>uncenter.xpm</bitmap>
+                                        <longhelp>Disable autocentering of a dialog on its parent</longhelp>
+                                    </object>
+                                    <separator/>
+                                     <object class="tool" name="custom_class_tool_or_menuitem">
+                                        <tooltip>Custom Class Example</tooltip>
+                                        <bitmap>custclas.xpm</bitmap>
+                                        <longhelp>Embed your own custom classes into an XRC</longhelp>
+                                    </object>
+                                    <object class="tool" name="platform_property_tool_or_menuitem">
+                                        <tooltip>Platform Specific Example</tooltip>
+                                        <bitmap>platform.xpm</bitmap>
+                                        <longhelp>Customize parts of an interface for a desired platform</longhelp>
+                                    </object>
+                                    <object class="tool" name="art_provider_tool_or_menuitem">
+                                        <tooltip>wxArtProvider Example</tooltip>
+                                        <bitmap>artprov.xpm</bitmap>
+                                        <longhelp>Use wxArtProvider to insert desired icons at runtime</longhelp>
+                                    </object>
+                                    <object class="tool" name="variable_expansion_tool_or_menuitem">
+                                        <tooltip>Variable Expansion Example</tooltip>
+                                        <bitmap>variable.xpm</bitmap>
+                                        <longhelp>Replace variables in the XRC file at runtime</longhelp>
+                                    </object>
+                                    <object class="wxComboBox">
+                                        <content>
+                                            <item>Just</item>
+                                            <item>a combobox</item>
+                                            <item>in the toolbar</item>
+                                        </content>
+                                    </object>
+                                    <object class="wxOwnerDrawnComboBox">
+                                        <content>
+                                            <item>Owner Drawn</item>
+                                            <item>combobox</item>
+                                            <item>in the toolbar</item>
+                                        </content>
+                                    </object>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+
+
+                <object class="notebookpage">
+                    <label>wxBitmapButton</label>
+                    <object class="wxPanel" name="bitmapbutton">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxBitmapButton" name="controls_bitmapbutton">
+                                    <bitmap>controls.xpm</bitmap>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxButton</label>
+                    <object class="wxPanel" name="button">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_normal_button">
+                                    <label>Normal button:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxButton" name="controls_normal_button">
+                                    <label>OK</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_statictext2_button">
+                                    <label>wxNO_BORDER style:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxButton" name="controls_flat_button">
+                                    <style>wxNO_BORDER</style>
+                                    <label>OK</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxCalendarControl</label>
+                    <object class="wxPanel" name="calendar">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCalendarCtrl" name="controls_calendarctrl">
+                                <size>-1,-1</size>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxCheckBox</label>
+                    <object class="wxPanel" name="checkbox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="controls_unchecked_checkbox">
+                                    <label>Unchecked initially</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="controls_checked_checkbox">
+                                    <label>Checked initially</label>
+                                    <checked>1</checked>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxCheckListBox</label>
+                    <object class="wxPanel" name="checklist">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckListBox" name="conrols_checklist">
+                                <size>180,180</size>
+                                    <content>
+                                        <item checked="1">Download library</item>
+                                        <item checked="1">Compile samples</item>
+                                        <item checked="1">Skim docs</item>
+                                        <item checked="1">Finish project</item>
+                                        <item>Wash car</item>
+                                    </content>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+
+                <object class="notebookpage">
+                    <label>wxChoice</label>
+                    <object class="wxPanel" name="choice">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxChoice" name="controls_choice">
+                                    <size>180,-1</size>
+                                    <content>
+                                        <item>See</item>
+                                        <item>Hear</item>
+                                        <item>Feel</item>
+                                        <item>Smell</item>
+                                        <item>Taste</item>
+                                        <item>The Sixth Sense!</item>
+                                    </content>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxComboBox</label>
+                    <object class="wxPanel" name="combobox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxComboBox" name="controls_combobox">
+                                    <size>200,-1</size>
+                                    <style>wxCB_DROPDOWN</style>
+                                    <selection>4</selection>
+                                    <content>
+                                        <item>vim</item>
+                                        <item>emacs</item>
+                                        <item>notepad.exe</item>
+                                        <item>bbedit</item>
+                                        <item>nedit</item>
+                                    </content>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_TOP|wxALIGN_CENTRE_HORIZONTAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxBitmapComboBox">
+                                    <size>200,-1</size>
+                                    <style>wxCB_READONLY</style>
+                                    <selection>2</selection>
+                                    <object class="ownerdrawnitem">
+										<text>This is a</text>
+										<bitmap>basicdlg.xpm</bitmap>
+									 </object>
+                                    <object class="ownerdrawnitem">
+										<text>read-only</text>
+										<bitmap>derivdlg.xpm</bitmap>
+									 </object>
+                                    <object class="ownerdrawnitem">
+										<text>wxBitmapComboBox</text>
+										<bitmap>uncenter.xpm</bitmap>
+									 </object>
+                                    <object class="ownerdrawnitem">
+										<text>control</text>
+										<bitmap>custclas.xpm</bitmap>
+									</object>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxGauge</label>
+                    <object class="wxPanel" name="gauge">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_guage1_statictext">
+                                    <label>Horizontal smooth:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxGauge" name="controls_horizontal_gauge">
+                                    <style>wxGA_SMOOTH</style>
+                                    <size>100,-1</size>
+                                    <max>100</max>
+                                    <value>50</value>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_gauge2_statictext">
+                                    <label>Vertical: custom width</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxGauge" name="controls_vertical_gauge">
+                                    <style>wxGA_VERTICAL</style>
+                                    <size>40,60</size>
+                                    <max>100</max>
+                                    <value>40</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxGenericDirCtrl</label>
+                    <object class="wxPanel" name="genericdirctrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxGenericDirCtrl" name="controls_genericdirctrl">
+                                    <size>200,200</size>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxHtmlWindow</label>
+                    <object class="wxPanel" name="htmlwindow">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxHtmlWindow" name="controls_htmlwindow">
+                                <size>450,250</size>
+                                <htmlcode>
+                                    &lt;h2&gt;XRC Resources HTML&lt;/h2&gt;
+                                    &lt;p&gt;&lt;font color="#0000FF"&gt;XRC=Blue skies ahead.&lt;/font&gt;
+                                    &lt;p&gt;Italics useful for quoted or emphasized text:&lt;i&gt;"Some see things as they are and say why.
+                                    I dream things that never were, and say why not"&lt;/i&gt;
+                                    &lt;p&gt;&lt;pre&gt;Fixed width for code snippets.&lt;/pre&gt;
+                                    &lt;p&gt;Horizontal rules to organize sections: &lt;hr&gt;
+                                    &lt;p&gt;A wxImage is worth a thousand words and can be also used.
+                                </htmlcode>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxListBox</label>
+                    <object class="wxPanel" name="listbox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxListBox" name="controls_listbox">
+                                    <size>250,160</size>
+                                    <style>wxLB_SINGLE</style>
+                                    <content>
+                                        <item>Milk</item>
+                                        <item>Pizza</item>
+                                        <item>Bread</item>
+                                        <item>Orange juice</item>
+                                        <item>Paper towels</item>
+                                    </content>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxSimpleHtmlListBox</label>
+                    <object class="wxPanel" name="simplehtmllistbox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSimpleHtmlListBox" name="controls_simplehtmllistbox">
+                                    <size>250,160</size>
+                                    <style>wxHLB_MULTIPLE|wxHLB_DEFAULT_STYLE</style>
+                                    <content>
+                                        <item>&lt;b&gt;Bold&lt;/b&gt; Milk</item>
+                                        <item>&lt;i&gt;Rainbow &lt;font color="red"&gt;P&lt;/font&gt;&lt;font color="blue"&gt;i&lt;/font&gt;&lt;font color="yellow"&gt;z&lt;/font&gt;&lt;font color="green"&gt;z&lt;/font&gt;&lt;font color="purple"&gt;a&lt;/font&gt;&lt;/i&gt;</item>
+                                        <item>&lt;tt&gt;Plain bread&lt;/tt&gt;</item>
+                                        <item>&lt;font color="orange" size="+1"&gt;Orange juice&lt;/font&gt;</item>
+                                        <item>Paper towels</item>
+                                    </content>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxListCtrl</label>
+                    <object class="wxPanel" name="listctrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxListCtrl" name="controls_listctrl">
+                                    <size>220,160</size>
+                                    <style>wxLC_REPORT|wxSUNKEN_BORDER</style>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxPanel</label>
+                    <object class="wxPanel" name="panel">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxPanel" name="controls_panel">
+                                    <size>200,160</size>
+                                    <bg>#0000FF</bg>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxSplitterWindow</label>
+                    <object class="wxPanel" name="panel">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSplitterWindow">
+                                    <minsize>50</minsize>
+                                    <sashpos>100</sashpos>
+                                    <size>400,200</size>
+                                    <object class="wxPanel" name="controls_panel">
+                                        <bg>#0000FF</bg>
+                                    </object>
+                                    <object class="wxPanel" name="controls_panel">
+                                        <bg>#00FF00</bg>
+                                    </object>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxRadioButton</label>
+                    <object class="wxPanel" name="radiobutton">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxRadioButton" name="controls_unselected_radiobutton">
+                                    <label>Not selected</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxRadioButton" name="controls_selected_radiobutton">
+                                    <label>Selected</label>
+                                    <value>1</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxRadioBox</label>
+                    <object class="wxPanel" name="radiobox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxRadioBox" name="controls_radiobox">
+                                    <style>wxRA_SPECIFY_COLS</style>
+                                    <label>Radio stations</label>
+                                    <dimension>1</dimension>
+                                    <selection>0</selection>
+                                    <content>
+                                        <item tooltip="Powerful radio station" helptext="This station is for amateurs of hard rock and heavy metal">Power 108</item>
+                                        <item tooltip="">WMMS 100.7</item>
+                                        <item tooltip="E=mc^2">Energy 98.3</item>
+                                        <item helptext="Favourite chukcha's radio">CHUM FM</item>
+                                        <item>92FM</item>
+                                    </content>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxScrollBar</label>
+                    <object class="wxPanel" name="scrollbar">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxScrollBar" name="controls_scrollbar">
+                                    <size>-1,160</size>
+                                    <value>50</value>
+                                    <range>100</range>
+                                    <thumbsize>30</thumbsize>
+                                    <style>wxSB_VERTICAL</style>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxSlider</label>
+                    <object class="wxPanel" name="slider">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_slider1_statictext">
+                                    <label>Without ticks:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSlider" name="controls_noticks_slider">
+                                    <size>100,-1</size>
+                                    <style>wxSL_HORIZONTAL</style>
+                                    <max>100</max>
+                                    <value>0</value>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_slider2_statictext">
+                                    <label>With ticks:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSlider" name="controls_ticks_slider">
+                                    <size>100,-1</size>
+                                    <style>wxSL_HORIZONTAL|wxSL_LABELS</style>
+                                    <max>100</max>
+                                    <value>0</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxSpinButton</label>
+                    <object class="wxPanel" name="spinbutton">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSpinButton" name="controls_spinbutton">
+                                    <style>wxSP_WRAP</style>
+                                    <max>100</max>
+                                    <value>0</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxSpinCtrl</label>
+                    <object class="wxPanel" name="spinctrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxSpinCtrl" name="controls_spinctrl">
+                                    <size>100,-1</size>
+                                    <max>100</max>
+                                    <value>0</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxStaticBitmap</label>
+                    <object class="wxPanel" name="staticbitmap">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticBitmap" name="controls_staticbitmap">
+                                    <bitmap>appicon.xpm</bitmap>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxStaticBox</label>
+                    <object class="wxPanel" name="staticbox">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticBoxSizer">
+                                    <orient>wxVERTICAL</orient>
+                                    <label>Internet options</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxStaticLine</label>
+                    <object class="wxPanel" name="staticline">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0,1</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticLine" name="controls_v_staticline">
+                                    <size>-1,100</size>
+                                    <style>wxLI_VERTICAL</style>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticLine" name="controls_h_staticline">
+                                    <size>150,-1</size>
+                                    <style>wxLI_HORIZONTAL</style>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxStaticText</label>
+                    <object class="wxPanel" name="statictext">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_statictext">
+                                    <label>It was a dark and stormy night.</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxTextCtrl</label>
+                    <object class="wxPanel" name="textctrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1,2</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_textctrl1_statictext">
+                                    <label>Single line:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxTextCtrl" name="controls_single_textctrl">
+                                    <size>180,-1</size>
+                                    <value>A.A. Milne</value>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_textctrl2_statictext">
+                                    <label>Password:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxTextCtrl" name="controls_password_textctrl">
+                                    <size>180,-1</size>
+                                    <style>wxTE_PASSWORD</style>
+                                    <value>TooManySecrets</value>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_textctrl3_statictext">
+                                    <label>Multiline:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTER_VERTICAL|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxTextCtrl" name="controls_multiline_textctrl">
+                                    <size>180,90</size>
+                                    <style>wxTE_MULTILINE</style>
+                                    <value>"So many pretty widgets" said Pooh, said he. "So many pretty widgets", said Pooh.</value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object class="notebookpage">
+                    <label>wxTreeCtrl</label>
+                    <object class="wxPanel" name="treectrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxTreeCtrl" name="controls_treectrl">
+                                    <size>280,180</size>
+                                    <style>wxTR_HAS_BUTTONS|wxSUNKEN_BORDER</style>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+
+                <object class="notebookpage">
+                    <label>wx*PickerCtrl</label>
+                    <object class="wxPanel" name="pickers">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>0</rows>
+                            <vgap>10</vgap>
+                            <hgap>10</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0,1,2,3</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_pickers_statictext">
+                                    <label>wxColourPickerCtrl:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALL</flag>
+                                <option>1</option>
+                                <border>5</border>
+                                <object class="wxColourPickerCtrl" name="controls_colourpicker">
+                                    <value>#00ff00</value>
+                                    <style>wxCLRP_SHOW_LABEL</style>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_pickers_statictext2">
+                                    <label>wxFilePickerCtrl:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALL</flag>
+                                <option>1</option>
+                                <border>5</border>
+                                <object class="wxFilePickerCtrl" name="controls_filepicker">
+                                    <message>Here goes a message</message>
+                                    <style>wxFLP_OPEN</style>
+                                    <wildcard>*.png</wildcard>
+                                    <value/>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_pickers_statictext3">
+                                    <label>wxDirPickerCtrl:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALL</flag>
+                                <option>1</option>
+                                <border>5</border>
+                                <object class="wxDirPickerCtrl" name="controls_dirpicker">
+                                    <value/>
+                                    <style>wxDIRP_CHANGE_DIR</style>
+                                    <message>Here goes a message</message>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_pickers_statictext4">
+                                    <label>wxFontPickerCtrl:</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALL</flag>
+                                <option>1</option>
+                                <border>5</border>
+                                <object class="wxFontPickerCtrl" name="controls_fontpicker">
+                                    <style>wxFNTP_USEFONT_FOR_LABEL</style>
+                                    <value>
+                                        <size>20</size>
+                                        <sysfont>wxSYS_DEFAULT_GUI_FONT</sysfont>
+                                    </value>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+
+                <object class="notebookpage">
+                    <label>wxAnimationCtrl</label>
+                    <object class="wxPanel" name="animctrl">
+                        <object class="wxFlexGridSizer">
+                            <cols>2</cols>
+                            <rows>1</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0,1</growablecols>
+                            <growablerows>0</growablerows>
+
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxButton" name="controls_animation_button_play">
+                                    <label>Play</label>
+                                </object>
+                            </object>
+
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxAnimationCtrl" name="controls_animation_ctrl">
+                                    <animation>throbber.gif</animation>
+                                    <inactive-bitmap>stop.xpm</inactive-bitmap>
+                                </object>
+                            </object>
+
+                        </object>
+                    </object>
+                </object>
+
+                <object class="notebookpage">
+                    <label>wxCollapsiblePane</label>
+                    <object class="wxPanel" name="collpane">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>1</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0</growablerows>
+
+                            <object class="sizeritem">
+                                <flag>wxGROW|wxALL</flag>
+                                <border>5</border>
+                                <option>1</option>
+                                <object class="wxCollapsiblePane" name="controls_collpane">
+                                    <label>Details:</label>
+                                    <collapsed>0</collapsed>
+                                    <object class="panewindow">
+
+                                        <object class="wxFlexGridSizer">
+                                            <cols>1</cols>
+                                            <rows>1</rows>
+                                            <vgap>0</vgap>
+                                            <hgap>0</hgap>
+                                            <growablecols>0</growablecols>
+                                            <growablerows>0</growablerows>
+
+                                            <object class="sizeritem">
+                                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                                <border>5</border>
+                                                <object class="wxStaticText" name="controls_dialog_statictext">
+                                                    <label>
+Inside a wxCollapsiblePane you can put everything you want and
+lay them out using wxSizers, absolute positioning, everything you like!
+                                                    </label>
+                                                </object>
+                                            </object>
+                                        </object>
+
+                                    </object>
+                                </object>
+                            </object>
+
+                        </object>
+                    </object>
+                </object>
+
+                <object class="notebookpage">
+                    <label>The Rest</label>
+                    <object class="wxPanel" name="Rest">
+                        <object class="wxFlexGridSizer">
+                            <cols>1</cols>
+                            <rows>0</rows>
+                            <vgap>0</vgap>
+                            <hgap>0</hgap>
+                            <growablecols>0</growablecols>
+                            <growablerows>0,1,2,3,4,5,6</growablerows>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_dialog_statictext">
+                                    <label>wxDialog (This dialog is one)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_frame_statictext">
+                                    <label>wxFrame (This application's main frame is one)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_menu_statictext">
+                                    <label>wxMenu (This application's main frame uses one)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_notebook_statictextT">
+                                    <label>wxNotebook (This dialog uses one)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_sizer">
+                                    <label>wxSizer (Used throughout application)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_toolbar_statictext">
+                                    <label>wxToolbar (This application's main frame uses one)</label>
+                                </object>
+                            </object>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxStaticText" name="controls_unknown_statictext">
+                                    <label>unknown controls (See Custom Class example)</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxButton" name="wxID_OK">
+                <label>OK</label>
+                <default>1</default>
+            </object>
+        </object>
+    </object>
+</object>
+
+</resource>

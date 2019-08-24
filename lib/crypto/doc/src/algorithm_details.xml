@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Algorithm Details</title>
+    <prepared>Hans Nilsson</prepared>
+    <docno></docno>
+    <date>2018-08-22</date>
+    <rev>A</rev>
+    <file>algorithm_details.xml</file>
+  </header>
+  <p>
+    This chapter describes details of algorithms in the crypto application.
+  </p>
+  <p>The tables only documents the supported cryptos and key lengths. The user should not draw any conclusion
+  on security from the supplied tables.
+  </p>
+
+  <section>
+    <title>Ciphers</title>
+    <p>A <seealso marker="crypto#type-cipher">cipher</seealso> in the
+    <seealso marker="crypto:new_api#the-new-api">new api</seealso>
+    is categorized as either
+    <seealso marker="crypto#type-cipher_no_iv">cipher_no_iv()</seealso>,
+    <seealso marker="crypto#type-cipher_iv">cipher_iv()</seealso> or
+    <seealso marker="crypto#type-cipher_aead">cipher_aead()</seealso>.
+    The letters IV are short for <i>Initialization Vector</i> and
+    AEAD is an abreviation of <i>Authenticated Encryption with Associated Data</i>.
+    </p>
+    <p>Due to irregular naming conventions, some cipher names in the old api are
+    substitued by new names in the new api. For a list of retired names, see
+    <seealso marker="crypto:new_api#retired-cipher-names">Retired cipher names</seealso>.
+    </p>
+    <p>To dynamically check availability, check that the name in the <i>Cipher and Mode</i> column is present in the
+    list returned by <seealso marker="crypto#supports-1">crypto:supports(ciphers)</seealso>.
+    </p>
+    
+    <section>
+      <title>Ciphers without an IV - cipher_no_iv()</title>
+      <p>To be used with:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
+	<item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
+      </list>
+      <p>The ciphers are:
+      </p>
+      <table>
+	<row>
+	  <cell><strong>Cipher and Mode</strong></cell>
+	  <cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell>
+	</row>
+	<row><cell><c>aes_128_ecb</c></cell>  <cell>16</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_192_ecb</c></cell>  <cell>24</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_256_ecb</c></cell>  <cell>32</cell>      <cell>16</cell></row>
+	<row><cell><c>blowfish_ecb</c></cell> <cell>16</cell>      <cell>&nbsp;8</cell></row>
+	<row><cell><c>des_ecb</c></cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell></row>
+	<row><cell><c>rc4</c></cell>          <cell>16</cell>      <cell>&nbsp;1</cell></row>
+	<tcaption>Ciphers without IV</tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>Ciphers with an IV - cipher_iv()</title>
+      <p>To be used with:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso></item>
+	<item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
+	<item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
+      </list>
+      <p>The ciphers are:
+      </p>
+      <table>
+	<row>
+	  <cell><strong>Cipher and Mode</strong></cell>
+	  <cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Limited to</strong><br/><strong>OpenSSL versions</strong></cell>
+	</row>
+	<row><cell><c>aes_128_cbc</c></cell>   <cell>16</cell>      <cell>16</cell>      <cell>16</cell>      <cell></cell></row>
+	<row><cell><c>aes_192_cbc</c></cell>   <cell>24</cell>      <cell>16</cell>      <cell>16</cell>      <cell></cell></row>
+	<row><cell><c>aes_256_cbc</c></cell>   <cell>32</cell>      <cell>16</cell>      <cell>16</cell>      <cell></cell></row>
+	<row><cell><c>aes_128_cfb8</c></cell>  <cell>16</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_192_cfb8</c></cell>  <cell>24</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_256_cfb8</c></cell>  <cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_128_cfb128</c></cell><cell>16</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_192_cfb128</c></cell><cell>24</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_256_cfb128</c></cell><cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_128_ctr</c></cell>   <cell>16</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_192_ctr</c></cell>   <cell>24</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_256_ctr</c></cell>   <cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_ige256</c></cell>    <cell>16</cell>      <cell>32</cell>      <cell>16</cell>      <cell></cell></row>
+	<row><cell><c>blowfish_cbc</c></cell>  <cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell></cell></row>
+	<row><cell><c>blowfish_cfb64</c></cell><cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>blowfish_ofb64</c></cell><cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>chacha20</c></cell>      <cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell>&#8805;1.1.0d</cell></row>
+	<row><cell><c>des_cbc</c></cell>       <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell></cell></row>
+	<row><cell><c>des_ede3_cbc</c></cell>  <cell>24</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell></cell></row>
+	<row><cell><c>des_cfb</c></cell>       <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>des_ede3_cfb</c></cell>  <cell>24</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>rc2_cbc</c></cell>       <cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell></cell></row>
+	<tcaption>Ciphers with IV</tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>Ciphers with AEAD - cipher_aead()</title>
+      <p>To be used with:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
+      </list>
+      <p>The ciphers are:
+      </p>
+      <table>
+	<row>
+	  <cell><strong>Cipher and Mode</strong></cell>
+	  <cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>AAD length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Tag length</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell>
+	  <cell><strong>Limited to</strong><br/><strong>OpenSSL versions</strong></cell>
+	</row>
+	<row><cell><c>aes_128_ccm</c></cell> <cell>16</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+	<row><cell><c>aes_192_ccm</c></cell> <cell>24</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+	<row><cell><c>aes_256_ccm</c></cell> <cell>32</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+
+	<row><cell><c>aes_128_gcm</c></cell> <cell>16</cell> <cell>&#8805;1</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+	<row><cell><c>aes_192_gcm</c></cell> <cell>24</cell> <cell>&#8805;1</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+	<row><cell><c>aes_256_gcm</c></cell> <cell>32</cell> <cell>&#8805;1</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>&#8805;1.0.1</cell></row>
+
+	<row><cell><c>chacha20_poly1305</c></cell><cell>32</cell> <cell>1-16</cell> <cell>any</cell> <cell>16</cell> <cell>any</cell><cell>&#8805;1.1.0</cell></row>
+	<tcaption>AEAD ciphers</tcaption>
+      </table>
+    </section>
+  </section>
+
+  
+  <section>
+    <title>Message Authentication Codes (MACs)</title>
+    <p>To be used in <seealso marker="crypto#mac-4">mac/4</seealso> and
+    <seealso marker="crypto:new_api#macs--message-authentication-codes-">related functions</seealso>.
+    </p>
+
+    <section>
+      <title>CMAC</title>
+      <p>CMAC with the following ciphers are available with OpenSSL 1.0.1 or later if not disabled by configuration.
+      </p>
+
+      <p>To dynamically check availability, check that the name <c>cmac</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso>.
+      Also check that the name in the <i>Cipher and Mode</i> column is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(ciphers)</seealso>.
+      </p>
+      <table>
+	<row>
+	   <cell><strong>Cipher and Mode</strong></cell>
+	   <cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell>
+	   <cell><strong>Max Mac Length</strong><br/><strong>(= default length)</strong><br/><strong>[bytes]</strong></cell>
+	</row>
+	<row><cell><c>aes_128_cbc</c></cell>  <cell>16</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_192_cbc</c></cell>  <cell>24</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_256_cbc</c></cell>  <cell>32</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_128_ecb</c></cell>  <cell>16</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_192_ecb</c></cell>  <cell>24</cell>      <cell>16</cell></row>
+	<row><cell><c>aes_256_ecb</c></cell>  <cell>32</cell>      <cell>16</cell></row>
+	<row><cell><c>blowfish_cbc</c></cell> <cell>16</cell>      <cell>&nbsp;8</cell></row>
+	<row><cell><c>blowfish_ecb</c></cell> <cell>16</cell>      <cell>&nbsp;8</cell></row>
+	<row><cell><c>des_cbc</c></cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell></row>
+	<row><cell><c>des_ecb</c></cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell></row>
+	<row><cell><c>des_ede3_cbc</c></cell> <cell>24</cell>      <cell>&nbsp;8</cell></row>
+	<row><cell><c>rc2_cbc</c></cell>      <cell>16</cell>      <cell>&nbsp;8</cell></row>
+	<tcaption>CMAC cipher key lengths</tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>HMAC</title>
+      <p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
+      </p>
+      <p>To dynamically check availability, check that the name <c>hmac</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso> and
+      that the hash name is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(hashs)</seealso>.
+      </p>
+
+      <table>
+	<row>
+	   <cell><strong>Hash</strong></cell>
+	   <cell><strong>Max Mac Length</strong><br/><strong>(= default length)</strong><br/><strong>[bytes]</strong></cell>
+	</row>
+	<row><cell><c>sha</c></cell>       <cell>20</cell></row>
+	<row><cell><c>sha224</c></cell>    <cell>28</cell></row>
+	<row><cell><c>sha256</c></cell>    <cell>32</cell></row>
+	<row><cell><c>sha384</c></cell>    <cell>48</cell></row>
+	<row><cell><c>sha512</c></cell>    <cell>64</cell></row>
+	<row><cell><c>sha3_224</c></cell>  <cell>28</cell></row>
+	<row><cell><c>sha3_256</c></cell>  <cell>32</cell></row>
+	<row><cell><c>sha3_384</c></cell>  <cell>48</cell></row>
+	<row><cell><c>sha3_512</c></cell>  <cell>64</cell></row>
+	<row><cell><c>blake2b</c></cell>   <cell>64</cell></row>
+	<row><cell><c>blake2s</c></cell>   <cell>32</cell></row>
+	<row><cell><c>md4</c></cell>       <cell>16</cell></row>
+	<row><cell><c>md5</c></cell>       <cell>16</cell></row>
+	<row><cell><c>ripemd160</c></cell> <cell>20</cell></row>
+	<tcaption>HMAC output sizes</tcaption>
+      </table>
+	
+      
+    </section>
+
+    <section>
+      <title>POLY1305</title>
+      <p>POLY1305 is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+      </p>
+      <p>To dynamically check availability, check that the name <c>poly1305</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso>.
+      </p>
+      <p>The poly1305 mac wants an 32 bytes key and produces a 16 byte MAC by default.
+      </p>
+    </section>
+
+  </section>
+
+  <section>
+    <title>Hash</title>
+
+    <p>To dynamically check availability, check that the wanted name in the <i>Names</i> column is present in the
+    list returned by <seealso marker="crypto#supports-1">crypto:supports(hashs)</seealso>.
+    </p>
+
+    <table>
+      <row><cell><strong>Type</strong></cell>
+           <cell><strong>Names</strong></cell>
+           <cell><strong>Limitated to</strong><br/><strong>OpenSSL versions</strong></cell>
+      </row>
+      <row><cell>SHA1</cell><cell>sha</cell><cell></cell></row>
+      <row><cell>SHA2</cell><cell>sha224, sha256, sha384, sha512</cell><cell></cell></row>
+      <row><cell>SHA3</cell><cell>sha3_224, sha3_256, sha3_384, sha3_512</cell><cell>&#8805;1.1.1</cell></row>
+      <row><cell>MD4</cell><cell>md4</cell><cell></cell></row>
+      <row><cell>MD5</cell><cell>md5</cell><cell></cell></row>
+      <row><cell>RIPEMD</cell><cell>ripemd160</cell><cell></cell></row>
+      <tcaption></tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>Public Key Cryptography</title>
+
+    <section>
+      <title>RSA</title>
+      <p>RSA is available with all OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>rsa</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      </p>
+      <warning>
+	<!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	<p>The RSA options are experimental.
+	</p>
+	<p>The exact set of options and there syntax <em>may</em> be changed
+	without prior notice.</p>
+      </warning>
+      <table>
+	<row><cell><strong>Option</strong></cell>
+	     <cell><strong>sign/verify</strong></cell>
+	     <cell><strong>public encrypt</strong><br/><strong>private decrypt</strong></cell>
+	     <cell><strong>private encrypt</strong><br/><strong>public decrypt</strong></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_x931_padding}</cell>
+             <cell>x</cell>
+             <cell></cell>
+             <cell>x</cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_padding}</cell>
+	     <cell>x</cell>
+             <cell>x</cell>
+             <cell>x</cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_pss_padding}<br/>
+	           {rsa_pss_saltlen, -2..}<br/>
+		   {rsa_mgf1_md, atom()}
+             </cell>
+	     <cell>x (2)<br/>
+	           x (2)<br/>
+	           x (2)</cell>
+	     <cell></cell>
+             <cell></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_oaep_padding}<br/>
+                   {rsa_mgf1_md, atom()}<br/>
+	           {rsa_oaep_label, binary()}}<br/>
+		   {rsa_oaep_md, atom()}
+	     </cell>
+	     <cell></cell>
+             <cell>x (2)<br/>
+	           x (2)<br/>
+	           x (3)<br/>
+	           x (3)
+	     </cell>
+	     <cell></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_no_padding}</cell>
+             <cell>x (1)</cell>
+	     <cell></cell>
+             <cell></cell>
+	</row>
+	<!-- row><cell>{rsa_padding,rsa_sslv23_padding}</cell>
+	     <cell></cell>
+             <cell></cell>
+             <cell></cell>
+	</row -->
+	<tcaption></tcaption>
+      </table>
+      <p>Notes:</p>
+      <list type="ordered">
+	<item>(1)  OpenSSL &#8804; 1.0.0</item>
+	<item>(2)  OpenSSL &#8805; 1.0.1</item>
+	<item>(3)  OpenSSL &#8805; 1.1.0</item>
+      </list>
+    </section>
+
+    <section>
+      <title>DSS</title>
+      <p>DSS is available with OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>dss</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>ECDSA</title>
+      <p>ECDSA is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>ecdsa</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      If the atom <c>ec_gf2m</c> also is present, the characteristic two field curves are available.
+      </p>
+      <p>The actual supported named curves could be checked by examining the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>EdDSA</title>
+      <p>EdDSA is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>eddsa</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      </p>
+      <p>Support for the curves ed25519 and ed448 is implemented.
+      The actual supported named curves could be checked by examining the list with the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>Diffie-Hellman</title>
+      <p>Diffie-Hellman computations are available with OpenSSL versions compatible with Erlang CRYPTO
+      if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>dh</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>Elliptic Curve Diffie-Hellman</title>
+      <p>Elliptic Curve Diffie-Hellman is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>ecdh</c> is present in the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      </p>
+
+      <p>The Edward curves <c>x25519</c> and <c>x448</c> are supported with OpenSSL 1.1.1 or later
+      if not disabled by configuration.
+      </p>
+
+      <p>The actual supported named curves could be checked by examining the
+      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      </p>
+    </section>
+
+  </section>
+
+
+</chapter>
+
+
+
+
+

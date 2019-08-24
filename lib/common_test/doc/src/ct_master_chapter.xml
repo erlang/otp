@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Using Common Test for Large-Scale Testing</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ct_master_chapter.xml</file>
+  </header>
+
+  <section>
+    <marker id="general"></marker>
+    <title>General</title>
+    <p>Large-scale automated testing requires running multiple independent 
+      test sessions in parallel. This is accomplished by running
+      some <c>Common Test</c> nodes on one or more hosts, testing
+      different target systems. Configuring, starting, and controlling the
+      test nodes independently can be a cumbersome operation. To aid
+      this kind of automated large-scale testing, <c>Common Test</c> offers a master 
+      test node component, <c>Common Test</c> Master, which handles central configuration and control
+      in a system of distributed <c>Common Test</c> nodes.</p>
+
+    <p>The <c>Common Test</c> Master server runs on one dedicated Erlang node and uses distributed
+      Erlang to communicate with any number of <c>Common Test</c> test nodes, each hosting a regular
+      <c>Common Test</c> server. Test specifications are used as input to specify what to test on which 
+      test nodes, using what configuration.</p> 
+
+    <p>The <c>Common Test</c> Master server writes progress information to HTML log files similarly 
+      to the regular <c>Common Test</c> server. The logs contain test statistics and links to the 
+      log files written by each independent <c>Common Test</c> server.</p>
+
+    <p>The <c>Common Test</c> Master API is exported by module 
+    <seealso marker="ct_master"><c>ct_master</c></seealso>.</p>
+  </section>
+  <section>
+    <title>Use</title>
+    <p><c>Common Test</c> Master requires all test nodes to be on the same network and share a common 
+      file system. <c>Common Test</c> Master cannot start test nodes
+      automatically. The nodes must be started in advance for <c>Common Test</c> Master to be 
+      able to start test sessions on them.</p>
+      
+    <p>Tests are started by calling 
+     <seealso marker="ct_master#run-1"><c>ct_master:run(TestSpecs)</c></seealso> or 
+     <seealso marker="ct_master#run-3"><c>ct_master:run(TestSpecs, InclNodes, ExclNodes)</c></seealso></p>
+    
+    <p><c>TestSpecs</c> is either the name of a test specification file (string) or a list 
+      of test specifications. If it is a list, the specifications are handled (and
+      the corresponding tests executed) in sequence. An element in a <c>TestSpecs</c> list 
+      can also be list of test specifications. The specifications in such a list are 
+      merged into one combined specification before test execution.</p>
+
+    <p><em>Example:</em></p>  
+    <pre>
+ ct_master:run(["ts1","ts2",["ts3","ts4"]])</pre>
+
+    <p>Here, the tests specified by "ts1" run first, then the tests specified by "ts2",
+      and finally the tests specified by both "ts3" and "ts4".</p>
+
+    <p>The <c>InclNodes</c> argument to <c>run/3</c> is a list of node names. Function
+      <c>run/3</c> runs the tests in <c>TestSpecs</c> just like <c>run/1</c>, but also 
+      takes any test in <c>TestSpecs</c>, which is not explicitly tagged with a particular 
+      node name, and execute it on the nodes listed in <c>InclNodes</c>. By using <c>run/3</c> 
+      this way, any test specification can be used, with or without node information, 
+      in a large-scale test environment.</p>
+      
+      <p><c>ExclNodes</c> is a list of nodes to be
+      excluded from the test. That is, tests that are specified in the test specification 
+      to run on a particular node are not performed if that node is 
+      listed in <c>ExclNodes</c> at runtime.</p>
+
+      <p>If <c>Common Test</c> Master fails initially to connect to any of the test nodes specified in a 
+      test specification or in the <c>InclNodes</c> list, the operator is prompted with 
+      the option to either start over again (after manually checking the status of the 
+      nodes in question), to run without the missing nodes, or to abort the operation.</p>
+
+      <p>When tests start, <c>Common Test</c> Master displays information to console about the involved nodes.  
+      <c>Common Test</c> Master also reports when tests finish, successfully or unsuccessfully. If
+      connection is lost to a node, the test on that node is considered finished. <c>Common Test</c> Master 
+      does not attempt to re-establish contact with the failing node.</p>
+
+      <p>At any time, to get the current status of the test nodes, call function 
+      <seealso marker="ct_master#progress-0"><c>ct_master:progress()</c></seealso>.</p>
+
+      <p>To stop one or more tests, use function
+      <seealso marker="ct_master#abort-0"><c>ct_master:abort()</c></seealso> (to stop all) or
+      <seealso marker="ct_master#abort-1"><c>ct_master:abort(Nodes)</c></seealso>.</p>
+
+      <p>For details about the <c>Common Test</c> Master API, see module
+      <seealso marker="ct_master"><c>ct_master</c></seealso>.</p>
+  </section>
+  <section>
+    <marker id="test_specifications"></marker>
+    <title>Test Specifications</title>
+    <p>The test specifications used as input to <c>Common Test</c> Master are fully compatible with the
+    specifications used as input to the regular <c>Common Test</c> server. The syntax is described in section 
+    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+    in section Running Tests and Analyzing Results.</p>
+
+    <p>All test specification terms can have a <c>NodeRefs</c> element. This element
+    specifies which node or nodes a configuration operation or a test is to be executed 
+    on. <c>NodeRefs</c> is defined as follows:</p>
+    
+    <p><c>NodeRefs = all_nodes | [NodeRef] | NodeRef</c></p>
+
+    <p><c>NodeRef = NodeAlias | node() | master</c></p>
+
+    <p>A <c>NodeAlias</c> (<c>atom()</c>) is used in a test specification as a 
+    reference to a node name (so the node name only needs to be declared once,
+    which also can be achieved using constants). 
+    The alias is declared with a <c>node</c> term as follows:</p>
+
+    <p><c>{node, NodeAlias, NodeName}</c></p>
+
+    <p>If <c>NodeRefs</c> has the value <c>all_nodes</c>, the operation or test
+    is performed on all specified test nodes. (Declaring a term without a <c>NodeRefs</c> 
+    element has the same effect). If <c>NodeRefs</c> has the value 
+    <c>master</c>, the operation is only performed on the <c>Common Test</c> Master node (namely set 
+    the log directory or install an event handler).</p>
+
+    <p>Consider the example in section 
+    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+    in section Running Tests and Analysing Results,
+     now extended with node information and intended to be executed by
+    <c>Common Test</c> Master:</p>
+
+    <pre>
+ {define, 'Top', "/home/test"}.
+ {define, 'T1', "'Top'/t1"}.
+ {define, 'T2', "'Top'/t2"}.
+ {define, 'T3', "'Top'/t3"}.
+ {define, 'CfgFile', "config.cfg"}.
+ {define, 'Node', ct_node}.
+
+ {node, node1, 'Node@host_x'}.
+ {node, node2, 'Node@host_y'}.
+
+ {logdir, master, "'Top'/master_logs"}.
+ {logdir, "'Top'/logs"}.
+
+ {config, node1, "'T1'/'CfgFile'"}.
+ {config, node2, "'T2'/'CfgFile'"}.
+ {config, "'T3'/'CfgFile'"}.
+
+ {suites, node1, 'T1', all}.
+ {skip_suites, node1, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+ {skip_cases, node1, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+ {skip_cases, node1, 'T1', t1C_SUITE, [test1], "Ignore"}.
+
+ {suites, node2, 'T2', [t2B_SUITE,t2C_SUITE]}.
+ {cases, node2, 'T2', t2A_SUITE, [test4,test1,test7]}.
+
+ {skip_suites, 'T3', all, "Not implemented"}.</pre>
+
+    <p>This example specifies the same tests as the original example. But 
+    now if started with a call to <c>ct_master:run(TestSpecName)</c>, test 
+    <c>t1</c> is executed on node <c>ct_node@host_x</c> (<c>node1</c>), test
+    <c>t2</c> on <c>ct_node@host_y</c> (<c>node2</c>) and test <c>t3</c>
+    on both <c>node1</c> and <c>node2</c>. Configuration file <c>t1</c> is only read on
+    <c>node1</c> and configuration file <c>t2</c> only on <c>node2</c>, while the 
+    configuration file <c>t3</c> is read on both <c>node1</c> and <c>node2</c>. 
+    Both test nodes write log files to the same directory. (However, the <c>Common Test</c> Master 
+    node uses a different log directory than the test nodes.)</p>
+
+    <p>If the test session is instead started with a call to 
+    <c>ct_master:run(TestSpecName, [ct_node@host_z], [ct_node@host_x])</c>, 
+    the result is that test <c>t1</c> does not run on 
+    <c>ct_node@host_x</c> (or any other node) while test <c>t3</c> runs on both
+    <c>ct_node@host_y</c> and <c>ct_node@host_z</c>.</p>
+    
+    <p>A nice feature is that a test specification that includes node 
+      information can still be used as input to the regular <c>Common Test</c> server 
+      (as described in section
+    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>). 
+    The result is that any test specified to run on a node with the same
+    name as the <c>Common Test</c> node in question (typically <c>ct@somehost</c> if started
+    with the <c>ct_run</c> program), is performed. Tests without explicit
+    node association are always performed too, of course.</p>
+  </section>
+
+  <section>
+    <title>Automatic Startup of Test Target Nodes</title>
+    <marker id="ct_slave"></marker>
+    <p>Initial actions can be started and performed automatically on
+      test target nodes using test specification term <c>init</c>.</p>
+    <p>Two subterms are supported, <c>node_start</c> and <c>eval</c>.</p>
+    <p><em>Example:</em></p>
+    <pre>
+ {node, node1, node1@host1}.
+ {node, node2, node1@host2}.
+ {node, node3, node2@host2}.
+ {node, node4, node1@host3}.
+ {init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
+ {init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
+ {init, node4, {eval, {module, function, []}}}.</pre>
+
+    <p>This test specification declares that <c>node1@host1</c> is to be started using
+      the user callback function <c>callback_module:my_slave_callback/0</c>, and nodes
+      <c>node1@host2</c> and <c>node2@host2</c> are to be started with the default callback
+      module <c>ct_slave</c>. The specified username and password are used to log on to remote
+      host <c>host2</c>. Also, function <c>module:function/0</c> is evaluated on
+      <c>node1@host3</c>, and the result of this call is printed to the log.</p>
+
+    <p>The default callback module <seealso marker="ct_slave">ct_slave</seealso>,
+       has the following features:
+    </p>
+    <list type="bulleted">
+     <item>Starting Erlang target nodes on local or remote hosts
+       (application <c>SSH</c> is used for communication).
+     </item>
+     <item>Ability to start an Erlang emulator with more flags
+       (any flags supported by <c>erl</c> are supported).
+     </item>
+     <item>Supervision of a node being started using internal callback
+        functions. Used to prevent hanging nodes. (Configurable.)
+     </item>
+     <item>Monitoring of the master node by the slaves. A slave node can be
+        stopped if the master node terminates. (Configurable.)
+     </item>
+     <item>Execution of user functions after a slave node is started. Functions can 
+     be specified as a list of <c>{Module, Function, Arguments}</c> tuples.
+     </item>
+    </list>
+    <note><p>An <c>eval</c> term for the node and
+    <c>startup_functions</c> in the <c>node_start</c> options list can be specified. 
+    In this case, the node is started first, then the <c>startup_functions</c> are
+    executed, and finally functions specified with <c>eval</c> are called.
+    </p></note>
+  </section>
+
+</chapter>
+
+

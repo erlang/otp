@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>et_viewer</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_viewer.xml</file>
+  </header>
+  <module since="">et_viewer</module>
+  <modulesummary>Displays a sequence chart for trace events (messages/actions)</modulesummary>
+  <description>
+    <p></p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">file(FileName) -> {ok, ViewerPid} | {error, Reason}</name>
+      <fsummary>Start a new event viewer and a corresponding collector and load them with trace events from a trace file.</fsummary>
+      <type>
+        <v>FileName() = string()</v>
+        <v>ViewerPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Start a new event viewer and a corresponding collector
+          and load them with trace events from a trace file.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start() -> ok</name>
+      <fsummary>Simplified start of a sequence chart viewer with global tracing activated.</fsummary>
+      <desc>
+        <p>Simplified start of a sequence chart viewer with
+          global tracing activated.</p>
+        <p>Convenient to be used from the command line
+          (erl -s et_viewer).</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start(Options) -> ok</name>
+      <fsummary>Start of a sequence chart viewer without linking to the parent process.</fsummary>
+      <desc>
+        <p>Start of a sequence chart viewer without linking
+          to the parent process.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start_link(Options) -> {ok, ViewerPid} | {error, Reason}</name>
+      <fsummary>Start a sequence chart viewer for trace events (messages/actions)</fsummary>
+      <type>
+        <v>Options = [option() | collector_option()]</v>
+        <v>option() = {parent_pid, extended_pid()} | {title, term()} | {detail_level, detail_level()} | {is_suspended, boolean()} | {scale, integer()} | {width, integer()} | {height, integer()} | {collector_pid, extended_pid()} | {event_order, event_order()} | {active_filter, atom()} | {max_actors, extended_integer()} | {trace_pattern, et_collector_trace_pattern()} | {trace_port, et_collector_trace_port()} | {trace_global, et_collector_trace_global()} | {trace_client, et_collector_trace_client()} | {dict_insert, {filter, filter_name()}, event_filter_fun()} | {dict_insert, et_collector_dict_key(), et_collector_dict_val()} | {dict_delete, {filter, filter_name()}} | {dict_delete, et_collector_dict_key()} | {actors, actors()} | {first_event, first_key()} | {hide_unknown, boolean()} | {hide_actions, boolean()} | {display_mode, display_mode()}</v>
+        <v>extended_pid() = pid() | undefined</v>
+        <v>detail_level() = min | max | integer(X) when X >=0, X =&lt; 100</v>
+        <v>event_order() = trace_ts | event_ts</v>
+        <v>extended_integer() = integer() | infinity</v>
+        <v>display_mode() = all | {search_actors, direction(), first_key(), actors()}</v>
+        <v>direction() = forward | reverse</v>
+        <v>first_key() = event_key()</v>
+        <v>actors() = [term()]</v>
+        <v></v>
+        <v>filter_name() = atom()</v>
+        <v>filter_fun() =  fun(Event) -> false | true | {true, NewEvent}</v>
+        <v>Event = NewEvent = record(event)</v>
+        <v>ViewerPid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Start a sequence chart viewer for trace events
+          (messages/actions)</p>
+        <p>A filter_fun() takes an event record as sole argument
+          and returns false | true | {true, NewEvent}.</p>
+        <p>If the <c>collector_pid</c> is <c>undefined</c> a new 
+          <c>et_collector</c> will be started with the following
+          parameter settings: <c>parent_pid</c>, <c>event_order</c>,
+          <c>trace_global</c>, <c>trace_pattern</c>, <c>trace_port</c>, <c>trace_max_queue</c>,
+          <c>trace_client</c>, <c>dict_insert</c> and <c>dict_delete</c>.
+          The new <c>et_viewer</c> will register itself as an <c>et_collector</c> 
+          subscriber.
+          </p>
+        <p>Default values:</p>
+        <list type="bulleted">
+          <item>parent_pid - self().</item>
+          <item>title - "et_viewer".</item>
+          <item>detail_level - max.</item>
+          <item>is_suspended - false.</item>
+          <item>scale - 2.</item>
+          <item>width - 800.</item>
+          <item>height - 600.</item>
+          <item>collector_pid - undefined.</item>
+          <item>event_order - trace_ts.</item>
+          <item>active_filter - collector.</item>
+          <item>max_actors - 5.</item>
+          <item>actors - ["UNKNOWN"].</item>
+          <item>first_event - first.</item>
+          <item>hide_unknown - false.</item>
+          <item>hide_actions - false.</item>
+          <item>display_mode - all.</item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_collector_pid(ViewerPid) -> CollectorPid</name>
+      <fsummary>Returns the identifier of the collector process</fsummary>
+      <type>
+        <v>ViewerPid = pid()</v>
+        <v>CollectorPid = pid()</v>
+      </type>
+      <desc>
+        <p>Returns the identifier of the collector process.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop(ViewerPid) -> ok</name>
+      <fsummary>Stops a viewer</fsummary>
+      <type>
+        <v>ViewerPid = pid()</v>
+      </type>
+      <desc>
+        <p>Stops a viewer process.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

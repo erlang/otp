@@ -1,0 +1,25 @@
+
+union_paren.erl:20: Function r1/0 has no local return
+union_paren.erl:21: Record construction #r1{f1::[4,...],f2::'undefined',f3::'undefined',f8::float()} violates the declared type of field f2::[atom() | pid() | integer()] and f3::[atom() | pid() | integer()] and f8::[atom() | pid() | integer()]
+union_paren.erl:23: Function t1/0 has no local return
+union_paren.erl:24: The call union_paren:t1(3.14) breaks the contract ((A::integer()) | (B::atom())) -> integer()
+union_paren.erl:30: Function t2/0 has no local return
+union_paren.erl:31: The call union_paren:t2(3.14) breaks the contract (integer() | atom()) -> integer()
+union_paren.erl:37: Function t3/0 has no local return
+union_paren.erl:38: The pattern 3.14 can never match the type atom() | integer()
+union_paren.erl:44: Function c1/0 has no local return
+union_paren.erl:45: The call union_paren:c1({'r0', 'a', 'undefined', 'undefined'}) breaks the contract (#r0{f1::integer() | pid()}) -> atom()
+union_paren.erl:51: Function c2/0 has no local return
+union_paren.erl:52: The call union_paren:c2({'r0', 'a', 'undefined', 'undefined'}) breaks the contract (#r0{f1::A::integer() | pid()}) -> atom()
+union_paren.erl:58: Function c3/0 has no local return
+union_paren.erl:59: The call union_paren:c3({'r0', 'a', 'undefined', 'undefined'}) breaks the contract (#r0{f1::(A::integer()) | (B::pid())}) -> atom()
+union_paren.erl:65: Function c4/0 has no local return
+union_paren.erl:66: The call union_paren:c4({'r0', 'a', 'undefined', 'undefined'}) breaks the contract (#r0{f1::X::(A::integer()) | (B::pid())}) -> atom()
+union_paren.erl:72: Function c5/0 has no local return
+union_paren.erl:73: The call union_paren:c5({'r1', ['a'], [1], ['a'], ['u']}) breaks the contract (#r1{f1::[integer()] | [pid()]}) -> atom()
+union_paren.erl:79: Function c6/0 has no local return
+union_paren.erl:80: The call union_paren:c6({'r1', ['a'], [1], ['a'], ['u']}) breaks the contract (#r1{f1::A::[integer()] | [pid()]}) -> atom()
+union_paren.erl:86: Function c7/0 has no local return
+union_paren.erl:87: The call union_paren:c7({'r1', ['a'], [1], ['a'], ['u']}) breaks the contract (#r1{f1::(A::[integer()]) | (B::[pid()])}) -> atom()
+union_paren.erl:93: Function c8/0 has no local return
+union_paren.erl:94: The call union_paren:c8({'r1', ['a'], [1], ['a'], ['u']}) breaks the contract (#r1{f1::X::(A::[integer()]) | (B::[pid()])}) -> atom()

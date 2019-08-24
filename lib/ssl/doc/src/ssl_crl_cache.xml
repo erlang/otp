@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2015</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+    <title>ssl_crl_cache</title>
+    <file>ssl_crl_cache.xml</file>
+  </header>
+  
+  <module since="OTP 18.0">ssl_crl_cache</module>
+  <modulesummary>CRL cache </modulesummary>
+  <description>
+    <p>
+      Implements an internal CRL (Certificate Revocation List) cache.
+      In addition to implementing the <seealso
+      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seealso> behaviour
+      the following functions are available.
+    </p>
+  </description>
+
+    <datatypes>
+    <datatype_title>DATA TYPES</datatype_title>
+
+      <datatype>
+	<name name="crl_src"/>
+      </datatype>
+
+      <datatype>
+	<name name="uri"/>
+      </datatype>
+
+    </datatypes>
+  
+    <funcs>
+      <func>
+	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
+	<fsummary> </fsummary>
+	<type>
+	  <v> Entries =  <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
+	  <v> Reason = crl_reason()</v>
+	</type>
+	<desc>
+	  <p>Delete CRLs from the ssl applications local cache. </p>
+	</desc>
+      </func>     
+      <func>
+	<name since="OTP 18.0">insert(CRLSrc) -> ok | {error, Reason}</name>
+	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
+	<fsummary> </fsummary>
+	<type>
+	  <v> CRLSrc = <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
+	  <v> URI = <seealso marker="#type-uri">uri()</seealso> </v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>
+	 <p>Insert CRLs, available to fetch on DER format from <c>URI</c>, into the ssl applications local cache. </p>
+	</desc>
+      </func>
+    </funcs>
+</erlref>

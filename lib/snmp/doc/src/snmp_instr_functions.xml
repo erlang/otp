@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Instrumentation Functions</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_instr_functions.xml</file>
+  </header>
+  <p>A user-defined instrumentation function for each object attaches
+    the managed objects to real resources. This function is called by
+    the agent on a <c>get</c> or <c>set</c> operation. The function
+    could read some hardware register, perform a calculation, or
+    whatever is necessary to implement the semantics associated with the
+    conceptual variable. These functions must be written both for scalar
+    variables and for tables. They are specified in the association
+    file, which is a text file. In this file, the <c>OBJECT IDENTIFIER</c>, or symbolic name for each managed object, is
+    associated with an Erlang tuple <c>{Module,</c><c>Function</c>,
+    <c>ListOfExtraArguments}</c>.
+    </p>
+  <p>When a managed object is referenced in an SNMP operation, the
+    associated <c>{Module, Function, ListOfExtraArguments}</c> is
+    called. The function is applied to some standard arguments (for
+    example, the operation type) and the extra arguments supplied by the
+    user.
+    </p>
+  <p>Instrumentation functions must be written for <c>get</c> and
+    <c>set</c> for scalar variables and tables, and for <c>get-next</c>
+    for tables only.  The <c>get-bulk</c> operation is translated into a
+    series of calls to <c>get-next</c>.
+    </p>
+
+  <section>
+    <title>Instrumentation Functions</title>
+    <p>The following sections describe how the instrumentation
+      functions should be defined in Erlang for the different
+      operations. In the following, <c>RowIndex</c> is a list of key
+      values for the table, and <c>Column</c> is a column number.
+      </p>
+    <p>These functions are described in detail in 
+      <seealso marker="snmp_def_instr_functions">Definition of Instrumentation Functions</seealso>.
+      </p>
+
+    <section>
+      <title>New / Delete Operations</title>
+      <p>For scalar variables:
+        </p>
+      <code type="none">
+variable_access(new [, ExtraArg1, ...])
+variable_access(delete [, ExtraArg1, ...])
+      </code>
+      <p>For tables:
+        </p>
+      <code type="none">
+table_access(new [, ExtraArg1, ...])
+table_access(delete [, ExtraArg1, ...])
+      </code>
+      <p>These functions are called for each object in an MIB when the
+        MIB is unloaded or loaded, respectively.</p>
+    </section>
+
+    <section>
+      <title>Get Operation</title>
+      <p>For scalar variables:
+        </p>
+      <code type="none">
+variable_access(get [, ExtraArg1, ...])
+      </code>
+      <p>For tables:
+        </p>
+      <code type="none">
+table_access(get,RowIndex,Cols [,ExtraArg1, ...])
+      </code>
+      <p><c>Cols</c> is a list of <c>Column</c>. The agent will sort
+        incoming variables so that all operations on one row (same
+        index) will be supplied at the same time. The reason for this is
+        that a database normally retrieves information row by row.
+        </p>
+      <p>These functions must return the current values of the
+        associated variables.</p>
+    </section>
+
+    <section>
+      <title>Set Operation</title>
+      <p>For scalar variables:
+        </p>
+      <code type="none">
+variable_access(set, NewValue [, ExtraArg1, ...])
+      </code>
+      <p>For tables:
+        </p>
+      <code type="none">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code>
+      <p><c>Cols</c> is a list of tuples <c>{Column, NewValue}</c>.
+        </p>
+      <p>These functions returns <c>noError</c> if the assignment was
+        successful, otherwise an error code.</p>
+    </section>
+
+    <section>
+      <title>Is-set-ok Operation</title>
+      <p>As a complement to the <c>set</c> operation, it is possible
+        to specify a test function. This function has the same syntax as
+        the set operation above, except that the first argument is
+        <c>is_set_ok</c> instead of <c>set</c>. This function is called
+        before the variable is set. Its purpose is to ensure that it is
+        permissible to set the variable to the new value.</p>
+      <code type="none">
+variable_access(is_set_ok, NewValue [, ExtraArg1, ...])
+      </code>
+      <p>For tables:
+        </p>
+      <code type="none">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code>
+      <p><c>Cols</c> is a list of tuples <c>{Column, NewValue}</c>.
+        </p>
+    </section>
+
+    <section>
+      <title>Undo Operation</title>
+      <p>A function which has been called with <c>is_set_ok</c> will
+        be called again, either with <c>set</c> if there was no error,
+        or with <c>undo</c>, if an error occurred. In this way,
+        resources can be reserved in the <c>is_set_ok</c> operation,
+        released in the <c>undo</c> operation, or made permanent in the
+        <c>set</c> operation.</p>
+      <code type="none">
+variable_access(undo, NewValue [, ExtraArg1, ...])
+      </code>
+      <p>For tables:
+        </p>
+      <code type="none">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code>
+      <p><c>Cols</c> is a list of tuples <c>{Column, NewValue}</c>.
+        </p>
+    </section>
+
+    <section>
+      <title>GetNext Operation</title>
+      <p>The GetNext Operation operation should only be defined for 
+        tables since the
+        agent can find the next instance of plain variables in the MIB
+        and call the instrumentation with the <c>get</c> operation.
+        </p>
+      <code type="none">
+table_access(get_next, RowIndex, Cols [, ExtraArg1, ...])
+      </code>
+      <p><c>Cols</c> is a list of integers, all greater than or equal
+        to zero. This indicates that the instrumentation should find the
+        next accessible instance. This function returns the tuple
+        <c>{NextOid, NextValue}</c>, or
+        <c>endOfTable</c>. <c>NextOid</c> should be the
+        lexicographically next accessible instance of a managed object
+        in the table. It should be a list of integers, where the first
+        integer is the column, and the rest of the list is the indices
+        for the next row. If <c>endOfTable</c> is returned, the agent
+        continues to search for the next instance among the other
+        variables and tables.
+        </p>
+      <p><c>RowIndex</c> may be an empty list, an incompletely
+        specified row index, or the index for an unspecified row.
+        </p>
+      <p>This operation is best described with an example.
+        </p>
+
+      <section>
+        <title>GetNext Example</title>
+        <p>A table called <c>myTable</c> has five columns. The first
+          two are keys (not accessible), and the table has three
+          rows. The instrumentation function for this table is called
+          <c>my_table</c>.</p>
+        <marker id="getnext1"></marker>
+        <image file="getnext1.gif">
+          <icaption>Contents of my_table</icaption>
+        </image>
+        <note>
+          <p>N/A means not accessible.</p>
+        </note>
+        <p>The manager issues the following <c>getNext</c> request:
+          </p>
+        <code type="none">
+getNext{ myTable.myTableEntry.3.1.1,
+         myTable.myTableEntry.5.1.1 } 
+        </code>
+        <p>Since both operations involve the 1.1 index, this is
+          transformed into one call to <c>my_table</c>:
+          </p>
+        <code type="none">
+my_table(get_next, [1, 1], [3, 5])
+        </code>
+        <p>In this call, <c>[1, 1]</c> is the <c>RowIndex</c>, where
+          key 1 has value 1, and key 2 has value 1, and <c>[3, 5]</c> is
+          the list of requested columns. The function should now return
+          the lexicographically next elements:
+          </p>
+        <code type="none">
+[{[3, 1, 2], d}, {[5, 1, 2], f}]
+        </code>
+        <p>This is illustrated in the following table:
+          </p>
+        <p></p>
+        <marker id="getnext2"></marker>
+        <image file="getnext2.gif">
+          <icaption>GetNext from [3,1,1] and [5,1,1].</icaption>
+        </image>
+        <p>The manager now issues the following <c>getNext</c> request:
+          </p>
+        <code type="none">
+getNext{ myTable.myTableEntry.3.2.1,
+         myTable.myTableEntry.5.2.1 } 
+        </code>
+        <p>This is transformed into one call to <c>my_table</c>:
+          </p>
+        <code type="none">
+my_table(get_next, [2, 1], [3, 5])
+        </code>
+        <p>The function should now return:
+          </p>
+        <code type="none">
+[{[4, 1, 1], b}, endOfTable]
+        </code>
+        <p>This is illustrated in the following table:
+          </p>
+        <p></p>
+        <marker id="getnext3"></marker>
+        <image file="getnext3.gif">
+          <icaption>GetNext from [3,2,1] and [5,2,1].</icaption>
+        </image>
+        <p>The manager now issues the following <c>getNext</c> request:
+          </p>
+        <code type="none">
+getNext{ myTable.myTableEntry.3.1.2,
+         myTable.myTableEntry.4.1.2 } 
+        </code>
+        <p>This will be transform into one call to <c>my_table</c>:
+          </p>
+        <code type="none">
+my_table(get_next, [1, 2], [3, 4])
+        </code>
+        <p>The function should now return:
+          </p>
+        <code type="none">
+[{[3, 2, 1], g}, {[5, 1, 1], c}]
+        </code>
+        <p>This is illustrated in the following table:
+          </p>
+        <p></p>
+        <marker id="getnext4"></marker>
+        <image file="getnext4.gif">
+          <icaption>GetNext from [3,1,2] and [4,1,2].</icaption>
+        </image>
+        <p>The manager now issues the following <c>getNext</c> request:
+          </p>
+        <code type="none">
+getNext{ myTable.myTableEntry,
+         myTable.myTableEntry.1.3.2 } 
+        </code>
+        <p>This will be transform into two calls to <c>my_table</c>:
+          </p>
+        <code type="none">
+my_table(get_next, [], [0]) and
+my_table(get_next, [3, 2], [1])
+        </code>
+        <p>The function should now return:
+          </p>
+        <code type="none">
+[{[3, 1, 1], a}] and
+[{[3, 1, 1], a}]
+        </code>
+        <p>In both cases, the first accessible element in the table
+          should be returned. As the key columns are not accessible,
+          this means that the third column is the first row.</p>
+        <note>
+          <p>Normally, the functions described above behave exactly as
+            shown, but they are free to perform other actions. For
+            example, a get-request may have side effects such as setting
+            some other variable, perhaps a global <c>lastAccessed</c>
+            variable.</p>
+        </note>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Using the ExtraArgument</title>
+    <p>The <c>ListOfExtraArguments</c> can be used to write generic
+      functions. This list is appended to the standard arguments for
+      each function. Consider two read-only variables for a device,
+      <c>ipAdr</c> and <c>name</c> with object identifiers 1.1.23.4 and
+      1.1.7 respectively. To access these variables, one could implement
+      the two Erlang functions <c>ip_access</c> and <c>name_access</c>,
+      which will be in the MIB. The functions could be specified in a
+      text file as follows:
+      </p>
+    <p></p>
+    <code type="none">
+{ipAdr, {my_module, ip_access, []}}.
+% Or using the oid syntax for 'name'
+{[1,1,7], {my_module, name_access, []}}.
+    </code>
+    <p>The <c>ExtraArgument</c> parameter is the empty list. For
+      example, when the agent receives a get-request for the
+      <c>ipAdr</c> variable, a call will be made to
+      <c>ip_access(get)</c>. The value returned by this function is the
+      answer to the get-request.
+      </p>
+    <p>If <c>ip_access</c> and <c>name_access</c> are implemented
+      similarly, we could write a <c>generic_access</c> function using
+      the <c>ListOfExtraArguments</c>:
+      </p>
+    <code type="none">
+{ipAdr, {my_module, generic_access, ['IPADR']}}.
+% The mnemonic 'name' is more convenient than 1.1.7
+{name, {my_module, generic_access, ['NAME']}}.
+    </code>
+    <p>When the agent receives the same get-request as above, a call
+      will be made to <c>generic_access(get, </c>'<c>IPADR')</c>.
+      </p>
+    <p>Yet another possibility, closer to the hardware, could be:
+      </p>
+    <code type="none">
+{ipAdr, {my_module, generic_access, [16#2543]}}.
+{name, {my_module, generic_access, [16#A2B3]}}.
+    </code>
+  </section>
+
+  <section>
+    <title>Default Instrumentation</title>
+    <marker id="snmp_3"></marker>
+    <p>When the MIB definition work is finished, there are two major
+      issues left.
+      </p>
+    <list type="bulleted">
+      <item>Implementing the MIB
+      </item>
+      <item>Implementing a Manager Application.</item>
+    </list>
+    <p>Implementing an MIB can be a tedious task. Most probably, there
+      is a need to test the agent before all tables and variables are
+      implemented. In this case, the default instrumentation functions
+      are useful. The toolkit can generate default instrumentation
+      functions for variables as well as for tables. Consequently, a
+      running prototype agent, which can handle <c>set</c>, <c>get</c>,
+      <c>get-next</c> and table operations, is generated without any
+      programming.
+      </p>
+    <p>The agent stores the values in an internal volatile database,
+      which is based on the standard module <c>ets</c>. However, it is
+      possible to let the MIB compiler generate functions which use an
+      internal, persistent database, or the Mnesia DBMS. Refer to the
+      Mnesia User Guide and the Reference Manual, section SNMP, module
+      <c>snmp_generic</c> for more information.
+      </p>
+    <p>When parts of the MIB are implemented, you recompile it and
+      continue on by using default functions. With this approach, the
+      SNMP agent can be developed incrementally.
+      </p>
+    <p>The default instrumentation allows the application on the
+      manager side to be developed and tested simultaneously with the
+      agent. As soon as the ASN.1 file is completed, let the MIB
+      compiler generate a default implementation and develop the
+      management application from this.
+      </p>
+
+    <section>
+      <title>Table Operations</title>
+      <p>The generation of default functions for tables works for
+        tables which use the <c>RowStatus</c> textual convention from
+        SNMPv2, defined in STANDARD-MIB and SNMPv2-TC.
+        </p>
+      <note>
+        <p>We strongly encourage the use of the <c>RowStatus</c>
+          convention for every table that can be modified from the
+          manager, even for newly designed SNMPv1 MIBs. In SNMPv1,
+          everybody has invented their own scheme for emulating table
+          operations, which has led to numerous inconsistencies. The
+          convention in SNMPv2 is flexible and powerful and has been
+          tested successfully. If the table is read only, no RowStatus
+          column should be used.
+          </p>
+      </note>
+    </section>
+  </section>
+
+  <section>
+    <title>Atomic Set</title>
+    <p>In SNMP, the <c>set</c> operation is atomic. Either all
+      variables which are specified in a <c>set</c> operation are
+      changed, or none are changed. Therefore, the <c>set</c> operation
+      is divided into two phases. In the first phase, the new value of
+      each variable is checked against the definition of the variable in
+      the MIB. The following definitions are checked:
+      </p>
+    <list type="bulleted">
+      <item>the type</item>
+      <item>the length</item>
+      <item>the range</item>
+      <item>the variable is writable and within the MIB view.
+      </item>
+    </list>
+    <p>At
+      the end of phase one, the user defined <c>is_set_ok</c> functions
+      are called for each scalar variable, and for each group of table
+      operations.
+      </p>
+    <p>If no error occurs, the second phase is performed. This phase
+      calls the user defined <c>set</c> function for all variables.
+      </p>
+    <p>If an error occurs, either in the <c>is_set_ok</c> phase, or in
+      the <c>set</c> phase, all functions which were called with
+      <c>is_set_ok</c> but not <c>set</c>, are called with <c>undo</c>.
+      </p>
+    <p>There are limitations with this transaction mechanism. If
+      complex dependencies exist between variables, for example between
+      <c>month</c> and <c>day</c>, another mechanism is needed. Setting
+      the date to 'Feb 31' can be avoided by a somewhat more generic
+      transaction mechanism. You can continue and find more and more
+      complex situations and construct an N-phase set-mechanism. This
+      toolkit only contains a trivial mechanism.
+      </p>
+    <p>The most common application of transaction mechanisms is to
+      keep row operations together. Since our agent sorts row
+      operations, the mechanism implemented in combination with the
+      RowStatus (particularly 'createAndWait' value) solve most
+      problems elegantly.
+      </p>
+  </section>
+</chapter>
+

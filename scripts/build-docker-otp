@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage $0 32|64 [command] [arg]..."
+    exit 1
+fi
+
+ARCH="$1"
+shift
+
+git archive --format=tar.gz --prefix=otp/ HEAD >scripts/otp.tar.gz
+
+docker build -t otp --file scripts/Dockerfile.$ARCH scripts
+rm scripts/otp.tar.gz
+docker run --volume="$PWD/logs:/buildroot/otp/logs" -i --rm otp ${1+"$@"}

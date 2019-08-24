@@ -1,0 +1,68 @@
+SeqExternal DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS  XSet1, XSeqNT, XSeqImp, XSeqExp FROM External;
+
+
+
+SeqXSet1 ::= SEQUENCE 
+{
+  set  XSet1,
+  bool  BOOLEAN,
+  int  INTEGER
+}
+
+
+SeqXSet2 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  set  XSet1,
+  int  INTEGER
+}
+
+
+SeqXSet3 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  set  XSet1
+}
+
+
+
+NT ::= SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [1] SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [2] EXPLICIT SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+NTNT ::= NT
+ImpNT ::= [3] NT
+ExpNT ::= [4] EXPLICIT NT
+
+NTImp ::= Imp
+ImpImp ::= [5] Imp
+ExpImp ::= [6] EXPLICIT Imp
+
+NTExp ::= Exp
+ImpExp ::= [7] Exp
+ExpExp ::= [8] EXPLICIT Exp
+
+XNTNT ::= XSeqNT
+XImpNT ::= [3] XSeqNT
+XExpNT ::= [4] EXPLICIT XSeqNT
+
+XNTImp ::= XSeqImp
+XImpImp ::= [5] XSeqImp
+XExpImp ::= [6] EXPLICIT XSeqImp
+
+XNTExp ::= XSeqExp
+XImpExp ::= [7] XSeqExp
+XExpExp ::= [8] EXPLICIT XSeqExp
+
+END

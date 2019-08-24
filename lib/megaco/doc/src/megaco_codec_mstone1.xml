@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_codec_mstone1</title>
+    <prepared>Micael Karlberg</prepared>
+    <responsible>Micael Karlberg</responsible>
+    <docno></docno>
+    <approved>Micael Karlberg</approved>
+    <checked></checked>
+    <date>2009-05-27</date>
+    <rev>%VSN%</rev>
+    <file>megaco_codec_mstone1.xml</file>
+  </header>
+  <module since="">megaco_codec_mstone1</module>
+  <modulesummary>This module implements a simple megaco codec-based performance tool.</modulesummary>
+  <description>
+    <p>This module implements the <em>mstone1</em> tool, 
+      a simple megaco codec-based performance tool.</p>
+    <p>The results, the mstone value(s), are written to stdout.</p>
+    <p><em>Note</em> that this module is <em>not</em> included in the runtime part of 
+      the application.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">start() -> void()</name>
+      <name since="">start(MessagePackage) -> void()</name>
+      <name since="">start(MessagePackage, Factor) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackage = message_package()</v>
+        <v>message_package() = atom()</v>
+        <v>Factor() = integer() > 0</v>
+      </type>
+      <desc>
+        <p>This function starts the <em>mstone1</em> performance test with all codec configs. 
+          <c>Factor</c> (defaults to <c>1</c>) processes are started for every supported 
+          codec config. </p>
+        <p>Each process encodes and decodes their messages. 
+          The number of messages processed in total (for all processes) is the mstone value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_flex() -> void()</name>
+      <name since="">start_flex(MessagePackage) -> void()</name>
+      <name since="">start_flex(MessagePackage, Factor) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackage = message_package()</v>
+        <v>message_package() = atom()</v>
+        <v>Factor() = integer() > 0</v>
+      </type>
+      <desc>
+        <p>This function starts the <em>mstone1</em> performance test with only the
+          flex codec configs (i.e. <c>pretty</c> and <c>compact</c> with <c>flex</c>). 
+          The same number of processes are started as when running the standard
+          test (using the <c>start/0,1</c> function).
+          Each process encodes and decodes their messages. 
+          The number of messages processed in total (for all processes) is the mstone value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_only_drv() -> void()</name>
+      <name since="">start_only_drv(MessagePackage) -> void()</name>
+      <name since="">start_only_drv(MessagePackage, Factor) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackage = message_package()</v>
+        <v>message_package() = atom()</v>
+        <v>Factor() = integer() > 0</v>
+      </type>
+      <desc>
+        <p>This function starts the <em>mstone1</em> performance test with only the
+          driver using codec configs (i.e. <c>pretty</c> and <c>compact</c> 
+          with <c>flex</c>, and <c>ber</c> and <c>per</c> with <c>driver</c> 
+          and <c>erlang</c> with <c>compressed</c>). 
+          The same number of processes are started as when running the standard
+          test (using the <c>start/0,1</c> function).
+          Each process encodes and decodes their messages. 
+          The number of messages processed in total (for all processes) is the mstone value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_no_drv() -> void()</name>
+      <name since="">start_no_drv(MessagePackage) -> void()</name>
+      <name since="">start_no_drv(MessagePackage, Factor) -> void()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>MessagePackage = message_package()</v>
+        <v>message_package() = atom()</v>
+        <v>Factor() = integer() > 0</v>
+      </type>
+      <desc>
+        <p>This function starts the <em>mstone1</em> performance test with codec configs
+          not using any drivers (i.e. <c>pretty</c> and <c>compact</c> without 
+          <c>flex</c>, <c>ber</c> and <c>per</c> without <c>driver</c> and 
+          <c>erlang</c> without <c>compressed</c>). 
+          The same number of processes are started as when running the standard
+          test (using the <c>start/0,1</c> function).
+          Each process encodes and decodes their messages. 
+          The number of messages processed in total (for all processes) is the mstone value.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

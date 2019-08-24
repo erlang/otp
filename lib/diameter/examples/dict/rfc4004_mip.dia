@@ -1,0 +1,281 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4004, Diameter Mobile IPv4 Application
+;;
+;; Edits:
+;;
+;; - MIP-nonce  -> MIP-Nonce
+;; - Session-ID -> Session-Id
+;; - Omit MIP-HA-to-MN-SPI, MIP-MN-FA-SPI and MIP-MN-HA-SPI, none of
+;;   which are defined.
+;;
+
+@id 2
+
+@inherits common
+
+;; ===========================================================================
+
+@avp_types
+
+   MIP-Reg-Request                320  OctetString   M
+   MIP-Reg-Reply                  321  OctetString   M
+   MIP-MN-AAA-Auth                322  Grouped       M
+   MIP-Mobile-Node-Address        333  Address       M
+   MIP-Home-Agent-Address         334  Address       M
+   MIP-Candidate-Home-Agent-Host  336  DiamIdent     M
+   MIP-Feature-Vector             337  Unsigned32    M
+   MIP-Auth-Input-Data-Length     338  Unsigned32    M
+   MIP-Authenticator-Length       339  Unsigned32    M
+   MIP-Authenticator-Offset       340  Unsigned32    M
+   MIP-MN-AAA-SPI                 341  Unsigned32    M
+   MIP-Filter-Rule                342  IPFilterRule  M
+   MIP-FA-Challenge               344  OctetString   M
+   MIP-Originating-Foreign-AAA    347  Grouped       M
+   MIP-Home-Agent-Host            348  Grouped       M
+
+   MIP-FA-to-HA-SPI               318  Unsigned32    M
+   MIP-FA-to-MN-SPI               319  Unsigned32    M
+   MIP-HA-to-FA-SPI               323  Unsigned32    M
+   MIP-MN-to-FA-MSA               325  Grouped       M
+   MIP-FA-to-MN-MSA               326  Grouped       M
+   MIP-FA-to-HA-MSA               328  Grouped       M
+   MIP-HA-to-FA-MSA               329  Grouped       M
+   MIP-MN-to-HA-MSA               331  Grouped       M
+   MIP-HA-to-MN-MSA               332  Grouped       M
+   MIP-Nonce                      335  OctetString   M
+   MIP-Session-Key                343  OctetString   M
+   MIP-Algorithm-Type             345  Enumerated    M
+   MIP-Replay-Mode                346  Enumerated    M
+   MIP-MSA-Lifetime               367  Unsigned32    M
+
+;; ===========================================================================
+
+@messages
+
+   ;; 5.1.  AA-Mobile-Node-Request
+
+   AMR ::= < Diameter Header: 260, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { User-Name }
+           { Destination-Realm }
+           { Origin-Host }
+           { Origin-Realm }
+           { MIP-Reg-Request }
+           { MIP-MN-AAA-Auth }
+           [ Acct-Multi-Session-Id ]
+           [ Destination-Host ]
+           [ Origin-State-Id ]
+           [ MIP-Mobile-Node-Address ]
+           [ MIP-Home-Agent-Address ]
+           [ MIP-Feature-Vector ]
+           [ MIP-Originating-Foreign-AAA ]
+           [ Authorization-Lifetime ]
+           [ Auth-Session-State ]
+           [ MIP-FA-Challenge ]
+           [ MIP-Candidate-Home-Agent-Host ]
+           [ MIP-Home-Agent-Host ]
+           [ MIP-HA-to-FA-SPI ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 5.2.  AA-Mobile-Node-Answer
+
+   AMA ::= < Diameter Header: 260, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Acct-Multi-Session-Id ]
+           [ User-Name ]
+           [ Authorization-Lifetime ]
+           [ Auth-Session-State ]
+           [ Error-Message ]
+           [ Error-Reporting-Host ]
+           [ Re-Auth-Request-Type ]
+           [ MIP-Feature-Vector ]
+           [ MIP-Reg-Reply ]
+           [ MIP-MN-to-FA-MSA ]
+           [ MIP-MN-to-HA-MSA ]
+           [ MIP-FA-to-MN-MSA ]
+           [ MIP-FA-to-HA-MSA ]
+           [ MIP-HA-to-MN-MSA ]
+           [ MIP-MSA-Lifetime ]
+           [ MIP-Home-Agent-Address ]
+           [ MIP-Mobile-Node-Address ]
+         * [ MIP-Filter-Rule ]
+           [ Origin-State-Id ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+   ;; 5.3.  Home-Agent-MIP-Request
+
+   HAR ::= < Diameter Header: 262, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Authorization-Lifetime }
+           { Auth-Session-State }
+           { MIP-Reg-Request }
+           { Origin-Host }
+           { Origin-Realm }
+           { User-Name }
+           { Destination-Realm }
+           { MIP-Feature-Vector }
+           [ Destination-Host ]
+           [ MIP-MN-to-HA-MSA ]
+           [ MIP-MN-to-FA-MSA ]
+           [ MIP-HA-to-MN-MSA ]
+           [ MIP-HA-to-FA-MSA ]
+           [ MIP-MSA-Lifetime ]
+           [ MIP-Originating-Foreign-AAA ]
+           [ MIP-Mobile-Node-Address ]
+           [ MIP-Home-Agent-Address ]
+         * [ MIP-Filter-Rule ]
+           [ Origin-State-Id ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 5.4.  Home-Agent-MIP-Answer
+
+   HAA ::= < Diameter Header: 262, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Acct-Multi-Session-Id ]
+           [ User-Name ]
+           [ Error-Reporting-Host ]
+           [ Error-Message ]
+           [ MIP-Reg-Reply ]
+           [ MIP-Home-Agent-Address ]
+           [ MIP-Mobile-Node-Address ]
+           [ MIP-FA-to-HA-SPI ]
+           [ MIP-FA-to-MN-SPI ]
+           [ Origin-State-Id ]
+         * [ Proxy-Info ]
+         * [ AVP ]
+
+;; ===========================================================================
+
+@grouped
+
+   MIP-MN-AAA-Auth ::= < AVP Header: 322 >
+
+           { MIP-MN-AAA-SPI }
+           { MIP-Auth-Input-Data-Length }
+           { MIP-Authenticator-Length }
+           { MIP-Authenticator-Offset }
+         * [ AVP ]
+
+
+   MIP-Originating-Foreign-AAA ::= < AVP Header: 347 >
+
+           { Origin-Realm }
+           { Origin-Host }
+         * [ AVP ]
+
+   MIP-Home-Agent-Host ::= < AVP Header: 348 >
+
+           { Destination-Realm }
+           { Destination-Host }
+         * [ AVP ]
+
+   MIP-FA-to-MN-MSA ::= < AVP Header: 326 >
+
+           { MIP-FA-to-MN-SPI }
+           { MIP-Algorithm-Type }
+           { MIP-Session-Key }
+         * [ AVP ]
+
+   MIP-FA-to-HA-MSA ::= < AVP Header: 328 >
+
+           { MIP-FA-to-HA-SPI }
+           { MIP-Algorithm-Type }
+           { MIP-Session-Key }
+         * [ AVP ]
+
+   MIP-HA-to-FA-MSA ::= < AVP Header: 329 >
+
+           { MIP-HA-to-FA-SPI   }
+           { MIP-Algorithm-Type }
+           { MIP-Session-Key }
+         * [ AVP ]
+
+   MIP-HA-to-MN-MSA ::= < AVP Header: 332 >
+
+   ;       { MIP-HA-to-MN-SPI   }
+           { MIP-Algorithm-Type }
+           { MIP-Replay-Mode }
+           { MIP-Session-Key }
+         * [ AVP ]
+
+   MIP-MN-to-FA-MSA ::= < AVP Header: 325 >
+
+   ;       { MIP-MN-FA-SPI }
+           { MIP-Algorithm-Type }
+           { MIP-Nonce }
+         * [ AVP ]
+
+   MIP-MN-to-HA-MSA ::= < AVP Header: 331 >
+
+   ;       { MIP-MN-HA-SPI }
+           { MIP-Algorithm-Type }
+           { MIP-Replay-Mode }
+           { MIP-Nonce }
+         * [ AVP ]
+
+;; ===========================================================================
+
+@enum MIP-Algorithm-Type
+
+   HMAC-SHA-1      2
+
+@enum MIP-Replay-Mode
+
+   NONE            1
+   TIMESTAMPS      2
+   NONCES          3
+
+;; ===========================================================================
+
+@define Result-Code
+
+   ;; 6.1.  Transient Failures
+
+   MIP_REPLY_FAILURE              4005
+   HA_NOT_AVAILABLE               4006
+   BAD_KEY                        4007
+   MIP_FILTER_NOT_SUPPORTED       4008
+
+   ;; 6.2.  Permanent Failures
+
+   NO_FOREIGN_HA_SERVICE          5024
+   END_TO_END_MIP_KEY_ENCRYPTION  5025

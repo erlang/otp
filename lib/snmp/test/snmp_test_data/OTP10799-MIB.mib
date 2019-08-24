@@ -1,0 +1,75 @@
+OTP10799-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, snmpModules, mib-2, BITS 
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    ;
+
+otp10799MIB MODULE-IDENTITY
+    LAST-UPDATED "1004210000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib for OTP-10799"
+    ::= { snmpModules 1 }
+
+
+-- Administrative assignments ****************************************
+
+otp10799MIBObjects     OBJECT IDENTIFIER ::= { otp10799MIB 1 }
+otp10799MIBConformance OBJECT IDENTIFIER ::= { otp10799MIB 2 }
+
+--
+
+test   OBJECT IDENTIFIER ::= { mib-2 16 }
+
+bits1 OBJECT-TYPE
+    SYNTAX      BITS { 
+      b0(0), 
+      b1(1), 
+      b2(2),
+      b3(3),
+      b4(4),
+      b5(5),
+      b6(6),
+      b7(7)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 1 }
+
+-- Conformance Information *******************************************
+
+otp10799MIBCompliances OBJECT IDENTIFIER
+                            ::= { otp10799MIBConformance 1 }
+otp10799MIBGroups      OBJECT IDENTIFIER
+                            ::= { otp10799MIBConformance 2 }
+
+-- Compliance statements
+
+otp10799MIBCompliance MODULE-COMPLIANCE
+    STATUS       current
+    DESCRIPTION
+        "The compliance statement for SNMP engines which
+         implement the SNMP-COMMUNITY-MIB."
+
+    MODULE       -- this module
+        MANDATORY-GROUPS { otp10799Group }
+
+    ::= { otp10799Compliances 1 }
+
+otp10799Group OBJECT-GROUP
+    OBJECTS {
+        bits1
+    }
+    STATUS       current
+    DESCRIPTION
+        "A group."
+    ::= { otp10799MIBGroups 1 }
+
+END

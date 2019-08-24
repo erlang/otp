@@ -1,0 +1,1399 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2017</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Logging</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>logger_chapter.xml</file>
+  </header>
+
+  <p>Erlang/OTP 21.0 provides a standard API for logging
+    through <c>Logger</c>, which is part of the Kernel
+    application. Logger consists of the API for issuing log events,
+    and a customizable backend where log handlers, filters and
+    formatters can be plugged in.</p>
+  <p>By default, the Kernel application installs one log handler at
+    system start. This handler is named <c>default</c>. It receives
+    and processes standard log events produced by the Erlang runtime
+    system, standard behaviours and different Erlang/OTP
+    applications. The log events are by default written to the
+    terminal.</p>
+  <p>You can also configure the system so that the default handler
+    prints log events to a single file, or to a set of wrap logs
+    via <seealso marker="disk_log"><c>disk_log</c></seealso>.</p>
+  <p>By configuration, you can also modify or disable the default
+    handler, replace it by a custom handler, and install additional
+    handlers.</p>
+
+  <note>
+    <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
+      to introduce changes to the Logger API and functionality in
+      patches following this release. These changes might or might not
+      be backwards compatible with the initial version.</p>
+  </note>
+
+  <section>
+    <title>Overview</title>
+    <p>A <em>log event</em> consists of a <em>log level</em>, the
+      <em>message</em> to be logged, and <em>metadata</em>.</p>
+    <p>The Logger backend forwards log events from the API, first
+      through a set of <em>primary filters</em>, then through a set of
+      secondary filters attached to each log handler. The secondary
+      filters are in the following named <em>handler filters</em>.</p>
+    <p>Each filter set consists of a <em>log level check</em>,
+      followed by zero or more <em>filter functions</em>.</p>
+    <p>The following figure shows a conceptual overview of Logger. The
+      figure shows two log handlers, but any number of handlers can be
+      installed.</p>
+
+    <!-- The image is edited with dia in logger_arch.dia file,
+	 and .png file generated with make target 'png'. -->
+    <image file="logger_arch.png">
+      <icaption>Conceptual Overview</icaption>
+    </image>
+
+    <p>Log levels are expressed as atoms. Internally in Logger, the
+      atoms are mapped to integer values, and a log event passes the
+      log level check if the integer value of its log level is less
+      than or equal to the currently configured log level. That is,
+      the check passes if the event is equally or more severe than the
+      configured level. See section <seealso marker="#log_level">Log
+      Level</seealso> for a listing and description of all log
+      levels.</p>
+    <p>The primary log level can be overridden by a log level
+      configured per module. This is to, for instance, allow more
+      verbose logging from a specific part of the system.</p>
+    <p>Filter functions can be used for more sophisticated filtering
+      than the log level check provides. A filter function can stop or
+      pass a log event, based on any of the event's contents. It can
+      also modify all parts of the log event. See section
+      <seealso marker="#filters">Filters</seealso> for more
+      details.</p>
+    <p>If a log event passes through all primary filters and all
+      handler filters for a specific handler, Logger forwards the
+      event to the <em>handler callback</em>. The handler formats and
+      prints the event to its destination. See
+      section <seealso marker="#handlers">Handlers</seealso> for more
+      details.</p>
+    <p>Everything up to and including the call to the handler
+      callbacks is executed on the client process, that is, the
+      process where the log event was issued. It is up to the handler
+      implementation if other processes are involved or not.</p>
+    <p>The handlers are called in sequence, and the order is not
+      defined.</p>
+  </section>
+  <section>
+    <marker id="logger_api"/>
+    <title>Logger API</title>
+    <p>The API for logging consists of a set
+      of <seealso marker="logger#macros">macros</seealso>, and a set
+      of functions on the form <c>logger:Level/1,2,3</c>, which are
+      all shortcuts
+      for <seealso marker="logger#log-2">
+    <c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seealso>.</p>
+    <p>The macros are defined in <c>logger.hrl</c>, which is included
+      in a module with the directive</p>
+    <code>-include_lib("kernel/include/logger.hrl").</code>
+    <p>The difference between using the macros and the exported
+      functions is that macros add location (originator) information
+      to the metadata, and performs lazy evaluation by wrapping the
+      logger call in a case statement, so it is only evaluated if the
+      log level of the event passes the primary log level check.</p>
+    <section>
+      <marker id="log_level"/>
+      <title>Log Level</title>
+      <p>The log level indicates the severity of a event. In
+	accordance with the Syslog protocol,
+	<url href="https://www.ietf.org/rfc/rfc5424.txt">RFC
+	5424</url>, eight log levels can be specified. The following
+	table lists all possible log levels by name (atom), integer
+	value, and description:</p>
+
+      <table align="left">
+	<row>
+	  <cell><strong>Level</strong></cell>
+	  <cell align="center"><strong>Integer</strong></cell>
+	  <cell><strong>Description</strong></cell>
+	</row>
+	<row>
+	  <cell>emergency</cell>
+	  <cell align="center">0</cell>
+	  <cell>system is unusable</cell>
+	</row>
+	<row>
+	  <cell>alert</cell>
+	  <cell align="center">1</cell>
+	  <cell>action must be taken immediately</cell>
+	</row>
+	<row>
+	  <cell>critical</cell>
+	  <cell align="center">2</cell>
+	  <cell>critical conditions</cell>
+	</row>
+	<row>
+	  <cell>error</cell>
+	  <cell align="center">3</cell>
+	  <cell>error conditions</cell>
+	</row>
+	<row>
+	  <cell>warning</cell>
+	  <cell align="center">4</cell>
+	  <cell>warning conditions</cell>
+	</row>
+	<row>
+	  <cell>notice</cell>
+	  <cell align="center">5</cell>
+	  <cell>normal but significant conditions</cell>
+	</row>
+	<row>
+	  <cell>info</cell>
+	  <cell align="center">6</cell>
+	  <cell>informational messages</cell>
+	</row>
+	<row>
+	  <cell>debug</cell>
+	  <cell align="center">7</cell>
+	  <cell>debug-level messages</cell>
+	</row>
+	<tcaption>Log Levels</tcaption>
+      </table>
+      <p>Notice that the integer value is only used internally in
+	Logger. In the API, you must always use the atom. To compare
+	the severity of two log levels,
+	use <seealso marker="logger#compare_levels-2">
+	  <c>logger:compare_levels/2</c></seealso>.</p>
+    </section>
+    <section>
+      <marker id="log_message"/>
+      <title>Log Message</title>
+      <p>The log message contains the information to be logged. The
+	message can consist of a format string and arguments (given as
+	two separate parameters in the Logger API), a string or a
+	report. The latter, which is either a map or a key-value list,
+	can be accompanied by a <em>report callback</em> specified in
+	the log event's <seealso marker="#metadata">metadata</seealso>.
+	The report callback is a convenience function that
+	the <seealso marker="#formatters">formatter</seealso> can use
+	to convert the report to a format string and arguments, or
+	directly to a string. The
+	formatter can also use its own conversion function, if no
+	callback is provided, or if a customized formatting is
+	desired.</p>
+      <p>The report callback must be a fun with one or two
+	arguments. If it takes one argument, this is the report
+	itself, and the fun returns a format string and arguments:</p>
+      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>) -> {<seealso marker="stdlib:io#type-format"><c>io:format()</c></seealso>,[term()]})</pre>
+      <p>If it takes two arguments, the first is the report, and the
+	second is a map containing extra data that allows direct
+	coversion to a string:</p>
+      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>,<seealso marker="logger#type-report_cb_config"><c>logger:report_cb_config()</c></seealso>) -> <seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c></seealso>)
+      </pre>
+      <p>The fun must obey the <c>depth</c> and <c>chars_limit</c>
+	parameters provided in the second argument, as the formatter
+	cannot do anything useful of these parameters with the
+	returned string. The extra data also contains a field named
+	<c>single_line</c>, indicating if the printed log message may
+	contain line breaks or not. This variant is used when the
+	formatting of the report depends on the size or single line
+	parameters.</p>
+      <p>Example, format string and arguments:</p>
+      <code>logger:error("The file does not exist: ~ts",[Filename])</code>
+      <p>Example, string:</p>
+      <code>logger:notice("Something strange happened!")</code>
+      <p>Example, report, and metadata with report callback:</p>
+      <code>
+logger:debug(#{got => connection_request, id => Id, state => State},
+             #{report_cb => fun(R) -> {"~p",[R]} end})</code>
+      <p>The log message can also be provided through a fun for lazy
+	evaluation. The fun is only evaluated if the primary log level
+	check passes, and is therefore recommended if it is expensive
+	to generate the message. The lazy fun must return a string, a
+	report, or a tuple with format string and arguments.</p>
+    </section>
+    <section>
+      <title>Metadata</title>
+      <p>Metadata contains additional data associated with a log
+	message. Logger inserts some metadata fields by default, and
+	the client can add custom metadata in two different ways:</p>
+      <taglist>
+	<tag>Set process metadata</tag>
+	<item>
+	  <p>Process metadata is set and updated
+	    with <seealso marker="logger#set_process_metadata-1">
+	      <c>logger:set_process_metadata/1</c></seealso>
+	    and <seealso marker="logger#update_process_metadata-1">
+	      <c>logger:update_process_metadata/1</c></seealso>,
+	    respectively. This metadata applies to the process on
+	    which these calls are made, and Logger adds the metadata
+	    to all log events issued on that process.</p>
+	</item>
+	<tag>Add metadata to a specific log event</tag>
+	<item>
+	  <p>Metadata associated with one specific log event is given
+	    as the last parameter to the log macro or Logger API
+	    function when the event is issued. For example:</p>
+	  <code>?LOG_ERROR("Connection closed",#{context => server})</code>
+	</item>
+      </taglist>
+      <p>See the description of
+	the <seealso marker="logger#type-metadata">
+	  <c>logger:metadata()</c></seealso> type for information
+	about which default keys Logger inserts, and how the different
+	metadata maps are merged.</p>
+    </section>
+  </section>
+  <section>
+    <marker id="filter"/>
+    <title>Filters</title>
+    <p>Filters can be primary, or attached to a specific
+      handler. Logger calls the primary filters first, and if they all
+      pass, it calls the handler filters for each handler. Logger
+      calls the handler callback only if all filters attached to the
+      handler in question also pass.</p>
+    <p>A filter is defined as:</p>
+    <pre>{FilterFun, Extra}</pre>
+    <p>where <c>FilterFun</c> is a function of arity 2,
+      and <c>Extra</c> is any term. When applying the filter, Logger
+      calls the function with the log event as the first argument,
+      and the value of <c>Extra</c> as the second
+      argument. See <seealso marker="logger#type-filter">
+	<c>logger:filter()</c></seealso> for type definitions.</p>
+    <p>The filter function can return <c>stop</c>, <c>ignore</c> or
+      the (possibly modified) log event.</p>
+    <p>If <c>stop</c> is returned, the log event is immediately
+      discarded. If the filter is primary, no handler filters or
+      callbacks are called. If it is a handler filter, the
+      corresponding handler callback is not called, but the log event
+      is forwarded to filters attached to the next handler, if
+      any.</p>
+    <p>If the log event is returned, the next filter function is
+      called with the returned value as the first argument. That is,
+      if a filter function modifies the log event, the next filter
+      function receives the modified event. The value returned from
+      the last filter function is the value that the handler callback
+      receives.</p>
+    <p>If the filter function returns <c>ignore</c>, it means that it
+      did not recognize the log event, and thus leaves to other
+      filters to decide the event's destiny.</p>
+    <p>The configuration option <c>filter_default</c> specifies the
+      behaviour if all filter functions return <c>ignore</c>, or if no
+      filters exist. <c>filter_default</c> is by default set
+      to <c>log</c>, meaning that if all existing filters ignore a log
+      event, Logger forwards the event to the handler
+      callback. If <c>filter_default</c> is set to <c>stop</c>, Logger
+      discards such events.</p>
+    <p>Primary filters are added
+      with <seealso marker="logger#add_primary_filter-2">
+	<c>logger:add_primary_filter/2</c></seealso>
+      and removed
+      with <seealso marker="logger#remove_primary_filter-1">
+	<c>logger:remove_primary_filter/1</c></seealso>. They can also
+      be added at system start via the Kernel configuration
+      parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
+    <p>Handler filters are added
+      with <seealso marker="logger#add_handler_filter-3">
+	<c>logger:add_handler_filter/3</c></seealso>
+      and removed
+      with <seealso marker="logger#remove_handler_filter-2">
+	<c>logger:remove_handler_filter/2</c></seealso>. They can also
+      be specified directly in the configuration when adding a handler
+      with <seealso marker="logger#add_handler/3">
+	<c>logger:add_handler/3</c></seealso>
+      or via the Kernel configuration
+      parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
+
+    <p>To see which filters are currently installed in the system,
+      use <seealso marker="logger#get_config-0">
+	<c>logger:get_config/0</c></seealso>,
+      or <seealso marker="logger#get_primary_config-0">
+	<c>logger:get_primary_config/0</c></seealso>
+      and <seealso marker="logger#get_handler_config-1">
+	<c>logger:get_handler_config/1</c></seealso>. Filters are
+	listed in the order they are applied, that is, the first
+	filter in the list is applied first, and so on.</p>
+
+    <p>For convenience, the following built-in filters exist:</p>
+
+    <taglist>
+	<tag><seealso marker="logger_filters#domain-2">
+	    <c>logger_filters:domain/2</c></seealso></tag>
+	<item>
+	  <p>Provides a way of filtering log events based on a
+	  <c>domain</c> field in <c>Metadata</c>.</p>
+	</item>
+	<tag><seealso marker="logger_filters#level-2">
+	  <c>logger_filters:level/2</c></seealso></tag>
+	<item>
+	  <p>Provides a way of filtering log events based on the log
+	    level.</p>
+	</item>
+	<tag><seealso marker="logger_filters#progress-2">
+	    <c>logger_filters:progress/2</c></seealso></tag>
+	<item>
+	  <p>Stops or allows progress reports from <c>supervisor</c>
+	    and <c>application_controller</c>.</p>
+	</item>
+	<tag><seealso marker="logger_filters#remote_gl-2">
+	    <c>logger_filters:remote_gl/2</c></seealso></tag>
+	<item>
+	  <p>Stops or allows log events originating from a process
+	    that has its group leader on a remote node.</p>
+	</item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="handlers"/>
+    <title>Handlers</title>
+    <p>A handler is defined as a module exporting at least the
+      following callback function:</p>
+
+    <pre><seealso marker="logger#HModule:log-2">log(LogEvent, Config) -> void()</seealso></pre>
+
+    <p>This function is called when a log event has passed through all
+      primary filters, and all handler filters attached to the handler
+      in question. The function call is executed on the client
+      process, and it is up to the handler implementation if other
+      processes are involved or not.</p>
+
+    <p>Logger allows adding multiple instances of a handler
+      callback. That is, if a callback module implementation allows
+      it, you can add multiple handler instances using the same
+      callback module. The different instances are identified by
+      unique handler identities.</p>
+
+    <p>In addition to the mandatory callback function <c>log/2</c>, a
+      handler module can export the optional callback
+      functions <c>adding_handler/1</c>, <c>changing_config/3</c>,
+      <c>filter_config/1</c>, and <c>removing_handler/1</c>. See
+      section <seealso marker="logger#handler_callback_functions">Handler
+      Callback Functions</seealso> in the logger(3) manual page for
+      more information about these function.</p>
+
+    <p>The following built-in handlers exist:</p>
+
+    <taglist>
+      <tag><c>logger_std_h</c></tag>
+      <item>
+	<p>This is the default handler used by OTP. Multiple instances
+	  can be started, and each instance will write log events to a
+	  given destination, terminal or file.</p>
+      </item>
+
+      <tag><c>logger_disk_log_h</c></tag>
+      <item>
+	<p>This handler behaves much like <c>logger_std_h</c>, except it uses
+	  <seealso marker="disk_log"><c>disk_log</c></seealso> as its
+	  destination.</p>
+      </item>
+
+      <tag><marker id="ErrorLoggerManager"/><c>error_logger</c></tag>
+      <item>
+	<p>This handler is provided for backwards compatibility
+	  only. It is not started by default, but will be
+	  automatically started the first time an <c>error_logger</c>
+	  event handler is added
+	  with <seealso marker="error_logger#add_report_handler-1">
+	    <c>error_logger:add_report_handler/1,2</c></seealso>.</p>
+
+	<p>The old <c>error_logger</c> event handlers in STDLIB and
+	  SASL still exist, but they are not added by Erlang/OTP 21.0
+	  or later.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="formatters"/>
+    <title>Formatters</title>
+    <p>A formatter can be used by the handler implementation to do the
+      final formatting of a log event, before printing to the
+      handler's destination. The handler callback receives the
+      formatter information as part of the handler configuration,
+      which is passed as the second argument
+      to <seealso marker="logger#HModule:log-2">
+	<c>HModule:log/2</c></seealso>.</p>
+    <p>The formatter information consist of a formatter
+      module, <c>FModule</c> and its
+      configuration, <c>FConfig</c>. <c>FModule</c> must export the
+      following function, which can be called by the handler:</p>
+    <pre><seealso marker="logger#FModule:format-2">format(LogEvent,FConfig)
+	-> FormattedLogEntry</seealso></pre>
+    <p>The formatter information for a handler is set as a part of its
+      configuration when the handler is added. It can also be changed
+      during runtime
+      with <seealso marker="logger#set_handler_config-3">
+	<c>logger:set_handler_config(HandlerId,formatter,{FModule,FConfig})</c>
+      </seealso>, which overwrites the current formatter information,
+      or with <seealso marker="logger#update_formatter_config-2">
+	<c>logger:update_formatter_config/2,3</c></seealso>, which
+	only modifies the formatter configuration.</p>
+    <p>If the formatter module exports the optional callback
+      function <seealso marker="logger#FModule:check_config-1">
+	<c>check_config(FConfig)</c></seealso>, Logger calls this
+      function when the formatter information is set or modified, to
+      verify the validity of the formatter configuration.</p>
+    <p>If no formatter information is specified for a handler, Logger
+      uses <c>logger_formatter</c> as default. See
+      the <seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>
+      manual page for more information about this module.</p>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+
+    <p>At system start, Logger is configured through Kernel
+      configuration parameters. The parameters that apply to Logger
+      are described in
+      section <seealso marker="#kernel_config_params">Kernel
+      Configuration Parameters</seealso>. Examples are found in
+      section <seealso marker="#config_examples">Configuration
+      Examples</seealso>.</p>
+    <p>During runtime, Logger configuration is changed via API
+      functions. See
+      section <seealso marker="logger#configuration_API">Configuration
+      API Functions</seealso> in the <c>logger(3)</c> manual page.</p>
+
+    <section>
+      <title>Primary Logger Configuration</title>
+      <p>Logger API functions that apply to the primary Logger
+	configuration are:</p>
+      <list>
+	<item><seealso marker="logger#get_primary_config-0">
+	    <c>get_primary_config/0</c></seealso></item>
+	<item><seealso marker="logger#set_primary_config-1">
+	    <c>set_primary_config/1,2</c></seealso></item>
+	<item><seealso marker="logger#update_primary_config-1">
+	    <c>update_primary_config/1</c></seealso></item>
+	<item><seealso marker="logger#add_primary_filter-2">
+	    <c>add_primary_filter/2</c></seealso></item>
+	<item><seealso marker="logger#remove_primary_filter-1">
+	    <c>remove_primary_filter/1</c></seealso></item>
+      </list>
+      <p>The primary Logger configuration is a map with the following
+	keys:</p>
+      <taglist>
+	<tag><marker id="primary_level"/>
+	  <c>level = </c><seealso marker="logger#type-level">
+	    <c>logger:level()</c></seealso><c> | all | none</c></tag>
+	<item>
+	  <p>Specifies the primary log level, that is, log event that
+	    are equally or more severe than this level, are forwarded
+	    to the primary filters. Less severe log events are
+	    immediately discarded.</p>
+	  <p>See section <seealso marker="#log_level">Log
+	      Level</seealso> for a listing and description of
+	      possible log levels.</p>
+	  <p>The initial value of this option is set by the Kernel
+	    configuration parameter <seealso marker="#logger_level">
+	      <c>logger_level</c></seealso>. It is changed during
+	    runtime with <seealso marker="logger#set_primary_config-2">
+	      <c>logger:set_primary_config(level,Level)</c></seealso>.</p>
+	  <p>Defaults to <c>notice</c>.</p>
+	</item>
+	<tag><c>filters = [{FilterId,Filter}]</c></tag>
+	<item>
+	  <p>Specifies the primary filters.</p>
+	  <list>
+	    <item><c>FilterId = </c><seealso marker="logger#type-filter_id">
+		<c>logger:filter_id()</c></seealso></item>
+	    <item><c>Filter = </c><seealso marker="logger#type-filter">
+		<c>logger:filter()</c></seealso></item>
+	  </list>
+	  <p>The initial value of this option is set by the Kernel
+	    configuration
+	    parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.
+	    During runtime, primary filters are added and removed with
+	    <seealso marker="logger#add_primary_filter-2">
+	      <c>logger:add_primary_filter/2</c></seealso> and
+	    <seealso marker="logger#remove_primary_filter-1">
+	      <c>logger:remove_primary_filter/1</c></seealso>,
+	    respectively.</p>
+	  <p>See section <seealso marker="#filters">Filters</seealso>
+	    for more detailed information.</p>
+	  <p>Defaults to <c>[]</c>.</p>
+	</item>
+	<tag><c>filter_default = log | stop</c></tag>
+	<item>
+	  <p>Specifies what happens to a log event if all filters
+	    return <c>ignore</c>, or if no filters exist.</p>
+	  <p>See section <seealso marker="#filters">Filters</seealso>
+	    for more information about how this option is used.</p>
+	  <p>Defaults to <c>log</c>.</p>
+	</item>
+      </taglist>
+    </section>
+
+    <section>
+      <marker id="handler_configuration"/>
+      <title>Handler Configuration</title>
+      <p>Logger API functions that apply to handler configuration
+	are:</p>
+      <list>
+	<item><seealso marker="logger#get_handler_config-0">
+	    <c>get_handler_config/0,1</c></seealso></item>
+	<item><seealso marker="logger#set_handler_config-2">
+	    <c>set_handler_config/2,3</c></seealso></item>
+	<item><seealso marker="logger#update_handler_config-2">
+	    <c>update_handler_config/2,3</c></seealso></item>
+	<item><seealso marker="logger#add_handler_filter-3">
+	    <c>add_handler_filter/3</c></seealso></item>
+	<item><seealso marker="logger#remove_handler_filter-2">
+	    <c>remove_handler_filter/2</c></seealso></item>
+	<item><seealso marker="logger#update_formatter_config-2">
+	    <c>update_formatter_config/2,3</c></seealso></item>
+      </list>
+      <p>The configuration for a handler is a map with the following keys:</p>
+      <taglist>
+	<tag><c>id = </c><seealso marker="logger#type-handler_id">
+	    <c>logger:handler_id()</c></seealso></tag>
+	<item>
+	  <p>Automatically inserted by Logger. The value is the same
+	    as the <c>HandlerId</c> specified when adding the handler,
+	    and it cannot be changed.</p>
+	</item>
+	<tag><c>module = module()</c></tag>
+	<item>
+	  <p>Automatically inserted by Logger. The value is the same
+	    as the <c>Module</c> specified when adding the handler,
+	    and it cannot be changed.</p>
+	</item>
+	<tag><c>level = </c><seealso marker="logger#type-level">
+	    <c>logger:level()</c></seealso><c> | all | none</c></tag>
+	<item>
+	  <p>Specifies the log level for the handler, that is, log
+	    events that are equally or more severe than this level,
+	    are forwarded to the handler filters for this
+	    handler.</p>
+	  <p>See section <seealso marker="#log_level">Log
+	      Level</seealso> for a listing and description of
+	      possible log levels.</p>
+	  <p>The log level is specified when adding the handler, or
+	    changed during runtime with, for
+	    instance, <seealso marker="logger#set_handler_config/3">
+	      <c>logger:set_handler_config(HandlerId,level,Level)</c></seealso>.
+	  </p>
+	  <p>Defaults to <c>all</c>.</p>
+	</item>
+	<tag><c>filters = [{FilterId,Filter}]</c></tag>
+	<item>
+	  <p>Specifies the handler filters.</p>
+	  <list>
+	    <item><c>FilterId = </c><seealso marker="logger#type-filter_id">
+		<c>logger:filter_id()</c></seealso></item>
+	    <item><c>Filter = </c><seealso marker="logger#type-filter">
+		<c>logger:filter()</c></seealso></item>
+	  </list>
+	  <p>Handler filters are specified when adding the handler,
+	    or added or removed during runtime with
+	    <seealso marker="logger#add_handler_filter-3">
+	      <c>logger:add_handler_filter/3</c></seealso> and
+	    <seealso marker="logger#remove_handler_filter-2">
+	      <c>logger:remove_handler_filter/2</c></seealso>,
+	    respectively.</p>
+	  <p>See <seealso marker="#filters">Filters</seealso> for more
+	    detailed information.</p>
+	  <p>Defaults to <c>[]</c>.</p>
+	</item>
+	<tag><c>filter_default = log | stop</c></tag>
+	<item>
+	  <p>Specifies what happens to a log event if all filters
+	    return <c>ignore</c>, or if no filters exist.</p>
+	  <p>See section <seealso marker="#filters">Filters</seealso>
+	    for more information about how this option is used.</p>
+	  <p>Defaults to <c>log</c>.</p>
+	</item>
+	<tag><c>formatter = {FormatterModule,FormatterConfig}</c></tag>
+	<item>
+	  <p>Specifies a formatter that the handler can use for
+	    converting the log event term to a printable string.</p>
+	  <list>
+	    <item><c>FormatterModule = module()</c></item>
+	    <item><c>FormatterConfig = </c>
+		<seealso marker="logger#type-formatter_config">
+		  <c>logger:formatter_config()</c></seealso></item>
+	    </list>
+	  <p>The formatter information is specified when adding the
+	    handler. The formatter configuration can be changed during
+	    runtime
+	    with <seealso marker="logger#update_formatter_config-2">
+	      <c>logger:update_formatter_config/2,3</c></seealso>,
+	    or the complete formatter information can be overwritten
+	    with, for
+	    instance, <seealso marker="logger#set_handler_config-3">
+	      <c>logger:set_handler_config/3</c></seealso>.</p>
+	  <p>See
+	    section <seealso marker="#formatters">Formatters</seealso>
+	    for more detailed information.</p>
+	  <p>Defaults
+	    to <c>{logger_formatter,DefaultFormatterConfig}</c>. See
+	    the <seealso marker="logger_formatter">
+	      <c>logger_formatter(3)</c></seealso> manual page for
+	    information about this formatter and its default
+	    configuration.</p>
+	</item>
+	<tag><c>config = term()</c></tag>
+	<item>
+	  <p>Handler specific configuration, that is, configuration
+	    data related to a specific handler implementation.</p>
+	  <p>The configuration for the built-in handlers is described
+            in
+            the <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
+            and
+            <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c>
+	    </seealso> manual pages.</p>
+	</item>
+      </taglist>
+
+      <p>Notice that <c>level</c> and <c>filters</c> are obeyed by
+	Logger itself before forwarding the log events to each
+	handler, while <c>formatter</c> and all handler specific
+	options are left to the handler implementation.</p>
+    </section>
+
+    <section>
+      <marker id="kernel_config_params"/>
+      <title>Kernel Configuration Parameters</title>
+
+    <p>The following Kernel configuration parameters apply to
+      Logger:</p>
+    <taglist>
+      <tag><marker id="logger_parameter"/><c>logger = [Config]</c></tag>
+      <item>
+        <p>Specifies the configuration
+	  for <seealso marker="logger">Logger</seealso>, except the
+	  primary log level, which is specified
+	  with <seealso marker="#logger_level"><c>logger_level</c></seealso>,
+	  and the compatibility
+	  with <seealso marker="sasl:error_logging">SASL Error
+	  Logging</seealso>, which is specified
+	  with <seealso marker="#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seealso>.</p>
+	<p>With this parameter, you can modify or disable the default
+	  handler, add custom handlers and primary logger filters, set
+	  log levels per module, and modify
+	  the <seealso marker="#proxy">proxy</seealso>
+	  configuration.</p>
+	<p><c>Config</c> is any (zero or more) of the following:</p>
+	<taglist>
+          <tag><c>{handler, default, undefined}</c></tag>
+          <item>
+	    <p>Disables the default handler. This allows another
+              application to add its own default handler.</p>
+	    <p>Only one entry of this type is allowed.</p>
+	  </item>
+          <tag><c>{handler, HandlerId, Module, HandlerConfig}</c></tag>
+          <item>
+	    <p>If <c>HandlerId</c> is <c>default</c>, then this entry
+	      modifies the default handler, equivalent to calling</p>
+	    <pre><seealso marker="logger#remove_handler-1">
+		logger:remove_handler(default)
+	    </seealso></pre>
+	    <p>followed by</p>
+	    <pre><seealso marker="logger#add_handler-3">
+		logger:add_handler(default, Module, HandlerConfig)
+	    </seealso></pre>
+	    <p>For all other values of <c>HandlerId</c>, this entry
+	      adds a new handler, equivalent to calling</p>
+	    <pre><seealso marker="logger#add_handler/3">
+		logger:add_handler(HandlerId, Module, HandlerConfig)
+	    </seealso></pre>
+	    <p>Multiple entries of this type are allowed.</p></item>
+          <tag><c>{filters, FilterDefault, [Filter]}</c></tag>
+          <item>
+	    <p>Adds the specified primary filters.</p>
+	    <list>
+              <item><c>FilterDefault = log | stop</c></item>
+              <item><c>Filter = {FilterId, {FilterFun, FilterConfig}}</c></item>
+	    </list>
+	    <p>Equivalent to calling</p>
+	    <pre><seealso marker="logger#add_primary_filter/2">
+		logger:add_primary_filter(FilterId, {FilterFun, FilterConfig})
+	    </seealso></pre>
+	    <p>for each <c>Filter</c>.</p>
+	    <p><c>FilterDefault</c> specifies the behaviour if all
+	      primary filters return <c>ignore</c>, see
+	      section <seealso marker="#filters">Filters</seealso>.</p>
+	    <p>Only one entry of this type is allowed.</p>
+	  </item>
+          <tag><c>{module_level, Level, [Module]}</c></tag>
+          <item>
+	    <p>Sets module log level for the given modules. Equivalent
+	      to calling</p>
+	    <pre><seealso marker="logger#set_module_level/2">
+		logger:set_module_level(Module, Level)</seealso></pre>
+	    <p>for each <c>Module</c>.</p>
+	    <p>Multiple entries of this type are allowed.</p>
+	  </item>
+	  <tag><c>{proxy, ProxyConfig}</c></tag>
+	  <item>
+	    <p>Sets the proxy configuration, equivalent to calling</p>
+	    <pre><seealso marker="logger#set_proxy_config/1">
+		logger:set_proxy_config(ProxyConfig)
+	    </seealso></pre>
+	    <p>Only one entry of this type is allowed.</p>
+	  </item>
+	</taglist>
+	<p>See
+	  section <seealso marker="#config_examples">Configuration
+	  Examples</seealso> for examples using the <c>logger</c>
+	  parameter for system configuration.</p>
+      </item>
+      <tag><marker id="logger_level"/>
+	<c>logger_level = Level</c></tag>
+      <item>
+	<p>Specifies the primary log level. See
+	  the <seealso marker="kernel_app#logger_level"><c>kernel(6)</c></seealso>
+	  manual page for more information about this parameter.</p>
+      </item>
+      <tag><marker id="logger_sasl_compatible"/>
+	<c>logger_sasl_compatible = true | false</c></tag>
+      <item>
+	<p>Specifies Logger's compatibility
+	  with <seealso marker="sasl:error_logging">SASL Error
+	    Logging</seealso>. See
+	  the <seealso marker="kernel_app#logger_sasl_compatible">
+	    <c>kernel(6)</c></seealso> manual page for more
+	  information about this parameter.</p>
+      </item>
+    </taglist>
+    </section>
+
+    <section>
+      <marker id="config_examples"/>
+      <title>Configuration Examples</title>
+      <p>The value of the Kernel configuration parameter <c>logger</c>
+	is a list of tuples. It is possible to write the term on the
+	command line when starting an erlang node, but as the term
+	grows, a better approach is to use the system configuration
+	file. See
+	the <seealso marker="config"><c>config(4)</c></seealso> manual
+	page for more information about this file.</p>
+      <p>Each of the following examples shows a simple system
+	configuration file that configures Logger according to the
+	description.</p>
+      <p>Modify the default handler to print to a file instead of
+	<c>standard_io</c>:</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,  % {handler, HandlerId, Module,
+      #{config => #{file => "log/erlang.log"}}}  % Config}
+    ]}]}].
+      </code>
+      <p>Modify the default handler to print each log event as a
+	single line:</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{formatter => {logger_formatter, #{single_line => true}}}}
+    ]}]}].
+      </code>
+      <p>Modify the default handler to print the pid of the logging
+	process for each log event:</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{formatter => {logger_formatter,
+                        #{template => [time," ",pid," ",msg,"\n"]}}}}
+    ]}]}].
+      </code>
+      <p>Modify the default handler to only print errors and more
+	severe log events to "log/erlang.log", and add another handler
+	to print all log events to "log/debug.log".</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{level => error,
+        config => #{file => "log/erlang.log"}}},
+     {handler, info, logger_std_h,
+      #{level => debug,
+        config => #{file => "log/debug.log"}}}
+    ]}]}].
+      </code>
+    </section>
+
+  </section>
+
+  <section>
+    <marker id="compatibility"/>
+    <title>Backwards Compatibility with error_logger</title>
+    <p>Logger provides backwards compatibility with
+      <c>error_logger</c> in the following ways:</p>
+
+    <taglist>
+      <tag>API for Logging</tag>
+      <item>
+	<p>The <c>error_logger</c> API still exists, but should only
+	  be used by legacy code. It will be removed in a later
+	  release.</p>
+	<p>Calls
+	  to <seealso marker="error_logger#error_report-1">
+	    <c>error_logger:error_report/1,2</c></seealso>,
+	  <seealso marker="error_logger#error_msg-1">
+	    <c>error_logger:error_msg/1,2</c></seealso>, and
+	  corresponding functions for warning and info messages, are
+	  all forwarded to Logger as calls
+	  to <seealso marker="logger#log-3">
+	    <c>logger:log(Level,Report,Metadata)</c></seealso>.</p>
+	<p><c>Level = error | warning | info</c> and is taken
+	  from the function name. <c>Report</c> contains the actual
+	  log message, and <c>Metadata</c> contains additional
+	  information which can be used for creating backwards
+	  compatible events for legacy <c>error_logger</c> event
+	  handlers, see
+	  section <seealso marker="#legacy_event_handlers">Legacy
+	  Event Handlers</seealso>.</p>
+      </item>
+      <tag>Output Format</tag>
+      <item>
+	<p>To get log events on the same format as produced
+	  by <c>error_logger_tty_h</c> and <c>error_logger_file_h</c>,
+	  use the default formatter, <c>logger_formatter</c>, with
+	  configuration parameter <c>legacy_header</c> set
+	  to <c>true</c>. This is the default configuration of
+	  the <c>default</c> handler started by Kernel.</p>
+      </item>
+      <tag>Default Format of Log Events from OTP</tag>
+      <item>
+	<p>By default, all log events originating from within OTP,
+	  except the former so called "SASL reports", look the same as
+	  before.</p>
+      </item>
+      <tag><marker id="sasl_reports"/>SASL Reports</tag>
+      <item>
+	<p>By SASL reports we mean supervisor reports, crash reports
+	  and progress reports.</p>
+	<p>Prior to Erlang/OTP 21.0, these reports were only logged
+	  when the SASL application was running, and they were printed
+	  trough SASL's own event handlers <c>sasl_report_tty_h</c>
+	  and <c>sasl_report_file_h</c>.</p>
+	<p>The destination of these log events was configured by
+	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">SASL
+	  configuration parameters</seealso>.</p>
+	<p>Due to the specific event handlers, the output format
+	  slightly differed from other log events.</p>
+	<p>As of Erlang/OTP 21.0, the concept of SASL reports is
+	  removed, meaning that the default behaviour is as
+	  follows:</p>
+	<list>
+	  <item>Supervisor reports, crash reports, and progress reports
+	    are no longer connected to the SASL application.</item>
+	  <item>Supervisor reports and crash reports are issued
+	    as <c>error</c> level log events, and are logged through
+	    the default handler started by Kernel.</item>
+	  <item>Progress reports are issued as <c>info</c> level log
+	    events, and since the default primary log level
+	    is <c>notice</c>, these are not logged by default. To
+	    enable printing of progress reports, set
+	    the <seealso marker="#primary_level">primary log
+	    level</seealso> to <c>info</c>.</item>
+	  <item>The output format is the same for all log
+	    events.</item>
+	</list>
+	<p>If the old behaviour is preferred, the Kernel configuration
+	  parameter <seealso marker="kernel_app#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seealso> can be set
+	  to <c>true</c>. The
+	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">SASL
+	  configuration parameters</seealso> can then be used as
+	  before, and the SASL reports will only be printed if the
+	  SASL application is running, through a second log handler
+	  named <c>sasl</c>.</p>
+	<p>All SASL reports have a metadata field <c>domain</c> which
+	  is set to <c>[otp,sasl]</c>. This field can be
+	  used by filters to stop or allow the log events.</p>
+	<p>See section <seealso marker="sasl:error_logging">SASL User's
+	  Guide</seealso> for more information about the old SASL
+	  error logging functionality.</p>
+      </item>
+      <tag><marker id="legacy_event_handlers"/>Legacy Event Handlers</tag>
+      <item>
+	<p>To use event handlers written for <c>error_logger</c>, just
+	  add your event handler with</p>
+	<code>
+error_logger:add_report_handler/1,2.
+	</code>
+	<p>This automatically starts the error logger event manager,
+	  and adds <c>error_logger</c> as a handler to Logger, with
+	  the following configuration:</p>
+<code>
+#{level => info,
+  filter_default => log,
+  filters => []}.
+</code>
+	<note>
+	  <p>This handler ignores events that do not originate from
+	    the <c>error_logger</c> API, or from within OTP. This
+	    means that if your code uses the Logger API for logging,
+	    then your log events will be discarded by this
+	    handler.</p>
+	  <p>The handler is not overload protected.</p>
+	</note>
+      </item>
+    </taglist>
+  </section>
+
+
+  <section>
+    <title>Error Handling</title>
+    <p>Logger does, to a certain extent, check its input data before
+      forwarding a log event to filters and handlers. It does,
+      however, not evaluate report callbacks, or check the validity of
+      format strings and arguments. This means that all filters and
+      handlers must be careful when formatting the data of a log
+      event, making sure that it does not crash due to bad input data
+      or faulty callbacks.</p>
+    <p>If a filter or handler still crashes, Logger will remove the
+      filter or handler in question from the configuration, and print
+      a short error message to the terminal. A debug event containing
+      the crash reason and other details is also issued.</p>
+    <p>See section <seealso marker="#log_message">Log
+      Message</seealso> for more information about report callbacks
+      and valid forms of log messages.</p>
+  </section>
+
+  <section>
+    <title>Example: Add a handler to log info events to file</title>
+    <p>When starting an Erlang node, the default behaviour is that all
+      log events on level <c>notice</c> or more severe, are logged to
+      the terminal via the default handler. To also log info events,
+      you can either change the primary log level to <c>info</c>:</p>
+    <pre>
+1> <input>logger:set_primary_config(level, info).</input>
+ok</pre>
+    <p>or set the level for one or a few modules only:</p>
+    <pre>
+2> <input>logger:set_module_level(mymodule, info).</input>
+ok</pre>
+    <p>This allows info events to pass through to the default handler,
+      and be printed to the terminal as well. If there are many info
+      events, it can be useful to print these to a file instead.</p>
+    <p>First, set the log level of the default handler
+      to <c>notice</c>, preventing it from printing info events to the
+      terminal:</p>
+    <pre>
+3> <input>logger:set_handler_config(default, level, notice).</input>
+ok</pre>
+    <p>Then, add a new handler which prints to file. You can use the
+      handler
+      module <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>,
+      and configure it to log to file:</p>
+    <pre>
+4> <input>Config = #{config => #{file => "./info.log"}, level => info}.</input>
+#{config => #{file => "./info.log"},level => info}
+5> <input>logger:add_handler(myhandler, logger_std_h, Config).</input>
+ok</pre>
+    <p>Since <c>filter_default</c> defaults to <c>log</c>, this
+      handler now receives all log events. If you want info events
+      only in the file, you must add a filter to stop all non-info
+      events. The built-in
+      filter <seealso marker="logger_filters#level-2">
+	<c>logger_filters:level/2</c></seealso>
+      can do this:</p>
+    <pre>
+6> <input>logger:add_handler_filter(myhandler, stop_non_info,
+                             {fun logger_filters:level/2, {stop, neq, info}}).</input>
+ok</pre>
+    <p>See section <seealso marker="#filters">Filters</seealso> for
+      more information about the filters and the <c>filter_default</c>
+      configuration parameter.</p>
+
+  </section>
+
+  <section>
+    <title>Example: Implement a handler</title>
+    <p>Section <seealso marker="logger#handler_callback_functions">Handler
+	Callback Functions</seealso> in the logger(3) manual page
+	describes the callback functions that can be implemented for a
+	Logger handler.</p>
+    <p>A handler callback module must export:</p>
+    <list>
+      <item><c>log(Log, Config)</c></item>
+    </list>
+    <p>It can optionally also export some, or all, of the following:</p>
+    <list>
+      <item><c>adding_handler(Config)</c></item>
+      <item><c>removing_handler(Config)</c></item>
+      <item><c>changing_config(SetOrUpdate, OldConfig, NewConfig)</c></item>
+      <item><c>filter_config(Config)</c></item>
+    </list>
+    <p>When a handler is added, by for example a call
+      to <seealso marker="logger#add_handler-3">
+	<c>logger:add_handler(Id, HModule, Config)</c></seealso>,
+      Logger first calls <c>HModule:adding_handler(Config)</c>. If
+      this function returns <c>{ok,Config1}</c>, Logger
+      writes <c>Config1</c> to the configuration database, and
+      the <c>logger:add_handler/3</c> call returns. After this, the
+      handler is installed and must be ready to receive log events as
+      calls to <c>HModule:log/2</c>.</p>
+    <p>A handler can be removed by calling
+      <seealso marker="logger#remove_handler-1">
+	<c>logger:remove_handler(Id)</c></seealso>. Logger calls
+      <c>HModule:removing_handler(Config)</c>, and removes the
+      handler's configuration from the configuration database.</p>
+    <p>When <seealso marker="logger#set_handler_config-2">
+	<c>logger:set_handler_config/2,3</c></seealso>
+      or <seealso marker="logger#update_handler_config/2">
+	<c>logger:update_handler_config/2,3</c></seealso> is called,
+      Logger
+      calls <c>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig)</c>. If
+      this function returns <c>{ok,NewConfig1}</c>, Logger
+      writes <c>NewConfig1</c> to the configuration database.</p>
+    <p>When <seealso marker="logger#get_config-0">
+	<c>logger:get_config/0</c></seealso> or
+      <seealso marker="logger#get_handler_config-0">
+	<c>logger:get_handler_config/0,1</c></seealso> is called,
+      Logger calls <c>HModule:filter_config(Config)</c>. This function
+      must return the handler configuration where internal data is
+      removed.</p>
+
+    <p>A simple handler that prints to the terminal can be implemented
+      as follows:</p>
+    <code>
+-module(myhandler1).
+-export([log/2]).
+
+log(LogEvent, #{formatter := {FModule, FConfig}}) ->
+    io:put_chars(FModule:format(LogEvent, FConfig)).
+    </code>
+
+    <p>Notice that the above handler does not have any overload
+      protection, and all log events are printed directly from the
+      client process.</p>
+    <p>For information and examples of overload protection, please
+      refer to
+      section <seealso marker="#overload_protection">Protecting the
+	Handler from Overload</seealso>, and the implementation
+      of <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
+      and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
+      </seealso>.</p>
+    <p>The following is a simpler example of a handler which logs to a
+      file through one single process:</p>
+    <code>
+-module(myhandler2).
+-export([adding_handler/1, removing_handler/1, log/2]).
+-export([init/1, handle_call/3, handle_cast/2, terminate/2]).
+
+adding_handler(Config) ->
+    MyConfig = maps:get(config,Config,#{file => "myhandler2.log"}),
+    {ok, Pid} = gen_server:start(?MODULE, MyConfig, []),
+    {ok, Config#{config => MyConfig#{pid => Pid}}}.
+
+removing_handler(#{config := #{pid := Pid}}) ->
+    gen_server:stop(Pid).
+
+log(LogEvent,#{config := #{pid := Pid}} = Config) ->
+    gen_server:cast(Pid, {log, LogEvent, Config}).
+
+init(#{file := File}) ->
+    {ok, Fd} = file:open(File, [append, {encoding, utf8}]),
+    {ok, #{file => File, fd => Fd}}.
+
+handle_call(_, _, State) ->
+    {reply, {error, bad_request}, State}.
+
+handle_cast({log, LogEvent, Config}, #{fd := Fd} = State) ->
+    do_log(Fd, LogEvent, Config),
+    {noreply, State}.
+
+terminate(_Reason, #{fd := Fd}) ->
+    _ = file:close(Fd),
+    ok.
+
+do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
+    String = FModule:format(LogEvent, FConfig),
+    io:put_chars(Fd, String).
+    </code>
+  </section>
+
+  <section>
+    <marker id="overload_protection"/>
+    <title>Protecting the Handler from Overload</title>
+    <p>The default handlers, <seealso marker="logger_std_h">
+    <c>logger_std_h</c></seealso> and <seealso marker="logger_disk_log_h">
+    <c>logger_disk_log_h</c></seealso>, feature an overload protection
+    mechanism, which makes it possible for the handlers to survive,
+    and stay responsive, during periods of high load (when huge
+    numbers of incoming log requests must be handled).
+    The mechanism works as follows:</p>
+    
+    <section>
+      <title>Message Queue Length</title>
+      <p>The handler process keeps track of the length of its message
+      queue and takes some form of action when the current length exceeds a
+      configurable threshold. The purpose is to keep the handler in, or to
+      as quickly as possible get the handler into, a state where it can
+      keep up with the pace of incoming log events. The memory use of the
+      handler must never grow larger and larger, since that will eventually
+      cause the handler to crash. These three thresholds, with associated
+      actions, exist:</p>
+      
+      <taglist>
+	<tag><c>sync_mode_qlen</c></tag>
+	<item>
+	  <p>As long as the length of the message queue is lower than this
+	  value, all log events are handled asynchronously. This means that
+	  the client process sending the log event, by calling a log function
+	  in the <seealso marker="logger_chapter#logger_api">Logger API</seealso>,
+	  does not wait for a response from the handler but continues
+	  executing immediately after the event is sent. It is not affected
+	  by the time it takes the handler to print the event to the log
+	  device. If the message queue grows larger than this value,
+	  the handler starts handling log events synchronously instead,
+	  meaning that the client process sending the event must wait for a
+	  response. When the handler reduces the message queue to a
+	  level below the <c>sync_mode_qlen</c> threshold, asynchronous
+	  operation is resumed. The switch from asynchronous to synchronous
+	  mode can slow down the logging tempo of one, or a few, busy senders,
+	  but cannot protect the handler sufficiently in a situation of many
+	  busy concurrent senders.</p>
+	  <p>Defaults to <c>10</c> messages.</p>
+	</item>
+	<tag><c>drop_mode_qlen</c></tag>
+	<item>
+	  <p>When the message queue grows larger than this threshold, the
+	  handler switches to a mode in which it drops all new events that
+	  senders want to log. Dropping an event in this mode means that the
+	  call to the log function never results in a message being sent to
+	  the handler, but the function returns without taking any action.
+	  The handler keeps logging the events that are already in its message
+	  queue, and when the length of the message queue is reduced to a level
+	  below the threshold, synchronous or asynchronous mode is resumed.
+	  Notice that when the handler activates or deactivates drop mode,
+	  information about it is printed in the log.</p>
+	  <p>Defaults to <c>200</c> messages.</p>
+	</item>
+	<tag><c>flush_qlen</c></tag>
+	<item>
+	  <p>If the length of the message queue grows larger than this threshold,
+	  a flush (delete) operation takes place. To flush events, the handler
+	  discards the messages in the message queue by receiving them in a
+	  loop without logging. Client processes waiting for a response from a
+	  synchronous log request receive a reply from the handler indicating
+	  that the request is dropped. The handler process increases its
+	  priority during the flush loop to make sure that no new events
+	  are received during the operation. Notice that after the flush operation
+	  is performed, the handler prints information in the log about how many
+	  events have been deleted.</p>
+	  <p>Defaults to <c>1000</c> messages.</p>
+	</item>
+      </taglist>
+
+      <p>For the overload protection algorithm to work properly, it is
+      required that:</p>
+
+      <p><c>sync_mode_qlen =&lt; drop_mode_qlen =&lt; flush_qlen</c></p>
+
+      <p>and that:</p>
+
+      <p><c>drop_mode_qlen &gt; 1</c></p>
+
+      <p>To disable certain modes, do the following:</p>
+      <list>
+	<item>If <c>sync_mode_qlen</c> is set to <c>0</c>, all log events are handled
+	synchronously. That is, asynchronous logging is disabled.</item>
+	<item>If <c>sync_mode_qlen</c> is set to the same value as
+	<c>drop_mode_qlen</c>, synchronous mode is disabled. That is, the handler
+	always runs in asynchronous mode, unless dropping or flushing is invoked.</item>
+	<item>If <c>drop_mode_qlen</c> is set to the same value as <c>flush_qlen</c>,
+	drop mode is disabled and can never occur.</item>
+      </list>
+
+      <p>During high load scenarios, the length of the handler message queue
+      rarely grows in a linear and predictable way. Instead, whenever the
+      handler process is scheduled in, it can have an almost arbitrary number
+      of messages waiting in the message queue. It is for this reason that the overload
+      protection mechanism is focused on acting quickly, and quite drastically,
+      such as immediately dropping or flushing messages, when a large queue length
+      is detected.</p>
+
+      <p>The values of the previously listed thresholds can be specified by the user.
+      This way, a handler can be configured to, for example, not drop or flush
+      messages unless the message queue length of the handler process grows extremely
+      large. Notice that large amounts of memory can be required for the node under such
+      circumstances. Another example of user configuration is when, for performance
+      reasons, the client processes must never be blocked by synchronous log requests.
+      It is possible, perhaps, that dropping or flushing events is still acceptable, since
+      it does not affect the performance of the client processes sending the log events.</p>
+
+      <p>A configuration example:</p>
+      <code type="none">
+logger:add_handler(my_standard_h, logger_std_h,
+                   #{config => #{file => "./system_info.log",
+                                 sync_mode_qlen => 100,
+                                 drop_mode_qlen => 1000,
+                                 flush_qlen => 2000}}).
+    </code>
+    </section>
+
+    <section>
+      <title>Controlling Bursts of Log Requests</title>
+      <p>Large bursts of log events - many events received by the handler
+      under a short period of time - can potentially cause problems, such as:</p>
+      <list>
+	<item>Log files grow very large, very quickly.</item>
+	<item>Circular logs wrap too quickly so that important data is overwritten.</item>
+	<item>Write buffers grow large, which slows down file sync operations.</item>
+      </list>
+
+      <p>For this reason, both built-in handlers offer the possibility to specify the
+      maximum number of events to be handled within a certain time frame.
+      With this burst control feature enabled, the handler can avoid choking the log with
+      massive amounts of printouts. The configuration parameters are:</p>
+      <taglist>
+	<tag><c>burst_limit_enable</c></tag>
+	<item>
+	  <p>Value <c>true</c> enables burst control and <c>false</c> disables it.</p>
+	  <p>Defaults to <c>true</c>.</p>
+	</item>
+	<tag><c>burst_limit_max_count</c></tag>
+	<item>
+	  <p>This is the maximum number of events to handle within a
+	  <c>burst_limit_window_time</c> time frame. After the limit is
+	  reached, successive events are dropped until the end of the time frame.</p>
+	  <p>Defaults to <c>500</c> events.</p>
+	</item>
+	<tag><c>burst_limit_window_time</c></tag>
+	<item>
+	  <p>See the previous description of <c>burst_limit_max_count</c>.</p>
+	  <p>Defaults to <c>1000</c> milliseconds.</p>
+	</item>
+      </taglist>
+
+      <p>A configuration example:</p>
+      <code type="none">
+logger:add_handler(my_disk_log_h, logger_disk_log_h,
+                   #{config => #{file => "./my_disk_log",
+                                 burst_limit_enable => true,
+                                 burst_limit_max_count => 20,
+                                 burst_limit_window_time => 500}}).
+    </code>
+    </section>
+
+    <section>
+      <title>Terminating an Overloaded Handler</title>
+      <p>It is possible that a handler, even if it can successfully manage peaks
+      of high load without crashing, can build up a large message queue, or use a
+      large amount of memory. The overload protection mechanism includes an
+      automatic termination and restart feature for the purpose of guaranteeing
+      that a handler does not grow out of bounds. The feature is configured
+      with the following parameters:</p>
+      <taglist>
+	<tag><c>overload_kill_enable</c></tag>
+	<item>
+	  <p>Value <c>true</c> enables the feature and <c>false</c> disables it.</p>
+	  <p>Defaults to <c>false</c>.</p>
+	</item>
+	<tag><c>overload_kill_qlen</c></tag>
+	<item>
+	  <p>This is the maximum allowed queue length. If the message queue grows
+	  larger than this, the handler process is terminated.</p>
+	  <p>Defaults to <c>20000</c> messages.</p>
+	</item>
+	<tag><c>overload_kill_mem_size</c></tag>
+	<item>
+	  <p>This is the maximum memory size that the handler process is allowed to use.
+	  If the handler grows larger than this, the process is terminated.</p>
+	  <p>Defaults to <c>3000000</c> bytes.</p>
+	</item>
+	<tag><c>overload_kill_restart_after</c></tag>
+	<item>
+	  <p>If the handler is terminated, it restarts automatically after a
+	  delay specified in milliseconds. The value <c>infinity</c> prevents
+	  restarts.</p>
+	  <p>Defaults to <c>5000</c> milliseconds.</p>
+	</item>
+      </taglist>
+      <p>If the handler process is terminated because of overload, it prints
+      information about it in the log. It also prints information about when a
+      restart has taken place, and the handler is back in action.</p>
+      <note>
+	<p>The sizes of the log events affect the memory needs of the handler.
+	For information about how to limit the size of log events, see the
+	<seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>
+	manual page.</p>
+      </note>
+    </section>
+  </section>
+
+  <section>
+    <marker id="proxy"/>
+    <title>Logger Proxy</title>
+    <p>The Logger proxy is an Erlang process which is part of the
+      Kernel application's supervision tree. During startup, the proxy
+      process registers itself as the <c>system_logger</c>, meaning
+      that log events produced by the emulator are sent to this
+      process.</p>
+    <p>When a log event is issued on a process which has its group
+      leader on a remote node, Logger automatically forwards the log
+      event to the group leader's node. To achieve this, it first
+      sends the log event as an Erlang message from the original
+      client process to the proxy on the local node, and the proxy in
+      turn forwards the event to the proxy on the remote node.</p>
+    <p>When receiving a log event, either from the emulator or from a
+      remote node, the proxy calls the Logger API to log the event.</p>
+    <p>The proxy process is overload protected in the same way as
+      described in
+      section <seealso marker="#overload_protection">Protecting the
+      Handler from Overload</seealso>, but with the following default
+      values:</p>
+    <code>
+    #{sync_mode_qlen => 500,
+      drop_mode_qlen => 1000,
+      flush_qlen => 5000,
+      burst_limit_enable => false,
+      overload_kill_enable => false}</code>
+    <p>For log events from the emulator, synchronous message passing
+      mode is not applicable, since all messages are passed
+      asynchronously by the emulator. Drop mode is achieved by setting
+      the <c>system_logger</c> to <c>undefined</c>, forcing the
+      emulator to drop events until it is set back to the proxy pid
+      again.</p>
+    <p>The proxy uses <seealso marker="erts:erlang#send_nosuspend/2">
+	<c>erlang:send_nosuspend/2</c></seealso> when sending log
+      events to a remote node. If the message could not be sent
+      without suspending the sender, it is dropped. This is to avoid
+      blocking the proxy process.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
+      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
+      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
+      <seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seealso>,
+      <seealso marker="logger_filters"><c>logger_filters(3)</c></seealso>,
+      <seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>,
+      <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>,
+        <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso></p>
+  </section>
+</chapter>

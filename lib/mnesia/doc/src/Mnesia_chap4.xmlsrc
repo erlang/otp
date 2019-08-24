@@ -1,0 +1,1157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Transactions and Other Access Contexts</title>
+    <prepared>Claes Wikstr&ouml;m, Hans Nilsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>Mnesia_chap4.xml</file>
+  </header>
+  <p>This section describes the <c>Mnesia</c> transaction system and
+    the transaction properties that make <c>Mnesia</c> a fault-tolerant,
+    distributed Database Management System (DBMS).</p>
+  <p>This section also describes the locking functions,
+    including table locks and sticky locks, as well as alternative
+    functions that bypass the transaction system in favor of improved
+    speed and reduced overhead. These functions are called "dirty
+    operations". The use of nested transactions is also described.
+    The following topics are included:</p>
+  <list type="bulleted">
+    <item>Transaction properties, which include atomicity,
+      consistency, isolation, and durability</item>
+    <item>Locking</item>
+    <item>Dirty operations</item>
+    <item>Record names versus table names</item>
+    <item>Activity concept and various access contexts</item>
+    <item>Nested transactions</item>
+    <item>Pattern matching</item>
+    <item>Iteration</item>
+  </list>
+
+  <section>
+    <marker id="trans_prop"></marker>
+    <title>Transaction Properties</title>
+    <p>Transactions are important when designing fault-tolerant,
+      distributed systems. A <c>Mnesia</c> transaction is a mechanism
+      by which a series of database operations can be executed as one
+      functional block. The functional block that is run as a
+      transaction is called a Functional Object (Fun), and this code can
+      read, write, and delete <c>Mnesia</c> records. The Fun is evaluated
+      as a transaction that either commits or terminates. If a transaction
+      succeeds in executing the Fun, it replicates the action on all nodes
+      involved, or terminates if an error occurs.</p>
+    <p>The following example shows a transaction that raises the
+      salary of certain employee numbers:</p>
+    <codeinclude file="company.erl" tag="%5" type="erl"></codeinclude>
+    <p>The function <c>raise/2</c> contains a Fun
+      made up of four code lines. This Fun is called by the statement
+      <c>mnesia:transaction(F)</c> and returns a value.</p>
+    <p>The <c>Mnesia</c> transaction system facilitates the construction of
+      reliable, distributed systems by providing the following important
+      properties:</p>
+    <list type="bulleted">
+      <item>The transaction handler ensures that a Fun, which is placed
+       inside a transaction, does not interfere with operations embedded
+       in other transactions when it executes a series of operations on
+       tables.  
+      </item>
+      <item>The transaction handler ensures that either all operations
+       in the transaction are performed successfully on all nodes
+       atomically, or the transaction fails without permanent effect on
+       any node.
+      </item>
+      <item>The <c>Mnesia</c> transactions have four important properties,
+       called <em>A</em>tomicity,
+       <em>C</em>onsistency, <em>I</em>solation, and
+       <em>D</em>urability (ACID). These properties are
+       described in the following sections.</item>
+    </list>
+
+    <section>
+      <title>Atomicity</title>
+      <p>Atomicity means that database changes that are
+        executed by a transaction take effect on all nodes involved, or
+        on none of the nodes. That is, the transaction either
+        succeeds entirely, or it fails entirely.</p>
+      <p>Atomicity is important when it is needed to write
+        atomically more than one record in the same
+        transaction. The function <c>raise/2</c>, shown in the previous
+        example, writes one record only. The function <c>insert_emp/3</c>,
+        shown in the program listing in
+        <seealso marker="Mnesia_chap2#getting_started">Getting Started</seealso>, writes the record
+        <c>employee</c> as well as employee relations, such as
+        <c>at_dep</c> and <c>in_proj</c>, into the database. If this
+        latter code is run inside a transaction, the transaction
+        handler ensures that the transaction either succeeds completely,
+        or not at all.</p>
+      <p><c>Mnesia</c> is a distributed DBMS where data can be replicated
+        on several nodes. In many applications, it is important that a
+        series of write operations are performed atomically inside a
+        transaction. The atomicity property ensures that a transaction
+        takes effect on all nodes, or none.</p>
+    </section>
+
+    <section>
+      <title>Consistency</title>
+      <p>The consistency property ensures that
+        a transaction always leaves the DBMS in a consistent state. For
+        example, <c>Mnesia</c> ensures that no inconsistencies occur if
+        Erlang, <c>Mnesia</c>, or the computer crashes while a write
+        operation is in progress.</p>
+    </section>
+
+    <section>
+      <title>Isolation</title>
+      <p>The isolation property ensures that
+        transactions that execute on different nodes in a network, and
+        access and manipulate the same data records, do not interfere
+        with each other. The isolation property makes it possible to
+        execute the function <c>raise/2</c> concurrently. A classical
+        problem in concurrency control theory is the "lost update
+        problem".</p>
+      <p>The isolation property is in particular useful if the following
+        circumstances occur where an employee (with employee number
+        123) and two processes (P1 and P2) are concurrently trying to
+        raise the salary for the employee:</p>
+      <list type="bulleted">
+        <item><em>Step 1:</em> The initial value of the employees salary
+        is, for example, 5. Process P1 starts to execute, reads the
+        employee record, and adds 2 to the salary.</item>
+        <item><em>Step 2:</em> Process P1 is for some reason pre-empted
+        and process P2 has the opportunity to run.</item>
+        <item><em>Step 3:</em> Process P2 reads the record, adds 3 to
+        the salary, and finally writes a new employee record with
+        the salary set to 8.</item>
+        <item><em>Step 4:</em> Process P1 starts to run again and
+        writes its employee record with salary set to 7, thus
+        effectively overwriting and undoing the work performed by
+        process P2. The update performed by P2 is lost.</item>
+      </list>
+      <p>A transaction system makes it possible to execute two or more
+        processes concurrently that manipulate the same record.
+        The programmer does not need to check that the
+        updates are synchronous; this is overseen by the
+        transaction handler. All programs accessing the database through
+        the transaction system can be written as if they had sole access
+        to the data.</p>
+    </section>
+
+    <section>
+      <title>Durability</title>
+      <p>The durability property ensures that
+        changes made to the DBMS by a transaction are permanent. Once a
+        transaction is committed, all changes made to the database are
+        durable, that is, they are written safely to disc and do not
+        become corrupted and do not disappear.</p>
+      <note>
+        <p>The described durability feature does not entirely apply to
+          situations where <c>Mnesia</c> is configured as a "pure"
+          primary memory database.</p>
+      </note>
+    </section>
+  </section>
+
+  <section>
+    <title>Locking</title>
+    <p>Different transaction managers employ different strategies to
+      satisfy the isolation property. <c>Mnesia</c> uses the standard
+      technique of two phase locking. That is, locks are set on records
+      before they are read or written. <c>Mnesia</c> uses the following
+      lock types:</p>
+    <list type="bulleted">
+      <item><em>Read locks</em>. A read lock is set on one replica of
+       a record before it can be read.
+      </item>
+      <item><em>Write locks</em>. Whenever a transaction writes to a
+       record, write locks are first set on all replicas of that
+       particular record.
+      </item>
+      <item><em>Read table locks</em>. If a transaction traverses an
+       entire table in search for a record that satisfies some
+       particular property, it is most inefficient to set read locks on
+       the records one by one. It is also memory consuming, as
+       the read locks themselves can take up considerable space if the
+       table is large. Therefore, <c>Mnesia</c> can set a read lock
+       on an entire table.
+      </item>
+      <item><em>Write table locks</em>. If a transaction writes many
+       records to one table, a write lock can be set on the entire table.
+      </item>
+      <item><em>Sticky locks</em>. These are write locks that stay in
+       place at a node after the transaction that initiated the lock
+       has terminated.</item>
+    </list>
+    <p><c>Mnesia</c> employs a strategy whereby functions, such as
+      <seealso marker="mnesia#read/1">mnesia:read/1</seealso>
+      acquire the necessary locks dynamically as
+      the transactions execute. <c>Mnesia</c> automatically sets and
+      releases the locks and the programmer does not need to code these
+      operations.</p>
+    <p>Deadlocks can occur when concurrent processes set and release
+      locks on the same records. <c>Mnesia</c> employs a "wait-die"
+      strategy to resolve
+      these situations. If <c>Mnesia</c> suspects that a deadlock can
+      occur when a transaction tries to set a lock, the transaction is
+      forced to release all its locks and sleep for a while. The Fun
+      in the transaction is evaluated once more.</p>
+    <p>It is therefore important that the code inside the Fun given to
+      <seealso marker="mnesia#transaction/2"><c>mnesia:transaction/1</c></seealso>
+      is pure. Some strange results can
+      occur if, for example, messages are sent by the transaction
+      Fun. The following example illustrates this situation:</p>
+    <codeinclude file="company.erl" tag="%6" type="erl"></codeinclude>
+    <p>This transaction can write the text <c>"Trying to write ... "</c>
+      1000 times to the terminal. However, <c>Mnesia</c> guarantees
+      that each transaction will eventually run. As a result,
+      <c>Mnesia</c> is not only deadlock free, but also livelock free.</p>
+    <p>The <c>Mnesia</c> programmer cannot prioritize one particular
+      transaction to execute before other transactions that are waiting
+      to execute. As a result, the <c>Mnesia</c> DBMS transaction system is
+      not suitable for hard real-time applications. However, <c>Mnesia</c>
+      contains other features that have real-time properties.</p>
+    <p><c>Mnesia</c> dynamically sets and releases locks as transactions
+      execute. It is therefore dangerous to execute code with
+      transaction side-effects. In particular, a <c>receive</c>
+      statement inside a transaction can lead to a situation where the
+      transaction hangs and never returns, which in turn can cause locks
+      not to release. This situation can bring the whole system to a
+      standstill, as other transactions that execute in other
+      processes, or on other nodes, are forced to wait for the defective
+      transaction.</p>
+    <p>If a transaction terminates abnormally, <c>Mnesia</c>
+      automatically releases the locks held by the transaction.</p>
+    <p>Up to now, examples of a number of functions that can be used
+      inside a transaction have been shown. The following list shows
+      the <em>simplest</em> <c>Mnesia</c> functions that work with
+      transactions. Notice that these functions must be embedded in a
+      transaction. If no enclosing transaction (or other enclosing
+      <c>Mnesia</c> activity) exists, they all fail.</p>
+    <list type="bulleted">
+      <item><seealso marker="mnesia#transaction/2">mnesia:transaction(Fun) -> {aborted, Reason} |{atomic, Value}</seealso>
+       executes one transaction with the
+       functional object <c>Fun</c> as the single parameter.
+      </item>
+      <item><seealso marker="mnesia#read/1">mnesia:read({Tab, Key}) -> transaction abort | RecordList</seealso>
+       reads all records with <c>Key</c>
+       as key from table <c>Tab</c>. This function has the same semantics
+       regardless of the location of <c>Table</c>. If the table is of
+       type <c>bag</c>, <c>read({Tab, Key})</c> can return an arbitrarily
+       long list. If the table is of type <c>set</c>, the list is
+       either of length one or <c>[]</c>.
+      </item>
+      <item><seealso marker="mnesia#wread/1">mnesia:wread({Tab, Key}) -> transaction abort | RecordList</seealso>
+       behaves the same way as the
+       previously listed function <c>read/1</c>, except that it
+       acquires a write lock instead of a read lock. To execute a
+       transaction that reads a record, modifies the record, and then
+       writes the record, it is slightly more efficient to set the
+       write lock immediately. When a <seealso marker="mnesia#read/1">mnesia:read/1</seealso>
+       is issued, followed by a
+       <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+       the first read lock must be upgraded to a write lock when the
+       write operation is executed.
+      </item>
+      <item><seealso marker="mnesia#write/1">mnesia:write(Record) -> transaction abort | ok</seealso>
+       writes a record into the database. Argument
+       <c>Record</c> is an instance of a record. The function returns
+       <c>ok</c>, or terminates the transaction if an error occurs.
+      </item>
+      <item><seealso marker="mnesia#delete/1">mnesia:delete({Tab, Key}) -> transaction abort | ok</seealso>
+       deletes all records with the given key.
+      </item>
+      <item><seealso marker="mnesia#delete_object/1">mnesia:delete_object(Record) -> transaction abort | ok</seealso>
+       deletes records with the OID <c>Record</c>. Use this function to
+       delete only some records in a table of type <c>bag</c>.</item>
+    </list>
+
+    <section>
+      <title>Sticky Locks</title>
+      <p>As previously stated, the locking strategy used by <c>Mnesia</c>
+        is to lock one record when reading a record, and lock all replicas
+        of a record when writing a record. However, some
+        applications use <c>Mnesia</c> mainly for its fault-tolerant
+        qualities. These applications can be configured with one
+        node doing all the heavy work, and a standby node that is ready
+        to take over if the main node fails. Such applications can
+        benefit from using sticky locks instead of the normal locking
+        scheme.</p>
+      <p>A sticky lock is a lock that stays in place at a node, after
+        the transaction that first acquired the lock has terminated. To
+        illustrate this, assume that the following transaction is
+        executed:</p>
+      <code type="none">
+        F = fun() ->
+              mnesia:write(#foo{a = kalle})
+            end,
+        mnesia:transaction(F).</code>
+      <p>The <c>foo</c> table is replicated on the two nodes <c>N1</c>
+        and <c>N2</c>.</p>
+      <p>Normal locking requires the following:</p>
+      <list type="bulleted">
+        <item>One network RPC (two messages) to acquire the write lock
+        </item>
+        <item>Three network messages to execute the two-phase commit
+         protocol
+        </item>
+      </list>
+      <p>If sticky locks are used, the code must first be changed as
+        follows:</p>
+      <code type="none">
+        F = fun() ->
+              mnesia:s_write(#foo{a = kalle})
+            end,
+        mnesia:transaction(F).</code>
+      <p>This code uses the function
+        <seealso marker="mnesia#s_write/1">s_write/1</seealso>
+        instead of the function
+        <seealso marker="mnesia#write/1">write/1</seealso>
+        The function <c>s_write/1</c> sets a
+        sticky lock instead of a normal lock. If the table is not
+        replicated, sticky locks have no special effect. If the table is
+        replicated, and a sticky lock is set on node <c>N1</c>, this
+        lock then sticks to node <c>N1</c>. The next time you try to
+        set a sticky lock on the same record at node <c>N1</c>,
+        <c>Mnesia</c> detects that the lock is already set and do no
+        network operation to acquire the lock.</p>
+      <p>It is more efficient to set a local lock than it is to set
+        a networked lock. Sticky locks can therefore benefit an
+        application that uses a replicated table and perform most of the
+        work on only one of the nodes.</p>
+      <p>If a record is stuck at node <c>N1</c> and you try to set a
+        sticky lock for the record on node <c>N2</c>, the record must be
+        unstuck. This operation is expensive and reduces performance.
+        The unsticking is done automatically if you issue <c>s_write/1</c>
+        requests at <c>N2</c>.</p>
+    </section>
+
+    <section>
+      <title>Table Locks</title>
+      <p><c>Mnesia</c> supports read and write locks on whole tables as a
+        complement to the normal locks on single records. As previously
+        stated, <c>Mnesia</c> sets and releases locks automatically, and
+        the programmer does not need to code these operations. However,
+        transactions that read and write many records in a
+        specific table execute more efficiently if the
+        transaction is started by setting a table lock on this table. This
+        blocks other concurrent transactions from the table. The
+        following two functions are used to set explicit table locks for
+        read and write operations:</p>
+      <list type="bulleted">
+        <item><seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seealso>
+         sets a read lock on table <c>Tab</c>.</item>
+        <item><seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table(Tab)</seealso>
+         sets a write lock on table <c>Tab</c>.</item>
+      </list>
+      <p>Alternative syntax for acquisition of table locks is as
+        follows:</p>
+      <code type="none">
+        mnesia:lock({table, Tab}, read)
+        mnesia:lock({table, Tab}, write)</code>
+      <p>The matching operations in <c>Mnesia</c> can either lock the
+        entire table or only a single record (when the key is bound in
+        the pattern).</p>
+    </section>
+
+    <section>
+      <title>Global Locks</title>
+      <p>Write locks are normally acquired on all nodes where a
+        replica of the table resides (and is active). Read locks are
+        acquired on one node (the local one if a local
+        replica exists).</p>
+      <p>The function
+        <seealso marker="mnesia#lock/2">mnesia:lock/2</seealso>
+        is intended to support table locks (as mentioned previously)
+        but also for situations when locks need to be
+        acquired regardless of how tables have been replicated:</p>
+      <code type="none">
+        mnesia:lock({global, GlobalKey, Nodes}, LockKind)
+
+        LockKind ::= read | write | ...</code>
+      <p>The lock is acquired on <c>LockItem</c> on all nodes in the
+        node list.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Dirty Operations</title>
+    <p>In many applications, the overhead of processing a transaction
+      can result in a loss of performance. Dirty operation are short
+      cuts that bypass much of the processing and increase the speed
+      of the transaction.</p>
+    <p>Dirty operation are often useful, for example, in a
+      datagram routing application
+      where <c>Mnesia</c> stores the routing table, and it is time
+      consuming to start a whole transaction every time a packet is
+      received. <c>Mnesia</c> has therefore functions that manipulate
+      tables without using transactions. This alternative
+      to processing is known as a dirty operation. However, notice the
+      trade-off in avoiding the overhead of transaction processing:</p>
+    <list type="bulleted">
+      <item>The atomicity and the isolation properties of <c>Mnesia</c>
+       are lost.
+      </item>
+      <item>The isolation property is compromised, because other
+       Erlang processes, which use transaction to manipulate the data,
+       do not get the benefit of isolation if dirty operations
+       simultaneously are used to read and write records from the same
+       table.
+      </item>
+    </list>
+    <p>The major advantage of dirty operations is that they execute
+      much faster than equivalent operations that are processed as
+      functional objects within a transaction.</p>
+    <p>Dirty operations
+      are written to disc if they are performed on a table of type
+      <c>disc_copies</c> or type <c>disc_only_copies</c>. <c>Mnesia</c>
+      also ensures that all replicas of a table are updated if a
+      dirty write operation is performed on a table.</p>
+    <p>A dirty operation ensures a certain level of consistency.
+      For example, dirty operations cannot return
+      garbled records. Hence, each individual read or write operation
+      is performed in an atomic manner.</p>
+    <p>All dirty functions execute a call to <c>exit({aborted, Reason})</c>
+      on failure. Even if the following functions are
+      executed inside a transaction no locks are acquired. The
+      following functions are available:</p>
+    <list type="bulleted">
+      <item><seealso marker="mnesia#dirty_read/1">mnesia:dirty_read({Tab, Key})</seealso>
+       reads one or more records from <c>Mnesia</c>.
+      </item>
+      <item><seealso marker="mnesia#dirty_write/1">mnesia:dirty_write(Record)</seealso>
+       writes the record <c>Record</c>.
+      </item>
+      <item><seealso marker="mnesia#dirty_delete/1">mnesia:dirty_delete({Tab, Key})</seealso>
+       deletes one or more records with key <c>Key</c>.
+      </item>
+      <item><seealso marker="mnesia#dirty_delete_object/1">mnesia:dirty_delete_object(Record)</seealso>
+       is the dirty operation alternative to the function
+       <seealso marker="mnesia#delete_object/1">delete_object/1</seealso>.
+      </item>
+      <item>
+        <p><seealso marker="mnesia#dirty_first/1">mnesia:dirty_first(Tab)</seealso>
+          returns the "first" key in table <c>Tab</c>.</p>
+        <p>Records in <c>set</c> or <c>bag</c> tables are not sorted.
+          However, there is a record order that is unknown to the user.
+          This means that a table can be traversed by this function
+          with the function
+          <seealso marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seealso>.</p>
+        <p>If there are no records in the table, this function
+          returns the atom <c>'$end_of_table'</c>. It is not
+          recommended to use this atom as the key for any user
+          records.</p>
+      </item>
+      <item><p><seealso marker="mnesia#dirty_next/2">mnesia:dirty_next(Tab, Key)</seealso>
+       returns the "next" key in table <c>Tab</c>. This function makes it
+       possible to traverse a table and perform some operation on all
+       records in the table. When the end of the table is reached, the
+       special key <c>'$end_of_table'</c> is returned. Otherwise, the
+       function returns a key that can be used to read the actual
+       record.</p>
+       <p>The behavior is undefined if any process performs a write
+       operation on the table while traversing the table with the
+       function
+       <seealso marker="mnesia#dirty_next/2">dirty_next/2</seealso>
+       This is because <c>write</c>
+       operations on a <c>Mnesia</c> table can lead to internal
+       reorganizations of the table itself. This is an implementation
+       detail, but remember that the dirty functions are low-level
+       functions.</p>
+      </item>
+      <item><seealso marker="mnesia#dirty_last/1">mnesia:dirty_last(Tab)</seealso>
+       works exactly like
+       <seealso marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seealso>
+       but returns the last object in
+       Erlang term order for the table type <c>ordered_set</c>. For
+       all other table types, <c>mnesia:dirty_first/1</c> and 
+       <c>mnesia:dirty_last/1</c> are synonyms.
+      </item>
+      <item><seealso marker="mnesia#dirty_prev/2">mnesia:dirty_prev(Tab, Key)</seealso>
+       works exactly like
+       <c>mnesia:dirty_next/2</c> but returns the previous object in
+       Erlang term order for the table type <c>ordered_set</c>. For
+       all other table types, <c>mnesia:dirty_next/2</c> and
+       <c>mnesia:dirty_prev/2</c> are synonyms.
+      </item>
+      <item>
+        <p><seealso marker="mnesia#dirty_slot/2">mnesia:dirty_slot(Tab, Slot)</seealso>
+          returns the list of records that are associated with <c>Slot</c>
+          in a table. It can be used to traverse a table in a manner
+          similar to the function <c>dirty_next/2</c>. A table has a
+          number of slots that range from zero to some unknown upper
+          bound. The function <c>dirty_slot/2</c> returns the special
+          atom <c>'$end_of_table'</c> when the end of the table is
+          reached.</p>
+        <p>The behavior of this function is undefined if the
+          table is written on while being
+          traversed. The function
+          <seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seealso>
+          can be used to ensure that no transaction-protected writes
+          are performed during the iteration.</p>
+      </item>
+      <item><p><seealso marker="mnesia#dirty_update_counter/2">mnesia:dirty_update_counter({Tab,Key}, Val)</seealso>.
+          Counters are positive integers with a value greater than or
+          equal to zero. Updating a counter adds <c>Val</c> and the
+          counter where <c>Val</c> is a positive or negative integer.</p>
+        <p><c>Mnesia</c> has no special counter records. However, records
+          of the form <c>{TabName, Key, Integer}</c> can be used as
+          counters, and can be persistent.</p>
+        <p>Transaction-protected updates of counter records are not
+          possible.</p>
+        <p>There are two significant differences when using this
+          function instead of reading the record, performing the
+          arithmetic, and writing the record:</p>
+        <list type="ordered">
+          <item>It is much more efficient.
+          </item>
+          <item>The funcion
+           <seealso marker="mnesia#dirty_update_counter/2">dirty_update_counter/2</seealso>
+           is performed as an atomic operation although it is not protected
+           by a transaction. Therfore no table update is lost if two
+           processes simultaneously execute the function
+          <c>dirty_update_counter/2</c>.
+          </item>
+        </list>
+      </item>
+      <item><seealso marker="mnesia#dirty_match_object/2">mnesia:dirty_match_object(Pat)</seealso>
+       is the dirty equivalent of
+       <seealso marker="mnesia#match_object/1">mnesia:match_object/1</seealso>.
+      </item>
+      <item><seealso marker="mnesia#dirty_select/2">mnesia:dirty_select(Tab, Pat)</seealso>
+       is the dirty equivalent of
+       <seealso marker="mnesia#select/2"> mnesia:select/2</seealso>.
+      </item>
+      <item><seealso marker="mnesia#dirty_index_match_object/2">mnesia:dirty_index_match_object(Pat, Pos)</seealso>
+       is the dirty equivalent of
+       <seealso marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seealso>.
+      </item>
+      <item><seealso marker="mnesia#dirty_index_read/3">mnesia:dirty_index_read(Tab, SecondaryKey, Pos)</seealso>
+       is the dirty equivalent of
+       <seealso marker="mnesia#index_read/3">mnesia:index_read/3</seealso>.
+      </item>
+      <item><seealso marker="mnesia#dirty_all_keys/1">mnesia:dirty_all_keys(Tab)</seealso>
+       is the dirty equivalent of <seealso marker="mnesia#all_keys/1">
+mnesia:all_keys/1</seealso>.
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="recordnames_tablenames"></marker>
+    <title>Record Names versus Table Names</title>
+    <p>In <c>Mnesia</c>, all records in a table must have the same name.
+      All the records must be instances of the same
+      record type. The record name, however, does not necessarily have
+      to be the same as the table name, although this is the case in
+      most of the examples in this User's Guide. If a table is created
+      without property <c>record_name</c>, the following code ensures
+      that all records in the tables have the same name as the table:</p>
+    <code type="none">
+      mnesia:create_table(subscriber, [])</code>
+    <p>However, if the table is created with an explicit record name
+      as argument, as shown in the following example, subscriber records
+      can be stored in both of the tables regardless of the table
+      names:</p>
+    <code type="none">
+      TabDef = [{record_name, subscriber}],
+      mnesia:create_table(my_subscriber, TabDef),
+      mnesia:create_table(your_subscriber, TabDef).</code>
+    <p>To access such tables, simplified access functions
+      (as described earlier) cannot be used. For example,
+      writing a subscriber record into a table requires the function
+      <seealso marker="mnesia#write/3">mnesia:write/3</seealso>
+      instead of the simplified functions
+      <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+      and
+      <seealso marker="mnesia#s_write/1">mnesia:s_write/1</seealso>:</p>
+    <code type="none">
+      mnesia:write(subscriber, #subscriber{}, write)
+      mnesia:write(my_subscriber, #subscriber{}, sticky_write)
+      mnesia:write(your_subscriber, #subscriber{}, write)</code>
+    <p>The following simple code illustrates the
+      relationship between the simplified access functions used in
+      most of the examples and their more flexible counterparts:</p>
+    <code type="none">
+      mnesia:dirty_write(Record) ->
+        Tab = element(1, Record),
+        mnesia:dirty_write(Tab, Record).
+      
+      mnesia:dirty_delete({Tab, Key}) ->
+        mnesia:dirty_delete(Tab, Key).
+      
+      mnesia:dirty_delete_object(Record) ->
+        Tab = element(1, Record),
+        mnesia:dirty_delete_object(Tab, Record) 
+      
+      mnesia:dirty_update_counter({Tab, Key}, Incr) ->
+        mnesia:dirty_update_counter(Tab, Key, Incr).
+      
+      mnesia:dirty_read({Tab, Key}) ->
+        Tab = element(1, Record),
+        mnesia:dirty_read(Tab, Key).
+      
+      mnesia:dirty_match_object(Pattern) ->
+        Tab = element(1, Pattern),
+        mnesia:dirty_match_object(Tab, Pattern).
+      
+      mnesia:dirty_index_match_object(Pattern, Attr) 
+        Tab = element(1, Pattern),
+        mnesia:dirty_index_match_object(Tab, Pattern, Attr).
+      
+      mnesia:write(Record) ->
+        Tab = element(1, Record),
+        mnesia:write(Tab, Record, write).
+      
+      mnesia:s_write(Record) ->
+        Tab = element(1, Record),
+        mnesia:write(Tab, Record, sticky_write).
+      
+      mnesia:delete({Tab, Key}) ->
+        mnesia:delete(Tab, Key, write).
+      
+      mnesia:s_delete({Tab, Key}) ->
+        mnesia:delete(Tab, Key, sticky_write).
+      
+      mnesia:delete_object(Record) ->
+        Tab = element(1, Record),
+        mnesia:delete_object(Tab, Record, write).
+      
+      mnesia:s_delete_object(Record) ->
+        Tab = element(1, Record),
+        mnesia:delete_object(Tab, Record, sticky_write).
+      
+      mnesia:read({Tab, Key}) ->
+        mnesia:read(Tab, Key, read).
+      
+      mnesia:wread({Tab, Key}) ->
+        mnesia:read(Tab, Key, write).
+      
+      mnesia:match_object(Pattern) ->
+        Tab = element(1, Pattern),
+        mnesia:match_object(Tab, Pattern, read).
+      
+      mnesia:index_match_object(Pattern, Attr) ->
+        Tab = element(1, Pattern),
+        mnesia:index_match_object(Tab, Pattern, Attr, read).</code>
+  </section>
+
+  <section>
+    <title>Activity Concept and Various Access Contexts</title>
+    <p>As previously described, a Functional Object (Fun) performing
+      table access operations, as listed here, can be passed
+      on as arguments to the function
+      <seealso marker="mnesia#transaction/2">mnesia:transaction/1,2,3</seealso>:
+    </p>
+    <list type="bulleted">
+      <item>
+      <seealso marker="mnesia#write/3">mnesia:write/3 (write/1, s_write/1)</seealso>
+      </item>
+      <item>
+       <seealso marker="mnesia#delete/3">mnesia:delete/3</seealso>
+       (<seealso marker="mnesia#delete/1">mnesia:delete/1</seealso>,
+       <seealso marker="mnesia#s_delete/1">mnesia:s_delete/1</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#delete_object/3">mnesia:delete_object/3</seealso>
+       (<seealso marker="mnesia#delete_object/1">mnesia:delete_object/1</seealso>,
+       <seealso marker="mnesia#s_delete_object/1">mnesia:s_delete_object/1</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#read/3">mnesia:read/3</seealso>
+       (<seealso marker="mnesia#read/1">mnesia:read/1</seealso>,
+       <seealso marker="mnesia#wread/1">mnesia:wread/1</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#match_object/3">mnesia:match_object/2</seealso>
+       (<seealso marker="mnesia#match_object/1">mnesia:match_object/1</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#select/2">mnesia:select/3</seealso>
+       (<seealso marker="mnesia#select/2">mnesia:select/2</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#foldl/3">mnesia:foldl/3</seealso>
+       (<c>mnesia:foldl/4</c>,
+       <seealso marker="mnesia#foldr/3">mnesia:foldr/3</seealso>,
+       <c>mnesia:foldr/4</c>)
+      </item>
+      <item>
+       <seealso marker="mnesia#all_keys/1">mnesia:all_keys/1</seealso>
+      </item>
+      <item>
+       <seealso marker="mnesia#index_match_object/4">mnesia:index_match_object/4</seealso>
+       (<seealso marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#index_read/3">mnesia:index_read/3</seealso>
+      </item>
+      <item>
+       <seealso marker="mnesia#lock/2">mnesia:lock/2</seealso>
+       (<seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table/1</seealso>,
+       <seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seealso>)
+      </item>
+      <item>
+       <seealso marker="mnesia#table_info/2">mnesia:table_info/2</seealso>
+      </item>
+    </list>
+    <p>These functions are performed in a
+      transaction context involving mechanisms, such as locking, logging,
+      replication, checkpoints, subscriptions, and commit protocols.
+      However, the same function can also be
+      evaluated in other activity contexts.</p>
+    <p>The following activity access contexts are currently supported:</p>
+    <list type="bulleted">
+      <item><c>transaction</c></item>
+      <item><c>sync_transaction</c></item>
+      <item><c>async_dirty</c></item>
+      <item><c>sync_dirty</c></item>
+      <item><c>ets</c></item>
+    </list>
+    <p>By passing the same "fun" as argument to the function
+       <seealso marker="mnesia#sync_transaction/3">mnesia:sync_transaction(Fun [, Args])</seealso>
+      it is performed
+      in synced transaction context. Synced transactions wait until all
+      active replicas has committed the transaction (to disc) before
+      returning from the <c>mnesia:sync_transaction</c> call. Using
+      <c>sync_transaction</c> is useful in the following cases:</p>
+    <list type="bulleted">
+      <item>When an application executes on several nodes and wants to
+       be sure that the update is performed on the remote nodes before
+       a remote process is spawned or a message is sent to a remote
+       process.</item>
+      <item>When a combining transaction writes with "dirty_reads", that
+        is, the functions <c>dirty_match_object</c>, <c>dirty_read</c>,
+        <c>dirty_index_read</c>, <c>dirty_select</c>, and so on.</item>
+      <item>When an application performs frequent or voluminous updates
+       that can overload <c>Mnesia</c> on other nodes.</item>
+    </list>
+    <p>By passing the same "fun" as argument to the function
+       <seealso marker="mnesia#async_dirty/2">mnesia:async_dirty(Fun [, Args])</seealso>,
+      it is performed in dirty context. The function calls are mapped to
+      the corresponding dirty functions. This still involves logging,
+      replication, and subscriptions but no locking,
+      local transaction storage, or commit protocols are involved.
+      Checkpoint retainers are updated but updated
+      "dirty". Thus, they are updated asynchronously. The
+      functions wait for the operation to be performed on one
+      node but not the others. If the table resides locally, no waiting
+      occurs.</p>
+    <p>By passing the same "fun" as an argument to the function
+       <seealso marker="mnesia#sync_dirty/2">mnesia:sync_dirty(Fun [, Args])</seealso>,
+      it is performed in almost the same context as the function
+      <seealso marker="mnesia#async_dirty/2">mnesia:async_dirty/1,2</seealso>.
+      The difference is that the operations are performed
+      synchronously. The caller waits for the updates to be
+      performed on all active replicas. Using <c>mnesia:sync_dirty/1,2</c>
+      is useful in the following cases:</p>
+    <list type="bulleted">
+      <item>When an application executes on several nodes and wants to
+       be sure that the update is performed on the remote nodes before
+       a remote process is spawned or a message is sent to a remote
+       process.</item>
+      <item>When an application performs frequent or voluminous updates
+       that can overload <c>Mnesia</c> on the nodes.</item>
+      </list>
+    <p>To check if your code is executed within a transaction, use
+       the function
+       <seealso marker="mnesia#is_transaction/0">mnesia:is_transaction/0</seealso>.
+      It returns <c>true</c> when called
+      inside a transaction context, otherwise <c>false</c>.</p>
+    <p><c>Mnesia</c> tables with storage type <c>RAM_copies</c> and
+      <c>disc_copies</c> are implemented internally as
+      <c>ets</c> tables. Applications can access the these tables
+      directly. This is only
+      recommended if all options have been weighed and the possible
+      outcomes are understood. By passing the earlier mentioned "fun"
+      to the function
+      <seealso marker="mnesia#ets/2">mnesia:ets(Fun [, Args])</seealso>,
+      it is performed but in a raw
+      context. The operations are performed directly on the
+      local <c>ets</c> tables, assuming that the local storage type is
+      <c>RAM_copies</c> and that the table is not replicated on other
+      nodes.</p>
+    <p>Subscriptions are not triggered and no checkpoints are updated,
+      but this operation is blindingly fast. Disc resident
+      tables are not to be updated with the <c>ets</c> function, as the
+      disc is not updated.</p>
+    <p>The Fun can also be passed as an argument to the function
+      <seealso marker="mnesia#activity-4">mnesia:activity/2,3,4</seealso>,
+      which enables use of customized
+      activity access callback modules. It can either be obtained
+      directly by stating the module name as argument, or implicitly
+      by use of configuration parameter <c>access_module</c>. A
+      customized callback module can be used for several purposes,
+      such as providing triggers, integrity constraints, runtime
+      statistics, or virtual tables.</p>
+    <p>The callback module does not have
+      to access real <c>Mnesia</c> tables, it is free to do whatever
+      it wants as long as the callback interface is fulfilled.</p>
+    <p><seealso marker="Mnesia_App_B">Appendix B,
+      Activity Access Callback Interface</seealso> provides the
+      source code, <c>mnesia_frag.erl</c>, for one alternative
+      implementation. The context-sensitive function
+      <seealso marker="mnesia#table_info/2">mnesia:table_info/2</seealso>
+      can be used to provide virtual
+      information about a table. One use of this is to perform
+      <c>QLC</c> queries within an activity context with a
+      customized callback module. By providing table information about
+      table indexes and other <c>QLC</c> requirements, <c>QLC</c> can
+      be used as a generic query language to access virtual tables.</p>
+    <p>QLC queries can be performed in all these activity
+      contexts (<c>transaction</c>, <c>sync_transaction</c>,
+      <c>async_dirty</c>, <c>sync_dirty</c>, and <c>ets</c>). The
+      <c>ets</c> activity only works if the table has no indexes.</p>
+    <note>
+      <p>The function <c>mnesia:dirty_*</c> always executes with
+        <c>async_dirty</c> semantics regardless of which activity
+        access contexts that are started. It can even start contexts
+        without any enclosing activity access context.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Nested Transactions</title>
+    <p>Transactions can be nested in an arbitrary fashion. A child
+      transaction must run in the same process as its parent. When a
+      child transaction terminates, the caller of the child transaction
+      gets return value <c>{aborted, Reason}</c> and any work performed
+      by the child is erased. If a child transaction commits, the
+      records written by the child are propagated to the parent.</p>
+    <p>No locks are released when child transactions terminate. Locks
+      created by a sequence of nested transactions are kept until
+      the topmost transaction terminates. Furthermore, any update
+      performed by a nested transaction is only propagated
+      in such a manner so that the parent of the nested transaction
+      sees the updates. No final commitment is done until
+      the top-level transaction terminates.
+      So, although a nested transaction returns <c>{atomic, Val}</c>,
+      if the enclosing parent transaction terminates, the entire
+      nested operation terminates.</p>
+    <p>The ability to have nested transaction with identical semantics
+      as top-level transaction makes it easier to write
+      library functions that manipulate <c>Mnesia</c> tables.</p>
+    <p>Consider a function that adds a subscriber to a telephony
+      system:</p>
+    <pre>
+      add_subscriber(S) ->
+          mnesia:transaction(fun() ->
+              case mnesia:read( ..........</pre>
+    <p>This function needs to be called as a transaction.
+      Assume that you wish to write a function that
+      both calls the function <c>add_subscriber/1</c> and
+      is in itself protected by the context of a transaction.
+      By calling <c>add_subscriber/1</c> from within
+      another transaction, a nested transaction is created.</p>
+    <p>Also, different activity access contexts can be mixed while
+      nesting. However, the dirty ones (<c>async_dirty</c>,
+      <c>sync_dirty</c>, and <c>ets</c>) inherit the transaction
+      semantics if they are called inside a transaction and thus
+      grab locks and use two or three phase commit.</p>
+    <p><em>Example:</em></p>
+    <pre>
+      add_subscriber(S) ->
+          mnesia:transaction(fun() ->
+             %% Transaction context 
+             mnesia:read({some_tab, some_data}),
+             mnesia:sync_dirty(fun() ->
+                 %% Still in a transaction context.
+                 case mnesia:read( ..) ..end), end).
+      add_subscriber2(S) ->
+          mnesia:sync_dirty(fun() ->
+             %% In dirty context 
+             mnesia:read({some_tab, some_data}),
+             mnesia:transaction(fun() ->
+                 %% In a transaction context.
+                 case mnesia:read( ..) ..end), end).</pre>
+  </section>
+
+  <section>
+    <title>Pattern Matching</title>
+    <marker id="matching"></marker>
+    <p>When the function
+      <seealso marker="mnesia#read/3">mnesia:read/3</seealso>
+      cannot be used, <c>Mnesia</c>
+      provides the programmer with several functions for matching
+      records against a pattern. The most useful ones
+      are the following:</p>
+    <code type="none">
+      mnesia:select(Tab, MatchSpecification, LockKind) ->
+          transaction abort | [ObjectList]
+      mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->  
+          transaction abort | {[Object],Continuation} | '$end_of_table'
+      mnesia:select(Cont) ->
+          transaction abort | {[Object],Continuation} | '$end_of_table'
+      mnesia:match_object(Tab, Pattern, LockKind) ->
+          transaction abort | RecordList</code>
+    <p>These functions match a <c>Pattern</c> against all records in
+      table <c>Tab</c>. In a
+      <seealso marker="mnesia#select/2">mnesia:select</seealso>
+      call, <c>Pattern</c> is
+      a part of <c>MatchSpecification</c> described in the following. It
+      is not necessarily performed as an exhaustive search of the entire
+      table. By using indexes and bound values in the key of the
+      pattern, the actual work done by the function can be condensed
+      into a few hash lookups. Using <c>ordered_set</c> tables can reduce
+      the search space if the keys are partially bound.</p>
+    <p>The pattern provided to the functions must be a valid record,
+      and the first element of the provided tuple must be the
+      <c>record_name</c> of the table. The special element <c>'_'</c>
+      matches any data structure in Erlang (also known as an Erlang
+      term). The special elements <c><![CDATA['$<number>']]></c>
+      behave as Erlang variables, that is, they match anything,
+      bind the first occurrence, and match the
+      coming occurrences of that variable against the bound value.</p>
+    <p>Use function
+      <seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, wild_pattern)</seealso>
+      to obtain a basic pattern, which matches all records in a table,
+      or use the default value in record creation.
+      Do not make the pattern hard-coded, as this makes the code more
+      vulnerable to future changes of the record definition.</p>
+    <p><em>Example:</em></p>
+    <code type="none">
+      Wildpattern = mnesia:table_info(employee, wild_pattern), 
+      %% Or use
+      Wildpattern = #employee{_ = '_'},</code>
+    <p>For the employee table, the wild pattern looks as follows:</p>
+    <code type="none">
+      {employee, '_', '_', '_', '_', '_',' _'}.</code>
+    <p>To constrain the match, it is needed to replace some
+      of the <c>'_'</c> elements. The code for matching out
+      all female employees looks as follows:</p>
+    <code type="none">
+      Pat = #employee{sex = female, _ = '_'},
+      F = fun() -> mnesia:match_object(Pat) end,
+      Females = mnesia:transaction(F).</code>
+    <p>The match function can also be used to check the equality of
+      different attributes. For example, to find all employees with
+      an employee number equal to their room number:</p>
+    <code type="none">
+      Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
+      F = fun() -> mnesia:match_object(Pat) end,
+      Odd = mnesia:transaction(F).</code>
+    <p>The function
+      <seealso marker="mnesia#match_object/3">mnesia:match_object/3</seealso>
+      lacks some important features that
+      <seealso marker="mnesia#select/2">mnesia:select/3</seealso>
+      have. For example,
+      <c>mnesia:match_object/3</c> can only return the matching records,
+      and it cannot express constraints other than equality. To find
+      the names of the male employees on the second floor:</p>
+    <codeinclude file="company.erl" tag="%21" type="erl"></codeinclude>
+    <p>The function <c>select</c> can be used to add more constraints
+      and create output that cannot be done with
+      <c>mnesia:match_object/3</c>.</p>
+    <p>The second argument to <c>select</c> is a <c>MatchSpecification</c>.
+      A <c>MatchSpecification</c> is a list of <c>MatchFunction</c>s, where
+      each <c>MatchFunction</c> consists of a tuple containing
+      <c>{MatchHead, MatchCondition, MatchBody}</c>:</p>
+    <list type="bulleted">
+      <item><c>MatchHead</c> is the same pattern as used in
+       <c>mnesia:match_object/3</c> described earlier.</item>
+      <item><c>MatchCondition</c> is a list of extra constraints
+       applied to each record.</item>
+      <item><c>MatchBody</c> constructs the return values.</item>
+    </list>
+    <p>For details about the match specifications, see
+      "Match Specifications in Erlang" in
+      <seealso marker="erts:index">ERTS</seealso> User's Guide.
+      For more information, see the
+      <seealso marker="stdlib:ets">ets</seealso> and
+      <seealso marker="stdlib:dets">dets</seealso>
+      manual pages in <c>STDLIB</c>.</p>
+    <p>The functions
+      <seealso marker="mnesia#select/4">select/4</seealso> and
+      <seealso marker="mnesia#select/2">select/1</seealso>
+      are used to
+      get a limited number of results, where <c>Continuation</c>
+      gets the next chunk of results. <c>Mnesia</c> uses
+      <c>NObjects</c> as a recommendation only. Thus, more or less
+      results than specified with <c>NObjects</c> can be returned in
+      the result list, even the empty list can be returned even
+      if there are more results to collect.</p>
+    <warning>
+      <p>There is a severe performance penalty in using
+        <c>mnesia:select/[1|2|3|4]</c> after any modifying operation
+        is done on that table in the same transaction. That is, avoid
+        using
+        <seealso marker="mnesia#write/1">mnesia:write/1</seealso> or
+        <seealso marker="mnesia#delete/1">mnesia:delete/1</seealso>
+        before <c>mnesia:select</c> in the same transaction.</p>
+    </warning>
+    <p>If the key attribute is bound in a pattern, the match operation
+      is efficient. However, if the key attribute in a pattern is
+      given as <c>'_'</c> or <c>'$1'</c>, the whole <c>employee</c>
+      table must be searched for records that match. Hence if the table is
+      large, this can become a time-consuming operation, but it can be
+      remedied with indexes (see
+      <seealso marker="Mnesia_chap5#indexing">Indexing</seealso>)
+      if the function
+      <seealso marker="mnesia#match_object/1">mnesia:match_object</seealso>
+      is used.</p>
+    <p>QLC queries can also be used to search <c>Mnesia</c> tables. By
+      using the function
+      <seealso marker="mnesia#table/1">mnesia:table/[1|2]</seealso>
+      as the generator inside a QLC
+      query, you let the query operate on a <c>Mnesia</c> table.
+      <c>Mnesia</c>-specific options to <c>mnesia:table/2</c> are
+      <c>{lock, Lock}</c>, <c>{n_objects,Integer}</c>, and
+      <c>{traverse, SelMethod}</c>:</p>
+    <list type="bulleted">
+      <item><c>lock</c> specifies whether <c>Mnesia</c> is to acquire a
+       read or write lock on the table.</item>
+      <item><c>n_objects</c> specifies how many results are to be
+       returned in each chunk to QLC.</item>
+      <item><c>traverse</c> specifies which function <c>Mnesia</c> is
+       to use to traverse the table. Default <c>select</c> is used, but
+       by using <c>{traverse, {select, MatchSpecification}}</c> as an
+       option to
+       <seealso marker="mnesia#table/1">mnesia:table/2</seealso>
+       the user can specify its own view of the table.</item>
+    </list>
+    <p>If no options are specified, a read lock is acquired, 100
+      results are returned in each chunk, and <c>select</c> is used
+      to traverse the table, that is:</p>
+    <code type="none">
+      mnesia:table(Tab) ->
+          mnesia:table(Tab, [{n_objects,100},{lock, read}, {traverse, select}]).</code>
+    <p>The function
+      <seealso marker="mnesia#all_keys/1">mnesia:all_keys(Tab)</seealso>
+      returns all keys in a table.</p>
+  </section>
+
+  <section>
+    <title>Iteration</title>
+    <marker id="iteration"></marker>
+    <p><c>Mnesia</c> provides the following functions that iterate over all
+      the records in a table:</p>
+    <code type="none">
+      mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
+      mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
+      mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
+      mnesia:foldr(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort</code>
+    <p>These functions iterate over the <c>Mnesia</c> table <c>Tab</c>
+      and apply the function <c>Fun</c> to each record. <c>Fun</c>
+      takes two arguments, the first is a record from the
+      table, and the second is the accumulator.
+      <c>Fun</c> returns a new accumulator.</p>
+    <p>The first time <c>Fun</c> is applied, <c>Acc0</c> is
+      the second argument. The next time <c>Fun</c> is called,
+      the return value from the previous call is used as the
+      second argument. The term the last call to <c>Fun</c> returns
+      is the return value of the function
+       <seealso marker="mnesia#foldl/3">mnesia:foldl/3</seealso> or
+       <seealso marker="mnesia#foldr/3">mnesia:foldr/3</seealso>.</p>
+    <p>The difference between these functions is the
+      order the table is accessed for <c>ordered_set</c> tables.
+      For other table types the functions are equivalent.</p>
+    <p><c>LockType</c> specifies what type of lock that is to be
+      acquired for the iteration, default is <c>read</c>. If
+      records are written or deleted during the iteration, a write
+      lock is to be acquired.</p>
+    <p>These functions can be used to find records in a table
+      when it is impossible to write constraints for the function
+       <seealso marker="mnesia#match_object/3">mnesia:match_object/3</seealso>,
+      or when you want to perform some action on certain records.</p>
+    <p>For example, finding all the employees who have a salary
+      less than 10 can look as follows:</p>
+    <code type="none"><![CDATA[
+      find_low_salaries() ->
+        Constraint = 
+             fun(Emp, Acc) when Emp#employee.salary < 10 ->
+                    [Emp | Acc];
+                (_, Acc) ->
+                    Acc
+             end,
+        Find = fun() -> mnesia:foldl(Constraint, [], employee) end,
+        mnesia:transaction(Find).
+    ]]></code>
+    <p>To raise the salary to 10 for everyone with a salary less than 10
+      and return the sum of all raises:</p>
+    <code type="none"><![CDATA[
+      increase_low_salaries() ->
+         Increase = 
+             fun(Emp, Acc) when Emp#employee.salary < 10 ->
+                    OldS = Emp#employee.salary,
+                    ok = mnesia:write(Emp#employee{salary = 10}),
+                    Acc + 10 - OldS;
+                (_, Acc) ->
+                    Acc
+             end,
+        IncLow = fun() -> mnesia:foldl(Increase, 0, employee, write) end,
+        mnesia:transaction(IncLow).
+    ]]></code>
+    <p>Many nice things can be done with the iterator functions but take
+      some caution about performance and memory use for large tables.</p>
+    <p>Call these iteration functions on nodes that contain a replica of
+      the table. Each call to the function <c>Fun</c> access the table
+      and if the table resides on another node it generates much
+      unnecessary network traffic.</p>
+    <p><c>Mnesia</c> also provides some functions that make it possible
+      for the user to iterate over the table. The order of the iteration
+      is unspecified if the table is not of type <c>ordered_set</c>:</p>
+    <code type="none">
+      mnesia:first(Tab) ->  Key | transaction abort
+      mnesia:last(Tab)  ->  Key | transaction abort
+      mnesia:next(Tab,Key)  ->  Key | transaction abort
+      mnesia:prev(Tab,Key)  ->  Key | transaction abort
+      mnesia:snmp_get_next_index(Tab,Index) -> {ok, NextIndex} | endOfTable</code>
+    <p>The order of <c>first</c>/<c>last</c> and <c>next</c>/<c>prev</c>
+      is only valid for
+      <c>ordered_set</c> tables, they are synonyms for other tables.
+      When the end of the table is reached, the special key
+      <c>'$end_of_table'</c> is returned.</p>
+    <p>If records are written and deleted during the traversal, use
+      the function
+      <seealso marker="mnesia#foldl">mnesia:foldl/3</seealso> or
+      <seealso marker="mnesia#foldr">mnesia:foldr/3</seealso>
+      with a <c>write</c> lock. Or the function
+      <seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seealso>
+      when using <c>first</c> and <c>next</c>.</p>
+    <p>Writing or deleting in transaction context creates a local copy
+      of each modified record. Thus, modifying each record in a large
+      table uses much memory. <c>Mnesia</c> compensates for every
+      written or deleted record during the iteration in a transaction
+      context, which can reduce the performance. If possible, avoid writing
+      or deleting records in the same transaction before iterating over the
+      table.</p>
+    <p>In dirty context, that is, <c>sync_dirty</c> or <c>async_dirty</c>,
+      the modified records are not stored in a local copy; instead,
+      each record is updated separately. This generates much
+      network traffic if the table has a replica on another node and
+      has all the other drawbacks that dirty operations
+      have. Especially for commands
+      <seealso marker="mnesia#first/1">mnesia:first/1</seealso> and
+      <seealso marker="mnesia#next/2">mnesia:next/2</seealso>,
+      the same drawbacks as described previously for
+      <seealso marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seealso>
+      and
+      <seealso marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seealso>
+      applies, that
+      is, no writing to the table is to be done during iteration.</p>
+  </section>
+</chapter>
+

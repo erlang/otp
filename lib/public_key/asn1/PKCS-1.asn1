@@ -1,0 +1,153 @@
+PKCS-1 {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
+    modules(0) pkcs-1(1)
+}
+
+-- $Revision: 1.1 $
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+--IMPORTS id-sha256, id-sha384, id-sha512
+--    FROM NIST-SHA2 {
+--        joint-iso-itu-t(2) country(16) us(840) organization(1)
+--        gov(101) csor(3) nistalgorithm(4) modules(0) sha2(1)
+--    };
+
+pkcs-1    OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 1
+}
+
+rsaEncryption    OBJECT IDENTIFIER ::= { pkcs-1 1 }
+
+id-RSAES-OAEP    OBJECT IDENTIFIER ::= { pkcs-1 7 }
+
+id-pSpecified    OBJECT IDENTIFIER ::= { pkcs-1 9 }
+
+id-RSASSA-PSS    OBJECT IDENTIFIER ::= { pkcs-1 10 }
+
+md2WithRSAEncryption       OBJECT IDENTIFIER ::= { pkcs-1 2 }
+md5WithRSAEncryption       OBJECT IDENTIFIER ::= { pkcs-1 4 }
+sha1WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 5 }
+sha256WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 11 }
+sha384WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 12 }
+sha512WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 13 }
+sha224WithRSAEncryption    OBJECT IDENTIFIER  ::=  { pkcs-1 14 }
+
+-- ISO oid  - equvivalent to sha1WithRSAEncryption
+sha-1WithRSAEncryption OBJECT IDENTIFIER ::= {
+	iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) sha-1WithRSAEncryption(29)}
+
+id-sha1    OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) oiw(14) secsig(3)
+    algorithms(2) 26
+}
+
+id-md2 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 2
+}
+
+id-md5 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 5
+}
+
+id-hmacWithSHA224 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 8
+}
+
+id-hmacWithSHA256 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 9
+}
+
+id-hmacWithSHA384 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 10
+}
+
+id-hmacWithSHA512 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 11
+}
+
+id-mgf1    OBJECT IDENTIFIER ::= { pkcs-1 8 }
+
+id-sha224  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 4 }
+
+id-sha256  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 1 }
+
+id-sha384  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 2 }
+
+id-sha512  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 3 }
+
+
+RSAPublicKey ::= SEQUENCE {
+    modulus           INTEGER,  -- n
+    publicExponent    INTEGER   -- e
+}
+
+RSAPrivateKey ::= SEQUENCE {
+    version           Version,
+    modulus           INTEGER,  -- n
+    publicExponent    INTEGER,  -- e
+    privateExponent   INTEGER,  -- d
+    prime1            INTEGER,  -- p
+    prime2            INTEGER,  -- q
+    exponent1         INTEGER,  -- d mod (p-1)
+    exponent2         INTEGER,  -- d mod (q-1)
+    coefficient       INTEGER,  -- (inverse of q) mod p
+    otherPrimeInfos   OtherPrimeInfos OPTIONAL
+}
+
+Version ::= INTEGER { two-prime(0), multi(1) }
+    (CONSTRAINED BY {
+        -- version must be multi if otherPrimeInfos present --
+    })
+
+OtherPrimeInfos ::= SEQUENCE SIZE(1..MAX) OF OtherPrimeInfo
+
+OtherPrimeInfo ::= SEQUENCE {
+    prime             INTEGER,  -- ri
+    exponent          INTEGER,  -- di
+    coefficient       INTEGER   -- ti
+}
+
+Algorithm ::= SEQUENCE {
+	algorithm OBJECT IDENTIFIER,
+	parameters ANY DEFINED BY algorithm OPTIONAL
+}
+
+AlgorithmNull ::= SEQUENCE {
+	algorithm OBJECT IDENTIFIER,
+	parameters NULL
+}
+
+
+RSASSA-PSS-params ::= SEQUENCE {
+    hashAlgorithm      [0] Algorithm,     --  DEFAULT sha1,
+    maskGenAlgorithm   [1] Algorithm,     --  DEFAULT mgf1SHA1,
+    saltLength         [2] INTEGER            DEFAULT 20,
+    trailerField       [3] TrailerField       DEFAULT trailerFieldBC
+}
+
+TrailerField ::= INTEGER { trailerFieldBC(1) }
+
+DigestInfo ::= SEQUENCE {
+	digestAlgorithm Algorithm,
+	digest OCTET STRING
+}
+
+DigestInfoNull ::= SEQUENCE {
+	digestAlgorithm AlgorithmNull,
+	digest OCTET STRING
+}
+
+
+END  -- PKCS1Definitions
+

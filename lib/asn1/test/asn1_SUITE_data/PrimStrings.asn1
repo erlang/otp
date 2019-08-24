@@ -1,0 +1,209 @@
+PrimStrings DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+  Bs1 ::= BIT STRING
+  Bs2 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (7))
+  Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
+  Bs4 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) }
+  Bs5 ::= BIT STRING {su(0), mo(17), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..32))
+  Bs6 ::= BIT STRING {su(0), mo(17), tu(2), we(3), th(4), fr(5), sa(6)} (SIZE (16..32))
+  Bs7 ::= BIT STRING (SIZE (24))
+  BsPri ::= [PRIVATE 61] BIT STRING
+  BsExpPri ::= [PRIVATE 61] EXPLICIT BIT STRING
+  ODB-GeneralData ::= BIT STRING {
+    allOG-CallsBarred         (0),
+    internationalOGCallsBarred  (1),
+    internationalOGCallsNotToHPLMN-CountryBarred  (2),
+    interzonalOGCallsBarred   (6),
+    interzonalOGCallsNotToHPLMN-CountryBarred (7),
+    interzonalOGCallsAndInternationalOGCallsNotToHPLMN-CountryBarred (8),
+    premiumRateInformationOGCallsBarred  (3),
+    premiumRateEntertainementOGCallsBarred  (4),
+    ss-AccessBarred  (5),
+    allECT-Barred  (9),
+    chargeableECT-Barred  (10),
+    internationalECT-Barred  (11),
+    interzonalECT-Barred  (12),
+    doublyChargeableECT-Barred  (13),
+    multipleECT-Barred  (14)} (SIZE (15..32))
+    -- exception handling: reception of unknown bit assignments in the
+    -- ODB-GeneralData type shall be treated like unsupported ODB-GeneralData
+
+  TransportLayerAddress 	::= BIT STRING (SIZE (1..160, ...))
+  
+  --TestS is to test OTP-4353. See also x691 15.3 and x680 21.7
+  TestS ::= BIT STRING {a(0),b(1)} (SIZE (3..8))
+  
+  -- OTP-5932
+  BSMAX ::= BIT STRING (SIZE (5..MAX))
+  
+  -- OTP-7602
+  
+BS255 ::= BIT STRING (SIZE (255))
+
+BS256 ::= BIT STRING (SIZE (256))
+
+BS1024 ::= BIT STRING (SIZE (1024))
+
+  BsDef1 ::= SEQUENCE {
+     s BIT STRING DEFAULT '101111'B
+  }
+
+  BsDef2 ::= SEQUENCE {
+     s BIT STRING DEFAULT 'DEADBEEF'H
+  }
+
+  Os ::= OCTET STRING
+  OsCon ::= [60] OCTET STRING
+  OsPri ::= [PRIVATE 61] OCTET STRING
+  OsApp ::= [APPLICATION 62] OCTET STRING
+  OsExpCon ::= [60] EXPLICIT OCTET STRING
+  OsExpPri ::= [PRIVATE 61] EXPLICIT  OCTET STRING
+  OsExpApp ::= [APPLICATION 62] EXPLICIT OCTET STRING
+
+  OsFrag ::= OCTET STRING (SIZE (0..100000))
+  FixedOs65536 ::= OCTET STRING (SIZE (65536))
+  FixedOs65537 ::= OCTET STRING (SIZE (65537))
+
+  OsFragExt ::= OCTET STRING (SIZE (0..100000, ...))
+  FixedOs65536Ext ::= OCTET STRING (SIZE (65536, ...))
+  FixedOs65537Ext ::= OCTET STRING (SIZE (65537, ...))
+
+  OsFixedStrings ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 OCTET STRING (SIZE (0)),
+    s1 OCTET STRING (SIZE (1)),
+    s2 OCTET STRING (SIZE (2)),
+    s3 OCTET STRING (SIZE (3)),
+    b2 BOOLEAN,  -- Unalign
+    s255 OCTET STRING (SIZE (255)),
+    s256 OCTET STRING (SIZE (256)),
+    s257 OCTET STRING (SIZE (257)),
+    i INTEGER (0..1024)
+  }
+
+  OsFixedStringsExt ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 OCTET STRING (SIZE (0, ...)),
+    s1 OCTET STRING (SIZE (1, ...)),
+    s2 OCTET STRING (SIZE (2, ...)),
+    s3 OCTET STRING (SIZE (3, ...)),
+    b2 BOOLEAN,  -- Unalign
+    s255 OCTET STRING (SIZE (255, ...)),
+    s256 OCTET STRING (SIZE (256, ...)),
+    s257 OCTET STRING (SIZE (257, ...)),
+    i INTEGER (0..1024)
+  }
+
+  OsVarStringsExt ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 OCTET STRING (SIZE (0, ...)),
+    s1 OCTET STRING (SIZE (0..1, ...)),
+    s2 OCTET STRING (SIZE (1..2, ...)),
+    s3 OCTET STRING (SIZE (2..3, ...)),
+    b2 BOOLEAN,  -- Unalign
+    s255 OCTET STRING (SIZE (254..255, ...)),
+    s256 OCTET STRING (SIZE (255..256, ...)),
+    s257 OCTET STRING (SIZE (256..257, ...)),
+    i INTEGER (0..1024)
+  }
+
+  OsAlignment ::= SEQUENCE {
+    b1 BOOLEAN,
+    s1 Os,
+    b2 BOOLEAN,
+    s2 OsFrag,
+    b3 BOOLEAN,
+    s3 FixedOs65536,
+    i INTEGER (0..63)
+  }
+
+  IA5FixedStrings ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 IA5String (SIZE (0)),
+    s1 IA5String (SIZE (1)),
+    s2 IA5String (SIZE (2)),
+    s3 IA5String (SIZE (3)),
+    b2 BOOLEAN,  -- Unalign
+    s4 IA5String (SIZE (4)),
+    b3 BOOLEAN,  -- Unalign
+    s255 IA5String (SIZE (255)),
+    s256 IA5String (SIZE (256)),
+    s257 IA5String (SIZE (257)),
+    i INTEGER (0..1024)
+  }
+
+  IA5FixedStringsExt ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 IA5String (SIZE (0, ...)),
+    s1 IA5String (SIZE (1, ...)),
+    s2 IA5String (SIZE (2, ...)),
+    s3 IA5String (SIZE (3, ...)),
+    b2 BOOLEAN,  -- Unalign
+    s4 IA5String (SIZE (4, ...)),
+    b3 BOOLEAN,  -- Unalign
+    s255 IA5String (SIZE (255, ...)),
+    s256 IA5String (SIZE (256, ...)),
+    s257 IA5String (SIZE (257, ...)),
+    i INTEGER (0..1024)
+  }
+
+  IA5VarStringsExt ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 IA5String (SIZE (0, ...)),
+    s1 IA5String (SIZE (0..1, ...)),
+    s2 IA5String (SIZE (1..2, ...)),
+    s3 IA5String (SIZE (2..3, ...)),
+    b2 BOOLEAN,  -- Unalign
+    s4 IA5String (SIZE (3..4, ...)),
+    b3 BOOLEAN,  -- Unalign
+    s255 IA5String (SIZE (254..255, ...)),
+    s256 IA5String (SIZE (255..256, ...)),
+    s257 IA5String (SIZE (256..257, ...)),
+    i INTEGER (0..1024)
+  }
+
+
+  Ns ::= NumericString
+  NsCon ::= [70] NumericString
+  NsExpCon ::= [71] EXPLICIT NumericString
+
+  Ps ::= PrintableString
+  Ps11 ::= PrintableString (FROM ("0123456789*"))
+
+  Ts ::= TeletexString
+
+  Vxs ::= VideotexString
+
+  Vis ::= VisibleString
+  Vis8 ::= VisibleString (FROM ("01234567"))
+
+  IA5 ::= IA5String
+  IA5Visible ::= IA5String (FROM (" ".."~"))
+
+  Grs ::= GraphicString
+  
+  ODesc ::= ObjectDescriptor
+
+  ODescSeq ::= SEQUENCE {
+		o ObjectDescriptor OPTIONAL,
+		i INTEGER
+  }
+
+  Ges ::= GeneralString
+
+  Us ::= UniversalString
+  UsCon ::= [70] UniversalString
+  UsExpCon ::= [71] EXPLICIT UniversalString
+
+  BMP ::= BMPString
+
+  Gt ::= GeneralizedTime
+
+  UTC ::= UTCTime
+  
+  UTF ::= UTF8String
+
+
+END

@@ -1,0 +1,39 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+
+include @erl_interface_mk_include@
+
+CC0 = @CC@
+CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
+LD = @LD@
+LIBERL = @erl_interface_lib_drv@
+LIBEI = @erl_interface_eilib_drv@
+
+SHLIB_EXTRA_LDLIBS = $(LIBERL) $(LIBEI) @erl_interface_threadlib@
+SHLIB_EXTRA_CFLAGS = -I@erl_interface_include@ -I../all_SUITE_data
+
+
+all: port_call_drv@dll@ 
+
+clean:
+	$(RM) port_call_drv@obj@
+	$(RM) port_call_drv@dll@
+
+@SHLIB_RULES@

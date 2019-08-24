@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Tools Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <section>
+    <title>Tools 2.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The Erlang Emacs mode now properly handles strings that
+            have $ or ^ as the last character.</p>
+          <p>Own Id: OTP-4697</p>
+        </item>
+        <item>
+          <p><c>xref</c>: The unresolved arity (-1) is now recognized
+            in analyses and queries.</p>
+          <p>Own Id: OTP-4778</p>
+        </item>
+        <item>
+          <p><c>cover</c> does no longer hang if an interface function
+            is called on a remote node - it returns
+            <c>{error,not_main_node}</c>.</p>
+          <p>Own Id: OTP-5031</p>
+        </item>
+        <item>
+          <p><c>fprof</c>: Time spent in the last function in a chain,
+            i.e. a function which did not call another function, and
+            the time when a process was scheduled out, was charged on
+            the above function. This resulted in own time in many
+            cases being bigger than acc time since the time a process
+            was scheduled out was charged on the function from which
+            the process was scheduled out. This is now corrected.</p>
+          <p>Own Id: OTP-5073</p>
+        </item>
+        <item>
+          <p>Previous patch from open source messed up \M-q so part of
+            that patch was backed out.</p>
+          <p>Own Id: OTP-5074</p>
+        </item>
+        <item>
+          <p><c>cover</c>: Added "Exclude Included Functions". If
+            "real code" is included in a modules which is cover
+            compiled, there will be no bumps for lines in the
+            included file. Earlier this would cause faulty bumps for
+            lines in the module, i.e. if the code was on line 4 in
+            the included file it would produce a bump for line 4 in
+            the module. Lines in included files are now just
+            disregarded.</p>
+          <p>Own Id: OTP-5122</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added support for try-catch to the Erlang mode for Emacs.
+            However there are still some known problems with some of
+            the more advanced variants especially including separate
+            of-clauses.</p>
+          <p>Own Id: OTP-4594</p>
+        </item>
+        <item>
+          <p>Improvments for support of Emacs 21 contributed by Dave
+            Love. The bulk of the changes are actually cosmetic
+            commentary/doc fixes. The significant ones make it play
+            better with Emacs 21 with up-to-date facilities. In
+            particular, support for compilation error messages from
+            an inferior erl (as opposed to batch compilation) works
+            in the released Emacs 21, and currently with the
+            development Emacs.</p>
+          <p>Own Id: OTP-5019</p>
+        </item>
+        <item>
+          <p>Added a skeletons for an Erlang test-suite for both the
+            ts-frontend and the ct-frontend (this frontend is
+            Ericsson internal). Also altered some of the old
+            skeletons to get a uniform look and feel.</p>
+          <p>Own Id: OTP-5058</p>
+        </item>
+        <item>
+          <p>The Erlang mode for Emacs now supports the new guard
+            <c>is_boolean</c>.</p>
+          <p>Own Id: OTP-5059</p>
+        </item>
+        <item>
+          <p><c>cover</c>: Adjustments to handle new syntax of
+            try-catch.</p>
+          <p>Own Id: OTP-5154</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Totally rewritten the interface for WebCover. Can now
+            compile both <c>.erl</c> and <c>.beam</c> files and
+            export/import cover data.</p>
+          <p>Own Id: OTP-4706</p>
+        </item>
+        <item>
+          <p><c>cover</c> does no longer report coverage on lines which
+            are not executed.</p>
+          <p>Own Id: OTP-4734</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Fixed so that the generation of new
+            function clauses works also for guarded functions.</p>
+          <p>Own Id: OTP-3697</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Fixed so that you do not get
+            the error message "unbalanced parenthesis" when indenting
+            correct code including bit syntax.</p>
+          <p>Own Id: OTP-4526</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: The guard <c>function</c> is now
+            colored.</p>
+          <p>Own Id: OTP-4533</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Indentation of macros is handled
+            correctly in all cases.</p>
+          <p>Own Id: OTP-4561, OTP-4687</p>
+        </item>
+        <item>
+          <p><c>is_*</c> guards are now colored.</p>
+          <p>Own Id: OTP-4562</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Now handles the fact that a function
+            argument may be a guard expression. (That is useful when
+            writing test case code.)</p>
+          <p>Own Id: OTP-4579</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Keywords <c>andalso</c> and
+            <c>orelse</c> are now colored.</p>
+          <p>Own Id: OTP-4580</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Fixed bug in function that calculates
+            the arity of an Erlang function.</p>
+          <p>Own Id: OTP-4581</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added functions <c>cover:start(Nodes)</c> and
+            <c>cover:stop(Nodes)</c>. Cover compiled modules will be
+            loaded on all nodes added with <c>cover:start(Nodes)</c>.
+            <c>cover:stop(Nodes)</c> will collect coverage data from
+            the stopped nodes and merge it with data collected on
+            the main (controller) node.</p>
+          <p><c>cover:analyse/1,2,3</c> and
+            <c>cover:analyse_to_file/1,2,3</c> will also collect data
+            from all nodes before analysing.</p>
+          <p>Own Id: OTP-4177</p>
+        </item>
+        <item>
+          <p>The module attribute tag <c>deprecated</c> is used by
+            <c>xref</c> to find calls to deprecated functions.
+            The <c>m/1</c>, <c>d/1</c>, and <c>analyze/2,3</c> functions
+            have been updated to return calls to deprecated functions.
+            See also <c>xref(3)</c> for more details.</p>
+          <p>Own Id: OTP-4695</p>
+        </item>
+        <item>
+          <p>Added functions <c>cover:compile_beam/1</c> and
+            <c>cover:compile_beam_directory/0,1</c>. These functions use
+            abstract code from existing beam files when cover compiling.</p>
+          <p>Added option <c>html</c> to
+            <c>cover:analyse_to_file/1,2,3</c>. Instead of plain text,
+            a HTML file is generated with all uncovered lines colored
+            red.</p>
+          <p>Added functions <c>cover:export/1,2</c> and
+            <c>cover:import/1</c>. These functions can be used to export
+            current coverage data to a file, and then import the data
+            in a later session. Data can be exported for one single
+            module or for all currently cover compiled modules.</p>
+          <p>Own Id: OTP-4702</p>
+        </item>
+        <item>
+          <p>Erlang mode for Emacs: Added function
+            <c>erlang-align-arrows</c>.</p>
+          <p>Own Id: OTP-4737</p>
+        </item>
+        <item>
+          <p>The interface for the <c>instrument</c> module has been
+            slightly changed. Also some new functionality has been
+            added. See <c>instrument(3)</c> for more information.</p>
+          <p>(*** POTENTIAL INCOMPATIBILITY ***)</p>
+          <p>Own Id: OTP-4761            <br></br>
+
+            Aux Id: OTP-4534</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

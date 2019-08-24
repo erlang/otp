@@ -1,0 +1,27 @@
+SeqOfChoExt DEFINITIONS AUTOMATIC TAGS EXTENSIBILITY IMPLIED ::=
+BEGIN
+
+Seq2 ::= SEQUENCE {
+	octstr [PRIVATE 6] OCTET STRING OPTIONAL
+}
+
+SeqOfCho ::= SEQUENCE OF CHOICE {
+	nullable	NULL,
+	seq2 Seq2
+}
+
+Seq1 ::= SEQUENCE {
+	int INTEGER,
+	soc SeqOfCho
+}
+
+seq1 Seq1 ::= {
+  int  10,
+  soc {
+    seq2 : {
+      octstr '01020A'H
+    }
+  }
+}
+
+END

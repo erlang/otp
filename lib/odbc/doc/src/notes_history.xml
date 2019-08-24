@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Older ODBC Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+  </header>
+
+  <section>
+    <title>odbc 1.0.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Error handling has been enhanced and better documented</p>
+          <p>Own Id: OTP-4661</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 1.0.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Some error messages originating from the sql-driver where
+            corrupted so that odbc only returned the end of the error
+            message. This has now been fixed.</p>
+          <p>Own Id: OTP-4636 Aux Id: seq7766 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The erlang odbc process will now die normally if a
+            connection cannot be established. No connection no
+            process it is expected. And as the client has already
+            received the error message that would be the reason with
+            which the erlang process would be stopped, the supervisor
+            report will be superfluous. Naturally you may still get
+            supervisor reports if the erlang process is stopped for
+            any other reason than the above.</p>
+          <p>Own Id: OTP-4639 Aux Id: seq7766 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 1.0.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>API function commit/3 is now exported.</p>
+          <p>Own Id: OTP-4593 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>If an ODBC API function times out it will cause the
+            client to exit with reason timeout. If this exit was
+            caught and the client continued using the connection, the
+            next request could get the answer meant for the
+            previously timed out request, this is no longer the case.</p>
+          <p>Own Id: OTP-4606 Aux Id: seq7766 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Improved error messages so that the implementation not
+            shall shine through.</p>
+          <p>Added possibility to let a connection return rows as
+            tuples instead of lists.</p>
+          <p>Own Id: OTP-4605 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>Scrollable cursors are nice but causes some overhead. For
+            some connections speed might be more important than
+            flexible data access and then you can disable scrollable
+            cursor for a connection, limiting the API but gaining
+            speed.</p>
+          <p>Own Id: OTP-4624</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 1.0</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>API function commit/3 is now exported.</p>
+          <p>Own Id: OTP-4593 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>If an ODBC API function times out it will cause the
+            client to exit with reason timeout. If this exit was
+            caught and the client continued using the connection, the
+            next request could get the answer meant for the
+            previously timed out request, this is no longer the case.</p>
+          <p>Own Id: OTP-4606 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>Some error messages originating from the sql-driver where
+            corrupted so that odbc only returned the end of the error
+            message. This has now been fixed.</p>
+          <p>Own Id: OTP-4636 Aux Id: seq7766 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The Erlang ODBC application consists of both Erlang and C
+            code. The C code is delivered as a precompiled executable
+            for windows and solaris. For the purpose of recompilation
+            or compiling on some other platform there is a Makefile
+            included.</p>
+          <p>Own Id: OTP-4193 Aux Id: seq7190 </p>
+        </item>
+        <item>
+          <p>Expensive constructs such as lists:flatten/1, double
+            buffering and string compare has been replaced by more
+            efficient constructs or when possible totally eliminated.</p>
+          <p>Own Id: OTP-4362</p>
+        </item>
+        <item>
+          <p>New API that has an Erlang/OTP touch and feel instead of
+            being a C-interface with Erlang syntax. The old interface
+            is deprecated and will be removed in release R10.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4498</p>
+        </item>
+        <item>
+          <p>API functions that became deprecated in version 0.9.1 has
+            been removed.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4499</p>
+        </item>
+        <item>
+          <p>Improved error messages so that the implementation not
+            shall shine through.</p>
+          <p>Added possibility to let a connection return rows as
+            tuples instead of lists.</p>
+          <p>Own Id: OTP-4605 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>Scrollable cursors are nice but causes some overhead. For
+            some connections speed might be more important than
+            flexible data access and then you can disable scrollable
+            cursor for a connection, limiting the API but gaining
+            speed.</p>
+          <p>Own Id: OTP-4624</p>
+        </item>
+        <item>
+          <p>The erlang odbc process will now die normally if a
+            connection cannot be established. No connection no
+            process it is expected. And as the client has already
+            received the error message that would be the reason with
+            which the erlang process would be stopped, the supervisor
+            report will be superfluous. Naturally you may still get
+            supervisor reports if the erlang process is stopped for
+            any other reason than the above.</p>
+          <p>Own Id: OTP-4639 Aux Id: seq7766 </p>
+        </item>
+        <item>
+          <p>Error handling has been enhanced and better documented</p>
+          <p>Own Id: OTP-4661</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>odbc 0.9.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Erlang ODBC application can handle floating point number
+            and has been improved with null value handling. The error
+            messages has been improved with STATE-information from SQL
+            function SQLGetDiagRec.</p>
+          <p>Own Id: OTP-4192 Aux Id: seq7195 </p>
+        </item>
+        <item>
+          <p>sqlCloseCursor have been replaced with sqlCloseHandle </p>
+          <p>(*** POTENTIAL INCOMPATIBILITY ***) </p>
+          <p>Aux Id: seq7283 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+
+

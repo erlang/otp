@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2005</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ssh_sftp</title>
+    <prepared>OTP</prepared>
+    <docno></docno>
+    <date>2005-09-22</date>
+    <rev></rev>
+    <file>ssh_sftp.sgml</file>
+  </header>
+  <module since="">ssh_sftp</module>
+  <modulesummary>SFTP client.</modulesummary>
+  <description>
+    <p>This module implements an SSH FTP (SFTP) client. SFTP is a
+    secure, encrypted file transfer service available for
+    SSH.</p>
+  </description>
+  
+  <datatypes>
+    <datatype>
+      <name name="sftp_option"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype_title>Error cause</datatype_title>
+    <datatype>
+      <name name="reason"/>
+      <desc>
+	<p>A description of the reason why an operation failed.</p>
+	<p>The <c>atom()</c> value is formed from the sftp error codes in the protocol-level responses as defined in 
+	<url href="https://tools.ietf.org/html/draft-ietf-secsh-filexfer-13#page-49">draft-ietf-secsh-filexfer-13</url>
+	section 9.1.
+	  The codes are named as <c>SSH_FX_*</c> which are transformed into lowercase of the star-part.
+	  E.g. the error code <c>SSH_FX_NO_SUCH_FILE</c>
+	  will cause the <c>reason()</c> to be <c>no_such_file</c>.
+	</p>
+	<p>The <c>string()</c> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
+	</p>
+	<p>The <c>tuple()</c> reason are other errors like for example <c>{exit_status,1}</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Crypto operations for open_tar</datatype_title>
+    <datatype>
+      <name name="tar_crypto_spec"/>
+      <name name="encrypt_spec"/>
+      <name name="decrypt_spec"/>
+      <desc>
+	<p>Specifies the encryption or decryption applied to tar files when using
+	<seealso marker="#open_tar/3">open_tar/3</seealso> or 
+	<seealso marker="#open_tar/4">open_tar/4</seealso>.
+	</p>
+	<p>The encryption or decryption is applied to the generated stream of
+	bytes prior to sending the resulting stream to the SFTP server.
+	</p>
+	<p>For code examples see Section
+	<seealso marker="using_ssh#example-with-encryption">Example with encryption</seealso>
+	in the ssh Users Guide.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="init_fun"/>
+      <name name="chunk_size"/>
+      <name name="crypto_state"/>
+      <desc>
+	<p>The <c>init_fun()</c> in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>
+	is applied once prior to any other <c>crypto</c>
+	operation. The intention is that this function initiates the encryption or
+	decryption for example by calling
+	<seealso marker="crypto:crypto#crypto_init/4">crypto:crypto_init/4</seealso>
+	or similar. The <c>crypto_state()</c> is the state such a function may return.
+	</p>
+	<p>If the selected cipher needs to have the input data partioned into
+	blocks of a certain size, the <c>init_fun()</c> should return the second
+	form of return value with the <c>chunk_size()</c> set to the block size.
+	If the <c>chunk_size()</c> is <c>undefined</c>, the size of the <c>PlainBin</c>s varies,
+	because this is	intended for stream crypto, whereas a fixed <c>chunk_size()</c> is intended for block crypto.
+	A <c>chunk_size()</c> can be changed in the return from the <c>crypto_fun()</c>.
+	The value can be changed between <c>pos_integer()</c> and <c>undefined</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="crypto_fun"/>
+      <name name="crypto_result"/>
+      <desc>
+	<p>The initial <c>crypto_state()</c> returned from the
+	<seealso marker="#type-init_fun">init_fun()</seealso>
+	is folded into repeated applications of the <c>crypto_fun()</c> in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>.
+	The binary returned from that fun is sent to the remote SFTP server and
+	the new <c>crypto_state()</c> is used in the next call of the
+	<c>crypto_fun()</c>.
+	</p>
+	<p>If the <c>crypto_fun()</c> reurns a <c>chunk_size()</c>, that value
+	is as block size for further blocks in calls to <c>crypto_fun()</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="final_fun"/>
+      <desc>
+	<p>If doing encryption,
+	the <c>final_fun()</c>  in the
+	<seealso marker="#type-tar_crypto_spec">tar_crypto_spec</seealso>
+	is applied to the last piece of data.
+	The <c>final_fun()</c> is responsible for padding (if needed) and
+	encryption of that last piece.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+     <func>
+       <name name="apread" arity="4" since=""/>
+       <fsummary>Reads asynchronously from an open file.</fsummary>
+       <desc><p>The <c><![CDATA[apread/4]]></c> function reads from a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#aread-3"><c>aread/3</c></seealso> functions.</p>
+       </desc>
+     </func>
+     
+     <func>
+	<name name="apwrite" arity="4" since=""/>
+	<fsummary>Writes asynchronously to an open file.</fsummary>
+       <desc><p>The <c><![CDATA[apwrite/4]]></c> function writes to a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#awrite-3"><c>awrite/3</c></seealso> functions.</p>
+       </desc>
+      </func>
+      
+      <func>
+	<name name="aread" arity="3" since=""/>
+	<fsummary>Reads asynchronously from an open file.</fsummary>
+	<desc>
+	  <p>Reads from an open file, without waiting for the result. If the
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
+          is a term guaranteed to be unique between calls of <c><![CDATA[aread]]></c>.
+          The actual data is sent as a message to the calling process. This
+          message has the form <c><![CDATA[{async_reply, N, Result}]]></c>, where
+          <c><![CDATA[Result]]></c> is the result from the read, either <c><![CDATA[{ok, Data}]]></c>,
+          <c><![CDATA[eof]]></c>, or <c><![CDATA[{error, reason()}]]></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="awrite" arity="3" since=""/>
+      <fsummary>Writes asynchronously to an open file.</fsummary>
+      <desc>
+        <p>Writes to an open file, without waiting for the result. If the
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
+          is a term guaranteed to be unique between calls of
+          <c><![CDATA[awrite]]></c>. The result of the <c><![CDATA[write]]></c> operation is sent
+          as a message to the calling process. This message has the form
+          <c><![CDATA[{async_reply, N, Result}]]></c>, where <c><![CDATA[Result]]></c> is the result
+          from the write, either <c><![CDATA[ok]]></c>, or <c><![CDATA[{error, reason()}]]></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="close" arity="2" since=""/>
+      <name name="close" arity="3" since=""/>
+      <fsummary>Closes an open handle.</fsummary>
+      <desc>
+        <p>Closes a handle to an open file or directory on the server.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <name name="delete" arity="3" since=""/>
+      <fsummary>Deletes a file.</fsummary>
+      <desc>
+        <p>Deletes the file specified by <c><![CDATA[Name]]></c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="del_dir" arity="2" since=""/>
+      <name name="del_dir" arity="3" since=""/>
+      <fsummary>Deletes an empty directory.</fsummary>
+      <desc>
+	<p>Deletes a directory specified by <c><![CDATA[Name]]></c>.
+	The directory must be empty before it can be successfully deleted.
+	</p>
+      </desc>
+    </func>
+
+     <func>
+      <name name="list_dir" arity="2" since=""/>
+      <name name="list_dir" arity="3" since=""/>
+      <fsummary>Lists the directory.</fsummary>
+      <desc>
+        <p>Lists the given directory on the server, returning the
+          filenames as a list of strings.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="make_dir" arity="2" since=""/>
+      <name name="make_dir" arity="3" since=""/>
+      <fsummary>Creates a directory.</fsummary>
+      <desc>
+        <p>Creates a directory specified by <c><![CDATA[Name]]></c>. <c><![CDATA[Name]]></c>
+          must be a full path to a new directory. The directory can only be
+	created in an existing directory.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="make_symlink" arity="3" since=""/>
+      <name name="make_symlink" arity="4" since=""/>
+      <fsummary>Creates a symbolic link.</fsummary>
+      <desc>
+        <p>Creates a symbolic link pointing to <c><![CDATA[Target]]></c> with the
+          name <c><![CDATA[Name]]></c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="3" since=""/>
+      <name name="open" arity="4" since=""/>
+      <fsummary>Opens a file and returns a handle.</fsummary>
+      <desc>
+        <p>Opens a file on the server and returns a handle, which
+          can be used for reading or writing.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="opendir" arity="2" since=""/>
+      <name name="opendir" arity="3" since=""/>
+      <fsummary>Opens a directory and returns a handle.</fsummary>
+      <desc>
+        <p>Opens a handle to a directory on the server. The handle
+          can be used for reading directory contents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open_tar" arity="3" since="OTP 17.4"/>
+      <name name="open_tar" arity="4" since="OTP 17.4"/>
+      <fsummary>Opens a tar file on the server to which <c>ChannelPid</c>
+      is connected and returns a handle.</fsummary>
+      <desc>
+        <p>Opens a handle to a tar file on the server, associated with <c>ChannelPid</c>.
+	The handle can be used for remote tar creation and extraction. The actual writing
+	and reading is performed by calls to 
+	<seealso marker="stdlib:erl_tar#add-3">erl_tar:add/3,4</seealso> and
+	<seealso marker="stdlib:erl_tar#extract-2">erl_tar:extract/2</seealso>.
+	Note: The 
+	<seealso marker="stdlib:erl_tar#init-3">erl_tar:init/3</seealso> function should not
+	be called, that one is called by this open_tar function.
+	</p>
+	<p>For code examples see Section
+	<seealso marker="using_ssh#sftp-client-with-tar-compression">SFTP Client with TAR Compression</seealso>
+	in the ssh Users Guide.
+	</p>
+	<p>The <c>crypto</c> mode option is explained in the data types section above, see
+	<seealso marker="#Crypto operations for open_tar">Crypto operations for open_tar</seealso>.
+	Encryption is assumed if the <c>Mode</c> contains <c>write</c>, and
+	decryption if the <c>Mode</c> contains <c>read</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="position" arity="3" since=""/>
+      <name name="position" arity="4" since=""/>
+      <fsummary>Sets the file position of a file.</fsummary>
+      <desc>
+        <p>Sets the file position of the file referenced by <c><![CDATA[Handle]]></c>.
+          Returns <c><![CDATA[{ok, NewPosition}]]></c> (as an absolute offset) if
+          successful, otherwise <c><![CDATA[{error, reason()}]]></c>. <c><![CDATA[Location]]></c> is
+          one of the following:</p>
+        <taglist>
+          <tag><c><![CDATA[Offset]]></c></tag>
+          <item>
+            <p>The same as <c><![CDATA[{bof, Offset}]]></c>.</p>
+          </item>
+          <tag><c><![CDATA[{bof, Offset}]]></c></tag>
+          <item>
+            <p>Absolute offset.</p>
+          </item>
+          <tag><c><![CDATA[{cur, Offset}]]></c></tag>
+          <item>
+            <p>Offset from the current position.</p>
+          </item>
+          <tag><c><![CDATA[{eof, Offset}]]></c></tag>
+          <item>
+            <p>Offset from the end of file.</p>
+          </item>
+          <tag><c><![CDATA[bof | cur | eof]]></c></tag>
+          <item>
+            <p>The same as eariler with <c><![CDATA[Offset]]></c> 0,
+	    that is, <c><![CDATA[{bof, 0} | {cur, 0} | {eof, 0}]]></c>.
+	    </p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pread" arity="4" since=""/>
+      <name name="pread" arity="5" since=""/>
+      <fsummary>Reads from an open file.</fsummary>
+       <desc><p>The <c><![CDATA[pread/3,4]]></c> function reads from a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#read-3"><c>read/3,4</c></seealso> functions.</p>
+       </desc>
+     </func>
+
+    <func>
+      <name name="pwrite" arity="4" since=""/>
+      <name name="pwrite" arity="5" since=""/>
+      <fsummary>Writes to an open file.</fsummary>
+       <desc><p>The <c><![CDATA[pwrite/3,4]]></c> function writes to a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#write-3"><c>write/3,4</c></seealso> functions.</p>
+       </desc>
+    </func>
+
+    <func>
+      <name name="read" arity="3" since=""/>
+      <name name="read" arity="4" since=""/>
+      <fsummary>Reads from an open file.</fsummary>
+      <desc>
+        <p>Reads <c><![CDATA[Len]]></c> bytes from the file referenced by
+          <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, <c><![CDATA[eof]]></c>, or
+          <c><![CDATA[{error, reason()}]]></c>. If the file is opened with <c><![CDATA[binary]]></c>,
+          <c><![CDATA[Data]]></c> is a binary, otherwise it is a string.</p>
+        <p>If the file is read past <c>eof</c>, only the remaining bytes
+          are read and returned. If no bytes are read, <c><![CDATA[eof]]></c>
+          is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_file" arity="2" since=""/>
+      <name name="read_file" arity="3" since=""/>
+      <fsummary>Reads a file.</fsummary>
+      <desc>
+        <p>Reads a file from the server, and returns the data in a binary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_file_info" arity="2" since=""/>
+      <name name="read_file_info" arity="3" since=""/>
+      <fsummary>Gets information about a file.</fsummary>
+      <desc>
+        <p>Returns a <c><![CDATA[file_info]]></c> record from the file system object specified by
+          <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>. See
+	<seealso marker="kernel:file#read_file_info-2">file:read_file_info/2</seealso>
+	for information about the record.
+	</p>
+	<p>
+	  Depending on the underlying OS:es links might be followed and info on the final file, directory
+	  etc is returned. See <seealso marker="#read_link_info-2">read_link_info/2</seealso>
+	  on how to get information on links instead.
+	</p>
+      </desc>
+    </func>
+
+     <func>
+      <name name="read_link" arity="2" since=""/>
+      <name name="read_link" arity="3" since=""/>
+      <fsummary>Reads symbolic link.</fsummary>
+      <desc>
+        <p>Reads the link target from the symbolic link specified by <c><![CDATA[name]]></c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="read_link_info" arity="2"/>
+      <name since="" name="read_link_info" arity="3"/>
+      <fsummary>Gets information about a symbolic link.</fsummary>
+      <desc>
+        <p>Returns a <c><![CDATA[file_info]]></c> record from the symbolic
+          link specified by <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>.
+	  See
+	  <seealso marker="kernel:file#read_link_info-2">file:read_link_info/2</seealso>
+	  for information about the record.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="rename" arity="3"/>
+      <name since="" name="rename" arity="4"/>
+      <fsummary>Renames a file.</fsummary>
+      <desc>
+        <p>Renames a file named <c><![CDATA[OldName]]></c> and gives it the name
+          <c><![CDATA[NewName]]></c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_channel(ConnectionRef) -></name>
+      <name since="">start_channel(ConnectionRef, SftpOptions) ->
+      {ok, ChannelPid} | Error</name>
+
+      <name since="">start_channel(Host) -></name>
+      <name since="">start_channel(Host, Options) -></name>
+      <name since="">start_channel(Host, Port, Options) -></name>
+      <name since="">start_channel(TcpSocket) -></name>
+      <name since="">start_channel(TcpSocket, Options) ->
+      {ok, ChannelPid, ConnectionRef} | Error</name>
+
+      <fsummary>Starts an SFTP client.</fsummary>
+      <type>
+        <v>Host = <seealso marker="ssh:ssh#type-host">ssh:host()</seealso></v>
+        <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<v>TcpSocket = <seealso marker="ssh:ssh#type-open_socket">ssh:open_socket()</seealso></v>
+	<v>Options = [  <seealso marker="#type-sftp_option">sftp_option()</seealso>
+		      | <seealso marker="ssh:ssh#type-client_option">ssh:client_option()</seealso> ]</v>
+	<v>SftpOptions = [  <seealso marker="#type-sftp_option">sftp_option()</seealso> ]</v>
+	<v>ChannelPid = pid()</v>
+        <v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
+	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
+      </type>
+      <desc>
+	<p>If no connection reference is provided, a connection is set
+	up, and the new connection is returned. An SSH channel process
+	is started to handle the communication with the SFTP server.
+	The returned <c>pid</c> for this process is to be used as input to
+	all other API functions in this module.</p>
+
+	<p>Options:</p>
+	<taglist>
+          <tag><c><![CDATA[{timeout, timeout()}]]></c></tag>
+	  <item>
+	    <p>There are two ways to set a timeout for the underlying ssh connection:</p>
+	    <list>
+	      <item>If the connection timeout option <c>connect_timeout</c> is set, that value
+	      is used also for the negotiation timeout and this option (<c>timeout</c>) is ignored.</item>
+	      <item>Otherwise, this option (<c>timeout</c>) is used as the negotiation timeout
+	      only and there is no connection timeout set</item>
+	    </list>
+	    <p>The value defaults to <c>infinity</c>.</p>
+	  </item>
+	  <tag>
+	    <c><![CDATA[{sftp_vsn, integer()}]]></c>
+	  </tag>
+	  <item>
+	    <p>
+	      Desired SFTP protocol version.
+	      The actual version is the minimum of
+	      the desired version and the maximum supported
+	      versions by the SFTP server.
+	    </p>
+	  </item>
+	</taglist>
+	<p>All other options are directly passed to
+	<seealso marker="ssh">ssh:connect/3</seealso> or ignored if a
+	connection is already provided.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="" name="stop_channel" arity="1"/>
+      <fsummary>Stops the SFTP client channel.</fsummary>
+      <desc>
+	<p>Stops an SFTP channel. Does not close the SSH connection.
+	Use <seealso marker="ssh#close-1">ssh:close/1</seealso> to close it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="" name="write" arity="3"/>
+      <name since="" name="write" arity="4"/>
+      <fsummary>Writes to an open file.</fsummary>
+      <desc>
+        <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
+	The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
+	flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, reason()}]]></c>
+	otherwise.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="write_file" arity="3"/>
+      <name since="" name="write_file" arity="4"/>
+      <fsummary>Writes a file.</fsummary>
+      <desc>
+        <p>Writes a file to the server.	The file is created if it does not exist
+	but overwritten if it exists.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="" name="write_file_info" arity="3"/>
+      <name since="" name="write_file_info" arity="4"/>
+      <fsummary>Writes information for a file.</fsummary>
+      <desc>
+        <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
+	file specified by <c><![CDATA[Name]]></c>. See
+	<seealso marker="kernel:file#write_file_info-2">file:write_file_info/[2,3]</seealso>
+	for information about the record.
+	</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

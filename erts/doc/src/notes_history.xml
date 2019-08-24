@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>ERTS Release Notes History</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes_history.xml</file>
+  </header>
+
+  <section>
+    <title>ERTS 5.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The BIF <c><![CDATA[is_record(Record,RecordTag)]]></c> has been added to
+            the run-time system. It checks that <c><![CDATA[Record]]></c> is a tuple
+            whose first element is the atom <c><![CDATA[RecordTag.]]></c> No check
+            is made of the size of the tuple (because the run-time
+            system doesn't know anything about records).</p>
+          <p>Note that normally the compiler translates calls to
+            <c><![CDATA[is_record/2]]></c> to code that also verify the size of the
+            tuple, in addition to verifying the first element. The
+            BIF version will be used <c><![CDATA[is_record/2]]></c> is applied or
+            if the second argument is not a literal atom (e.g. a
+            variable or another term type, in which case the BIF will
+            generate a <c><![CDATA[badarg]]></c> exception).</p>
+          <p>Own Id: OTP-4812</p>
+        </item>
+        <item>
+          <p>Guards of mach specifications are corrected to resemble
+            the semantics of guards in real code more closely. The
+            implementation now corresponds to the documentation in
+            ERTS User's Guide. The following things are corrected:</p>
+          <list type="bulleted">
+            <item>Guard semantics was wrong when it came to logical
+             operators and exceptions.
+            <c><![CDATA[{'or',{'is_integer','$1'},{'or','$1','$1'}}]]></c>
+             evaluated to <c><![CDATA[true]]></c> with <c><![CDATA['$1']]></c> bound to an
+             integer.</item>
+            <item>Unary + and - was not implemented.</item>
+            <item>Calling operators as Bif's was not supported by
+            <c><![CDATA[ets/dbg:fun2ms]]></c> (<c><![CDATA[erlang:'or'(A,B)]]></c> etc).</item>
+            <item>Old typetests (like <c><![CDATA[integer(X)]]></c> instead of
+            <c><![CDATA[is_integer(X))]]></c> was not supported by
+            <c><![CDATA[ets/dbg:fun2ms]]></c>.</item>
+            <item>Semicolon (;) in guards was not supported by
+            <c><![CDATA[ets/dbg:fun2ms]]></c>.</item>
+          </list>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4927</p>
+        </item>
+        <item>
+          <p>A potential initialization failure when using threads and
+            elib_malloc has been removed.</p>
+          <p>Own Id: OTP-5125</p>
+        </item>
+        <item>
+          <p>Several problems in the 64-bit emulator has been
+            corrected. For instance, the emulator could crash while
+            running the Debugger.</p>
+          <p>Own Id: OTP-5146</p>
+        </item>
+        <item>
+          <p>The match spec parse transform <c><![CDATA[ms_transform]]></c> no
+            longer accepts the <c><![CDATA[andalso]]></c> and <c><![CDATA[orelse]]></c>
+            constructs in guards for consistency with the standard
+            Erlang language. A future release of Erlang/OTP may allow
+            <c><![CDATA[andalso]]></c> and <c><![CDATA[orelse]]></c> in guards.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5149</p>
+        </item>
+        <item>
+          <p>In rare circumstances in a process that has caught
+            exceptions and uses funs, the process would be killed
+            when changing code because the code server would think
+            that the process still held references to the funs.</p>
+          <p>Own Id: OTP-5153</p>
+        </item>
+        <item>
+          <p><c><![CDATA[erlang:system_monitor/2]]></c> no longer sends any
+            monitoring messages to the system monitor process from
+            itself. This behavior is more consistent with other trace
+            functionality.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5183</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation stated that <c><![CDATA[ets:safe_fixtable/2]]></c>
+            could return <c><![CDATA[true]]></c> or <c><![CDATA[false,]]></c> that was wrong,
+            it always returns <c><![CDATA[true]]></c>.</p>
+          <p>Own Id: OTP-4830</p>
+        </item>
+        <item>
+          <p>The unary '+' operator has been changed to throw an
+            <c><![CDATA[badarith]]></c> exception if its argument is not numeric (or
+            fail in a guard). It used its argument unchanged whatever
+            the type. Given the new meaning, unary '+' can now be
+            used to test whether a term is numeric.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4928</p>
+        </item>
+        <item>
+          <p>Process identifiers and port identifiers have been
+            made more unique. Previously 18 bits were used as id in
+            the internal representation of process and port
+            identifiers. Now 28 bits are used.</p>
+          <p>The maximum limit on the number of concurrently existing
+            processes due to the representation of pids has been
+            increased to 268435456 processes. The same is true for
+            ports. This limit will at least on a 32-bit architecture be
+            impossible to reach due to memory shortage.</p>
+          <p><em>NOTE:</em> By default, the <c><![CDATA[ERTS]]></c>, and the
+            <c><![CDATA[erl_interface]]></c>, <c><![CDATA[ei]]></c>, and <c><![CDATA[jinterface]]></c>
+            libraries are now only guaranteed to be compatible with
+            other Erlang/OTP components from the same release. It is
+            possible to set each component in compatibility mode of
+            an earlier release, though. See the documentation for
+            respective component on how to set it in compatibility
+            mode.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4968 Aux Id: OTP-4196 </p>
+        </item>
+        <item>
+          <p>A new internal thread library for the ERTS has been
+            added.</p>
+          <p>Own Id: OTP-5048</p>
+        </item>
+        <item>
+          <p>The system's performance could degrade severely if one
+            process held numerous links or monitors. The issue is
+            resolved.</p>
+          <p>Own Id: OTP-5079</p>
+        </item>
+        <item>
+          <p>A new function, <c><![CDATA[string:to_integer/1]]></c>, has been added.</p>
+          <p>Own Id: OTP-5081 Aux Id: OTP-5136 </p>
+        </item>
+        <item>
+          <p>A new function, <c><![CDATA[string:to_float/1]]></c>, has been added.</p>
+          <p>Own Id: OTP-5136 Aux Id: OTP-5081 </p>
+        </item>
+        <item>
+          <p>The exception code for calling a fun with wrong number of
+            arguments has been changed from simply <c><![CDATA[badarity]]></c> to
+            <c><![CDATA[{badarity,{Fun,Args}}]]></c>.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5139</p>
+        </item>
+        <item>
+          <p>The long-awaited <c><![CDATA[try]]></c>...<c><![CDATA[catch]]></c> construction
+            is included in this release. However, its use in
+            production code is not yet supported as there are several
+            known cases of legal code crashing the compiler. We plan
+            to release a patch to the compiler (including the
+            documentation) and at that time <c><![CDATA[try]]></c>...<c><![CDATA[catch]]></c>
+            will be supported.</p>
+          <p>Own Id: OTP-5150</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug that caused an emulator crash when using system
+            monitor of long GC has been fixed.</p>
+          <p>Own Id: OTP-5123</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c><![CDATA[erlang:memory(ets)]]></c> and <c><![CDATA[c:memory(ets)]]></c>
+            sometimes reported erroneous values. This bug has now been
+            fixed.</p>
+          <p>Own Id: OTP-5115 Aux Id: seq9063 </p>
+        </item>
+        <item>
+          <p>There is now a packet size limit option for <c><![CDATA[gen_tcp]]></c>
+            sockets. See the manual for <c><![CDATA[inet:setopts/2]]></c>.</p>
+          <p>The ASN.1 BER packet decoding for <c><![CDATA[gen_tcp]]></c> sockets
+            can now decode indefinite length packets.</p>
+          <p>Own Id: OTP-5128</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Port index was unnecessarily incremented by port table
+            size when port table got full. This unnecessary increment
+            has now been removed.</p>
+          <p>Own Id: OTP-5119</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Resolved a build problem on Mac OS 10.3 ("Panther").
+            Because of a conflict with the zlib sources included in
+            the Erlang run-time system and the zlib library included
+            in Panther, linking would fail.</p>
+          <p>Minor optimization on all Unix systems: caching the
+            system name returned from the uname() system call.
+            (Thanks to David N. Welton.)</p>
+          <p>Own Id: OTP-5069</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The ability to set system wide options for TCP sockets is
+            added through the kernel application variables
+            <c><![CDATA[inet_default_listen_options]]></c> and
+            <c><![CDATA[inet_default_connect_options]]></c>, see the <c><![CDATA[inet]]></c>
+            manual page for details.</p>
+          <p>Own Id: OTP-5080</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A few portability enhancements for the R9C-1 Open Source
+            release: The installer for Windows can now be built with
+            NSIS 2.0 (as well as with the NSIS 2.0b3). The driver
+            header files updated to allowed drivers to be built which
+            the MinGW compiler on Windows. Minor portability
+            enhancement in <c><![CDATA[io_lib:fread]]></c>.</p>
+          <p>Own Id: OTP-4789</p>
+        </item>
+        <item>
+          <p>Conversion of extremely small floating point numbers in
+            the external format (distribution) could sometimes fail
+            leading to unexpected closing of distribution channels,
+            i.e. generating nodedowns for healthy nodes.</p>
+          <p>Own Id: OTP-5026 Aux Id: seq8631 EABln12478 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Conversion of extremely small floating point numbers in
+            the external format (distribution) could sometimes fail
+            leading to unexpected closing of distribution channels,
+            i.e. generating nodedowns for healthy nodes.</p>
+          <p>Own Id: OTP-5026 Aux Id: seq8631 EABln12478 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Remote spawn on a nonreachable node now gives warning
+            instead of error in the error_log.</p>
+          <p>Own Id: OTP-5030 Aux Id: seq8663] </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Emulator with elib_malloc enabled could hang when many
+            I/O threads were in use.</p>
+          <p>Own Id: OTP-5028 Aux Id: EABln13041, EABln12253 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Distributed monitoring in combination with nodes
+            restarting did not behave correctly in rare
+            circumstances.</p>
+          <p>Own Id: OTP-4914</p>
+        </item>
+        <item>
+          <p>A module containing code similar to <c><![CDATA[receive after 4.1]]></c>
+            could not be loaded.</p>
+          <p>Own Id: OTP-4963 Aux Id: seq8344 </p>
+        </item>
+        <item>
+          <p>Problems fixed in <c><![CDATA[file:open/2]]></c>: <c><![CDATA["/dev/null"]]></c>
+            can now be opened. Opening a FIFO will now return an error
+            instead of hanging the emulator. The documentation has been
+            updated to point out that <c><![CDATA[file:open/2]]></c> returns
+            the error code <c><![CDATA[eisdir]]></c> when the pathname is not a
+            regular file (the pathname is not necessarily a directory).</p>
+          <p>Own Id: OTP-4992</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The Solaris kernel poll feature was changed from a
+            compile time option to a runtime option. The kernel poll
+            feature can be enabled, by passing the command-line
+            argument <c><![CDATA[+K true]]></c> to an emulator (see <c><![CDATA[erl(1)]]></c>)
+            that have kernel poll support, i.e. an emulator for
+            Solaris 8. By default the kernel poll feature is disabled.</p>
+          <p>Own Id: OTP-4979 Aux Id: seq8478 </p>
+        </item>
+        <item>
+          <p>Before the Erlang emulator writes an <c><![CDATA[erl_crash.dump]]></c>
+            file (for any reason), it will close all open files and
+            sockets.</p>
+          <p>Own Id: OTP-4985 Aux Id: EABln10730, EABln11277,
+            EABln11279 </p>
+        </item>
+        <item>
+          <p>The <c><![CDATA[+c]]></c> switch has been added to disable time
+            correction in the runtime system, this should be used on
+            systems where one is certain no dramatic wall clock time
+            changes will occur and the time correction algorithm is too
+            costly (namely very fast Linux systems where loads of
+            <c><![CDATA[erlang:now()]]></c> are executed).</p>
+          <p>Own Id: OTP-4986</p>
+        </item>
+        <item>
+          <p>The <c><![CDATA[process_flag/2,3]]></c> BIFs now take a flag
+            <c><![CDATA[min_heap_size]]></c> that allows changing an existing
+            process's minimum heap size. The actual size will only be
+            changed when the next garbage collection occurs.</p>
+          <p>Own Id: OTP-4991 Aux Id: seq8515, OTP-4987 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>A possibility to make distribution messages be qued up
+            during running of erlang code, so that larger packages is
+            sent over the network is added.</p>
+          <p>Own Id: OTP-4916</p>
+        </item>
+        <item>
+          <p>When code loading failed it was impossible to know
+            exactly what caused it, only <c><![CDATA[{undef,[{M,F,A}|...]}]]></c>
+            would be reported. Now the primitive loader lets the
+            error logger print an error report if a file operation
+            fails. All file errors except <c><![CDATA[enoent]]></c> and
+            <c><![CDATA[enotdir]]></c> are reported this way.</p>
+          <p>Own Id: OTP-4925 Aux Id: OTP-4952 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The driver for dynamically linked in drivers has been
+            fixed to delete loaded drivers when its Erlang server
+            dies. The Erlang server has also been updated to improve
+            the start-on-demand behaviour.</p>
+          <p>Own Id: OTP-4876 Aux Id: OTP-4855 seq8272 </p>
+        </item>
+        <item>
+          <p><c><![CDATA[erlang:register/2]]></c> does no longer generate an ERROR
+            REPORT to the error logger when the name already is
+            registered. If the name is already registered the process
+            function will crash with <c><![CDATA[{'EXIT',Reason}]]></c> and that is
+            enough. It is up to the caller to decide if it is an
+            error that the name is already registered.</p>
+          <p>Own Id: OTP-4892</p>
+        </item>
+        <item>
+          <p>When using <c><![CDATA[erlang:system_monitor(Pid,{long_gc,Time})]]></c>,
+            and the GC time exceeded 1 second, it sometimes erroneously
+            showed up as about 4300 seconds. This bug has now been
+            corrected.</p>
+          <p>Own Id: OTP-4903 Aux Id: seq8379 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Starting Erlang with the <c><![CDATA[+Bi]]></c> flag (to ignore ^C), now
+            also disables the quit ('q') option in the JCL menu.</p>
+          <p>Own Id: OTP-4897</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>ERTS 5.3.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The elib_malloc alternative dynamic memory allocator has
+            been improved to use an address order best fit strategy.
+            The instrumented emulator has been improved to be able to
+            catch memory allocations done by external libraries. The
+            emulator flag <c><![CDATA[+r]]></c> (stands for "relocate") makes
+            <c><![CDATA[ets]]></c> updates always result in an object relocation,
+            which significantly lessens the memory fragmentation in
+            certain systems. The <c><![CDATA[erlang:system_info/1]]></c> bif can
+            now be called with the argument <c><![CDATA[ets_realloc_moves]]></c>
+            and will return <c><![CDATA[true]]></c> if the <c><![CDATA[+r]]></c> emulator flag
+            is in effect, <c><![CDATA[false]]></c> otherwise.</p>
+          <p>Own Id: OTP-4838 Aux Id: seq8156 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,737 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Release Handling</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>release_handling.xml</file>
+  </header>
+  <marker id="release handling"></marker>
+
+  <section>
+    <title>Release Handling Principles</title>
+    <p>An important feature of the Erlang programming language is
+      the ability to change module code in runtime,
+      <em>code replacement</em>, as described in the Erlang
+      Reference Manual.</p>
+    <p>Based on this feature, the OTP application SASL provides a
+      framework for upgrading and downgrading between different
+      versions of an entire release in runtime. This is called
+      <em>release handling</em>.</p>
+    <p>The framework consists of:</p>
+    <list type="bulleted">
+      <item>Offline support - <c>systools</c> for generating scripts
+      and building release packages</item>
+      <item>Online support - <c>release_handler</c> for unpacking and
+      installing release packages</item>
+    </list>
+    <p>The minimal system based on Erlang/OTP, enabling release handling,
+    thus consists of the Kernel, STDLIB, and SASL
+    applications.</p>
+
+    <section>
+      <title>Release Handling Workflow</title>
+      <p><em>Step 1</em>) A release is created as described in
+        <seealso marker="release_structure">Releases</seealso>.</p>
+      <p><em>Step 2</em>) The release is transferred to and installed at
+        target environment. For information of how to install the first
+	target system, see System Principles.</p>
+      <p><em>Step 3</em>) Modifications, for example, error corrections,
+        are made to the code in the development environment.</p>
+      <p><em>Step 4</em>) At some point, it is time to make a new version
+        of release. The relevant <c>.app</c> files are updated and a new
+        <c>.rel</c> file is written.</p>
+      <p><em>Step 5</em>) For each modified application, an
+        <seealso marker="#appup">application upgrade file</seealso>,
+        <c>.appup</c>, is created. In this file, it is described how to
+	upgrade and/or downgrade between the old and new version of the
+        application.</p>
+      <p><em>Step 6</em>) Based on the <c>.appup</c> files, a
+        <seealso marker="#relup">release upgrade file</seealso> called
+        <c>relup</c>, is created. This file describes how to upgrade and/or
+        downgrade between the old and new version of the entire release.</p>
+      <p><em>Step 7</em>) A new release package is made and transferred to
+        the target system.</p>
+      <p><em>Step 8</em>) The new release package is unpacked using the
+        release handler.</p>
+      <p><em>Step 9</em>) The new version of the release is installed,
+        also using the release handler. This is done by evaluating the
+        instructions in <c>relup</c>. Modules can be added, deleted, or
+        reloaded, applications can be started, stopped, or restarted, and so
+        on. In some cases, it is even necessary to restart the entire
+        emulator.</p>
+      <list type="bulleted">
+	<item>If the installation fails, the system can be rebooted.
+	The old release version is then automatically used.</item>
+	<item>If the installation succeeds, the new version is made
+	the default version, which is to now be used if there is a
+	system reboot.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Release Handling Aspects</title>
+      <p><seealso marker="appup_cookbook">Appup Cookbook</seealso>,
+        contains examples of <c>.appup</c> files
+	for typical cases of upgrades/downgrades that are normally easy to
+	handle in runtime. However, many aspects can make release handling
+	complicated, for example:</p>
+      <list type="bulleted">
+	<item>
+          <p>Complicated or circular dependencies can make it difficult
+           or even impossible to decide in which order things must be
+           done without risking runtime errors during an upgrade or
+           downgrade. Dependencies can be:</p>
+          <list type="bulleted">
+            <item>Between nodes</item>
+            <item>Between processes</item>
+            <item>Between modules</item>
+          </list>
+	</item>
+	<item>
+          <p>During release handling, non-affected processes continue
+           normal execution. This can lead to time-outs or other problems.
+           For example, new processes created in the time window between
+           suspending processes using a certain module, and loading a new
+           version of this module, can execute old code.</p>
+	</item>
+      </list>
+      <p>It is thus recommended that code is changed in as small
+      steps as possible, and always kept backwards compatible.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="req"></marker>
+    <title>Requirements</title>
+    <p>For release handling to work properly, the runtime system must
+      have knowledge about which release it is running. It
+      must also be able to change (in runtime) which boot script and
+      system configuration file to use if the system is
+      rebooted, for example, by <c>heart</c> after a failure.
+      Thus, Erlang must be started as an embedded system; for
+      information on how to do this, see Embedded System.</p>
+    <p>For system reboots to work properly, it is also required that
+      the system is started with heartbeat monitoring, see the
+      <c>erl(1)</c> manual page in ERTS and the <c>heart(3)</c>
+      manual page in Kernel</p>
+    <p>Other requirements:</p>
+    <list type="bulleted">
+      <item>
+        <p>The boot script included in a release package must be
+          generated from the same <c>.rel</c> file as the release
+          package itself.</p>
+        <p>Information about applications is fetched from the script
+          when an upgrade or downgrade is performed.</p>
+      </item>
+      <item>
+        <p>The system must be configured using only one system
+          configuration file, called <c>sys.config</c>.</p>
+        <p>If found, this file is automatically included when a release
+          package is created.</p>
+      </item>
+      <item>
+        <p>All versions of a release, except the first one, must
+          contain a <c>relup</c> file.</p>
+        <p>If found, this file is automatically included when a release
+          package is created.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Distributed Systems</title>
+    <p>If the system consists of several Erlang nodes, each node can use
+      its own version of the release. The release handler is a locally
+      registered process and must be called at each node where an
+      upgrade or downgrade is required. A release handling
+      instruction, <c>sync_nodes</c>, can be used to synchronize the
+      release handler processes at a number of nodes, see the
+      <c>appup(4)</c> manual page in SASL.</p>
+  </section>
+
+  <section>
+    <marker id="instr"></marker>
+    <title>Release Handling Instructions</title>
+    <p>OTP supports a set of <em>release handling instructions</em>
+      that are used when creating <c>.appup</c> files. The release
+      handler understands a subset of these, the <em>low-level</em>
+      instructions. To make it easier for the user, there are also a
+      number of <em>high-level</em> instructions, which are translated
+      to low-level instructions by <c>systools:make_relup</c>.</p>
+    <p>Some of the most frequently used instructions are described in
+    this section. The complete list of instructions is included in the
+    <c>appup(4)</c> manual page in SASL.</p>
+    <p>First, some definitions:</p>
+    <list type="bulleted">
+      <item><em>Residence module</em> - The module where a process has
+      its tail-recursive loop function(s). If these functions are
+      implemented in several modules, all those modules are residence
+      modules for the process.</item>
+      <item><em>Functional module</em> - A module that is not a
+      residence module for any process.</item>
+    </list>
+    <p>For a process implemented using an OTP behaviour, the behaviour
+    module is the residence module for that process.
+    The callback module is a functional module.</p>
+
+    <section>
+      <title>load_module</title>
+      <p>If a simple extension has been made to a functional module, it
+        is sufficient to load the new version of the module into
+        the system, and remove the old version. This is called
+        <em>simple code replacement</em> and for this the following
+        instruction is used:</p>
+      <code type="none">
+{load_module, Module}</code>
+    </section>
+
+    <section>
+      <title>update</title>
+      <p>If a more complex change has been made, for example, a change
+        to the format of the internal state of a <c>gen_server</c>, simple
+	code replacement is not sufficient. Instead, it is necessary to:</p>
+	<list type="bulleted">
+	  <item>Suspend the processes using the module (to avoid that
+	  they try to handle any requests before the code replacement is
+	  completed).</item>
+	  <item>Ask them to transform the internal state format and
+	  switch to the new version of the module.</item>
+	  <item>Remove the old version.</item>
+	  <item>Resume the processes.</item>
+	</list>
+	<p>This is called <em>synchronized code replacement</em> and for
+	this the following instructions are used:</p>
+      <code type="none">
+{update, Module, {advanced, Extra}}
+{update, Module, supervisor}</code>
+      <p><c>update</c> with argument <c>{advanced,Extra}</c> is used
+        when changing the internal state of a behaviour as described
+        above. It causes behaviour processes to call the callback
+        function <c>code_change</c>, passing the term <c>Extra</c> and
+        some other information as arguments. See the manual pages for
+        the respective behaviours and
+	<seealso marker="appup_cookbook#int_state">Appup Cookbook</seealso>.</p>
+      <p><c>update</c> with argument <c>supervisor</c> is used when
+        changing the start specification of a supervisor. See
+	<seealso marker="appup_cookbook#sup">Appup Cookbook</seealso>.</p>
+      <p>When a module is to be updated, the release handler finds
+        which processes that are <em>using</em> the module by
+        traversing the supervision tree of each running application
+        and checking all the child specifications:</p>
+      <code type="none">
+{Id, StartFunc, Restart, Shutdown, Type, Modules}</code>
+      <p>A process uses a module if the name is listed in
+        <c>Modules</c> in the child specification for the process.</p>
+      <p>If <c>Modules=dynamic</c>, which is the case for event
+        managers, the event manager process informs the release handler
+        about the list of currently installed event handlers
+	(<c>gen_event</c>), and it is checked if the module name is in
+        this list instead.</p>
+      <p>The release handler suspends, asks for code change, and
+        resumes processes by calling the functions
+        <c>sys:suspend/1,2</c>, <c>sys:change_code/4,5</c>, and
+        <c>sys:resume/1,2</c>, respectively.</p>
+    </section>
+
+    <section>
+      <title>add_module and delete_module</title>
+      <p>If a new module is introduced, the following instruction is
+        used:</p>
+      <code type="none">
+{add_module, Module}</code>
+      <p>The instruction loads the module and is necessary
+        when running Erlang in embedded mode. It is not strictly
+        required when running Erlang in interactive (default) mode,
+        since the code server then automatically searches for and
+        loads unloaded modules.</p>
+      <p>The opposite of <c>add_module</c> is <c>delete_module</c>, which
+        unloads a module:</p>
+      <code type="none">
+{delete_module, Module}</code>
+      <p>Any process, in any application, with <c>Module</c>
+        as residence module, is killed when the instruction is
+        evaluated. The user must therefore ensure that all such
+        processes are terminated before deleting the module, to avoid
+        a situation with failing supervisor restarts.</p>
+    </section>
+
+    <section>
+      <title>Application Instructions</title>
+      <p>The following is the instruction for adding an application:</p>
+      <code type="none">
+{add_application, Application}</code>
+      <p>Adding an application means that the modules defined by
+        the <c>modules</c> key in the <c>.app</c> file are loaded using
+        a number of <c>add_module</c> instructions, and then the application
+        is started.</p>
+      <p>The following is the instruction for removing an application:</p>
+      <code type="none">
+{remove_application, Application}</code>
+      <p>Removing an application means that the application is stopped,
+        the modules are unloaded using a number of <c>delete_module</c>
+        instructions, and then the application specification is unloaded
+        from the application controller.</p>
+      <p>The following is the instruction for restarting an application:</p>
+      <code type="none">
+{restart_application, Application}</code>
+      <p>Restarting an application means that the application is stopped
+        and then started again similar to using the instructions
+        <c>remove_application</c> and <c>add_application</c> in
+        sequence.</p>
+    </section>
+
+    <section>
+      <title>apply (Low-Level)</title>
+      <p>To call an arbitrary function from the release handler,
+        the following instruction is used:</p>
+      <code type="none">
+{apply, {M, F, A}}</code>
+      <p>The release handler evalutes <c>apply(M, F, A)</c>.</p>
+    </section>
+
+    <section>
+      <marker id="restart_new_emulator_instr"></marker>
+      <title>restart_new_emulator (Low-Level)</title>
+      <p>This instruction is used when changing to a new emulator
+        version, or when any of the core applications Kernel,
+	STDLIB, or SASL is upgraded. If a system reboot
+	is needed for another reason, the <c>restart_emulator</c>
+	instruction is to be used instead.</p>
+      <p>This instruction requires that the system is started with
+        heartbeat monitoring, see the <c>erl(1)</c> manual page in
+	ERTS and the <c>heart(3)</c> manual page in Kernel.</p>
+      <p>The <c>restart_new_emulator</c> instruction must always be
+        the first instruction in a relup. If the relup is
+        generated by <c>systools:make_relup/3,4</c>, this is
+        automatically ensured.</p>
+      <p>When the release handler encounters the instruction, it first
+        generates a temporary boot file, which starts the new versions
+        of the emulator and the core applications, and the old version
+        of all other applications. Then it shuts down
+        the current emulator by calling <c>init:reboot()</c>, see the
+        <c>init(3)</c> manual page in Kernel.
+	All processes are terminated gracefully and
+        the system is rebooted by the <c>heart</c> program, using the
+        temporary boot file. After the reboot, the rest of the relup
+        instructions are executed. This is done as a part of the
+        temporary boot script.</p>
+      <warning>
+	<p>This mechanism causes the new versions of the emulator and
+	core applications to run with the old version of other
+	applications during startup. Thus, take extra care to
+	avoid incompatibility. Incompatible changes in the core
+	applications can in some situations be necessary. If possible,
+	such changes are preceded by deprecation over two major
+	releases before the actual change. To ensure the
+	application is not crashed by an incompatible change, always
+	remove any call to deprecated functions as soon as
+	possible.</p>
+      </warning>
+      <p>An info report is written when the upgrade is completed. To
+        programmatically find out if the upgrade is complete,
+        call <c>release_handler:which_releases(current)</c> and check
+        if it returns the expected (that is, the new) release.</p>
+      <p>The new release version must be made permanent when the new
+        emulator is operational. Otherwise, the old version will be
+        used if there is a new system reboot.</p>
+      <p>On UNIX, the release handler tells the <c>heart</c> program
+        which command to use to reboot the system. The environment
+        variable <c>HEART_COMMAND</c>, normally used by the <c>heart</c>
+        program, is ignored in this case. The command instead defaults
+        to <c>$ROOT/bin/start</c>. Another command can be set by using
+	the SASL configuration parameter <c>start_prg</c>, see
+	the <c>sasl(6)</c> manual page.</p>
+    </section>
+
+    <section>
+      <marker id="restart_emulator_instr"></marker>
+      <title>restart_emulator (Low-Level)</title>
+      <p>This instruction is not related to upgrades of ERTS or any
+        of the core applications. It can be used by any application to
+        force a restart of the emulator after all upgrade instructions
+        are executed.</p>
+      <p>A relup script can only have one <c>restart_emulator</c>
+        instruction and it must always be placed at the end. If
+	the relup is generated by <c>systools:make_relup/3,4</c>, this
+	is automatically ensured.</p>
+      <p>When the release handler encounters the instruction, it shuts
+        down the emulator by calling <c>init:reboot()</c>, see the
+        <c>init(3)</c> manual page in Kernel.
+	All processes are terminated gracefully and the system
+        can then be rebooted by the <c>heart</c> program using the
+        new release version. No more upgrade instruction is
+        executed after the restart.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="appup"></marker>
+    <title>Application Upgrade File</title>
+    <p>To define how to upgrade/downgrade between the current version
+      and previous versions of an application, an
+      <em>application upgrade file</em>, or in short an <c>.appup</c>
+      file is created.
+      The file is to be called <c>Application.appup</c>, where
+      <c>Application</c> is the application name:</p>
+    <code type="none">
+{Vsn,
+ [{UpFromVsn1, InstructionsU1},
+  ...,
+  {UpFromVsnK, InstructionsUK}],
+ [{DownToVsn1, InstructionsD1},
+  ...,
+  {DownToVsnK, InstructionsDK}]}.</code>
+  <list type="bulleted">
+    <item><c>Vsn</c>, a string, is the current version of the application,
+    as defined in the <c>.app</c> file.</item>
+    <item>Each <c>UpFromVsn</c> is a previous version of the application
+    to upgrade from.</item>
+    <item>Each <c>DownToVsn</c> is a previous version of the application
+    to downgrade to.</item>
+    <item>Each <c>Instructions</c> is a list of release handling
+    instructions.</item>
+  </list>
+    <p>For information about the syntax and contents of the <c>.appup</c>
+      file, see the <c>appup(4)</c> manual page in SASL.</p>
+    <p><seealso marker="appup_cookbook">Appup Cookbook</seealso>
+      includes examples of <c>.appup</c> files for typical upgrade/downgrade
+      cases.</p>
+    <p><em>Example:</em> Consider the release <c>ch_rel-1</c> from
+      <seealso marker="release_structure#ch_rel">Releases</seealso>.
+      Assume you want to add a function <c>available/0</c> to server
+      <c>ch3</c>, which returns the number of available channels (when
+      trying out the example, change in a copy of the original
+      directory, so that the first versions are still available):</p>
+    <code type="none">
+-module(ch3).
+-behaviour(gen_server).
+
+-export([start_link/0]).
+-export([alloc/0, free/1]).
+-export([available/0]).
+-export([init/1, handle_call/3, handle_cast/2]).
+
+start_link() ->
+    gen_server:start_link({local, ch3}, ch3, [], []).
+
+alloc() ->
+    gen_server:call(ch3, alloc).
+
+free(Ch) ->
+    gen_server:cast(ch3, {free, Ch}).
+
+available() ->
+    gen_server:call(ch3, available).
+
+init(_Args) ->
+    {ok, channels()}.
+
+handle_call(alloc, _From, Chs) ->
+    {Ch, Chs2} = alloc(Chs),
+    {reply, Ch, Chs2};
+handle_call(available, _From, Chs) ->
+    N = available(Chs),
+    {reply, N, Chs}.
+
+handle_cast({free, Ch}, Chs) ->
+    Chs2 = free(Ch, Chs),
+    {noreply, Chs2}.</code>
+    <p>A new version of the <c>ch_app.app</c> file must now be created,
+      where the version is updated:</p>
+    <code type="none">
+{application, ch_app,
+ [{description, "Channel allocator"},
+  {vsn, "2"},
+  {modules, [ch_app, ch_sup, ch3]},
+  {registered, [ch3]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {ch_app,[]}}
+ ]}.</code>
+    <p>To upgrade <c>ch_app</c> from <c>"1"</c> to <c>"2"</c> (and
+      to downgrade from <c>"2"</c> to <c>"1"</c>), you only need to
+      load the new (old) version of the <c>ch3</c> callback module.
+      Create the application upgrade file <c>ch_app.appup</c> in
+      the <c>ebin</c> directory:</p>
+    <code type="none">
+{"2",
+ [{"1", [{load_module, ch3}]}],
+ [{"1", [{load_module, ch3}]}]
+}.</code>
+  </section>
+
+  <section>
+    <marker id="relup"></marker>
+    <title>Release Upgrade File</title>
+    <p>To define how to upgrade/downgrade between the new version and
+      previous versions of a release, a <em>release upgrade file</em>,
+      or in short <c>relup</c> file, is to be created.</p>
+    <p>This file does not need to be created manually, it can be
+      generated by <c>systools:make_relup/3,4</c>. The relevant versions
+      of the <c>.rel</c> file, <c>.app</c> files, and <c>.appup</c> files
+      are used as input. It is deducted which applications are to be
+      added and deleted, and which applications that must be upgraded
+      and/or downgraded. The instructions for this are fetched from
+      the <c>.appup</c> files and transformed into a single list of
+      low-level instructions in the right order.</p>
+    <p>If the <c>relup</c> file is relatively simple, it can be created
+      manually. It it only to contain low-level instructions.</p>
+    <p>For details about the syntax and contents of the release upgrade
+      file, see the <c>relup(4)</c> manual page in SASL.</p>
+    <p><em>Example, continued from the previous section:</em> You have a
+      new version "2" of <c>ch_app</c> and an <c>.appup</c> file. A new
+      version of the <c>.rel</c> file is also needed. This time the file
+      is called <c>ch_rel-2.rel</c> and the release version string is
+      changed from "A" to "B":</p>
+    <code type="none">
+{release,
+ {"ch_rel", "B"},
+ {erts, "5.3"},
+ [{kernel, "2.9"},
+  {stdlib, "1.12"},
+  {sasl, "1.10"},
+  {ch_app, "2"}]
+}.</code>
+    <p>Now the <c>relup</c> file can be generated:</p>
+    <pre>
+1> <input>systools:make_relup("ch_rel-2", ["ch_rel-1"], ["ch_rel-1"]).</input>
+ok</pre>
+    <p>This generates a <c>relup</c> file with instructions for
+      how to upgrade from version "A" ("ch_rel-1") to version "B"
+      ("ch_rel-2") and how to downgrade from version "B" to version "A".</p>
+    <p>Both the old and new versions of the <c>.app</c> and
+      <c>.rel</c> files must be in the code path, as well as the
+      <c>.appup</c> and (new) <c>.beam</c> files. The code path can be
+      extended by using the option <c>path</c>:</p>
+    <pre>
+1> <input>systools:make_relup("ch_rel-2", ["ch_rel-1"], ["ch_rel-1"],</input>
+<input>[{path,["../ch_rel-1",</input>
+<input>"../ch_rel-1/lib/ch_app-1/ebin"]}]).</input>
+ok</pre>
+  </section>
+
+  <section>
+    <marker id="rel_handler"></marker>
+    <title>Installing a Release</title>
+    <p>When you have made a new version of a release, a release package
+      can be created with this new version and transferred to the target
+      environment.</p>
+    <p>To install the new version of the release in runtime,
+      the <em>release handler</em> is used. This is a process belonging
+      to the SASL application, which handles unpacking, installation,
+      and removal of release packages. It is communicated through
+      the <c>release_handler</c> module. For details, see the
+      <c>release_handler(3)</c> manual page in SASL.</p>
+    <p>Assuming there is an operational target system with
+      installation root directory <c>$ROOT</c>, the release package with
+      the new version of the release is to be copied to
+      <c>$ROOT/releases</c>.</p>
+    <p>First, <em>unpack</em> the release package.
+      The files are then extracted from the package:</p>
+    <code type="none">
+release_handler:unpack_release(ReleaseName) => {ok, Vsn}</code>
+   <list type="bulleted">
+     <item><c>ReleaseName</c> is the name of the release package except
+     the <c>.tar.gz</c> extension.</item>
+     <item><c>Vsn</c> is the version of the unpacked release, as
+     defined in its <c>.rel</c> file.</item>
+   </list>
+    <p>A directory <c>$ROOT/lib/releases/Vsn</c> is created, where
+      the <c>.rel</c> file, the boot script <c>start.boot</c>,
+      the system configuration file <c>sys.config</c>, and <c>relup</c>
+      are placed. For applications with new version numbers,
+      the application directories are placed under <c>$ROOT/lib</c>.
+      Unchanged applications are not affected.</p>
+    <p>An unpacked release can be <em>installed</em>. The release
+      handler then evaluates the instructions in <c>relup</c>, step by
+      step:</p>
+    <code type="none">
+release_handler:install_release(Vsn) => {ok, FromVsn, []}</code>
+    <p>If an error occurs during the installation, the system is
+      rebooted using the old version of the release. If installation
+      succeeds, the system is afterwards using the new version of
+      the release, but if anything happens and the system is
+      rebooted, it starts using the previous version again.</p>
+      <p>To be made the default version, the newly installed release
+      must be made <em>permanent</em>, which means the previous
+      version becomes <em>old</em>:</p>
+    <code type="none">
+release_handler:make_permanent(Vsn) => ok</code>
+    <p>The system keeps information about which versions are old and
+      permanent in the files <c>$ROOT/releases/RELEASES</c> and
+      <c>$ROOT/releases/start_erl.data</c>.</p>
+    <p>To downgrade from <c>Vsn</c> to <c>FromVsn</c>,
+      <c>install_release</c> must be called again:</p>
+    <code type="none">
+release_handler:install_release(FromVsn) => {ok, Vsn, []}</code>
+    <p>An installed, but not permanent, release can be <em>removed</em>.
+      Information about the release is then deleted from
+      <c>$ROOT/releases/RELEASES</c> and the release-specific code,
+      that is, the new application directories and
+      the <c>$ROOT/releases/Vsn</c> directory, are removed.</p>
+    <code type="none">
+release_handler:remove_release(Vsn) => ok</code>
+
+    <section>
+      <title>Example (continued from the previous sections)</title>
+    <p><em>Step 1)</em> Create a target system as described in
+      System Principles of the first version <c>"A"</c>
+      of <c>ch_rel</c> from
+      <seealso marker="release_structure#ch_rel">Releases</seealso>.
+      This time <c>sys.config</c> must be included in the release package.
+      If no configuration is needed, the file is to contain the empty
+      list:</p>
+      <code type="none">
+[].</code>
+    <p><em>Step 2)</em> Start the system as a simple target system. In
+      reality, it is to be started as an embedded system. However, using
+      <c>erl</c> with the correct boot script and config file is enough for
+      illustration purposes:</p>
+      <pre>
+% <input>cd $ROOT</input>
+% <input>bin/erl -boot $ROOT/releases/A/start -config $ROOT/releases/A/sys</input>
+...</pre>
+    <p><c>$ROOT</c> is the installation directory of the target system.</p>
+    <p><em>Step 3)</em> In another Erlang shell, generate start scripts and
+      create a release package for the new version <c>"B"</c>. Remember to
+      include (a possible updated) <c>sys.config</c> and the <c>relup</c> file,
+      see <seealso marker="#relup">Release Upgrade File</seealso>.</p>
+      <pre>
+1> <input>systools:make_script("ch_rel-2").</input>
+ok
+2> <input>systools:make_tar("ch_rel-2").</input>
+ok</pre>
+    <p>The new release package now also contains version "2" of <c>ch_app</c>
+      and the <c>relup</c> file:</p>
+      <code type="none">
+% tar tf ch_rel-2.tar 
+lib/kernel-2.9/ebin/kernel.app
+lib/kernel-2.9/ebin/application.beam
+...
+lib/stdlib-1.12/ebin/stdlib.app
+lib/stdlib-1.12/ebin/beam_lib.beam
+...      
+lib/sasl-1.10/ebin/sasl.app
+lib/sasl-1.10/ebin/sasl.beam
+...
+lib/ch_app-2/ebin/ch_app.app
+lib/ch_app-2/ebin/ch_app.beam
+lib/ch_app-2/ebin/ch_sup.beam
+lib/ch_app-2/ebin/ch3.beam
+releases/B/start.boot
+releases/B/relup
+releases/B/sys.config
+releases/B/ch_rel-2.rel
+releases/ch_rel-2.rel</code>
+    <p><em>Step 4)</em> Copy the release package <c>ch_rel-2.tar.gz</c>
+      to the <c>$ROOT/releases</c> directory.</p>
+    <p><em>Step 5)</em> In the running target system, unpack the release
+      package:</p>
+      <pre>
+1> <input>release_handler:unpack_release("ch_rel-2").</input>
+{ok,"B"}</pre>
+    <p>The new application version <c>ch_app-2</c> is installed under
+      <c>$ROOT/lib</c> next to <c>ch_app-1</c>. The <c>kernel</c>,
+      <c>stdlib</c>, and <c>sasl</c> directories are not affected, as
+      they have not changed.</p>
+    <p>Under <c>$ROOT/releases</c>, a new directory <c>B</c> is created,
+      containing <c>ch_rel-2.rel</c>, <c>start.boot</c>,
+      <c>sys.config</c>, and <c>relup</c>.</p>
+    <p><em>Step 6)</em> Check if the function <c>ch3:available/0</c> is
+      available:</p>
+      <pre>
+2> <input>ch3:available().</input>
+** exception error: undefined function ch3:available/0</pre>
+    <p><em>Step 7)</em> Install the new release. The instructions in
+      <c>$ROOT/releases/B/relup</c> are executed one by one, resulting
+      in the new version of <c>ch3</c> being loaded. The function
+      <c>ch3:available/0</c> is now available:</p>
+      <pre>
+3> <input>release_handler:install_release("B").</input>
+{ok,"A",[]}
+4> <input>ch3:available().</input>
+3
+5> <input>code:which(ch3).</input>
+".../lib/ch_app-2/ebin/ch3.beam"
+6> <input>code:which(ch_sup).</input>
+".../lib/ch_app-1/ebin/ch_sup.beam"</pre>
+    <p>Processes in <c>ch_app</c> for which code have not
+      been updated, for example, the supervisor, are still evaluating
+      code from <c>ch_app-1</c>.</p>
+    <p><em>Step 8)</em> If the target system is now rebooted, it uses
+      version "A" again. The "B" version must be made permanent, to be
+      used when the system is rebooted.</p>
+      <pre>
+7> <input>release_handler:make_permanent("B").</input>
+ok</pre>
+    </section>
+  </section>
+
+  <section>
+    <marker id="sys"></marker>
+    <title>Updating Application Specifications</title>
+    <p>When a new version of a release is installed, the application
+      specifications are automatically updated for all loaded
+      applications.</p>
+    <note>
+      <p>The information about the new application specifications is
+        fetched from the boot script included in the release package.
+        Thus, it is important that the boot script is generated from
+        the same <c>.rel</c> file as is used to build the release
+        package itself.</p>
+    </note>
+    <p>Specifically, the application configuration parameters are
+      automatically updated according to (in increasing priority
+      order):</p>
+    <list type="bulleted">
+      <item>The data in the boot script, fetched from the new
+       application resource file <c>App.app</c></item>
+      <item>The new <c>sys.config</c></item>
+      <item>Command-line arguments <c>-App Par Val</c></item>
+    </list>
+    <p>This means that parameter values set in the other system
+      configuration files and values set using
+      <c>application:set_env/3</c> are disregarded.</p>
+    <p>When an installed release is made permanent, the system process
+      <c>init</c> is set to point out the new <c>sys.config</c>.</p>
+    <p>After the installation, the application controller compares
+      the old and new configuration parameters for all running
+      applications and call the callback function:</p>
+    <code type="none">
+Module:config_change(Changed, New, Removed)</code>
+    <list type="bulleted">
+      <item><c>Module</c> is the application callback module as defined
+      by the <c>mod</c> key in the <c>.app</c> file.</item>
+      <item><c>Changed</c> and <c>New</c> are lists of <c>{Par,Val}</c> for
+      all changed and added configuration parameters, respectively.</item>
+      <item><c>Removed</c> is a list of all parameters <c>Par</c> that have
+      been removed.</item>
+    </list>
+    <p>The function is optional and can be omitted when implementing an
+      application callback module.</p>
+  </section>
+</chapter>
+

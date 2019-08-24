@@ -1,0 +1,186 @@
+MAP-ApplicationContexts {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ApplicationContexts (2) version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+
+-- EXPORTS everything
+
+
+IMPORTS
+	gsm-NetworkId,
+	ac-Id
+FROM MobileDomainDefinitions {
+   itu-t (0) identified-organization (4) etsi (0) mobileDomain (0)
+   mobileDomainDefinitions (0) version1 (1)}
+;
+
+-- application-context-names
+
+map-ac  OBJECT IDENTIFIER ::= {gsm-NetworkId ac-Id}
+
+networkLocUpContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac networkLocUp(1) version3(3)}
+
+locationCancellationContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac locationCancel(2) version3(3)}
+
+roamingNumberEnquiryContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac roamingNbEnquiry(3) version3(3)}
+
+authenticationFailureReportContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac authenticationFailureReport(39) version3(3)}
+
+locationInfoRetrievalContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac locInfoRetrieval(5) version3(3)}
+
+resetContext-v2  OBJECT IDENTIFIER ::=
+	{map-ac reset(10) version2(2)}
+
+handoverControlContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac handoverControl(11) version3(3)}
+
+equipmentMngtContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac equipmentMngt(13) version3(3)}
+
+infoRetrievalContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac infoRetrieval(14) version3(3)}
+
+interVlrInfoRetrievalContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac interVlrInfoRetrieval(15) version3(3)}
+
+subscriberDataMngtContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac subscriberDataMngt(16) version3(3)}
+
+tracingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac tracing(17) version3(3)}
+
+networkFunctionalSsContext-v2  OBJECT IDENTIFIER ::=
+	{map-ac networkFunctionalSs(18) version2(2)}
+
+networkUnstructuredSsContext-v2  OBJECT IDENTIFIER ::=
+	{map-ac networkUnstructuredSs(19) version2(2)}
+
+shortMsgGatewayContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac shortMsgGateway(20) version3(3)}
+
+shortMsgMO-RelayContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac shortMsgMO-Relay(21) version3(3)}
+
+shortMsgAlertContext-v2  OBJECT IDENTIFIER ::=
+	{map-ac shortMsgAlert(23) version2(2)}
+
+mwdMngtContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac mwdMngt(24) version3(3)}
+
+shortMsgMT-RelayContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac shortMsgMT-Relay(25) version3(3)}
+
+imsiRetrievalContext-v2  OBJECT IDENTIFIER ::=
+	{map-ac imsiRetrieval(26) version2(2)}
+
+msPurgingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac msPurging(27) version3(3)}
+
+subscriberInfoEnquiryContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac subscriberInfoEnquiry(28) version3(3)}
+
+anyTimeInfoEnquiryContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac anyTimeInfoEnquiry(29) version3(3)}
+
+callControlTransferContext-v4  OBJECT IDENTIFIER ::=
+	{map-ac callControlTransfer(6) version4(4)}
+
+ss-InvocationNotificationContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac ss-InvocationNotification(36) version3(3)}
+
+groupCallControlContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac groupCallControl(31) version3(3)}
+
+gprsLocationUpdateContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac gprsLocationUpdate(32) version3(3)}
+
+gprsLocationInfoRetrievalContext-v4  OBJECT IDENTIFIER ::=
+	{map-ac gprsLocationInfoRetrieval(33) version4(4)}
+
+failureReportContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac failureReport(34) version3(3)}
+
+gprsNotifyContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac gprsNotify(35) version3(3)}
+
+reportingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac reporting(7) version3(3)}
+
+callCompletionContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac callCompletion(8) version3(3)}
+
+istAlertingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac istAlerting(4) version3(3)}
+
+serviceTerminationContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac immediateTermination(9) version3(3)}
+
+locationSvcGatewayContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac locationSvcGateway(37) version3(3)}
+
+locationSvcEnquiryContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac locationSvcEnquiry(38) version3(3)}
+
+mm-EventReportingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac mm-EventReporting(42) version3(3)}
+
+anyTimeInfoHandlingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac anyTimeInfoHandling(43) version3(3)}
+
+subscriberDataModificationNotificationContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac subscriberDataModificationNotification(22) version3(3)}
+
+secureTransportHandlingContext-v3  OBJECT IDENTIFIER ::=
+	{map-ac secureTransportHandling(40) version3(3)}
+
+-- The following Object Identifiers are reserved for application-contexts
+--  existing in previous versions of the protocol
+
+-- AC Name & Version	Object Identifier
+-- 
+-- networkLocUpContext-v1	map-ac networkLocUp (1)	version1 (1)
+-- networkLocUpContext-v2	map-ac networkLocUp (1)	version2 (2)
+-- locationCancellationContext-v1	map-ac locationCancellation (2)	version1 (1)
+-- locationCancellationContext-v2	map-ac locationCancellation (2)	version2 (2)
+-- roamingNumberEnquiryContext-v1	map-ac roamingNumberEnquiry (3)	version1 (1)
+-- roamingNumberEnquiryContext-v2	map-ac roamingNumberEnquiry (3)	version2 (2)
+-- locationInfoRetrievalContext-v1	map-ac locationInfoRetrieval (5)	version1 (1)
+-- locationInfoRetrievalContext-v2	map-ac locationInfoRetrieval (5)	version2 (2)
+-- resetContext-v1	map-ac reset (10)	version1 (1)
+-- handoverControlContext-v1	map-ac handoverControl (11)	version1 (1)
+-- handoverControlContext-v2	map-ac handoverControl (11)	version2 (2)
+-- sIWFSAllocationContext-v3	map-ac sIWFSAllocation (12)	version3 (3)
+-- equipmentMngtContext-v1	map-ac equipmentMngt (13)	version1 (1)
+-- equipmentMngtContext-v2	map-ac equipmentMngt (13)	version2 (2)
+-- infoRetrievalContext-v1	map-ac infoRetrieval (14)	version1 (1) 
+-- infoRetrievalContext-v2	map-ac infoRetrieval (14)	version2 (2)
+-- interVlrInfoRetrievalContext-v2	map-ac interVlrInfoRetrieval (15)	version2 (2)
+-- subscriberDataMngtContext-v1	map-ac subscriberDataMngt (16)	version1 (1)
+-- subscriberDataMngtContext-v2	map-ac subscriberDataMngt (16)	version2 (2)
+-- tracingContext-v1	map-ac tracing (17)	version1 (1)
+-- tracingContext-v2	map-ac tracing (17)	version2 (2)
+-- networkFunctionalSsContext-v1	map-ac networkFunctionalSs (18)	version1 (1)
+-- shortMsgGatewayContext-v1	map-ac shortMsgGateway (20)	version1 (1)
+-- shortMsgGatewayContext-v2	map-ac shortMsgGateway (20)	version2 (2)
+-- shortMsgRelayContext-v1	map-ac shortMsgRelay (21)	version1 (1)
+-- shortMsgAlertContext-v1	map-ac shortMsgAlert (23)	version1 (1)
+-- mwdMngtContext-v1	map-ac mwdMngt (24)	version1 (1)
+-- mwdMngtContext-v2	map-ac mwdMngt (24)	version2 (2)
+-- shortMsgMT-RelayContext-v2	map-ac shortMsgMT-Relay (25)	version2 (2)
+-- msPurgingContext-v2	map-ac msPurging (27)	version2 (2) 
+-- callControlTransferContext-v3	map-ac callControlTransferContext (6)	version3 (3) 
+-- gprsLocationInfoRetrievalContext-v3	map-ac gprsLocationInfoRetrievalContext (33) version3 (3)
+
+
+END

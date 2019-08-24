@@ -1,0 +1,143 @@
+ValueTest DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+--Criticality    ::= ENUMERATED { reject, ignore, notify }(reject)
+
+--Ignore         ::= Criticality(ignore)
+
+--SubCriticality ::= Criticality(reject|notify)
+
+INNL ::= INTEGER {zero(0),one(1),ten(10)}
+BSNNL ::= BIT STRING {zero(0),one(1),two(2)}
+RadioButton ::= ENUMERATED {button1(0),button2(1),button3(2)}
+
+-- OTP-6695
+vANY ANY ::= INTEGER:12
+
+-- basic type value test for coverage
+vBOOLEAN BOOLEAN ::= TRUE
+vINTEGER INTEGER ::= 12
+vINTEGERNNL INNL ::= zero
+vENUMERATED RadioButton ::= button1
+vBS BSNNL ::= {zero,two}
+vNULL NULL ::= NULL
+vOS OCTET STRING ::= '313233'H
+
+-- OBJECT IDENTIFIER
+vOD OBJECT IDENTIFIER ::= {2 1 1}
+one INTEGER ::= 1
+integer-first OBJECT IDENTIFIER ::= {one 2}
+rel-oid-1 RELATIVE-OID ::= {2 4 5}
+include-roid OBJECT IDENTIFIER ::= {0 rel-oid-1}
+include-oid OBJECT IDENTIFIER ::= {integer-first 1}
+include-all OBJECT IDENTIFIER ::= {integer-first 1 rel-oid-1 42}
+
+--Character strings
+numericstring NumericString ::= "01234567"
+printablestring PrintableString ::= "PrintableString"
+visiblestring VisibleString ::= "VisibleString"
+cr IA5String ::= {0,13}
+ia5string1 IA5String ::= {"First line",cr, "Second line"}
+ia5string2 IA5String ::= {{5,5},{4,4},{6,6}}
+teletexstring TeletexString ::= "TeletexString"
+videotexstring VideotexString ::= "VideotexString"
+utctime UTCTime ::= "97100211-0500"
+generalizedtime GeneralizedTime ::= "19971002103130.5"
+objectdescriptor ObjectDescriptor ::= "ObjectDescriptor"
+graphicstring GraphicString ::= "GraphicString"
+generalstring GeneralString ::= "GeneralString"
+bmpstring1 BMPString ::= "BMPString"
+latinCapitalLetterA UniversalString ::= {0,0,0,65}
+greekCapitalLetterSigma UniversalString ::= {0,0,3,145}
+my-universalstring UniversalString ::= {"This is a capital A: ",
+					latinCapitalLetterA,
+					", and a capital sigma: ",
+					greekCapitalLetterSigma,
+					"; try and spot the difference!"}
+
+-- Useful parameterized SEQUENCE.
+ParamSeq{Type} ::= SEQUENCE {
+    a Type
+}
+
+-- Integer values.
+IntegerSeq ::= ParamSeq{INTEGER}
+someInteger INTEGER ::= 42
+integerSeq1 IntegerSeq ::= { a otherInteger }
+otherInteger INTEGER ::= someInteger
+
+--
+-- Values from objects.
+--
+int-from-object-1 INTEGER ::= int-holder-2.&obj.&id
+int-from-object-2 INTEGER ::= int-holder-2.&id
+
+INT-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INT-HOLDER OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  [OBJ &obj]
+}
+
+int-holder-1 INT-HOLDER ::= { ID 2 }
+int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
+
+II ::= INTEGER (int-from-object-1..int-from-object-2)
+
+-- Recursive OCTET STRING definitions.
+
+OS-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &os OCTET STRING
+} WITH SYNTAX {
+  ID &id OS &os
+}
+
+os-holder-1 OS-HOLDER ::= { ID 1 OS '4041FF'H }
+
+OctetStringSeq ::= ParamSeq{OCTET STRING}
+
+someOctetString OCTET STRING ::= '404142'H
+
+octetStringSeq1 OctetStringSeq ::= { a someOctetString }
+octetStringSeq2 OctetStringSeq ::= { a otherOctetString }
+octetStringSeq3 OctetStringSeq ::= { a os-holder-1.&os }
+
+otherOctetString OCTET STRING ::= someOctetString
+
+os-1 OCTET STRING ::= os-2
+os-2 OCTET STRING ::= os-holder-1.&os
+
+-- Recursive BIT STRING definitions.
+
+BS-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &bs BIT STRING,
+  &named-bs NamedBsType
+} WITH SYNTAX {
+  ID &id BS &bs NAMED-BS &named-bs
+}
+bs-holder-1 BS-HOLDER ::= { ID 1 BS '101'B NAMED-BS {a,c} }
+
+NamedBsType ::= BIT STRING {a(0),b(1),c(2)}
+BsSeq ::= SEQUENCE {
+  a BIT STRING,
+  b NamedBsType
+}
+
+someBitString BIT STRING ::= '101101'B
+
+bsSeq1 BsSeq ::= { a someBitString, b someNamedBs }
+bsSeq2 BsSeq ::= { a otherBitString, b someOtherNamedBs }
+bsSeq3 BsSeq ::= { a bs-holder-1.&bs, b bs-holder-1.&named-bs }
+
+otherBitString BIT STRING ::= someBitString
+bsFromObjectInd BIT STRING ::= bsFromObject
+bsFromObject BIT STRING ::= bs-holder-1.&bs
+
+someOtherNamedBs NamedBsType ::= someNamedBs
+someNamedBs NamedBsType ::= {c}
+
+END

@@ -1,0 +1,416 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%% 
+%% %CopyrightEnd%
+%%
+%% SNMP MIB compiler frontend
+%% 
+
+-mode(compile).
+
+-include_lib("kernel/include/file.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+
+
+-record(state, 
+        {
+	 version = "%VSN%", 
+         mfv, 
+         file, % .mib or .bin depending on which are compiled
+         outdir = "./",
+         db = volatile,
+	 include_dirs = ["./"],
+         include_lib_dirs = [],
+	 deprecated         = false,
+	 group_check        = true,
+	 description        = false,
+	 reference          = false,
+	 imports            = false,
+	 module_identity    = false,
+	 module_compliance  = false, 
+	 agent_capabilities = false,
+	 module,
+	 no_defaults        = false,
+	 relaxed_row_name_assign_check = false,
+	 %% The default verbosity (silence) will be filled in 
+	 %% during argument processing.
+	 verbosity, 
+	 warnings           = false,
+	 warnings_as_errors = false
+        }).
+
+
+%% ------------------------------------------------------------------------
+%% Valid arguments: 
+%% --o Dir [defaults to "./"]
+%% --i Dir [defaults to "./"]
+%% --il Dir
+%% --sgc
+%% --db DB [defaults to volatile]
+%% --dep
+%% --desc
+%% --ref
+%% --imp
+%% --mi
+%% --mc
+%% --ac
+%% --mod Mod
+%% --nd
+%% --rrnac
+%% --version
+%% --verbosity V
+%% --warnings | --W
+%% --Werror | --wae | --warnings_as_errors
+main(Args) when is_list(Args) ->
+    case (catch process_args(Args)) of
+	ok ->
+	    usage();
+        {ok, State} when is_record(State, state) ->
+	    compile(State);
+        {ok, Str} when is_list(Str) ->
+            io:format("~s~n~n", [Str]),
+            halt(1);
+        {error, ReasonStr} ->
+            usage(ReasonStr)
+    end;
+main(_) ->
+    usage().
+
+compile(State) ->
+    %% io:format("snmpc: ~p~n", [State]),
+    case mk_file(State) of
+	{mib, File} ->
+	    Options = mk_mib_options(State),
+	    case mib2bin(File, Options) of
+		{ok, _BinFileName} ->
+		    ok;
+		{error, Reason} ->
+		    io:format("ERROR: Failed compiling mib: "
+			      "~n   ~p~n", [Reason]),
+		    halt(1)
+	    end;
+	{bin, File} ->
+	    Options = mk_hrl_options(State),
+	    case bin2hrl(File, Options) of
+		ok ->
+		    ok;
+		{error, Reason} ->
+		    io:format("ERROR: Failed generating hrl from mib: "
+			      "~n   ~p~n", [Reason]),
+		    halt(1)
+	    end
+    end.
+
+mib2bin(MibFileName, Options) ->
+    snmpc:compile(MibFileName, Options).
+
+bin2hrl(BinFileName, {OutDir, Verbosity}) ->
+    MibName = filename:basename(BinFileName), 
+    BinFile = BinFileName ++ ".bin",
+    HrlFile = filename:join(OutDir, MibName) ++ ".hrl",
+    put(verbosity, Verbosity),
+    snmpc_mib_to_hrl:convert(BinFile, HrlFile, MibName).
+	    
+
+mk_file(#state{file = MIB}) ->
+    DirName  = filename:dirname(MIB),
+    case filename:extension(MIB) of
+	".mib" ->
+	    BaseName = filename:basename(MIB, ".mib"),
+	    {mib, filename:join(DirName, BaseName)};
+	".bin"  ->
+	    BaseName = filename:basename(MIB, ".bin"),
+	    {bin, filename:join(DirName, BaseName)};
+	BadExt ->
+	    e(lists:flatten(io_lib:format("Unsupported file type: ~s", [BadExt])))
+    end.
+
+mk_mib_options(#state{outdir             = OutDir, 
+		      db                 = DB,
+		      include_dirs       = IDs,
+		      include_lib_dirs   = ILDs,
+		      deprecated         = Dep,
+		      group_check        = GC,
+		      description        = Desc,
+		      reference          = Ref,
+		      imports            = Imp,
+		      module_identity    = MI,
+		      module_compliance  = MC, 
+		      agent_capabilities = AC,
+		      module             = Mod,
+		      no_defaults        = ND,
+		      relaxed_row_name_assign_check = RRNAC,
+		      %% The default verbosity (silence) will be filled in 
+		      %% during argument processing.
+		      verbosity          = V, 
+		      warnings           = W,
+                      warnings_as_errors = WAE}) ->
+    [{outdir,                        OutDir}, 
+     {db,                            DB},
+     {i,                             IDs},
+     {il,                            ILDs},
+     {group_check,                   GC},
+     {verbosity,                     V}, 
+     {warnings,                      W}, 
+     {deprecated,                    Dep}] ++ 
+	if
+	    (Mod =/= undefined) ->
+		[{module, Mod}];
+	    true ->
+		[]
+	end ++ 
+	maybe_option(ND,    no_defs) ++ 
+	maybe_option(RRNAC, relaxed_row_name_assign_check) ++ 
+	maybe_option(Desc,  description) ++ 
+	maybe_option(Ref,   reference) ++ 
+	maybe_option(Imp,   imports) ++ 
+	maybe_option(MI,    module_identity) ++ 
+	maybe_option(MC,    module_compliance) ++ 
+	maybe_option(AC,    agent_capabilities) ++ 
+	maybe_option(WAE,   warnings_as_errors).
+
+maybe_option(true, Opt) -> [Opt];
+maybe_option(_,    _)   -> [].
+    
+
+mk_hrl_options(#state{outdir    = OutDir, 
+		      verbosity = Verbosity}) ->
+    {OutDir, Verbosity}.
+
+
+process_args([]) ->
+    e("No input file");
+process_args(Args) ->
+    #mib{mib_format_version = MFV} = #mib{},
+    State = #state{}, 
+    process_args(Args, State#state{mfv = MFV}).
+    
+process_args([], #state{verbosity = Verbosity0, file = MIB} = State) ->
+    if 
+	(MIB =:= undefined) ->
+	    e("No input file");
+	true ->
+	    Verbosity = 
+		case Verbosity0 of
+		    undefined ->
+			silence;
+		    _ ->
+			Verbosity0
+		end,
+	    IPath  = lists:reverse(State#state.include_dirs),
+	    IlPath = lists:reverse(State#state.include_lib_dirs),
+	    {ok, State#state{verbosity        = Verbosity,
+			     include_dirs     = IPath,
+			     include_lib_dirs = IlPath}}
+    end;
+process_args(["--help"|_Args], _State) ->
+    ok;
+process_args(["--version"|_Args], #state{version = Version, mfv = MFV} = _State) ->
+    OtpVersion = otp_release(), 
+    {ok, lists:flatten(
+	   io_lib:format("snmpc ~s [Mib format version ~s] (OTP ~s)", 
+			 [Version, MFV, OtpVersion]))};
+process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State) 
+  when (V =:= undefined) ->
+    Verbosity = list_to_atom(Verbosity0),
+    case lists:member(Verbosity, [trace,debug,log,info,silence]) of
+	true ->
+	    process_args(Args, State#state{verbosity = Verbosity});
+	false ->
+	    e(lists:flatten(io_lib:format("Unknown verbosity: ~s", [Verbosity0])))
+    end;
+process_args(["--verbosity"|_Args], #state{verbosity = V}) 
+  when (V =/= undefined) ->
+    e(lists:flatten(io_lib:format("Verbosity already set to ~w", [V])));
+process_args(["--W"|Args], State) ->
+    process_args(Args, State#state{warnings = true});
+process_args(["--warnings"|Args], State) ->
+    process_args(Args, State#state{warnings = true});
+process_args(["--o", Dir|Args], State) ->
+    case (catch file:read_file_info(Dir)) of
+        {ok, #file_info{type = directory}} ->
+            process_args(Args, State#state{outdir = Dir});
+        {ok, #file_info{type = BadType}} ->
+            e(lists:flatten(io_lib:format("Not a directory: ~p (~w)", [Dir, BadType])));
+        _ ->
+            e(lists:flatten(io_lib:format("Bad directory: ~p", [Dir])))
+    end;
+process_args(["--i", Dir|Args], State) ->
+    case (catch file:read_file_info(Dir)) of
+        {ok, #file_info{type = directory}} ->
+	    IPath = [Dir | State#state.include_dirs], 
+            process_args(Args, State#state{include_dirs = IPath});
+        {ok, #file_info{type = BadType}} ->
+            e(lists:flatten(io_lib:format("Not a directory: ~p (~w)", [Dir, BadType])));
+        _ ->
+            e(lists:flatten(io_lib:format("Bad directory: ~p", [Dir])))
+    end;
+process_args(["--il", Dir|Args], State) ->
+    case (catch file:read_file_info(Dir)) of
+        {ok, #file_info{type = directory}} ->
+	    IlPath = [Dir | State#state.include_lib_dirs], 
+            process_args(Args, State#state{include_lib_dirs = IlPath});
+        {ok, #file_info{type = BadType}} ->
+            e(lists:flatten(io_lib:format("Not a directory: ~p (~w)", [Dir, BadType])));
+        _ ->
+            e(lists:flatten(io_lib:format("Bad directory: ~p", [Dir])))
+    end;
+process_args(["--db", DB0|Args], State) ->
+    DB = list_to_atom(DB0),
+    case lists:member(DB, [volatile,persistent,mnesia]) of
+	true ->
+	    process_args(Args, State#state{db = DB});
+	false ->
+            e(lists:flatten(io_lib:format("Invalid db: ~s", [DB0])))
+    end;
+process_args(["--dep"|Args], State) ->
+    process_args(Args, State#state{deprecated = true});
+process_args(["--sgc"|Args], State) ->
+    process_args(Args, State#state{group_check = false});
+process_args(["--desc"|Args], State) ->
+    process_args(Args, State#state{description = true});
+process_args(["--ref"|Args], State) ->
+    process_args(Args, State#state{reference = true});
+process_args(["--imp"|Args], State) ->
+    process_args(Args, State#state{imports = true});
+process_args(["--mi"|Args], State) ->
+    process_args(Args, State#state{module_identity = true});
+process_args(["--mod", Module0|Args], #state{module = M} = State) 
+  when (M =:= undefined) ->
+    Module = list_to_atom(Module0),
+    process_args(Args, State#state{module = Module});
+process_args(["--mod"|_Args], #state{module = M}) 
+  when (M =/= undefined) ->
+    e(lists:flatten(io_lib:format("Module already set to ~w", [M])));
+process_args(["--nd"|Args], State) ->
+    process_args(Args, State#state{no_defaults = true});
+process_args(["--rrnac"|Args], State) ->
+    process_args(Args, State#state{relaxed_row_name_assign_check = true});
+process_args(["--Werror"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
+process_args(["--wae"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
+process_args(["--warnings_as_errors"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
+process_args([MIB], State) ->
+    Ext = filename:extension(MIB),
+    if 
+	((Ext =:= ".mib") orelse (Ext =:= ".bin")) ->
+	    case (catch file:read_file_info(MIB)) of
+		{ok, #file_info{type = regular}} ->
+		    process_args([], State#state{file = MIB});
+		{ok, #file_info{type = BadType}} ->
+		    e(lists:flatten(io_lib:format("~s not a file: ~w", [MIB, BadType])));
+		{error, enoent} ->
+		    e(lists:flatten(io_lib:format("No such file: ~s", [MIB])));
+		_ ->
+		    e(lists:flatten(io_lib:format("Bad file: ~s", [MIB])))
+	    end; 
+	true ->
+	    e(lists:flatten(io_lib:format("Unknown option: ~s", [MIB])))
+    end;
+process_args([Arg|Args], _State) when Args =/= [] ->
+    e(lists:flatten(io_lib:format("Unknown option: ~s", [Arg]))).
+
+usage(ReasonStr) ->
+    io:format("ERROR: ~s~n", [ReasonStr]),
+    usage().
+
+usage() ->
+    io:format("Usage: snmpc [options] MIB.mib|MIB.bin"
+	      "~nCompile a MIB (.mib -> .bin) or generate an erlang header "
+	      "~nfile from a compiled MIB file (.bin -> .hrl)"
+	      "~nOptions:"
+	      "~n   --help                   - Prints this info."
+	      "~n   --version                - Prints compiler version."
+	      "~n   --verbosity <verbosity>  - Print debug info."
+	      "~n                              verbosity = trace | debug | log | info | silence"
+	      "~n                              Defaults to silence."
+	      "~n   --warnings | --W         - Print warning messages."
+	      "~n   --o <output dir>         - The output dir."
+	      "~n                              Defaults to current working dir."
+	      "~n   --i <include dir>        - Add this dir to the list of dirs that will be"
+	      "~n                              searched for imported (compiled) MIB files."
+	      "~n                              The current workin dir will always be included. "
+	      "~n   --il <include_lib dir>   - Add this dir to the list of dirs that will be"
+	      "~n                              searched for imported (compiled) MIB files."
+	      "~n                              It assumes that the first element in the dir "
+	      "~n                              name correspond to an OTP application. "
+	      "~n                              For example snmp/mibs/ "
+	      "~n                              The current workin dir and the "
+	      "~n                              <snmp-home>/priv/mibs "
+	      "~n                              are always listed last the includ path. "
+	      "~n   --db <DB>                - Database to used for the default instrumentation."
+	      "~n                              Defaults to volatile."
+	      "~n   --sgc                    - This option (skip group check), if present, "
+	      "~n                              disables the \"group check\" of the mib compiler. "
+	      "~n                              That is, should the OBJECT-GROUP and the "
+	      "~n                              NOTIFICATION-GROUP macro(s) be checked for "
+	      "~n                              correctness or not. "
+	      "~n                              By default the check is done. "
+	      "~n   --dep                    - Keep deprecated definition(s)."
+	      "~n                              If not specified the compiler will ignore"
+	      "~n                              deprecated definitions."
+	      "~n   --desc                   - The DESCRIPTION field will be included."
+	      "~n   --ref                    - The REFERENCE field will be included."
+	      "~n   --imp                    - The IMPORTS field will be included."
+	      "~n   --mi                     - The MODULE-IDENTITY field will be included."
+	      "~n   --mc                     - The MODULE-COMPLIANCE field will be included."
+	      "~n   --ac                     - The AGENT-CAPABILITIES field will be included."
+	      "~n   --mod <module>           - The module which implements all the "
+	      "~n                              instrumentation functions. "
+	      "~n                              The name of all instrumentation functions must"
+	      "~n                              be the same as the corresponding managed object"
+	      "~n                              it implements."
+	      "~n   --nd                     - The default instrumentation functions will *not* "
+	      "~n                              be used if a managed object have no "
+	      "~n                              instrumentation function. Instead this will be "
+	      "~n                              reported as an error, and the compilation aborts. "
+	      "~n   --rrnac                  - This option, if present, specifies that the row "
+	      "~n                              name assign check shall not be done strictly "
+	      "~n                              according to the SMI (which allows only the "
+	      "~n                              value 1). With this option, all values greater "
+	      "~n                              than zero is allowed (>= 1). "
+	      "~n                              This means that the error will be converted to "
+	      "~n                              a warning. "
+	      "~n                              By default it is not included, but if this "
+	      "~n                              option is present it will be. "
+	      "~n   --wae | --Werror         - Warnings as errors. "
+              "~n                              Indicates that warnings shall be treated as "
+              "~n                              errors. "
+	      "~n   "
+	      "~n", []),
+    halt(1).
+
+
+e(Reason) ->
+    throw({error, Reason}).
+
+otp_release() ->
+    system_info(otp_release, string).
+
+system_info(Tag, Type) ->
+    case (catch erlang:system_info(Tag)) of
+        {'EXIT', _} ->
+            "-";
+        Info when is_list(Info) andalso (Type =:= string) ->
+            Info;
+        Info ->
+            lists:flatten(io_lib:format("~w", [Info]))
+    end.

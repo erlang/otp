@@ -1,0 +1,70 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+@id 3
+@name   diameter_gen_base_accounting
+@prefix diameter_base_accounting
+@vendor 0 IETF
+
+@inherits diameter_gen_base_rfc3588
+
+@messages
+
+      ACR ::= < Diameter Header: 271, REQ, PXY >
+              < Session-Id >
+              { Origin-Host }
+              { Origin-Realm }
+              { Destination-Realm }
+              { Accounting-Record-Type }
+              { Accounting-Record-Number }
+              [ Acct-Application-Id ]
+              [ Vendor-Specific-Application-Id ]
+              [ User-Name ]
+              [ Accounting-Sub-Session-Id ]
+              [ Acct-Session-Id ]
+              [ Acct-Multi-Session-Id ]
+              [ Acct-Interim-Interval ]
+              [ Accounting-Realtime-Required ]
+              [ Origin-State-Id ]
+              [ Event-Timestamp ]
+            * [ Proxy-Info ]
+            * [ Route-Record ]
+            * [ AVP ]
+
+      ACA ::= < Diameter Header: 271, PXY >
+              < Session-Id >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              { Accounting-Record-Type }
+              { Accounting-Record-Number }
+              [ Acct-Application-Id ]
+              [ Vendor-Specific-Application-Id ]
+              [ User-Name ]
+              [ Accounting-Sub-Session-Id ]
+              [ Acct-Session-Id ]
+              [ Acct-Multi-Session-Id ]
+              [ Error-Reporting-Host ]
+              [ Acct-Interim-Interval ]
+              [ Accounting-Realtime-Required ]
+              [ Origin-State-Id ]
+              [ Event-Timestamp ]
+            * [ Proxy-Info ]
+            * [ AVP ]

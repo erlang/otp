@@ -1,0 +1,83 @@
+
+%script_name([],_) ->
+%  not_an_executable;
+%script_name([""|Rest],SoFar) ->
+%  script_name(Rest,SoFar);
+%script_name([First|Rest],SoFar) ->
+%  NewSoFar=SoFar++"/"++First,
+%  case file:read_file_info(NewSoFar) of
+%    %% Do the script exists and is it executable? To be done!
+%    {ok,FileInfo} when FileInfo#file_info.type == regular ->
+%      {yes,NewSoFar,[$/|Rest]};
+%    {ok,FileInfo} ->
+%      script_name(Rest,NewSoFar);
+%    {error,Reason} ->
+%      script_name(Rest,NewSoFar)
+%  end.
+	  
+	  
+
+	    case httpd_util:key1search(Info#mod.data,real_name) of
+	      undefined ->
+		DocumentRoot=
+		  httpd_util:lookup(Info#mod.config_db,document_root,""),
+		DocumentRoot++"/"++httpd_util:decode_hex(Info#mod.request_uri);
+	      RealName ->
+		RealName
+	    end,	  
+
+
+test() ->
+  disk_log:open({name,"/var/tmp/server_root/logs/access_disk_log"},
+		{file,"/var/tmp/server_root/logs/access_disk_log"},
+		{linkto,Pid},
+		{format,external},
+		{type,Type}
+		{size,{MaxBytes,MaxFiles}},
+		{head,{M,F,A}},
+		
+%% order
+parse_directory(Stream,ConfigDB,Directory,[$o,$r,$d,$e,$r|Order]) ->
+  case regexp:split(Order,",") of
+    {ok,[First,Second]} ->
+      CleanSecond=clean(Second),
+      case clean(First) of
+	"allow" when CleanSecond == "deny" ->
+	  ets:insert(ConfigDB,{{directory,Directory},{"order",allow_deny}}),
+	  parse_directory(Stream,ConfigDB,Directory);
+	"deny" when CleanSecond == "allow" ->
+	  ets:insert(ConfigDB,{{directory,Directory},{"order",deny_allow}}),
+	  parse_directory(Stream,ConfigDB,Directory);
+	_ ->
+	  {error,atom_to_list(?MODULE)++": "++clean(Order)++
+	   " is an invalid order!"}
+      end;
+    {ok,_} ->
+      {error,atom_to_list(?MODULE)++": "++clean(Order)++
+       " is an invalid order!"}
+  end;
+
+%% Redirect
+parse(Stream,ConfigDB,[$R,$e,$d,$i,$r,$e,$c,$t|Redirect]) ->
+  case regexp:split(Redirect," ") of
+    {ok,[FakeName,URL]} ->
+      ets:insert(ConfigDB,{"Redirect",{FakeName,URL}}),
+      parse(Stream,ConfigDB);
+    {ok,_} ->
+      {error,atom_to_list(?MODULE)++": "++clean(Redirect)++
+       " is an invalid Redirect!"}
+  end;
+
+%% deny
+parse_directory(Stream,ConfigDB,Directory,[$d,$e,$n,$y|Deny]) ->
+  case regexp:split(Deny," ") of
+    {ok,["from","all"]} ->
+      ets:insert(ConfigDB,{{directory,Directory},{"deny",all}}),
+      parse_directory(Stream,ConfigDB,Directory);
+    {ok,["from"|Hosts]} ->
+      ets:insert(ConfigDB,{{directory,Directory},{"deny",Hosts}}),
+      parse_directory(Stream,ConfigDB,Directory);
+    {ok,_} ->
+      {error,atom_to_list(?MODULE)++": "++clean(Deny)++
+       " is an invalid deny!"}
+  end;

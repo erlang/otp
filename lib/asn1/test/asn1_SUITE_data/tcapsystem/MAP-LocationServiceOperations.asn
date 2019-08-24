@@ -1,0 +1,103 @@
+MAP-LocationServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-LocationServiceOperations (24)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	provideSubscriberLocation,
+sendRoutingInfoForLCS,
+subscriberLocationReport
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+systemFailure,
+	dataMissing,
+	unexpectedDataValue,
+	facilityNotSupported,
+	unknownSubscriber,
+	absentSubscriber,
+	unauthorizedRequestingNetwork,
+	unauthorizedLCSClient,
+	positionMethodFailure,
+	resourceLimitation,
+	unknownOrUnreachableLCSClient,
+	unidentifiedSubscriber,
+	illegalEquipment,
+	illegalSubscriber
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+	RoutingInfoForLCS-Arg,
+	RoutingInfoForLCS-Res,
+	ProvideSubscriberLocation-Arg,
+	ProvideSubscriberLocation-Res,
+	SubscriberLocationReport-Arg,
+	SubscriberLocationReport-Res
+FROM MAP-LCS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-LCS-DataTypes (25) version9 (9)}
+;
+
+sendRoutingInfoForLCS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		RoutingInfoForLCS-Arg
+	RESULT
+		RoutingInfoForLCS-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		unknownSubscriber |
+		absentSubscriber |
+		unauthorizedRequestingNetwork }
+	CODE	local:85 }
+
+provideSubscriberLocation  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		ProvideSubscriberLocation-Arg
+	RESULT
+		ProvideSubscriberLocation-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		unidentifiedSubscriber |
+		illegalSubscriber |
+		illegalEquipment |
+		absentSubscriber |
+		unauthorizedRequestingNetwork |
+		unauthorizedLCSClient |
+		positionMethodFailure }
+	CODE	local:83 }
+
+subscriberLocationReport  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SubscriberLocationReport-Arg
+	RESULT
+		SubscriberLocationReport-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		resourceLimitation |
+		unexpectedDataValue |
+		unknownSubscriber |
+		unauthorizedRequestingNetwork |
+		unknownOrUnreachableLCSClient}
+	CODE	local:86 }
+
+
+END

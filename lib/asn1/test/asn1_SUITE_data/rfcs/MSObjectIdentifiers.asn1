@@ -1,0 +1,322 @@
+-- Module MSObjectIdentifiers (X.413:06/1999)
+MSObjectIdentifiers {joint-iso-itu-t mhs(6) ms(4) modules(0)
+  object-identifiers(0) version-1999(1)} DEFINITIONS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything
+IMPORTS
+  ID, id-ms
+    --==
+    FROM MHSObjectIdentifiers {joint-iso-itu-t mhs(6) arch(5) modules(0)
+      object-identifiers(0) version-1999(1)};
+
+-- Categories
+id-mod -- modules -- ID ::= {id-ms  0}
+
+id-ot -- objects -- ID ::= {id-ms  1}
+
+id-pt -- port types -- ID ::= {id-ms  2}
+
+id-att -- attribute types -- ID ::= {id-ms  3}
+
+id-act -- auto-action types -- ID ::= {id-ms  4}
+
+id-crt -- contracts -- ID ::= {id-ms  5}
+
+id-cp -- connection-packages -- ID ::= {id-ms  6}
+
+id-aae -- auto-action-errors-- ID ::= {id-ms  7}
+
+id-mr -- matching-rules -- ID ::= {id-ms  8}
+
+id-ext -- extensions -- ID ::= {id-ms  9}
+
+id-alg -- algorithms -- ID ::= {id-ms  10}
+
+-- Modules
+id-mod-object-identifiers ID ::= {id-mod  0} -- not definitive
+
+id-mod-abstract-service ID ::= {id-mod  1} -- not definitive
+
+id-mod-attribute-types ID ::= {id-mod  2} -- not definitive
+
+id-mod-action-types ID ::= {id-mod  3} -- not definitive
+
+id-mod-upper-bounds ID ::= {id-mod  4} -- not definitive
+
+id-mod-matching-rules ID ::= {id-mod  5} -- not definitive
+
+-- Objects
+id-ot-ms ID ::= {id-ot  0}
+
+id-ot-ms-user ID ::= {id-ot  1}
+
+-- Port types
+id-pt-retrieval-88 ID ::= {id-pt  0}
+
+id-pt-retrieval-94 ID ::= {id-pt  1}
+
+id-pt-ms-submission ID ::= {id-pt  2}
+
+-- Contracts
+id-crt-ms-access-88 ID ::= {id-crt  0}
+
+id-crt-ms-access-94 ID ::= {id-crt  1}
+
+-- Connection-packages
+id-cp-ms-connection ID ::= {id-cp  0}
+
+-- Attribute-types
+id-att-ac-correlated-report-list ID ::= {id-att  42}
+
+id-att-ac-report-subject-entry ID ::= {id-att  76}
+
+id-att-ac-report-summary ID ::= {id-att  43}
+
+id-att-ac-uncorrelated-report-list ID ::= {id-att  44}
+
+id-att-auto-action-error ID ::= {id-att  46}
+
+id-att-auto-action-registration-identifier ID ::= {id-att  47}
+
+id-att-auto-action-subject-entry ID ::= {id-att  48}
+
+id-att-auto-action-type ID ::= {id-att  49}
+
+id-att-certificate-selectors ID ::= {id-att  80}
+
+id-att-child-sequence-numbers ID ::= {id-att  0}
+
+id-att-content ID ::= {id-att  1}
+
+id-att-content-confidentiality-algorithm-identifier ID ::= {id-att  2}
+
+id-att-content-correlator ID ::= {id-att  3}
+
+id-att-content-identifier ID ::= {id-att  4}
+
+id-att-content-integrity-check ID ::= {id-att  5}
+
+id-att-content-length ID ::= {id-att  6}
+
+id-att-content-returned ID ::= {id-att  7}
+
+id-att-content-type ID ::= {id-att  8}
+
+id-att-conversion-with-loss-prohibited ID ::= {id-att  9}
+
+id-att-converted-EITs ID ::= {id-att  10}
+
+id-att-creation-time ID ::= {id-att  11}
+
+id-att-deferred-delivery-cancellation-time ID ::= {id-att  50}
+
+id-att-deferred-delivery-time ID ::= {id-att  51}
+
+id-att-deletion-time ID ::= {id-att  52}
+
+id-att-delivered-EITs ID ::= {id-att  12}
+
+id-att-delivery-flags ID ::= {id-att  13}
+
+id-att-dl-exempted-recipients ID ::= {id-att  78}
+
+id-att-dl-expansion-history ID ::= {id-att  14}
+
+id-att-dl-expansion-prohibited ID ::= {id-att  53}
+
+id-att-entry-type ID ::= {id-att  16}
+
+id-att-internal-trace-information ID ::= {id-att  54}
+
+id-att-latest-delivery-time ID ::= {id-att  55}
+
+id-att-locally-originated ID ::= {id-att  77}
+
+id-att-marked-for-deletion ID ::= {id-att  56}
+
+id-att-message-delivery-envelope ID ::= {id-att  18}
+
+id-att-message-delivery-time ID ::= {id-att  20}
+
+id-att-message-group-name ID ::= {id-att  57}
+
+id-att-message-identifier ID ::= {id-att  19}
+
+id-att-message-notes ID ::= {id-att  58}
+
+id-att-message-origin-authentication-check ID ::= {id-att  21}
+
+id-att-message-security-label ID ::= {id-att  22}
+
+id-att-message-submission-envelope ID ::= {id-att  59}
+
+id-att-message-submission-time ID ::= {id-att  23}
+
+id-att-message-token ID ::= {id-att  24}
+
+id-att-ms-originated ID ::= {id-att  60}
+
+id-att-ms-submission-error ID ::= {id-att  61}
+
+id-att-multiple-originator-certificates ID ::= {id-att  81}
+
+id-att-original-EITs ID ::= {id-att  25}
+
+id-att-originally-intended-recipient-name ID ::= {id-att  17}
+
+id-att-originating-MTA-certificate ID ::= {id-att  62}
+
+id-att-originator-certificate ID ::= {id-att  26}
+
+id-att-originator-name ID ::= {id-att  27}
+
+id-att-originator-report-request ID ::= {id-att  63}
+
+id-att-originator-return-address ID ::= {id-att  64}
+
+id-att-other-recipient-names ID ::= {id-att  28}
+
+id-att-parent-sequence-number ID ::= {id-att  29}
+
+id-att-per-message-indicators ID ::= {id-att  65}
+
+id-att-per-recipient-message-submission-fields ID ::= {id-att  66}
+
+id-att-per-recipient-probe-submission-fields ID ::= {id-att  67}
+
+id-att-per-recipient-report-delivery-fields ID ::= {id-att  30}
+
+id-att-priority ID ::= {id-att  31}
+
+id-att-probe-origin-authentication-check ID ::= {id-att  68}
+
+id-att-probe-submission-envelope ID ::= {id-att  69}
+
+id-att-proof-of-delivery-request ID ::= {id-att  32}
+
+id-att-proof-of-submission ID ::= {id-att  70}
+
+id-att-recipient-certificate ID ::= {id-att  82}
+
+id-att-recipient-names ID ::= {id-att  71}
+
+id-att-recipient-reassignment-prohibited ID ::= {id-att  72}
+
+id-att-redirection-history ID ::= {id-att  33}
+
+id-att-report-delivery-envelope ID ::= {id-att  34}
+
+id-att-reporting-DL-name ID ::= {id-att  35}
+
+id-att-reporting-MTA-certificate ID ::= {id-att  36}
+
+id-att-report-origin-authentication-check ID ::= {id-att  37}
+
+id-att-retrieval-status ID ::= {id-att  15}
+
+id-att-security-classification ID ::= {id-att  38}
+
+id-att-sequence-number ID ::= {id-att  39}
+
+id-att-signature-verification-status ID ::= {id-att  79}
+
+id-att-storage-period ID ::= {id-att  73}
+
+id-att-storage-time ID ::= {id-att  74}
+
+id-att-subject-submission-identifier ID ::= {id-att  40}
+
+id-att-this-recipient-name ID ::= {id-att  41}
+
+id-att-trace-information ID ::= {id-att  75}
+
+-- Auto-action-types
+id-act-ipm-auto-forward ID ::=
+  {id-act  0} -- Reserved for use in 
+
+-- ITU-T Rec. X.420 | 
+-- ISO/IEC 10021-7
+id-act-auto-alert ID ::= {id-act  1}
+
+id-act-auto-correlate-reports ID ::= {id-act  2}
+
+id-act-auto-delete ID ::= {id-act  3}
+
+id-act-auto-modify ID ::= {id-act  4}
+
+-- Auto-action errors
+id-aae-auto-alert-error ID ::= {id-aae  0}
+
+-- Matching-rules
+id-mr-content-correlator-match ID ::= {id-mr  1}
+
+id-mr-content-identifier-match ID ::= {id-mr  2}
+
+id-mr-ms-single-substring-list-elements-match ID ::= {id-mr  3}
+
+id-mr-ms-single-substring-list-match ID ::= {id-mr  4}
+
+id-mr-ms-single-substring-match ID ::= {id-mr  5}
+
+id-mr-ms-substrings-match ID ::= {id-mr  6}
+
+id-mr-msstring-case-sensitive-match ID ::= {id-mr  7}
+
+id-mr-msstring-list-elements-match ID ::= {id-mr  8}
+
+id-mr-msstring-list-match ID ::= {id-mr  9}
+
+id-mr-msstring-match ID ::= {id-mr  10}
+
+id-mr-msstring-ordering-match ID ::= {id-mr  11}
+
+id-mr-mts-identifier-match ID ::= {id-mr  12}
+
+id-mr-oraddress-elements-match ID ::= {id-mr  13}
+
+id-mr-oraddress-match ID ::= {id-mr  14}
+
+id-mr-oraddress-substring-elements-match ID ::= {id-mr  15}
+
+id-mr-orname-elements-match ID ::= {id-mr  16}
+
+id-mr-orname-match ID ::= {id-mr  17}
+
+id-mr-orname-single-element-match ID ::= {id-mr  18}
+
+id-mr-orname-substring-elements-match ID ::= {id-mr  19}
+
+id-mr-redirection-or-dl-expansion-elements-match ID ::= {id-mr  20}
+
+id-mr-redirection-or-dl-expansion-match ID ::= {id-mr  21}
+
+id-mr-redirection-or-dl-expansion-single-element-match ID ::= {id-mr  25}
+
+id-mr-redirection-or-dl-expansion-substring-elements-match ID ::= {id-mr  22}
+
+id-mr-redirection-reason-match ID ::= {id-mr  23}
+
+id-mr-value-count-match ID ::= {id-mr  24}
+
+-- Extensions
+id-ext-modify-capability ID ::= {id-ext  0}
+
+id-ext-modify-retrieval-status-capability ID ::= {id-ext  1}
+
+id-ext-originator-certificate-selectors-override ID ::= {id-ext  2}
+
+id-ext-originator-token ID ::= {id-ext  3}
+
+id-ext-protected-change-credentials ID ::= {id-ext  4}
+
+id-ext-protected-change-credentials-capability ID ::= {id-ext  5}
+
+-- Algorithms
+id-alg-password-xor ID ::= {id-alg  0}
+
+END -- of MSObjectIdentifiers
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

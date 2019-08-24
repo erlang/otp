@@ -1,0 +1,1191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Distribution Protocol</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2007-09-21</date>
+    <rev>PA1</rev>
+    <file>erl_dist_protocol.xml</file>
+  </header>
+
+  <p>This description is far from complete. It will be updated if the
+    protocol is updated. However, the protocols, both from Erlang
+    nodes to the Erlang Port Mapper Daemon (EPMD) and between Erlang nodes
+    are stable since many years.</p>
+
+  <p>The distribution protocol can be divided into four parts:</p>
+
+  <list type="bulleted">
+    <item>
+      <p>Low-level socket connection (1)</p>
+    </item>
+    <item>
+      <p>Handshake, interchange node name, and authenticate (2)</p>
+    </item>
+    <item>
+      <p>Authentication (done by <seealso marker="kernel:net_kernel">
+        <c>net_kernel(3)</c></seealso>) (3)</p>
+    </item>
+    <item>
+      <p>Connected (4)</p> 
+    </item>
+  </list>
+
+  <p>A node fetches the port number of another node through the EPMD (at the
+    other host) to initiate a connection request.</p>
+
+  <p>For each host, where a distributed Erlang node is running, also an EPMD
+    is to be running. The EPMD can be started explicitly or automatically
+    as a result of the Erlang node startup.</p>
+
+  <p>By default the EPMD listens on port 4369.</p>
+
+  <p>(3) and (4) above are performed at the same level but the <c>net_kernel</c>
+    disconnects the other node if it communicates using an invalid cookie (after
+    1 second).</p>
+
+  <p>The integers in all multibyte fields are in big-endian order.</p>
+
+  <warning>
+    <p>
+      The Erlang Distribution protocol is not by itself secure and does not
+      aim to be so. In order to get secure distribution the distributed nodes
+      should be configured to use distribution over tls.
+      See the <seealso marker="ssl:ssl_distribution">
+      Using SSL for Erlang Distribution</seealso> User's Guide
+      for details on how to setup a secure distributed node.
+    </p>
+  </warning>
+
+  <section>
+    <title>EPMD Protocol</title>
+    <p>The requests served by the EPMD are summarized in the following
+      figure.</p>
+
+    <image file="erl_ext_fig.gif">
+      <icaption>Summary of EPMD Requests</icaption>
+    </image>
+
+    <p>Each request <c>*_REQ</c> is preceded by a 2 byte length field.
+      Thus, the overall request format is as follows:</p>
+
+    <table align="left">
+      <row>
+        <cell align="center">2</cell>
+        <cell align="center">n</cell>
+      </row>
+      <row>
+        <cell align="center"><c>Length</c></cell>
+        <cell align="center"><c>Request</c></cell>
+      </row>
+      <tcaption>Request Format</tcaption>
+    </table>
+
+    <section>
+      <title>Register a Node in EPMD</title>
+      <p>When a distributed node is started it registers itself in the EPMD.
+        The message <c>ALIVE2_REQ</c> described below is sent from the node to
+        the EPMD. The response from the EPMD is <c>ALIVE2_RESP</c>.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+          <cell align="center">2</cell>
+          <cell align="center">2</cell>
+          <cell align="center">Nlen</cell>
+          <cell align="center">2</cell>
+          <cell align="center">Elen</cell>
+        </row>
+        <row>
+          <cell align="center"><c>120</c></cell>
+          <cell align="center"><c>PortNo</c></cell>
+          <cell align="center"><c>NodeType</c></cell>
+          <cell align="center"><c>Protocol</c></cell>
+          <cell align="center"><c>HighestVersion</c></cell>
+          <cell align="center"><c>LowestVersion</c></cell>
+          <cell align="center"><c>Nlen</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+          <cell align="center"><c>Elen</c></cell>
+          <cell align="center"><c>Extra</c></cell>
+        </row>
+        <tcaption>ALIVE2_REQ (120)</tcaption>
+      </table>
+
+      <taglist>
+        <tag><c>PortNo</c></tag>
+        <item>
+          <p>The port number on which the node accept connection requests.</p>
+        </item>
+        <tag><c>NodeType</c></tag>
+        <item>
+          <p>77 = normal Erlang node, 72 = hidden node (C-node), ...</p>
+        </item>
+        <tag><c>Protocol</c></tag>
+        <item>
+          <p>0 = TCP/IPv4, ...</p>
+        </item>
+        <tag><c>HighestVersion</c></tag>
+        <item>
+          <p>The highest distribution version that this node can handle.
+            The value in Erlang/OTP R6B and later is 5.</p>
+        </item>
+        <tag><c>LowestVersion</c></tag>
+        <item>
+          <p>The lowest distribution version that this node can handle.
+            The value in Erlang/OTP R6B and later is 5.</p>
+        </item>
+        <tag><c>Nlen</c></tag>
+        <item>
+          <p>The length (in bytes) of field <c>NodeName</c>.</p>
+        </item>
+        <tag><c>NodeName</c></tag>
+        <item>
+          <p>The node name as an UTF-8 encoded string of <c>Nlen</c> bytes.</p>
+        </item>
+        <tag><c>Elen</c></tag>
+        <item>
+          <p>The length of field <c>Extra</c>.</p>
+        </item>
+        <tag><c>Extra</c></tag>
+        <item>
+          <p>Extra field of <c>Elen</c> bytes.</p>
+        </item>
+      </taglist>
+
+      <p>The connection created to the EPMD must be kept as long as the
+        node is a distributed node. When the connection is closed,
+        the node is automatically unregistered from the EPMD.</p>
+
+      <p>The response message <c>ALIVE2_RESP</c> is as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+        </row>
+        <row>
+          <cell align="center"><c>121</c></cell>
+          <cell align="center"><c>Result</c></cell>
+          <cell align="center"><c>Creation</c></cell>
+        </row>
+        <tcaption>ALIVE2_RESP (121)</tcaption>
+      </table>
+
+      <p>Result = 0 -> ok, result &gt; 0 -> error.</p>
+    </section>
+
+    <section>
+      <title>Unregister a Node from EPMD</title>
+      <p>A node unregisters itself from the EPMD by closing the TCP
+        connection to EPMD established when the node was registered.</p>
+    </section>
+
+    <section>
+      <title>Get the Distribution Port of Another Node</title>
+      <p>When one node wants to connect to another node it starts with
+        a <c>PORT_PLEASE2_REQ</c> request to the EPMD on the host where the
+        node resides to get the distribution port that the node listens to.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">N</cell>
+        </row>
+        <row>
+          <cell align="center"><c>122</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+        </row>
+        <tcaption>PORT_PLEASE2_REQ (122)</tcaption>
+      </table>
+
+      <p>where N = <c>Length</c> - 1.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>119</c></cell>
+          <cell align="center"><c>Result</c></cell>
+        </row>
+        <tcaption>PORT2_RESP (119) Response Indicating Error, Result &gt; 0
+        </tcaption>
+      </table>
+
+      <p>or</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+          <cell align="center">2</cell>
+          <cell align="center">2</cell>
+          <cell align="center">Nlen</cell>
+          <cell align="center">2</cell>
+          <cell align="center">Elen</cell>
+        </row>
+        <row>
+          <cell align="center"><c>119</c></cell>
+          <cell align="center"><c>Result</c></cell>
+          <cell align="center"><c>PortNo</c></cell>
+          <cell align="center"><c>NodeType</c></cell>
+          <cell align="center"><c>Protocol</c></cell>
+          <cell align="center"><c>HighestVersion</c></cell>
+          <cell align="center"><c>LowestVersion</c></cell>
+          <cell align="center"><c>Nlen</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+          <cell align="center"><c>Elen</c></cell>
+          <cell align="center">><c>Extra</c></cell>
+        </row>
+        <tcaption>PORT2_RESP, Result = 0</tcaption>
+      </table>
+
+      <p>If <c>Result</c> &gt; 0, the packet only consists of
+        <c>[119, Result]</c>.</p>
+
+      <p>The EPMD closes the socket when it has sent the information.</p>
+    </section>
+
+    <section>
+      <title>Get All Registered Names from EPMD</title>
+      <p>This request is used through the Erlang function
+        <seealso marker="kernel:net_adm#names/1,2">
+        <c>net_adm:names/1,2</c></seealso>. A TCP connection is opened
+        to the  EPMD and this request is sent.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>110</c></cell>
+        </row>
+        <tcaption>NAMES_REQ (110)</tcaption>
+      </table>	
+
+      <p>The response for a <c>NAMES_REQ</c> is as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">4</cell>
+          <cell align="center">&nbsp;</cell>
+        </row>
+        <row>
+          <cell align="center"><c>EPMDPortNo</c></cell>
+          <cell align="center"><c>NodeInfo*</c></cell>
+        </row>
+        <tcaption>NAMES_RESP</tcaption>
+      </table>
+
+      <p><c>NodeInfo</c> is a string written for each active node.
+        When all <c>NodeInfo</c> has been written the connection is
+        closed by the EPMD.</p>
+
+      <p><c>NodeInfo</c> is, as expressed in Erlang:</p>
+
+      <code>
+io:format("name ~ts at port ~p~n", [NodeName, Port]).</code>
+    </section>
+
+    <section>
+      <title>Dump All Data from EPMD</title>
+      <p>This request is not really used, it is to be regarded as a debug
+        feature.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>100</c></cell>
+        </row>
+        <tcaption>DUMP_REQ</tcaption>
+      </table>
+
+      <p>The response for a <c>DUMP_REQ</c> is as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">4</cell>
+          <cell align="center">&nbsp;</cell>
+        </row>
+        <row>
+          <cell align="center"><c>EPMDPortNo</c></cell>
+          <cell align="center"><c>NodeInfo*</c></cell>
+        </row>
+        <tcaption>DUMP_RESP</tcaption>
+      </table>
+
+      <p><c>NodeInfo</c> is a string written for each node kept in the EPMD.
+        When all <c>NodeInfo</c> has been written the connection is
+        closed by the EPMD.</p>
+
+      <p><c>NodeInfo</c> is, as expressed in Erlang:</p>
+
+      <code>
+io:format("active name     ~ts at port ~p, fd = ~p~n",
+          [NodeName, Port, Fd]).</code>
+
+      <p>or</p>
+
+      <code>
+io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
+          [NodeName, Port, Fd]).</code>
+    </section>
+
+    <section>
+      <title>Kill EPMD</title>
+      <p>This request kills the running EPMD. It is almost never used.</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>107</c></cell>
+        </row>
+        <tcaption>KILL_REQ</tcaption>
+      </table>
+
+      <p>The response for a <c>KILL_REQ</c> is as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">2</cell>
+        </row>
+        <row>
+          <cell align="center"><c>OKString</c></cell>
+        </row>
+        <tcaption>KILL_RESP</tcaption>
+      </table>
+
+      <p>where <c>OKString</c> is "OK".</p>
+    </section>
+
+    <section>
+      <title>STOP_REQ  (Not Used)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">n</cell>
+        </row>
+        <row>
+          <cell align="center"><c>115</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+        </row>
+        <tcaption>STOP_REQ</tcaption>
+      </table>
+
+      <p>where n = <c>Length</c> - 1.</p>
+
+      <p>The current implementation of Erlang does not care if the connection
+        to the EPMD is broken.</p>
+
+      <p>The response for a <c>STOP_REQ</c> is as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">7</cell>
+        </row>
+        <row>
+          <cell align="center"><c>OKString</c></cell>
+        </row>
+        <tcaption>STOP_RESP</tcaption>
+      </table>
+
+      <p>where <c>OKString</c> is "STOPPED".</p>
+
+      <p>A negative response can look as follows:</p>
+
+      <table align="left">
+        <row>
+          <cell align="center">7</cell>
+        </row>
+        <row>
+          <cell align="center"><c>NOKString</c></cell>
+        </row>
+        <tcaption>STOP_NOTOK_RESP</tcaption>
+      </table>
+
+      <p>where <c>NOKString</c> is "NOEXIST".</p>
+    </section>
+<!--
+    <section>
+      <title>ALIVE_REQ (97)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+          <cell align="center">n</cell>
+        </row>
+        <row>
+          <cell align="center"><c>97</c></cell>
+          <cell align="center"><c>PortNo</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+        </row>
+        <tcaption></tcaption>
+      </table>
+
+      <p>where n = <c>Length</c> - 3.</p>
+
+      <p>The connection created to the EPMD must be kept until the node is
+        not a distributed node any longer.</p>
+    </section>
+
+    <section>
+      <title>ALIVE_OK_RESP (89)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">2</cell>
+        </row>
+        <row>
+          <cell align="center"><c>89</c></cell>
+          <cell align="center"><c>Creation</c></cell>
+        </row>
+        <tcaption></tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>ALIVE_NOTOK_RESP ()</title>
+      <p>The EPMD closed the connection.</p>
+    </section>
+
+    <section>
+      <title>PORT_PLEASE_REQ (112)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">n</cell>
+        </row>
+        <row>
+          <cell align="center"><c>112</c></cell>
+          <cell align="center"><c>NodeName</c></cell>
+        </row>
+        <tcaption></tcaption>
+      </table>
+
+      <p>where n = <c>Length</c> - 1.</p>
+    </section>
+
+    <section>
+      <title>PORT_OK_RESP ()</title>
+      <table align="left">
+        <row>
+          <cell align="center">2</cell>
+        </row>
+        <row>
+          <cell align="center"><c>PortNo</c></cell>
+        </row>
+        <tcaption></tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>PORT_NOTOK_RESP ()</title>
+      <p>The EPMD closed the connection.</p>
+    </section>
+
+    <section>
+      <title>PORT_NOTOK_RESP ()</title>
+      <p>The EPMD closed the connection.</p>
+    </section>
+-->
+  </section>
+
+  <section>
+    <marker id="distribution_handshake"/>
+    <title>Distribution Handshake</title>
+    <p>This section describes the distribution handshake protocol introduced
+      in Erlang/OTP R6. The handshake has remained almost the same since then.</p>
+
+    <section>
+      <title>General</title>
+      <p>The TCP/IP distribution uses a handshake that expects a
+        connection-based protocol, that is, the protocol does not include any
+        authentication after the handshake procedure.</p>
+
+      <p>This is not entirely safe, as it is vulnerable against takeover
+        attacks, but it is a tradeoff between fair safety and performance.</p>
+
+      <p>The cookies are never sent in cleartext and the handshake procedure
+        expects the client (called <c>A</c>) to be the first one to prove that
+        it can generate a sufficient digest. The digest is generated with the
+        MD5 message digest algorithm and the challenges are expected to be
+        random numbers.</p>
+    </section>
+
+    <section>
+      <title>Definitions</title>
+      <p>A challenge is a 32-bit integer in big-endian order. Below the function
+        <c>gen_challenge()</c> returns a random 32-bit integer used as a
+        challenge.</p>
+
+      <p>A digest is a (16 bytes) MD5 hash of the challenge (as text)
+        concatenated with the cookie (as text). Below, the function
+        <c>gen_digest(Challenge, Cookie)</c> generates a digest as described
+        above.</p>
+
+      <p>An <c>out_cookie</c> is the cookie used in outgoing communication to a
+        certain node, so that <c>A</c>'s <c>out_cookie</c> for <c>B</c> is to
+        correspond with <c>B</c>'s <c>in_cookie</c> for <c>A</c> and conversely.
+        <c>A</c>'s <c>out_cookie</c> for <c>B</c> and <c>A</c>'s
+        <c>in_cookie</c> for <c>B</c> need <em>not</em> be the same. Below the
+        function <c>out_cookie(Node)</c> returns the current node's
+        <c>out_cookie</c> for <c>Node</c>.</p>
+
+      <p>An <c>in_cookie</c> is the cookie expected to be used by another node
+        when communicating with us, so that <c>A</c>'s <c>in_cookie</c> for
+        <c>B</c> corresponds with <c>B</c>'s <c>out_cookie</c> for <c>A</c>.
+        Below the function <c>in_cookie(Node)</c> returns the current node's
+        <c>in_cookie</c> for <c>Node</c>.</p>
+
+      <p>The cookies are text strings that can be viewed as passwords.</p>
+
+      <p>Every message in the handshake starts with a 16-bit big-endian integer,
+        which contains the message length (not counting the two initial bytes).
+        In Erlang this corresponds to option <c>{packet, 2}</c> in
+        <seealso marker="kernel:gen_tcp"><c>gen_tcp(3)</c></seealso>.
+        Notice that after the handshake, the distribution switches to 4 byte
+        packet headers.</p>
+    </section>
+
+    <section>
+      <title>The Handshake in Detail</title>
+      <p>Imagine two nodes, <c>A</c> that initiates the handshake and <c>B</c>
+        that accepts the connection.</p>
+
+      <taglist>
+      <tag>1) connect/accept</tag>
+        <item>
+          <p><c>A</c> connects to <c>B</c> through TCP/IP and <c>B</c> accepts
+            the connection.</p>
+        </item>
+        <tag>2) <c>send_name</c>/<c>receive_name</c></tag>
+        <item>
+          <p><c>A</c> sends an initial identification to <c>B</c>, which
+            receives the message. The message looks as follows (every "square"
+            is one byte and the packet header is removed):</p>
+          <pre>
++---+--------+--------+-----+-----+-----+-----+-----+-----+-...-+-----+
+|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Name0|Name1| ... |NameN|
++---+--------+--------+-----+-----+-----+-----+-----+-----+-... +-----+</pre>
+           <p>'n' is the message tag. 'Version0' and 'Version1' is the
+             distribution version selected by <c>A</c>, based on information
+             from the EPMD. (16-bit big-endian) 'Flag0' ... 'Flag3' are
+             capability flags, the capabilities are defined in
+             <c>$ERL_TOP/lib/kernel/include/dist.hrl</c>. (32-bit big-endian)
+             'Name0' ... 'NameN' is the full node name of <c>A</c>, as a string
+             of bytes (the packet length denotes how long it is).</p>
+        </item>
+        <tag>3) <c>recv_status</c>/<c>send_status</c></tag>
+        <item>
+          <p><c>B</c> sends a status message to <c>A</c>, which indicates if the
+            connection is allowed. The following status codes are defined:</p>
+          <taglist>
+            <tag><c>ok</c></tag>
+            <item>
+              <p>The handshake will continue.</p>
+            </item>
+            <tag><c>ok_simultaneous</c></tag>
+            <item>
+              <p>The handshake will continue, but <c>A</c> is informed that
+                <c>B</c> has another ongoing connection attempt that will be
+                shut down (simultaneous connect where <c>A</c>'s name is
+                greater than <c>B</c>'s name, compared literally).</p>
+            </item>
+            <tag><c>nok</c></tag>
+            <item>
+              <p>The handshake will not continue, as <c>B</c> already has an
+                ongoing handshake, which it itself has initiated (simultaneous
+                connect where <c>B</c>'s name is greater than <c>A</c>'s).</p>
+            </item>
+            <tag><c>not_allowed</c></tag>
+            <item>
+              <p>The connection is disallowed for some (unspecified) security
+                reason.</p>
+            </item>
+            <tag><c>alive</c></tag>
+            <item>
+              <p>A connection to the node is already active, which either means
+                that node <c>A</c> is confused or that the TCP connection
+                breakdown of a previous node with this name has not yet reached
+                node <c>B</c>. See step 3B below.</p>
+            </item>
+          </taglist>
+          <p>The format of the status message is as follows:</p>
+          <pre>
++---+-------+-------+-...-+-------+
+|'s'|Status0|Status1| ... |StatusN|
++---+-------+-------+-...-+-------+</pre>
+          <p>'s' is the message tag. 'Status0' ... 'StatusN' is the status as a
+            string (not terminated).</p>
+        </item>
+        <tag>3B) <c>send_status</c>/<c>recv_status</c></tag>
+        <item>
+          <p>If status was <c>alive</c>, node <c>A</c> answers with another
+            status message containing either <c>true</c>, which means that the
+            connection is to continue (the old connection from this node is
+            broken), or <c>false</c>, which means that the connection is to be
+            closed (the connection attempt was a mistake.</p>
+        </item>
+        <tag>4) <c>recv_challenge</c>/<c>send_challenge</c></tag>
+        <item>
+          <p>If the status was <c>ok</c> or <c>ok_simultaneous</c>, the
+            handshake continues with <c>B</c> sending <c>A</c> another message,
+            the challenge. The challenge contains the same type of information
+            as the "name" message initially sent from <c>A</c> to <c>B</c>, plus
+            a 32-bit challenge:</p>
+          <pre>
++---+--------+--------+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-...-+-----+
+|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Chal0|Chal1|Chal2|Chal3|Name0|Name1| ... |NameN|
++---+--------+--------+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-... +-----+</pre>
+          <p>'Chal0' ... 'Chal3' is the challenge as a 32-bit big-endian integer
+            and the other fields are <c>B</c>'s version, flags, and full node
+            name.</p>
+        </item>
+        <tag>5) <c>send_challenge_reply</c>/<c>recv_challenge_reply</c></tag>
+        <item>
+          <p>Now <c>A</c> has generated a digest and its own challenge. Those
+            are sent together in a package to <c>B</c>:</p>
+          <pre>
++---+-----+-----+-----+-----+-----+-----+-----+-----+-...-+------+
+|'r'|Chal0|Chal1|Chal2|Chal3|Dige0|Dige1|Dige2|Dige3| ... |Dige15|
++---+-----+-----+-----+-----+-----+-----+-----+-----+-...-+------+</pre>
+          <p>'r' is the tag. 'Chal0' ... 'Chal3' is <c>A</c>'s challenge for
+            <c>B</c> to handle. 'Dige0' ... 'Dige15' is the digest that <c>A</c>
+            constructed from the challenge <c>B</c> sent in the previous
+            step.</p>
+        </item>
+        <tag>6) <c>recv_challenge_ack</c>/<c>send_challenge_ack</c></tag>
+        <item>
+          <p><c>B</c> checks that the digest received from <c>A</c> is correct
+            and generates a digest from the challenge received from <c>A</c>.
+            The digest is then sent to <c>A</c>. The message is as follows:</p>
+          <pre>
++---+-----+-----+-----+-----+-...-+------+
+|'a'|Dige0|Dige1|Dige2|Dige3| ... |Dige15|
++---+-----+-----+-----+-----+-...-+------+</pre>
+          <p>'a' is the tag. 'Dige0' ... 'Dige15' is the digest calculated by
+            <c>B</c> for <c>A</c>'s challenge.</p>
+        </item>
+        <tag>7) check</tag>
+        <item>
+          <p><c>A</c> checks the digest from <c>B</c> and the connection is
+            up.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>Semigraphic View</title>
+      <pre>
+A (initiator)                                      B (acceptor)
+
+TCP connect ------------------------------------&gt;
+                                                   TCP accept
+
+send_name --------------------------------------&gt;
+                                                   recv_name
+
+  &lt;---------------------------------------------- send_status
+recv_status
+(if status was 'alive'
+ send_status - - - - - - - - - - - - - - - - - -&gt;
+                                                   recv_status)
+                                                   ChB = gen_challenge()
+                          (ChB)
+  &lt;---------------------------------------------- send_challenge
+recv_challenge
+ChA = gen_challenge(),
+OCA = out_cookie(B),
+DiA = gen_digest(ChB, OCA)
+                          (ChA, DiA)
+send_challenge_reply ---------------------------&gt;
+                                                   recv_challenge_reply
+                                                   ICB = in_cookie(A),
+                                                   check:
+                                                   DiA == gen_digest (ChB, ICB)?
+                                                   - if OK:
+                                                    OCB = out_cookie(A),
+                                                    DiB = gen_digest (ChA, OCB)
+                          (DiB)
+  &lt;----------------------------------------------- send_challenge_ack
+recv_challenge_ack                                  DONE
+ICA = in_cookie(B),                                - else:
+check:                                              CLOSE
+DiB == gen_digest(ChA, ICA)?
+- if OK:
+ DONE
+- else:
+ CLOSE</pre>
+    </section>
+
+    <section>
+      <marker id="dflags"/>
+      <title>Distribution Flags</title>
+      <p>The following capability flags are defined:</p>
+      <taglist>
+        <tag><c>-define(DFLAG_PUBLISHED,16#1).</c></tag>
+        <item>
+          <p>The node is to be published and part of the global namespace.</p>
+        </item>
+        <tag><c>-define(DFLAG_ATOM_CACHE,16#2).</c></tag>
+        <item>
+          <p>The node implements an atom cache (obsolete).</p>
+        </item>
+        <tag><c>-define(DFLAG_EXTENDED_REFERENCES,16#4).</c></tag>
+        <item>
+          <p>The node implements extended (3 &times; 32 bits) references. This
+            is required today. If not present, the  connection is refused.</p>
+        </item>
+        <tag><c>-define(DFLAG_DIST_MONITOR,16#8).</c></tag>
+        <item>
+          <p>The node implements distributed process monitoring.</p>
+        </item>
+        <tag><c>-define(DFLAG_FUN_TAGS,16#10).</c></tag>
+        <item>
+          <p>The node uses separate tag for funs (lambdas) in the distribution
+            protocol.</p>
+        </item>
+        <tag><c>-define(DFLAG_DIST_MONITOR_NAME,16#20).</c></tag>
+        <item>
+          <p>The node implements distributed named process monitoring.</p>
+        </item>
+        <tag><c>-define(DFLAG_HIDDEN_ATOM_CACHE,16#40).</c></tag>
+        <item>
+          <p>The (hidden) node implements atom cache (obsolete).</p>
+        </item>
+        <tag><c>-define(DFLAG_NEW_FUN_TAGS,16#80).</c></tag>
+        <item>
+          <p>The node understand new fun tags.</p>
+        </item>
+        <tag><c>-define(DFLAG_EXTENDED_PIDS_PORTS,16#100).</c></tag>
+        <item>
+          <p>The node can handle extended pids and ports. This is required
+            today. If not present, the connection is refused.</p>
+        </item>
+        <tag><c>-define(DFLAG_EXPORT_PTR_TAG,16#200).</c></tag>
+        <item>
+        </item>
+        <tag><c>-define(DFLAG_BIT_BINARIES,16#400).</c></tag>
+        <item>
+        </item>
+        <tag><c>-define(DFLAG_NEW_FLOATS,16#800).</c></tag>
+        <item>
+          <p>The node understands new float format.</p>
+        </item>
+        <tag><c>-define(DFLAG_UNICODE_IO,16#1000).</c></tag>
+        <item>
+        </item>
+        <tag><c>-define(DFLAG_DIST_HDR_ATOM_CACHE,16#2000).</c></tag>
+        <item>
+          <p>The node implements atom cache in distribution header.</p>
+        </item>
+        <tag><c>-define(DFLAG_SMALL_ATOM_TAGS, 16#4000).</c></tag>
+        <item>
+          <p>The node understand the <c>SMALL_ATOM_EXT</c> tag.</p>
+        </item>
+        <tag><c>-define(DFLAG_UTF8_ATOMS, 16#10000).</c></tag>
+        <item>
+          <p>The node understand UTF-8 encoded atoms.</p>
+        </item>
+        <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
+        <item>
+          <p>The node understand the map tag.</p>
+        </item>
+        <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
+        <item>
+          <p>The node understand big node creation.</p>
+        </item>
+        <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
+        <item>
+          <p>
+	    Use the <c>SEND_SENDER</c>
+	    <seealso marker="#control_message">control message</seealso>
+	    instead of the <c>SEND</c> control message and use the
+	    <c>SEND_SENDER_TT</c> control message instead
+	    of the <c>SEND_TT</c> control message.
+	  </p>
+        </item>
+        <tag><c>-define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).</c></tag>
+        <item>
+          <p>The node understands any term as the seqtrace label.</p>
+        </item>
+        <tag><c>-define(DFLAG_EXIT_PAYLOAD, 16#400000).</c></tag>
+        <item>
+          <p>Use the <c>PAYLOAD_EXIT</c>, <c>PAYLOAD_EXIT_TT</c>,
+            <c>PAYLOAD_EXIT2</c>, <c>PAYLOAD_EXIT2_TT</c>
+            and <c>PAYLOAD_MONITOR_P_EXIT</c>
+            <seealso marker="#control_message">control message</seealso>s
+            instead of the non-PAYLOAD variants.</p>
+        </item>
+        <tag><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
+        <item>
+          <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
+            distribution messages to send large messages.</p>
+        </item>
+      </taglist>
+      <p>
+	There is also function <c>dist_util:strict_order_flags/0</c>
+	returning all flags (bitwise or:ed together) corresponding to features
+	that require strict ordering of data over distribution channels.
+      </p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="connected_nodes"/>
+    <title>Protocol between Connected Nodes</title>
+    <p>Since ERTS 5.7.2 (OTP R13B) the runtime system passes a distribution flag
+      in the handshake stage that enables the use of a
+      <seealso marker="erl_ext_dist#distribution_header">distribution header
+      </seealso> on all messages passed. Messages passed between nodes have in
+      this case the following format:</p>
+
+    <table align="left">
+      <row>
+        <cell align="center">4</cell>
+        <cell align="center">d</cell>
+        <cell align="center">n</cell>
+        <cell align="center">m</cell>
+      </row>
+      <row>
+        <cell align="center"><c>Length</c></cell>
+        <cell align="center"><c>DistributionHeader</c></cell>
+        <cell align="center"><c>ControlMessage</c></cell>
+        <cell align="center"><c>Message</c></cell>
+      </row>
+      <tcaption>Format of Messages Passed between Nodes (as from ERTS 5.7.2 (OTP R13B))
+      </tcaption>
+    </table>
+
+    <taglist>
+      <tag><c>Length</c></tag>
+      <item>
+        <p>Equal to d + n + m.</p>
+      </item>
+      <tag><c>DistributionHeader</c></tag>
+      <item>
+        <p>
+          <seealso marker="erl_ext_dist#distribution_header">Distribution header
+          describing the atom cache and fragmented distribution messages.
+          </seealso>
+        </p>
+      </item>
+      <tag><c>ControlMessage</c></tag>
+      <item>
+        <p>A tuple passed using the external format of Erlang.</p>
+      </item>
+      <tag><c>Message</c></tag>
+      <item>
+        <p>The message sent to another node using the '!'
+          or the reason for a EXIT, EXIT2 or DOWN signal using
+          the external term format.</p>
+      </item>
+    </taglist>
+
+    <p>Notice that <seealso marker="erl_ext_dist#overall_format">the version
+      number is omitted from the terms that follow a distribution header
+      </seealso>.</p>
+
+    <p>Nodes with an ERTS version earlier than 5.7.2 (OTP R13B) does not pass the
+      distribution flag that enables the distribution header. Messages passed
+      between nodes have in this case the following format:</p>
+
+    <table align="left">
+      <row>
+        <cell align="center">4</cell>
+        <cell align="center">1</cell>
+        <cell align="center">n</cell>
+        <cell align="center">m</cell>
+      </row>
+      <row>
+        <cell align="center"><c>Length</c></cell>
+        <cell align="center"><c>Type</c></cell>
+        <cell align="center"><c>ControlMessage</c></cell>
+        <cell align="center"><c>Message</c></cell>
+      </row>
+      <tcaption>Format of Messages Passed between Nodes (before ERTS 5.7.2 (OTP R13B))
+      </tcaption>
+    </table>
+
+    <taglist>
+      <tag><c>Length</c></tag>
+      <item>
+        <p>Equal to 1 + n + m.</p>
+      </item>
+      <tag><c>Type</c></tag>
+      <item>
+        <p>Equal to <c>112</c> (pass through).</p>
+      </item>
+      <tag><c>ControlMessage</c></tag>
+      <item>
+        <p>A tuple passed using the external format of Erlang.</p>
+      </item>
+      <tag><c>Message</c></tag>
+      <item>
+        <p>The message sent to another node using the '!' (in external format).
+          Notice that <c>Message</c> is only passed in combination with a
+          <c>ControlMessage</c> encoding a send ('!').</p>
+      </item>
+    </taglist>
+
+    <marker id="control_message"/>
+    <p>The <c>ControlMessage</c> is a tuple, where the first element indicates
+      which distributed operation it encodes:</p>
+
+    <taglist>
+      <tag><c>LINK</c></tag>
+      <item>
+        <p><c>{1, FromPid, ToPid}</c></p>
+      </item>
+      <tag><c>SEND</c></tag>
+      <item>
+        <p><c>{2, Unused, ToPid}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+        <p><c>Unused</c> is kept for backward compatibility.</p>
+      </item>
+      <tag><c>EXIT</c></tag>
+      <item>
+        <p><c>{3, FromPid, ToPid, Reason}</c></p>
+        <p>This signal is sent when a link has been broken</p>
+      </item>
+      <tag><c>UNLINK</c></tag>
+      <item>
+        <p><c>{4, FromPid, ToPid}</c></p>
+      </item>
+      <tag><c>NODE_LINK</c></tag>
+      <item>
+        <p><c>{5}</c></p>
+      </item>
+      <tag><c>REG_SEND</c></tag>
+      <item>
+        <p><c>{6, FromPid, Unused, ToName}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+        <p><c>Unused</c> is kept for backward compatibility.</p>
+      </item>
+      <tag><c>GROUP_LEADER</c></tag>
+      <item>
+        <p><c>{7, FromPid, ToPid}</c></p>
+      </item>	
+      <tag><c>EXIT2</c></tag>
+      <item>
+        <p><c>{8, FromPid, ToPid, Reason}</c></p>
+        <p>This signal is sent by a call to the erlang:exit/2 bif</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for distrvsn = 1 (Erlang/OTP R4)</title>
+    <taglist>
+      <tag><c>SEND_TT</c></tag>
+      <item>
+        <p><c>{12, Unused, ToPid, TraceToken}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+        <p><c>Unused</c> is kept for backward compatibility.</p>
+      </item>
+      <tag><c>EXIT_TT</c></tag>
+      <item>
+        <p><c>{13, FromPid, ToPid, TraceToken, Reason}</c></p>
+      </item>
+      <tag><c>REG_SEND_TT</c></tag>
+      <item>
+        <p><c>{16, FromPid, Unused, ToName, TraceToken}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+        <p><c>Unused</c> is kept for backward compatibility.</p>
+      </item>
+      <tag><c>EXIT2_TT</c></tag>
+      <item>
+        <p><c>{18, FromPid, ToPid, TraceToken, Reason}</c></p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for distrvsn = 2</title>
+    <p><c>distrvsn</c> 2 was never used.</p>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for distrvsn = 3 (Erlang/OTP R5C)</title>
+    <p>None, but the version number was increased anyway.</p>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for distrvsn = 4 (Erlang/OTP R6)</title>
+    <p>These are only recognized by Erlang nodes, not by hidden nodes.</p>
+
+    <taglist>
+      <tag><c>MONITOR_P</c></tag>
+      <item>
+        <p><c>{19, FromPid, ToProc, Ref}</c>, where
+          <c>FromPid</c> = monitoring process and
+          <c>ToProc</c> = monitored process pid or name (atom)</p>
+      </item>
+      <tag><c>DEMONITOR_P</c></tag>
+      <item>
+        <p><c>{20, FromPid, ToProc, Ref}</c>, where
+          <c>FromPid</c> = monitoring process and
+          <c>ToProc</c> = monitored process pid or name (atom)</p>
+        <p>We include <c>FromPid</c> just in case we want to trace this.</p>
+      </item>
+      <tag><c>MONITOR_P_EXIT</c></tag>
+      <item>
+        <p><c>{21, FromProc, ToPid, Ref, Reason}</c>, where
+          <c>FromProc</c> = monitored process pid or name (atom),
+          <c>ToPid</c> = monitoring process, and
+          <c>Reason</c> = exit reason for the monitored process</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 21</title>
+    <taglist>
+      <tag><c>SEND_SENDER</c></tag>
+      <item>
+        <p><c>{22, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control message replaces the <c>SEND</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+      <tag><c>SEND_SENDER_TT</c></tag>
+      <item>
+        <p><c>{23, FromPid, ToPid, TraceToken}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control message replaces the <c>SEND_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND_TT</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND_TT</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 22</title>
+    <note><p>
+      Messages encoded before the connection has
+      been set up may still use the non-PAYLOAD variant.
+      However, once a PAYLOAD control message has been sent,
+      no more non-PAYLOAD control messages will be sent in
+      the same direction on the connection.
+    </p></note>
+    <taglist>
+      <tag><c>PAYLOAD_EXIT</c></tag>
+      <item>
+        <p><c>{24, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT_TT</c></tag>
+      <item>
+        <p><c>{25, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT2</c></tag>
+      <item>
+        <p><c>{26, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT2</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT2_TT</c></tag>
+      <item>
+        <p><c>{27, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT2_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_MONITOR_P_EXIT</c></tag>
+      <item>
+        <p><c>{28, FromPid, ToPid, Ref}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>MONITOR_P_EXIT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+    </taglist>
+  </section>
+
+</chapter>

@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2009</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Copyright (c) 2008,2009 Robert Virding. All rights reserved.
+    </legalnotice>
+
+    <title>leex</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>nobody</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked></checked>
+    <date>2009-05-07</date>
+    <rev>A</rev>
+    <file>leex.xml</file>
+  </header>
+  <module since="">leex</module>
+  <modulesummary>Lexical analyzer generator for Erlang</modulesummary>
+  <description>
+    <p>A regular expression based lexical analyzer generator for
+      Erlang, similar to lex or flex.</p>
+    <note><p>The Leex module should be considered experimental
+      as it will be subject to changes in future releases.</p></note>
+  </description>
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+ErrorInfo = {ErrorLine,module(),error_descriptor()}
+ErrorLine = integer()
+Token = tuple()</code>
+  </section>
+  <funcs>
+    <func>
+      <name since="">file(FileName) -> LeexRet</name>
+      <name since="OTP R16B02">file(FileName, Options) -> LeexRet</name>
+      <fsummary>Generate a lexical analyzer</fsummary>
+      <type>
+        <v>FileName = filename()</v>
+        <v>Options = Option | [Option]</v>
+        <v>Option =&nbsp;-&nbsp;see below&nbsp;-</v>
+        <v>LeexRet = {ok, Scannerfile}
+                   | {ok, Scannerfile, Warnings}
+                   | error
+                   | {error, Errors, Warnings}</v>
+        <v>Scannerfile = filename()</v>
+        <v>Warnings = Errors = [{filename(), [ErrorInfo]}]</v>
+        <v>ErrorInfo  = {ErrorLine, module(), Reason}</v>
+        <v>ErrorLine = integer()</v>
+        <v>Reason =&nbsp;-&nbsp;formatable by format_error/1&nbsp;-</v>
+      </type>
+      <desc>
+        <p>Generates a lexical analyzer from the definition in the input
+          file. The input file has the extension <c>.xrl</c>. This is
+          added to the filename if it is not given. The resulting module
+          is the Xrl filename without the <c>.xrl</c> extension.</p>
+
+        <p>The current options are:</p>
+          <taglist>
+            <tag><c>dfa_graph</c></tag>
+            <item><p>Generates a <c>.dot</c> file which contains a
+              description of the DFA in a format which can be viewed with
+              Graphviz, <c>www.graphviz.com</c>.</p>
+            </item>
+            <tag><c>{includefile,Includefile}</c></tag>
+            <item><p>Uses a specific or customised prologue file
+              instead of default
+              <c>lib/parsetools/include/leexinc.hrl</c> which is
+              otherwise included.</p>
+            </item>
+            <tag><c>{report_errors, bool()}</c></tag>
+            <item><p>Causes errors to be printed as they occur. Default is
+              <c>true</c>.</p>
+            </item>
+            <tag><c>{report_warnings, bool()}</c></tag>
+            <item><p>Causes warnings to be printed as they occur. Default is
+              <c>true</c>.</p>
+            </item>
+            <tag><c>warnings_as_errors</c></tag>
+            <item>
+              <p>Causes warnings to be treated as errors.</p>
+            </item>
+            <tag><c>{report, bool()}</c></tag>
+            <item><p>This is a short form for both <c>report_errors</c> and
+              <c>report_warnings</c>.</p>
+            </item>
+            <tag><c>{return_errors, bool()}</c></tag>
+            <item><p>If this flag is set, <c>{error, Errors, Warnings}</c>
+              is returned when there are errors. Default is <c>false</c>.</p>
+            </item>
+            <tag><c>{return_warnings, bool()}</c></tag>
+            <item><p>If this flag is set, an extra field containing
+              <c>Warnings</c> is added to the tuple returned upon
+               success. Default is <c>false</c>.</p>
+            </item>
+            <tag><c>{return, bool()}</c></tag>
+            <item><p>This is a short form for both <c>return_errors</c> and
+              <c>return_warnings</c>.</p>
+            </item>
+            <tag><c>{scannerfile, Scannerfile}</c></tag>
+            <item><p><c>Scannerfile</c> is the name of the file that
+             will contain the Erlang scanner code that is generated.
+             The default (<c>""</c>) is to add the extension
+             <c>.erl</c> to <c>FileName</c> stripped of the
+             <c>.xrl</c> extension.</p>
+            </item>
+            <tag><c>{verbose, bool()}</c></tag>
+            <item><p>Outputs information from parsing the input file and
+              generating the internal tables.</p>
+            </item>
+          </taglist>
+        <p>Any of the Boolean options can be set to <c>true</c> by 
+          stating the name of the option. For example, <c>verbose</c>
+          is equivalent to <c>{verbose, true}</c>.</p>
+        <p>Leex will add the extension <c>.hrl</c> to the 
+          <c>Includefile</c> name and the extension <c>.erl</c> to the
+          <c>Scannerfile</c> name, unless the extension is already
+          there.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">format_error(ErrorInfo) -> Chars</name>
+      <fsummary>Return an English description of a an error tuple.</fsummary>
+      <type>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Returns a string which describes the error
+          <c>ErrorInfo</c> returned when there is an error in a
+          regular expression.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+
+  <section>
+    <title>GENERATED SCANNER EXPORTS</title>
+    <p>The following functions are exported by the generated scanner.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">string(String) -> StringRet</name>
+      <name since="">string(String, StartLine) -> StringRet</name>
+      <fsummary>Generated by Leex</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>StringRet = {ok,Tokens,EndLine} | ErrorInfo</v>
+        <v>Tokens = [Token]</v>
+        <v>EndLine = StartLine = integer()</v>
+      </type>
+      <desc>
+        <p>Scans <c>String</c> and returns all the tokens in it, or an
+          error.</p>
+        <note><p>It is an error if not all of the characters in
+          <c>String</c> are consumed.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">token(Cont, Chars) -> {more,Cont1} | {done,TokenRet,RestChars}
+      </name>
+      <name since="">token(Cont, Chars, StartLine) -> {more,Cont1} 
+             | {done,TokenRet,RestChars}
+      </name>
+      <fsummary>Generated by Leex</fsummary>
+      <type>
+        <v>Cont = [] | Cont1</v>
+        <v>Cont1 = tuple()</v>
+        <v>Chars = RestChars = string() | eof</v>
+        <v>TokenRet = {ok, Token, EndLine} 
+                    | {eof, EndLine}
+                    | ErrorInfo</v>
+        <v>StartLine = EndLine = integer()</v>
+      </type>
+      <desc>
+        <p>This is a re-entrant call to try and scan one token from
+          <c>Chars</c>. If there are enough characters in <c>Chars</c>
+          to either scan a token or detect an error then this will be
+          returned with <c>{done,...}</c>. Otherwise
+          <c>{cont,Cont}</c> will be returned where <c>Cont</c> is
+          used in the next call to <c>token()</c> with more characters
+          to try an scan the token. This is continued until a token
+          has been scanned. <c>Cont</c> is initially <c>[]</c>.</p>
+ 
+        <p>It is not designed to be called directly by an application
+          but used through the i/o system where it can typically be
+          called in an application by:</p>
+        <code>
+io:request(InFile, {get_until,Prompt,Module,token,[Line]})
+  -> TokenRet</code>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tokens(Cont, Chars) -> {more,Cont1} | {done,TokensRet,RestChars}
+      </name>
+      <name since="">tokens(Cont, Chars, StartLine) -> 
+               {more,Cont1} | {done,TokensRet,RestChars}
+      </name>
+      <fsummary>Generated by Leex</fsummary>
+      <type>
+        <v>Cont = [] | Cont1</v>
+        <v>Cont1 = tuple()</v>
+        <v>Chars = RestChars = string() | eof</v>
+        <v>TokensRet = {ok, Tokens, EndLine} 
+                     | {eof, EndLine}
+                     | ErrorInfo</v>
+        <v>Tokens = [Token]</v>
+        <v>StartLine = EndLine = integer()</v>
+      </type>
+      <desc>
+        <p>This is a re-entrant call to try and scan tokens from
+          <c>Chars</c>. If there are enough characters in <c>Chars</c>
+          to either scan tokens or detect an error then this will be
+          returned with <c>{done,...}</c>. Otherwise
+          <c>{cont,Cont}</c> will be returned where <c>Cont</c> is
+          used in the next call to <c>tokens()</c> with more
+          characters to try an scan the tokens. This is continued
+          until all tokens have been scanned. <c>Cont</c> is initially
+          <c>[]</c>.</p>
+ 
+        <p>This functions differs from <c>token</c> in that it will
+          continue to scan tokens upto and including an
+          <c>{end_token,Token}</c> has been scanned (see next
+          section). It will then return all the tokens. This is
+          typically used for scanning grammars like Erlang where there
+          is an explicit end token, <c>'.'</c>. If no end token is
+          found then the whole file will be scanned and returned. If
+          an error occurs then all tokens upto and including the next
+          end token will be skipped.</p>
+ 
+        <p>It is not designed to be called directly by an application
+          but used through the i/o system where it can typically be
+          called in an application by:</p>
+        <code>
+io:request(InFile, {get_until,Prompt,Module,tokens,[Line]})
+  -> TokensRet</code>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Input File Format</title>
+    <p>Erlang style comments starting with a <c>%</c> are allowed in
+      scanner files. A definition file has the following format:</p>
+    <code>
+&lt;Header>
+
+Definitions.
+
+&lt;Macro Definitions>
+
+Rules.
+
+&lt;Token Rules>
+
+Erlang code.
+
+&lt;Erlang code></code>
+ 
+    <p>The "Definitions.", "Rules." and "Erlang code." headings are
+      mandatory and must occur at the beginning of a source line. The
+      &lt;Header>, &lt;Macro Definitions> and &lt;Erlang code>
+      sections may be empty but there must be at least one rule.</p>
+ 
+    <p>Macro definitions have the following format:</p>
+
+    <code>
+NAME = VALUE</code>
+
+    <p>and there must be spaces around <c>=</c>. Macros can be used in
+      the regular expressions of rules by writing <c>{NAME}</c>.</p>
+
+    <note><p>When macros are expanded in expressions the macro calls
+      are replaced by the macro value without any form of quoting or
+      enclosing in parentheses.</p></note>
+ 
+    <p>Rules have the following format:</p>
+
+    <code>
+&lt;Regexp> : &lt;Erlang code>.</code>
+ 
+    <p>The &lt;Regexp> must occur at the start of a line and not
+      include any blanks; use <c>\t</c> and <c>\s</c> to include TAB
+      and SPACE characters in the regular expression. If &lt;Regexp>
+      matches then the corresponding &lt;Erlang code> is evaluated to
+      generate a token. With the Erlang code the following predefined
+      variables are available:</p>
+ 
+    <taglist>
+      <tag><c>TokenChars</c></tag>
+      <item><p>A list of the characters in the matched token.</p>
+      </item>
+      <tag><c>TokenLen</c></tag>
+      <item><p>The number of characters in the matched token.</p>
+      </item>
+      <tag><c>TokenLine</c></tag>
+      <item><p>The line number where the token occurred.</p>
+      </item>
+    </taglist>
+ 
+    <p>The code must return:</p>
+ 
+    <taglist>
+      <tag><c>{token,Token}</c></tag>
+      <item><p>Return <c>Token</c> to the caller.</p>
+      </item>
+      <tag><c>{end_token,Token}</c></tag>
+      <item><p>Return <c>Token</c> and is last token in a tokens call.</p>
+      </item>
+      <tag><c>skip_token</c></tag>
+      <item><p>Skip this token completely.</p>
+      </item>
+      <tag><c>{error,ErrString}</c></tag>
+      <item><p>An error in the token, <c>ErrString</c> is a string
+         describing the error.</p>
+      </item>
+    </taglist>
+ 
+    <p>It is also possible to push back characters into the input
+      characters with the following returns:</p>
+ 
+    <list>
+      <item><c>{token,Token,PushBackList}</c></item>
+      <item><c>{end_token,Token,PushBackList}</c></item>
+      <item><c>{skip_token,PushBackList}</c></item>
+    </list>
+ 
+    <p>These have the same meanings as the normal returns but the
+      characters in <c>PushBackList</c> will be prepended to the input
+      characters and scanned for the next token. Note that pushing
+      back a newline will mean the line numbering will no longer be
+      correct.</p>
+
+    <note><p>Pushing back characters gives you unexpected
+      possibilities to cause the scanner to loop!</p></note>
+ 
+    <p>The following example would match a simple Erlang integer or
+      float and return a token which could be sent to the Erlang
+      parser:</p>
+    <code>
+D = [0-9]
+
+{D}+ :
+  {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
+
+{D}+\.{D}+((E|e)(\+|\-)?{D}+)? :
+  {token,{float,TokenLine,list_to_float(TokenChars)}}.</code>
+ 
+    <p>The Erlang code in the "Erlang code." section is written into
+      the output file directly after the module declaration and
+      predefined exports declaration so it is possible to add extra
+      exports, define imports and other attributes which are then
+      visible in the whole file.</p>
+  </section>
+  
+  <section>
+    <title>Regular Expressions</title>
+ 
+    <p>The regular expressions allowed here is a subset of the set
+      found in <c>egrep</c> and in the AWK programming language, as
+      defined in the book, The AWK Programming Language, by A. V. Aho,
+      B. W. Kernighan, P. J. Weinberger. They are composed of the
+      following characters:</p>
+ 
+    <taglist>
+      <tag><c>c</c></tag>
+      <item><p>Matches the non-metacharacter c.</p>
+      </item>
+      <tag><c>\c</c></tag>
+      <item><p>Matches the escape sequence or literal character c.</p>
+      </item>
+      <tag><c>.</c></tag>
+      <item><p>Matches any character.</p>
+      </item>
+      <tag><c>^</c></tag>
+      <item><p>Matches the beginning of a string.</p>
+      </item>
+      <tag><c>$</c></tag>
+      <item><p>Matches the end of a string.</p></item>
+      <tag><c>[abc...]</c></tag>
+      <item><p>Character class, which matches any of the characters
+        <c>abc...</c>. Character ranges are specified by a pair of
+        characters separated by a <c>-</c>.</p>
+      </item>
+      <tag><c>[^abc...]</c></tag>
+      <item><p>Negated character class, which matches any character
+        except <c>abc...</c>.</p>
+      </item>
+      <tag><c>r1 | r2</c></tag>
+      <item><p>Alternation. It matches either <c>r1</c> or <c>r2</c>.</p>
+      </item>
+      <tag><c>r1r2</c></tag>
+      <item><p>Concatenation. It matches <c>r1</c> and then <c>r2</c>.</p>
+      </item>
+      <tag><c>r+</c></tag>
+      <item><p>Matches one or more <c>rs</c>.</p>
+      </item>
+      <tag><c>r*</c></tag>
+      <item><p>Matches zero or more <c>rs</c>.</p>
+      </item>
+      <tag><c>r?</c></tag>
+      <item><p>Matches zero or one <c>rs</c>.</p>
+      </item>
+      <tag><c>(r)</c></tag>
+      <item><p>Grouping. It matches <c>r</c>.</p>
+      </item>
+    </taglist>
+ 
+    <p>The escape sequences allowed are the same as for Erlang strings:</p>
+
+    <taglist>
+      <tag><c>\b</c></tag>
+      <item><p>Backspace.</p></item>
+      <tag><c>\f</c></tag>
+      <item><p>Form feed.</p></item>
+      <tag><c>\n</c></tag>
+      <item><p>Newline (line feed).</p></item>
+      <tag><c>\r</c></tag>
+      <item><p>Carriage return.</p></item>
+      <tag><c>\t</c></tag>
+      <item><p>Tab.</p></item>
+      <tag><c>\e</c></tag>
+      <item><p>Escape.</p></item>
+      <tag><c>\v</c></tag>
+      <item><p>Vertical tab.</p></item>
+      <tag><c>\s</c></tag>
+      <item><p>Space.</p></item>
+      <tag><c>\d</c></tag>
+      <item><p>Delete.</p></item>
+      <tag><c>\ddd</c></tag>
+      <item><p>The octal value <c>ddd</c>.</p></item>
+      <tag><c>\xhh</c></tag>
+      <item><p>The hexadecimal value <c>hh</c>.</p></item>
+      <tag><c>\x{h...}</c></tag>
+      <item><p>The hexadecimal value <c>h...</c>.</p></item>
+      <tag><c>\c</c></tag>
+      <item><p>Any other character literally, for example <c>\\</c> for
+        backslash, <c>\"</c> for <c>"</c>.</p>
+      </item>
+    </taglist>
+ 
+    <p>The following examples define simplified versions of a few
+      Erlang data types:</p>
+    <code> 
+Atoms [a-z][0-9a-zA-Z_]*
+
+Variables [A-Z_][0-9a-zA-Z_]*
+
+Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?</code>
+ 
+    <note><p>Anchoring a regular expression with <c>^</c> and <c>$</c>
+      is not implemented in the current version of Leex and just
+      generates a parse error.</p></note>
+  </section>
+</erlref>

@@ -1,0 +1,55 @@
+/* standard EDoc style sheet */
+body {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+      	margin-left: .25in;
+       	margin-right: .2in;
+       	margin-top: 0.2in;
+       	margin-bottom: 0.2in;
+       	color: #000000;
+       	background-color: #ffffff;
+}
+h1,h2 {
+ 	margin-left: -0.2in;
+}
+div.navbar {
+	background-color: #add8e6;
+	padding: 0.2em;
+}
+h2.indextitle {
+	padding: 0.4em;
+	background-color: #add8e6;
+}
+h3.function,h3.typedecl {
+	background-color: #add8e6;
+ 	padding-left: 1em;
+}
+div.spec {
+ 	margin-left: 2em;
+	background-color: #eeeeee;
+}
+a.module {
+	text-decoration:none
+}
+a.module:hover {
+	background-color: #eeeeee;
+}
+ul.definitions {
+	list-style-type: none;
+}
+ul.index {
+	list-style-type: none;
+	background-color: #eeeeee;
+}
+
+/*
+ * Minor style tweaks
+ */
+ul {
+	list-style-type: square;
+}
+table {
+	border-collapse: collapse;
+}
+td {
+	padding: 3
+}

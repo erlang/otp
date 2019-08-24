@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>Claes Wikstr&ouml;m, Hans Nilsson and H&aring;kan Mattsson</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Bjarne D&auml;cker</checked>
+    <date></date>
+    <rev>C</rev>
+    <file>Mnesia_chap1.xml</file>
+  </header>
+  <p>The Mnesia application provides a heavy duty real-time
+    distributed database.</p>
+
+    <section>
+      <title>Scope</title>
+      <p>This User's Guide describes how to
+        build Mnesia database applications, and how to integrate
+        and use the Mnesia database management system with
+        OTP. Programming constructs are described, and numerous
+        programming examples are included to illustrate the use of
+        Mnesia.</p>
+      <p>This User's Guide is organized as follows:</p>
+      <list type="bulleted">
+        <item><seealso marker="Mnesia_overview">Mnesia</seealso>
+	provides an introduction to
+	Mnesia.
+        </item>
+        <item><seealso marker="Mnesia_chap2">Getting Started</seealso>
+        introduces Mnesia with an example database. Examples
+        are included how to start an Erlang session, specify a
+        Mnesia database directory, initialize a database
+        schema, start Mnesia, and create tables. Initial
+        prototyping of record definitions is also discussed.
+        </item>
+        <item><seealso marker="Mnesia_chap3">Build a Mnesia
+        Database</seealso> more formally describes the steps
+        introduced in the previous section, namely the Mnesia
+        functions that define a database schema, start Mnesia,
+        and create the required tables.
+        </item>
+        <item><seealso marker="Mnesia_chap4">Transactions and Other Access Contexts</seealso>
+         describes the transactions properties that make Mnesia into
+         a fault tolerant, real-time distributed database management
+         system. This section also describes the concept of locking
+         to ensure consistency in tables, and "dirty
+         operations", or short cuts, which bypass the transaction system
+         to improve speed and reduce overheads.
+        </item>
+        <item><seealso marker="Mnesia_chap5">Miscellaneous Mnesia
+        Features</seealso> describes features that enable the
+        construction of more complex database applications. These
+        features include indexing, checkpoints, distribution and fault
+        tolerance, disc-less nodes, replication manipulation, local
+        content tables, concurrency, and object-based programming in
+        Mnesia.
+        </item>
+        <item><seealso marker="Mnesia_chap7">Mnesia System
+        Information</seealso> describes the files contained in the
+        Mnesia database directory, database configuration data,
+        core and table dumps, as well as the important subject of
+        backup, fall-back, and disaster recovery principles.
+        </item>
+        <item><seealso marker="Mnesia_chap8">Combine Mnesia with
+        SNMP</seealso> is a short section that outlines Mnesia
+        integrated with SNMP.
+        </item>
+        <item><seealso marker="Mnesia_App_A">Appendix A: Backup
+        Callback Interface</seealso> is a program listing of the
+        default implementation of this facility.
+        </item>
+        <item><seealso marker="Mnesia_App_B">Appendix B: Activity
+        Access Callback Interface</seealso> is a program outlining
+        one possible implementation of this facility.
+        </item>
+        <item><seealso marker="Mnesia_App_C">Appendix C: Fragmented
+        Table Hashing Callback Interface</seealso> is a program
+        outlining one possible implementation of this facility.
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>It is assumed that the reader is familiar with the Erlang
+        programming language, system development principles, and
+        database management systems.</p>
+    </section>
+</chapter>
+

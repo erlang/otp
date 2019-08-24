@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Support, Compatibility, Deprecations, and Removal</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2018-05-21</date>
+    <rev></rev>
+    <file>misc.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>This document describes strategy regarding supported Releases,
+    compatibility, deprecations and removal of functionality. This
+    document was introduced in OTP 21. Actions taken regarding these
+    issues before OTP 21 did not adhere this document.</p>
+  </section>
+
+  <section>
+    <marker id="supported_releases"/>
+    <title>Supported Releases</title>
+    <p>
+      In general, bugs are only fixed on the latest
+      <seealso marker="versions#releases_and_patches">release</seealso>,
+      and new features are introduced in the upcoming release that is
+      under development. However, when we, due to internal reasons, fix
+      bugs on older releases, these will be available and announced as well.
+    </p>
+    <p>
+      Due to the above, pull requests are only accepted on the
+      <c>maint</c> and the <c>master</c> branches in our
+      <url href="https://github.com/erlang/otp">git repository</url>.
+      The <c>maint</c> branch contains changes planned for the next
+      <seealso marker="versions#releases_and_patches">maintenance patch package</seealso>
+      on the latest OTP release and the <c>master</c> branch contain
+      changes planned for the upcoming OTP release.
+    </p>
+  </section>
+
+  <section>
+    <marker id="compatibility"/>
+    <title>Compatibility</title>
+    <p>
+      We always strive to remain as compatible as possible
+      even in the cases where we give no compatibility guarantees.
+    </p>
+    <p>
+      Different parts of the system will be handled differently
+      regarding compatibility. The following items describe how
+      different parts of the system are handled.
+    </p>
+    <taglist>
+      <tag>Erlang Distribution</tag>
+      <item>
+	<p>
+	  Erlang nodes can communicate across at least
+	  two preceding and two subsequent releases.
+	</p>
+      </item>
+      <tag>Compiled BEAM Code, NIF Libraries and Drivers</tag>
+      <item>
+	<p>
+	  Compiled code can be loaded on at least two
+	  subsequent releases.
+	</p>
+	<p>
+	  Loading on previous releases is <em>not</em> supported.
+	</p>
+      </item>
+      <tag>Compiled HiPE Code</tag>
+      <item>
+	<p>
+	  Compiled HiPE code can be loaded on the exact same build
+	  of ERTS that was used when compiling the code. It might
+	  however work on other builds, the emulator verifies
+	  checksums in order to determine if it can load the code
+	  or not. Note that HiPE has some limitations. For more
+	  information see the documentation of the
+	  <seealso marker="hipe:HiPE_app">HiPE</seealso> application.
+	</p>
+      </item>
+      <tag>APIs</tag>
+      <item>
+	<p>Compatible between releases.</p>
+      </item>
+      <tag>Compiler Warnings</tag>
+      <item>
+	<p>New warnings may be issued between releases.</p>
+      </item>
+      <tag>Command Line Arguments</tag>
+      <item>
+	<p>Incompatible changes may occur between releases.</p>
+      </item>
+      <tag>OTP Build Procedures</tag>
+      <item><p>Incompatible changes may occur between releases.</p></item>
+    </taglist>
+    <p>
+      Under certain circumstances incompatible changes might be
+      introduced even in parts of the system that should be compatible
+      between releases. Things that might trigger incompatible changes
+      like this are:
+    </p>
+    <taglist>
+      <tag>Security Issues</tag>
+      <item>
+	<p>
+	  It might be necessary to introduce incompatible changes
+	  in order to solve a security issue. This kind of
+	  incompatibility might occur in a patch.
+	</p>
+      </item>
+      <tag>Bug Fixes</tag>
+      <item>
+	<p>
+	  We will not be bug-compatible. A bug fix might introduce
+	  incompatible changes. This kind of incompatibility
+	  might occur in a patch.
+	</p>
+      </item>
+      <tag>Severe Previous Design Issues</tag>
+      <item>
+	<p>
+	  Some parts of OTP were designed a very long time ago and
+	  did not necessarily take today's computing environments into
+	  account. In some cases the consequences of those design
+	  decisions are too severe. This may be performance wise,
+	  scalability wise, etc. If we deem the consequences too
+	  severe, we might introduce incompatible changes. This kind
+	  of incompatibility will not be introduced in a patch, but
+	  instead in the next release.
+	</p>
+      </item>
+    </taglist>
+    <p>
+      Peripheral, trace, and debug functionality is at greater
+      risk of being changed in an incompatible way than functionality
+      in the language itself and core libraries used during operation.
+    </p>
+  </section>
+
+  <section>
+    <marker id="deprecation"/>
+    <title>Deprecation</title>
+    <p>
+      Functionality is deprecated when new functionality is
+      introduced that is preferred to be used instead of the
+      old functionality that is being deprecated. The deprecation
+      does <em>not</em> imply removal of the functionality unless
+      an upcoming removal is explicitly stated in the deprecation.
+    </p>
+    <p>
+      Deprecated functionality will be documented as deprecated, and
+      compiler warnings will be issued, when appropriate, as
+      early as possible. That is, the new preferred functionality
+      will appear at the same time as the deprecation is issued.
+      A new deprecation will at least be announced in a release
+      note and the documentation.
+    </p>
+  </section>
+
+  <section>
+    <marker id="removal"/>
+    <title>Removal</title>
+    <p>
+      Legacy solutions may eventually need to be removed. In such
+      cases, they will be phased out on a long enough time period
+      to give users the time to adapt. Before removal of
+      functionality it will be deprecated at least during one
+      release with an explicit announcement about
+      the upcoming removal. A new deprecation will at least be
+      announced in a release note and the documentation.
+    </p>
+    <p>
+      Peripheral, trace, and debug functionality is at greater
+      risk of removal than functionality in the language itself
+      and core libraries used during operation.
+    </p>
+  </section>
+
+</chapter>
+

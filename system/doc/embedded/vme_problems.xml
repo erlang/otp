@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>VME Bus Driver</title>
+    <prepared>Fredrik Tillman</prepared>
+    <responsible></responsible>
+    <docno>ETX/B/SFP/TILLMAN:96-002</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1996-10-29</date>
+    <rev>PA1</rev>
+    <file>vme_problems.sgml</file>
+  </header>
+  <p>This chapter describes the OS specific parts of OTP which relate to
+    the VME Bus Driver.
+    </p>
+
+  <section>
+    <title>Installation Problems</title>
+    <p>The hardware watchdog timer which is controlled by the
+      <c>heart</c> port program requires the <c>FORCEvme</c> package,
+      which contains the VME bus driver, to be installed. This driver,
+      however, might clash with the Sun <c>mcp</c> driver and cause
+      the system to completely refuse to boot. To cure this problem,
+      the following lines should be added to <c>/etc/system</c>:
+      </p>
+    <list type="bulleted">
+      <item><c>exclude: drv/mcp</c></item>
+      <item><c>exclude: drv/mcpzsa</c></item>
+      <item><c>exclude: drv/mcpp</c></item>
+    </list>
+    <warning>
+      <p>It is recommended that these lines be added to avoid the
+        clash described, which may make it completely impossible to boot
+        the system.</p>
+    </warning>
+  </section>
+</chapter>
+

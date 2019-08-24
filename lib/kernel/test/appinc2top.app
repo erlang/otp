@@ -1,0 +1,10 @@
+{application, appinc2top,
+     [{description, "Test of new start"},
+      {id, "CXC 138 xx2"},
+      {vsn, "2.0"},
+      {modules, []},
+      {registered, []},
+      {included_applications, [appinc2A, appinc2B]},
+      {applications, [kernel]},
+      {start_phases, [{init, []}, {some, []}, {go, []}]},
+      {mod, {application_starter, [appinc2top, {app1, 107, 109}] }}]}. 

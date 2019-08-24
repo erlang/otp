@@ -1,0 +1,438 @@
+MAP-CH-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CH-DataTypes (13) version9 (9)}
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+	SendRoutingInfoArg,
+	SendRoutingInfoRes,
+	ProvideRoamingNumberArg,
+	ProvideRoamingNumberRes,
+	ResumeCallHandlingArg,
+	ResumeCallHandlingRes,
+	NumberOfForwarding,
+	SuppressionOfAnnouncement,
+	CallReferenceNumber,
+	SetReportingStateArg,
+	SetReportingStateRes,
+	StatusReportArg,
+	StatusReportRes,
+	RemoteUserFreeArg,
+	RemoteUserFreeRes,
+	IST-AlertArg,
+	IST-AlertRes,
+	IST-CommandArg,
+IST-CommandRes
+;
+
+IMPORTS
+	SubscriberInfo,
+	SupportedCamelPhases,
+	OfferedCamel4CSIs,
+	CUG-Interlock,
+	O-CSI, 
+	D-CSI,
+	O-BcsmCamelTDPCriteriaList, 
+	T-BCSM-CAMEL-TDP-CriteriaList,
+	IST-SupportIndicator,
+	IST-AlertTimerValue,
+	T-CSI,
+	NumberPortabilityStatus
+FROM MAP-MS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-MS-DataTypes (11) version9 (9)}
+
+	ForwardingOptions,
+	SS-List,
+	CCBS-Feature
+FROM MAP-SS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-DataTypes (14) version9 (9)}
+
+	ISDN-AddressString,
+	ISDN-SubaddressString,
+	FTN-AddressString,
+	ExternalSignalInfo,
+	Ext-ExternalSignalInfo,
+	IMSI,
+	LMSI,
+	Ext-BasicServiceCode,
+	AlertingPattern,
+	NAEA-PreferredCI
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+;
+
+
+CUG-CheckInfo ::= SEQUENCE {
+	cug-Interlock	CUG-Interlock,
+	cug-OutgoingAccess	NULL			OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+NumberOfForwarding ::= INTEGER (1..5)
+
+SendRoutingInfoArg ::= SEQUENCE {
+	msisdn		[0] ISDN-AddressString,
+	cug-CheckInfo	[1] CUG-CheckInfo	OPTIONAL,
+	numberOfForwarding	[2] NumberOfForwarding	OPTIONAL,
+	interrogationType	[3] InterrogationType,
+	or-Interrogation	[4] NULL		OPTIONAL,
+	or-Capability	[5] OR-Phase	OPTIONAL,
+	gmsc-OrGsmSCF-Address	[6] ISDN-AddressString,
+	callReferenceNumber	[7] CallReferenceNumber	OPTIONAL,
+	forwardingReason	[8] ForwardingReason	OPTIONAL,
+	basicServiceGroup	[9] Ext-BasicServiceCode	OPTIONAL,
+	networkSignalInfo	[10] ExternalSignalInfo	OPTIONAL,
+	camelInfo		[11] CamelInfo	OPTIONAL,
+	suppressionOfAnnouncement	[12] SuppressionOfAnnouncement 	OPTIONAL,
+	extensionContainer	[13] ExtensionContainer	OPTIONAL,
+	...,
+	alertingPattern	[14] AlertingPattern	OPTIONAL,
+	ccbs-Call		[15] NULL			OPTIONAL,
+	supportedCCBS-Phase	[16]	 SupportedCCBS-Phase	OPTIONAL,
+	additionalSignalInfo	[17] Ext-ExternalSignalInfo	OPTIONAL,
+	istSupportIndicator	[18] IST-SupportIndicator	OPTIONAL,
+	pre-pagingSupported	[19]	NULL		OPTIONAL,
+	callDiversionTreatmentIndicator	[20]	CallDiversionTreatmentIndicator	OPTIONAL,
+	longFTN-Supported	[21]	NULL		OPTIONAL,
+	suppress-VT-CSI	[22]	NULL		OPTIONAL,
+	suppressIncomingCallBarring	[23]	NULL		OPTIONAL,
+	gsmSCF-InitiatedCall	[24]	NULL		OPTIONAL,
+	basicServiceGroup2	[25] Ext-BasicServiceCode	OPTIONAL,
+	networkSignalInfo2	[26] ExternalSignalInfo	OPTIONAL
+	 }
+
+SuppressionOfAnnouncement ::= NULL
+
+InterrogationType ::= ENUMERATED {
+	basicCall  (0),
+	forwarding  (1)}
+
+OR-Phase ::= INTEGER (1..127)
+
+CallReferenceNumber ::= OCTET STRING (SIZE (1..8))
+
+ForwardingReason ::= ENUMERATED {
+	notReachable  (0),
+	busy  (1),
+	noReply  (2)}
+
+SupportedCCBS-Phase ::= INTEGER (1..127) 
+-- exception handling:
+-- Only value 1 is used.
+-- Values in the ranges 2-127 are reserved for future use.
+-- If received values 2-127 shall be mapped on to value 1.
+
+CallDiversionTreatmentIndicator ::= OCTET STRING (SIZE(1))
+--	callDiversionAllowed (xxxx xx01)
+--	callDiversionNotAllowed (xxxx xx10)
+--	network default is call diversion allowed
+
+SendRoutingInfoRes ::= [3] SEQUENCE {
+	imsi			[9] IMSI		OPTIONAL,
+	-- IMSI must be present if SendRoutingInfoRes is not segmented.
+	-- If the TC-Result-NL segmentation option is taken the IMSI must be
+	-- present in one segmented transmission of SendRoutingInfoRes.
+	extendedRoutingInfo	ExtendedRoutingInfo	OPTIONAL,
+	cug-CheckInfo	[3] CUG-CheckInfo	OPTIONAL,
+	cugSubscriptionFlag	[6] NULL		OPTIONAL,
+	subscriberInfo	[7] SubscriberInfo	OPTIONAL,
+	ss-List		[1] SS-List	OPTIONAL,
+	basicService	[5] Ext-BasicServiceCode	OPTIONAL,
+	forwardingInterrogationRequired	[4] NULL		OPTIONAL,
+	vmsc-Address	[2] ISDN-AddressString	OPTIONAL,
+	extensionContainer	[0] ExtensionContainer	OPTIONAL,
+	... ,
+	naea-PreferredCI	[10] NAEA-PreferredCI	OPTIONAL,
+	-- naea-PreferredCI is included at the discretion of the HLR operator.
+	ccbs-Indicators	[11] CCBS-Indicators	OPTIONAL,
+	msisdn		[12] ISDN-AddressString	OPTIONAL,
+	numberPortabilityStatus	[13] NumberPortabilityStatus	OPTIONAL,
+	istAlertTimer	[14] IST-AlertTimerValue	OPTIONAL,
+	supportedCamelPhasesInVMSC	[15]	SupportedCamelPhases	OPTIONAL,
+	offeredCamel4CSIsInVMSC	[16] OfferedCamel4CSIs	OPTIONAL,
+	routingInfo2	[17] RoutingInfo	OPTIONAL,
+	ss-List2		[18] SS-List	OPTIONAL,
+	basicService2	[19] Ext-BasicServiceCode	OPTIONAL,
+	allowedServices	[20] AllowedServices	OPTIONAL,
+	unavailabilityCause	[21] UnavailabilityCause	OPTIONAL
+	}
+
+AllowedServices ::= BIT STRING {
+	firstServiceAllowed	(0),
+	secondServiceAllowed	(1) } (SIZE (2..8))
+	--	firstService is the service indicated in the networkSignalInfo
+	--	secondService is the service indicated in the networkSignalInfo2
+	--	Other bits than listed above shall be discarded
+
+UnavailabilityCause ::= ENUMERATED {
+	bearerServiceNotProvisioned	(1),
+	teleserviceNotProvisioned	(2),
+	absentSubscriber	(3),
+	busySubscriber	(4),
+	callBarred	(5),
+	cug-Reject	(6),
+	...}
+	--	exception handling: 
+	--	Reception of other values than the ones listed shall result in the service
+	--	being unavailable for that call.
+
+CCBS-Indicators ::= SEQUENCE {
+	ccbs-Possible	[0]	NULL		OPTIONAL,
+	keepCCBS-CallIndicator	[1]	NULL		OPTIONAL,
+	extensionContainer	[2]	ExtensionContainer	OPTIONAL,
+	...}
+
+RoutingInfo ::= CHOICE {
+	roamingNumber	ISDN-AddressString,
+	forwardingData	ForwardingData}
+
+ForwardingData ::= SEQUENCE {
+	forwardedToNumber	[5] ISDN-AddressString	OPTIONAL,
+	-- When this datatype is sent from an HLR which supports CAMEL Phase 2
+	-- to a GMSC which supports CAMEL Phase 2 the GMSC shall not check the
+	-- format of the number
+	forwardedToSubaddress	[4] ISDN-SubaddressString	OPTIONAL,
+	forwardingOptions	[6] ForwardingOptions	OPTIONAL,
+	extensionContainer	[7] ExtensionContainer	OPTIONAL,
+	...,
+	longForwardedToNumber	[8] FTN-AddressString	OPTIONAL}
+
+ProvideRoamingNumberArg ::= SEQUENCE {
+	imsi			[0] IMSI,
+	msc-Number	[1] ISDN-AddressString,
+	msisdn		[2] ISDN-AddressString	OPTIONAL,
+	lmsi			[4] LMSI		OPTIONAL,
+	gsm-BearerCapability	[5] ExternalSignalInfo	OPTIONAL,
+	networkSignalInfo	[6] ExternalSignalInfo	OPTIONAL,
+	suppressionOfAnnouncement	[7] SuppressionOfAnnouncement	OPTIONAL,
+	gmsc-Address	[8] ISDN-AddressString	OPTIONAL,
+	callReferenceNumber	[9] CallReferenceNumber	OPTIONAL,
+	or-Interrogation	[10] NULL		OPTIONAL,
+	extensionContainer	[11] ExtensionContainer	OPTIONAL,
+	... ,
+	alertingPattern	[12] AlertingPattern	OPTIONAL,
+	ccbs-Call		[13] NULL		OPTIONAL,
+	supportedCamelPhasesInInterrogatingNode	[15] SupportedCamelPhases	OPTIONAL,
+	additionalSignalInfo	[14] Ext-ExternalSignalInfo	OPTIONAL,
+	orNotSupportedInGMSC	[16] NULL		OPTIONAL,
+	pre-pagingSupported	[17] NULL		OPTIONAL,
+	longFTN-Supported	[18]	NULL		OPTIONAL,
+	suppress-VT-CSI	[19]	NULL		OPTIONAL,
+	offeredCamel4CSIsInInterrogatingNode	[20] OfferedCamel4CSIs	OPTIONAL
+	 }
+
+ProvideRoamingNumberRes ::= SEQUENCE {
+	roamingNumber	ISDN-AddressString,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ResumeCallHandlingArg ::= SEQUENCE {
+	callReferenceNumber	[0] CallReferenceNumber	OPTIONAL,
+	basicServiceGroup	[1] Ext-BasicServiceCode	OPTIONAL,
+	forwardingData	[2] ForwardingData	OPTIONAL,
+	imsi			[3] IMSI		OPTIONAL,
+	cug-CheckInfo	[4] CUG-CheckInfo	OPTIONAL,
+	o-CSI		[5] O-CSI		OPTIONAL,
+	extensionContainer	[7] ExtensionContainer	OPTIONAL,
+	ccbs-Possible	[8]	NULL		OPTIONAL,
+	msisdn		[9]	ISDN-AddressString	OPTIONAL,
+	uu-Data		[10] UU-Data	OPTIONAL,
+	allInformationSent	[11] NULL		OPTIONAL,
+	...,
+	d-csi		[12]	D-CSI	OPTIONAL,
+	o-BcsmCamelTDPCriteriaList 	[13]	O-BcsmCamelTDPCriteriaList 	OPTIONAL,
+	basicServiceGroup2	[14] Ext-BasicServiceCode	OPTIONAL
+	 }
+
+UU-Data ::= SEQUENCE {
+	uuIndicator	[0] UUIndicator	OPTIONAL,
+	uui			[1] UUI		OPTIONAL,
+	uusCFInteraction	[2] NULL		OPTIONAL,
+	extensionContainer	[3] ExtensionContainer	OPTIONAL,
+	...}
+
+UUIndicator ::= OCTET STRING (SIZE (1))
+	-- Octets are coded according to ETS 300 356
+
+UUI  ::= OCTET STRING (SIZE (1..131))
+	-- Octets are coded according to ETS 300 356
+
+ResumeCallHandlingRes ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+CamelInfo ::= SEQUENCE {
+	supportedCamelPhases	SupportedCamelPhases,
+	suppress-T-CSI	NULL			OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	... ,
+	offeredCamel4CSIs	[0] OfferedCamel4CSIs	OPTIONAL }
+
+ExtendedRoutingInfo ::= CHOICE {
+	routingInfo	RoutingInfo,
+	camelRoutingInfo	[8] CamelRoutingInfo}
+
+CamelRoutingInfo ::= SEQUENCE {
+	forwardingData	ForwardingData	OPTIONAL,
+	gmscCamelSubscriptionInfo	[0] GmscCamelSubscriptionInfo,
+	extensionContainer	[1] ExtensionContainer	OPTIONAL,
+	...}
+
+GmscCamelSubscriptionInfo ::= SEQUENCE {
+	t-CSI		[0] T-CSI	OPTIONAL,
+	o-CSI		[1] O-CSI	OPTIONAL,
+	extensionContainer	[2] ExtensionContainer	OPTIONAL,
+	...,
+	o-BcsmCamelTDP-CriteriaList	[3] O-BcsmCamelTDPCriteriaList	OPTIONAL,
+	t-BCSM-CAMEL-TDP-CriteriaList	[4]	T-BCSM-CAMEL-TDP-CriteriaList	OPTIONAL,
+	d-csi		[5]	D-CSI	OPTIONAL}
+
+SetReportingStateArg ::= SEQUENCE {
+	imsi			[0]	IMSI		OPTIONAL,
+	lmsi			[1]	LMSI		OPTIONAL,
+	ccbs-Monitoring	[2]	ReportingState	OPTIONAL,
+	extensionContainer	[3]	ExtensionContainer	OPTIONAL,
+	...}
+
+ReportingState ::= ENUMERATED {
+	stopMonitoring	(0),
+	startMonitoring	(1),
+	...}
+	-- exception handling:
+	-- reception of values 2-10 shall be mapped to 'stopMonitoring' 
+	-- reception of values > 10 shall be mapped to 'startMonitoring'
+
+SetReportingStateRes ::= SEQUENCE{
+	ccbs-SubscriberStatus 	[0]	CCBS-SubscriberStatus	OPTIONAL,
+	extensionContainer	[1]	ExtensionContainer	OPTIONAL,
+	...}
+
+CCBS-SubscriberStatus ::= ENUMERATED {
+	ccbsNotIdle 	(0),
+	ccbsIdle 		(1),
+	ccbsNotReachable	(2),
+	...}
+	--  exception handling: 
+	--  reception of values 3-10 shall be mapped to 'ccbsNotIdle'
+	--  reception of values 11-20 shall be mapped to 'ccbsIdle'
+	--  reception of values > 20 shall be mapped to 'ccbsNotReachable' 
+
+StatusReportArg ::= SEQUENCE{
+	imsi 		[0]	IMSI,
+	eventReportData	[1]	EventReportData	OPTIONAL,
+	callReportdata	[2]	CallReportData	OPTIONAL,
+	extensionContainer	[3]	ExtensionContainer	OPTIONAL,
+	...}
+
+EventReportData ::= SEQUENCE{
+	ccbs-SubscriberStatus	[0]	CCBS-SubscriberStatus	OPTIONAL,
+	extensionContainer	[1]	ExtensionContainer	OPTIONAL,
+	...}
+
+CallReportData ::= SEQUENCE{
+	monitoringMode	[0]	MonitoringMode	OPTIONAL,
+	callOutcome	[1]	CallOutcome	OPTIONAL,
+	extensionContainer	[2]	ExtensionContainer	OPTIONAL,
+	...}
+
+MonitoringMode ::= ENUMERATED {
+	a-side		(0),
+	b-side		(1),
+	...}
+	--	exception handling: 
+	--  reception of values 2-10 shall be mapped 'a-side'
+	--  reception of values > 10 shall be mapped to 'b-side'
+
+CallOutcome ::= ENUMERATED {
+	success		(0),
+	failure		(1),
+	busy			(2),
+	...}
+	--	exception handling: 
+	--  reception of values 3-10 shall be mapped to 'success'
+	--  reception of values 11-20 shall be mapped to 'failure'
+	--  reception of values > 20 shall be mapped to 'busy'
+
+StatusReportRes ::= SEQUENCE {
+	extensionContainer	[0]	ExtensionContainer	OPTIONAL,
+	...}
+
+RemoteUserFreeArg ::= SEQUENCE{
+	imsi			[0]	IMSI,
+	callInfo		[1]	ExternalSignalInfo,
+	ccbs-Feature	[2]	CCBS-Feature,
+	translatedB-Number	[3]	ISDN-AddressString,
+	replaceB-Number	[4] 	NULL		OPTIONAL,
+	alertingPattern	[5]	AlertingPattern	OPTIONAL,
+	extensionContainer	[6]	ExtensionContainer	OPTIONAL,
+	...}
+
+RemoteUserFreeRes ::= SEQUENCE{
+	ruf-Outcome	[0]	RUF-Outcome,
+	extensionContainer	[1]	ExtensionContainer	OPTIONAL,
+	...}
+
+RUF-Outcome ::= ENUMERATED{
+	accepted (0),
+	rejected (1),
+	noResponseFromFreeMS (2), -- T4 Expiry
+	noResponseFromBusyMS (3), -- T10 Expiry
+	udubFromFreeMS (4),
+	udubFromBusyMS (5),
+	...}
+	-- exception handling:
+	-- reception of values 6-20 shall be mapped to 'accepted'
+	-- reception of values 21-30 shall be mapped to 'rejected'
+	-- reception of values 31-40 shall be mapped to 'noResponseFromFreeMS'
+	-- reception of values 41-50 shall be mapped to 'noResponseFromBusyMS'
+	-- reception of values 51-60 shall be mapped to 'udubFromFreeMS'
+	-- reception of values > 60 shall be mapped to 'udubFromBusyMS'
+
+IST-AlertArg ::= SEQUENCE{
+	imsi			[0]	IMSI,
+	extensionContainer	[1]	ExtensionContainer	OPTIONAL,
+	...}
+
+IST-AlertRes ::= SEQUENCE{
+	istAlertTimer	[0]	IST-AlertTimerValue 	OPTIONAL,
+	istInformationWithdraw	[1]	NULL		OPTIONAL,
+	callTerminationIndicator	[2]	CallTerminationIndicator	OPTIONAL,
+	extensionContainer	[3]	ExtensionContainer	OPTIONAL,
+	...}
+
+IST-CommandArg ::= SEQUENCE{
+	imsi			[0]	IMSI,
+	extensionContainer	[1]	ExtensionContainer	OPTIONAL,
+	...}
+
+IST-CommandRes ::= SEQUENCE{
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+CallTerminationIndicator ::= ENUMERATED {
+	terminateCallActivityReferred	(0),
+	terminateAllCallActivities	(1),
+	...}
+	-- exception handling:
+	-- reception of values 2-10 shall be mapped to ' terminateCallActivityReferred ' 
+	-- reception of values > 10 shall be mapped to ' terminateAllCallActivities '
+
+	-- In MSCs not supporting linkage of all call activities, any value received shall
+	-- be interpreted as ' terminateCallActivityReferred '
+
+END

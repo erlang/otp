@@ -1,0 +1,189 @@
+   PKIXAttributeCertificate {iso(1) identified-organization(3) dod(6)
+                internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+                id-mod-attribute-cert(12)}
+
+      DEFINITIONS IMPLICIT TAGS ::=
+
+      BEGIN
+
+      -- EXPORTS ALL --
+
+      IMPORTS
+
+            -- IMPORTed module OIDs MAY change if [PKIXPROF] changes
+            -- PKIX Certificate Extensions
+               Attribute, AlgorithmIdentifier, CertificateSerialNumber,
+               Extensions, UniqueIdentifier,
+               id-pkix, id-pe, id-kp, id-ad, id-at
+               FROM PKIX1Explicit88 {iso(1) identified-organization(3)
+                        dod(6) internet(1) security(5) mechanisms(5)
+                        pkix(7) id-mod(0) id-pkix1-explicit-88(1)}
+
+               GeneralName, GeneralNames, id-ce
+               FROM PKIX1Implicit88 {iso(1) identified-organization(3)
+                        dod(6) internet(1) security(5) mechanisms(5)
+                        pkix(7) id-mod(0) id-pkix1-implicit-88(2)} ;
+
+      id-pe-ac-auditIdentity       OBJECT IDENTIFIER ::= { id-pe 4 }
+      id-pe-aaControls             OBJECT IDENTIFIER ::= { id-pe 6 }
+      id-pe-ac-proxying            OBJECT IDENTIFIER ::= { id-pe 10 }
+      id-ce-targetInformation      OBJECT IDENTIFIER ::= { id-ce 55 }
+
+      id-aca                       OBJECT IDENTIFIER ::= { id-pkix 10 }
+      id-aca-authenticationInfo    OBJECT IDENTIFIER ::= { id-aca 1 }
+      id-aca-accessIdentity        OBJECT IDENTIFIER ::= { id-aca 2 }
+      id-aca-chargingIdentity      OBJECT IDENTIFIER ::= { id-aca 3 }
+      id-aca-group                 OBJECT IDENTIFIER ::= { id-aca 4 }
+      -- { id-aca 5 } is reserved
+      id-aca-encAttrs              OBJECT IDENTIFIER ::= { id-aca 6 }
+
+      id-at-role                   OBJECT IDENTIFIER ::= { id-at 72}
+      id-at-clearance              OBJECT IDENTIFIER ::=
+                  { joint-iso-ccitt(2) ds(5) module(1)
+                    selected-attribute-types(5) clearance (55) }
+
+             -- Uncomment this if using a 1988 level ASN.1 compiler
+--             UTF8String ::= [UNIVERSAL 12] IMPLICIT OCTET STRING
+
+             AttributeCertificate ::= SEQUENCE {
+                   acinfo               AttributeCertificateInfo,
+                   signatureAlgorithm   AlgorithmIdentifier,
+                   signatureValue       BIT STRING
+             }
+
+             AttributeCertificateInfo ::= SEQUENCE {
+                version        AttCertVersion,  -- version is v2
+                holder         Holder,
+                issuer         AttCertIssuer,
+                signature      AlgorithmIdentifier,
+                serialNumber   CertificateSerialNumber,
+                attrCertValidityPeriod   AttCertValidityPeriod,
+                attributes     SEQUENCE OF Attribute,
+                issuerUniqueID UniqueIdentifier OPTIONAL,
+                extensions     Extensions     OPTIONAL
+             }
+
+             AttCertVersion ::= INTEGER { v2(1) }
+
+             Holder ::= SEQUENCE {
+                   baseCertificateID   [0] IssuerSerial OPTIONAL,
+                             -- the issuer and serial number of
+                             -- the holder's Public Key Certificate
+                   entityName          [1] GeneralNames OPTIONAL,
+                             -- the name of the claimant or role
+                   objectDigestInfo    [2] ObjectDigestInfo OPTIONAL
+                             -- used to directly authenticate the
+                             -- holder, for example, an executable
+             }
+
+             ObjectDigestInfo    ::= SEQUENCE {
+                   digestedObjectType  ENUMERATED {
+                        publicKey            (0),
+                        publicKeyCert        (1),
+                        otherObjectTypes     (2) },
+                                -- otherObjectTypes MUST NOT
+                                -- MUST NOT be used in this profile
+                   otherObjectTypeID   OBJECT IDENTIFIER  OPTIONAL,
+                   digestAlgorithm     AlgorithmIdentifier,
+                   objectDigest        BIT STRING
+             }
+
+             AttCertIssuer ::= CHOICE {
+                   v1Form   GeneralNames,  -- MUST NOT be used in this
+                                           -- profile
+                   v2Form   [0] V2Form     -- v2 only
+             }
+
+             V2Form ::= SEQUENCE {
+                   issuerName            GeneralNames  OPTIONAL,
+                   baseCertificateID     [0] IssuerSerial  OPTIONAL,
+                   objectDigestInfo      [1] ObjectDigestInfo  OPTIONAL
+                      -- issuerName MUST be present in this profile
+                      -- baseCertificateID and objectDigestInfo MUST
+                      -- NOT be present in this profile
+             }
+
+             IssuerSerial  ::=  SEQUENCE {
+                   issuer         GeneralNames,
+                   serial         CertificateSerialNumber,
+                   issuerUID      UniqueIdentifier OPTIONAL
+             }
+
+             AttCertValidityPeriod  ::= SEQUENCE {
+                   notBeforeTime  GeneralizedTime,
+                   notAfterTime   GeneralizedTime
+             }
+
+             Targets ::= SEQUENCE OF Target
+
+             Target  ::= CHOICE {
+                   targetName     [0] GeneralName,
+                   targetGroup    [1] GeneralName,
+                   targetCert     [2] TargetCert
+             }
+
+             TargetCert  ::= SEQUENCE {
+                   targetCertificate  IssuerSerial,
+                   targetName         GeneralName OPTIONAL,
+                   certDigestInfo     ObjectDigestInfo OPTIONAL
+             }
+
+             IetfAttrSyntax ::= SEQUENCE {
+                  policyAuthority[0] GeneralNames    OPTIONAL,
+                  values         SEQUENCE OF CHOICE {
+                                 octets    OCTET STRING,
+                                 oid       OBJECT IDENTIFIER,
+                                 string    UTF8String
+                 }
+             }
+
+             SvceAuthInfo ::=    SEQUENCE {
+                   service       GeneralName,
+                   ident         GeneralName,
+                   authInfo      OCTET STRING OPTIONAL
+             }
+
+             RoleSyntax ::= SEQUENCE {
+                   roleAuthority  [0] GeneralNames OPTIONAL,
+                   roleName       [1] GeneralName
+             }
+
+             Clearance  ::=  SEQUENCE {
+                   policyId       [0] OBJECT IDENTIFIER,
+                   classList      [1] ClassList DEFAULT {unclassified},
+                   securityCategories
+                                  [2] SET OF SecurityCategory  OPTIONAL
+             }
+
+             ClassList  ::=  BIT STRING {
+                   unmarked       (0),
+                   unclassified   (1),
+                   restricted     (2),
+                   confidential   (3),
+                   secret         (4),
+                   topSecret      (5)
+             }
+
+             SecurityCategory ::= SEQUENCE {
+                   type      [0]  IMPLICIT OBJECT IDENTIFIER,
+                   value     [1]  ANY DEFINED BY type
+             }
+
+             AAControls ::= SEQUENCE {
+                   pathLenConstraint INTEGER (0..MAX) OPTIONAL,
+                   permittedAttrs    [0] AttrSpec OPTIONAL,
+                   excludedAttrs     [1] AttrSpec OPTIONAL,
+                   permitUnSpecified BOOLEAN DEFAULT TRUE
+             }
+
+             AttrSpec::= SEQUENCE OF OBJECT IDENTIFIER
+
+             ACClearAttrs ::= SEQUENCE {
+                   acIssuer          GeneralName,
+                   acSerial          INTEGER,
+                   attrs             SEQUENCE OF Attribute
+             }
+
+             ProxyInfo ::= SEQUENCE OF Targets
+
+      END

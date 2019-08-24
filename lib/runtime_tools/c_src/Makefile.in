@@ -1,0 +1,116 @@
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../vsn.mk
+VSN=$(RUNTIME_TOOLS_VSN)
+
+# ----------------------------------------------------
+# The following variables differ on different systems, we set
+# reasonable defaults, if something different is needed it should
+# be set for that system only.
+# ----------------------------------------------------
+CC = $(DED_CC)
+CFLAGS = $(DED_CFLAGS) -I./
+LD = $(DED_LD)
+SHELL = /bin/sh
+LIBS = $(DED_LIBS) @LIBS@
+LDFLAGS += $(DED_LDFLAGS)
+
+TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
+
+SYSINCLUDE = $(DED_SYS_INCLUDE)
+
+TRACE_DRV_INCLUDES = $(SYSINCLUDE)
+
+ifeq ($(TYPE),debug)
+TYPEMARKER = .debug
+TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DDEBUG @DEBUG_FLAGS@
+else
+ifeq ($(TYPE),valgrind)
+TYPEMARKER = .valgrind
+TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DVALGRIND
+else
+TYPEMARKER =
+TYPE_FLAGS = $(CFLAGS)
+endif
+endif
+
+ALL_CFLAGS = @DEFS@ @ERTS_CONFIG_H_IDIR@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
+	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
+
+ROOTDIR = $(ERL_TOP)/lib
+PRIVDIR = ../priv
+LIBDIR = $(PRIVDIR)/lib/$(TARGET)
+OBJDIR = $(PRIVDIR)/obj/$(TARGET)
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
+
+# ----------------------------------------------------
+# Misc Macros
+# ----------------------------------------------------
+
+TRACE_LIBS = $(foreach LIB, $(TRACE_LIBNAME), $(LIBDIR)/$(LIB)$(TYPEMARKER).$(DED_EXT))
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
+
+debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(TRACE_LIBS)
+
+$(OBJDIR):
+	-@mkdir -p $(OBJDIR)
+
+$(LIBDIR):
+	-@mkdir -p $(LIBDIR)
+
+$(OBJDIR)/%$(TYPEMARKER).o: %.c dyntrace_lttng.h
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+
+$(LIBDIR)/%$(TYPEMARKER).$(DED_EXT): $(OBJDIR)/%$(TYPEMARKER).o
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+clean:
+	rm -f $(TRACE_LIBS)
+	rm -f core *~
+
+docs:
+
+# ----------------------------------------------------
+# Release Target
+# ----------------------------------------------------
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec: opt
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
+	$(INSTALL_PROGRAM) $(TRACE_LIBS) "$(RELSYSDIR)/priv/lib"
+
+release_docs_spec:
+

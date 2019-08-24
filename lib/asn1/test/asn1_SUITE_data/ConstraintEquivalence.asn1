@@ -1,0 +1,114 @@
+ConstraintEquivalence DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+ SingleValueX42 ::= INTEGER (42)
+ SingleValueX1 ::= INTEGER ((42) ^ (42))
+ SingleValueX2 ::= INTEGER ((42) INTERSECTION (42))
+ SingleValueX3 ::= INTEGER ((42) | (42))
+ SingleValueX4 ::= INTEGER ((42) UNION (42))
+ SingleValueX5 ::= INTEGER ((42) INTERSECTION (MIN..MAX))
+ SingleValueX6 ::= INTEGER ((42) INTERSECTION (40..49))
+ SingleValueX7 ::= INTEGER (42..42)
+ SingleValueX8 ::= INTEGER (integer42)
+ SingleValueX9 ::= INTEGER (integer42..integer42)
+ SingleValueX10 ::= INTEGER ((integer42) INTERSECTION (40..49))
+ SingleValueX11 ::= INTEGER (40..49) (integer42)
+ SingleValueX12 ::= INTEGER ((MIN..0) ^ (1..10) | integer42)
+ SingleValueX13 ::= INTEGER ((11..20) ^ (1..10) | integer42)
+ SingleValueX14 ::= INTEGER ((MIN..42) ^ (1..100) ^ (42..50))
+
+ UnconstrainedX0 ::= INTEGER
+ UnconstrainedX1 ::= INTEGER (MIN..MAX)
+ UnconstrainedX2 ::= INTEGER (1|(MIN..MAX))
+ UnconstrainedX3 ::= INTEGER (1..10|(MIN..MAX))
+ UnconstrainedX4 ::= INTEGER ((MIN..MAX)|9|10)
+ UnconstrainedX5 ::= INTEGER ((MIN..MAX)|10..20)
+ UnconstrainedX6 ::= INTEGER ((MIN..MAX) UNION (10..20))
+ UnconstrainedX7 ::= INTEGER ((MIN..MAX) ^ ((MIN..MAX) UNION (10..20)))
+ UnconstrainedX8 ::= INTEGER ((-100..MAX) ^ (42..MAX) | (MIN..41))
+ UnconstrainedX9 ::= INTEGER (UnconstrainedX0)
+ UnconstrainedX10 ::= INTEGER (UnconstrainedX0)(MIN..MAX)
+
+ RangeX00 ::= INTEGER (5..10)
+ RangeX01 ::= INTEGER (4<..<11)
+ RangeX02 ::= INTEGER (5..<11)
+ RangeX03 ::= INTEGER (4<..10)
+ RangeX04 ::= INTEGER (5|6|7|8|9|10)
+ RangeX05 ::= INTEGER (10|9|8|7|6|5)
+ RangeX06 ::= INTEGER (5|6|7..10)
+ RangeX07 ::= INTEGER (integer4<..<integer11)
+
+ RangeX10 ::= INTEGER ((5..6) UNION (7..8) UNION (9|10))
+ RangeX11 ::= INTEGER ((5|6) UNION (7..8) UNION (9|10))
+ RangeX12 ::= INTEGER ((5|6) UNION (7|8) UNION (9|10))
+ RangeX13 ::= INTEGER ((5|6) UNION (7) UNION (8..10))
+ RangeX14 ::= INTEGER ((5|6) UNION (7) UNION (8..10))
+ RangeX15 ::= INTEGER ((5|6) UNION (7) UNION ((8..8)|(9..9)|(10)))
+ RangeX16 ::= INTEGER ((5|6) UNION (7) UNION (7<..<11))
+
+ RangeX20 ::= INTEGER (0..20) (5..10)
+ RangeX21 ::= INTEGER ((0..10) ^ (5..20))
+ RangeX22 ::= INTEGER ((0..10) ^ (5..20) ^ (MIN..MAX))
+ RangeX23 ::= INTEGER (MIN..MAX) (-100..20) (5..10)
+ RangeX24 ::= INTEGER (MIN..MAX) (0..100) (5..20) (5..10)
+ RangeX25 ::= INTEGER ((0..10) INTERSECTION (5..20) ^ (MIN..MAX))
+ RangeX26 ::= INTEGER ((5|6|7|8|9|10) INTERSECTION (5..20) ^ (MIN..MAX))
+
+ RangeX30 ::= INTEGER (((5|6) | (5..20)) ^ (0..10))
+ RangeX31 ::= INTEGER (((((5|6) | (5..20)) ^ (0..10))) ^ (MIN..MAX))
+ RangeX32 ::= INTEGER ((5|7) | (5..10))
+
+ Semi00 ::= INTEGER (0..MAX)
+ Semi01 ::= INTEGER (0..MAX) (MIN..MAX)
+ Semi02 ::= INTEGER ((0..100) UNION (200..MAX) UNION (50..1024))
+
+ RangeExtX00 ::= INTEGER (5..10, ...)
+ RangeExtX01 ::= INTEGER (0..20) (5..10, ...)
+ RangeExtX02 ::= INTEGER (RangeX26) (5..10, ...)
+-- RangeExtX03 ::= RangeX26 (5..10, ...)
+
+ MinRangeX00 ::= INTEGER (MIN..10)
+ MinRangeX01 ::= INTEGER ((MIN..0) | (0..10))
+ MinRangeX02 ::= INTEGER (MIN..MAX) (MIN..100) (MIN..10)
+ MinRangeX03 ::= INTEGER (((MIN..-100)|(-60..-50)) | (MIN..10))
+
+ DisjointRangeX00 ::= INTEGER (0..5 UNION 95..99)
+ DisjointRangeX01 ::= INTEGER (0|1|2|3|4|5|95|96|97|98|99)
+ DisjointRangeX02 ::= INTEGER (0..100) (0..2 UNION 95..99 UNION 3|4|5)
+ DisjointRangeX03 ::= INTEGER (MIN..MAX) (0..2 UNION 95..99 UNION 3|4|5)
+
+ MinDisjointRangeX00 ::= INTEGER (MIN..-100 UNION 100..1000)
+ MinDisjointRangeX01 ::= INTEGER (MIN..-100 UNION 100..1000 UNION (MIN..-100))
+ MinDisjointRangeX02 ::= INTEGER (MIN..-50000 UNION 100..1000 UNION (MIN..-100))
+ MinDisjointRangeX03 ::= INTEGER (MIN..-100 UNION 100..1000 UNION (MIN..-1000000))
+ MinDisjointRangeX04 ::= INTEGER (MIN..-100 UNION 100..1000 UNION (MIN..-1000000))
+ MinDisjointRangeX05 ::= INTEGER (MIN..-100 ^ (MIN..-100) UNION 100..1000)
+ MinDisjointRangeX06 ::= INTEGER (MIN..-100 ^ (MIN..0) UNION 100..1000)
+
+ UnconstrainedStringX00 ::= IA5String
+ UnconstrainedStringX01 ::= IA5String (SIZE (0..MAX))
+ UnconstrainedStringX02 ::= IA5String (SIZE (0..42|43..MAX))
+
+ ConstrainedStringX00 ::= IA5String (SIZE (0..5))
+ ConstrainedStringX01 ::= IA5String (SIZE (0|1|2|3|4|5))
+
+ StringExtFromX00 ::= IA5String (FROM ("AB", ..., "CD"))(SIZE (1..10, ..., 15..20))
+ StringExtFromX01 ::= IA5String (FROM ("AB", ..., "CD"))(SIZE (1..10, ..., 15..20))
+ StringExtFromX02 ::= IA5String ((FROM ("AB", ..., "CD")) ^ ((SIZE (1..10, ..., 15..20))))
+ StringExtFromX03 ::= IA5String ((FROM ("AB", ..., "CD")) ^ (SIZE (1..10, ..., 15..20)))
+ StringExtFromX04 ::= IA5String (StringExtFromX00)
+
+ -- Note: None of the back-ends care about the exact values
+ -- outside of the root range.
+ ExtConstrainedStringX00 ::= IA5String (SIZE (1..2, ...))
+ ExtConstrainedStringX01 ::= IA5String (SIZE (1|2, ..., 3))
+ ExtConstrainedStringX02 ::= IA5String (SIZE (1|2, ..., 3|4|5))
+ ExtConstrainedStringX03 ::= IA5String (SIZE (1|2, ...,  1|2|3|4|5))
+ ExtConstrainedStringX04 ::= IA5String (SIZE (1|2), ..., SIZE (1|2|3|4|5))
+ ExtConstrainedStringX05 ::= IA5String (SIZE (1|2, ...), ...,
+                                        SIZE (1|2|3|4|5, ...))
+
+ integer4 INTEGER ::= 4
+ integer11 INTEGER ::= 11
+ integer42 INTEGER ::= 42
+
+END

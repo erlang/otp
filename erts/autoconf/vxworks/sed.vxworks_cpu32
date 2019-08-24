@@ -1,0 +1,47 @@
+# 
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+# 
+# Author: Patrik Winroth
+#
+# This sed program file is intended to be used when creating Makefiles for vxworks
+# from the generic Makefile.in that is found in a number of directories (see configure.vxworks)
+#
+#
+#
+s|@host@|vxworks_cpu32|
+s|@system_type@|vxworks_cpu32|
+s|@CC@|@TTPREFIX@cc68k|
+s|@HCC@|gcc|
+s|@GCC@|yes|
+s|@LD@|@TTPREFIX@ld68k|
+s|@LIBS@||
+s|@DED_LD@|@TTPREFIX@ld68k|
+s|@DED_CFLAGS@|@CFLAGS@|
+s|@DEBUG_FLAGS@|-g|
+s|@GCCLIB_PATH@|@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/m68k-wrs-vxworks/cygnus-2.7.2-960126/m68000/msoft-float/libgcc.a|
+s|@RANLIB@|@TTPREFIX@ranlib68k|
+s|@AR@|@TTPREFIX@ar68k|
+s|@STRIP@|@TTPREFIX@strip68k|
+s|@SYMPREFIX@|_|
+s|@GCCLIBFLAGS@|-L@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/m68k-wrs-vxworks/cygnus-2.7.2-960126/m68000/msoft-float -lgcc|
+
+s|@LIB_CFLAGS@|@CFLAGS@|
+
+s|@CFLAGS@|@GENERAL_CFLAGS@ -DCPU=CPU32 -mnobitfield -DWANT_NONBLOCKING -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/target/h -fno-builtin -nostdinc -fvolatile -msoft-float|
+#s|@LIB_CFLAGS@|@GENERAL_CFLAGS@ -DCPU=CPU32 -mnobitfield -DWANT_NONBLOCKING -DHAVE_MEMMOVE -DVXWORKS -I@WIND_BASE@/target/h -fno-builtin -nostdinc -fvolatile -msoft-float|

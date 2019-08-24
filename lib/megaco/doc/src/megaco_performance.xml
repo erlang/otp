@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Performance comparison</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_performance.xml</file>
+  </header>
+
+  <section>
+    <title>Comparison of encoder/decoders</title>
+    <p>The Megaco/H.248 standard defines both a plain text encoding and a 
+      binary encoding (ASN.1 BER) and we have implemented encoders and 
+      decoders for both. We do supply a bunch of different encoding/decoding 
+      modules and the user may in fact implement their own (like our erl_dist 
+      module). Using a non-standard encoding format has its obvious drawbacks, 
+      but may be useful in some configurations.</p>
+
+    <p>We have made four different measurements of our Erlang/OTP 
+      implementation of the Megaco/H.248 protocol stack, in order to compare 
+      our different encoders/decoders. The result of each one is summarized 
+      in the table below.</p>
+
+    <p>The result above are the fastest 
+      of these configurations for each codec. The figures presented are 
+      the average of all used messages.</p>
+
+    <p>For comparison, also included are first, performance figures with
+      megaco (including the measurement software) and asn1 applications 
+      hipe-compiled (second figure in the time columns, note that per bin 
+      decode had some issues so those figures are not included), and second, 
+      performance figures where the flex driver was built as 
+      <c>non-reentrant</c> flex
+      (third figure in the time columns, 
+      only valid for text codecs using the flex-scanner, 
+      figures within parenthesis). </p>
+
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Codec and config</em></cell>
+        <cell align="center" valign="middle"><em>Size</em></cell>
+        <cell align="center" valign="middle"><em>Encode</em></cell>
+        <cell align="center" valign="middle"><em>Decode</em></cell>
+        <cell align="center" valign="middle"><em>Total</em></cell>
+      </row>
+
+      <!-- PRETTY -->
+      <row>
+        <cell align="left" valign="middle">pretty</cell>
+        <cell align="right" valign="middle">336</cell>
+        <cell align="right" valign="middle">20 / 13</cell>
+        <cell align="right" valign="middle">75 / 40</cell>
+        <cell align="right" valign="middle">95 / 53</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">pretty [flex]</cell>
+        <cell align="right" valign="middle">336</cell>
+        <cell align="right" valign="middle">20 / 13 / 20</cell>
+        <cell align="right" valign="middle">39 / 33 / 38</cell>
+        <cell align="right" valign="middle">59 / 46 / 58</cell>
+      </row>
+
+      <!-- COMPACT -->
+      <row>
+        <cell align="left" valign="middle">compact</cell>
+        <cell align="right" valign="middle">181</cell>
+        <cell align="right" valign="middle">17 / 10</cell>
+        <cell align="right" valign="middle">62 / 35</cell>
+        <cell align="right" valign="middle">79 / 45</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">compact [flex]</cell>
+        <cell align="right" valign="middle">181</cell>
+        <cell align="right" valign="middle">17 / 10 / 17</cell>
+        <cell align="right" valign="middle">37 / 31 / 36</cell>
+	<cell align="right" valign="middle">54 / 41 / 53</cell>
+      </row>
+
+      <!-- PER -->
+      <row>
+        <cell align="left" valign="middle">per bin</cell>
+        <cell align="right" valign="middle">91</cell>
+        <cell align="right" valign="middle">60 / 29</cell>
+        <cell align="right" valign="middle">64 / -</cell>
+        <cell align="right" valign="middle">124 / -</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">per bin [driver]</cell>
+        <cell align="right" valign="middle">91</cell>
+        <cell align="right" valign="middle">39 / 24</cell>
+        <cell align="right" valign="middle">42 / 26</cell>
+        <cell align="right" valign="middle">81 / 50</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">per bin [native]</cell>
+        <cell align="right" valign="middle">91</cell>
+        <cell align="right" valign="middle">45 / 21</cell>
+        <cell align="right" valign="middle">48 / -</cell>
+        <cell align="right" valign="middle">93 / -</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">per bin [driver,native]</cell>
+        <cell align="right" valign="middle">91</cell>
+        <cell align="right" valign="middle">25 / 15</cell>
+        <cell align="right" valign="middle">27 / 18</cell>
+        <cell align="right" valign="middle">52 / 33</cell>
+      </row>
+
+      <!-- BER -->
+      <row>
+        <cell align="left" valign="middle">ber bin</cell>
+        <cell align="right" valign="middle">165</cell>
+        <cell align="right" valign="middle">32 / 19</cell>
+        <cell align="right" valign="middle">38 / 21</cell>
+        <cell align="right" valign="middle">70 / 40</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ber bin [driver]</cell>
+        <cell align="right" valign="middle">165</cell>
+        <cell align="right" valign="middle">32 / 19</cell>
+        <cell align="right" valign="middle">33 / 20</cell>
+        <cell align="right" valign="middle">65 / 39</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ber bin [native]</cell>
+        <cell align="right" valign="middle">165</cell>
+        <cell align="right" valign="middle">17 / 11</cell>
+        <cell align="right" valign="middle">25 / 13</cell>
+        <cell align="right" valign="middle">42 / 24</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ber bin [driver,native]</cell>
+        <cell align="right" valign="middle">165</cell>
+        <cell align="right" valign="middle">17 / 11</cell>
+        <cell align="right" valign="middle">17 / 12</cell>
+        <cell align="right" valign="middle">34 / 23</cell>
+      </row>
+
+      <!-- ERLANG -->
+      <row>
+        <cell align="left" valign="middle">erl_dist</cell>
+        <cell align="right" valign="middle">875</cell>
+        <cell align="right" valign="middle">5  /  5</cell>
+        <cell align="right" valign="middle">10 / 10</cell>
+        <cell align="right" valign="middle">15 / 15</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">erl_dist [megaco_compressed]</cell>
+        <cell align="right" valign="middle">405</cell>
+        <cell align="right" valign="middle">6  / 4</cell>
+        <cell align="right" valign="middle">7  / 4</cell>
+        <cell align="right" valign="middle">13 / 8</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">erl_dist [compressed]</cell>
+        <cell align="right" valign="middle">345</cell>
+        <cell align="right" valign="middle">47 / 47</cell>
+        <cell align="right" valign="middle">20 / 20</cell>
+        <cell align="right" valign="middle">67 / 67</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">erl_dist [megaco_compressed,compressed]</cell>
+        <cell align="right" valign="middle">200</cell>
+        <cell align="right" valign="middle">34 / 33</cell>
+        <cell align="right" valign="middle">11 /  9</cell>
+        <cell align="right" valign="middle">45 / 42</cell>
+      </row>
+
+      <tcaption>Codec performance</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>System performance characteristics</title>
+    <p>This is primarily a way to show the effects of using the 
+      reentrant flex scanner instead of the non-reentrant. </p>
+    <p>As can be seen from the figures above there is no real difference 
+      between a non-reentrant and an reentrant flex scanner when it 
+      comes to the decode times of an individual message. </p>
+    <p>The real difference is instead in system characteristics, which 
+      is best shown with the mstone1 test. </p>
+    <p>When running SMP erlang on a multi-core machine the "throughput"
+      is significantly higher. The mstone1 test is an extreme test,
+      but it shows what is gained by using the reentrant flex-scanner. </p>
+    <image file="mstone1.jpg">
+        <icaption>MStone1 with mstone1.sh -d flex -s 4</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Description of encoders/decoders</title>
+    <p>In Appendix A of the Megaco/H.248 specification (RFC 3525), there are 
+      about 30 messages that shows a representative call flow. We have also 
+      added a few extra version 1, version 2 and version 3 messages. 
+      We have used these messages as basis for our measurements. 
+      Our figures have not been weighted in regard to how frequent 
+      the different kinds of messages that are sent between the media 
+      gateway and its controller.</p>
+    <p>The test compares the following encoder/decoders:</p>
+    <list type="bulleted">
+      <item>
+        <p><em>pretty</em> - pretty printed text. In the text encoding, 
+          the protocol stack implementors have the choice of using a 
+          mix of short and long keywords. It is also possible to add 
+          white spaces to improve readability. The pretty text encoding 
+          utilizes long keywords and an indentation style like the 
+          text examples in the Megaco/H.248 specification.</p>
+      </item>
+      <item>
+        <p><em>compact</em> - the compact text encoding uses the shortest 
+          possible keywords and no optional white spaces.</p>
+      </item>
+      <item>
+        <p><em>ber</em> - ASN.1 BER.</p>
+      </item>
+      <item>
+        <p><em>per</em> - ASN.1 PER. Not standardized as a valid 
+          Megaco/H.248 encoding, but included for the matter of completeness 
+          as its encoding is extremely compact.</p>
+      </item>
+      <item>
+        <p><em>erl_dist</em> - Erlang's native distribution format. Not 
+          standardized as a valid Megaco/H.248 encoding, but included 
+          as a reference due to its well known performance characteristics. 
+          Erlang is a dynamically typed language and any Erlang data 
+          structure may be serialized to the erl_dist format by using 
+          built-in functions.</p>
+      </item>
+    </list>
+    <p>The actual encoded messages have been collected in one directory per 
+      encoding type, containing one file per encoded message.</p>
+    <p>Here follows an example of a text message to give a feeling of the 
+      difference between the pretty and compact versions of text messages. 
+      First the pretty printed, well indented version with long keywords:</p>
+    <p></p>
+    <pre>
+MEGACO/1 [124.124.124.222] 
+  Transaction = 9998 { 
+    Context = - { 
+      ServiceChange = ROOT { 
+        Services { 
+          Method = Restart, 
+          ServiceChangeAddress = 55555, 
+          Profile = ResGW/1, 
+          Reason = "901 MG Cold Boot"
+        }
+      }  
+    }
+  }    </pre>
+    <p>Then the compact text version without indentation and with short 
+      keywords:</p>
+    <pre>
+!/1 [124.124.124.222] T=9998{
+  C=-{SC=ROOT{SV{MT=RS,AD=55555,PF=ResGW/1,RE="901 MG Cold Boot"}}}}    </pre>
+  </section>
+
+  <section>
+    <title>Setup</title>
+    <p>The measurements has been performed on a 
+      HP xw4600 Workstation with 
+      a Intel(R) Core(TM)2 Quad CPU Q9550 @ 2.83GHz, with 4 GB memory and 
+      running Ubuntu 10.04 x86_64, kernel 2.6.32-22-generic. 
+      Software versions was open source OTP R13B04 (megaco-3.14).</p>
+  </section>
+
+  <section>
+    <title>Summary</title>
+    <p>In our measurements we have seen that there are no significant 
+      differences in message sizes between ASN.1 BER and the compact 
+      text format. Some care should be taken when using the pretty text 
+      style (which is used in all the examples included in the protocol 
+      specification and preferred during debugging sessions) since the 
+      messages can then be quite large. If the message size really is a 
+      serious issue, our per encoder should be used, as the ASN.1 PER 
+      format is much more compact than all the other alternatives. Its 
+      major drawback is that it is has not been approved as a valid 
+      Megaco/H.248 message encoding.</p>
+
+    <p>When it comes to pure encode/decode performance, it turns out that:</p>
+    <list type="bulleted"> 
+      <item>
+        <p>our fastest binary encoder (ber) is about equal 
+          to our fastest text encoder (compact). </p>
+      </item>
+      <item>
+        <p>our fastest binary decoder (ber) is about 54% (61%) faster than our 
+          fastest text decoder (compact). </p>
+      </item>
+    </list> 
+
+    <p>If the pure encode/decode performance really is a serious issue, our 
+      erl_dist encoder could be used, as the encoding/decoding of the 
+      erlang distribution format is much faster than all the other 
+      alternatives. Its major drawback is that it is has not been approved 
+      as a valid Megaco/H.248 message encoding.</p>
+
+    <p>There is no performance advantage of building (and using) a 
+      non-reentrant flex scanner over a reentrant flex scanner (if flex
+      supports building such a scanner). </p>
+
+    <note>
+      <p>Please, observe that these performance figures are related to our 
+        implementation in Erlang/OTP. Measurements of other implementations 
+        using other tools and techniques may of course result in other 
+        figures. </p>
+    </note>
+  </section>
+</chapter>
+

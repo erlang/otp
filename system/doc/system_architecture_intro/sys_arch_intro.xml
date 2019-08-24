@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>sys_arch_intro.xml</file>
+  </header>
+
+  <section>
+    <title>Erlang and OTP</title>
+    <p>Erlang is a general-purpose programming language with built-in 
+      support for concurrency, distribution and fault tolerance.</p>
+    <p>OTP (Open Telecom Platform) is aimed at providing time-saving and 
+      flexible development for robust, adaptable telecom systems. It 
+      consists of an Erlang runtime system, a number of ready-to-use 
+      components mainly written in Erlang, and a set of design principles 
+      for Erlang programs. Since Erlang and OTP are closely interconnected 
+      the term Erlang/OTP is normally used instead of OTP.</p>
+  </section>
+
+  <section>
+    <title>Erlang/OTP</title>
+
+    <section>
+      <title>Erlang Runtime System</title>
+      <p>The Erlang runtime system (ERTS) is made up of an emulator running on top of the host operating system, a kernel providing low-level services such as distribution and I/O handling, and a standard library containing a large number of re-usable modules.</p>
+      <p>The OTP design principles provides the user with a way to structure the system based on a concept called application. An OTP application is a way to package a system component and is either a set of library modules or a supervision tree. A supervision tree is a hierarchical tree of processes used to program fault-tolerant systems. The processes are easiest implemented using behavior modules which are formalizations of design patterns. The standard library includes behavior modules for supervisors, servers, state machines and generic event handlers. In chapter 4 "OTP Design Principles" the design principles are explained in detail.</p>
+    </section>
+
+    <section>
+      <title>OTP Components</title>
+      <p>The OTP components can be divided into six categories:</p>
+      <list type="bulleted">
+        <item>
+          <p>Basic Applications - Basic Erlang/OTP functionality.</p>
+          <list type="bulleted">
+            <item><em>Compiler</em> A compiler for Erlang modules.</item>
+            <item><em>Kernel</em> Functionality necessary to run Erlang/OTP itself.</item>
+            <item><em>SASL</em> (System Architecture Support Libraries) A set of tools for code replacement and alarm handling etc.</item>
+            <item><em>Stdlib</em> The standard library.</item>
+          </list>
+        </item>
+        <item>
+          <p>Operations and Maintenance - OAM both of the system developed by the user and of Erlang/OTP itself.</p>
+          <list type="bulleted">
+            <item><em>EVA</em> A multi-featured event and alarm handler.</item>
+            <item><em>OS_Mon</em> A monitor which allows inspection of the underlying operating system.</item>
+            <item><em>SNMP</em> SNMP support including a MIB compiler and tools for creating SNMP agents.</item>
+          </list>
+        </item>
+        <item>
+          <p>Interface and Communication - Interoperability and protocols support.</p>
+          <list type="bulleted">
+            <item><em>Asn1</em> Support for ASN.1.</item>
+            <item><em>Comet</em> A library that enables Erlang/OTP to call COM
+             objects on windows </item>
+            <item><em>Crypto</em> Cryptographical support</item>
+            <item><em>Erl_Interface</em> Low level interface to C.</item>
+            <item><em>GS</em> A graphics system used to write platform
+             independent user interfaces.</item>
+            <item><em>Inets</em> A set of services such as a web server
+             and a FTP client.</item>
+            <item><em>Jinterface</em> Low level interface to Java.</item>
+            <item><em>SSL</em> Secure Socket Layer (SSL),interface to UNIX BSD 
+             sockets </item>
+          </list>
+        </item>
+        <item>
+          <p>Database Management.</p>
+          <list type="bulleted">
+            <item><em>QLC</em> Query language support for Mnesia DBMS.</item>
+            <item><em>Mnesia</em> A heavy duty real-time distributed database.</item>
+            <item><em>ODBC</em> ODBC database interface.</item>
+          </list>
+        </item>
+        <item>
+          <p>Tools.</p>
+          <list type="bulleted">
+            <item><em>Appmon</em> A utility used to view OTP applications.</item>
+            <item><em>Debugger</em> For debugging and testing of Erlang programs.</item>
+            <item><em>Parsetools</em> A set of parsing and lexical analysis tools.</item>
+            <item><em>Pman</em> A process manager used to inspect the state of an Erlang/OTP system.</item>
+            <item><em>Runtime_Tools</em> Tools to include in a production system.</item>
+            <item><em>Toolbar</em> A tool bar simplifying access to the Erlang/OTP tools.</item>
+            <item><em>Tools</em> A set of programming tools including a coverage analyzer etc.</item>
+            <item><em>TV</em> An ETS and Mnesia graphical table visualizer.</item>
+          </list>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Scope and Purpose</title>
+    <p>This documentation describes the Erlang runtime system, the OTP applications and the OTP design principles. It assumes that the reader is familiar with the Erlang programming language and does not explain how to program in Erlang. The language is described in <em>Concurrent Programming in Erlang, 2nd Edition</em>, ISBN 0-13-508301-X.</p>
+  </section>
+
+  <section>
+    <title>About the Erlang/OTP Documentation</title>
+
+    <section>
+      <title>Structure of this Book</title>
+      <p>The documentation is divided into eight parts. This book, <em>Erlang 5.1/OTP R8 System Documentation, EN/LZT 108 4095 R2</em>, is the starting point of the documentation and contains information about the Erlang programming language and runtime system, the OTP design principles, and how to install and configure Erlang/OTP.</p>
+      <list type="bulleted">
+        <item>Chapter 2: "Getting Started with Erlang" describes the Erlang runtime system and introduces the reader to tools such as the compiler and debugger.</item>
+        <item>Chapter 3: "Erlang Extensions Since 4.4" lists all extensions added to the Erlang programming languages since the latest version of the book <em>Concurrent Programming in ERLANG</em>.</item>
+        <item>Chapter 4: "OTP Design Principles" describes a way to structure Erlang code in terms of applications and supervision trees. The standard behaviors are described and examples illustrate how to apply these behaviors to typical applications.</item>
+        <item>Chapter 5: "Installation Guide"gives guidelines on how to install Erlang/OTP on UNIX or Windows.</item>
+        <item>Chapter 6: "System Principles" describes the strategies
+         and options, which are available to start an Erlang/OTP system. This chapter also provides a brief description of the applications included in an Erla
+         ng/OTP system. </item>
+        <item>Chapter 7: "Embedded Systems" is a supplement to "Installation Guide". t describes issues that are specific for running Erlang/OTP on an embedded system.</item>
+        <item>Chapter 8: "Operation and Management Principles" describes the model for operation and maintenance of sub-systems.</item>
+        <item>Chapter 9: "Tutorial" gives an orientation of the different 
+         interoperability mechanism, which can be used when integrating an 
+         Erlang program with a program written in another programming language.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Typographical Conventions</title>
+      <p>The following typographical conventions are used in the documentation.</p>
+      <table>
+        <row>
+          <cell align="left" valign="middle"><em>Convention</em></cell>
+          <cell align="left" valign="middle"><em>Where used</em></cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><em>command</em></cell>
+          <cell align="left" valign="middle">To show menu selections and equivalent command line entries.          <br></br>
+To show keyboard entries at system prompts.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><c>code</c></cell>
+          <cell align="left" valign="middle">To highlight Erlang code, module and function names, arguments, variables, and file names. </cell>
+        </row>
+        <tcaption>Examples of typographical conventions.</tcaption>
+      </table>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,877 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>gen_server</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">gen_server</module>
+  <modulesummary>Generic server behavior.</modulesummary>
+  <description>
+    <p>This behavior module provides the server of a client-server
+      relation. A generic server process (<c>gen_server</c>) implemented using
+      this module has a standard set of interface functions and
+      includes functionality for tracing and error reporting. It also
+      fits into an OTP supervision tree. For more information, see section
+      <seealso marker="doc/design_principles:gen_server_concepts">
+      gen_server Behaviour</seealso> in OTP Design Principles.</p>
+
+    <p>A <c>gen_server</c> process assumes all specific parts to be located in
+      a callback module exporting a predefined set of functions.
+      The relationship between the behavior functions and the callback
+      functions is as follows:</p>
+
+    <pre>
+gen_server module            Callback module
+-----------------            ---------------
+gen_server:start
+gen_server:start_link -----> Module:init/1
+
+gen_server:stop       -----> Module:terminate/2
+
+gen_server:call
+gen_server:multi_call -----> Module:handle_call/3
+
+gen_server:cast
+gen_server:abcast     -----> Module:handle_cast/2
+
+-                     -----> Module:handle_info/2
+
+-                     -----> Module:handle_continue/2
+
+-                     -----> Module:terminate/2
+
+-                     -----> Module:code_change/3</pre>
+
+    <p>If a callback function fails or returns a bad value, the
+      <c>gen_server</c> process terminates.</p>
+
+    <p>A <c>gen_server</c> process handles system messages as described in
+      <seealso marker="sys"><c>sys(3)</c></seealso>. The <c>sys</c> module
+      can be used for debugging a <c>gen_server</c> process.</p>
+
+    <p>Notice that a <c>gen_server</c> process does not trap exit signals
+      automatically, this must be explicitly initiated in the callback
+      module.</p>
+
+    <p>Unless otherwise stated, all functions in this module fail if
+      the specified <c>gen_server</c> process does not exist or if bad
+      arguments are specified.</p>
+
+    <p>The <c>gen_server</c> process can go into hibernation
+      (see <seealso marker="erts:erlang#hibernate/3">
+      <c>erlang:hibernate/3</c></seealso>) if a callback
+      function specifies <c>'hibernate'</c> instead of a time-out value. This
+      can be useful if the server is expected to be idle for a long
+      time. However, use this feature with care, as hibernation
+      implies at least two garbage collections (when hibernating and
+      shortly after waking up) and is not something you want to do
+      between each call to a busy server.</p>
+
+    <p>If the <c>gen_server</c> process needs to perform an action
+      immediately after initialization or to break the execution of a
+      callback into multiple steps, it can return <c>{continue,Continue}</c>
+      in place of the time-out or hibernation value, which will immediately
+      invoke the <c>handle_continue/2</c> callback.</p>
+
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">abcast(Name, Request) -> abcast</name>
+      <name since="">abcast(Nodes, Name, Request) -> abcast</name>
+      <fsummary>Send an asynchronous request to many generic servers.</fsummary>
+      <type>
+        <v>Nodes = [Node]</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>Name = atom()</v>
+        <v>Request = term()</v>
+      </type>
+      <desc>
+        <p>Sends an asynchronous request to the <c>gen_server</c> processes
+          locally registered as <c>Name</c> at the specified nodes. The function
+          returns immediately and ignores nodes that do not exist, or
+          where the <c>gen_server</c> <c>Name</c> does not exist.
+          The <c>gen_server</c> processes call
+          <seealso marker="#Module:handle_cast/2">
+          <c>Module:handle_cast/2</c></seealso> to handle the request.</p>
+        <p>For a description of the arguments, see
+          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">call(ServerRef, Request) -> Reply</name>
+      <name since="">call(ServerRef, Request, Timeout) -> Reply</name>
+      <fsummary>Make a synchronous call to a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Request = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
+        <v>Reply = term()</v>
+      </type>
+      <desc>
+        <p>Makes a synchronous call to the <c>ServerRef</c> of the
+          <c>gen_server</c> process
+          by sending a request and waiting until a reply arrives or a
+          time-out occurs. The <c>gen_server</c> process calls
+          <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso> to handle the request.</p>
+        <p><c>ServerRef</c> can be any of the following:</p>
+        <list type="bulleted">
+          <item>The pid</item>
+          <item><c>Name</c>, if the <c>gen_server</c> process is locally
+            registered</item>
+          <item><c>{Name,Node}</c>, if the <c>gen_server</c> process is locally
+            registered at another node</item>
+          <item><c>{global,GlobalName}</c>, if the <c>gen_server</c> process is
+            globally registered</item>
+          <item><c>{via,Module,ViaName}</c>, if the <c>gen_server</c> process is
+            registered through an alternative process registry</item>
+        </list>
+        <p><c>Request</c> is any term that is passed as one of
+          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Timeout</c> is an integer greater than zero that
+          specifies how many milliseconds to wait for a reply, or
+          the atom <c>infinity</c> to wait indefinitely. Defaults to
+          5000. If no reply is received within the specified time,
+          the function call fails. If the caller catches the failure
+          and continues running, and the server is just late with the reply,
+          it can arrive at any time later into the message queue of the caller.
+          The caller must in this case be prepared for this
+          and discard any such garbage messages that are two element
+          tuples with a reference as the first element.</p>
+        <p>The return value <c>Reply</c> is defined in the return value
+          of <c>Module:handle_call/3</c>.</p>
+        <p>The call can fail for many reasons, including time-out and the
+          called <c>gen_server</c> process dying before or during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">cast(ServerRef, Request) -> ok</name>
+      <fsummary>Send an asynchronous request to a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Request = term()</v>
+      </type>
+      <desc>
+        <p>Sends an asynchronous request to the <c>ServerRef</c> of the
+          <c>gen_server</c> process
+          and returns <c>ok</c> immediately, ignoring
+          if the destination node or <c>gen_server</c> process does not exist.
+          The <c>gen_server</c> process calls
+          <seealso marker="#Module:handle_cast/2">
+          <c>Module:handle_cast/2</c></seealso> to handle the request.</p>
+        <p>For a description of <c>ServerRef</c>, see
+          <seealso marker="#call/2"><c>call/2,3</c></seealso>.</p>
+        <p><c>Request</c> is any term that is passed as one
+          of the arguments to <c>Module:handle_cast/2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">enter_loop(Module, Options, State)</name>
+      <name since="">enter_loop(Module, Options, State, ServerName)</name>
+      <name since="">enter_loop(Module, Options, State, Timeout)</name>
+      <name since="">enter_loop(Module, Options, State, ServerName, Timeout)</name>
+      <fsummary>Enter the <c>gen_server</c> receive loop.</fsummary>
+      <type>
+        <v>Module = atom()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {hibernate_after,HibernateAfterTimeout}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>State = term()</v>
+        <v>ServerName = {local,Name} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Timeout = int() | infinity</v>
+      </type>
+      <desc>
+        <p>Makes an existing process into a <c>gen_server</c> process. Does not
+          return, instead the calling process enters the <c>gen_server</c>
+          process receive
+          loop and becomes a <c>gen_server</c> process. The process
+          <em>must</em> have been started using one of the start functions in
+          <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>. The user is
+          responsible for any initialization of the process, including
+          registering a name for it.</p>
+        <p>This function is useful when a more complex initialization procedure
+          is needed than the <c>gen_server</c> process behavior provides.</p>
+        <p><c>Module</c>, <c>Options</c>, and <c>ServerName</c> have
+          the same meanings as when calling
+          <seealso marker="#start_link/3"><c>start[_link]/3,4</c></seealso>.
+          However, if <c>ServerName</c> is specified, the process must
+          have been registered accordingly <em>before</em> this function
+          is called.</p>
+        <p><c>State</c> and <c>Timeout</c> have the same meanings as in
+          the return value of
+          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.
+          The callback module <c>Module</c> does not need to
+          export an <c>init/1</c> function.</p>
+        <p>The function fails if the calling process was not started by a
+          <c>proc_lib</c> start function, or if it is not registered
+          according to <c>ServerName</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">multi_call(Name, Request) -> Result</name>
+      <name since="">multi_call(Nodes, Name, Request) -> Result</name>
+      <name since="">multi_call(Nodes, Name, Request, Timeout) -> Result</name>
+      <fsummary>Make a synchronous call to many generic servers.</fsummary>
+      <type>
+        <v>Nodes = [Node]</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>Name = atom()</v>
+        <v>Request = term()</v>
+        <v>Timeout = int()>=0 | infinity</v>
+        <v>Result = {Replies,BadNodes}</v>
+        <v>&nbsp;Replies = [{Node,Reply}]</v>
+        <v>&nbsp;&nbsp;Reply = term()</v>
+        <v>BadNodes = [Node]</v>
+      </type>
+      <desc>
+        <p>Makes a synchronous call to all <c>gen_server</c> processes locally
+          registered as <c>Name</c> at the specified nodes by first
+          sending a request to every node and then waits for
+          the replies. The <c>gen_server</c> process calls
+          <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso> to handle the request.</p>
+        <p>The function returns a tuple <c>{Replies,BadNodes}</c>, where
+          <c>Replies</c> is a list of <c>{Node,Reply}</c> and
+          <c>BadNodes</c> is a list of node that either did not exist,
+          or where the <c>gen_server</c> <c>Name</c> did not exist or did not
+          reply.</p>
+        <p><c>Nodes</c> is a list of node names to which the request
+          is to be sent. Default value is the list of all known nodes
+          <c>[node()|nodes()]</c>.</p>
+        <p><c>Name</c> is the locally registered name of each
+          <c>gen_server</c> process.</p>
+        <p><c>Request</c> is any term that is passed as one of
+          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Timeout</c> is an integer greater than zero that
+          specifies how many milliseconds to wait for each reply, or
+          the atom <c>infinity</c> to wait indefinitely. Defaults
+          to <c>infinity</c>. If no reply is received from a node within
+          the specified time, the node is added to <c>BadNodes</c>.</p>
+        <p>When a reply <c>Reply</c> is received from the <c>gen_server</c>
+          process at a node <c>Node</c>, <c>{Node,Reply}</c> is added to
+          <c>Replies</c>. <c>Reply</c> is defined in the return value of
+          <c>Module:handle_call/3</c>.</p>
+        <warning>
+          <p>If one of the nodes cannot process monitors, for example,
+            C or Java nodes, and the <c>gen_server</c> process is not started
+            when the requests are sent, but starts within 2 seconds,
+            this function waits the whole <c>Timeout</c>,
+            which may be infinity.</p>
+          <p>This problem does not exist if all nodes are Erlang nodes.</p>
+        </warning>
+        <p>To prevent late answers (after the time-out) from polluting
+          the message queue of the caller, a middleman process is used to
+          do the calls. Late answers are then discarded
+          when they arrive to a terminated process.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">reply(Client, Reply) -> Result</name>
+      <fsummary>Send a reply to a client.</fsummary>
+      <type>
+        <v>Client - see below</v>
+        <v>Reply = term()</v>
+        <v>Result = term()</v>
+      </type>
+      <desc>
+        <p>This function can be used by a <c>gen_server</c> process to
+          explicitly send a reply to a client that called
+          <seealso marker="#call/2"><c>call/2,3</c></seealso> or
+          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
+          when the reply cannot be defined in the return value of
+          <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+        <p><c>Client</c> must be the <c>From</c> argument provided to
+          the callback function. <c>Reply</c> is any term
+          given back to the client as the return value of
+          <c>call/2,3</c> or <c>multi_call/2,3,4</c>.</p>
+        <p>The return value <c>Result</c> is not further defined, and
+          is always to be ignored.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start(Module, Args, Options) -> Result</name>
+      <name since="">start(ServerName, Module, Args, Options) -> Result</name>
+      <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
+      <type>
+        <v>ServerName = {local,Name} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Module = atom()</v>
+        <v>Args = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
+        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;Error = {already_started,Pid} | term()</v>
+      </type>
+      <desc>
+        <p>Creates a standalone <c>gen_server</c> process, that is, a
+          <c>gen_server</c> process that is not part of a supervision tree
+          and thus has no supervisor.</p>
+        <p>For a description of arguments and return values, see
+          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start_link(Module, Args, Options) -> Result</name>
+      <name since="">start_link(ServerName, Module, Args, Options) -> Result</name>
+      <fsummary>Create a <c>gen_server</c> process in a supervision tree.
+      </fsummary>
+      <type>
+        <v>ServerName = {local,Name} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Module = atom()</v>
+        <v>Args = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
+        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;Error = {already_started,Pid} | term()</v>
+      </type>
+      <desc>
+        <p>Creates a <c>gen_server</c> process as part of a supervision tree.
+          This function is to be called, directly or indirectly, by
+          the supervisor. For example, it ensures that
+          the <c>gen_server</c> process is linked to the supervisor.</p>
+        <p>The <c>gen_server</c> process calls
+          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso> to
+          initialize. To ensure a synchronized startup procedure,
+          <c>start_link/3,4</c> does not return until
+          <c>Module:init/1</c> has returned.</p>
+        <list type="bulleted">
+          <item>
+            <p>If <c>ServerName={local,Name}</c>, the <c>gen_server</c> process
+              is registered locally as <c>Name</c> using <c>register/2</c>.</p>
+          </item>
+          <item>
+            <p>If <c>ServerName={global,GlobalName}</c>, the <c>gen_server</c>
+              process id registered globally as <c>GlobalName</c> using
+              <seealso marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seealso> If no name is
+              provided, the <c>gen_server</c> process is not registered.</p>
+          </item>
+          <item>
+            <p>If <c>ServerName={via,Module,ViaName}</c>, the <c>gen_server</c>
+              process registers with the registry represented by <c>Module</c>.
+              The <c>Module</c> callback is to export the functions
+              <c>register_name/2</c>, <c>unregister_name/1</c>,
+              <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
+              like the corresponding functions in
+              <seealso marker="kernel:global"><c>global</c></seealso>.
+              Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
+          </item>
+        </list>
+        <p><c>Module</c> is the name of the callback module.</p>
+        <p><c>Args</c> is any term that is passed as
+          the argument to
+          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.</p>
+        <list type="bulleted">
+          <item>
+            <p>If option <c>{timeout,Time}</c> is present, the <c>gen_server</c>
+              process is allowed to spend <c>Time</c> milliseconds
+              initializing or it is terminated and the start function
+              returns <c>{error,timeout}</c>.</p>
+          </item>
+          <item>
+            <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_server</c>
+              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation automatically
+              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
+          </item>
+          <item>
+            <p>If option <c>{debug,Dbgs}</c> is present,
+              the corresponding <c>sys</c> function is called for each
+              item in <c>Dbgs</c>; see
+              <seealso marker="sys"><c>sys(3)</c></seealso>.</p>
+          </item>
+          <item>
+            <p>If option <c>{spawn_opt,SOpts}</c> is present,
+              <c>SOpts</c> is passed as option list to
+              the <c>spawn_opt</c> BIF, which is used to spawn
+              the <c>gen_server</c> process; see
+              <seealso marker="erts:erlang#spawn_opt/2">
+              <c>spawn_opt/2</c></seealso>.</p>
+          </item>
+        </list>
+        <note>
+          <p>Using spawn option <c>monitor</c> is not
+            allowed, it causes the function to fail with reason
+            <c>badarg</c>.</p>
+        </note>
+        <p>If the <c>gen_server</c> process is successfully created and
+          initialized, the function returns <c>{ok,Pid}</c>, where <c>Pid</c>
+          is the pid of the <c>gen_server</c> process. If a process with the
+          specified <c>ServerName</c> exists already, the function returns
+          <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
+          the pid of that process.</p>
+        <p>If <c>Module:init/1</c> fails with <c>Reason</c>,
+          the function returns <c>{error,Reason}</c>. If
+          <c>Module:init/1</c> returns <c>{stop,Reason}</c> or
+          <c>ignore</c>, the process is terminated and the function
+          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 18.0">stop(ServerRef) -> ok</name>
+      <name since="OTP 18.0">stop(ServerRef, Reason, Timeout) -> ok</name>
+      <fsummary>Synchronously stop a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Reason = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
+      </type>
+      <desc>
+        <p>Orders a generic server to exit with the specified <c>Reason</c>
+          and waits for it to terminate. The <c>gen_server</c> process calls
+          <seealso marker="#Module:terminate/2">
+          <c>Module:terminate/2</c></seealso> before exiting.</p>
+        <p>The function returns <c>ok</c> if the server terminates
+          with the expected reason. Any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
+          error report to be issued using
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
+          The default <c>Reason</c> is <c>normal</c>.</p>
+        <p><c>Timeout</c> is an integer greater than zero that
+          specifies how many milliseconds to wait for the server to
+          terminate, or the atom <c>infinity</c> to wait
+          indefinitely. Defaults to <c>infinity</c>. If the
+          server has not terminated within the specified time, a
+          <c>timeout</c> exception is raised.</p>
+        <p>If the process does not exist, a <c>noproc</c> exception
+          is raised.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Callback Functions</title>
+    <p>The following functions
+      are to be exported from a <c>gen_server</c> callback module.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
+      <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
+      <type>
+        <v>OldVsn = Vsn | {down, Vsn}</v>
+        <v>&nbsp;&nbsp;Vsn = term()</v>
+        <v>State = NewState = term()</v>
+        <v>Extra = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process when it is
+          to update its internal state during a release upgrade/downgrade,
+          that is, when the instruction <c>{update,Module,Change,...}</c>,
+          where <c>Change={advanced,Extra}</c>, is specifed in
+          the <c>appup</c> file. For more information, see section
+          <seealso marker="doc/design_principles:release_handling#instr">
+          Release Handling Instructions</seealso> in OTP Design Principles.</p>
+        <p>For an upgrade, <c>OldVsn</c> is <c>Vsn</c>, and
+          for a downgrade, <c>OldVsn</c> is
+          <c>{down,Vsn}</c>. <c>Vsn</c> is defined by the <c>vsn</c>
+          attribute(s) of the old version of the callback module
+          <c>Module</c>. If no such attribute is defined, the version
+          is the checksum of the Beam file.</p>
+        <p><c>State</c> is the internal state of the <c>gen_server</c>
+          process.</p>
+        <p><c>Extra</c> is passed "as is" from the <c>{advanced,Extra}</c>
+          part of the update instruction.</p>
+        <p>If successful, the function must return the updated
+          internal state.</p>
+        <p>If the function returns <c>{error,Reason}</c>, the ongoing
+          upgrade fails and rolls back to the old release.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R13B04">Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <fsummary>Optional function for providing a term describing the
+        current <c>gen_server</c> status.</fsummary>
+      <type>
+        <v>Opt = normal | terminate</v>
+        <v>PDict = [{Key, Value}]</v>
+        <v>State = term()</v>
+        <v>Status = term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that returns the callback
+            module state.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process in the
+          following situations:</p>
+        <list type="bulleted">
+          <item>
+            <p>One of <seealso marker="sys#get_status/1">
+              <c>sys:get_status/1,2</c></seealso>
+              is invoked to get the <c>gen_server</c> status. <c>Opt</c> is set
+              to the atom <c>normal</c>.</p>
+          </item>
+          <item>
+            <p>The <c>gen_server</c> process terminates abnormally and logs an
+              error. <c>Opt</c> is set to the atom <c>terminate</c>.</p>
+          </item>
+        </list>
+        <p>This function is useful for changing the form and
+          appearance of the <c>gen_server</c> status for these cases. A
+          callback module wishing to change
+          the <c>sys:get_status/1,2</c> return value, as well as how
+          its status appears in termination error logs, exports an
+          instance of <c>format_status/2</c> that returns a term
+          describing the current status of the <c>gen_server</c> process.</p>
+        <p><c>PDict</c> is the current value of the process dictionary of
+          the <c>gen_server</c> process..</p>
+        <p><c>State</c> is the internal state of the <c>gen_server</c>
+          process.</p>
+        <p>The function is to return <c>Status</c>, a term that
+          changes the details of the current state and status of
+          the <c>gen_server</c> process. There are no restrictions on the
+          form <c>Status</c> can take, but for
+          the <c>sys:get_status/1,2</c> case (when <c>Opt</c>
+          is <c>normal</c>), the recommended form for
+          the <c>Status</c> value is <c>[{data, [{"State",
+          Term}]}]</c>, where <c>Term</c> provides relevant details of
+          the <c>gen_server</c> state. Following this recommendation is not
+          required, but it makes the callback module status
+          consistent with the rest of the <c>sys:get_status/1,2</c>
+          return value.</p>
+        <p>One use for this function is to return compact alternative
+          state representations to avoid that large state terms are
+          printed in log files.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:handle_call(Request, From, State) -> Result</name>
+      <fsummary>Handle a synchronous request.</fsummary>
+      <type>
+        <v>Request = term()</v>
+        <v>From = {pid(),Tag}</v>
+        <v>State = term()</v>
+        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
+        <v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {reply,Reply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
+        <v>&nbsp;Reply = term()</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+        <p>Whenever a <c>gen_server</c> process receives a request sent using
+          <seealso marker="#call/2"><c>call/2,3</c></seealso> or
+          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
+          this function is called to handle the request.</p>
+        <p><c>Request</c> is the <c>Request</c> argument provided
+          to <c>call</c> or <c>multi_call</c>.</p>
+        <p><c>From</c> is a tuple <c>{Pid,Tag}</c>, where <c>Pid</c> is
+          the pid of the client and <c>Tag</c> is a unique tag.</p>
+        <p><c>State</c> is the internal state of the <c>gen_server</c>
+          process.</p>
+        <list type="bulleted">
+          <item>
+            <p>If <c>{reply,Reply,NewState}</c> is returned, 
+              <c>{reply,Reply,NewState,Timeout}</c> or 
+              <c>{reply,Reply,NewState,hibernate}</c>, <c>Reply</c> is
+              given back to <c>From</c> as the return value of
+              <c>call/2,3</c> or included in the return value of
+              <c>multi_call/2,3,4</c>. The <c>gen_server</c> process then
+              continues executing with the possibly updated internal state
+              <c>NewState</c>.</p>
+            <p>For a description of <c>Timeout</c> and <c>hibernate</c>, see
+              <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.</p>
+          </item>
+          <item>
+            <p>If <c>{noreply,NewState}</c> is returned,
+              <c>{noreply,NewState,Timeout}</c>, or
+              <c>{noreply,NewState,hibernate}</c>, the <c>gen_server</c>
+              process continues executing with <c>NewState</c>. Any reply to
+              <c>From</c> must be specified explicitly using
+              <seealso marker="#reply/2"><c>reply/2</c></seealso>.</p>
+          </item>
+          <item>
+            <p>If <c>{stop,Reason,Reply,NewState}</c> is returned,
+              <c>Reply</c> is given back to <c>From</c>.</p>
+          </item>
+          <item>
+            <p>If <c>{stop,Reason,NewState}</c> is returned, any reply
+              to <c>From</c> must be specified explicitly using
+              <seealso marker="#reply/2"><c>reply/2</c></seealso>.
+              The <c>gen_server</c> process then calls
+              <c>Module:terminate(Reason,NewState)</c> and terminates.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:handle_cast(Request, State) -> Result</name>
+      <fsummary>Handle an asynchronous request.</fsummary>
+      <type>
+        <v>Request = term()</v>
+        <v>State = term()</v>
+        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+        <p>Whenever a <c>gen_server</c> process receives a request sent using
+          <seealso marker="#cast/2"><c>cast/2</c></seealso> or
+          <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
+          this function is called to handle the request.</p>
+        <p>For a description of the arguments and possible return values, see
+          <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">Module:handle_continue(Continue, State) -> Result</name>
+      <fsummary>Handle a continue instruction.</fsummary>
+      <type>
+        <v>Continue = term()</v>
+        <v>State = term()</v>
+        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
+        <v>&nbsp;Reason = normal | term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need to
+            export it only if they return <c>{continue,Continue}</c>
+            from another callback. If continue is used and the callback
+            is not implemented, the process will exit with <c>undef</c>
+            error.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process whenever
+          a previous callback returns <c>{continue, Continue}</c>.
+          <c>handle_continue/2</c> is invoked immediately after the previous
+          callback, which makes it useful for performing work after
+          initialization or for splitting the work in a callback in
+          multiple steps, updating the process state along the way.</p>
+        <p>For a description of the other arguments and possible return values,
+          see <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:handle_info(Info, State) -> Result</name>
+      <fsummary>Handle an incoming message.</fsummary>
+      <type>
+        <v>Info = timeout | term()</v>
+        <v>State = term()</v>
+        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Reason = normal | term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process when a
+          time-out occurs or when it receives any other message than a
+          synchronous or asynchronous request (or a system message).</p>
+        <p><c>Info</c> is either the atom <c>timeout</c>, if a time-out
+          has occurred, or the received message.</p>
+        <p>For a description of the other arguments and possible return values,
+          see <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:init(Args) -> Result</name>
+      <fsummary>Initialize process and internal state.</fsummary>
+      <type>
+        <v>Args = term()</v>
+        <v>Result =  {ok,State} | {ok,State,Timeout} | {ok,State,hibernate}</v>
+        <v>&nbsp;| {ok,State,{continue,Continue}} | {stop,Reason} | ignore</v>
+        <v>&nbsp;State = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+        <p>Whenever a <c>gen_server</c> process is started using
+          <seealso marker="#start/3"><c>start/3,4</c></seealso> or
+          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>,
+          this function is called by the new process to initialize.</p>
+        <p><c>Args</c> is the <c>Args</c> argument provided to the start
+          function.</p>
+        <p>If the initialization is successful, the function is to
+          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>, or
+          <c>{ok,State,hibernate}</c>, where <c>State</c> is the internal
+          state of the <c>gen_server</c> process.</p>
+        <p>If an integer time-out value is provided, a time-out occurs
+          unless a request or a message is received within
+          <c>Timeout</c> milliseconds. A time-out is represented by
+          the atom <c>timeout</c>, which is to be handled by the
+          <seealso marker="#Module:handle_info/2">
+          <c>Module:handle_info/2</c></seealso> callback function. The atom
+          <c>infinity</c> can be used to wait indefinitely, this is
+          the default value.</p>
+        <p>If <c>hibernate</c> is specified instead of a time-out value,
+          the process goes into
+          hibernation when waiting for the next message to arrive (by calling 
+          <seealso marker="proc_lib#hibernate/3">
+          <c>proc_lib:hibernate/3</c></seealso>).</p>
+        <p>If the initialization fails, the function is to return
+          <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
+          <c>ignore</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:terminate(Reason, State)</name>
+      <fsummary>Clean up before termination.</fsummary>
+      <type>
+        <v>Reason = normal | shutdown | {shutdown,term()} | term()</v>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation without cleanup.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process when it is
+          about to terminate. It is to be the opposite of
+          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+          and do any necessary cleaning up. When it returns,
+          the <c>gen_server</c> process terminates with <c>Reason</c>.
+          The return value is ignored.</p>
+        <p><c>Reason</c> is a term denoting the stop reason and <c>State</c>
+          is the internal state of the <c>gen_server</c> process.</p>
+        <p><c>Reason</c> depends on why the <c>gen_server</c> process is
+          terminating. If it is because another callback function has returned
+          a stop tuple <c>{stop,..}</c>, <c>Reason</c> has
+          the value specified in that tuple. If it is because of a failure,
+          <c>Reason</c> is the error reason.</p>
+        <p>If the <c>gen_server</c> process is part of a supervision tree and
+          is ordered by its supervisor to terminate, this function is
+          called with <c>Reason=shutdown</c> if the following
+          conditions apply:</p>
+        <list type="bulleted">
+          <item>
+            <p>The <c>gen_server</c> process has been set to trap exit
+              signals.</p>
+          </item>
+          <item>
+            <p>The shutdown strategy as defined in the child specification
+              of the supervisor is an integer time-out value, not
+              <c>brutal_kill</c>.</p>
+           </item>
+        </list>
+        <p>Even if the <c>gen_server</c> process is <em>not</em> part of a
+          supervision tree, this function is called if it receives an
+          <c>'EXIT'</c> message from its parent. <c>Reason</c> is the same
+          as in the <c>'EXIT'</c> message.</p>
+        <p>Otherwise, the <c>gen_server</c> process terminates immediately.</p>
+        <p>Notice that for any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
+          process is assumed to terminate because of an error and
+          an error report is issued using
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
+      <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
+      <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>,
+      <seealso marker="supervisor"><c>supervisor(3)</c></seealso>,
+      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+  </section>
+</erlref>
+

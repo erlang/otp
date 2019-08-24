@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>et</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et</file>
+  </header>
+  <module since="">et</module>
+  <modulesummary>Main API of the Event Trace (ET) application</modulesummary>
+  <description>
+    <p>Interface module for the Event Trace (ET) application</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="OTP R13B04">trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>A function that is intended to be traced.</fsummary>
+      <type>
+        <v>DetailLevel = integer(X) when X =&lt; 0, X >= 100</v>
+        <v>From        = actor()</v>
+        <v>To          = actor()</v>
+        <v>Label       = atom() | string() | term()</v>
+        <v>Contents    = [{Key, Value}] | term()</v>
+        <v>actor()     = term()</v>
+      </type>
+      <desc>
+        <p>A function that is intended to be traced.</p>
+        <p>This function is intended to be invoked at strategic places
+        in user applications in order to enable simplified
+        tracing. The functions are extremely light weight as they do
+        nothing besides returning an atom. The functions are designed
+        for being traced. The global tracing mechanism in
+        <c>et_collector</c> defaults to set its trace pattern to these
+        functions.</p>
+        <p>The label is intended to provide a brief summary of the
+        event. It is preferred to use an atom but a string would also
+        do.</p>
+        <p>The contents can be any term but in order to simplify
+          post processing of the traced events, a plain list
+          of {Key, Value} tuples is preferred.</p>
+        <p>Some events, such as messages, are directed from some actor to another.
+          Other events (termed actions) may be undirected and only have one actor.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R13B04">trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <fsummary>A function that is intended to be traced.</fsummary>
+      <desc>
+       <p>Invokes <c>et:trace_me/5</c> with both <c>From</c> and <c>To</c>
+       set to <c>FromTo</c>.</p>
+     </desc>
+    </func>
+
+    <func>
+      <name since="">phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name since="">phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>Send a signal to the outer space</fsummary>
+      <desc>
+        <p>These functions sends a signal to the outer space and the
+        caller hopes that someone is listening. In other words, they
+        invoke <c>et:trace_me/4</c> and <c>et:trace_me/5</c>
+        respectively.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name since="">report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>Deprecated functions</fsummary>
+      <desc>
+        <p>Deprecated functions which for the time being are kept for
+        backwards compatibility. Invokes <c>et:trace_me/4</c> and
+        <c>et:trace_me/5</c> respectively.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

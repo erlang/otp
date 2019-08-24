@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Dialyzer</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2016-09-19</date>
+    <rev></rev>
+    <file>dialyzer_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <section>
+      <title>Scope</title>
+      <p>Dialyzer is a static analysis tool that identifies software
+        discrepancies, such as definite type errors, code that has become dead
+        or unreachable because of programming error, and unnecessary tests,
+        in single Erlang modules or entire (sets of) applications.</p>
+
+      <p>Dialyzer can be called from the command line, from Erlang,
+        and from a GUI.</p>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>It is assumed that the reader is familiar with the Erlang programming
+        language.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="plt"/>
+    <title>The Persistent Lookup Table</title>
+    <p>Dialyzer stores the result of an analysis in a Persistent
+      Lookup Table (PLT). The PLT can then be used as a starting
+      point for later analyses. It is recommended to build a PLT with the
+      Erlang/OTP applications that you are using, but also to include your
+      own applications that you are using frequently.</p>
+
+    <p>The PLT is built using option <c>--build_plt</c> to Dialyzer.
+      The following command builds the recommended minimal PLT for
+      Erlang/OTP:</p>
+
+    <code type="none">
+dialyzer --build_plt --apps erts kernel stdlib mnesia</code>
+
+    <p>Dialyzer looks if there is an environment variable called
+      <c>DIALYZER_PLT</c> and places the PLT at this location. If no such
+      variable is set, Dialyzer places the PLT at
+      <c>$HOME/.dialyzer_plt</c>. The placement can also be specified using
+      the options <c>--plt</c> or <c>--output_plt</c>.</p>
+
+    <p>Information can be added to an existing PLT using option
+      <c>--add_to_plt</c>. If you also want to include the Erlang compiler in
+      the PLT and place it in a new PLT, then use the following command:</p>
+
+    <code type="none">
+dialyzer --add_to_plt --apps compiler --output_plt my.plt</code>
+
+    <p>Then you can add your favorite application my_app to the new
+      PLT:</p>
+
+    <code type="none">
+dialyzer --add_to_plt --plt my.plt -r my_app/ebin</code>
+
+    <p>But you realize that it is unnecessary to have the Erlang compiler in this
+      one:</p>
+
+    <code type="none">
+dialyzer --remove_from_plt --plt my.plt --apps compiler</code>
+
+    <p>Later, when you have fixed a bug in your application my_app,
+      you want to update the PLT so that it becomes fresh the next time
+      you run Dialyzer. In this case, run the following command:</p>
+
+    <code type="none">
+dialyzer --check_plt --plt my.plt</code>
+
+    <p>Dialyzer then reanalyzes the changed files
+      and the files that depend on these files. Notice that this
+      consistency check is performed automatically the next time you
+      run Dialyzer with this PLT. Option <c>--check_plt</c> is only
+      for doing so without doing any other analysis.</p>
+
+    <p>To get information about a PLT, use the following option:</p>
+
+    <code type="none">
+dialyzer --plt_info</code>
+
+    <p>To specify which PLT, use option <c>--plt</c>.</p>
+
+    <p>To get the output printed to a file, use option <c>--output_file</c>.</p>
+
+    <p>Notice that when manipulating the PLT, no warnings are
+      emitted. To turn on warnings during (re)analysis of the PLT, use
+      option <c>--get_warnings</c>.</p>
+  </section>
+
+  <section>
+    <title>Using Dialyzer from the Command Line</title>
+    <p>Dialyzer has a command-line version for automated use.
+      See <seealso marker="dialyzer"><c>dialyzer(3)</c></seealso>.</p>
+  </section>
+
+  <section>
+    <title>Using Dialyzer from Erlang</title>
+    <p>Dialyzer can also be used directly from Erlang.
+      See <seealso marker="dialyzer"><c>dialyzer(3)</c></seealso>.</p>
+  </section>
+
+  <section>
+   <marker id="dialyzer_gui"/>
+    <title>Using Dialyzer from the GUI</title>
+    <section>
+      <title>Choosing the Applications or Modules</title>
+      <p>The <em>File</em> window displays a listing of the current directory.
+        Click your way to the directories/modules you want to add or type the
+        correct path in the entry.</p>
+
+      <p>Mark the directories/modules you want to analyze for discrepancies and
+        click <em>Add</em>. You can either add the <c>.beam</c> and
+        <c>.erl</c> files directly, or add directories that contain
+        these kind of files. Notice that
+        you are only allowed to add the type of files that can be analyzed in
+        the current mode of operation (see below), and that you cannot mix
+        <c>.beam</c> and <c>.erl</c> files.</p>
+    </section>
+
+    <section>
+      <title>Analysis Modes</title>
+      <p>Dialyzer has two analysis modes: "Byte Code" and "Source Code".
+         They are controlled by the buttons in the top-middle part of the
+         main window, under <em>Analysis Options</em>.</p>
+    </section>
+
+    <section>
+      <title>Controlling the Discrepancies Reported by Dialyzer</title>
+      <p>Under the <em>Warnings</em> pull-down menu, there are buttons that
+        control which discrepancies are reported to the user in the
+        <em>Warnings</em> window. By clicking these buttons, you can
+        enable/disable a whole class of warnings. Information about the classes
+        of warnings is found on the "Warnings" item under the <em>Help</em>
+        menu (in the rightmost top corner).</p>
+
+      <p>If modules are compiled with inlining, spurious warnings can be
+        emitted. In the <em>Options</em> menu you can choose to ignore
+        inline-compiled modules when analyzing byte code.
+        When starting from source code, this is not a problem because
+        inlining is explicitly turned off by Dialyzer. The option causes
+        Dialyzer to suppress all warnings from inline-compiled
+        modules, as there is currently no way for Dialyzer to find what
+        parts of the code have been produced by inlining.</p>
+    </section>
+
+    <section>
+      <title>Running the Analysis</title>
+      <p>Once you have chosen the modules or directories you want to analyze,
+        click the <em>Run</em> button to start the analysis. If you for some
+        reason want to stop the analysis while it is running, click the
+        <em>Stop</em> button.</p>
+
+      <p>The information from the analysis is displayed in the <em>Log</em>
+        window and the <em>Warnings</em> window.</p>
+    </section>
+
+    <section>
+      <title>Include Directories and Macro Definitions</title>
+      <p>When analyzing from source, you might have to supply Dialyzer
+        with a list of include directories and macro definitions (as you can do
+        with the <seealso marker="erts:erlc"><c>erlc</c></seealso> flags
+        <c>-I</c> and <c>-D</c>). This can be done
+        either by starting Dialyzer with these flags from the command
+        line as in:</p>
+
+      <code type="none">
+dialyzer -I my_includes -DDEBUG -Dvsn=42 -I one_more_dir</code>
+
+      <p>or by adding these explicitly using submenu
+        <em>Manage Macro Definitions</em> or
+        <em>Manage Include Directories</em> in the <em>Options</em> menu.</p>
+    </section>
+
+    <section>
+      <title>Saving the Information on the Log and Warnings Windows</title>
+      <p>The <em>File</em> menu includes options to save the contents of the
+        <em>Log</em> window and the <em>Warnings</em> window. Simply choose the
+        options and enter the file to save the contents in.</p>
+
+      <p>There are also buttons to clear the contents of each window.</p>
+    </section>
+
+    <section>
+      <title>Inspecting the Inferred Types of the Analyzed Functions</title>
+      <p>Dialyzer stores the information of the analyzed functions in a
+        Persistent Lookup Table (PLT), see section
+        <seealso marker="#plt">The Persistent Lookup Table</seealso>.</p>
+
+      <p>After an analysis, you can inspect this information.
+        In the <em>PLT</em> menu you can choose to either search the PLT
+        or inspect the contents of the whole PLT. The information is presented
+        in <seealso marker="edoc:edoc"><c>EDoc</c></seealso> format.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Feedback and Bug Reports</title>
+    <p>We very much welcome user feedback - even wishlists!
+      If you notice anything weird, especially if Dialyzer reports
+      any discrepancy that is a false positive, please send an error report
+      describing the symptoms and how to reproduce them.</p>
+  </section>
+</chapter>
+

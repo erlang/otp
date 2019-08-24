@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>Ingela Anderton</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2002-09-17</date>
+    <rev>A</rev>
+    <file>introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p>The purpose of the Erlang ODBC application is to provide the
+      programmer with an ODBC interface that has a Erlang/OTP touch and
+      feel. So that the programmer may concentrate on solving his/her
+      actual problem instead of struggling with pointers and memory
+      allocation which is not very relevant for Erlang. This user guide
+      will give you some information about technical issues and provide
+      some examples of how to use the Erlang ODBC interface.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+      programming language, concepts of OTP and has a basic
+      understanding of relational databases and SQL.</p>
+  </section>
+
+  <section>
+    <title>About ODBC</title>
+    <p>Open Database Connectivity (ODBC) is a Microsoft standard for
+      accessing relational databases that has become widely used. The
+      ODBC standard provides a c-level application programming
+      interface (API) for database access. It uses Structured Query
+      Language (SQL) as its database access language.</p>
+  </section>
+
+  <section>
+    <title>About the Erlang ODBC application</title>
+    <p>Provides an Erlang interface to communicate with relational
+      SQL-databases. It is built on top of Microsofts ODBC interface and
+      therefore requires that you have an ODBC driver to the database
+      that you want to connect to. The Erlang ODBC application is designed 
+      using the version 3.0 of the ODBC-standard, however using the option
+      <c>{scrollable_cursors, off} </c> for a connection has been known
+      to make it work for at least some 2.X drivers.</p>
+  </section>
+</chapter>
+
+

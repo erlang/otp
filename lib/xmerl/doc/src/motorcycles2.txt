@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE motorcycles SYSTEM "motorcycles.dtd">
+<motorcycles>
+  <bike year="2000" color="black">
+    <name>
+      <manufacturer>Suzuki</manufacturer>
+      <brandName>Suzuki VL 1500</brandName>
+      <additionalName>Intruder</additionalName>
+    </name>
+    <engine>V-engine, 2-cylinders, 1500 cc</engine>
+    <kind>custom</kind>
+    <drive>cardan</drive>
+    <accessories>Sissy bar, luggage carrier,V&amp;H exhaust pipes</accessories>
+  </bike>
+  <date>2004.08.25</date>
+  <bike year="1998" color="yellow">
+    <name>
+      <manufacturer>Suzuki</manufacturer>
+      <brandName>Suzuki GSX 750</brandName>
+    </name>
+    <engine>4 cylinders, 750 cc</engine>
+    <kind>alround</kind>
+    <drive>chain</drive>
+  </bike>
+  <date>2004.05.22</date>
+  <bike year="1998" color="silver metallic">
+    <name>
+      <manufacturer>Suzuki</manufacturer>
+      <brandName>Suzuki GSX 750</brandName>
+    </name>
+    <engine>4 cylinders, 750 cc</engine>
+    <kind>alround</kind>
+    <drive>chain</drive>
+  </bike>
+  <date>2003.09.27</date>
+  <bike year="1999" color="black and silver matallic">
+    <name>
+      <manufacturer>Suzuki</manufacturer>
+      <brandName>Suzuki VS 1400</brandName>
+      <additionalName>Intruder</additionalName>
+    </name>
+    <engine>V-engine, 2 cylinders, 1400 cc</engine>
+    <kind>custom</kind>
+    <drive>cardan</drive>
+  </bike>
+  <date>2004.08.23</date>
+  <bike year="1983" color="read pearl">
+    <name>
+      <manufacturer>Yamaha</manufacturer>
+      <brandName>XJ 400</brandName>
+    </name>
+    <engine>4 cylinder, 400 cc</engine>
+    <kind>alround</kind>
+    <drive>chain</drive>
+    <comment>Good shape!</comment>
+  </bike>
+  <bike year="1990" color="blue and white" condition="good">
+    <name>
+      <manufacturer>Yamaha</manufacturer>
+      <brandName>XTZ 750</brandName>
+      <additionalName>Super Tenere</additionalName>
+    </name>
+    <engine>2 cylinders, 750 cc</engine>
+    <kind>offroad</kind>
+    <drive>chain</drive>
+    <accessories>Top box</accessories>
+  </bike>
+  <date>2003.02.13</date>
+  <bike year="2001" color="red">
+    <name>
+      <manufacturer>Harley Davidsson</manufacturer>
+      <brandName>HD FLSTCi</brandName>
+      <additionalName>Heritage Softail Classic</additionalName>
+    </name>
+    <engine>V-engine, 2 cylinders, 1500 cc</engine>
+    <kind>custom</kind>
+    <drive>belt</drive>
+  </bike>
+  <date>2004.04.04</date>
+</motorcycles>

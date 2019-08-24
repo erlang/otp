@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Header Tags</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>header_tags.xml</file>
+  </header>
+
+  <p>Each document begins with a header part, which looks the same for
+    all DTDs. Here the title of the document is specified, as well as
+    administrative data like who is responsible for the document, which
+    version is it, when was it last changed and such.</p>
+
+  <p>An full header looks like:</p>
+  <pre>
+&lt;header>
+  &lt;copyright>...&lt;/copyright>
+  &lt;legalnotice>...&lt;/legalnotice>
+  &lt;title>...&lt;/title>
+  &lt;prepared>...&lt;/prepared>
+  &lt;responsible>...&lt;/responsible>
+  &lt;docno>...&lt;/docno>
+  &lt;approved>...&lt;/approved>
+  &lt;checked>...&lt;/checked>
+  &lt;date>...&lt;/date>
+  &lt;rev>...&lt;/rev>
+  &lt;file>...&lt;/file>
+&lt;/header>
+  </pre>
+
+  <section>
+    <marker id="headerTAG"></marker>
+    <title>&lt;header&gt;</title>
+
+    <p>Top level tag for the header part.</p>
+  </section>
+
+  <section>
+    <marker id="copyrightTAG"></marker>
+    <title>&lt;copyright&gt;</title>
+
+    <p>The <c>copyright</c> element holds information about date(s) and holder(s) of
+    a document copyright. The <c>copyright</c> element is optional.
+    The <c>copyright</c> element has an inner structure containing one or 
+    more 
+    <c>year</c> elements followed by zero of more <c>holder</c> elements.<br/> 
+    See example below:
+    </p>
+    <code><![CDATA[
+    <copyright>
+      <year>1997</year>
+      <year>2007</year>
+      <holder>Ericsson AB</holder>
+    </copyright>
+    ]]></code>
+  </section>
+
+  <section>
+    <marker id="legalnoticeTAG"></marker>
+    <title>&lt;legalnotice&gt;</title>
+
+    <p>The <c>legalnotice</c> element is used to express copyright, trademark,
+    license, and other legal formalities of a document. The element contains
+    only PCDATA in the same manner as <c>code</c> and <c>pre</c>.
+    </p>
+  </section>
+
+  <section>
+    <marker id="titleTAG"></marker>
+    <title>&lt;title&gt;</title>
+
+    <p>For <c>part</c> and <c>application</c> documents, this will be
+      the title of the document, visible in the left frame and on
+      the front page.</p>
+
+    <p>For <c>chapter</c> documents, this will be the chapter name.</p>
+
+    <p>For reference manual documents, this tag is ignored.</p>
+  </section>
+
+  <section>
+    <title>&lt;shorttitle&gt;</title>
+
+    <p>This optional tag is ignored. It will likely be
+      removed in the future.</p>
+  </section>
+
+  <section>
+    <marker id="preparedTAG"></marker>
+    <title>&lt;prepared&gt;</title>
+
+    <p>This tag is intended for administrative use and is ignored.</p>
+  </section>
+
+  <section>
+    <marker id="responsibleTAG"></marker>
+    <title>&lt;responsible&gt;</title>
+
+    <p>This optional tag is intended for administrative use and is
+      ignored.</p>
+  </section>
+
+  <section>
+    <marker id="docnoTAG"></marker>
+    <title>&lt;docno&gt;</title>
+
+    <p>Document number.</p>
+
+    <p>For <c>part</c> and <c>application</c> documents, the document
+      number is visible in the left frame and on the front page.</p>
+
+    <p>For other types of documents, this tag is ignored.</p>
+  </section>
+
+  <section>
+    <marker id="approvedTAG"></marker>
+    <title>&lt;approved&gt;</title>
+
+    <p>This optional tag is intended for administrative use and is
+      ignored.</p>
+  </section>
+
+  <section>
+    <marker id="checkedTAG"></marker>
+    <title>&lt;checked&gt;</title>
+
+    <p>This optional tag is intended for administrative use and is
+      ignored.</p>
+  </section>
+
+  <section>
+    <marker id="dateTAG"></marker>
+    <title>&lt;date&gt;</title>
+
+    <p>This tag is intended for administrative use and is ignored.</p>
+  </section>
+
+  <section>
+    <marker id="revTAG"></marker>
+    <title>&lt;rev&gt;</title>
+
+    <p>Document version.</p>
+
+    <p>For <c>part</c> and <c>application</c> documents, the document
+      version is visible in the left frame and on the front page.</p>
+
+    <p>For other types of documents, this tag is ignored.</p>
+  </section>
+
+  <section>
+    <marker id="fileTAG"></marker>
+    <title>&lt;file&gt;</title>
+
+    <p>This optional tag is intended for administrative use and is
+      ignored.</p>
+  </section>
+</chapter>
+

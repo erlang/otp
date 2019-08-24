@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_slave</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_slave.xml</file>
+  </header>
+  <module since="OTP R14B">ct_slave</module>
+  <modulesummary>Common Test framework functions for starting and stopping
+    nodes for Large-Scale Testing.</modulesummary>
+
+  <description>
+
+    <p><c>Common Test</c> framework functions for starting and stopping nodes
+      for Large-Scale Testing.</p>
+
+    <p>This module exports functions used by the <c>Common Test</c>
+      Master to start and stop "slave" nodes. It is the default callback
+      module for the <c>{init, node_start}</c> term in the Test
+      Specification.</p>
+
+  </description>
+
+  <funcs>
+    <func>
+      <name since="OTP R14B">start(Node) -&gt; Result</name>
+      <fsummary>Starts an Erlang node with name Node on the local
+        host.</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Result = {ok, NodeName} | {error, Reason, NodeName}</v>
+        <v>Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive</v>
+        <v>NodeName = atom()</v>
+      </type>
+      <desc><marker id="start-1"/>
+        <p>Starts an Erlang node with name <c>Node</c> on the local host.</p>
+
+        <p>See also
+          <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">start(HostOrNode, NodeOrOpts) -&gt; Result</name>
+      <fsummary>Starts an Erlang node with default options on a specified
+        host, or on the local host with specified options.</fsummary>
+      <type>
+        <v>HostOrNode = atom()</v>
+        <v>NodeOrOpts = atom() | list()</v>
+        <v>Result = {ok, NodeName} | {error, Reason, NodeName}</v>
+        <v>Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive</v>
+        <v>NodeName = atom()</v>
+      </type>
+      <desc><marker id="start-2"/>
+        <p>Starts an Erlang node with default options on a specified host, or
+          on the local host with specified options. That is, the call is
+          interpreted as <c>start(Host, Node)</c> when the second argument is
+          atom-valued and <c>start(Node, Opts)</c> when it is list-valued.</p>
+
+        <p>See also
+          <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">start(Host, Node, Opts) -&gt; Result</name>
+      <fsummary>Starts an Erlang node with name Node on host Host as
+        specified by the combination of options in Opts.</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Host = atom()</v>
+        <v>Opts = [OptTuples]</v>
+        <v>OptTuples = {username, Username} | {password, Password} | {boot_timeout, BootTimeout} | {init_timeout, InitTimeout} | {startup_timeout, StartupTimeout} | {startup_functions, StartupFunctions} | {monitor_master, Monitor} | {kill_if_fail, KillIfFail} | {erl_flags, ErlangFlags} | {env, [{EnvVar, Value}]}</v>
+        <v>Username = string()</v>
+        <v>Password = string()</v>
+        <v>BootTimeout = integer()</v>
+        <v>InitTimeout = integer()</v>
+        <v>StartupTimeout = integer()</v>
+        <v>StartupFunctions = [StartupFunctionSpec]</v>
+        <v>StartupFunctionSpec = {Module, Function, Arguments}</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Arguments = [term]</v>
+        <v>Monitor = bool()</v>
+        <v>KillIfFail = bool()</v>
+        <v>ErlangFlags = string()</v>
+        <v>EnvVar = string()</v>
+        <v>Value = string()</v>
+        <v>Result = {ok, NodeName} | {error, Reason, NodeName}</v>
+        <v>Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive</v>
+        <v>NodeName = atom()</v>
+      </type>
+      <desc><marker id="start-3"/>
+        <p>Starts an Erlang node with name <c>Node</c> on host <c>Host</c> as
+          specified by the combination of options in <c>Opts</c>.</p>
+
+        <p>Options <c>Username</c> and <c>Password</c> are used to log on to the
+          remote host <c>Host</c>. <c>Username</c>, if omitted, defaults to
+          the current username. <c>Password</c> is empty by default.</p>
+
+        <p>A list of functions specified in option <c>Startup</c> are
+          executed after startup of the node. Notice that all used modules
+          are to be present in the code path on <c>Host</c>.</p>
+
+        <p>The time-outs are applied as follows:</p>
+
+        <taglist>
+          <tag><c>BootTimeout</c></tag>
+            <item><p>The time to start the Erlang node, in seconds. Defaults to
+              3 seconds. If the node is not pingable within this time, the result
+              <c>{error, boot_timeout, NodeName}</c> is returned.</p></item>
+          <tag><c>InitTimeout</c></tag>
+            <item><p>The time to wait for the node until it calls the internal
+             callback function informing master about a successful startup.
+             Defaults to 1 second. In case of a timed out message, the result
+             <c>{error, init_timeout, NodeName}</c> is returned.</p></item>
+          <tag><c>StartupTimeout</c></tag>
+            <item><p>The time to wait until the node stops to run
+              <c>StartupFunctions</c>. Defaults to 1 second. If this time-out
+              occurs, the result <c>{error, startup_timeout, NodeName}</c> is
+              returned.</p></item>
+        </taglist>
+
+        <p><em>Options:</em></p>
+
+        <taglist>
+          <tag><c>monitor_master</c></tag>
+          <item><p>Specifies if the slave node is to be stopped if the
+            master node stops. Defaults to <c>false</c>.</p></item>
+          <tag><c>kill_if_fail</c></tag>
+          <item><p>Specifies if the slave node is to be killed if a time-out
+            occurs during initialization or startup. Defaults to <c>true</c>.
+            Notice that the node can also be still alive it the boot time-out
+            occurred, but it is not killed in this case.</p></item>
+          <tag><c>erlang_flags</c></tag>
+          <item><p>Specifies which flags are added to the parameters of the
+            executable <c>erl</c>.</p></item>
+          <tag><c>env</c></tag>
+          <item><p>Specifies a list of environment variables that will extend
+            the environment.</p></item>
+        </taglist>
+
+        <p><em>Special return values:</em></p>
+
+        <list type="bulleted">
+          <item><p><c>{error, already_started, NodeName}</c> if the node
+            with the specified name is already started on a specified
+            host.</p></item>
+          <item><p><c>{error, started_not_connected, NodeName}</c> if the
+            node is started, but not connected to the master node.</p></item>
+          <item><p><c>{error, not_alive, NodeName}</c> if the node on which
+            <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso> is
+            called, is not alive. Notice that <c>NodeName</c> is the name of
+            the current node in this case.</p></item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">stop(Node) -&gt; Result</name>
+      <fsummary>Stops the running Erlang node with name Node on the local
+        host.</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Result = {ok, NodeName} | {error, Reason, NodeName}</v>
+        <v>Reason = not_started | not_connected | stop_timeout</v>
+      </type>
+      <desc><marker id="stop-1"/>
+        <p>Stops the running Erlang node with name <c>Node</c> on the local
+          host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B">stop(Host, Node) -&gt; Result</name>
+      <fsummary>Stops the running Erlang node with name Node on host
+        Host.</fsummary>
+      <type>
+        <v>Host = atom()</v>
+        <v>Node = atom()</v>
+        <v>Result = {ok, NodeName} | {error, Reason, NodeName}</v>
+        <v>Reason = not_started | not_connected | stop_timeout</v>
+        <v>NodeName = atom()</v>
+      </type>
+      <desc><marker id="stop-2"/>
+        <p>Stops the running Erlang node with name <c>Node</c> on host
+          <c>Host</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

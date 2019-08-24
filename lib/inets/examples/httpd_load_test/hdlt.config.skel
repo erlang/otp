@@ -1,0 +1,20 @@
+%% Debug: silence | info | log | debug
+{debug,  [{ctrl, info}, {proxy, silence}, {slave, silence}, {client, silence}]}.
+{server, {"/usr/local/bin", "fooserver"}}.
+%% {port,   8888}.             % integer() > 0
+{server_dir, "/tmp/hdlt"}. % Absolute path
+{work_dir,   "/tmp/hdlt"}. % Absolute path
+{clients, 
+ [
+  {"/opt/local/bin", "foo"}, 
+  {"/usr/local/bin", "bar"}
+ ]
+}.
+%% {send_rate, 80}.     % Max number of outstanding requests, integer() > 0
+%% {test_time, 120}.    % Number of seconds, 
+%% {max_nof_schedulers, 8}. % integer() >= 0
+%% {work_simulator, 10000}.  % integer() > 0
+%% {data_size, {100, 500, 2}}. % {integer() > 0, integer() > 0, integer() > 0}
+%% {socket_type, ip_comm}. % ip_comm | ssl | essl | ossl
+%% {server_cert_file, "hdlt_ssl_server_cert.pem"}.
+%% {client_cert_file, "hdlt_ssl_client_cert.pem"}.

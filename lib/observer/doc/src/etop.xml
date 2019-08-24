@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year>
+      <year>2017</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>etop</title>
+    <prepared>Siri Hansen</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file></file>
+  </header>
+  <module since="">etop</module>
+  <modulesummary>Erlang Top is a tool for presenting information about Erlang
+  processes similar to the information presented by "top" in UNIX.</modulesummary>
+  <description>
+
+    <p>Start Erlang Top with the provided scripts
+      <c>etop</c>. This starts a hidden Erlang node
+      that connects to the node to be measured. The measured node is
+      specified with option <c>-node</c>. If the measured node has a
+      different cookie than the default cookie for the user who
+      invokes the script, the cookie must be explicitly specified with
+      option <c>-setcookie</c>.</p>
+
+    <p>Under Windows, batch file <c>etop.bat</c> can be used.</p>
+
+    <p>When executing the <c>etop</c> script, configuration
+    parameters can be specified as command-line options,
+    for example, <c>etop -node testnode@myhost -setcookie MyCookie</c>.
+    The following configuration parameters exist for the
+    tool:</p>
+    <taglist>
+      <tag><c>node</c></tag>
+      <item><p>The measured node.</p>
+	    <p>Value: <c>atom()</c></p>
+	    <p>Mandatory</p></item>
+      <tag><c>setcookie</c></tag>
+      <item><p>Cookie to use for the <c>etop</c> node. Must be same as the
+      cookie on the measured node.</p>
+            <p>Value: <c>atom()</c></p></item>
+      <tag><c>lines</c></tag>
+      <item><p>Number of lines (processes) to display.</p>
+            <p>Value: <c>integer()</c></p>
+	    <p>Default: <c>10</c></p></item>
+      <tag><c>interval</c></tag>
+      <item><p>Time interval (in seconds) between each update of
+       the display.</p>
+            <p>Value: <c>integer()</c></p>
+	    <p>Default: <c>5</c></p></item>
+      <tag><c>accumulate</c></tag>
+      <item><p>If <c>true</c>, the execution time and reductions are
+       accumulated.</p>
+            <p>Value: <c>boolean()</c></p>
+	    <p>Default: <c>false</c></p></item>
+      <tag><c>sort</c></tag>
+      <item><p>Identifies what information to sort by.</p>
+      <p>Value: <c>runtime | reductions | memory | msg_q</c></p>
+      <p>Default: <c>runtime</c> (<c>reductions</c> if <c>tracing=off</c>)</p></item>
+      <tag><c>tracing</c></tag>
+      <item><p><c>etop</c> uses the Erlang trace facility, and thus no
+       other tracing is possible on the measured node while
+      <c>etop</c> is running, unless this option is set to
+      <c>off</c>. Also helpful if the <c>etop</c> tracing causes too
+       high load on the measured node. With tracing off, runtime is
+       not measured.</p>
+            <p>Value: <c>on | off</c></p>
+	    <p>Default: <c>on</c></p></item>
+    </taglist>
+
+    <p>For details about Erlang Top, see the
+    <seealso marker="etop_ug">User's Guide</seealso>.</p>
+
+  </description>
+  <funcs>
+    <func>
+      <name since="OTP R15B01">start() -> ok</name>
+      <fsummary>Start etop.</fsummary>
+      <desc>
+        <p>Starts <c>etop</c>.
+        Notice that <c>etop</c> is preferably started with the <c>etop</c> script.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">start(Options) -> ok</name>
+      <fsummary>Start etop.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {Key, Value}</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Starts <c>etop</c>. To view the possible options, use
+          <seealso marker="#help/0"><c>help/0</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">help() -> ok</name>
+      <fsummary>Display the etop help.</fsummary>
+      <desc>
+        <p>Displays the help of <c>etop</c> and
+          its options.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">config(Key,Value) -> Result</name>
+      <fsummary>Change the configuration of the tool.</fsummary>
+      <type>
+        <v>Result = ok | {error,Reason}</v>
+        <v>Key = lines | interval | accumulate | sort</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Changes the configuration parameters of the tool during runtime.
+	Allowed parameters are <c>lines</c>, <c>interval</c>, <c>accumulate</c>,
+	and <c>sort</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">dump(File) -> Result</name>
+      <fsummary>Dump the current display to a file.</fsummary>
+      <type>
+        <v>Result = ok | {error,Reason}</v>
+        <v>File = string()</v>
+      </type>
+      <desc>
+        <p>Dumps the current display to a text file.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> stop</name>
+      <fsummary>Terminate etop.</fsummary>
+      <desc>
+        <p>Terminates <c>etop</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

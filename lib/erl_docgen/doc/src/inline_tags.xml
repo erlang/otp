@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Inline Tags</title>
+    <prepared/>
+    <docno/>
+    <date/>
+    <rev/>
+    <file>inline_tags.xml</file>
+  </header>
+
+  <p>Inline tags are typically used within block tags, for example to
+    highlight a word within a paragraph.</p>
+
+  <section>
+    <marker id="brTAG"></marker>
+    <title>&lt;br&gt; - Line Break</title>
+
+    <p>Forces a newline. The <c><![CDATA[<br>]]></c> tag is both a
+      block- and an inline tag and is described in
+      the <seealso marker="block_tags#brTAG">Block Tags</seealso>
+      section.</p>
+  </section>
+
+  <section>
+    <marker id="cTAG"></marker>
+    <title>&lt;c&gt; - Code</title>
+
+    <p>Highlights things like variables and file names in a text flow.
+      Can contain plain text only. Newlines and tabs are ignored as
+      opposed to the <seealso marker="block_tags#codeTAG">code</seealso>
+      tag. All <seealso marker="character_entities">character
+	entities</seealso> are expanded. Example:</p>
+    <pre>
+&lt;p>Returns &lt;c>true&lt;/c> if &lt;c>Term&lt;/c> is an integer.&lt;/p>
+    </pre>
+    <p>results in:</p>
+    <p>Returns <c>true</c> if <c>Term</c> is an integer.</p>
+  </section>
+
+  <section>
+    <marker id="emTAG"></marker>
+    <title>&lt;em&gt; - Emphasis</title>
+
+    <p>Highlights words which are important within a text flow. Example:
+    </p>
+    <pre>
+&lt;p>The application &lt;em>must&lt;/em> be up and running.&lt;/p>
+    </pre>
+    <p>results in:</p>
+    <p>The application <em>must</em> be up and running.</p>
+
+    <p>Contains plain text or a
+      <seealso marker="#cTAG">&lt;c&gt;</seealso> tag.</p>
+  </section>
+
+  <section>
+    <marker id="markerTAG"/>
+    <title>&lt;marker&gt; - Marker</title>
+
+    <p>Used as an anchor for hypertext references. The <c>id</c>
+      attribute defines the name of the marker. Example:</p>
+    <marker id="marker_example"/>
+    <pre>
+&lt;marker id="marker_example"/&gt;
+    </pre>
+  
+    <p>The <seealso marker="#seealsoTAG">&lt;seealso&gt;</seealso> tag
+      is used to refer to the marker.</p>
+
+    <p>The <c><![CDATA[<marker>]]></c> tag is both a block- and an
+      inline tag.</p>
+  </section>
+
+  <!-- section>
+    <marker id="pathTAG"></marker>
+    <title>&lt;path&gt; - Path</title>
+
+    <p>Highlights file paths. The attributes <c>unix</c> and
+      <c>windows</c> makes it possible to specify different paths for
+      different file path notations. Default for both are "".
+      Example:</p>
+    <pre>
+&lt;p>Look at the &lt;path unix=".profile" windows="win.ini"&gt;start-up file&lt;/path&gt;
+  if you intend to alter the initial behavior.&lt;/p>
+    </pre>
+    <p>If no <c>ptype</c> option is specified when calling
+      <seealso marker="docb_transform#file/1">docb_transform:file/1,2</seealso>,
+      this simply results in:</p>
+    <p>"Look at the <path>start-up file</path>
+      if you intend to alter the initial behavior."</p>
+
+    <p>If both the options <c>{ptype,unix}</c> and
+      <c>{ptype,windows}</c> are specified, the example instead results
+      in:</p>
+    <p>"Look at the <path unix=".profile" windows="win.ini">start-up file</path>
+      if you intend to alter the initial behavior."</p>
+  </section -->
+
+  <section>
+    <marker id="seealsoTAG"></marker>
+    <title>&lt;seealso&gt; - Local Cross Reference</title>
+
+    <p>A cross reference (hypertext link) to a marker in the same file,
+      a marker in another file, or (the top of) another file, given by
+      the <c>marker</c> attribute. Must contain plain text. Examples:
+      </p>
+
+    <pre><![CDATA[
+      <seealso marker="#marker_example">marker example</seealso>
+    ]]></pre>
+    <p>results in:
+      <seealso marker="#marker_example">marker example</seealso>
+      (a hypertext link to the marker example above).</p>
+
+    <pre><![CDATA[
+      <seealso marker="block_tags#markerTAG">marker tag</seealso>
+    ]]></pre>
+    <p>results in:
+      <seealso marker="block_tags#markerTAG">marker tag</seealso>
+      (a hypertext link to the marker section in the Block Tags
+      chapter).</p>
+    
+    <pre><![CDATA[
+      <seealso marker="overview">Overview</seealso>
+    ]]></pre>
+    <p>results in:
+      <seealso marker="overview">Overview</seealso>
+      (a hypertext link to the Overview chapter).</p>
+
+    <p>Note the use of "#" before the name of the marker. Note also
+      that the filename extension <c>.html</c> is omitted. This is
+      because the default behavior is to translate
+      <c><![CDATA[<seealso marker="File#Marker">text</seealso>]]></c>
+      to <c><![CDATA[<A HREF="File.html#Marker">text</A>]]></c>.</p>
+
+  </section>
+    
+  <section>
+    <marker id="urlTAG"></marker>
+    <title>&lt;url&gt; - Non-Local Cross Reference</title>
+
+    <p>A reference to a file outside the documentation, a web address or
+      similar, given by the <c>href</c> attribute. Must contain plain
+      text. Example:</p>
+    <pre><![CDATA[
+<url href="http://www.erlang.org">erlang.org</url>
+    ]]></pre>
+    <p>results in: <url href="http://www.erlang.org">erlang.org</url>
+    </p>
+  </section>
+
+  <section>
+    <marker id="termTAG"></marker>
+    <marker id="termdefTAG"></marker>
+    <title>&lt;term&gt;, &lt;termdef&gt; - Glossary</title>
+
+    <p>Used to highlight a term with a local (for this document only) or
+      global definition. The identity of the term is given by
+      the <c>id</c> attribute.</p>
+
+    <p>For a locally defined term, the tag contains a
+      <c>&lt;termdef&gt;</c>, which in turn contains an explanation of
+      the term as plain text. Example:</p>
+    <pre><![CDATA[
+<term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
+      ]]></pre>
+
+    <p>In the generated HTML, it is the term name which will be visible.
+      For locally defined terms, the id and the name are the same.
+      The name has a hypertext link to the definition in the glossary.
+      Example:</p>
+    <pre><![CDATA[
+<term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
+      ]]></pre>
+    <p>results in: <term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
+    </p>
+
+    <p>If a term is defined both locally and globally, the global
+      definition takes precedence.</p>
+  </section>
+
+  <section>
+    <marker id="citeTAG"></marker>
+    <marker id="citedefTAG"></marker>
+    <title>&lt;cite&gt;, &lt;citedef&gt; - Bibliography</title>
+
+    <p>Works the same way as <c>&lt;term&gt;</c> and
+      <c>&lt;termdef&gt;</c>, but for a bibliography list rather than
+      a glossary.</p>
+
+  </section>
+</chapter>
+

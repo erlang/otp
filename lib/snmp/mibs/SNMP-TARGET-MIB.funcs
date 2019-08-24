@@ -1,0 +1,7 @@
+{snmpTargetAddrTable, {snmp_target_mib, snmpTargetAddrTable, []}}.
+{snmpTargetParamsTable, {snmp_target_mib, snmpTargetParamsTable, []}}.
+{snmpTargetSpinLock, {snmp_target_mib, snmpTargetSpinLock, []}}.
+{snmpUnavailableContexts, {snmp_standard_mib, variable_func,
+                           [snmpUnavailableContexts]}}.
+{snmpUnknownContexts, {snmp_standard_mib, variable_func,
+                       [snmpUnavailableContexts]}}.

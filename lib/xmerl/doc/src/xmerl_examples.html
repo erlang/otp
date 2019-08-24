@@ -1,0 +1,408 @@
+<meta http-equiv="Context-Type" content="text/html; charset=iso-8859-1">
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd ">
+<html xmlns="http://www.w3.org/1999/xhtml" ><head>
+<title>Customization functions</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body>
+<h1>Customization functions</h1>
+ 	<h3 id="sect_1.1">1 Description</h3>
+       <p>The XML processor offers a number of hooks for
+       customization. These hooks are defined as function objects, and
+       can be provided by the caller.</p>
+      
+       <p>The following customization functions are available. If
+       they also have access to their own state variable, the access
+       function for this state is identified within parentheses:</p>
+
+       <ul>
+
+ 	<li>event function (<tt>
+ 	xmerl_scan:event_state/[1,2]
+ 	</tt>)</li>
+
+ 	<li>hook function (<tt>
+ 	xmerl_scan:hook_state/[1,2]
+ 	</tt>)</li>
+
+ 	<li>fetch function (<tt>
+ 	xmerl_scan:fetch_state/[1,2] </tt>)
+ 	</li>
+
+ 	<li>continuation function (<tt>
+ 	xmerl_scan:cont_state/[1,2] </tt>)
+ 	</li>
+
+ 	<li>rules function (<tt>
+       xmerl_scan:rules_state/[1,2] </tt>)
+       </li>
+
+ 	<li>accumulator function</li>
+
+ 	<li>close function</li>
+
+       </ul>
+
+       <p>For all of the above state access functions, the function
+       with one argument
+       (e.g. <tt>event_state(GlobalState)</tt>)
+       will read the state variable, while the function with two
+       arguments (e.g.: <tt>event_state(NewEventState,
+       GlobalState)</tt>) will modify it.</p>
+
+       <p>For each function, the description starts with the syntax
+       for specifying the function in the
+       <a href="xmerl_scan.html#type-option_list"><tt>Option_list</tt></a>.
+       The general forms are <tt>{Tag, Fun}</tt>, or
+       <tt>{Tag, Fun, LocalState}</tt>. The
+       second form can be used to initialize the state variable in
+       question.</p>
+
+
+ 	<h4 id="sect_1.1.1">1.1 User State</h4>
+
+ 	<p>All customization functions are free to access a
+ 	"User state" variable. Care must of course be taken
+ 	to coordinate the use of this state. It is recommended that
+ 	functions, which do not really have anything to contribute to
+ 	the "global" user state, use their own state
+ 	variable instead. Another option (used in
+ 	e.g. <tt>xmerl_eventp.erl</tt>) is for
+ 	customization functions to share one of the local states (in
+ 	<tt>xmerl_eventp.erl</tt>, the
+ 	continuation function and the fetch function both acces the
+ 	<tt>cont_state</tt>.)</p>
+
+ 	<p>Functions to access user state:</p>
+
+ 	<ul>
+
+ 	  <li><tt>
+ 	  xmerl_scan:user_state(GlobalState) </tt>
+ 	  </li>
+
+ 	  <li><tt>xmerl_scan:user_state(UserState,
+ 	  GlobalState) </tt></li>
+
+ 	</ul>
+
+
+
+ 	<h4 id="sect_1.1.2">1.2 Event Function</h4>
+
+ 	<p><tt>{event_fun, fun()} | {event_fun, fun(),
+ 	EventState}</tt></p>
+
+ 	<p>The event function is called at the beginning and at the
+ 	end of a parsed entity. It has the following format and
+ 	semantics:</p>
+
+ <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ fun(Event, GlobalState) ->
+    EventState = xmerl_scan:event_state(GlobalState),
+    EventState2 = foo(Event, EventState),
+    GlobalState2 = xmerl_scan:event_state(EventState2, GlobalState)
+ end.
+ </code></pre></td></tr></table>
+
+
+
+ 	<h4 id="sect_1.1.3">1.3 Hook Function</h4>
+ 	<p> <tt>{hook_fun, fun()} | {hook_fun, fun(),
+ 	HookState}</tt></p>
+
+
+
+ <p>The hook function is called when the processor has parsed a complete
+ entity. Format and semantics:</p>
+
+ <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ fun(Entity, GlobalState) ->
+    HookState = xmerl_scan:hook_state(GlobalState),
+    {TransformedEntity, HookState2} = foo(Entity, HookState),
+    GlobalState2 = xmerl_scan:hook_state(HookState2, GlobalState),
+    {TransformedEntity, GlobalState2}
+ end.
+ </code></pre></td></tr></table>
+
+ 	<p>The relationship between the event function, the hook
+ 	function and the accumulator function is as follows:</p>
+
+ 	<ol>
+ 	  <li>The event function is first called with an
+ 	  'ended' event for the parsed entity.</li>
+
+ 	  <li>The hook function is called, possibly
+ 	  re-formatting the entity.</li>
+
+ 	  <li>The acc function is called in order to
+ 	  (optionally) add the re-formatted entity to the contents of
+ 	  its parent element.</li>
+
+     </ol>
+
+
+
+ 	<h4 id="sect_1.1.4">1.4 Fetch Function</h4>
+ <p>
+ <tt>{fetch_fun, fun()} | {fetch_fun, fun(), FetchState}</tt>
+ </p>
+ <p>The fetch function is called in order to fetch an external resource
+ (e.g. a DTD).</p>
+
+ <p>The fetch function can respond with three different return values:</p>
+
+     <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+     Result ::=
+       {ok, {file, Filename}, NewGlobalState} |
+       {ok, {string, String}, NewGlobalState} |
+       {ok, not_fetched, NewGlobalState}
+ </code></pre></td></tr></table>
+
+ <p>Format and semantics:</p>
+
+     <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ fun(URI, GlobalState) ->
+    FetchState = xmerl_scan:fetch_state(GlobalState),
+    Result = foo(URI, FetchState).  % Result being one of the above
+ end.
+ </code></pre></td></tr></table>
+
+
+
+ 	<h4 id="sect_1.1.5">1.5 Continuation Function</h4>
+ <p>
+ <tt>{continuation_fun, fun()} | {continuation_fun, fun(), ContinuationState}</tt>
+ </p>
+ <p>The continuation function is called when the parser encounters the end
+ of the byte stream. Format and semantics:</p>
+
+     <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ fun(Continue, Exception, GlobalState) ->
+    ContState = xmerl_scan:cont_state(GlobalState),
+    {Result, ContState2} = get_more_bytes(ContState),
+    case Result of
+       [] ->
+          GlobalState2 = xmerl_scan:cont_state(ContState2, GlobalState),
+          Exception(GlobalState2);
+       MoreBytes ->
+          {MoreBytes2, Rest} = end_on_whitespace_char(MoreBytes),
+          ContState3 = update_cont_state(Rest, ContState2),
+          GlobalState3 = xmerl_scan:cont_state(ContState3, GlobalState),
+          Continue(MoreBytes2, GlobalState3)
+    end
+ end.
+ </code></pre></td></tr></table>
+
+
+ 	<h4 id="sect_1.1.6">1.6 Rules Functions</h4>
+ 	<p>
+ <tt>
+ {rules, ReadFun : fun(), WriteFun : fun(), RulesState} |
+ {rules, Table : ets()}</tt>
+ </p>
+ 	<p>The rules functions take care of storing scanner
+ 	information in a rules database. User-provided rules functions
+ 	may opt to store the information in mnesia, or perhaps in the
+ 	user_state(RulesState).</p>
+
+ 	<p>The following modes exist:</p>
+
+ 	<ul>
+
+ 	  <li>If the user doesn't specify an option, the
+ 	  scanner creates an ets table, and uses built-in functions to
+ 	  read and write data to it. When the scanner is done, the ets
+ 	  table is deleted.</li>
+
+ 	  <li>If the user specifies an ets table via the 
+ 	<tt>{rules, Table}</tt> option, the
+ 	scanner uses this table. When the scanner is done, it does
+ 	<em>not</em> delete the table.</li>
+  
+ 	  <li>If the user specifies read and write
+ 	  functions, the scanner will use them instead.</li>
+
+ 	</ul>
+
+ 	<p>The format for the read and write functions are as
+ 	follows:</p>
+
+
+ <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ WriteFun(Context, Name, Definition, ScannerState) -> NewScannerState.
+ ReadFun(Context, Name, ScannerState) -> Definition | undefined.
+ </code></pre></td></tr></table>
+
+ 	<p>Here is a summary of the data objects currently being
+ 	written by the scanner:</p>
+
+ 	<table border="1" cellspacing="0" cellpadding="4" >
+ 	  <colgroup cols="3">
+ 	    <thead>
+ 	      <tr>
+ 		<th>Context</th>
+ 		<th>Key Value</th>
+ 		<th>Definition</th>
+ 	      </tr>
+ 	    </thead>
+ 	    <tbody>
+ 	      <tr>
+ 		<td>notation</td>
+ 		<td>NotationName</td>
+ 		<td><tt>{system, SL} | {public, PIDL, SL}</tt></td>
+ 	      </tr>
+ 	      <tr>
+ 		<td>elem_def</td>
+ 		<td>ElementName</td>
+ 		<td><tt>#xmlElement{content = ContentSpec}</tt></td>
+ 	      </tr>
+ 	      <tr>
+ 		<td>parameter_entity</td>
+ 		<td>PEName</td>
+ 		<td><tt>PEDef</tt></td>
+ 	      </tr>
+ 	      <tr>
+ 		<td>entity</td>
+ 		<td>EntityName</td>
+ 	  <td><tt>EntityDef</tt></td>
+ 	      </tr>
+ 	    </tbody>
+ 	  </colgroup>
+ 	  <caption>Table 1 - 1 Scanner data objects</caption>
+ 	</table>
+
+ <p>where</p>
+ <table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ ContentSpec ::= empty | any | ElemContent
+ ElemContent ::= {Mode, Elems}
+ Mode        ::= seq | choice
+ Elems       ::= [Elem]
+ Elem        ::= '#PCDATA' | Name | ElemContent | {Occurrence, Elems}
+ Occurrence  ::= '*' | '?' | '+'
+ </code></pre></td></tr></table>
+ 	<table border="1" cellspacing="0" cellpadding="5" width="80%"
+ bgcolor="#CCCCCC">
+ </table>
+ <p>
+ NOTE: <i>When &lt;Elem> is not wrapped with
+ &lt;Occurrence>, (Occurrence = once) is implied.</i></p>
+
+
+
+ 	<h4 id="sect_1.1.7">1.7 Accumulator Function</h4>
+ 	<p><tt>{acc_fun, fun()}</tt></p>
+
+ 	<p>The accumulator function is called to accumulate the
+ 	contents of an entity.When parsing very large files, it may
+ 	not be desireable to do so.In this case, an acc function can
+ 	be provided that simply doesn't accumulate.</p>
+
+ 	<p>Note that it is possible to even modify the parsed
+ 	entity before accumulating it, but this must be done with
+ 	care. <tt>xmerl_scan</tt> performs
+ 	post-processing of the element for namespace management. Thus,
+ 	the element must keep its original structure for this to
+ 	work.</p>
+
+ 	<p>The acc function has the following format and
+ 	semantics:</p>
+
+ 	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ %% default accumulating acc fun
+ fun(ParsedEntity, Acc, GlobalState) ->
+    {[ParsedEntity|Acc], GlobalState}.
+
+ %% non-accumulating acc fun
+ fun(ParsedEntity, Acc, GlobalState) ->
+    {Acc, GlobalState}.
+ </code></pre></td></tr></table>
+
+
+ 	<h4 id="sect_1.1.8">1.8 Close Function</h4>
+
+ 	<p>The close function is called when a document (either the
+ 	main document or an external DTD) has been completely
+ 	parsed. When xmerl_scan was started using
+ 	<tt>xmerl_scan:file/[1,2]</tt>, the
+ 	file will be read in full, and closed immediately, before the
+ 	parsing starts, so when the close function is called, it will
+ 	not need to actually close the file. In this case, the close
+ 	function will be a good place to modify the state
+ 	variables.</p>
+
+ 	<p>Format and semantics:</p>
+
+ 	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+ bgcolor="#CCCCCC"><tr><td><pre><code>
+
+ fun(GlobalState) ->
+    GlobalState1 = ....  % state variables may be altered
+ </code></pre></td></tr></table>
+
+
+ 	<h3 id="sect_2.1">2 Examples</h3>
+<p>
+See <code>xmerl_test.erl</code> for more examples.
+</p>
+
+ 	<h4 id="sect_2.1.1">2.1 Handling spaces</h3>
+<p>
+The following sample program illustrates three ways of
+scanning a document:
+<ol>
+<li> the default scan, which leaves whitespace untouched
+<li> normalizing spaces
+<li> normalizing spaces, then removing text elements that only
+   contain one space.
+</ol>
+
+</p>
+	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+-module(tmp).
+
+-include("xmerl.hrl").
+
+-export([file1/1,
+	 file2/1,
+	 file3/1]).
+
+file1(F) ->
+    xmerl_scan:file(F).
+
+file2(F) ->
+    xmerl_scan:file(F, [{space,normalize}]).
+
+file3(F) ->
+    Acc = fun(#xmlText{value = " ", pos = P}, Acc, S) ->
+		  {Acc, P, S};  % new return format
+	     (X, Acc, S) ->
+		  {[X|Acc], S}
+	  end,
+    xmerl_scan:file(F, [{space,normalize}, {acc_fun, Acc}]).
+
+</code></pre></td></tr></table>
+
+
+
+
+</body>
+</html>

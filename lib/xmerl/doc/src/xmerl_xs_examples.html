@@ -1,0 +1,291 @@
+
+<meta http-equiv="Context-Type" content="text/html; charset=iso-8859-1">
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd ">
+<html xmlns="http://www.w3.org/1999/xhtml" ><head><title>XSLT like transformations in Erlang </title><style type="text/css"> body {margin-left:10%; margin-right:5%;} 
+.logo{float:right;} 
+.toc UL {
+    list-style-type:     none;
+    border:              solid;
+    border-width:        thin;
+    padding-left:        10px;
+    padding-right:       10px;
+    padding-top:         5px;
+    padding-bottom:      5px;
+    background:          #f0f0f0;
+    letter-spacing:      2px;
+    line-height:         20px;
+}
+</style></head><body>
+<h3 id="sect_4.2">Examples</h3>
+      <hr />
+	<h4>Example 1 Using xslapply</h4>
+	<p>original XSLT:</p>
+	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+  &lt;xsl:template match="doc/title">
+      &lt;h1>
+        &lt;xsl:apply-templates/>
+      &lt;/h1>
+  &lt;/xsl:template>
+  
+	    </code></pre></td></tr></table>
+	    <p>
+	      becomes in Erlang:</p>
+	    <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+  template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
+      ["&lt;h1>",
+           xslapply(fun template/1, E),
+       "&lt;/h1>"];
+  
+	    </code></pre></td></tr></table>
+
+      <hr />
+      <hr />
+	<h4>Example 2 Using value_of and select</h4>
+	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+  &lt;xsl:template match="title">
+    &lt;div align="center">&lt;h1>&lt;xsl:value-of select="." />&lt;/h1>&lt;/div>
+  &lt;/xsl:template>
+  
+	</code></pre></td></tr></table>
+	<p>
+	  becomes:
+	</p>
+	<table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+template(E = #xmlElement{name='title'}) ->
+    ["&lt;div align=\"center\">&lt;h1>", value_of(select(".", E)), "&lt;/h1>&lt;/div>"];
+  
+	    </code></pre></td></tr></table>
+      <hr />
+    <hr />
+      <h4>Example 3 Simple xsl stylesheet</h4>
+<p>
+ A complete example with the XSLT sheet in the xmerl distribution. 
+</p>
+ <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+
+&lt;xsl:stylesheet version="1.0"
+		xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+		xmlns="http://www.w3.org/TR/xhtml1/strict">
+
+  &lt;xsl:strip-space elements="doc chapter section"/>
+  &lt;xsl:output
+	method="xml"
+	indent="yes"
+	encoding="iso-8859-1"
+  />
+
+  &lt;xsl:template match="doc">
+    &lt;html>
+      &lt;head>
+        &lt;title>
+          &lt;xsl:value-of select="title"/>
+        &lt;/title>
+      &lt;/head>
+      &lt;body>
+        &lt;xsl:apply-templates/>
+      &lt;/body>
+    &lt;/html>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="doc/title">
+    &lt;h1>
+      &lt;xsl:apply-templates/>
+    &lt;/h1>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="chapter/title">
+    &lt;h2>
+      &lt;xsl:apply-templates/>
+    &lt;/h2>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="section/title">
+    &lt;h3>
+      &lt;xsl:apply-templates/>
+    &lt;/h3>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="para">
+    &lt;p>
+      &lt;xsl:apply-templates/>
+    &lt;/p>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="note">
+    &lt;p class="note">
+      &lt;b>NOTE: &lt;/b>
+      &lt;xsl:apply-templates/>
+    &lt;/p>
+  &lt;/xsl:template>
+
+  &lt;xsl:template match="emph">
+    &lt;em>
+      &lt;xsl:apply-templates/>
+    &lt;/em>
+  &lt;/xsl:template>
+
+&lt;/xsl:stylesheet>
+ 
+      </code></pre></td></tr></table>
+    <hr />
+    <hr />
+      <h4>Example 4 Erlang version</h4>
+      <p>
+	Erlang transformation of previous example:
+      </p>
+      <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+
+-include("xmerl.hrl").
+
+-import(xmerl_xs, 
+	[ xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
+
+doctype()->
+    "&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\
+ \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd \">".
+
+process_xml(Doc)->
+	template(Doc).
+
+template(E = #xmlElement{name='doc'})->
+    [ "&lt;\?xml version=\"1.0\" encoding=\"iso-8859-1\"\?>",
+      doctype(),
+      "&lt;html xmlns=\"http://www.w3.org/1999/xhtml\" >"
+      "&lt;head>"
+      "&lt;title>", value_of(select("title",E)), "&lt;/title>"
+      "&lt;/head>"
+      "&lt;body>",
+      xslapply( fun template/1, E),
+      "&lt;/body>"
+      "&lt;/html>" ];
+
+
+template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
+    ["&lt;h1>", 
+     xslapply( fun template/1, E), 
+     "&lt;/h1>"];
+
+template(E = #xmlElement{ parents=[{'chapter',_}|_], name='title'}) ->
+    ["&lt;h2>", 
+     xslapply( fun template/1, E),
+     "&lt;/h2>"];
+
+template(E = #xmlElement{ parents=[{'section',_}|_], name='title'}) ->
+    ["&lt;h3>", 
+     xslapply( fun template/1, E),
+     "&lt;/h3>"];
+
+template(E = #xmlElement{ name='para'}) ->
+    ["&lt;p>", xslapply( fun template/1, E), "&lt;/p>"];
+
+template(E = #xmlElement{ name='note'}) ->
+    ["&lt;p class=\"note\">"
+     "&lt;b>NOTE: &lt;/b>",
+     xslapply( fun template/1, E),
+     "&lt;/p>"];
+
+template(E = #xmlElement{ name='emph'}) ->
+    ["&lt;em>", xslapply( fun template/1, E), "&lt;/em>"];
+
+template(E)->
+    built_in_rules( fun template/1, E).
+ 
+      </code></pre></td></tr></table>
+      <p>
+	It is important to end with a call to
+	<tt>xmerl_xs:built_in_rules/2</tt>
+	if you want any text to be written in "push" transforms. 
+	That are the ones using a lot <tt>xslapply( fun
+	template/1, E )</tt> instead of
+	<tt>value_of(select("xpath",E))</tt>,
+	which is pull...
+      </p>
+    <hr />
+<p>The largest example is the stylesheet to transform this document
+	from the Simplified Docbook XML format to xhtml. The source
+	file is <tt>sdocbook2xhtml.erl</tt>.
+</p>
+
+  
+    <h3 id="sect_4.3">Tips and tricks</h3>
+      
+	<h4 id="sect_4.3.1">for-each</h4>
+	<p>The function for-each is quite common in XSLT stylesheets.
+	  It can often be rewritten and replaced by select/1. Since
+	select/1 returns a list of #xmlElements and xslapply/2
+	traverses them it is more or less the same as to loop over all
+	the elements. 
+	</p>
+      
+      
+	<h4 id="sect_4.3.2">position()</h4>
+	<p>The XSLT position() and #xmlElement.pos are not the
+	same. One has to make an own position in Erlang.</p>
+	<hr />
+	  <h4>Example 5 Counting positions</h4>
+	  <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+&lt;xsl:template match="stanza">
+  &lt;p>&lt;xsl:apply-templates select="line" />&lt;/p>
+&lt;/xsl:template>
+
+&lt;xsl:template match="line">
+  &lt;xsl:if test="position() mod 2 = 0">&amp;#160;&amp;#160;&lt;/xsl:if>
+  &lt;xsl:value-of select="." />&lt;br />
+&lt;/xsl:template>
+ 
+	  </code></pre></td></tr></table>
+<p>Can be written as</p>
+	  <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+template(E = #xmlElement{name='stanza'}) ->
+    {Lines,LineNo} = lists:mapfoldl(fun template_pos/2, 1, select("line", E)),
+    ["&lt;p>", Lines, "&lt;/p>"].
+
+template_pos(E = #xmlElement{name='line'}, P) ->
+    {[indent_line(P rem 2), value_of(E#xmlElement.content), "&lt;br />"], P + 1 }.
+
+indent_line(0)->"&amp;#160;&amp;#160;";
+indent_line(_)->"".
+ 
+	  </code></pre></td></tr></table>
+	<hr />
+      
+      
+	<h4 id="sect_4.3.3">Global tree awareness</h4>
+	<p>In XSLT you have "root" access to the top of the tree
+	with XPath, even though you are somewhere deep in your
+	tree.</p>
+	<p>The xslapply/2 function only carries back the child part
+	  of the tree to the template fun. But it is quite easy to write
+	  template funs that handles both the child and top tree.</p>
+	<hr />
+	  <h4>Example 6 Passing the root tree</h4>
+	  <p>The following example piece will prepend the article 
+	    title to any section title</p>
+	  <table border="1" cellspacing="0" cellpadding="5" width="100%"
+bgcolor="#CCCCCC"><tr><td><pre><code>
+
+template(E = #xmlElement{name='title'}, ETop ) ->
+    ["&lt;h3>", value_of(select("title", ETop))," - ",
+     xslapply( fun(A) -> template(A, ETop) end, E),
+     "&lt;/h3>"];
+ 
+	  </code></pre></td></tr></table>
+	<hr />
+  </body></html>

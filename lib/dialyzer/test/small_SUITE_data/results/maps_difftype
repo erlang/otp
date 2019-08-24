@@ -1,0 +1,3 @@
+
+maps_difftype.erl:10: Function empty_mismatch/1 has no local return
+maps_difftype.erl:11: The pattern #{} can never match the type tuple()

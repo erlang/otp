@@ -1,0 +1,41 @@
+a-1.0:
+start version
+
+a-1.1:
+can be upgraded to from a-1.0. Module a has changed
+
+a-1.2:
+can be upgraded to from a-1.1.
+No module have changed, but priv dir is added including one 'file'
+
+a-9.0:
+can be upgrade to from a-1.0
+Changes a_sup correctly - to test successful upgrade of supervisor
+
+a-9.1:
+can be upgrade to from a-1.0
+Changes a_sup faulty - to test failing upgrade of supervisor
+
+b-1.0:
+start version, includes b_lib and b_server
+
+b-2.0:
+can be upgraded to from b-1.0.
+Removes b_lib (brutal_purge) and updates b_server (soft_purge)
+* The diff in purge method is important for test "check_and_purge", in
+  order to check that the purge option to check_install_release works
+  for both methods.
+
+many_mods-1.0:
+start version.
+m:start/1 starts N procs, each calling Mod:bar() in all other modules (m1-m10).
+m1-m10: implements bar() which returns a big constant.
+The point is to get many processes with references to many modules,
+and then load the modules again so that old code exists. See tests
+otp_9395_update_many_mods and otp_9395_rm_many_mods.
+
+many_mods-1.1:
+can be upgraded to from many_mods-1.0. Updates modules m1-m10.
+
+many_mods-2.0:
+can be upgraded to from many_mods-1.0. Removes modules m1-m10.

@@ -1,0 +1,19 @@
+MIBs ending with *-error.mib should give compilation error. No others.
+
+All standards MIBs should be original, without modifications.
+*If* there is some small modification for some reason you shall be
+able to find a comment about it by searching "erlsnmpmodification".
+Tickets are found in comments (search "OTP-<no>").
+
+One good compilation order:
+
+snmpc:compile("RMON-MIB").           
+snmpc:compile("RFC1271-MIB").
+snmpc:compile("TOKEN-RING-RMON-MIB").
+snmpc:compile("SNMPv2-TC").
+snmpc:compile("RMON2-MIB").
+snmpc:compile("ENTITY-MIB").
+snmpc:compile("SNMPv2-MIB").
+snmpc:compile("SNMPv2-USEC-MIB").
+snmpc:compile("STANDARD-MIB").
+snmpc:compile("INTERNAL-MIB").

@@ -1,0 +1,51 @@
+The files
+
+	PKIX1Algorithms88.asn1
+	PKIX1Explicit88.asn1
+	PKIX1Implicit88.asn1
+	PKIXAttributeCertificate.asn1
+
+are from RFCs 3279, 3280 and 3281.
+
+We have edited PKIX1Explicit88.asn1, PKIX1Implicit88.asn1, and 
+PKIXAttributeCertificate.asn1 as follows:
+
+
+1. Removal of definition of UniversalString and BMPString:
+
+diff -r1.1 PKIX1Explicit88.asn1
+15c15
+< UniversalString ::= [UNIVERSAL 28] IMPLICIT OCTET STRING
+---
+> -- UniversalString ::= [UNIVERSAL 28] IMPLICIT OCTET STRING
+18c18
+< BMPString ::= [UNIVERSAL 30] IMPLICIT OCTET STRING
+---
+> -- BMPString ::= [UNIVERSAL 30] IMPLICIT OCTET STRING
+
+
+2. Removal of definition of BMPString:
+
+diff -r1.1 PKIX1Implicit88.asn1
+13c13,14
+<       BMPString, UTF8String,  -- end "new" types --
+---
+>       -- BMPString, 
+>       UTF8String,  -- end "new" types --
+
+
+3. Addition of definition of UTF8String, and correction of a typo.
+
+diff -r1.1 PKIXAttributeCertificate.asn1
+46c46
+<              -- UTF8String ::= [UNIVERSAL 12] IMPLICIT OCTET STRING
+---
+>              UTF8String ::= [UNIVERSAL 12] IMPLICIT OCTET STRING
+55c55
+<                 version        AttCertVersion  -- version is v2,
+---
+>                 version        AttCertVersion,  -- version is v2
+
+4. Definitions of public keys from PKCS-1.asn1 present in
+PKIX1Algorithms88.asn1 where removed as we take them directly from
+PKCS-1.asn1

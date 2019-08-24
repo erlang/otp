@@ -1,0 +1,3 @@
+
+cerl_hipeify.erl:370: Guard test fun((none()) -> no_return()) =:= F::{_,_,_} | {_,_,_,_} | {_,_,_,_,_} | {_,_,_,_,_,_} | {_,_,_,_,_,_,_} can never succeed
+cerl_hipeify.erl:641: Function env__new_function_name/2 will never be called

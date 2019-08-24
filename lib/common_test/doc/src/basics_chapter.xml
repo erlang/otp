@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Common Test Basics</title>
+    <prepared>Kenneth Lundin, Peter Andersson</prepared>
+    <docno></docno>
+    <date>2003-10-21</date>
+    <rev></rev>
+    <file>basics_chapter.xml</file>
+  </header>
+  <marker id="basics"></marker>
+  <section>
+    <title>General</title>
+
+    <p>The <c>Common Test</c> framework is a tool that supports
+      implementation and automated execution of test cases to any
+      types of target systems. <c>Common Test</c> is the main tool being used 
+      in all testing- and verification activities that are part of Erlang/OTP 
+      system development and maintenance.
+    </p>
+
+    <p>Test cases can be executed individually or in batches. <c>Common Test</c>
+      also features a distributed testing mode with central control and logging.
+      With this feature, multiple systems can be tested independently in
+      one common session. This is useful, for example, when running automated 
+      large-scale regression tests.
+    </p>
+
+    <p>
+      The System Under Test (SUT) can consist of one or more target
+      nodes. <c>Common Test</c> contains a generic test server that, 
+      together with other test utilities, is used to perform test case execution. 
+      The tests can be started from a GUI, from the OS shell, or from an
+      Erlang shell. <em>Test suites</em> are files (Erlang
+      modules) that contain the <em>test cases</em> (Erlang functions)
+      to be executed. <em>Support modules</em> provide functions
+      that the test cases use to do the tests.
+    </p>
+    
+    <p>In a black-box testing scenario, <c>Common Test</c>-based test programs connect to
+      the target system(s) through standard O&amp;M and CLI protocols. <c>Common Test</c>
+      provides implementations of, and wrapper interfaces to, some of these
+      protocols (most of which exist as standalone components and
+      applications in OTP). The wrappers simplify configuration and add
+      verbosity for logging purposes. <c>Common Test</c> is continously extended with
+      useful support modules. However, notice that it is
+      a straightforward task to use any Erlang/OTP component
+      for testing purposes with <c>Common Test</c>, without needing a <c>Common Test</c> 
+      wrapper for it. It is as simple as calling Erlang functions. A number of 
+      target-independent interfaces are supported in <c>Common Test</c>, such as
+      Generic Telnet and FTP. These can be specialized or used
+      directly for controlling instruments, traffic load generators, and so on.
+    </p> 
+    
+    <p><c>Common Test</c> is also a very useful tool for white-box testing Erlang
+      code (for example, module testing), as the test programs can call exported Erlang
+      functions directly. There is very little overhead required for
+      implementing basic test suites and executing simple tests. For black-box
+      testing Erlang software, Erlang RPC and standard O&amp;M interfaces
+      can be used for example.
+    </p>
+    
+    <p>A test case can handle several connections to one or
+      more target systems, instruments, and traffic generators in
+      parallel to perform the necessary actions for a test. 
+      The handling of many connections in parallel is one of
+      the major strengths of <c>Common Test</c>, thanks to the efficient
+      support for concurrency in the Erlang runtime system, which <c>Common Test</c> 
+      users can take great advantage of.
+    </p>
+  </section>
+
+  <section>
+    <title>Test Suite Organisation</title>
+    <p>
+      Test suites are organized in test directories and each test suite
+      can have a separate data directory. Typically, these files and directories
+      are version-controlled similar to other forms of source code (possibly by
+      a version control system like GIT or Subversion). However, <c>Common Test</c> 
+      does not itself put any requirements on (or has any awareness of) 
+      possible file and directory versions.
+    </p>
+  </section>
+
+  <section>
+    <title>Support Libraries</title>
+    <p>
+      Support libraries contain functions that are useful for all test suites,
+      or for test suites in a specific functional area or subsystem.
+      In addition to the general support libraries provided by the
+      <c>Common Test</c> framework, and the various libraries and applications provided by
+      Erlang/OTP, there can also be a need for customized (user specific) 
+      support libraries. 
+    </p>
+  </section>
+
+  <section>
+    <title>Suites and Test Cases</title>
+    <p>
+      Testing is performed by running test suites (sets of test cases) or 
+      individual test cases. A test suite is implemented as an Erlang module named 
+      <c><![CDATA[<suite_name>_SUITE.erl]]></c> which contains a number of test cases.
+      A test case is an Erlang function that tests one or more things. 
+      The test case is the smallest unit that the <c>Common Test</c> test server deals with.
+    </p>
+    <p>
+      Sets of test cases, called test case groups, can also be defined. A test case
+      group can have execution properties associated with it. Execution properties 
+      specify if the test cases in the group are to be executed in
+      random order, in parallel, or in sequence, and if the execution of the group 
+      is to be repeated. Test case groups can also be nested (that is, a group can,
+      besides test cases, contain subgroups).
+    </p>
+    <p>
+      Besides test cases and groups, the test suite can also contain configuration 
+      functions. These functions are meant to be used for setting up (and verifying)
+      environment and state in the SUT (and/or the <c>Common Test</c> host node), 
+      required for the tests to execute correctly. Examples of operations are: 
+      Opening a connection to the SUT, initializing a database, running an installation 
+      script, and so on. Configuration can be performed per suite, per test case group,
+      and per individual test case.
+    </p>
+    <p>
+      The test suite module must conform to a
+      <seealso marker="common_test">callback interface</seealso>
+      specified by the <c>Common Test</c> test server. For details, see section
+      <seealso marker="write_test_chapter#intro">Writing Test Suites</seealso>.
+    </p>
+
+    <p>
+      A test case is considered successful if it returns to the caller, no matter 
+      what the returned value is. However, a few return values have special meaning
+      as follows:</p>
+      <list type="bulleted">
+       <item><c>{skip,Reason}</c> indicates that the test case is skipped.</item>
+       <item><c>{comment,Comment}</c> prints a comment in the log for the test case.</item>
+       <item><c>{save_config,Config}</c> makes the <c>Common Test</c> test server pass 
+       <c>Config</c> to the next test case.</item>
+     </list>
+     <p>
+      A test case failure is specified as a runtime error (a crash), no matter what 
+      the reason for termination is. If you use Erlang pattern matching effectively,
+      you can take advantage of this property. The result is concise and 
+      readable test case functions that look much more like scripts than actual programs. 
+      A simple example:
+    </p>
+    <pre>
+ session(_Config) ->
+     {started,ServerId} = my_server:start(),
+     {clients,[]} = my_server:get_clients(ServerId),
+     MyId = self(),
+     connected = my_server:connect(ServerId, MyId),
+     {clients,[MyId]} = my_server:get_clients(ServerId),
+     disconnected = my_server:disconnect(ServerId, MyId),
+     {clients,[]} = my_server:get_clients(ServerId),
+     stopped = my_server:stop(ServerId).</pre>
+    <p>
+      As a test suite runs, all information (including output to <c>stdout</c>) is 
+      recorded in many different log files. A minimum of information is displayed 
+      in the user console (only start and stop information, plus a note 
+      for each failed test case).
+    </p>
+    <p>
+      The result from each test case is recorded in a dedicated HTML log file, created 
+      for the particular test run. An overview page displays each test case represented 
+      by a table row showing total execution time, if the case was successful,
+      failed, or skipped, plus an optional user comment. For a failed test case, the 
+      reason for termination is also printed in the comment field. The overview page
+      has a link to each test case log file, providing simple navigation with any standard
+      HTML browser.
+    </p>
+    </section>
+
+  <section>
+<marker id="External_Interfaces"></marker>
+    <title>External Interfaces</title>
+    <p>
+      The <c>Common Test</c> test server requires that the test suite defines and exports the 
+      following mandatory or optional callback functions:
+    </p>
+    
+    <taglist>
+      <tag><c>all()</c></tag>
+        <item><p>Returns a list of all test cases and groups in the suite. (Mandatory)</p></item>
+      <tag><c>suite()</c></tag>
+        <item><p>Information function used to return properties for the suite. (Optional)</p></item>
+      <tag><c>groups()</c></tag>
+        <item><p>For declaring test case groups. (Optional)</p></item>
+      <tag><c>init_per_suite(Config)</c></tag>
+        <item><p>Suite level configuration function, executed before the first 
+	test case. (Optional)</p></item>
+      <tag><c>end_per_suite(Config)</c></tag>
+        <item><p>Suite level configuration function, executed after the last 
+	test case. (Optional)</p></item>
+      <tag><c>group(GroupName)</c></tag>
+        <item><p>Information function used to return properties for a test case group. (Optional)</p></item>	
+      <tag><c>init_per_group(GroupName, Config)</c></tag>
+        <item><p>Configuration function for a group, executed before the first 
+	test case. (Optional)</p></item>
+      <tag><c>end_per_group(GroupName, Config)</c></tag>
+        <item><p>Configuration function for a group, executed after the last 
+	test case. (Optional)</p></item>
+      <tag><c>init_per_testcase(TestCase, Config)</c></tag>
+        <item><p>Configuration function for a testcase, executed before each 
+	test case. (Optional)</p></item>
+      <tag><c>end_per_testcase(TestCase, Config)</c></tag>
+      <item><p>Configuration function for a testcase, executed after each 
+      test case. (Optional)</p></item> 
+    </taglist>
+      <p>
+	For each test case, the <c>Common Test</c> test server expects the
+	following functions:
+      </p>
+      <taglist>
+	<tag>Testcasename()</tag>
+	  <item><p>Information function that returns a list of test case properties. (Optional)</p></item>
+	<tag>Testcasename(Config)</tag> 
+	  <item><p>The test case function.</p></item> 
+      </taglist>
+    </section>
+</chapter>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <root id="1">
+        <elem1 id="2" pet="cat"/>
+        <elem1 id="3" pet=" dog " age="8"/>
+        <elem1 id="4" pet="Cat" >
+            <elem2 id="5">
+                <elem3 id="6" age="10"/>
+            </elem2>
+        </elem1>
+        <elem1 id="7" pet="dog"/>
+    </root>

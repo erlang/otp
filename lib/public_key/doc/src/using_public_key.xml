@@ -1,0 +1,770 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2011</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Getting Started</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>using_public_key.xml</file>
+  </header>
+
+  <p>This section describes examples of how to use the 
+    Public Key API. Keys and certificates used in the following 
+    sections are generated only for testing the Public Key 
+    application.</p>
+
+    <p>Some shell printouts in the following examples
+    are abbreviated for increased readability.</p>
+
+     
+  <section>
+    <title>PEM Files</title>
+    <p>Public-key data (keys, certificates, and so on) can be stored in 
+    Privacy Enhanced Mail (PEM) format. 
+    The PEM files have the following structure:</p>
+    
+    <code>
+    &lt;text&gt;
+    -----BEGIN &lt;SOMETHING&gt;-----
+    &lt;Attribute&gt; : &lt;Value&gt;
+    &lt;Base64 encoded DER data&gt;
+    -----END &lt;SOMETHING&gt;-----
+    &lt;text&gt;</code>
+    
+    <p>A file can contain several <c>BEGIN/END</c> blocks. Text lines between
+    blocks are ignored. Attributes, if present, are ignored except
+    for <c>Proc-Type</c> and <c>DEK-Info</c>, which are used when <c>DER</c> 
+    data is encrypted.</p>
+
+    <section>
+      <title>DSA Private Key</title>
+      <p>A DSA private key can look as follows:</p>
+      <note><p>File handling is not done by the Public Key application.</p></note>
+      
+      <code>1> {ok, PemBin} = file:read_file("dsa.pem").
+{ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code>
+      
+      <p>The following PEM file has only one entry, a private DSA key:</p>
+      <code>2> [DSAEntry] =  public_key:pem_decode(PemBin).
+[{'DSAPrivateKey',&lt;&lt;48,130,1,187,2,1,0,2,129,129,0,183,
+                    179,230,217,37,99,144,157,21,228,204,
+		    162,207,61,246,...&gt;&gt;,
+		    not_encrypted}]</code>
+      
+      <code>3> Key = public_key:pem_entry_decode(DSAEntry).
+#'DSAPrivateKey'{version = 0,
+                 p = 12900045185019966618...6593,
+                 q = 1216700114794736143432235288305776850295620488937,
+                 g = 10442040227452349332...47213,
+                 y = 87256807980030509074...403143,
+                 x = 510968529856012146351317363807366575075645839654}</code>
+    </section>
+
+    <section>
+      <title>RSA Private Key with Password</title>
+      <p>An RSA private key encrypted with a password can look as follows:</p>
+      
+      <code>1> {ok, PemBin} = file:read_file("rsa.pem").
+{ok,&lt;&lt;"Bag Attribut"...&gt;&gt;}</code>
+
+    <p>The following PEM file has only one entry, a private RSA key:</p>
+    <code>2>[RSAEntry] = public_key:pem_decode(PemBin).
+[{'RSAPrivateKey',&lt;&lt;224,108,117,203,152,40,15,77,128,126,
+                    221,195,154,249,85,208,202,251,109,
+                    119,120,57,29,89,19,9,...&gt;&gt;,
+                  {"DES-EDE3-CBC",&lt;&lt;"kÙeø¼pµL"&gt;&gt;}}]</code>
+
+    <p>In this following example, the password is <c>"abcd1234"</c>:</p>
+    <code>3> Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
+    #'RSAPrivateKey'{version = 'two-prime',
+                 modulus = 1112355156729921663373...2737107,
+                 publicExponent = 65537,
+                 privateExponent = 58064406231183...2239766033,
+                 prime1 = 11034766614656598484098...7326883017,
+                 prime2 = 10080459293561036618240...77738643771,
+                 exponent1 = 77928819327425934607...22152984217,
+                 exponent2 = 36287623121853605733...20588523793,
+                 coefficient = 924840412626098444...41820968343,
+                 otherPrimeInfos = asn1_NOVALUE}</code>
+    </section>
+  
+  <section>
+    <title>X509 Certificates</title>
+    <p>The following is an example of X509 certificates:</p>
+    
+      <code>1> {ok, PemBin} = file:read_file("cacerts.pem").
+{ok,&lt;&lt;"-----BEGIN CERTIFICATE-----\nMIIC7jCCAl"...&gt;&gt;}</code>
+
+      <p>The following file includes two certificates:</p>
+      <code>2> [CertEntry1, CertEntry2] = public_key:pem_decode(PemBin).
+[{'Certificate',&lt;&lt;48,130,2,238,48,130,2,87,160,3,2,1,2,2,
+                  9,0,230,145,97,214,191,2,120,150,48,13,
+                  ...&gt;&gt;,
+                not_encrypted},
+ {'Certificate',&lt;&lt;48,130,3,200,48,130,3,49,160,3,2,1,2,2,1,
+                  1,48,13,6,9,42,134,72,134,247,...&gt;&gt;,
+                not_encrypted}]</code>
+      
+      <p>Certificates can be decoded as usual:</p>
+      <code>2> Cert = public_key:pem_entry_decode(CertEntry1).
+#'Certificate'{
+    tbsCertificate =
+        #'TBSCertificate'{
+            version = v3,serialNumber = 16614168075301976214,
+            signature =
+                #'AlgorithmIdentifier'{
+                    algorithm = {1,2,840,113549,1,1,5},
+                    parameters = &lt;&lt;5,0&gt;&gt;},
+            issuer =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = &lt;&lt;19,10,69,114,108,97,110,103,32,79,84,80&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = &lt;&lt;19,11,69,114,105,99,115,115,111,110,32,65,66&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = &lt;&lt;19,9,83,116,111,99,107,104,111,108,109&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,6},
+                          value = &lt;&lt;19,2,83,69&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = &lt;&lt;22,22,112,101,116,101,114,64,101,114,...&gt;&gt;}]]},
+            validity =
+                #'Validity'{
+                    notBefore = {utcTime,"080109082929Z"},
+                    notAfter = {utcTime,"080208082929Z"}},
+            subject =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = &lt;&lt;19,10,69,114,108,97,110,103,32,79,84,80&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = &lt;&lt;19,11,69,114,105,99,115,115,111,110,32,...&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = &lt;&lt;19,9,83,116,111,99,107,104,111,108,...&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,6},
+                          value = &lt;&lt;19,2,83,69&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = &lt;&lt;22,22,112,101,116,101,114,64,...&gt;&gt;}]]},
+            subjectPublicKeyInfo =
+                #'SubjectPublicKeyInfo'{
+                    algorithm =
+                        #'AlgorithmIdentifier'{
+                            algorithm = {1,2,840,113549,1,1,1},
+                            parameters = &lt;&lt;5,0&gt;&gt;},
+                    subjectPublicKey =
+                        {0,&lt;&lt;48,129,137,2,129,129,0,203,209,187,77,73,231,90,...&gt;&gt;}},
+            issuerUniqueID = asn1_NOVALUE,
+            subjectUniqueID = asn1_NOVALUE,
+            extensions =
+                [#'Extension'{
+                     extnID = {2,5,29,19},
+                     critical = true,
+                     extnValue = [48,3,1,1,255]},
+                 #'Extension'{
+                     extnID = {2,5,29,15},
+                     critical = false,
+                     extnValue = [3,2,1,6]},
+                 #'Extension'{
+                     extnID = {2,5,29,14},
+                     critical = false,
+                     extnValue = [4,20,27,217,65,152,6,30,142|...]},
+                 #'Extension'{
+                     extnID = {2,5,29,17},
+                     critical = false,
+                     extnValue = [48,24,129,22,112,101,116,101|...]}]},
+    signatureAlgorithm =
+        #'AlgorithmIdentifier'{
+            algorithm = {1,2,840,113549,1,1,5},
+            parameters = &lt;&lt;5,0&gt;&gt;},
+    signature =
+    &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+    165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
+
+      <p>Parts of certificates can be decoded with
+      <c>public_key:der_decode/2</c>, using the ASN.1 type of that part.
+      However, an application-specific certificate extension requires 
+      application-specific ASN.1 decode/encode-functions.
+      In the recent example, the first value of <c>rdnSequence</c> is 
+      of ASN.1 type <c>'X520CommonName'. ({2,5,4,3} = ?id-at-commonName)</c>:</p>
+      
+      <code>public_key:der_decode('X520CommonName', &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;).
+{printableString,"erlangCA"}</code>
+
+      <p>However, certificates can also be decoded using <c>pkix_decode_cert/2</c>, 
+      which can customize and recursively decode standard parts of a certificate:</p>
+
+      <code>3>{_, DerCert, _} = CertEntry1.</code>
+
+      <code>4> public_key:pkix_decode_cert(DerCert, otp).
+#'OTPCertificate'{
+    tbsCertificate =
+        #'OTPTBSCertificate'{
+            version = v3,serialNumber = 16614168075301976214,
+            signature =
+                #'SignatureAlgorithm'{
+                    algorithm = {1,2,840,113549,1,1,5},
+                    parameters = 'NULL'},
+            issuer =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = {printableString,"erlangCA"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = {printableString,"Erlang OTP"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = {printableString,"Ericsson AB"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = {printableString,"Stockholm"}}],
+                     [#'AttributeTypeAndValue'{type = {2,5,4,6},value = "SE"}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = "peter@erix.ericsson.se"}]]},
+            validity =
+                #'Validity'{
+                    notBefore = {utcTime,"080109082929Z"},
+                    notAfter = {utcTime,"080208082929Z"}},
+            subject =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = {printableString,"erlangCA"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = {printableString,"Erlang OTP"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = {printableString,"Ericsson AB"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = {printableString,"Stockholm"}}],
+                     [#'AttributeTypeAndValue'{type = {2,5,4,6},value = "SE"}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = "peter@erix.ericsson.se"}]]},
+            subjectPublicKeyInfo =
+                #'OTPSubjectPublicKeyInfo'{
+                    algorithm =
+                        #'PublicKeyAlgorithm'{
+                            algorithm = {1,2,840,113549,1,1,1},
+                            parameters = 'NULL'},
+                    subjectPublicKey =
+                        #'RSAPublicKey'{
+                            modulus =
+                                1431267547247997...37419,
+                            publicExponent = 65537}},
+            issuerUniqueID = asn1_NOVALUE,
+            subjectUniqueID = asn1_NOVALUE,
+            extensions =
+                [#'Extension'{
+                     extnID = {2,5,29,19},
+                     critical = true,
+                     extnValue =
+                         #'BasicConstraints'{
+                             cA = true,pathLenConstraint = asn1_NOVALUE}},
+                 #'Extension'{
+                     extnID = {2,5,29,15},
+                     critical = false,
+                     extnValue = [keyCertSign,cRLSign]},
+                 #'Extension'{
+                     extnID = {2,5,29,14},
+                     critical = false,
+                     extnValue = [27,217,65,152,6,30,142,132,245|...]},
+                 #'Extension'{
+                     extnID = {2,5,29,17},
+                     critical = false,
+                     extnValue = [{rfc822Name,"peter@erix.ericsson.se"}]}]},
+    signatureAlgorithm =
+        #'SignatureAlgorithm'{
+            algorithm = {1,2,840,113549,1,1,5},
+            parameters = 'NULL'},
+    signature =
+         &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+           165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
+
+      <p>This call is equivalent to <c>public_key:pem_entry_decode(CertEntry1)</c>:</p>
+      <code>5> public_key:pkix_decode_cert(DerCert, plain).
+#'Certificate'{ ...}</code>
+  </section>
+
+  <section>
+    <title>Encoding Public-Key Data to PEM Format</title>
+
+    <p>If you have public-key data and want to create a PEM file
+    this can be done by calling functions
+    <c>public_key:pem_entry_encode/2</c> and <c>pem_encode/1</c> and 
+    saving the result to a file. For example, assume that you have 
+    <c>PubKey = 'RSAPublicKey'{}</c>. Then you can create a PEM-"RSA PUBLIC KEY" 
+    file (ASN.1 type <c>'RSAPublicKey'</c>) or a PEM-"PUBLIC KEY" file
+    (<c>'SubjectPublicKeyInfo'</c> ASN.1 type).</p>
+
+    <p>The second element of the PEM-entry is the ASN.1 <c>DER</c> encoded
+    key data:</p>
+
+    <code>1> PemEntry = public_key:pem_entry_encode('RSAPublicKey', RSAPubKey).
+{'RSAPublicKey', &lt;&lt;48,72,...&gt;&gt;, not_encrypted}
+
+2> PemBin = public_key:pem_encode([PemEntry]).
+&lt;&lt;"-----BEGIN RSA PUBLIC KEY-----\nMEgC...&gt;&gt;
+
+3> file:write_file("rsa_pub_key.pem", PemBin).
+ok</code>
+
+    <p>or:</p>
+
+    <code>1> PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
+{'SubjectPublicKeyInfo', &lt;&lt;48,92...&gt;&gt;, not_encrypted}
+
+2> PemBin = public_key:pem_encode([PemEntry]).
+&lt;&lt;"-----BEGIN PUBLIC KEY-----\nMFw...&gt;&gt;
+
+3> file:write_file("pub_key.pem", PemBin).
+ok</code>
+
+  </section>
+</section>
+
+<section>
+      <title>RSA Public-Key Cryptography</title>
+       <p>Suppose you have the following private key and a corresponding public key:</p>
+       <list type="bulleted">
+	 <item><c>PrivateKey = #'RSAPrivateKey{}'</c> and 
+	 the plaintext <c>Msg = binary()</c></item>
+	 <item><c>PublicKey = #'RSAPublicKey'{}</c>
+	 </item>
+       </list>
+       <p>Then you can proceed as follows:</p>
+
+       <p>Encrypt with the private key:</p>
+       <code>RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
+Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code>
+
+       <p>Encrypt with the public key:</p>
+       <code>RsaEncrypted = public_key:encrypt_public(Msg, PublicKey),
+Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
+
+      <note><p>You normally do only one of the encrypt or decrypt operations, 
+      and the peer does the other. This normaly used in legacy applications
+      as a primitive digital signature.
+      </p></note>
+
+  </section>
+
+  <section>
+    <title>Digital Signatures</title>
+
+    <p>Suppose you have the following private key and a corresponding public key:</p>
+    
+    <list type="bulleted">
+       <item><c>PrivateKey = #'RSAPrivateKey{}'</c> or
+       <c>#'DSAPrivateKey'{}</c> and the plaintext <c>Msg = binary()</c></item>
+       <item><c>PublicKey = #'RSAPublicKey'{}</c> or
+       <c>{integer(), #'DssParams'{}}</c></item>
+     </list>
+     <p>Then you can proceed as follows:</p>
+
+    <code>Signature = public_key:sign(Msg, sha, PrivateKey),
+true = public_key:verify(Msg, sha, Signature, PublicKey),</code>
+
+    <note><p>You normally do only one of the sign or verify operations,
+    and the peer does the other.</p></note>
+
+    <p>It can be appropriate to calculate the message digest before
+    calling <c>sign</c> or <c>verify</c>, and then use <c>none</c> as 
+    second argument:</p>
+
+    <code>Digest = crypto:sha(Msg),
+Signature = public_key:sign(Digest, none, PrivateKey),
+true = public_key:verify(Digest, none, Signature, PublicKey),</code>
+    
+  </section>
+  
+ <section>
+   <marker id="verify_hostname"></marker>
+   <title>Verifying a certificate hostname</title>
+   <section>
+     <title>Background</title>
+     <p>When a client checks a server certificate there are a number of checks available like
+     checks that the certificate is not revoked, not forged or not out-of-date.
+     </p>
+     <p>There are however attacks that are not detected by those checks. Suppose a bad guy has
+     succeded with a DNS infection. Then the client could belive it is connecting to one host but
+     ends up at another but evil one. Though it is evil, it could have a perfectly legal
+     certificate! The certificate has a valid signature, it is not revoked, the certificate chain
+     is not faked and has a trusted root and so on.
+     </p>
+     <p>To detect that the server is not the intended one, the client must additionaly perform
+     a <i>hostname verification</i>. This procedure is described in
+     <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>. The idea is that the certificate
+     lists the hostnames it could be fetched from. This is checked by the certificate issuer when
+     the certificate is signed. So if the certificate is issued by a trusted root the client 
+     could trust the host names signed in it.
+     </p>
+     <p>There is a default hostname matching procedure defined in
+     <url href="https://tools.ietf.org/html/rfc6125#section-6">RFC 6125, section 6</url>
+     as well as protocol dependent variations defined in
+     <url href="https://tools.ietf.org/html/rfc6125#appendix-B">RFC 6125 appendix B</url>.
+     The default procedure is implemented in
+     <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2,3</seealso>.
+     It is possible for a client to hook in modified rules using the options list.
+     </p>
+     <p>Some terminology is needed: the certificate presents hostname(s) on which it is valid.
+     Those are called <i>Presented IDs</i>. The hostname(s) the client belives it connects to
+     are called <i>Reference IDs</i>. The matching rules aims to verify that there is at least
+     one of the Reference IDs that matches one of the Presented IDs. If not, the verification fails.
+     </p>
+     <p>The IDs contains normal fully qualified domain names like e.g <c>foo.example.com</c>,
+     but IP addresses are not recommended. The rfc describes why this is not recommended as well
+     as security considerations about how to aquire the Reference IDs.
+     </p>
+     <p>Internationalized domain names are not supported.
+     </p>
+   </section>
+   <section>
+     <title>The verification process</title>
+     <p>Traditionally the Presented IDs were found in the <c>Subject</c> certificate field as <c>CN</c>
+     names. This is still quite common. When printing a certificate they show up as:
+     </p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+     </code>
+     <p>The example <c>Subject</c> field has one C, two CN and one O part. It is only the
+     CN (Common Name) that is used by hostname verification. The two other (C and O) is not used
+     here even when they contain a domain name like the O part. The C and O parts are defined
+     elsewhere and meaningful only for other functions.
+     </p>
+     <p>In the example the Presented IDs are <c>example.com</c> as well as hostnames matching
+     <c>*.example.com</c>. For example <c>foo.example.com</c> and <c>bar.example.com</c> both
+     matches but not <c>foo.bar.example.com</c>. The name <c>erlang.org</c> matches neither
+     since it is not a CN.
+     </p>
+     <p>In case where the Presented IDs are fetched from the <c>Subject</c> certificate field, the
+     names may contain wildcard characters. The function handles this as defined in
+     <url href="https://tools.ietf.org/html/rfc6125#section-6.4.3">chapter 6.4.3 in RFC 6125</url>.
+     </p>
+     <p>There may only be one wildcard character and that is in the first label, for example:
+     <c>*.example.com</c>. This matches <c>foo.example.com</c> but neither <c>example.com</c> nor
+     <c>foo.bar.example.com</c>.
+     </p>
+     <p>There may be label characters before or/and after the wildcard. For example:
+     <c>a*d.example.com</c> matches <c>abcd.example.com</c> and <c>ad.example.com</c>,
+     but not <c>ab.cd.example.com</c>.
+     </p>
+     <p>In the previous example there is no indication of which protocols are expected. So a client
+     has no indication of whether it is a web server, an ldap server or maybe a sip server it is
+     connected to.
+     There are fields in the certificate that can indicate this. To be more exact, the rfc
+     introduces the usage of the <c>X509v3 Subject Alternative Name</c> in the <c>X509v3 extensions</c>
+     field:
+     </p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code>
+     <p>Here <c>kb.example.org</c> serves any protocol while <c>www.example.org</c> presents a secure
+     web server.
+     </p>
+
+     <p>The next example has both <c>Subject</c> and <c>Subject Alternate Name</c> present:</p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code>
+     <p>The RFC states that if a certificate defines Reference IDs in a <c>Subject Alternate Name</c>
+     field, the <c>Subject</c> field MUST NOT be used for host name checking, even if it contains
+     valid CN names.
+     Therefore only <c>kb.example.org</c> and <c>https://www.example.org</c> matches. The match fails
+     both for <c>example.com</c> and <c>foo.example.com</c> becuase they are in the <c>Subject</c>
+     field which is not checked because the <c>Subject Alternate Name</c> field is present.
+     </p>
+   </section>
+
+   <section>
+    <marker id="verify_hostname_examples"></marker>
+     <title>Function call examples</title>
+     <note>
+       <p>Other applications like ssl/tls or https might have options that are passed
+       down to the <c>public_key:pkix_verify_hostname</c>. You will probably not
+       have to call it directly</p>
+     </note>
+     <p>Suppose our client expects to connect to the web server https://www.example.net. This
+     URI is therefore the Reference IDs of the client.
+     The call will be:
+     </p>
+     <code>
+ public_key:pkix_verify_hostname(CertFromHost,
+                                 [{uri_id, "https://www.example.net"}
+                                 ]).
+     </code>
+     <p>The call will return <c>true</c> or <c>false</c> depending on the check. The caller
+     do not need to handle the matching rules in the rfc. The matching will proceed as:
+     </p>
+     <list>
+       <item>If there is a <c>Subject Alternate Name</c> field, the <c>{uri_id,string()}</c> in the
+       function call will be compared to any
+       <c>{uniformResourceIdentifier,string()}</c> in the Certificate field.
+       If the two <c>strings()</c> are equal (case insensitive), there is a match.
+       The same applies for any <c>{dns_id,string()}</c> in the call which is compared
+       with all <c>{dNSName,string()}</c> in the Certificate field.
+       </item>
+       <item>If there is NO <c>Subject Alternate Name</c> field, the <c>Subject</c> field will be
+       checked. All <c>CN</c> names will be compared to all hostnames <i>extracted</i> from 
+       <c>{uri_id,string()}</c> and from <c>{dns_id,string()}</c>.
+       </item>
+     </list>
+   </section>
+   <section>
+     <title>Extending the search mechanism</title>
+     <p>The caller can use own extraction and matching rules. This is done with the two options
+     <c>fqdn_fun</c> and <c>match_fun</c>.
+     </p>
+     <section>
+       <marker id="hostname_extraction"></marker>
+       <title>Hostname extraction</title>
+       <p>The <c>fqdn_fun</c> extracts hostnames (Fully Qualified Domain Names) from uri_id
+       or other ReferenceIDs that are not pre-defined in the public_key function.
+       Suppose you have some URI with a very special protocol-part:
+       <c>myspecial://example.com"</c>. Since this a non-standard URI there will be no hostname 
+       extracted for matching CN-names in the <c>Subject</c>.</p>
+       <p>To "teach" the function how to extract, you can give a fun which replaces the default
+       extraction function.
+       The  <c>fqdn_fun</c> takes one argument and returns
+       either a <c>string()</c> to be matched to each CN-name or the atom <c>default</c> which will invoke
+       the default fqdn extraction function. The return value <c>undefined</c> removes the current
+       URI from the fqdn extraction.
+       </p>
+       <code>
+ ...
+ Extract = fun({uri_id, "myspecial://"++HostName}) -> HostName;
+              (_Else) -> default
+           end,
+ ...	 
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fqdn_fun, Extract}])
+ ...
+       </code>
+     </section>
+     <section>
+       <marker id="redefining_match_op"></marker>
+       <title>Re-defining the match operation</title>
+       <p>The default matching handles dns_id and uri_id. In an uri_id the value is tested for
+       equality with a value from the <c>Subject Alternate Name</c>. If som other kind of matching
+       is needed, use the  <c>match_fun</c> option.
+       </p>
+       <p>The  <c>match_fun</c> takes two arguments and returns either <c>true</c>,
+       <c>false</c> or <c>default</c>. The value  <c>default</c> will invoke the default
+       match function.
+       </p>
+       <code>
+ ...
+ Match = fun({uri_id,"myspecial://"++A},
+             {uniformResourceIdentifier,"myspecial://"++B}) ->
+                                                    my_match(A,B);
+            (_RefID, _PresentedID) ->
+                                default
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{match_fun, Match}]),
+ ...
+       </code>
+       <p>In case of a match operation between a ReferenceID and a CN value from the <c>Subject</c>
+       field, the first argument to the fun is the extracted hostname from the ReferenceID, and the
+       second argument is the tuple <c>{cn, string()}</c> taken from the <c>Subject</c> field. That
+       makes it possible to have separate matching rules for Presented IDs from the  <c>Subject</c>
+       field and from the <c>Subject Alternate Name</c> field.
+       </p>
+       <p>The default matching transformes the ascii values in strings to lowercase before comparing.
+       The  <c>match_fun</c> is however called without any transfomation applied to the strings.  The
+       reason is to enable the user to do unforseen handling of the strings where the original format
+       is needed.
+       </p>
+     </section>
+   </section>
+   <section>
+     <title>"Pinning" a Certificate</title>
+     <p>The <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url> defines <i>pinning</i>
+     as:</p>
+     <quote>
+       <p>"The act of establishing a cached name association between
+       the application service's certificate and one of the client's
+       reference identifiers, despite the fact that none of the presented
+       identifiers matches the given reference identifier. ..."
+       </p>
+     </quote>
+     <p>The purpose is to have a mechanism for a human to accept an otherwise faulty Certificate.
+     In for example a web browser, you could get a question like </p>
+     <quote>
+       <p>Warning: you wanted to visit the site www.example.com,
+       but the certificate is for shop.example.com. Accept anyway (yes/no)?"
+       </p>
+     </quote>
+     <p>This could be accomplished with the option <c>fail_callback</c> which will
+     be called if the hostname verification fails:
+     </p>
+     <code>
+ -include_lib("public_key/include/public_key.hrl"). % Record def
+ ...
+ Fail = fun(#'OTPCertificate'{}=C) ->
+              case in_my_cache(C) orelse my_accept(C) of
+                  true ->
+                       enter_my_cache(C),
+                       true;
+                  false ->
+                       false
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fail_callback, Fail}]),
+ ...
+     </code>
+   </section>
+ </section>
+
+  <section>
+    <title>SSH Files</title>
+    
+    <p>SSH typically uses PEM files for private keys but has its
+    own file format for storing public keys. The <c>public_key</c>
+    application can be used to parse the content of SSH public-key files.</p>
+
+    <section>
+   <title>RFC 4716 SSH Public-Key Files</title>
+
+    <p>RFC 4716 SSH files looks confusingly like PEM files,
+       but there are some differences:</p>
+      <code>1> {ok, SshBin} = file:read_file("ssh2_rsa_pub").
+{ok, &lt;&lt;"---- BEGIN SSH2 PUBLIC KEY ----\nAAAA"...&gt;&gt;}</code>
+
+    <p>This is equivalent to calling <c>public_key:ssh_decode(SshBin, rfc4716_public_key)</c>:
+    </p>
+      <code>2> public_key:ssh_decode(SshBin, public_key).
+[{#'RSAPublicKey'{modulus = 794430685...91663,
+                  publicExponent = 35}, []}]</code>
+
+ </section>
+
+ <section>
+   <title>OpenSSH Public-Key Format</title>
+   <p>OpenSSH public-key format looks as follows:</p>
+      <code>1> {ok, SshBin} = file:read_file("openssh_dsa_pub").
+{ok,&lt;&lt;"ssh-dss AAAAB3Nza"...&gt;&gt;}</code>
+
+    <p>This is equivalent to calling <c>public_key:ssh_decode(SshBin, openssh_public_key)</c>:
+    </p>
+    <code>2>  public_key:ssh_decode(SshBin, public_key).
+[{{15642692...694280725,
+   #'Dss-Parms'{p = 17291273936...696123221,
+                q = 1255626590179665817295475654204371833735706001853,
+                g = 10454211196...480338645}},
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code>
+ </section>
+
+ <section>
+   <title>Known Hosts - OpenSSH Format</title>
+   <p>Known hosts - OpenSSH format looks as follows:</p>
+      <code>1> {ok, SshBin} = file:read_file("known_hosts").
+{ok,&lt;&lt;"hostname.domain.com,192.168.0.1 ssh-rsa AAAAB...&gt;&gt;}</code>
+
+    <p>Returns a list of public keys and their related attributes.
+    Each pair of key and attribute corresponds to one entry in
+    the known hosts file:</p>
+    
+    <code>2>  public_key:ssh_decode(SshBin, known_hosts).
+[{#'RSAPublicKey'{modulus = 1498979460408...72721699,
+                  publicExponent = 35},
+  [{hostnames,["hostname.domain.com","192.168.0.1"]}]},
+ {#'RSAPublicKey'{modulus = 14989794604088...2721699,
+                  publicExponent = 35},
+  [{comment,"foo@bar.com"},
+   {hostnames,["|1|BWO5qDxk/cFH0wa05JLdHn+j6xQ=|rXQvIxh5cDD3C43k5DPDamawVNA="]}]}]</code>
+  </section>
+
+  <section>
+    <title>Authorized Keys - OpenSSH Format</title>
+    <p>Authorized keys - OpenSSH format looks as follows:</p>
+
+    <code>1> {ok, SshBin} = file:read_file("auth_keys").
+{ok, &lt;&lt;"command=\"dump /home\",no-pty,no-port-forwarding ssh-rsa AAA...&gt;&gt;}</code>
+
+    <p>Returns a list of public keys and their related attributes.
+    Each pair of key and attribute corresponds to one entry in
+    the authorized key file:</p>
+
+    <code>2> public_key:ssh_decode(SshBin, auth_keys).
+[{#'RSAPublicKey'{modulus = 794430685...691663,
+                  publicExponent = 35},
+  [{comment,"dhopson@VMUbuntu-DSH"},
+   {options,["command=\"dump/home\"","no-pty",
+             "no-port-forwarding"]}]},
+ {{1564269258491...607694280725,
+   #'Dss-Parms'{p = 17291273936185...763696123221,
+                q = 1255626590179665817295475654204371833735706001853,
+                g = 10454211195705...60511039590076780999046480338645}},
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code>
+    </section>
+
+    <section>
+      <title>Creating an SSH File from Public-Key Data</title>
+
+      <p>If you got a public key <c>PubKey</c> and a related list of
+      attributes <c>Attributes</c> as returned
+      by <c>ssh_decode/2</c>, you can create a new SSH file, for example:</p>
+      <code>N> SshBin = public_key:ssh_encode([{PubKey, Attributes}], openssh_public_key),
+&lt;&lt;"ssh-rsa "...&gt;&gt;
+N+1> file:write_file("id_rsa.pub", SshBin).
+ok</code>
+    </section>
+  </section>
+</chapter>

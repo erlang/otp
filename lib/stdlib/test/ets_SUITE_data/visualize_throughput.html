@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+
+<!-- %% -->
+<!-- %% %CopyrightBegin% -->
+<!-- %% -->
+<!-- %% Copyright Ericsson AB and Kjell Winblad 1996-2018. All Rights Reserved. -->
+<!-- %% -->
+<!-- %% Licensed under the Apache License, Version 2.0 (the "License"); -->
+<!-- %% you may not use this file except in compliance with the License. -->
+<!-- %% You may obtain a copy of the License at -->
+<!-- %% -->
+<!-- %%     http://www.apache.org/licenses/LICENSE-2.0 -->
+<!-- %% -->
+<!-- %% Unless required by applicable law or agreed to in writing, software -->
+<!-- %% distributed under the License is distributed on an "AS IS" BASIS, -->
+<!-- %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. -->
+<!-- %% See the License for the specific language governing permissions and -->
+<!-- %% limitations under the License. -->
+<!-- %% -->
+<!-- %% %CopyrightEnd% -->
+<!-- %% -->
+<!-- %% Author: Kjell Winblad -->
+<!-- %% -->
+  
+  <head>
+    <meta charset="utf-8">
+    <title>ETS Benchmark Result Viewer</title>
+  </head>
+
+  <body>
+    <div id="insertPlaceholder"></div>
+    <h1>ETS Benchmark Result Viewer</h1>
+    <p>
+      This page generates graphs from data produced by the ETS benchmark which is defined in the function <code>ets_SUITE:throughput_benchmark/0</code> (see "<code>$ERL_TOP/lib/stdlib/test/ets_SUITE.erl</code>").
+    </p>
+    <p>
+      Note that one can paste results from several benchmark runs into the field below. Results from the same scenario but from different benchmark runs will be relabeled and ploted in the same graph automatically. This makes comparisons of different ETS versions easy. 
+    </p>
+    <p>
+      Note also that that lines can be hidden by clicking on the corresponding label.
+    </p>
+    Paste the generated data in the field below and press the Render button:
+    <br>
+    <textarea id="dataField" rows="4" cols="50">#bench_data_placeholder</textarea> 
+    <br>
+    <input type="checkbox" id="barPlot"> Bar Plot
+    <br>
+    <input type="checkbox" id="sameSpacing" checked> Same X Spacing Between Points
+    <br>
+    <input type="checkbox" class="showCheck" value="[ordered_set,public]" checked> Show <code>[ordered_set,public]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[ordered_set,public,{write_concurrency,true}]" checked> Show <code>[ordered_set,public,{write_concurrency,true}]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[ordered_set,public,{read_concurrency,true}]" checked> Show <code>[ordered_set,public,{read_concurrency,true}]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[ordered_set,public,{write_concurrency,true},{read_concurrency,true}]" checked> Show <code>[ordered_set,public,{write_concurrency,true},{read_concurrency,true}]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[set,public]" checked> Show <code>[set,public]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[set,public,{write_concurrency,true}]" checked> Show <code>[set,public,{write_concurrency,true}]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[set,public,{read_concurrency,true}]" checked> Show <code>[set,public,{read_concurrency,true}]</code>
+    <br>
+    <input type="checkbox" class="showCheck" value="[set,public,{write_concurrency,true},{read_concurrency,true}]" checked> Show <code>[set,public,{write_concurrency,true},{read_concurrency,true}]</code>
+    <br>
+    <button id="renderButton" type="button">Render</button> 
+    
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+	    integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+	    crossorigin="anonymous"></script>
+    <script>
+      var loading = false;
+      function toggleLoadingScreen(){
+          if(loading){
+              $("#loading").remove();
+              loading = false;
+          }else{
+              $('<div id="loading">'+
+                '<span style="position: fixed; top: 50%;left: 50%;color: white;"><b>Loading...</b></span>'+
+                '</div>')
+                  .css({position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        'background-color': "#000",
+                        filter:"alpha(opacity=50)",
+                        '-moz-opacity':"0.5",
+                        '-khtml-opacity': "0.5",
+                        opacity: "0.5",
+                        'z-index': "10000"})
+                  .appendTo(document.body);
+              loading = true;
+
+          }
+      }
+      //Start loading screen before downloading plotly which is quite large
+      toggleLoadingScreen();
+    </script>
+    <script src="https://cdn.plot.ly/plotly-1.5.0.min.js"></script>    
+    <script>
+      String.prototype.replaceAll = function(search, replacement) {
+          var target = this;
+          return target.split(search).join(replacement);
+      };
+      String.prototype.myTrim = function() {
+          var target = this;
+          return target.replace(/^\s+|\s+$/g, '');
+      };
+      function plotGraph(lines, sameSpacing, barPlot, prefix) {
+          var xvals = null;
+          var data = [];
+          while(lines.length > 0 &&
+                (lines[0].myTrim() == "" ||
+                 lines[0].myTrim().indexOf(";") !== -1)){
+              var line = lines.shift().myTrim();
+              if(line == "" || line.startsWith("#")){
+                  continue;
+              } else if(line.startsWith(";")) {
+                  xvals = line.split(";")
+                  xvals.shift(); // Remove first
+                  xvals = $.map(xvals, function (i){
+                      if(sameSpacing){
+                          return "_"+i.myTrim();
+                      }else{
+                          return parseInt(i.myTrim(), 10);
+                      }
+                  });
+              }else{
+                  line = line.split(";")
+                  var label = prefix + line.shift().myTrim();
+                  var yvals = $.map(line, function (i){
+                      return parseFloat(i.myTrim(), 10);
+                  });
+                  var trace = {
+                      x: xvals,
+                      y: yvals,
+                      mode: 'lines+markers',
+                      name: label
+                  };
+                  if(barPlot){
+                      trace['type'] = "bar";
+                  }
+                  data.push(trace);
+              }
+              
+          }
+          return data;
+      }
+      function plotGraphs(){
+          var insertPlaceholder = $("#insertPlaceholder");
+          var sameSpacing = $('#sameSpacing').is(":checked");
+          var barPlot = $('#barPlot').is(":checked");
+          var lines = $("#dataField").val();
+          $('.showCheck').each(function() {
+              var item = $(this);
+              if(!item.is(":checked")){
+                  lines = lines.replaceAll(item.val(), "#"+item.val())
+              }
+          });
+          lines = lines.split("$");
+          var nrOfGraphs = 0;
+          var scenarioDataMap = {};
+          var scenarioNrOfVersionsMap = {};
+          var scenarioList = [];
+          while(lines.length > 0){
+              var line = lines.shift().myTrim();
+              if(line == ""){
+                  continue;
+              } else if(line.startsWith("Scenario:")) {
+                  nrOfGraphs = nrOfGraphs + 1;
+                  var name = line;
+                  if(scenarioDataMap[name] === undefined){
+                      scenarioDataMap[name] = [];
+                      scenarioNrOfVersionsMap[name] = 0;
+                      scenarioList.push(line);
+                  }
+                  scenarioNrOfVersionsMap[name] = scenarioNrOfVersionsMap[name] + 1;
+                  var prefix = undefined;
+                  if(scenarioNrOfVersionsMap[name] === 1){
+                      prefix = "";
+                  }else{
+                      prefix = "Ver: " + scenarioNrOfVersionsMap[name] + " ";
+                  }
+                  scenarioDataMap[name] =
+                      scenarioDataMap[name].concat(
+                          plotGraph(lines, sameSpacing, barPlot, prefix));
+              }
+          }
+          $.each(scenarioList,
+                 function( index, name ) {
+                     var nrOfGraphs = index + 1;
+                     var data = scenarioDataMap[name];
+                     $( "<div class='added' id='graph"+nrOfGraphs+"'>")
+                         .insertBefore( insertPlaceholder );
+                     $( "<button type='button' class='added' id='fullscreenButton"+nrOfGraphs+"'>Fill screen</button>")
+                         .insertBefore( insertPlaceholder );
+                     $( "<span class='added'><br><hr><br></span>")
+                         .insertBefore( insertPlaceholder );
+                     var layout = {
+                         title:name,
+                         xaxis: {
+                             title: '# of Processes'
+                         },
+                         yaxis: {
+                             title: 'Operations/Second'
+                         }
+                         
+                     };
+                     
+                     $("#fullscreenButton"+nrOfGraphs).click(
+                         function(){
+                             $('#graph'+nrOfGraphs).replaceWith(
+                                 $("<div class='added' id='graph"+nrOfGraphs+"'>"));
+                             layout = $.extend({}, layout, {
+                                 width:$(window).width()-40,
+                                 height:$(window).height()-40
+                             });      
+                             Plotly.newPlot('graph'+nrOfGraphs,  data, layout);                         
+                         });
+                     Plotly.newPlot('graph'+nrOfGraphs,  data, layout);
+
+                 });
+          
+          
+      }
+    $(document).ready(function(){
+        $('#renderButton').click(
+            function(){
+                toggleLoadingScreen();
+                setTimeout(function(){
+                    try {                       
+                        $( ".added" ).remove();
+                        plotGraphs();
+                        toggleLoadingScreen();
+                    } catch(e){
+                        toggleLoadingScreen();
+                        console.log(e);
+                        alert("Error happened when parsing data.\n" +
+                              "See console for more info");
+                    }
+                }, 10);
+            });
+        setTimeout(function(){
+            $( ".added" ).remove();
+            plotGraphs();
+            toggleLoadingScreen();
+        }, 10);
+    });
+  </script>
+  </body>
+</html>

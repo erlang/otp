@@ -1,0 +1,47 @@
+EUTRA-extract-55 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+
+SystemInformation-r8-IEs ::= SEQUENCE {
+  sib-TypeAndInfo  SEQUENCE (SIZE (1..5)) OF CHOICE {
+    sib2	SystemInformationBlockType2,
+    sib3	SystemInformationBlockType3,
+    sib4	SystemInformationBlockType4,
+    sib5	SystemInformationBlockType5,
+    sib6	SystemInformationBlockType6,
+    sib7	SystemInformationBlockType7,
+    sib8	SystemInformationBlockType8,
+    sib9	SystemInformationBlockType9,
+    sib10	SystemInformationBlockType10,
+    sib11	SystemInformationBlockType11,
+    ...
+  },
+  nonCriticalExtension	SEQUENCE {}	OPTIONAL
+}
+
+SystemInformationBlockType2 ::= INTEGER
+SystemInformationBlockType3 ::= INTEGER
+SystemInformationBlockType4 ::= INTEGER
+SystemInformationBlockType5 ::= INTEGER
+SystemInformationBlockType6 ::= INTEGER
+SystemInformationBlockType7 ::= INTEGER
+SystemInformationBlockType8 ::= INTEGER
+SystemInformationBlockType9 ::= INTEGER
+SystemInformationBlockType10 ::= INTEGER
+SystemInformationBlockType11 ::= INTEGER
+
+-- OTP-7763
+CellIdentity ::= BIT STRING (SIZE (28))
+
+Seq ::= SEQUENCE {
+  a INTEGER,
+  b1 BIT STRING (SIZE (8)),
+  b2 BIT STRING (SIZE (1)),
+  b CellIdentity,
+  c INTEGER,
+  d BOOLEAN
+}
+
+
+END

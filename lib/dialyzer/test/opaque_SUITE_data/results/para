@@ -1,0 +1,34 @@
+
+para1.erl:18: The test para1:t(atom()) =:= para1:t(integer()) can never evaluate to 'true'
+para1.erl:23: The test para1:t(atom()) =:= para1:t() can never evaluate to 'true'
+para1.erl:28: The test para1:t() =:= para1:t(integer()) can never evaluate to 'true'
+para1.erl:33: The test {3,2} =:= {'a','b'} can never evaluate to 'true'
+para1.erl:38: Attempt to test for equality between a term of type para1_adt:t(integer()) and a term of opaque type para1_adt:t(atom())
+para1.erl:43: Attempt to test for equality between a term of type para1_adt:t() and a term of opaque type para1_adt:t(atom())
+para1.erl:48: Attempt to test for equality between a term of type para1_adt:t(integer()) and a term of opaque type para1_adt:t()
+para1.erl:53: The test {3,2} =:= {'a','b'} can never evaluate to 'true'
+para2.erl:103: Attempt to test for equality between a term of type para2_adt:circ(integer(),integer()) and a term of opaque type para2_adt:circ(integer())
+para2.erl:117: Attempt to test for equality between a term of type para2_adt:un(atom(),integer()) and a term of opaque type para2_adt:un(integer(),atom())
+para2.erl:31: The test 'a' =:= 'b' can never evaluate to 'true'
+para2.erl:61: Attempt to test for equality between a term of type para2_adt:c2() and a term of opaque type para2_adt:c1()
+para2.erl:66: The test 'a' =:= 'b' can never evaluate to 'true'
+para2.erl:88: The test para2:circ(integer()) =:= para2:circ(integer(),integer()) can never evaluate to 'true'
+para3.erl:28: Invalid type specification for function para3:ot2/0. The success typing is () -> 'foo'
+para3.erl:36: The pattern {{{17}}} can never match the type {{{{{{_,_,_,_,_}}}}}}
+para3.erl:55: Invalid type specification for function para3:t2/0. The success typing is () -> 'foo'
+para3.erl:65: The attempt to match a term of type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}} against the pattern {{{{{17}}}}} breaks the opacity of para3_adt:ot1(_,_,_,_,_)
+para3.erl:68: The pattern {{{{17}}}} can never match the type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}}
+para3.erl:74: The specification for para3:exp_adt/0 has an opaque subtype para3_adt:exp1(para3_adt:exp2()) which is violated by the success typing () -> 3
+para4.erl:21: Invalid type specification for function para4:a/1. The success typing is (para4:d_all() | para4:d_atom()) -> [{atom() | integer(),atom() | integer()}]
+para4.erl:26: Invalid type specification for function para4:i/1. The success typing is (para4:d_all() | para4:d_integer()) -> [{atom() | integer(),atom() | integer()}]
+para4.erl:31: Invalid type specification for function para4:t/1. The success typing is (para4:d_all() | para4:d_tuple()) -> [{atom() | integer(),atom() | integer()}]
+para4.erl:59: Attempt to test for equality between a term of type para4_adt:t(atom() | integer()) and a term of opaque type para4_adt:t(integer())
+para4.erl:64: Attempt to test for equality between a term of type para4_adt:t(atom() | integer()) and a term of opaque type para4_adt:t(atom())
+para4.erl:69: Attempt to test for equality between a term of type para4_adt:int(1 | 2 | 3 | 4) and a term of opaque type para4_adt:int(1 | 2)
+para4.erl:74: Attempt to test for equality between a term of type para4_adt:int(2 | 3 | 4) and a term of opaque type para4_adt:int(1 | 2)
+para4.erl:79: Attempt to test for equality between a term of type para4_adt:int(2 | 3 | 4) and a term of opaque type para4_adt:int(5 | 6 | 7)
+para4.erl:84: Attempt to test for equality between a term of type para4_adt:un(3 | 4) and a term of opaque type para4_adt:un(1 | 2)
+para4.erl:89: Attempt to test for equality between a term of type para4_adt:tup({_,_}) and a term of opaque type para4_adt:tup(tuple())
+para4.erl:94: Attempt to test for equality between a term of type para4_adt:t(#{1=>'a'}) and a term of opaque type para4_adt:t(#{2=>'b'})
+para5.erl:13: Attempt to test for inequality between a term of type para5_adt:dd(atom()) and a term of opaque type para5_adt:d()
+para5.erl:8: The test para5_adt:d() =:= para5_adt:d() can never evaluate to 'true'

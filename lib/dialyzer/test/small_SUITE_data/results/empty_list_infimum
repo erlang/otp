@@ -1,0 +1,2 @@
+
+empty_list_infimum.erl:38: Invalid type specification for function empty_list_infimum:list_vhost_permissions/1. The success typing is (_) -> [[{_,_}]]

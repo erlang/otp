@@ -1,0 +1,364 @@
+==============================================================================
+	Major features, additions and changes between Dialyzer versions
+		(in reversed chronological order)
+==============================================================================
+
+Version 2.4.2 (in Erlang/OTP R14B02)
+------------------------------------
+ - Added --fullpath option to display files with warnings with their full
+   file names (thanks to Magnus Henoch for the original patch).
+ - Better handling of 'and'/'or'/'not' guards that generate warnings
+   (thanks to Stavros Aronis).
+ - Better blame assignment for cases when a function's spec is erroneous
+   (thanks to Stavros Aronis).
+ - More descriptive warnings when a tuple/record pattern contains subterms
+   that violate the declared types of record fields (thanks to Matthias Lang
+   for the test case and for Stavros Aronis for the actual fix).
+
+Version 2.4.0 (in Erlang/OTP R14B01)
+------------------------------------
+ - Added ability to supply multiple PLTs for the analysis (option --plts).
+   Currently these PLTs must be independent (i.e., no module appears in more
+   than one PLT) and there must not include files with module name clashes.
+ - Strengthened and streamlined hard-coded type information for some BIFs
+   and key library functions.
+ - Fixed pretty rare infinite loop when refining the types of an SCC whose
+   functions all returned none() (thanks to Stavros Aronis).
+ - Fixed pretty rare crash when taking the infimum of two tuple_sets.
+ - Fixed pretty rare crash when using parameterized types containing unbound
+   variables (thanks to Nicolas Trangez for reporting it).
+ - Deeper unfolding of recursive types (thanks to Maria Christakis).
+ - Fixed some incomplete and erroneous specs in modules of kernel and stdlib.
+ - Fixed problems in the handling of remote types in records used as types
+   (thanks to Nico Kruber for the report and to Maria Christakis for the fix).
+ - Fixed handling of nested opaque types (thanks to Thorsten Schuett for
+   reporting it and to Maria Christakis for fixing it).
+
+Version 2.3.1 (in Erlang/OTP R14B)
+----------------------------------
+ - Eliminated warnings for auto-imported BIF clashes.
+
+Version 2.3.0 (in Erlang/OTP R14A)
+----------------------------------
+ - Dialyzer properly supports the new attribute -export_type and checks
+   that remote types only refer to exported types. A warning is produced
+   if some files/applications refer to types defined in modules which are
+   neither in the PLT nor in the analyzed applications.
+ - Support for detecting data races involving whereis/1 and unregister/1.
+ - More precise identification of the reason(s) why a record construction
+   violates the types declared for its fields.
+ - Fixed bug in the handling of the 'or' guard.
+ - Better handling of the erlang:element/2 BIF.
+ - Complete handling of Erlang BIFs.
+
+Version 2.2.0 (in Erlang/OTP R13B04)
+------------------------------------
+ - Much better support for opaque types (thanks to Manouk Manoukian).
+ - Added support for recursive types (experimental).
+ - Added support for parameterized modules.
+ - Dialyzer now warns when -specs state that a function returns some type
+   when in fact it does not.
+ - Added --no_native (-nn) option so that the user can bypass the native code
+   compilation that dialyzer heuristically performs when dialyzing many files.
+ - Fixed minor bug in the dialyzer script allowing the --wx option to bring
+   up the wx-based GUI regardless of its placement in the options list.
+ - Options --apps and -Wrace_conditions, which were added in the previous
+   version, are now properly documented in the manual.
+
+Version 2.1.0 (in Erlang/OTP R13B03)
+------------------------------------
+ - Dialyzer can statically detect some kinds of data races in Erlang programs.
+   Use the new option -Wrace_conditions to enable the race analysis.
+   The static analysis technique is described in a paper available at:
+     http://www.it.uu.se/research/group/hipe/dialyzer/publications/races.pdf
+ - Added support for packages (thanks to Maria Christakis).
+ - There has been a major change in the default mode of Dialyzer.
+   Previously, the default mode was the GUI, while now it is the command
+   line. As a result of this change, it is now possible to analyze a set of
+   files/dirs with the command:
+	dialyzer file1 ... fileN
+   In other words, the -c (--command-line) option is no longer necessary,
+   though it will be retained for some time for backwards compatibility.
+   To start dialyzer's GUI use either of the following commands:
+	dialyzer --gui         %% for the old gs-based GUI
+	dialyzer --wx          %% for the new wx-based GUI (where available)
+ - There is a new option --apps which allows the user to easily refer to
+   Erlang/OTP applications and include them in the analysis or in the
+   building of the PLT.  For example, we recommend building the PLT with:
+	dialyzer --build_plt --apps erts kernel stdlib mnesia ...
+   The new option can also take absolute file names as well as applications.
+   Note that the application versions that will be included in the PLT are
+   those that correspond to the Erlang/OTP system which is used.
+ - Dialyzer has a new wxWidgets based GUI (thanks to Elli Fragkaki)
+   for platforms where the wx application is available.
+
+Version 2.0.0 (in Erlang/OTP R13B02)
+------------------------------------
+ - There is a major addition to the capabilities of dialyzer, worthy
+   of bumping the version number. Starting with this version, dialyzer
+   not only accepts but also properly processes remote types (i.e.,
+   types of the form ModuleName:TypeName()). Previous dialyzer
+   versions only accepted this notation in -type and -spec
+   declarations, but effectively ignored its information by mapping
+   remote types to the type any(). In contrast, starting with this
+   version, remote types are used in the analysis and are also stored
+   in the PLTs. (This addition changes the format of PLTs and requires
+   rebuilding any PLTs created by an older dialyzer version.)
+   Note that dialyzer will complain and abort the analysis of a set of
+   modules if it needs to process a remote type without a definition
+   (either because the module does not include a definition of the
+   type or the module is not included in the analysis). We may relax
+   this restriction in a future version.
+ - Fixed minor issue with dialyzer:run/1 crashing (upon its return)
+   when used for adding type information to an existing PLT.
+ - Fixed minor but quite annoying issues in dialyzer's GUI.
+
+Version 1.9.2 (in Erlang/OTP R13B01)
+------------------------------------
+ - Fixed problem with type inference going into an infinite loop when
+   analyzing a strongly connected component of functions that do not
+   return but also contain an erroneous call which makes them fail and
+   be assigned the type none() instead of the type unit().
+ - More accurate type information for some BIFs and library files.
+ - Introduced boolean() as the `official' name for the type which was so
+   far known as bool(). The latter is still accepted as well as boolean()
+   but results in a warning from the compiler; converting the code to use
+   the new name is strongly encouraged.
+
+Version 1.9.1 (in Erlang/OTP R13B)
+----------------------------------
+ - Contains the changes described below (R13A) but also:
+    - Has better handling of opaque types.
+    - The handling of UFT segments of bitstreams has been significantly
+      strengthened and revised.  In all probability, now it is correct.
+
+Version 1.9.0 (in Erlang/OTP R13A)
+----------------------------------
+ - The analysis accepts opaque type declarations and detects violations of
+   opacity of terms of such types.  Starting with R13, many Erlang/OTP
+   standard libraries (array, dict, digraph, ets, gb_sets, gb_trees, queue,
+   and sets) contain opaque type declarations of their main data types.
+   Dialyzer will spit out warnings in code that explicitly depends on the
+   structure of these terms.
+ - Added support for handling UTF segments in bitstreams and for detecting
+   obvious type errors in these segments.
+   Warning: This code is not terribly tested -- not surprising since this is
+   a new language feature of R13.
+ - Strengthened the discrepancy identification when testing for equality and
+   matching between terms of different types.  This detects more bugs in code.
+ - Added warning for M:F(...) calls where M is not a module term and F is not
+   an atom.  Previously, such calls where found to fail but the reason for
+   the failure was not reported.
+ - Added a convenient shorthand for the --no_check_plt option (-n).
+ - Added the --dump_callgraph option for dumping the callgraph of all files
+   that are analyzed into a specified file.  The callgraph either be dumped
+   in raw format, in .dot format, or converted to a .ps (postscript) file.
+   Note that in large callgraphs the generated postscript file might not be
+   interpretable by Ghostview.
+   (Thanks to Ilya Khlopotov for the initial version of this functionality.)
+
+Version 1.8.3 (in Erlang/OTP R12B-5)
+------------------------------------
+ - Added the --no_check_plt option that makes the startup time faster
+   when working with PLTs that are known not to change.
+ - Changed the phrasing of some warnings so that they do not cause confusion
+   to some users and correspond better to reality.
+
+Version 1.8.2 (in Erlang/OTP R12B-4)
+------------------------------------
+ - The return type of the Erlang interface dialyzer:run/1 has changed
+   to only return a list of warnings. If something goes wrong dialyzer
+   dies with an exception.
+ - The handling of the PLT has changed. Please consult the manual for
+   the changes.
+
+Version 1.8.0 (in Erlang/OTP R12B-2)
+------------------------------------
+ - Dialyzer's analysis is from now on exclusively based on success typings.
+   In particular, support for options --old_style and --dataflow has been
+   discontinued.
+ - Better and more aggressive handling of type information in records.
+ - Dialyzer has a new warning option -Wunmatched_returns which warns for
+   function calls that ignore the return value.
+   This catches many common programming errors (e.g. calling file:close/1
+   and not checking for the absence of errors), interface discrepancies
+   (e.g. a function returning multiple values when in reality the function
+   is void and only called for its side-effects), calling the wrong function
+   (e.g. io_lib:format/1 instead of io:format/1), and even possible
+   performance defects (e.g. unnecessarily constructing a list using a list
+   comprehension instead of using lists:foreach/2).
+   Whenever a function returns a single atomic value (e.g. 'ok' or pid()),
+   the warning is suppressed. This allows for "void" functions (returning
+   a single atom like 'ok') or for calls to certain builtins like spawn.
+   Because not all calls which ignore the return value are discrepancies,
+   the option is off by default and has to be explicitly requested by the user.
+   But we recommend it nevertheless.
+ - Some warning options (-Wno_comp, -Wno_guards, -Wno_unsafe_beam, etc.)
+   which could be used when analyzing bytecode produced by an old BEAM
+   compiler have been removed.
+
+Version 1.7.2 (in Erlang/OTP R12B-1)
+------------------------------------
+ - The Erlang interface of Dialyzer returns warnings tagged by their type.
+
+Version 1.7.1 (in Erlang/OTP R12B-0)
+------------------------------------
+ - Use of success typings is now default, is robust and detects significantly
+   more errors than in previous versions.
+ - Dialyzer accepts and takes into account type information in record
+   declarations and in contracts -- see related paper in Erlang'07 workshop.
+   Various OTP applications (e.g. stdlib and kernel) are partially annotated
+   with appropriate contracts specifying types information for their functions.
+ - The type previously known as unit() has been renamed to no_return().
+   Its use in a contract as the return type of a function now silences off
+   the "function has no local return" dialyzer warning without use of the
+   corresponding option.
+
+Version 1.7.0 (in Erlang/OTP R11B-5)
+------------------------------------ 
+ - Dialyzer can now use success typings to find discrepancies. As a
+   consequence significantly more discrepancies are detected. The downside
+   is that the analysis takes about 2 to 2.5 times longer than in previous
+   versions, and may also result in some warnings that might be harder to
+   interpret even though they are correct. This has been a major change, 
+   worth of increasing the version number.
+   New command-line options:
+   --succ_typings                        Use the success typings analysis.
+   --dataflow     (default)              Use the previous analysis.   
+ - The new type unit() has been introduced to handle the return type of
+   non-terminating functions such as servers.
+ - Dialyzer's code server uses a compressed representation and the analysis
+   requires significantly less memory than in previous versions.
+
+Version 1.6.0 (in Erlang/OTP R11B-4)
+------------------------------------
+ - Dialyzer (in the modes where either source or BEAM code which contains
+   debug_info is analyzed) spits out line information for all discrepancies.
+   This has been a major change, worth of increasing the version number.
+     We warn users that *considerably* more discrepancies are identified 
+     by this version of Dialyzer compared with previous ones.  If warnings
+     generated by previous versions of Dialyzer are preferable for some
+     applications, the command line option --old_style can be employed.
+ - Dialyzer handles term comparison operators more precisely and is able to
+   identify more discrepancies in 'if' or 'case' statements with comparisons.
+ - Dialyzer has more precise type information for many standard OTP functions.
+
+Version 1.5.1 (in Erlang/OTP R11B-3)
+------------------------------------
+ - Added the option --check_init_plt that can be used to force the re-building 
+   of the initial plt for installed systems.
+ - Fixed some bugs in the handling of guards in the dataflow analysis after
+   a report from Fredrik Thulin.
+ - Cleaned up the error handling and the interface and now Dialyzer has an 
+   Erlang interface.
+ - Building the PLT using success typings is considerably faster than in 1.5.0.
+ - Added option --verbose which makes Dialyzer a bit more verbose.
+
+Version 1.5.0 (in Erlang/OTP R11B-2)
+------------------------------------
+ - Dialyzer's building of PLT is based on a different type inference algorithm.
+   More specifically, Dialyzer uses inferrence of refined success typings to
+   infer function prototypes.  As a result, Dialyzer bases its analysis on a
+   significantly more powerful basis and thus is able to detect more
+   discrepancies.  The downside is that building the PLT is a considerably
+   slower process.  We will work on improving that.
+ - Dialyzer takes into account the BEAM compiler directive
+	-compile({nowarn_unused_function, {F,A}}).
+   and then suppresses the warning that function F/A will never be called.
+ - Dialyzer's default initial PLT now also includes "mnesia".
+
+Version 1.4.2 (in Erlang/OTP R11B-1)
+------------------------------------
+ - Speed up changes and small bug fixes.
+
+Version 1.4.1 (in Erlang/OTP R11B-0)
+------------------------------------
+ - Dialyzer is officially part of Erlang/OTP as a library application.
+ - Instead of being a shell script, "dialyzer" is an executable (generated
+   by a C program -- thanks to Bjorn Gustavsson), and works similarly to "erlc".
+   As a side-effect of this change, Dialyzer now also works on Windows.
+
+Version 1.4.0
+-------------
+ - Changes for Dialyzer to work with Erlang/OTP R10B-10
+ - Dialyzer's analysis is significantly faster as it uses a global function
+   call-graph for obtaining type signatures for all analyzed functions
+ - ...
+ - Many more other changes; in fact too many to mention here.
+
+Version 1.3.1 (mostly internal)
+-------------
+ - Small changes for Dialyzer to work with Erlang/OTP R10B-5.
+ - Modified setup script for execution under Cygwin (patch by Vlad Dumitrescu)
+ - Added command line option --no_warn_on_inline
+ - Fixed a small buglet in the analysis; this affected one of HiPE's files
+ - Dialyzer now explicitly warns when modules with the same name
+   but from different dirs are being analyzed (contribution by Ulf Wiger)
+
+Version 1.3.0
+-------------
+ - Requires the presence of an Erlang/OTP R10B-4 system.
+ - Dialyzer is significantly (approx 40%) faster since it now uses 'ets'
+   rather than 'dets' for its PLT.
+ - Slightly improved the precision of the analysis.
+ - Fixed a number of false positives that Dialyzer 1.2.0 was spitting out.
+ - In the GUI version, Dialyzer now reports the list of modules that should
+   be included in the modules to analyze in order to possibly improve
+   the accuracy of the reported results.
+ - Some more information is displayed when calling a function or closure
+   with arguments of the wrong type.
+ - The record guard now allows discrepancies involving tuples that are known
+   to be records to be displayed as #rec{} rather than {'rec',_,...,_}
+ - Added -q option which makes the command-line version of Dialyzer
+   a bit more silent.
+
+Version 1.2.0
+-------------
+ - Dialyzer works with the open source and commercial versions of Erlang/OTP
+   R10B-2 on all platforms (i.e., HiPE support is not a prerequisite anymore).
+ - Whenever a .beam file contains abstract code (i.e., has been compiled
+   with the +debug_info option), the analysis starts from this code rather
+   than from BEAM bytecode -- this makes the results identical to those
+   obtained by analysis starting from source code.
+   (This is a contribution from Bjorn Gustavsson - Thanks!)
+ - Added -pa command line option for easier handling of -include_lib()
+   directives in source code.
+ - Includes all changes added in v1.1.1; see below.  The "Add Recursively"
+   functionality is also available in the command-line mode (-r option).
+
+Version 1.1.1 (internal, not released to the masses :-)
+-------------
+ - The command-line mode of Dialyzer spits discrepancies in stdout
+   by default and returns a numeric value indicating its exit status.
+ - Fixed problems using the shell script on Solaris machines.
+ - Fixed small inconsistencies in Dialyzer's documentation and help.
+ - Added "Add Recursively" button contributed by Martin Bjorklund (thanks!).
+
+Version 1.1.0
+-------------
+ - Dialyzer works with the open source version of Erlang/OTP R10B-1 (on
+   platforms where HiPE support is available) and it does not require
+   installation of a customized Erlang/OTP system anymore.
+ - Dialyzer comes with an extensive command-line interface, in addition
+   to an enhanced GUI.
+ - Analysis can start from source code (through Core Erlang) as well as
+   from BEAM bytecode.
+ - Dialyzer finds considerably more discrepancies in Erlang code than
+   previous versions.
+ - Added ability to selectively turn on/off different warning categories.
+
+Version 1.0.1
+-------------
+ - Fixed major bug of v1.0.0 which caused the analysis to stop prematurely
+   (i.e., without properly reaching fixpoint) when analyzing more than one
+   module.  This did not affect correctness of the results, but lost many
+   opportunities to detect discrepancies.
+ - Performance improvements in the analysis.
+
+Version 1.0.0
+-------------
+ Initial Dialyzer version: Analysis starts from BEAM bytecode only and 
+ only a GUI version is available. Dialyzer reports discrepancies in the
+ use of the "sequential" part of Erlang. To be used, Dialyzer requires
+ the presence of a specific snapshot of Erlang/OTP which can be obtained
+ from Dialyzer's homepage.

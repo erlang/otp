@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>mod_auth</title>
+    <prepared>Joakim Greben&ouml;</prepared>
+    <docno></docno>
+    <date>1997-10-14</date>
+    <rev>2.3</rev>
+    <file>mod_auth.sgml</file>
+  </header>
+  <module since="">mod_auth</module>
+  <modulesummary>User authentication using text files, Dets, or Mnesia database.</modulesummary>
+  <description>
+    <p>This module provides for basic user authentication using
+    textual files, Dets databases, or Mnesia databases.</p>
+  </description>
+
+  <funcs>
+     <func>
+      <name since="">add_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name since="">add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Adds a user to a group.</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>add_group_member/3, add_group_member/4</c>, and 
+	<c>add_group_member/5</c> each
+	adds a user to a group. If the group does not exist, it 
+	is created and the user is added to the group. Upon successful 
+	operation, this function returns <c>true</c>. 
+	When <c>add_group_members/3</c> 
+	is called, options <c>Port</c> and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">add_user(UserName, Options) -> true| {error, Reason}</name>
+      <name since="">add_user(UserName, Password, UserData, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_user(UserName, Password, UserData, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Adds a user to the user database.</fsummary>
+      <type>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {password,Password} | {userData,UserData} | {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Password = string()</v>
+        <v>UserData = term()</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword =string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>add_user/2, add_user/5</c>, and <c>add_user/6</c> each adds a 
+	user to the user database. If the operation is successful, 
+	this function returns <c>true</c>. If an error occurs, 
+	<c>{error,Reason}</c> is returned. 
+	When <c>add_user/2</c> is called, options <c>Password</c>, 
+	<c>UserData</c>, <c>Port</c>, and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">delete_group(GroupName, Options) -> true | {error,Reason} &lt;name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Deletes a group.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>GroupName = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p><c>delete_group/2, delete_group/3</c>, and <c>delete_group/4</c> 
+	each deletes the group specified and returns <c>true</c>. 
+	If there is an error, <c>{error, Reason}</c> is returned. 
+	When <c>delete_group/2</c> is called, option
+	<c>Port</c> and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">delete_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name since="">delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Removes a user from a group.</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p><c>delete_group_member/3, delete_group_member/4</c>, and 
+	<c>delete_group_member/5</c> each deletes a user from a group. 
+	If the group or the user does not exist, 
+	this function returns an error, otherwise <c>true</c>.
+	When <c>delete_group_member/3</c> is called, the options <c>Port</c> 
+	and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">delete_user(UserName,Options) -> true | {error, Reason}</name>
+      <name since="">delete_user(UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_user(UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Deletes a user from the user database.</fsummary>
+      <type>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>delete_user/2, delete_user/3</c>, and <c>delete_user/4</c> 
+	each deletes a user from the user database. 
+	If the operation is successful, this function returns <c>true</c>. 
+	If an error occurs, <c>{error,Reason}</c> is returned. 
+	When <c>delete_user/2</c> is called, options <c>Port</c> and <c>Dir</c> 
+	are mandatory.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_user(UserName,Options) -> {ok, #httpd_user} |{error, Reason}</name>
+      <name since="">get_user(UserName, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
+      <name since="">get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
+      <fsummary>Returns a user from the user database.</fsummary>
+      <type>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>get_user/2, get_user/3</c>, and <c>get_user/4</c> each 
+	returns an <c>httpd_user</c> record containing the userdata for a 
+	specific user. If the user cannot be found, <c>{error, Reason}</c> 
+	is returned. When <c>get_user/2</c> is called, options <c>Port</c> and <c>Dir</c> 
+	are mandatory.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">list_groups(Options) -> {ok, Groups} | {error, Reason}</name>
+      <name since="">list_groups(Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <name since="">list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <fsummary>Lists all the groups.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Groups = list()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p><c>list_groups/1, list_groups/2</c>, and <c>list_groups/3</c> 
+	each lists all the groups available. 
+	If there is an error, <c>{error, Reason}</c> is returned. 
+	When <c>list_groups/1</c> is called, options <c>Port</c> 
+	and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+   
+    <func>
+      <name since="">list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_group_members(GroupName, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_group_members(GroupName, Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <fsummary>Lists the members of a group.</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Users = list()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>list_group_members/2, list_group_members/3</c>, and 
+	<c>list_group_members/4</c> each
+	lists the members of a specified group. If the group does not 
+	exist or there is an error, <c>{error, Reason}</c> is returned.
+	When <c>list_group_members/2</c> is called, options <c>Port</c> 
+	and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="">list_users(Options) -> {ok, Users} | {error, Reason}</name>
+      <name since="OTP R14B01">list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <fsummary>Lists users in the user database.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Users = list()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = atom()</v>
+      </type>
+      <desc>
+        <p><c>list_users/1, list_users/2</c>, and <c>list_users/3</c> 
+	each returns a list 
+	of users in the user database for a specific <c>Port/Dir</c>.
+	When <c>list_users/1</c> is called, options <c>Port</c> and <c>Dir</c> 
+	are mandatory.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
+      <name since="">update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
+      <fsummary>Changes <c>AuthAcessPassword</c>.</fsummary>
+      <type>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>GroupName = string()</v>
+        <v>OldPassword = string()</v>
+        <v>NewPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>update_password/5</c> and <c>update_password/6</c> each
+	updates <c>AuthAccessPassword</c> for the specified directory. 
+	If <c>NewPassword</c> is equal to "NoPassword", no password is required to
+	change authorisation data. 
+	If <c>NewPassword</c> is equal to "DummyPassword", no changes can be done 
+	without changing the password first.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="httpd">httpd(3)</seealso>,
+      <seealso marker="mod_alias">mod_alias(3)</seealso></p>
+  </section>
+  
+</erlref>
+
+

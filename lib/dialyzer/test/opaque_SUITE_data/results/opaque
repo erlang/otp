@@ -1,0 +1,3 @@
+
+opaque_bug3.erl:19: The pattern 'a' can never match the type #c{}
+opaque_bug4.erl:20: The attempt to match a term of type opaque_adt:abc() against the pattern 'a' breaks the opacity of the term

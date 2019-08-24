@@ -1,0 +1,93 @@
+<!--
+ ``Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson AB.
+ Portions created by Ericsson are Copyright 1999-2016, Ericsson AB.
+ All Rights Reserved.''
+ 
+     $Id$
+-->
+<!-- This file contains common stuff for all dtds. -->
+
+<!ENTITY % common.entities SYSTEM "common.entities.dtd" >
+%common.entities;
+
+<!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
+                               erleval" >
+<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|cite|br|path|seealso|
+                               url|marker|anno|image" >
+<!-- XXX --> 
+<!ELEMENT p                   (%inline;)* >
+<!ELEMENT pre                 (#PCDATA|seealso|url|input|anno)* >
+<!ELEMENT input               (#PCDATA|seealso|url|anno)* >
+<!ELEMENT code                (#PCDATA|anno)* >
+<!ATTLIST code                type (erl|c|none) "none" >
+<!ELEMENT quote               (p)* >
+<!ELEMENT warning             (%block;|quote|br|marker)* >
+<!ELEMENT note                (%block;|quote|br|marker)* >
+<!ELEMENT dont                (%block;|quote|br|marker)* >
+<!ELEMENT do                  (%block;|quote|br|marker)* >
+<!ELEMENT c                   (#PCDATA|anno)* >
+<!ELEMENT i                   (#PCDATA|c|anno)* >
+<!ELEMENT em                  (#PCDATA|c|anno)* >
+<!ELEMENT strong              (#PCDATA|c|anno)* >
+<!ELEMENT anno                (#PCDATA) >
+
+<!-- XXX -->
+<!ELEMENT term                (termdef?) >
+<!ATTLIST term                id CDATA #REQUIRED >
+<!ELEMENT termdef             (#PCDATA) >
+<!ELEMENT cite                (citedef?) >
+<!ATTLIST cite                id CDATA #REQUIRED >
+<!ELEMENT citedef             (ctitle,cauthor,chowpublished) >
+<!ELEMENT ctitle              (#PCDATA) >
+<!ELEMENT cauthor             (#PCDATA) >
+<!ELEMENT chowpublished       (#PCDATA) >
+
+<!-- XXX --> 
+<!ELEMENT br                  EMPTY >
+
+<!-- Path -->
+
+<!ELEMENT path                (#PCDATA) >
+<!ATTLIST path                unix CDATA ""
+                              windows CDATA "" >
+
+<!-- List -->
+
+<!ELEMENT list                (item+) >
+<!ATTLIST list                 type (ordered|bulleted) "bulleted" >
+<!ELEMENT taglist             (tag,item+)+ >
+<!ELEMENT tag                 (#PCDATA|c|i|em|br|seealso|url|marker|anno)* >
+<!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote)* >
+
+<!-- References -->
+
+<!ELEMENT seealso             (#PCDATA|c|i|em|anno)* >
+<!ATTLIST seealso             marker CDATA #REQUIRED >
+<!ELEMENT url                 (#PCDATA) >
+<!ATTLIST url                 href CDATA #REQUIRED >
+<!ELEMENT marker              EMPTY >
+<!ATTLIST marker              id CDATA #REQUIRED >
+
+<!-- CodeInclude -->
+
+<!ELEMENT codeinclude          EMPTY >
+<!ATTLIST codeinclude          file CDATA #REQUIRED
+                               tag  CDATA ""
+                               type (erl|c|none) "none" >
+
+<!-- ErlEval -->
+
+<!ELEMENT erleval              EMPTY >
+<!ATTLIST erleval              expr CDATA #REQUIRED >

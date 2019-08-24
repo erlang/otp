@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>pg2</title>
+    <prepared>mbj@erlang.ericsson.se</prepared>
+    <responsible>mbj@erlang.ericsson.se</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>mbj@erlang.ericsson.se</checked>
+    <date>1997-08-18</date>
+    <rev>A2</rev>
+    <file>pg2.xml</file>
+  </header>
+  <module since="">pg2</module>
+  <modulesummary>Distributed named process groups.</modulesummary>
+  <description>
+    <p>This module implements process groups. Each message can be sent
+      to one, some, or all group members.</p>
+    <p>A group of processes can be accessed by a common name. For
+      example, if there is a group named <c>foobar</c>, there can be a
+      set of processes (which can be located on different nodes) that
+      are all members of the group <c>foobar</c>. There are no special
+      functions for sending a message to the group. Instead, client
+      functions are to be written with the functions
+      <seealso marker="#get_members/1"><c>get_members/1</c></seealso> and
+      <seealso marker="#get_local_members/1"><c>get_local_members/1</c></seealso>
+      to determine which processes are members of the group.
+      Then the message can be sent to one or more group members.</p>
+    <p>If a member terminates, it is automatically removed from the group.</p>
+    <warning>
+      <p>This module is used by module
+        <seealso marker="disk_log"><c>disk_log</c></seealso> for
+        managing distributed disk logs. The disk log names are used as
+        group names, which means that some action can be needed
+        to avoid name clashes.</p>
+    </warning>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="name"/>
+      <desc><p>The name of a process group.</p></desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="create" arity="1" since=""/>
+      <fsummary>Create a new, empty process group.</fsummary>
+      <desc>
+        <p>Creates a new, empty process group. The group is globally
+          visible on all nodes. If the group exists, nothing happens.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="1" since=""/>
+      <fsummary>Delete a process group.</fsummary>
+      <desc>
+        <p>Deletes a process group.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_closest_pid" arity="1" since=""/>
+      <fsummary>Common dispatch function.</fsummary>
+      <desc>
+        <p>A useful dispatch function that can be used from
+          client functions. It returns a process on the local node, if
+          such a process exists. Otherwise, it selects one randomly.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_local_members" arity="1" since=""/>
+      <fsummary>Return all local processes in a group.</fsummary>
+      <desc>
+        <p>Returns all processes running on the local node in the
+          group <c>Name</c>. This function is to be used from
+          within a client function that accesses the group. It is therefore
+          optimized for speed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_members" arity="1" since=""/>
+      <fsummary>Return all processes in a group.</fsummary>
+      <desc>
+        <p>Returns all processes in the group <c>Name</c>. This
+          function is to be used from within a client function that
+          accesses the group. It is therefore optimized for speed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="join" arity="2" since=""/>
+      <fsummary>Join a process to a group.</fsummary>
+      <desc>
+        <p>Joins the process <c>Pid</c> to the group <c>Name</c>.
+	  A process can join a group many times and must then
+	  leave the group the same number of times.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="leave" arity="2" since=""/>
+      <fsummary>Make a process leave a group.</fsummary>
+      <desc>
+        <p>Makes the process <c>Pid</c> leave the group <c>Name</c>.
+	  If the process is not a member of the group, <c>ok</c> is
+	  returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="0" since=""/>
+      <name name="start_link" arity="0" since=""/>
+      <fsummary>Start the <c>pg2</c> server.</fsummary>
+      <desc>
+        <p>Starts the <c>pg2</c> server. Normally, the server does not need
+          to be started explicitly, as it is started dynamically if it
+          is needed. This is useful during development, but in a
+          target system the server is to be started explicitly. Use the
+          configuration parameters for
+          <seealso marker="kernel_app#start_pg2"><c>kernel(6)</c></seealso>
+	  for this.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_groups" arity="0" since=""/>
+      <fsummary>Return a list of all known groups.</fsummary>
+      <desc>
+        <p>Returns a list of all known groups.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel_app"><c>kernel(6)</c></seealso></p>
+  </section>
+</erlref>
+

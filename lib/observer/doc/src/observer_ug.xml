@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2011</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Observer</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>observer_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>Observer is a graphical tool for observing the characteristics of
+    Erlang systems. Observer displays system information, application
+    supervisor trees, process information, ETS tables, Mnesia tables
+    and contains a front end for Erlang tracing.
+    </p>
+  </section>
+
+  <section>
+    <title>Getting Started</title>
+    <p>Run Observer from a standalone node to minimize the impact of the 
+    system being observed.
+    </p>
+    <p><em>Example:</em></p>
+    <pre>
+% <input>erl -sname observer -hidden -setcookie MyCookie -run observer</input></pre>
+    <p>
+      Select the node to observe with menu <em>Nodes</em>. 
+      Menu <em>View &gt; Refresh interval</em> controls how often 
+      the view is to be updated.
+      The refresh interval is set per viewer so you can
+      have different settings for each viewer. To minimize the system
+      impact, only the active viewer is updated. Other views are updated 
+      when activated.
+    </p>
+
+    <p>The mouse buttons behave as expected. Use left-click
+    to select objects, right-click to get a menu with the most used
+    options, and double-click to display information about the
+    selected object. In most viewers with many columns, you can change
+    the sort order by left-clicking the column header.
+    </p>
+  </section>
+
+  <section>
+    <title>System Tab</title>
+    <p>Tab <em>System</em> displays general information about the active Erlang node 
+    and its runtime system, such as build configuration, system capabilities, and 
+    overall use statistics.
+</p>
+  </section>
+
+  <section>
+    <title>Load Charts Tab</title>
+    <p>Tab <em>Load Charts</em> displays graphs of the current resource use on 
+    the active Erlang node.</p>
+    <p>Graph <c>Scheduler Utilization</c> shows scheduler use per scheduler, 
+    where each scheduler use has a unique color.</p>
+    <p>Graph <c>Memory Usage</c> shows the total memory use and per memory category
+    use, where each category has a unique color. The categories are as 
+    follows:</p>
+    <taglist>
+       <tag><c>Total</c></tag>
+       <item><p>The sum of all memory categories.</p></item>
+       <tag><c>Processes</c></tag>
+       <item><p>The sum of all process memory used.</p></item>
+       <tag><c>Atom</c></tag>
+       <item><p>The size used by the atom table.</p></item>
+       <tag><c>Binary</c></tag>
+       <item><p>The sum of all off-heap binaries allocated.</p></item>
+       <tag><c>Code</c></tag>
+       <item><p>The memory allocated for code storage.</p></item>
+       <tag><c>Ets</c></tag>
+       <item><p>The used memory for all ETS tables.</p></item>
+     </taglist>
+
+    <p>Graph <c>IO Usage</c> shows the current I/O load on the system.</p>
+  </section>
+
+  <section>
+    <title>Memory Allocators Tab</title>
+    <p>Tab <em>Memory Allocators</em> displays detailed information of the carrier 
+    size and current memory carriers. For details about memory carriers, 
+    see module
+    <seealso marker="erts:erts_alloc"><c>erts_alloc</c></seealso>
+    in application ERTS.</p>
+    <p>The <c>Max Carrier size</c> column shows the maximum value seen by observer
+    since the last node change or since the start of the application, i.e. switching
+    nodes will reset the max column. Values are sampled so higher values may have
+    existed than what is shown.
+    </p>
+  </section>
+
+  <section>
+    <title>Applications Tab</title>
+    <p>Tab <em>Applications</em> presents application information.
+    Select an application in the left list to display its supervisor
+    tree. The right-click options in the tree are as follows:
+    </p>
+    <taglist>
+    <tag>Process info</tag>
+    <item><p>Opens a detailed information window on the selected process,
+    including the following:</p>
+    <taglist>
+      <tag>Process Information</tag>
+      <item><p>Shows the process information.</p></item>
+      <tag>Messages</tag>
+      <item><p>Shows the process messages.</p></item>
+      <tag>Dictionary</tag>
+      <item><p>Shows the process dictionary.</p></item>
+      <tag>Stack Trace</tag>
+      <item><p>Shows the process current stack trace.</p></item>
+      <tag>State</tag>
+      <item><p>Shows the process state.</p></item>
+      <tag>Log</tag>
+      <item><p>If enabled and available, shows the process SASL
+      log entries.</p></item>
+    </taglist>
+    </item>
+    <tag>Trace process</tag>
+    <item><p>Adds the selected process identifier to tab <em>Trace Overview</em> 
+    plus the node that the process resides on.</p></item>
+    <tag>Trace named process</tag>
+    <item><p>Adds the registered name of the process. This can be useful when tracing on
+    many nodes, as processes with that name are then traced on all traced nodes.</p></item>
+    <tag>Trace process tree</tag>
+    <item><p>Adds the selected process and all processes below,
+    right of it, to tab <em>Trace Overview</em>.</p></item>
+    <tag>Trace named process tree</tag>
+    <item><p>Adds the selected process and all processes below,
+    right of it, to tab <em>Trace Overview</em>.</p></item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Processes Tab</title>
+    <p>Tab <em>Processes</em> lists process information in columns.
+    For each process the following information is displayed:
+    </p>
+    <taglist>
+      <tag>Pid</tag>
+      <item><p>The process identifier.</p></item>
+      <tag>Reds</tag>
+      <item><p>The number of reductions executed on the process. 
+      This can be presented as accumulated values or as values since the last update.</p></item>
+      <tag>Memory</tag>
+      <item><p>The size of the process, in bytes, obtained by a
+       call to <c>process_info(Pid,memory)</c>.</p></item>
+      <tag>MsgQ</tag>
+      <item><p>The length of the message queue for the process.</p></item>
+    </taglist>
+
+    <p>Option <em>Process info</em> opens a detailed information window on the process under the mouse pointer,
+      including the following:</p>
+    <taglist>
+      <tag>Process Information</tag>
+      <item><p>Shows the process information.</p></item>
+      <tag>Messages</tag>
+      <item><p>Shows the process messages.</p></item>
+      <tag>Dictionary</tag>
+      <item><p>Shows the process dictionary.</p></item>
+      <tag>Stack Trace</tag>
+      <item><p>Shows the process current stack trace.</p></item>
+      <tag>State</tag>
+      <item><p>Shows the process state.</p></item>
+      <tag>Log</tag>
+      <item><p>If enabled and available, shows the process SASL log entries.</p></item>
+    </taglist>
+    
+    <note>
+      <p><em>Log</em> requires application SASL  to be started on the observed node,
+      with <c>log_mf_h</c> as log handler.
+      The Observed node must be Erlang/OTP R16B02 or higher.
+      The <c>rb</c> server must not be started on the observed node when clicking menu 
+      <em>Log &gt; Toggle log view</em>. The <c>rb</c> server is stopped on the observed node 
+      when exiting or changing the observed node.
+      </p>
+    </note>
+
+    <p>Option <em>Trace selected processes</em> adds the selected process identifiers to tab
+    <em>Trace Overview</em> plus the node that the processes reside on.
+    </p>
+    <p>Option <em>Trace selected processes by name</em> adds the registered name of the processes. This can be 
+    useful when tracing is done on many nodes, as processes with that name are then traced on 
+    all traced nodes.</p>
+    <p>Option <em>Kill process</em> brutally kills the processes under
+    the mouse pointer by sending an exit signal with
+    reason <c>kill</c>.</p>
+
+  </section>
+
+  <section>
+    <title>Ports Tab</title>
+    <p>Tab <em>Ports</em> lists port information in columns.
+    For each port the following information is displayed:
+    </p>
+    <taglist>
+      <tag>Id</tag>
+      <item><p>The port identifier.</p></item>
+      <tag>Connected</tag>
+      <item><p>The process identifier for the process that owns the
+	  port.</p></item>
+      <tag>Name</tag>
+      <item><p>The registered name of the port, if any.</p></item>
+      <tag>Controls</tag>
+      <item><p>The name of the command set by <seealso marker="erts:erlang#open_port-2"><c>erlang:open_port/2</c></seealso>.</p></item>
+      <tag>Slot</tag>
+      <item><p>The internal index of the port.</p></item>
+    </taglist>
+
+    <p>Option <em>Port info</em> opens a detailed information window
+      for the port under the mouse pointer. In addition to the
+      information above, it also shows links and monitors.</p>
+
+    <p>Option <em>Trace selected ports</em> adds the selected port
+      identifiers, and the nodes that the ports reside on,
+      to tab <em>Trace Overview</em>.</p>
+
+    <p>Option <em>Trace selected ports by name</em> adds the
+      registered name of the port to tab <em>Trace Overview</em>. This
+      can be useful when tracing is done on many nodes, as ports with
+      that name are then traced on all traced nodes.</p>
+
+    <p>Option <em>Close</em>
+      executes <seealso marker="erts:erlang#port_close-1"><c>erlang:port_close/1</c></seealso>
+      on the port under the mouse pointer.</p>
+
+  </section>
+
+  <section>
+    <title>Table Viewer Tab</title>
+    <p>Tab <em>Table Viewer</em> lists tables. By default, ETS tables
+    are displayed whereas unreadable private ETS tables and tables created by OTP
+    applications are not diplayed. Use menu <em>View</em> to view "system"
+    ETS tables, unreadable ETS tables, or Mnesia tables.
+    </p>
+    <p>Double-click to view the table content, or right-click and
+    select option <em>Show Table Content</em>. To view table
+    information, select the table and activate menu <em>View &gt;
+    Table information</em>, or right-click and select option <em>Table
+    info</em>.</p>
+    <p>You can use <seealso marker="stdlib:re">regular
+    expressions</seealso> and search for objects, and edit or delete them.
+    </p>
+  </section>
+
+  <section>
+    <title>Trace Overview Tab</title>
+    <p>Tab <em>Trace Overview</em> handles tracing. Trace by selecting
+    the processes or ports to be traced and how to trace them. For
+    processes, you can trace messages, function calls, scheduling,
+    garbage collections, and process-related events such
+    as <c>spawn</c>, <c>exit</c>, and many others. For ports, you can
+    trace messages, scheduling and port-related events.
+    </p>
+
+    <p>To trace function calls, you also need to set up
+    <em>trace patterns</em>. Trace patterns select the function calls
+    to be traced. The number of traced function calls can be
+    further reduced with <em>match specifications</em>. Match
+    specifications can also be used to trigger more information
+    in the trace messages.
+    </p>
+
+    <p>You can also set match specifications on messages. By default,
+    if tracing messages, all messages sent and/or received by the
+    process or port are traced. Match specifications can be used to
+    reduce the number of traced messages and/or to trigger more
+    information in the trace messages.</p>
+
+    <note><p>Trace patterns only apply to the traced processes and
+    ports.</p></note>
+
+    <p>
+      Processes are added from the <em>Applications</em>
+      or <em>Processes</em> tabs. Ports are added from
+      the <em>Ports</em> tab.  A special <em>new</em> identifier,
+      meaning all processes, or ports, started after trace start, can
+      be added with buttons <em>Add 'new' Processes</em> and <em>Add
+      'new' Ports</em>, respecively.
+    </p>
+    <p>
+      When adding processes or ports, a window with trace options is
+      displayed. The chosen options are set for the selected
+      processes/ports.  To change the options, right-click the process
+      or port and select <em>Edit process options</em>. To remove a
+      process or port from the list, right-click and select <em>Remove
+      process</em> or <em>Remove port</em>, respectively.
+    </p>
+    <p>
+      Processes and ports added by process/port identifiers add the
+      nodes these processes/ports reside on in the node list. More
+      nodes can be added by clicking button <em>Add Nodes</em>, or by
+      right-clicking in the <em>Nodes</em> list and select <em>Add
+      Nodes</em>. To remove nodes, select them, then right-click and
+      choose <em>Remove nodes</em>.
+    </p>
+    <p>
+      If function calls are traced, trace patterns must be added by clicking button
+      <em>Add Trace Pattern</em>. Select a module, function(s), and a match specification.
+      If no functions are selected, all functions in the module are traced.</p>
+    <p>
+      Trace patterns can also be added for traced messages. Click
+      button <em>Add Trace Pattern</em> and select <em>Messages
+      sent</em> or <em>Messages received</em>, and a match
+      specification.
+    </p>
+    <p>
+      A few basic match specifications are provided in the tool, and
+      you can provide your own match specifications. The syntax of match
+      specifications is described in the <seealso
+      marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>. To simplify
+      the writing of a match specification, they can also be written as
+      <c>fun/1</c>. For details, see module
+      <seealso marker="stdlib:ms_transform">ms_transform</seealso>
+      in application STDLIB.
+    </p>
+
+    <p>Click button <em>Start Trace</em> to start the trace.
+    By default, trace output is written to a new window. Tracing is stopped 
+    when the window is closed, or when clicking button <em>Stop Trace</em>.
+    Trace output can be changed with menu <em>Options > Output</em>.
+    The trace settings, including match specifications, can be saved to, 
+    or loaded from, a file.
+    </p>
+    <p>For details about tracing, see module <seealso
+    marker="runtime_tools:dbg">dbg</seealso> in application Runtime_Tools
+    and in section "Match specifications in Erlang" in 
+    <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>
+    and in module
+    <seealso marker="stdlib:ms_transform"><c>ms_transform</c></seealso>
+    in application STDLIB.
+    </p>
+  </section>
+</chapter>

@@ -1,0 +1,36 @@
+INSTANCEOF DEFINITIONS AUTOMATIC TAGS ::=
+
+
+BEGIN
+
+GeneralName ::= CHOICE {
+  otherName      [0] INSTANCE OF OTHER-NAME,
+  rfc822Name     [1] IA5String,
+  dNSName        [2] IA5String,
+  lastName       [3] INSTANCE OF OTHER-NAME ({TI})
+}
+
+Names ::= SEQUENCE {
+  firstName  [0] INSTANCE OF OTHER-NAME,
+  secondName [1] PrintableString,
+  thirdName  [2] INSTANCE OF OTHER-NAME ({TI})
+}
+
+OTHER-NAME ::= YET-ANOTHER-NAME
+
+YET-ANOTHER-NAME ::= TYPE-IDENTIFIER
+
+TI OTHER-NAME ::= {{INTEGER IDENTIFIED BY {2 4}} |
+		   {Seq IDENTIFIED BY {2 3 4}} |
+		   {SEQUENCE{a INTEGER,b ENUMERATED{a,b,c}} IDENTIFIED BY {2 3 4 5}} }
+
+Int ::= INTEGER
+
+Seq ::= SEQUENCE {
+  a   INTEGER,
+  b   BOOLEAN
+}
+
+
+
+END

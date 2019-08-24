@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- EDoc DTD Version 0.3 -->
+
+<!ELEMENT overview (title, description?, author*, copyright?, version?,
+                    since?, see*, reference*, todo?, modules)>
+<!ATTLIST overview
+  root CDATA #IMPLIED
+  encoding CDATA #IMPLIED>
+
+<!ELEMENT title (#PCDATA)>
+
+<!ELEMENT modules (module+)>
+
+
+<!ELEMENT module (args?, description?, author*, copyright?, version?,
+		  since?, deprecated?, see*, reference*, todo?,
+		  behaviour*, callbacks?, typedecls?, functions)>
+<!ATTLIST module
+  name CDATA #REQUIRED
+  private (yes | no) #IMPLIED
+  hidden (yes | no) #IMPLIED
+  encoding CDATA #IMPLIED
+  root CDATA #IMPLIED>
+
+<!ELEMENT description (briefDescription, fullDescription?)>
+<!ELEMENT briefDescription (#PCDATA)>
+<!ELEMENT fullDescription (#PCDATA)>
+
+<!ELEMENT author EMPTY>
+<!ATTLIST author
+  name CDATA #REQUIRED
+  email CDATA #IMPLIED
+  website CDATA #IMPLIED>
+
+<!ELEMENT copyright (#PCDATA)>
+<!ELEMENT version (#PCDATA)>
+<!ELEMENT since (#PCDATA)>
+<!ELEMENT deprecated (description)>
+
+<!ELEMENT see (#PCDATA)>
+<!ATTLIST see
+  name CDATA #REQUIRED
+  href CDATA #IMPLIED>
+
+<!ELEMENT reference (#PCDATA)>
+
+<!ELEMENT todo (#PCDATA)>
+
+<!ELEMENT behaviour (#PCDATA)>
+<!ATTLIST behaviour
+  href CDATA #IMPLIED>
+
+<!ELEMENT callbacks (callback+)>
+<!ELEMENT callback EMPTY>
+<!ATTLIST callback
+  name CDATA #REQUIRED
+  arity CDATA #REQUIRED>
+
+<!ELEMENT typedecls (typedecl+)>
+<!ELEMENT typedecl (typedef, description?)>
+<!ATTLIST typedecl
+  label CDATA #IMPLIED>
+
+<!ELEMENT functions (function+)>
+<!ELEMENT function (args, typespec?, returns?, throws?, equiv?,
+                    description?, since?, deprecated?, see*, todo?)>
+<!ATTLIST function
+  name CDATA #REQUIRED
+  arity CDATA #REQUIRED
+  exported (yes | no) #IMPLIED
+  label CDATA #IMPLIED>
+
+<!ELEMENT args (arg*)>
+<!ELEMENT arg (argName, description?)>
+<!ELEMENT argName (#PCDATA)>
+
+<!ELEMENT throws (type, localdef*)>
+<!ELEMENT returns (description)>
+
+<!ELEMENT equiv (expr, see?)>
+<!ELEMENT expr (#PCDATA)>
+
+<!ELEMENT erlangName EMPTY>
+<!ATTLIST erlangName
+  app CDATA #IMPLIED
+  module CDATA #IMPLIED
+  name CDATA #REQUIRED>
+
+
+<!-- Data type specifications  -->
+
+<!ELEMENT typedef (erlangName, argtypes, type?, localdef*)>
+
+<!ELEMENT typespec (erlangName, type, localdef*)>
+
+<!ELEMENT localdef ((typevar | abstype), type)>
+<!ATTLIST localdef label CDATA #IMPLIED>
+
+<!ELEMENT argtypes (type*)>
+
+<!ELEMENT type (typevar | atom | integer | float | nil | list | tuple |
+                fun | record | abstype | union)>
+<!ATTLIST type name CDATA #IMPLIED>
+
+<!ELEMENT union (typevar | atom | integer | float | nil | list | tuple |
+                 fun | record | map | abstype)+>
+
+<!ELEMENT typevar EMPTY>
+<!ATTLIST typevar name CDATA #REQUIRED>
+
+<!ELEMENT atom EMPTY>
+<!ATTLIST atom value CDATA #REQUIRED>
+
+<!ELEMENT integer EMPTY>
+<!ATTLIST integer value CDATA #REQUIRED>
+
+<!ELEMENT float EMPTY>
+<!ATTLIST float value CDATA #REQUIRED>
+
+<!ELEMENT nil EMPTY>
+
+<!ELEMENT list (type)>
+
+<!ELEMENT tuple (type*)>
+
+<!ELEMENT fun (argtypes, type)>
+
+<!ELEMENT record (atom, field*)>
+
+<!ELEMENT field (atom, type)>
+
+<!ELEMENT map (map_field)*>
+
+<!ELEMENT map_field (type, type)>
+
+<!ELEMENT abstype (erlangName, type*)>
+<!ATTLIST abstype
+  href CDATA #IMPLIED>

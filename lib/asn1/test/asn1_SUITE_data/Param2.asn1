@@ -1,0 +1,48 @@
+Param2 DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+  S1AP-PROTOCOL-IES ::= CLASS {
+	&id				INTEGER UNIQUE,
+	&Value
+  }
+  WITH SYNTAX {
+	ID				&id
+	TYPE				&Value
+  }
+
+  ProtocolIE-Field {S1AP-PROTOCOL-IES : IEsSetParam} ::= SEQUENCE {
+	id		S1AP-PROTOCOL-IES.&id ({IEsSetParam}),
+	value		S1AP-PROTOCOL-IES.&Value ({IEsSetParam}{@id})
+  }
+
+  ProtocolIE-Container {S1AP-PROTOCOL-IES : IEsSetParam} ::=
+         SEQUENCE (SIZE (0..10)) OF ProtocolIE-Field {{IEsSetParam}}
+
+  HandoverRequired ::= SEQUENCE {
+	protocolIEs ProtocolIE-Container { { HandoverRequiredIEs } },
+	...
+  }
+
+  HandoverRequiredIEs S1AP-PROTOCOL-IES ::= {
+    { ID 1 TYPE OCTET STRING } |
+    { ID 2 TYPE INTEGER },
+--Delete-start
+    ...,
+    { ID 100 TYPE INTEGER (0..1023) } |
+    { ID 101 TYPE ENUMERATED {true,false} }
+--Delete-end
+  }
+
+  SingleRoot ::= SEQUENCE {
+	protocolIEs ProtocolIE-Container { { SingleRootIEs } },
+	...
+  }
+
+  -- The extension was lost when there was a single root item.
+  SingleRootIEs S1AP-PROTOCOL-IES ::= {
+    { ID 1 TYPE OCTET STRING },
+    ...,
+    { ID 2 TYPE INTEGER }
+  }
+
+END

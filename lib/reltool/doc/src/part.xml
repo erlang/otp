@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Reltool Users Guide</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev>%VSN%</rev>
+  </header>
+  <description>
+    <p>Reltool is a release management tool. It analyses a given
+     Erlang/OTP installation and determines various dependencies
+     between applications. The <c>graphical</c> frontend depicts the
+     dependencies and enables interactive customization of a
+     target system. The backend provides a <c>batch</c> interface
+     for generation of customized target systems.</p>
+  </description>
+  <xi:include href="reltool_intro.xml"/>
+  <xi:include href="reltool_usage.xml"/>
+  <xi:include href="reltool_examples.xml"/>
+</part>

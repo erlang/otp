@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_rpc</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_rpc.xml</file>
+  </header>
+  <module since="">ct_rpc</module>
+  <modulesummary>Common Test specific layer on Erlang/OTP rpc.</modulesummary>
+
+  <description>
+
+    <p><c>Common Test</c> specific layer on Erlang/OTP <c>rpc</c>.</p>
+
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">app_node(App, Candidates) -&gt; NodeName</name>
+      <fsummary>From a set of candidate nodes determines which of them is
+        running the application App.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Candidates = [NodeName]</v>
+        <v>NodeName = atom()</v>
+      </type>
+      <desc><marker id="app_node-2"/>
+        <p>From a set of candidate nodes determines which of them is running
+          the application <c>App</c>. If none of the candidate nodes is
+          running <c>App</c>, the function makes the test case calling
+          this function to fail. This function is the same as calling
+          <c>app_node(App, Candidates, true)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">app_node(App, Candidates, FailOnBadRPC) -&gt; NodeName</name>
+        <fsummary>Same as app_node/2, except that argument FailOnBadRPC
+          determines if the search for a candidate node is to stop if
+          badrpc is received at some point.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Candidates = [NodeName]</v>
+        <v>NodeName = atom()</v>
+        <v>FailOnBadRPC = true | false</v>
+      </type>
+      <desc><marker id="app_node-3"/>
+        <p>Same as
+          <seealso marker="#app_node-2"><c>ct_rpc:app_node/2</c></seealso>,
+          except that argument <c>FailOnBadRPC</c> determines if the search
+          for a candidate node is to stop if <c>badrpc</c> is received at
+          some point.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">app_node(App, Candidates, FailOnBadRPC, Cookie) -&gt; NodeName</name>
+      <fsummary>Same as app_node/2, except that argument FailOnBadRPC
+        determines if the search for a candidate node is to stop if badrpc is
+        received at some point.</fsummary>
+      <type>
+        <v>App = atom()</v>
+        <v>Candidates = [NodeName]</v>
+        <v>NodeName = atom()</v>
+        <v>FailOnBadRPC = true | false</v>
+        <v>Cookie = atom()</v>
+      </type>
+      <desc><marker id="app_node-4"/>
+        <p>Same as
+          <seealso marker="#app_node-2"><c>ct_rpc:app_node/2</c></seealso>,
+          except that argument <c>FailOnBadRPC</c> determines if the search
+          for a candidate node is to stop if <c>badrpc</c> is received at
+          some point.</p>
+
+        <p>The cookie on the client node is set to <c>Cookie</c> for this
+          <c>rpc</c> operation (used to match the server node cookie).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">call(Node, Module, Function, Args) -&gt; term() | {badrpc, Reason}</name>
+      <fsummary>Same as call(Node, Module, Function, Args, infinity).</fsummary>
+      <desc><marker id="call-4"/>
+        <p>Same as <c>call(Node, Module, Function, Args, infinity)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">call(Node, Module, Function, Args, TimeOut) -&gt; term() | {badrpc, Reason}</name>
+      <fsummary>Evaluates apply(Module, Function, Args) on the node
+        Node.</fsummary>
+      <type>
+        <v>Node = NodeName | {Fun, FunArgs}</v>
+        <v>Fun = function()</v>
+        <v>FunArgs = term()</v>
+        <v>NodeName = atom()</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Reason = timeout | term()</v>
+      </type>
+      <desc><marker id="call-5"/>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c>. Returns either whatever <c>Function</c> returns, or
+          <c>{badrpc, Reason}</c> if the remote procedure call fails. If
+          <c>Node</c> is <c>{Fun, FunArgs}</c>, applying <c>Fun</c> to
+          <c>FunArgs</c> is to return a node name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">call(Node, Module, Function, Args, TimeOut, Cookie) -&gt; term() | {badrpc, Reason}</name>
+      <fsummary>Evaluates apply(Module, Function, Args) on the node
+        Node.</fsummary>
+      <type>
+        <v>Node = NodeName | {Fun, FunArgs}</v>
+        <v>Fun = function()</v>
+        <v>FunArgs = term()</v>
+        <v>NodeName = atom()</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Reason = timeout | term()</v>
+        <v>Cookie = atom()</v>
+      </type>
+      <desc><marker id="call-6"/>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c>. Returns either whatever <c>Function</c> returns, or
+          <c>{badrpc, Reason}</c> if the remote procedure call fails. If
+          <c>Node</c> is <c>{Fun, FunArgs}</c>, applying <c>Fun</c> to
+          <c>FunArgs</c> is to return a node name.</p>
+
+        <p>The cookie on the client node is set to <c>Cookie</c> for this
+          <c>rpc</c> operation (used to match the server node cookie).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">cast(Node, Module, Function, Args) -&gt; ok</name>
+      <fsummary>Evaluates apply(Module, Function, Args) on the node
+        Node.</fsummary>
+      <type>
+        <v>Node = NodeName | {Fun, FunArgs}</v>
+        <v>Fun = function()</v>
+        <v>FunArgs = term()</v>
+        <v>NodeName = atom()</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Reason = timeout | term()</v>
+      </type>
+      <desc><marker id="cast-4"/>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c>. No response is delivered and the process that makes
+          the call is not suspended until the evaluation is completed as in
+          the case of <c>call/3,4</c>. If <c>Node</c> is
+          <c>{Fun, FunArgs}</c>, applying <c>Fun</c> to <c>FunArgs</c> is to
+          return a node name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">cast(Node, Module, Function, Args, Cookie) -&gt; ok</name>
+      <fsummary>Evaluates apply(Module, Function, Args) on the node
+        Node.</fsummary>
+      <type>
+        <v>Node = NodeName | {Fun, FunArgs}</v>
+        <v>Fun = function()</v>
+        <v>FunArgs = term()</v>
+        <v>NodeName = atom()</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Reason = timeout | term()</v>
+        <v>Cookie = atom()</v>
+      </type>
+      <desc><marker id="cast-5"/>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c>. No response is delivered and the process that makes
+          the call is not suspended until the evaluation is completed as in
+          the case of <c>call/3,4</c>. If <c>Node</c> is
+          <c>{Fun, FunArgs}</c>, applying <c>Fun</c> to <c>FunArgs</c> is to
+          return a node name.</p>
+
+        <p>The cookie on the client node is set to <c>Cookie</c> for this
+          <c>rpc</c> operation (used to match the server node cookie).</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

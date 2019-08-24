@@ -1,0 +1,234 @@
+-- Module IPMSAutoActionTypes (X.420:06/1999)
+IPMSAutoActionTypes {joint-iso-itu-t mhs(6) ipms(1) modules(0) auto-actions(13)
+  version-1999(1)} DEFINITIONS EXPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS
+  -- IPMS Information Objects
+  AdviceNotifications, AutoForwardComment, BodyPart, Heading, IA5TextBodyPart,
+    IPMSExtension, SupplReceiptInfoField
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- IPMS Upper Bounds
+  ub-ipm-identifier-suffix
+    --==
+    FROM IPMSUpperBounds {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      upper-bounds(10) version-1999(1)}
+  -- IPMS Object Identifiers
+  id-aa-ipm-auto-acknowledgement, id-aa-ipm-auto-advise,
+    id-aa-ipm-auto-correlate, id-aa-ipm-auto-discard,
+    id-aae-auto-discard-error, id-aae-auto-forwarding-loop,
+    id-aae-duplicate-ipn
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- Auto-action information object class
+  AUTO-ACTION,
+    AUTO-ACTION-ERROR,
+    -- MS Abstract Service data-types and abstract-errors
+    Filter, EntryInformationSelection, ms-extension-error, MSSubmissionOptions,
+    service-error
+    --==
+    FROM MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      abstract-service(1) version-1999(1)}
+  -- MS object identifier
+  id-act-ipm-auto-forward
+    --==
+    FROM MSObjectIdentifiers {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- MTS Abstract Service data-types and abstract-errors
+  ContentIdentifier, DeferredDeliveryTime, element-of-service-not-subscribed,
+    ExplicitConversion, ExtensionField{}, inconsistent-request,
+    MessageSubmissionEnvelope, originator-invalid, OriginatorName,
+    OriginatorReportRequest, PerMessageIndicators,
+    PerMessageSubmissionExtensions, PerRecipientMessageSubmissionExtensions,
+    Priority, recipient-improperly-specified, RecipientName, remote-bind-error,
+    security-error, submission-control-violated, unsupported-critical-function
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- MTS upper bounds
+  ub-recipients
+    --==
+    FROM MTSUpperBounds {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      upper-bounds(3) version-1999(1)};
+
+-- IPM auto-actions information object set
+IPMAutoActions AUTO-ACTION ::=
+  {ipm-auto-forward, ... -- 1994 extension additions --,
+   ipm-auto-acknowledgement | ipm-auto-correlate | ipm-auto-discard |
+   ipm-auto-advise}
+
+-- Auto-actions
+ipm-auto-forward AUTO-ACTION ::= {
+  REGISTRATION PARAMETER IS
+    CHOICE {ipm-auto-forward-registration-parameter
+              IPMAutoForwardRegistrationParameter-- used in 1994 Application Contexts only -- ,
+            auto-forward-registration-parameter-88
+              AutoForwardRegistrationParameter88
+  } -- used in 1988 Application Contexts only
+  ERRORS
+    {auto-forwarding-loop | element-of-service-not-subscribed |
+      inconsistent-request | ms-extension-error | originator-invalid |
+      recipient-improperly-specified | remote-bind-error | security-error |
+      service-error | submission-control-violated |
+      unsupported-critical-function, ...}
+  IDENTIFIED BY              id-act-ipm-auto-forward
+}
+
+-- Auto-forward 1994
+IPMAutoForwardRegistrationParameter ::= SEQUENCE {
+  filter                    [0]  Filter OPTIONAL,
+  forwarding-envelope       [1]  MessageSubmissionEnvelope,
+  forwarding-heading        [2]  Heading,
+  forwarding-cover-note     [3]  BodyPart OPTIONAL,
+  submission-options        [4]  MSSubmissionOptions OPTIONAL,
+  nrn-comment               [5]  AutoForwardComment OPTIONAL,
+  ipm-auto-forward-options  [6]  IPMAutoForwardOptions DEFAULT {}
+}
+
+IPMAutoForwardOptions ::= BIT STRING {
+  forward-all-object-types(0), -- forward-all-object-types 'one', forward IPMs only 'zero' 
+  include-returned-content(1), -- include-returned-content 'one', exclude 'zero' 
+  include-returned-ipm(2), -- include-returned-ipm 'one', exclude 'zero' 
+  forwarded-content-prohibited(3), -- forwarded-content-prohibited 'one', allowed'zero' 
+  preserve-retrieval-status(4), -- preserve-retrieval-status 'one', change 'zero' 
+  delete-delivered-object(5)
+} -- delete-delivered-object 'one', no deletion 'zero'
+
+-- Auto-forward 1988
+AutoForwardRegistrationParameter88 ::= SET {
+  filter                        [0]  Filter OPTIONAL,
+  auto-forward-arguments        [1]  AutoForwardArguments,
+  delete-after-auto-forwarding  [2]  BOOLEAN DEFAULT FALSE,
+  forwarding-information        [3]  EncodedForwardingInformation
+}
+
+AutoForwardArguments ::= SET {
+  COMPONENTS OF PerMessageAutoForwardFields,
+  per-recipient-fields
+    [1] IMPLICIT SEQUENCE SIZE (1..ub-recipients) OF
+                   PerRecipientAutoForwardFields
+}
+
+PerMessageAutoForwardFields ::= SET {
+  originator-name         OriginatorName,
+  content-identifier      ContentIdentifier OPTIONAL,
+  priority                Priority OPTIONAL,
+  per-message-indicators  PerMessageIndicators OPTIONAL,
+  deferred-delivery-time  [0] IMPLICIT DeferredDeliveryTime OPTIONAL,
+  extensions
+    [2] IMPLICIT SET OF ExtensionField{{PerMessageSubmissionExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientAutoForwardFields ::= SET {
+  recipient-name             RecipientName,
+  originator-report-request  [0] IMPLICIT OriginatorReportRequest,
+  explicit-conversion        [1] IMPLICIT ExplicitConversion OPTIONAL,
+  extensions
+    [2] IMPLICIT SET OF
+                   ExtensionField{{PerRecipientMessageSubmissionExtensions}}
+      DEFAULT {}
+}
+
+EncodedForwardingInformation ::=
+  OCTET STRING -- contains ForwardingInformation1988 
+
+ForwardingInformation1988 ::= SET {
+  auto-forwarding-comment  [0] IMPLICIT AutoForwardComment OPTIONAL,
+  ia5-cover-note           [1] IMPLICIT IA5TextBodyPart OPTIONAL,
+  this-ipm-prefix
+    [2] IMPLICIT PrintableString(SIZE (1..ub-ipm-identifier-suffix)) OPTIONAL
+}
+
+--
+ipm-auto-acknowledgement AUTO-ACTION ::= {
+  REGISTRATION PARAMETER IS  IPMAutoAcknowledgementRegistrationParameter
+  ERRORS
+    {originator-invalid | submission-control-violated |
+      element-of-service-not-subscribed | recipient-improperly-specified |
+      remote-bind-error | inconsistent-request | security-error |
+      unsupported-critical-function | duplicate-ipn}
+  IDENTIFIED BY              id-aa-ipm-auto-acknowledgement
+}
+
+IPMAutoAcknowledgementRegistrationParameter ::= SET {
+  auto-acknowledge-suppl-receipt-info  [0]  SupplReceiptInfoField OPTIONAL,
+  submission-options                   [1]  MSSubmissionOptions OPTIONAL
+}
+
+--
+ipm-auto-correlate AUTO-ACTION ::= {IDENTIFIED BY  id-aa-ipm-auto-correlate
+}
+
+--
+ipm-auto-discard AUTO-ACTION ::= {
+  REGISTRATION PARAMETER IS  IPMAutoDiscardRegistrationParameter
+  ERRORS
+    {submission-control-violated | ipm-auto-discard-error | originator-invalid
+      | recipient-improperly-specified | inconsistent-request | security-error
+      | unsupported-critical-function | remote-bind-error |
+      element-of-service-not-subscribed}
+  IDENTIFIED BY              id-aa-ipm-auto-discard
+}
+
+IPMAutoDiscardRegistrationParameter ::= SET {
+  filter                             [0]  Filter OPTIONAL,
+  submission-options                 [1]  MSSubmissionOptions OPTIONAL,
+  auto-discard-expired-ipms          [2]  BOOLEAN,
+  auto-discard-obsoleted-ipms        [3]  BOOLEAN,
+  restrict-obsoleting-to-originator  [4]  BOOLEAN
+}
+
+--
+ipm-auto-advise AUTO-ACTION ::= {
+  REGISTRATION PARAMETER IS  IPMAutoAdviseRegistrationParameter
+  ERRORS
+    {inconsistent-request | element-of-service-not-subscribed |
+      originator-invalid | recipient-improperly-specified | remote-bind-error |
+      security-error | submission-control-violated |
+      unsupported-critical-function}
+  IDENTIFIED BY              id-aa-ipm-auto-advise
+}
+
+IPMAutoAdviseRegistrationParameter ::= SET {
+  enabled                            [0]  BOOLEAN DEFAULT TRUE,
+  filter                             [1]  Filter OPTIONAL,
+  advice-notifications
+    [2]  SET OF IPMSExtension{{AdviceNotifications}},
+  suppress-subsequent-notifications  [3]  BOOLEAN DEFAULT TRUE,
+  use-ipm-if-an-not-supported        [4]  BOOLEAN DEFAULT FALSE,
+  submission-options                 [5]  MSSubmissionOptions OPTIONAL
+}
+
+-- IPM auto-action-error-table information object set
+IPMAutoActionErrorTable AUTO-ACTION-ERROR ::=
+  {... -- 1994 extension additions --, auto-forwarding-loop | duplicate-ipn |
+   element-of-service-not-subscribed | inconsistent-request |
+   ipm-auto-discard-error | ms-extension-error | originator-invalid |
+   recipient-improperly-specified | remote-bind-error | security-error |
+   service-error | submission-control-violated | unsupported-critical-function}
+
+-- Auto-action-error-types
+auto-forwarding-loop AUTO-ACTION-ERROR ::= {
+  CODE  global:id-aae-auto-forwarding-loop
+}
+
+duplicate-ipn AUTO-ACTION-ERROR ::= {CODE  global:id-aae-duplicate-ipn
+}
+
+ipm-auto-discard-error AUTO-ACTION-ERROR ::= {
+  PARAMETER  SET {problem  [0]  AutoDiscardProblem}
+  CODE       global:id-aae-auto-discard-error
+}
+
+AutoDiscardProblem ::= INTEGER {not-obsoleted-by-originator(0)}
+
+END -- of IPMSAutoActionTypes
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

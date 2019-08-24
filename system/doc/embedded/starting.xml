@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Starting an Embedded System</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-10-17</date>
+    <rev>D</rev>
+    <file>starting.sgml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>This chapter describes how an embedded system is started.
+      There are four programs involved, and they all normally reside
+      in the directory <c><![CDATA[<ERL_INSTALL_DIR>/bin]]></c>.  The only
+      exception is the program <c>start</c>, which may be located
+      anywhere, and also is the only program that must be modified by
+      the user.
+      </p>
+    <p>In an embedded system there usually is no interactive shell.
+      However, it is possible for an operator to attach to the
+      Erlang runtime system by giving the command <c>to_erl</c>.  He is
+      then connected to the Erlang shell, and may give ordinary Erlang
+      commands.  All interaction with the system through this shell is
+      logged in a special directory.
+      </p>
+    <p>Basically, the procedure is as follows.  The program
+      <c>start</c> is called when the machine is started.  It calls
+      <c>run_erl</c>, which sets things up so the operator can attach
+      to the system.  It calls <c>start_erl</c> which calls the
+      correct version of <c>erlexec</c> (which is located in
+      <c><![CDATA[<ERL_INSTALL_DIR>/erts-EVsn/bin]]></c>) with the correct
+      <c>boot</c> and <c>config</c> files.
+      </p>
+  </section>
+
+  <section>
+    <title>Programs</title>
+
+    <section>
+      <title>start</title>
+      <p>This program is called when the machine is started.  It may
+        be modified or re-written to suit a special system.  By
+        default, it must be called <c>start</c> and reside in
+        <c><![CDATA[<ERL_INSTALL_DIR>/bin]]></c>.  Another start program can be
+        used, by using the configuration parameter <c>start_prg</c> in
+        application SASL.</p>
+      <p>The start program must call <c>run_erl</c> as shown below.
+        It must also take an optional parameter which defaults to
+        <c><![CDATA[<ERL_INSTALL_DIR>/bin/start_erl.data]]></c>.
+        </p>
+      <p>This program should set static parameters and environment
+        variables such as <c>-sname Name</c> and <c>HEART_COMMAND</c>
+        to reboot the machine.
+        </p>
+      <p>The <c><![CDATA[<RELDIR>]]></c> directory is where new release packets
+        are installed, and where the release handler keeps information
+        about releases.  See <c>release_handler(3)</c> in
+        application SASL for further information.
+        </p>
+      <p>The following script illustrates the default behaviour of the
+        program.
+        </p>
+      <code type="none"><![CDATA[
+#!/bin/sh
+# Usage: start [DataFile]
+#
+ROOTDIR=/usr/local/otp
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl @@@
+                     $ROOTDIR $RELDIR $START_ERL_DATA" > /dev/null 2>&1 &]]></code>
+      <p>The following script illustrates a modification where the
+        node is given the name <c>cp1</c>, and the environment variables
+        <c>HEART_COMMAND</c> and <c>TERM</c> have been added to the
+        above script.
+        </p>
+      <code type="none"><![CDATA[
+#!/bin/sh
+# Usage: start [DataFile]
+#
+HEART_COMMAND=/usr/sbin/reboot
+TERM=sun
+export HEART_COMMAND TERM
+
+ROOTDIR=/usr/local/otp
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl @@@
+      $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname cp1" > /dev/null 2>&1 &]]></code>
+      <p>If a diskless and/or read-only client node is about to start the
+        <c>start_erl.data</c> file is located in the client directory at
+        the master node. Thus, the <c>START_ERL_DATA</c> line should look
+        like:
+        </p>
+      <code type="none">
+CLIENTDIR=$ROOTDIR/clients/clientname
+START_ERL_DATA=${1:-$CLIENTDIR/bin/start_erl.data}</code>
+    </section>
+
+    <section>
+      <title>run_erl</title>
+      <p>This program is used to start the emulator, but you will not
+        be connected to the shell. <c>to_erl</c> is used to connect to the
+        Erlang shell.
+        </p>
+      <code type="none">
+Usage: run_erl pipe_dir/ log_dir "exec command [parameters ...]"</code>
+      <p>Where <c>pipe_dir/</c> should be <c>/tmp/</c>
+        (<c>to_erl</c> uses this name by default) and <c>log_dir</c> is
+        where the log files are written.  <c>command [parameters]</c> is
+        executed, and everything written to stdin and stdout is logged in
+        the <c>log_dir</c>.
+        </p>
+      <p>In the <c>log_dir</c>, log files are written.  Each logfile
+        has a name of the form: <c>erlang.log.N</c> where N is a
+        generation number, ranging from 1 to 5. Each logfile holds up to
+        100kB text. As time goes by the following logfiles will be found
+        in the logfile directory</p>
+      <code type="none">
+erlang.log.1
+erlang.log.1, erlang.log.2
+erlang.log.1, erlang.log.2, erlang.log.3
+erlang.log.1, erlang.log.2, erlang.log.3, erlang.log.4
+erlang.log.2, erlang.log.3, erlang.log.4, erlang.log.5
+erlang.log.3, erlang.log.4, erlang.log.5, erlang.log.1
+...      </code>
+      <p>with the most recent logfile being the right most in each row
+        of the above list. That is, the most recent file is the one with
+        the highest number, or if there are already four files, the one
+        before the skip. 
+        </p>
+      <p>When a logfile is opened (for appending or created) a time
+        stamp is written to the file.  If nothing has been written to
+        the log files for 15 minutes, a record is inserted that says
+        that we're still alive.
+        </p>
+    </section>
+
+    <section>
+      <title>to_erl</title>
+      <p>This program is used to attach to a running Erlang runtime system,
+        started with <c>run_erl</c>.
+        </p>
+      <code type="none">
+Usage: to_erl [pipe_name | pipe_dir]</code>
+      <p>Where <c>pipe_name</c> defaults to <c>/tmp/erlang.pipe.N</c>.
+        </p>
+      <p>To disconnect from the shell without exiting the Erlang
+        runtime system, type <c>Ctrl-D</c>.
+        </p>
+    </section>
+
+    <section>
+      <title>start_erl</title>
+      <p>This program starts the Erlang emulator with parameters
+        <c>-boot</c> and <c>-config</c> set.  It reads data about where
+        these files are located from a file called <c>start_erl.data</c>
+        which is located in the <c><![CDATA[<RELDIR>]]></c>.  Each new release
+        introduces a new data file.  This file is automatically
+        generated by the release handler in Erlang.
+        </p>
+      <p>The following script illustrates the behaviour of the
+        program.</p>
+      <code type="none">
+#!/bin/sh
+#
+# This program is called by run_erl.  It starts
+# the Erlang emulator and sets -boot and -config parameters.
+# It should only be used at an embedded target system.
+#
+# Usage: start_erl RootDir RelDir DataFile [ErlFlags ...]
+#
+ROOTDIR=$1
+shift
+RELDIR=$1
+shift
+DataFile=$1
+shift
+
+ERTS_VSN=`awk '{print $1}' $DataFile`
+VSN=`awk '{print $2}' $DataFile`
+
+BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin
+EMU=beam
+PROGNAME=`echo $0 | sed 's/.*\///'`
+export EMU
+export ROOTDIR
+export BINDIR
+export PROGNAME
+export RELDIR
+
+exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*      </code>
+      <p>If a diskless and/or read-only client node with the SASL
+        configuration parameter <c>static_emulator</c> set to <c>true</c>
+        is about to start the <c>-boot</c> and <c>-config</c> flags must be
+        changed. As such a client cannot read a new <c>start_erl.data</c>
+        file (the file is not possible to change dynamically) the boot and
+        config files is always fetched from the same place (but with a new 
+        contents if a new release has been installed). The
+        <c>release_handler</c> copies this files to the <c>bin</c> directory
+        in the client directory at the master nodes whenever a new release
+        is made permanent.
+        </p>
+      <p>Assuming the same <c>CLIENTDIR</c> as above the last line should
+        look like:</p>
+      <code type="none">
+exec $BINDIR/erlexec -boot $CLIENTDIR/bin/start @@@
+     -config $CLIENTDIR/bin/sys $*      </code>
+    </section>
+  </section>
+</chapter>
+

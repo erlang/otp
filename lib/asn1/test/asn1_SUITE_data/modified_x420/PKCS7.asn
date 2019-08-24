@@ -1,0 +1,343 @@
+-- Module PKCS7 (X.420:06/1999)
+-- The ASN.1 in version 1.5 of the PKCS#7 document is not defined in an ASN.1 module. This prevents an IMPORT of it into other ASN.1 modules.
+-- This Annex contains a module of PKCS#7 ASN.1 definitions conforming to current ASN.1 standards rather than the obsolescent (and now deprecated) 1988/90 version of ASN.1 used in version 1.5 of PKCS#7.
+-- Extensions to PKCS#7 defined in RFC 2630 are included.
+-- If differences are found between the ASN.1 in the following module and that in PKCS#7, the latter is definitive.
+PKCS7 {iso member-body usa(840) rsadsi(113549) pkcs(1) 7
+  module(0) -- module not currently defined in PKCS#7 --} DEFINITIONS IMPLICIT
+TAGS ::=
+BEGIN
+
+IMPORTS
+  -- Directory Information Framework
+  Attribute, Name
+    --==
+    FROM InformationFramework {joint-iso-itu-t ds(5) module(1)
+      informationFramework(1) 3}
+  -- Directory Authentication Framework
+  AlgorithmIdentifier, AttributeCertificate, Certificate, CertificateList,
+    CertificateSerialNumber, HASH{}, SIGNED{}
+    --==
+    FROM AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+      authenticationFramework(7) 3};
+
+-- In PKCS#7 the HASHED parameterised type applies the hash function to the 
+-- contents octets component of a DER encoding of a value of the parameter.
+-- The ENCRYPTED parameterised type is redefined here because PKCS#7 encrypted values are 
+-- defined as OCTET STRING, instead of BIT STRING as in the Directory Authentication Framework
+ENCRYPTED{ToBeEnciphered} ::=
+  OCTET STRING
+    (CONSTRAINED BY {
+       -- must be the result of applying an encipherment procedure to the contents octets component 
+       -- of a definite-length BER-encoding of a value of --ToBeEnciphered})
+
+ContentInfo ::= SEQUENCE {
+  content-type   PKCS7-CONTENT-TYPE.&id({PKCS7ContentTable}),
+--  pkcs7-content  [0]  PKCS7-CONTENT-TYPE.&Type({PKCS7ContentTable}) OPTIONAL
+  pkcs7-content  [0]   EXPLICIT ANY DEFINED BY contentType OPTIONAL
+}
+
+PKCS7-CONTENT-TYPE ::= TYPE-IDENTIFIER
+
+PKCS7ContentTable PKCS7-CONTENT-TYPE ::=
+  {data | signed-data | enveloped-data | signed-and-enveloped-data |
+   digested-data | encrypted-data | authenticated-data, ...}
+
+-- Data
+data PKCS7-CONTENT-TYPE ::= {Data
+                             IDENTIFIED BY  id-data
+}
+
+Data ::= OCTET STRING
+
+-- Signed Data
+signed-data PKCS7-CONTENT-TYPE ::= {SignedData
+                                    IDENTIFIED BY  id-signed-data
+}
+
+SignedData ::= SEQUENCE {
+  version           Version,
+  digestAlgorithms  DigestAlgorithmIdentifiers,
+  contentInfo       ContentInfo,
+  certificates      [0]  CertificateSet OPTIONAL,
+  crls              [1]  CertificateRevocationLists OPTIONAL,
+  signerInfos       SignerInfos
+}
+
+Version ::= INTEGER
+
+DigestAlgorithmIdentifiers ::= SET OF DigestAlgorithmIdentifier
+
+DigestAlgorithmIdentifier ::= AlgorithmIdentifier
+
+CertificateSet ::= SET OF CertificateChoice
+
+CertificateChoice ::= CHOICE {
+  certificate           Certificate,
+  extendedCertificate   [0]  ExtendedCertificate, -- Obsolete
+  attributeCertificate  [1]  AttributeCertificate
+}
+
+CertificateRevocationLists ::= SET OF CertificateList
+
+SignerInfos ::= SET OF SignerInfo
+
+SignerInfo ::= SEQUENCE {
+  version                    Version,
+  signerIdentifier           SignerIdentifier,
+  digestAlgorithm            DigestAlgorithmIdentifier,
+  authenticatedAttributes    [0]  Attributes OPTIONAL,
+  digestEncryptionAlgorithm  DigestEncryptionAlgorithmIdentifier,
+  encryptedDigest            EncryptedDigest,
+  unauthenticatedAttributes  [1]  Attributes OPTIONAL
+}
+
+SignerIdentifier ::= CHOICE {
+  issuerAndSerialNumber  IssuerAndSerialNumber,
+  subjectKeyIdentifier   [2]  SubjectKeyIdentifier
+}
+
+IssuerAndSerialNumber ::= SEQUENCE {
+  issuer        Name,
+  serialNumber  CertificateSerialNumber
+}
+
+SubjectKeyIdentifier ::= OCTET STRING
+
+DigestEncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+
+EncryptedDigest ::= ENCRYPTED{DigestInfo}
+
+DigestInfo ::= SEQUENCE {
+  digestAlgorithm  DigestAlgorithmIdentifier,
+  digest           Digest
+}
+
+Digest ::=
+  HASH
+    {CHOICE {content
+               [1]  PKCS7-CONTENT-TYPE.&Type({PKCS7ContentTable}),
+             authenticated-attributes  [0] EXPLICIT Attributes}}
+
+-- Enveloped Data
+enveloped-data PKCS7-CONTENT-TYPE ::= {
+  EnvelopedData
+  IDENTIFIED BY  id-enveloped-data
+}
+
+EnvelopedData ::= SEQUENCE {
+  version                Version,
+  originatorInfo         [0]  OriginatorInfo OPTIONAL,
+  recipientInfos         RecipientInfos,
+  encryptedContentInfo   EncryptedContentInfo,
+  unprotectedAttributes  [1]  Attributes OPTIONAL
+}
+
+OriginatorInfo ::= SEQUENCE {
+  certificates  [0]  CertificateSet OPTIONAL,
+  crls          [1]  CertificateRevocationLists OPTIONAL
+}
+
+RecipientInfos ::= SET SIZE (1..MAX) OF RecipientInfo
+
+RecipientInfo ::= CHOICE {
+  keyTransportRecipientInfo      KeyTransportRecipientInfo,
+  keyAgreementRecipientInfo      [1]  KeyAgreementRecipientInfo,
+  keyEncryptionKeyRecipientInfo  [2]  KeyEncryptionKeyRecipientInfo
+}
+
+KeyTransportRecipientInfo ::= SEQUENCE {
+  version                 Version,
+  recipientIdentifier     RecipientIdentifier,
+  keyEncryptionAlgorithm  KeyEncryptionAlgorithmIdentifier,
+  encryptedKey            EncryptedKey
+}
+
+RecipientIdentifier ::= CHOICE {
+  issuerAndSerialNumber  IssuerAndSerialNumber,
+  subjectKeyIdentifier   [0]  SubjectKeyIdentifier
+}
+
+KeyEncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+
+EncryptedKey ::= OCTET STRING
+
+KeyAgreementRecipientInfo ::= SEQUENCE {
+  version                 Version,
+  originator              [0]  OriginatorIdentifierOrKey,
+  userKeyingMaterial      [1] EXPLICIT OCTET STRING OPTIONAL,
+  keyEncryptionAlgorithm  KeyEncryptionAlgorithmIdentifier,
+  recipientEncryptedKeys  RecipientEncryptedKeys
+}
+
+OriginatorIdentifierOrKey ::= CHOICE {
+  issuerAndSerialNumber  IssuerAndSerialNumber,
+  subjectKeyIdentifier   [0]  SubjectKeyIdentifier,
+  originatorPublicKey    [1]  OriginatorPublicKey
+}
+
+OriginatorPublicKey ::= SEQUENCE {
+  algorithm  AlgorithmIdentifier,
+  publicKey  BIT STRING
+}
+
+RecipientEncryptedKeys ::= SEQUENCE OF RecipientEncryptedKey
+
+RecipientEncryptedKey ::= SEQUENCE {
+  recipientIdentifier  KeyAgreementRecipientIdentifier,
+  encryptedKey         EncryptedKey
+}
+
+KeyAgreementRecipientIdentifier ::= CHOICE {
+  issuerAndSerialNumber   IssuerAndSerialNumber,
+  recipientKeyIdentifier  [0]  RecipientKeyIdentifier
+}
+
+RecipientKeyIdentifier ::= SEQUENCE {
+  subjectKeyIdentifier  SubjectKeyIdentifier,
+  date                  GeneralizedTime OPTIONAL,
+  otherKeyAttribute     OtherKeyAttribute OPTIONAL
+}
+
+OtherKeyAttribute ::= SEQUENCE {
+  keyAttributeIdentifier  OTHER-KEY-ATTRIBUTE.&id({OtherKeyAttributeTable}),
+  keyAttribute
+    OTHER-KEY-ATTRIBUTE.&Type
+      ({OtherKeyAttributeTable}{@keyAttributeIdentifier}) OPTIONAL
+}
+
+OTHER-KEY-ATTRIBUTE ::= TYPE-IDENTIFIER
+
+OtherKeyAttributeTable OTHER-KEY-ATTRIBUTE ::=
+  {...}
+
+KeyEncryptionKeyRecipientInfo ::= SEQUENCE {
+  version                     Version,
+  keyEncryptionKeyIdentifier  KeyEncryptionKeyIdentifier,
+  keyEncryptionAlgorithm      KeyEncryptionAlgorithmIdentifier,
+  encryptedKey                EncryptedKey
+}
+
+KeyEncryptionKeyIdentifier ::= SEQUENCE {
+  keyIdentifier      OCTET STRING,
+  date               GeneralizedTime OPTIONAL,
+  otherKeyAttribute  OtherKeyAttribute OPTIONAL
+}
+
+EncryptedContentInfo ::= SEQUENCE {
+  contentType                 PKCS7-CONTENT-TYPE.&id({PKCS7ContentTable}),
+  contentEncryptionAlgorithm  ContentEncryptionAlgorithmIdentifier,
+  encryptedContent
+    [0]  ENCRYPTED{PKCS7-CONTENT-TYPE.&Type({PKCS7ContentTable}{@.contentType})}
+      OPTIONAL
+}
+
+ContentEncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+
+-- Signed and Enveloped Data
+signed-and-enveloped-data PKCS7-CONTENT-TYPE ::= {
+  SignedAndEnvelopedData
+  IDENTIFIED BY  id-signed-and-enveloped-data
+}
+
+SignedAndEnvelopedData ::= SEQUENCE {
+  version               Version,
+  recipientInfos        SET SIZE (1..MAX) OF KeyTransportRecipientInfo,
+  digestAlgorithms      DigestAlgorithmIdentifiers,
+  encryptedContentInfo  EncryptedContentInfo,
+  certificates          [0]  CertificateSet OPTIONAL,
+  crls                  [1]  CertificateRevocationLists OPTIONAL,
+  signerInfos
+    SET SIZE (1..MAX) OF
+      SignerInfo
+        (WITH COMPONENTS {
+           ...,
+           signerIdentifier           (WITH COMPONENTS {
+                                         issuerAndSerialNumber  PRESENT
+                                       }),
+           authenticatedAttributes    ABSENT,
+           unauthenticatedAttributes  ABSENT
+         })
+}
+
+-- Digested Data
+digested-data PKCS7-CONTENT-TYPE ::= {
+  DigestedData
+  IDENTIFIED BY  id-digested-data
+}
+
+DigestedData ::= SEQUENCE {
+  version          Version,
+  digestAlgorithm  DigestAlgorithmIdentifier,
+  contentInfo      ContentInfo,
+  digest           HASH{PKCS7-CONTENT-TYPE.&Type({PKCS7ContentTable})}
+}
+
+-- Encrypted Data
+encrypted-data PKCS7-CONTENT-TYPE ::= {
+  EncryptedData
+  IDENTIFIED BY  id-encrypted-data
+}
+
+EncryptedData ::= SEQUENCE {
+  version                Version,
+  encryptedContentInfo   EncryptedContentInfo,
+  unprotectedAttributes  [1]  Attributes OPTIONAL
+}
+
+-- Authenticated Data
+authenticated-data PKCS7-CONTENT-TYPE ::= {
+  AuthenticatedData
+  IDENTIFIED BY  id-authenticated-data
+}
+
+AuthenticatedData ::= SEQUENCE {
+  version                    Version,
+  originatorInfo             [0]  OriginatorInfo OPTIONAL,
+  recipientInfos             RecipientInfos,
+  macAlgorithm               MessageAuthenticationCodeAlgorithmIdentifier,
+  digestAlgorithm            [1]  DigestAlgorithmIdentifier OPTIONAL,
+  contentInfo                ContentInfo,
+  authenticatedAttributes    [2]  Attributes OPTIONAL,
+  messageAuthenticationCode  MessageAuthenticationCode,
+  unauthenticatedAttributes  [3]  Attributes OPTIONAL
+}
+
+MessageAuthenticationCodeAlgorithmIdentifier ::= AlgorithmIdentifier
+
+MessageAuthenticationCode ::= OCTET STRING
+
+-- Object Identifiers
+id-pkcs OBJECT IDENTIFIER ::=
+  {iso member-body usa(840) rsadsi(113549) pkcs(1)}
+
+id-data OBJECT IDENTIFIER ::= {id-pkcs 7 1}
+
+id-signed-data OBJECT IDENTIFIER ::= {id-pkcs 7 2}
+
+id-enveloped-data OBJECT IDENTIFIER ::= {id-pkcs 7 3}
+
+id-signed-and-enveloped-data OBJECT IDENTIFIER ::= {id-pkcs 7 4}
+
+id-digested-data OBJECT IDENTIFIER ::= {id-pkcs 7 5}
+
+id-encrypted-data OBJECT IDENTIFIER ::= {id-pkcs 7 6}
+
+id-authenticated-data OBJECT IDENTIFIER ::= {id-pkcs 9 16 1 2}
+
+-- Definitions from PKCS#6
+ExtendedCertificate ::=
+  SIGNED{ExtendedCertificateInfo}
+
+ExtendedCertificateInfo ::= SEQUENCE {
+  version      Version,
+  certificate  Certificate,
+  attributes   Attributes
+}
+
+Attributes ::= SET OF Attribute
+
+END -- of PKCS#7
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

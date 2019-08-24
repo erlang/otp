@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Installation</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date>2007-07-03</date>
+    <rev></rev>
+    <file>install_chapter.xml</file>
+  </header>
+
+  <section>
+    <marker id="general"></marker>
+    <title>General Information</title>
+
+    <p>The two main interfaces for running tests with <c>Common Test</c>
+      are an executable program named 
+      <seealso marker="ct_run"><c>ct_run</c></seealso> and the
+      Erlang module <seealso marker="ct"><c>ct</c></seealso>. 
+      <c>ct_run</c> is compiled for the underlying operating system (for example,
+      Unix/Linux or Windows) during the build of the Erlang/OTP system, 
+      and is installed automatically with other executable programs in
+      the top level <c>bin</c> directory of Erlang/OTP.
+      The <c>ct</c> interface functions can be called from the Erlang shell,
+      or from any Erlang function, on any supported platform.</p>
+
+    <p>The <c>Common Test</c> application is installed with the Erlang/OTP
+      system. No extra installation step is required to start using
+      <c>Common Test</c> through the <c>ct_run</c> executable program, 
+      and/or the interface functions in the <c>ct</c> module.</p>
+    </section>
+</chapter>
+
+
+
+
+
+
+
+

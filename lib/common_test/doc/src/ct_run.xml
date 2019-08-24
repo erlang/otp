@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>The ct_run program</title>
+    <prepared>Peter Andersson</prepared>
+    <responsible>Peter Andersson</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2010-04-01</date>
+    <rev>PA2</rev>
+    <file>ct_run.xml</file>
+  </header>
+  <com>ct_run</com>
+  <comsummary>Program used for starting Common Test from the
+    OS command line.</comsummary>
+
+  <description>
+  <p>The <c>ct_run</c> program is automatically installed with Erlang/OTP
+    and the <c>Common Test</c> application (for more information, see
+    section <seealso marker="install_chapter">Installation</seealso>
+    in the User's Guide). The program accepts different start flags.
+    Some flags trigger <c>ct_run</c> to start <c>Common Test</c> and
+    pass on data to it. Some flags start an Erlang node prepared for
+    running <c>Common Test</c> in a particular mode.</p>
+
+  <p>The interface function
+    <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>,
+    corresponding to the <c>ct_run</c> program, is used for starting
+    <c>Common Test</c> from the Erlang shell (or an Erlang program).
+    For details, see the <seealso marker="ct"><c>ct</c></seealso>
+    manual page.</p>
+
+  <p><c>ct_run</c> also accepts Erlang emulator flags. These are used
+    when <c>ct_run</c> calls <c>erl</c> to start the Erlang node (this
+    makes it possible to add directories to the code server path,
+    change the cookie on the node, start more applications, and so on).</p>
+
+  <p>With the optional flag <c>-erl_args</c>, options on the <c>ct_run</c>
+    command line can be divided into two groups:</p>
+
+  <list type="bulleted">
+    <item>One group that <c>Common Test</c> is to process (those
+      preceding <c>-erl_args</c>).</item>
+    <item>One group that <c>Common Test</c> is to ignore and pass on
+      directly to the emulator (those following <c>-erl_args</c>).</item>
+  </list>
+
+  <p>Options preceding <c>-erl_args</c> that <c>Common Test</c>
+    does not recognize are also passed on to the emulator untouched.
+    By <c>-erl_args</c> the user can specify flags with the same name, but
+    with different destinations, on the <c>ct_run</c> command line.</p>
+
+  <p>If flags <c>-pa</c> or <c>-pz</c> are specified in the
+    <c>Common Test</c> group of options (preceding <c>-erl_args</c>),
+    relative directories are converted to absolute and reinserted into
+    the code path by <c>Common Test</c>. This is to avoid problems
+    loading user modules when <c>Common Test</c> changes working directory
+    during test runs. However, <c>Common Test</c> ignores flags <c>-pa</c>
+    and <c>-pz</c> following <c>-erl_args</c> on the command line. These
+    directories are added to the code path normally (that is, on specified
+    form).</p>
+
+  <p>Exit status is set before the program ends. Value <c>0</c> indicates
+    a successful test result, <c>1</c> indicates one or more failed or
+    auto-skipped test cases, and <c>2</c> indicates test execution failure.</p>
+
+  <p>If <c>ct_run</c> is called with option <c>-help</c>, it prints all
+    valid start flags to <c>stdout</c>.</p>
+  </description>
+
+  <section>
+  <marker id="ct_run"></marker>
+    <title>Run Tests from Command Line</title>
+    <pre>
+ ct_run -dir TestDir1 TestDir2 .. TestDirN |
+  [-dir TestDir] -suite Suite1 Suite2 .. SuiteN
+  [-group Groups1 Groups2 .. GroupsN] [-case Case1 Case2 .. CaseN]
+  [-step [config | keep_inactive]]
+  [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+  [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+   ConfigString2 and .. CallbackModuleN ConfigStringN]
+  [-decrypt_key Key] | [-decrypt_file KeyFile]
+  [-label Label]
+  [-logdir LogDir]
+  [-logopts LogOpts]
+  [-verbosity GenVLevel | [Category1 VLevel1 and
+   Category2 VLevel2 and .. CategoryN VLevelN]]
+  [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+  [-stylesheet CSSFile]
+  [-cover CoverCfgFile]
+  [-cover_stop Bool]
+  [-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
+  [-event_handler_init EvHandler1 InitArg1 and
+   EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
+  [-include InclDir1 InclDir2 .. InclDirN]
+  [-no_auto_compile]
+  [-abort_if_missing_suites]
+  [-muliply_timetraps Multiplier]
+  [-scale_timetraps]
+  [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+  [-repeat N] |
+  [-duration HHMMSS [-force_stop [skip_rest]]] |
+  [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
+  [-basic_html]
+  [-no_esc_chars]
+  [-keep_logs all | NLogs]
+  [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+   CTHModuleN CTHOptsN]
+  [-exit_status ignore_config]
+  [-help]</pre>
+  </section>
+
+  <section>
+    <title>Run Tests using Test Specification</title>
+    <pre>
+ ct_run -spec TestSpec1 TestSpec2 .. TestSpecN
+  [-join_specs]
+  [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+  [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+   ConfigString2 and .. and CallbackModuleN ConfigStringN]
+  [-decrypt_key Key] | [-decrypt_file KeyFile]
+  [-label Label]
+  [-logdir LogDir]
+  [-logopts LogOpts]
+  [-verbosity GenVLevel | [Category1 VLevel1 and
+   Category2 VLevel2 and .. CategoryN VLevelN]]
+  [-allow_user_terms]
+  [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+  [-stylesheet CSSFile]
+  [-cover CoverCfgFile]
+  [-cover_stop Bool]
+  [-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
+  [-event_handler_init EvHandler1 InitArg1 and
+   EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
+  [-include InclDir1 InclDir2 .. InclDirN]
+  [-no_auto_compile]
+  [-abort_if_missing_suites]
+  [-muliply_timetraps Multiplier]
+  [-scale_timetraps]
+  [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+  [-repeat N] |
+  [-duration HHMMSS [-force_stop [skip_rest]]] |
+  [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
+  [-basic_html]
+  [-no_esc_chars]
+  [-keep_logs all | NLogs]
+  [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+   CTHModuleN CTHOptsN]
+  [-exit_status ignore_config]</pre>
+  </section>
+
+  <section>
+    <title>Run Tests in Web-Based GUI</title>
+    <pre>
+ ct_run -vts [-browser Browser]
+  [-dir TestDir1 TestDir2 .. TestDirN] |
+  [[dir TestDir] -suite Suite [[-group Group] [-case Case]]]
+  [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+  [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+    ConfigString2 and .. and CallbackModuleN ConfigStringN]
+  [-logopts LogOpts]
+  [-verbosity GenVLevel | [Category1 VLevel1 and
+   Category2 VLevel2 and .. CategoryN VLevelN]]
+  [-decrypt_key Key] | [-decrypt_file KeyFile]
+  [-include InclDir1 InclDir2 .. InclDirN]
+  [-no_auto_compile]
+  [-abort_if_missing_suites]
+  [-muliply_timetraps Multiplier]
+  [-scale_timetraps]
+  [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+  [-basic_html]
+  [-no_esc_chars]
+  [-keep_logs all | NLogs]</pre>
+  </section>
+
+  <section>
+    <title>Refresh HTML Index Files</title>
+    <pre>
+ ct_run -refresh_logs [-logdir LogDir] [-basic_html]
+  [-keep_logs all | NLogs]</pre>
+  </section>
+
+  <section>
+    <title>Run Common Test in Interactive Mode</title>
+    <pre>
+ ct_run -shell
+  [-config ConfigFile1 ConfigFile2 ... ConfigFileN]
+  [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+   ConfigString2 and .. and CallbackModuleN ConfigStringN]
+  [-decrypt_key Key] | [-decrypt_file KeyFile]</pre>
+  </section>
+
+  <section>
+    <title>Start a Common Test Master Node</title>
+    <pre>
+ ct_run -ctmaster</pre>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>For information about the start flags, see section
+      <seealso marker="run_test_chapter">Running Tests and Analyzing
+      Results</seealso> in the User's Guide.</p>
+  </section>
+
+</comref>
+

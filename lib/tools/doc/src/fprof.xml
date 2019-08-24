@@ -1,0 +1,918 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2001</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>fprof</title>
+    <prepared>Raimo Niskanen</prepared>
+    <responsible>nobody</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked></checked>
+    <date>2001-08-13</date>
+    <rev>PA1</rev>
+    <file>fprof.sgml</file>
+  </header>
+  <module since="">fprof</module>
+  <modulesummary>A Time Profiling Tool using trace to file for minimal runtime performance impact.</modulesummary>
+  <description>
+    <p>This module is used to profile a program
+      to find out how the execution time is used.
+      Trace to file is used to minimize 
+      runtime performance impact. 
+      </p>
+    <p>The <c>fprof</c> module uses tracing to collect profiling data, 
+      hence there is no need for special compilation of any module to
+      be profiled. When it starts tracing, <c>fprof</c> will erase all 
+      previous tracing in the node and set the necessary trace flags
+      on the profiling target processes as well as local call trace on
+      all functions in all loaded modules and all modules to be loaded.
+      <c>fprof</c> erases all tracing in the node when it stops tracing.
+      </p>
+    <p><c>fprof</c> presents both <em>own time</em> i.e how much time a
+      function has used for its own execution, and 
+      <em>accumulated time</em> i.e including called functions. 
+      All presented times are
+      collected using trace timestamps. <c>fprof</c> tries to collect
+      cpu time timestamps, if the host machine OS supports it. 
+      Therefore the times may be wallclock times and OS scheduling will 
+      randomly strike all called functions in a presumably fair way.
+      </p>
+    <p>If, however, the profiling time is short, and the host machine
+      OS does not support high resolution cpu time measurements, some
+      few OS schedulings may show up as ridiculously long execution
+      times for functions doing practically nothing. An example of a
+      function more or less just composing a tuple in about 100 times
+      the normal execution time has been seen, and when the tracing
+      was repeated, the execution time became normal.
+      </p>
+    <p>Profiling is essentially done in 3 steps:</p>
+    <taglist>
+      <tag><c>1</c></tag>
+      <item>Tracing; to file, as mentioned in the previous
+       paragraph. The trace contains entries for function calls,
+       returns to function, process scheduling, other process related
+       (spawn, etc) events, and garbage collection. All trace entries
+       are timestamped.</item>
+      <tag><c>2</c></tag>
+      <item>Profiling; the trace file is read, the execution call
+       stack is simulated, and raw profile data is calculated from
+       the simulated call stack and the trace timestamps. The profile
+       data is stored in the <c>fprof</c> server state. During this
+       step the trace data may be dumped in text format to file or
+       console. </item>
+      <tag><c>3</c></tag>
+      <item>Analysing; the raw profile data is sorted, filtered and
+       dumped in text format either to file or console. The text
+       format intended to be both readable for a human reader, as
+       well as parsable with the standard erlang parsing tools.</item>
+    </taglist>
+    <p>Since <c>fprof</c> uses trace to file, the runtime performance
+      degradation is minimized, but still far from negligible,
+      especially for programs that use the filesystem heavily by
+      themselves. Where you place the trace file is also important,
+      e.g on Solaris <c>/tmp</c> is usually a good choice since it is
+      essentially a RAM disk, while any NFS (network) mounted disk is
+      a bad idea.
+      </p>
+    <p><c>fprof</c> can also skip the file step and trace to a tracer
+      process that does the profiling in runtime.
+            <marker id="start"></marker>
+</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">start() -> {ok, Pid} | {error, {already_started, Pid}}</name>
+      <fsummary>Starts the <c>fprof</c>&nbsp;server.</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Starts the <c>fprof</c>&nbsp;server. 
+          </p>
+        <p>Note that it seldom
+          needs to be started explicitly since it is automatically
+          started by the functions that need a running server.
+                    <marker id="stop"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> ok</name>
+      <fsummary>Same as <c>stop(normal)</c>.</fsummary>
+      <desc>
+        <p>Same as <c>stop(normal)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop(Reason) -> ok</name>
+      <fsummary>Stops the <c>fprof</c>&nbsp;server.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Stops the <c>fprof</c>&nbsp;server.
+          </p>
+        <p>The supplied <c>Reason</c> becomes the exit reason for the
+          server process. Default Any
+          <c>Reason</c> other than <c>kill</c> sends a request to the
+          server and waits for it to clean up, reply and exit. If
+          <c>Reason</c> is <c>kill</c>, the server is bluntly killed.
+          </p>
+        <p>If the <c>fprof</c>&nbsp;server is not running, this
+          function returns immediately with the same return value.
+          </p>
+        <note>
+          <p>When the <c>fprof</c>&nbsp;server is stopped the
+            collected raw profile data is lost.</p>
+        </note>
+        <marker id="apply"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">apply(Func, Args) -> term()</name>
+      <fsummary>Same as <c>apply(Func, Args, [])</c>.</fsummary>
+      <type>
+        <v>Func = function() | {Module, Function}</v>
+        <v>Args = [term()]</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+      </type>
+      <desc>
+        <p>Same as <c>apply(Func, Args, [])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">apply(Module, Function, Args) -> term()</name>
+      <fsummary>Same as <c>apply({Module, Function}, Args, [])</c>.</fsummary>
+      <type>
+        <v>Args = [term()]</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+      </type>
+      <desc>
+        <p>Same as <c>apply({Module, Function}, Args, [])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">apply(Func, Args, OptionList) -> term()</name>
+      <fsummary>Calls <c>erlang:apply(Func, Args)</c>surrounded by<c>trace([start | OptionList])</c>and<c>trace(stop)</c>.</fsummary>
+      <type>
+        <v>Func = function() | {Module, Function}</v>
+        <v>Args = [term()]</v>
+        <v>OptionList = [Option]</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Option = continue | start | {procs, PidList} | TraceStartOption</v>
+      </type>
+      <desc>
+        <p>Calls <c>erlang:apply(Func, Args)</c> surrounded by
+          <c>trace([start, ...])</c> and
+          <c>trace(stop)</c>.
+          </p>
+        <p>Some effort is made to keep the trace clean from unnecessary
+          trace messages; tracing is started and stopped from a spawned
+          process while the <c>erlang:apply/2</c> call is made in the
+          current process, only surrounded by <c>receive</c> and
+          <c>send</c> statements towards the trace starting
+          process. The trace starting process exits when not needed
+          any more.
+          </p>
+        <p>The <c>TraceStartOption</c> is any option allowed for 
+          <c>trace/1</c>. The options 
+          <c>[start, {procs, [self() | PidList]} | OptList]</c> 
+          are given to <c>trace/1</c>, where <c>OptList</c> is 
+          <c>OptionList</c> with <c>continue</c>, <c>start</c> 
+          and <c>{procs, _}</c> options removed.
+          </p>
+        <p>The <c>continue</c> option inhibits the call to
+          <c>trace(stop)</c> and leaves it up to the caller to stop
+          tracing at a suitable time.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">apply(Module, Function, Args, OptionList) -> term()</name>
+      <fsummary>Same as <c>apply({Module, Function}, Args, OptionList)</c>.</fsummary>
+      <type>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>apply({Module, Function}, Args, OptionList)</c>.
+          </p>
+        <p><c>OptionList</c> is an option list allowed for 
+          <c>apply/3</c>.
+                    <marker id="trace"></marker>
+</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace(start, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([start, {file, Filename}])</c>.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>trace([start, {file, Filename}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace(verbose, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([start, verbose, {file, Filename}])</c>.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>trace([start, verbose, {file, Filename}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>trace([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace(verbose) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([start, verbose])</c>.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>trace([start, verbose])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([OptionName])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>trace([OptionName])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>trace([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">trace([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Starts or stops tracing.</fsummary>
+      <type>
+        <v>Option = start | stop | {procs, PidSpec} | {procs, [PidSpec]} | verbose | {verbose, bool()} |  file | {file, Filename} | {tracer, Tracer}</v>
+        <v>PidSpec = pid() | atom()</v>
+        <v>Tracer = pid() | port()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Starts or stops tracing.
+          </p>
+        <p><c>PidSpec</c> and <c>Tracer</c> are used in calls to
+          <c>erlang:trace(PidSpec, true, [{tracer, Tracer} | Flags])</c>, and <c>Filename</c> is used to call 
+          <c>dbg:trace_port(file, Filename)</c>. Please see the
+          appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <tag><c>stop</c></tag>
+          <item>Stops a running <c>fprof</c> trace and clears all tracing
+           from the node. Either option <c>stop</c> or <c>start</c> must be
+           specified, but not both.</item>
+          <tag><c>start</c></tag>
+          <item>Clears all tracing from the node and starts a new
+          <c>fprof</c> trace. Either option <c>start</c> or
+          <c>stop</c> must be specified, but not both.</item>
+          <tag><c>verbose</c>| <c>{verbose, bool()}</c></tag>
+          <item>The options <c>verbose</c> or <c>{verbose, true}</c>
+           adds some trace flags that <c>fprof</c> does not need, but
+           that may be interesting for general debugging
+           purposes. This option is only
+           allowed with the <c>start</c> option.</item>
+          <tag><c>cpu_time</c>| <c>{cpu_time, bool()}</c></tag>
+          <item>The options <c>cpu_time</c> or <c>{cpu_time, true}</c>
+           makes the timestamps in the trace be in CPU time instead
+           of wallclock time which is the default. This option is
+           only allowed with the <c>start</c> option.
+           <warning><p>Getting correct values out of cpu_time can be difficult.
+           The best way to get correct values is to run using a single
+           scheduler and bind that scheduler to a specific CPU,
+           i.e. <c>erl +S 1 +sbt db</c>.</p>
+           </warning>
+          </item>
+          <tag><c>{procs, PidSpec}</c>| <c>{procs, [PidSpec]}</c></tag>
+          <item>Specifies which processes that shall be traced. If
+           this option is not given, the calling process is
+           traced. All processes spawned by the traced processes are
+           also traced.
+           This option is only allowed with the <c>start</c> option.</item>
+          <tag><c>file</c>| <c>{file, Filename}</c></tag>
+          <item>Specifies the filename of the trace. 
+           If the option <c>file</c> is given, or none of these
+           options are given, the file <c>"fprof.trace"</c> is used.
+           This option is only allowed with the <c>start</c> option,
+           but not with the <c>{tracer, Tracer}</c> option.</item>
+          <tag><c>{tracer, Tracer}</c></tag>
+          <item>Specifies that trace to process or port shall be done
+           instead of trace to file.
+           This option is only allowed with the <c>start</c> option,
+           but not with the <c>{file, Filename}</c> option.</item>
+        </taglist>
+        <marker id="profile"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">profile() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>profile([])</c>.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>profile([])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">profile(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>profile([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">profile(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>profile([OptionName])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>profile([OptionName])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">profile({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>profile([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">profile([Option]) -> ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Compiles a trace into raw profile data held by the <c>fprof</c>&nbsp;server.</fsummary>
+      <type>
+        <v>Option = file | {file, Filename} | dump | {dump, Dump} |  append | start | stop</v>
+        <v>Dump = pid() | Dumpfile | []</v>
+        <v>Tracer = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Compiles a trace into raw profile data held by the 
+          <c>fprof</c>&nbsp;server.
+          </p>
+        <p><c>Dumpfile</c> is used to call <c>file:open/2</c>, 
+          and <c>Filename</c> is used to call 
+          <c>dbg:trace_port(file, Filename)</c>. Please see the
+          appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <tag><c>file</c>| <c>{file, Filename}</c></tag>
+          <item>Reads the file <c>Filename</c> and creates raw
+           profile data that is stored in RAM by the
+          <c>fprof</c>&nbsp;server. If the option <c>file</c> is
+           given, or none of these options are given, the file
+          <c>"fprof.trace"</c> is read. The call will return when
+           the whole trace has been
+           read with the return value <c>ok</c> if successful.
+           This option is not allowed with the <c>start</c> or
+          <c>stop</c> options.</item>
+          <tag><c>dump</c>| <c>{dump, Dump}</c></tag>
+          <item>Specifies the destination for the trace text dump. If
+           this option is not given, no dump is generated, if it is
+          <c>dump</c> the destination will be the
+           caller's group leader, otherwise the destination
+          <c>Dump</c> is either the pid of an I/O device or
+           a filename. And, finally, if the filename is <c>[]</c> -
+          <c>"fprof.dump"</c> is used instead.
+           This option is not allowed with the <c>stop</c> option.</item>
+          <tag><c>append</c></tag>
+          <item>Causes the trace text dump to be appended to the
+           destination file.
+           This option is only allowed with the  
+          <c>{dump, Dumpfile}</c> option.</item>
+          <tag><c>start</c></tag>
+          <item>Starts a tracer process that profiles trace data in
+           runtime. The call will return immediately with the return
+           value <c>{ok, Tracer}</c> if successful.
+           This option is not allowed with the <c>stop</c>,
+          <c>file</c> or  <c>{file, Filename}</c> options.</item>
+          <tag><c>stop</c></tag>
+          <item>Stops the tracer process that profiles trace data in
+           runtime. The return value will be value <c>ok</c> if successful.
+           This option is not allowed with the <c>start</c>,
+          <c>file</c> or <c>{file, Filename}</c> options.</item>
+        </taglist>
+        <marker id="analyse"></marker>
+      </desc>
+    </func>
+    <func>
+      <name since="">analyse() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>analyse([])</c>.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>analyse([])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">analyse(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>analyse([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">analyse(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>analyse([OptionName])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as <c>analyse([OptionName])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">analyse({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
+      <type>
+        <v>OptionName = atom()</v>
+        <v>OptionValue = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Same as 
+          <c>analyse([{OptionName, OptionValue}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">analyse([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <fsummary>Analyses raw profile data in the <c>fprof</c>&nbsp;server.</fsummary>
+      <type>
+        <v>Option = dest | {dest, Dest} | append | {cols, Cols} |  callers | {callers, bool()} | no_callers | {sort, SortSpec} | totals | {totals, bool()} |  details | {details, bool()} | no_details</v>
+        <v>Dest = pid() | Destfile</v>
+        <v>Cols = integer() >= 80</v>
+        <v>SortSpec = acc | own</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Analyses raw profile data in the
+          <c>fprof</c>&nbsp;server. If called while there is no raw
+          profile data available, <c>{error, no_profile}</c> is
+          returned. 
+          </p>
+        <p><c>Destfile</c> is used to call <c>file:open/2</c>. 
+          Please see the appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <tag><c>dest</c>| <c>{dest, Dest}</c></tag>
+          <item>Specifies the destination for the analysis. If
+           this option is not given or it is <c>dest</c>, 
+           the destination will be the caller's group leader, 
+           otherwise the destination <c>Dest</c> is either 
+           the <c>pid()</c> of an I/O device or a filename. 
+           And, finally, if the filename is <c>[]</c> -
+          <c>"fprof.analysis"</c> is used instead.</item>
+          <tag><c>append</c></tag>
+          <item>Causes the analysis to be appended to the
+           destination file.
+           This option is only allowed with the  
+          <c>{dest, Destfile}</c> option.</item>
+          <tag><c>{cols, Cols}</c></tag>
+          <item>Specifies the number of columns in the analysis text.
+           If this option is not given the number of columns is set
+           to 80.</item>
+          <tag><c>callers</c>| <c>{callers, true}</c></tag>
+          <item>Prints callers and called information in the
+           analysis. This is the default.</item>
+          <tag><c>{callers, false}</c>| <c>no_callers</c></tag>
+          <item>Suppresses the printing of callers and called
+           information in the analysis.</item>
+          <tag><c>{sort, SortSpec}</c></tag>
+          <item>Specifies if the analysis should be sorted according
+           to the ACC column, which is the default, or the OWN
+           column. See 
+          <seealso marker="#analysis">Analysis Format</seealso> below.</item>
+          <tag><c>totals</c>| <c>{totals, true}</c></tag>
+          <item>Includes a section containing call statistics
+           for all calls regardless of process, in the analysis.</item>
+          <tag><c>{totals, false}</c></tag>
+          <item>Supresses the totals section in the analysis, which is
+           the default.</item>
+          <tag><c>details</c>| <c>{details, true}</c></tag>
+          <item>Prints call statistics for each process in the
+           analysis. This is the default.</item>
+          <tag><c>{details, false}</c>| <c>no_details</c></tag>
+          <item>Suppresses the call statistics for each process from
+           the analysis.</item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="analysis"></marker>
+    <title>Analysis format</title>
+    <p>This section describes the output format of the analyse
+      command. See <seealso marker="#analyse">analyse/0</seealso>.
+      </p>
+    <p>The format is parsable with the standard Erlang parsing tools
+      <c>erl_scan</c> and <c>erl_parse</c>, <c>file:consult/1</c> or
+      <c>io:read/2</c>. The parse format is not explained here - it
+      should be easy for the interested to try it out. Note that some
+      flags to <c>analyse/1</c> will affect the format. 
+      </p>
+    <p>The following example was run on OTP/R8 on Solaris 8, all OTP
+      internals in this example are very version dependent.
+      </p>
+    <p>As an example, we will use the following function, that you may
+      recognise as a slightly modified benchmark function from the
+      manpage file(3):</p>
+    <code type="none"><![CDATA[
+-module(foo).
+-export([create_file_slow/2]).
+
+create_file_slow(Name, N) when integer(N), N >= 0 ->
+    {ok, FD} = 
+        file:open(Name, [raw, write, delayed_write, binary]),
+    if N > 256 ->
+            ok = file:write(FD, 
+                            lists:map(fun (X) -> <<X:32/unsigned>> end,
+                            lists:seq(0, 255))),
+            ok = create_file_slow(FD, 256, N);
+       true ->
+            ok = create_file_slow(FD, 0, N)
+    end,
+    ok = file:close(FD).
+
+create_file_slow(FD, M, M) ->
+    ok;
+create_file_slow(FD, M, N) ->
+    ok = file:write(FD, <<M:32/unsigned>>),
+    create_file_slow(FD, M+1, N).]]></code>
+    <p>Let us have a look at the printout after running:</p>
+    <pre>
+1> <input>fprof:apply(foo, create_file_slow, [junk, 1024]).</input>
+2> <input>fprof:profile().</input>
+3> <input>fprof:analyse().</input></pre>
+    <p>The printout starts with:</p>
+    <pre>
+%% Analysis results:
+{  analysis_options,
+ [{callers, true},
+  {sort, acc},
+  {totals, false},
+  {details, true}]}.
+
+%                                       CNT       ACC       OWN        
+[{ totals,                             9627, 1691.119, 1659.074}].  %%%</pre>
+    <p>The CNT column shows the total number of function calls that
+      was found in the trace. In the ACC column is the total time of
+      the trace from first timestamp to last. And in the OWN
+      column is the sum of the execution time in functions found in the
+      trace, not including called functions. In this case it is very
+      close to the ACC time since the emulator had practically nothing
+      else to do than to execute our test program.
+      </p>
+    <p>All time values in the printout are in milliseconds.
+      </p>
+    <p>The printout continues:</p>
+    <pre>
+%                                       CNT       ACC       OWN        
+[{ "&lt;0.28.0>",                         9627,undefined, 1659.074}].   %%</pre>
+    <p>This is the printout header of one process. The printout
+      contains only this one process since we did <c>fprof:apply/3</c>
+      which traces only the current process. Therefore the CNT and
+      OWN columns perfectly matches the totals above. The ACC column is
+      undefined since summing the ACC times of all calls in the process
+      makes no sense - you would get something like the ACC value from
+      totals above multiplied by the average depth of the call stack,
+      or something.
+      </p>
+    <p>All paragraphs up to the next process header only concerns
+      function calls within this process.
+      </p>
+    <p>Now we come to something more interesting:</p>
+    <pre>
+{[{undefined,                             0, 1691.076,    0.030}],     
+ { {fprof,apply_start_stop,4},            0, 1691.076,    0.030},     %
+ [{{foo,create_file_slow,2},              1, 1691.046,    0.103},      
+  {suspend,                               1,    0.000,    0.000}]}.    
+
+{[{{fprof,apply_start_stop,4},            1, 1691.046,    0.103}],     
+ { {foo,create_file_slow,2},              1, 1691.046,    0.103},     %
+ [{{file,close,1},                        1, 1398.873,    0.019},      
+  {{foo,create_file_slow,3},              1,  249.678,    0.029},      
+  {{file,open,2},                         1,   20.778,    0.055},      
+  {{lists,map,2},                         1,   16.590,    0.043},      
+  {{lists,seq,2},                         1,    4.708,    0.017},      
+  {{file,write,2},                        1,    0.316,    0.021}]}.    </pre>
+    <p>The printout consists of one paragraph per called function. The
+      function <em>marked</em> with '%' is the one the paragraph
+      concerns - <c>foo:create_file_slow/2</c>. Above the marked
+      function are the <em>calling</em> functions -  those that has
+      called the marked, and below are those <em>called</em> by the
+      marked function. 
+      </p>
+    <p>The paragraphs are per default sorted in decreasing order of
+      the ACC column for the marked function. The calling list and
+      called list within one paragraph are also per default sorted in
+      decreasing order of their ACC column.
+      </p>
+    <p>The columns are: CNT - the number of times the function
+      has been called, ACC - the time spent in the
+      function including called functions, and OWN - the
+      time spent in the function not including called
+      functions. 
+      </p>
+    <p>The rows for the <em>calling</em> functions contain statistics
+      for the <em>marked</em> function with the constraint that only
+      the occasions when a call was made from the <em>row's</em>
+      function to the <em>marked</em> function are accounted for.
+      </p>
+    <p>The row for the <em>marked</em> function simply contains the
+      sum of all <em>calling</em> rows.  
+      </p>
+    <p>The rows for the <em>called</em> functions contains statistics
+      for the <em>row's</em> function with the constraint that only the
+      occasions when a call was made from the <em>marked</em> to the
+      <em>row's</em> function are accounted for.
+      </p>
+    <p>So, we see that <c>foo:create_file_slow/2</c> used very little
+      time for its own execution. It spent most of its time in
+      <c>file:close/1</c>. The function <c>foo:create_file_slow/3</c>
+      that writes 3/4 of the file contents is the second biggest time
+      thief. 
+      </p>
+    <p>We also see that the call to <c>file:write/2</c> that writes
+      1/4 of the file contents takes very little time in itself. What
+      takes time is to build the data (<c>lists:seq/2</c> and
+      <c>lists:map/2</c>).
+      </p>
+    <p>The function 'undefined' that has called
+      <c>fprof:apply_start_stop/4</c> is an unknown function because that
+      call was not recorded in the trace. It was only recorded
+      that the execution returned from
+      <c>fprof:apply_start_stop/4</c> to some other function above in
+      the call stack, or that the process exited from there.
+      </p>
+    <p>Let us continue down the printout to find:</p>
+    <pre>
+{[{{foo,create_file_slow,2},              1,  249.678,    0.029},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}],     
+ { {foo,create_file_slow,3},            769,  249.678,   23.323},     %
+ [{{file,write,2},                      768,  220.314,   14.539},      
+  {suspend,                              57,    6.041,    0.000},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}]}.    </pre>
+    <p>If you compare with the code you will see there also that
+      <c>foo:create_file_slow/3</c> was called only from
+      <c>foo:create_file_slow/2</c> and itself, and called only
+      <c>file:write/2</c>, note the number of calls to
+      <c>file:write/2</c>. But here we see that <c>suspend</c> was
+      called a few times. This is a pseudo function that indicates
+      that the process was suspended while executing in
+      <c>foo:create_file_slow/3</c>, and since there is no
+      <c>receive</c> or <c>erlang:yield/0</c> in the code, it must be
+      Erlang scheduling suspensions, or the trace file driver
+      compensating for large file write operations (these are regarded
+      as a schedule out followed by a schedule in to the same process).
+      </p>
+    <p></p>
+    <p>Let us find the <c>suspend</c> entry:</p>
+    <pre>
+{[{{file,write,2},                       53,    6.281,    0.000},      
+  {{foo,create_file_slow,3},             57,    6.041,    0.000},      
+  {{prim_file,drv_command,4},            50,    4.582,    0.000},      
+  {{prim_file,drv_get_response,1},       34,    2.986,    0.000},      
+  {{lists,map,2},                        10,    2.104,    0.000},      
+  {{prim_file,write,2},                  17,    1.852,    0.000},      
+  {{erlang,port_command,2},              15,    1.713,    0.000},      
+  {{prim_file,drv_command,2},            22,    1.482,    0.000},      
+  {{prim_file,translate_response,2},     11,    1.441,    0.000},      
+  {{prim_file,'-drv_command/2-fun-0-',1},  15,    1.340,    0.000},      
+  {{lists,seq,4},                         3,    0.880,    0.000},      
+  {{foo,'-create_file_slow/2-fun-0-',1},   5,    0.523,    0.000},      
+  {{erlang,bump_reductions,1},            4,    0.503,    0.000},      
+  {{prim_file,open_int_setopts,3},        1,    0.165,    0.000},      
+  {{prim_file,i32,4},                     1,    0.109,    0.000},      
+  {{fprof,apply_start_stop,4},            1,    0.000,    0.000}],     
+ { suspend,                             299,   32.002,    0.000},     %
+ [ ]}.</pre>
+    <p>We find no particulary long suspend times, so no function seems
+      to have waited in a receive statement. Actually,
+      <c>prim_file:drv_command/4</c> contains a receive statement, but
+      in this test program, the message lies in the process receive
+      buffer when the receive statement is entered. We also see that
+      the total suspend time for the test run is small.
+      </p>
+    <p>The <c>suspend</c> pseudo function has got an OWN time of
+      zero. This is to prevent the process total OWN time from
+      including time in suspension. Whether suspend time is really ACC
+      or OWN time is more of a philosophical question.
+      </p>
+    <p>Now we look at another interesting pseudo function,
+      <c>garbage_collect</c>:</p>
+    <pre>
+{[{{prim_file,drv_command,4},            25,    0.873,    0.873},      
+  {{prim_file,write,2},                  16,    0.692,    0.692},      
+  {{lists,map,2},                         2,    0.195,    0.195}],     
+ { garbage_collect,                      43,    1.760,    1.760},     %
+ [ ]}.</pre>
+    <p>Here we see that no function distinguishes itself considerably,
+      which is very normal.
+      </p>
+    <p>The <c>garbage_collect</c> pseudo function has not got an OWN
+      time of zero like <c>suspend</c>, instead it is equal to the ACC
+      time. 
+      </p>
+    <p>Garbage collect often occurs while a process is suspended, but
+      <c>fprof</c> hides this fact by pretending that the suspended
+      function was first unsuspended and then garbage
+      collected. Otherwise the printout would show
+      <c>garbage_collect</c> being called from <c>suspend</c> but not
+      which function that might have caused the garbage
+      collection. 
+      </p>
+    <p>Let us now get back to the test code:</p>
+    <pre>
+{[{{foo,create_file_slow,3},            768,  220.314,   14.539},      
+  {{foo,create_file_slow,2},              1,    0.316,    0.021}],     
+ { {file,write,2},                      769,  220.630,   14.560},     %
+ [{{prim_file,write,2},                 769,  199.789,   22.573},      
+  {suspend,                              53,    6.281,    0.000}]}.    </pre>
+    <p>Not unexpectedly, we see that <c>file:write/2</c> was called
+      from <c>foo:create_file_slow/3</c> and
+      <c>foo:create_file_slow/2</c>. The number of calls in each case as
+      well as the used time are also just confirms the previous results.
+      </p>
+    <p>We see that <c>file:write/2</c> only calls
+      <c>prim_file:write/2</c>, but let us refrain from digging into the
+      internals of the kernel application.
+      </p>
+    <p>But, if we nevertheless <em>do</em> dig down we find
+      the call to the linked in driver that does the file operations
+      towards the host operating system:</p>
+    <pre>
+{[{{prim_file,drv_command,4},           772, 1458.356, 1456.643}],     
+ { {erlang,port_command,2},             772, 1458.356, 1456.643},     %
+ [{suspend,                              15,    1.713,    0.000}]}.    </pre>
+    <p>This is 86 % of the total run time, and as we saw before it
+      is the close operation the absolutely biggest contributor. We
+      find a comparison ratio a little bit up in the call stack:</p>
+    <pre>
+{[{{prim_file,close,1},                   1, 1398.748,    0.024},      
+  {{prim_file,write,2},                 769,  174.672,   12.810},      
+  {{prim_file,open_int,4},                1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.147,    0.016}],     
+ { {prim_file,drv_command,2},           772, 1593.322,   12.867},     %
+ [{{prim_file,drv_command,4},           772, 1578.973,   27.265},      
+  {suspend,                              22,    1.482,    0.000}]}.    </pre>
+    <p>The time for file operations in the linked in driver
+      distributes itself as 1 % for open, 11 % for write and 87 % for
+      close. All data is probably buffered in the operating system
+      until the close.
+      </p>
+    <p>The unsleeping reader may notice that the ACC times for 
+      <c>prim_file:drv_command/2</c> and
+      <c>prim_file:drv_command/4</c> is not equal between the
+      paragraphs above, even though it is easy to believe that
+      <c>prim_file:drv_command/2</c> is just a passthrough function.
+      </p>
+    <p>The missing time can be found in the paragraph
+      for <c>prim_file:drv_command/4</c> where it is evident that not
+      only <c>prim_file:drv_command/2</c> is called but also a fun:
+      </p>
+    <pre>
+{[{{prim_file,drv_command,2},           772, 1578.973,   27.265}],     
+ { {prim_file,drv_command,4},           772, 1578.973,   27.265},     %
+ [{{erlang,port_command,2},             772, 1458.356, 1456.643},      
+  {{prim_file,'-drv_command/2-fun-0-',1}, 772,   87.897,   12.736},      
+  {suspend,                              50,    4.582,    0.000},      
+  {garbage_collect,                      25,    0.873,    0.873}]}.    </pre>
+    <p>And some more missing time can be explained by the fact that
+      <c>prim_file:open_int/4</c> both calls
+      <c>prim_file:drv_command/2</c> directly as well as through
+      <c>prim_file:open_int_setopts/3</c>, which complicates the
+      picture. 
+      </p>
+    <pre>
+{[{{prim_file,open,2},                    1,   20.309,    0.029},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}],     
+ { {prim_file,open_int,4},                2,   20.309,    0.086},     %
+ [{{prim_file,drv_command,2},             1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.360,    0.032},      
+  {{prim_file,drv_open,2},                1,    0.071,    0.030},      
+  {{erlang,list_to_binary,1},             1,    0.020,    0.020},      
+  {{prim_file,i32,1},                     1,    0.017,    0.017},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}]}.    
+.
+.
+.
+{[{{prim_file,open_int,4},                1,    0.360,    0.032},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}],     
+ { {prim_file,open_int_setopts,3},        2,    0.360,    0.048},     %
+ [{suspend,                               1,    0.165,    0.000},      
+  {{prim_file,drv_command,2},             1,    0.147,    0.016},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}]}.    </pre>
+  </section>
+
+  <section>
+    <title>Notes</title>
+    <p>The actual supervision of execution times is in itself a
+      CPU intensive activity. A message is written on the trace file
+      for every function call that is made by the profiled code.
+      </p>
+    <p>The ACC time calculation is sometimes difficult to make
+      correct, since it is difficult to define. This happens
+      especially when a function occurs in several instances in the
+      call stack, for example by calling itself perhaps through other
+      functions and perhaps even non-tail recursively.
+      </p>
+    <p>To produce sensible results, <c>fprof</c> tries not to charge
+      any function more than once for ACC time. The instance highest
+      up (with longest duration) in the call stack is chosen.
+      </p>
+    <p>Sometimes a function may unexpectedly waste a lot (some 10 ms
+      or more depending on host machine OS) of OWN (and ACC) time, even
+      functions that does practically nothing at all. The problem may
+      be that the OS has chosen to schedule out the
+      Erlang runtime system process for a while, and if the OS does
+      not support high resolution cpu time measurements
+      <c>fprof</c> will use wallclock time for its calculations, and
+      it will appear as functions randomly burn virtual machine time.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>dbg(3), <seealso marker="eprof">eprof</seealso>(3), erlang(3), 
+      io(3), 
+      <seealso marker="fprof_chapter">Tools User's Guide</seealso></p>
+  </section>
+</erlref>
+

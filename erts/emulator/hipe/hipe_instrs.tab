@@ -1,0 +1,141 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+
+HIPE_MODE_SWITCH(Cmd) {
+    SWAPOUT;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    c_p->def_arg_reg[4] = -neg_o_reds;
+    c_p = hipe_mode_switch(c_p, $Cmd, reg);
+}
+
+hipe_trap_call := hipe_trap.call.post;
+hipe_trap_call_closure := hipe_trap.call_closure.post;
+hipe_trap_return := hipe_trap.return.post;
+hipe_trap_throw := hipe_trap.throw.post;
+hipe_trap_resume := hipe_trap.resume.post;
+
+hipe_trap.call() {
+    /*
+     * I[-5]: &&lb_i_func_info_IaaI
+     * I[-4]: Native code callee (inserted by HiPE)
+     * I[-3]: Module (tagged atom)
+     * I[-2]: Function (tagged atom)
+     * I[-1]: Arity (untagged integer)
+     * I[ 0]: &&lb_hipe_trap_call
+     * ... remainder of original BEAM code
+     */
+    ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+    ASSERT(IsOpCode(ci->op, i_func_info_IaaI));
+    c_p->hipe.u.ncallee = ci->u.ncallee;
+    ++hipe_trap_count;
+    $HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (ci->mfa.arity << 8));
+}
+
+hipe_trap.call_closure() {
+    ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+    ASSERT(IsOpCode(ci->op, i_func_info_IaaI));
+    c_p->hipe.u.ncallee = ci->u.ncallee;
+    ++hipe_trap_count;
+    $HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (ci->mfa.arity << 8));
+}
+
+hipe_trap.return() {
+    $HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RETURN);
+}
+
+hipe_trap.throw() {
+    $HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_THROW);
+}
+
+hipe_trap.resume() {
+    $HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RESUME);
+}
+
+hipe_trap.post() {
+#ifdef DEBUG
+    pid = c_p->common.id; /* may have switched process... */
+#endif
+    reg = erts_proc_sched_data(c_p)->x_reg_array;
+    freg = erts_proc_sched_data(c_p)->f_reg_array;
+    ERL_BITS_RELOAD_STATEP(c_p);
+    /* XXX: this abuse of def_arg_reg[] is horrid! */
+    neg_o_reds = -c_p->def_arg_reg[4];
+    FCALLS = c_p->fcalls;
+    SWAPIN;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    switch( c_p->def_arg_reg[3] ) {
+    case HIPE_MODE_SWITCH_RES_RETURN:
+        ASSERT(is_value(reg[0]));
+        SET_I(c_p->cp);
+        c_p->cp = 0;
+        Goto(*I);
+    case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
+        c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
+        /*fall through*/
+    case HIPE_MODE_SWITCH_RES_CALL_BEAM:
+        SET_I(c_p->i);
+        Dispatch();
+    case HIPE_MODE_SWITCH_RES_CALL_CLOSURE:
+        /* This can be used to call any function value, but currently
+           it's only used to call closures referring to unloaded
+           modules. */
+        {
+            BeamInstr *next;
+
+            next = call_fun(c_p, c_p->arity - 1, reg, THE_NON_VALUE);
+            HEAVY_SWAPIN;
+            if (next != NULL) {
+                SET_I(next);
+                Dispatchfun();
+            }
+            goto find_func_info;
+        }
+    case HIPE_MODE_SWITCH_RES_THROW:
+        c_p->cp = NULL;
+        I = handle_error(c_p, I, reg, NULL);
+        goto post_error_handling;
+    default:
+        erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %u\n", c_p->def_arg_reg[3]);
+    }
+    //| -no_next;
+}
+
+hipe_call_count() {
+    /*
+     * I[-5]: &&lb_i_func_info_IaaI
+     * I[-4]: pointer to struct hipe_call_count (inserted by HiPE)
+     * I[-3]: Module (tagged atom)
+     * I[-2]: Function (tagged atom)
+     * I[-1]: Arity (untagged integer)
+     * I[ 0]: &&lb_hipe_call_count
+     * ... remainder of original BEAM code
+     */
+    ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
+    struct hipe_call_count *hcc = ci->u.hcc;
+    ASSERT(IsOpCode(ci->op, i_func_info_IaaI));
+    ASSERT(hcc != NULL);
+    ASSERT(VALID_INSTR(hcc->opcode));
+    ++(hcc->count);
+    Goto(hcc->opcode);
+    //| -no_next;
+}

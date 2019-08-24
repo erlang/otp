@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -e
+
+filter () {
+    FILTER_RESULT=""
+    for app in $1; do
+        if echo " $2 " | grep -v " $app " > /dev/null; then
+            FILTER_RESULT="$FILTER_RESULT $app"
+        fi
+    done
+}
+
+ALL_APPLICATIONS=$(ls -d -1 lib/*/ | sed 's:^lib\|/::g')
+echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
+
+BASE_PLT="compiler crypto erts hipe kernel stdlib syntax_tools"
+APP_PLT="asn1 edoc et ftp inets mnesia observer public_key sasl runtime_tools snmp ssl tftp wx xmerl tools"
+NO_UNMATCHED="common_test debugger edoc eunit ftp inets mnesia observer reltool ssh ssl syntax_tools tftp wx xmerl"
+WARNINGS="diameter megaco snmp"
+
+TRAVIS_SKIP=""
+if [ "X$TRAVIS" = "Xtrue" ]; then
+   TRAVIS_SKIP="common_test eldap erl_docgen odbc eunit reltool os_mon diameter megaco snmp"
+fi
+
+filter "$ALL_APPLICATIONS" "$NO_UNMATCHED $WARNINGS $TRAVIS_SKIP"
+UNMATCHED=$FILTER_RESULT
+filter "$APP_PLT" "$TRAVIS_SKIP"
+APP_PLT=$FILTER_RESULT
+filter "$NO_UNMATCHED" "$TRAVIS_SKIP"
+NO_UNMATCHED=$FILTER_RESULT
+filter "$WARNINGS" "$TRAVIS_SKIP"
+WARNINGS=$FILTER_RESULT
+
+echo "UNMATCHED = $UNMATCHED"
+echo "NO_UNMATCHED = $NO_UNMATCHED"
+echo "WARNINGS = $WARNINGS"
+
+set -x
+
+$ERL_TOP/bin/dialyzer --build_plt -Wunknown --apps $BASE_PLT $APP_PLT --statistics
+$ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps $UNMATCHED --statistics
+$ERL_TOP/bin/dialyzer -n -Wunknown --apps $NO_UNMATCHED --statistics
+if [ "X$WARNINGS" != "X" ]; then
+    $ERL_TOP/bin/dialyzer -n --apps $WARNINGS --statistics || true
+fi

@@ -1,0 +1,6 @@
+
+weird_warning1.erl:15: Matching of pattern {'a', Dict} tagged with a record name violates the declared type of #b{q::queue:queue(_)}
+weird_warning2.erl:13: Matching of pattern <{'b', Queue}, Key, Value> tagged with a record name violates the declared type of <#a{d::dict:dict(_,_)},'my_key','my_value'>
+weird_warning3.erl:14: The call weird_warning3:add_element(#a{d::queue:queue(_)},'my_key','my_value') does not have a term of type #a{d::dict:dict(_,_)} | #b{q::queue:queue(_)} (with opaque subterms) as 1st argument
+weird_warning3.erl:16: The attempt to match a term of type #a{d::queue:queue(_)} against the pattern {'a', Dict} breaks the opacity of queue:queue(_)
+weird_warning3.erl:18: Matching of pattern {'b', Queue} tagged with a record name violates the declared type of #a{d::queue:queue(_)}

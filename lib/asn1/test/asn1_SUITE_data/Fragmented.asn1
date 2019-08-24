@@ -1,0 +1,24 @@
+Fragmented DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+FUNCTION ::= CLASS {
+  &code INTEGER UNIQUE,
+  &b BOOLEAN,
+  &ArgumentType
+}
+
+SS ::= SEQUENCE OF OCTET STRING
+
+val1 FUNCTION ::= {
+  &code 1, &b FALSE, &ArgumentType SS
+}
+
+ObjSet FUNCTION ::= { val1 }
+
+PDU ::= SEQUENCE {
+  code FUNCTION.&code ({ObjSet}),
+  b FUNCTION.&b ({ObjSet}{@code}),
+  arg FUNCTION.&ArgumentType ({ObjSet}{@code})
+}
+
+END

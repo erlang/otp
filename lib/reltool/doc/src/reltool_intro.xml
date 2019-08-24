@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>reltool_intro.xml</file>
+  </header>
+  <p>Reltool is a release management tool. It analyses a given
+  Erlang/OTP installation and determines various dependencies between
+  applications. The <c>graphical</c> frontend depicts the dependencies and
+  enables interactive customization of a target system. The backend provides a
+  <c>batch</c> interface for generation of customized target systems.</p>
+
+  <section>
+    <title>Scope and Purpose</title>
+    <p>This manual describes the Reltool application, as a component of the
+    Erlang/Open Telecom Platform development environment. It is assumed that
+    the reader is familiar with the Erlang Development Environment, which is
+    described in a separate User's Guide.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>The following prerequisites is required for understanding the material
+    in the Reltool User's Guide:</p>
+    <list type="bulleted">
+      <item>
+        <p>familiarity with Erlang/OTP system principles and Erlang/OTP design
+        principles</p>
+      </item>
+    </list>
+    <p>The application requires Erlang/OTP release R13B02 or later.</p>
+  </section>
+
+  <section>
+    <title>About This Manual</title>
+    <p>In addition to this introductory chapter, the Reltool User's Guide
+    contains the following chapters:</p>
+    <list type="bulleted">
+      <item>
+        <p>Chapter 2: "Usage" describes the architecture
+          and typical usage of the application.</p>
+      </item>
+      <item>
+        <p>Chapter 3: "Examples" gives some usage examples</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Where to Find More Information</title>
+    <p>Refer to the following documentation for more information about Reltool
+    and about the Erlang/OTP development system:</p>
+    <list type="bulleted">
+      <item>
+        <p>the Reference Manual of Reltool</p>
+      </item>
+      <item>
+        <p>the Erlang/OTP <c>System Principles</c></p>
+      </item>
+      <item>
+        <p>the Erlang/OTP <c>Design Principles</c></p>
+      </item>
+      <item>
+        <p>Programming Erlang: Software for a Concurrent World (2007),
+        Pragmatic Bookshelf, ISBN13: 9781934356005.</p>
+      </item>
+    </list>
+  </section>
+</chapter>

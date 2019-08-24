@@ -1,0 +1,5 @@
+{saBadValue, {sa, sa_bad_value, []}}.
+{saGenErr, {sa, sa_gen_err, []}}.
+{saTooBig, {sa, sa_too_big, []}}.
+{saFel, {sa, sa_fel, []}}.
+{saTest, {snmp_generic, variable_func, [{saTest, volatile}]}}.

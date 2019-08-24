@@ -1,0 +1,212 @@
+-- Module GulsSecurityTransformations (X.830:04/1995)
+
+GulsSecurityTransformations {joint-iso-itu-t genericULS(20) modules(1)
+  gulsSecurityTransformations(3)} DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+-- EXPORTS All 
+IMPORTS
+  securityTransformations, notation
+    FROM ObjectIdentifiers {joint-iso-itu-t genericULS(20) modules(1)
+      objectIdentifiers(0)}
+  SECURITY-TRANSFORMATION, SecurityIdentity
+    FROM Notation notation
+  AlgorithmIdentifier
+    FROM AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+      authenticationFramework(7) 3};
+
+-- *************************************** 
+-- Notation for specifying key information 
+-- *************************************** 
+KEY-INFORMATION ::=
+  CLASS
+   -- This information object class definition is for use when
+  -- specifying key information relating to particular classes
+  -- of protection mechanisms (e.g. symmetric, asymmetric).
+  -- It may be useful in defining various security transformations.
+  {
+  &kiClass  CHOICE {local   INTEGER,
+                    -- local objects can only be defined within this
+                    -- ASN.1 module.
+                    global  OBJECT IDENTIFIER
+                    -- global objects are defined elsewhere
+  } UNIQUE,
+  &KiType   
+}WITH SYNTAX {KEY-INFO-CLASS &kiClass
+              KEY-INFO-TYPE &KiType
+}
+
+symmetricKeyInformation KEY-INFORMATION ::= {
+  KEY-INFO-CLASS  local:0
+  KEY-INFO-TYPE
+    SEQUENCE {entityId       SecurityIdentity,
+              keyIdentifier  INTEGER}
+}
+
+asymmetricKeyInformation KEY-INFORMATION ::= {
+  KEY-INFO-CLASS  local:1
+  KEY-INFO-TYPE
+    SEQUENCE {issuerCAName      SecurityIdentity OPTIONAL,
+              certSerialNumber  INTEGER OPTIONAL,
+              signerName        SecurityIdentity OPTIONAL,
+              keyIdentifier     BIT STRING OPTIONAL}
+}
+
+-- ******************************************* 
+-- Directory ENCRYPTED Security Transformation 
+-- ******************************************* 
+dirEncryptedTransformation SECURITY-TRANSFORMATION ::= {
+  IDENTIFIER              {securityTransformations dir-encrypted(1)}
+  -- This transformation transforms a string of octets to a
+  -- new bit string using an encipherment process.
+  INITIAL-ENCODING-RULES  {joint-iso-itu-t asn1(1) ber(1)}
+  XFORMED-DATA-TYPE       BIT STRING
+}
+
+-- **************************************** 
+-- Directory SIGNED Security Transformation 
+-- **************************************** 
+dirSignedTransformation SECURITY-TRANSFORMATION ::= {
+  IDENTIFIER              {securityTransformations dir-signed(2)}
+  INITIAL-ENCODING-RULES
+    {joint-iso-itu-t asn1(1) ber-derived(2) distinguished-encoding(1)}
+  XFORMED-DATA-TYPE
+    SEQUENCE {toBeSigned
+                ABSTRACT-SYNTAX.&Type
+                  (CONSTRAINED BY {
+                     
+                     -- this type is constrained to being the to-be-signed type -- }),
+              algorithmId     AlgorithmIdentifier,
+              -- of the algorithms used to compute the signature 
+              encipheredHash  BIT STRING}
+}
+
+-- ******************************************* 
+-- Directory SIGNATURE Security Transformation 
+-- ******************************************* 
+dirSignatureTransformation SECURITY-TRANSFORMATION ::= {
+  IDENTIFIER              {securityTransformations dir-signature(3)}
+  INITIAL-ENCODING-RULES
+    {joint-iso-itu-t asn1(1) ber-derived(2) distinguished-encoding(1)}
+  XFORMED-DATA-TYPE
+    SEQUENCE {algorithmId     AlgorithmIdentifier,
+              -- of the algorithms used to compute the signature 
+              encipheredHash  BIT STRING}
+}
+
+-- *********************************** 
+-- GULS SIGNED Security Transformation 
+-- *********************************** 
+gulsSignedTransformation{KEY-INFORMATION:SupportedKIClasses}
+  SECURITY-TRANSFORMATION ::= {
+  IDENTIFIER              {securityTransformations guls-signed(4)}
+  INITIAL-ENCODING-RULES
+    {joint-iso-itu-t asn1(1) ber-derived(2) canonical-encoding(0)}
+  -- This default for initial encoding rules may be overridden
+  -- using a static protected parameter (initEncRules).
+  XFORMED-DATA-TYPE
+    SEQUENCE {intermediateValue
+                EMBEDDED PDV
+                  (WITH COMPONENTS {
+                     identification  (WITH COMPONENTS {
+                                        transfer-syntax  (CONSTRAINED BY {
+                                                            -- The transfer syntax to be used is that
+                                                            -- indicated by the initEncRules value within
+                                                            -- the intermediate value -- })PRESENT
+                                      }),
+                     data-value (CONTAINING IntermediateType{{SupportedKIClasses}})
+                   
+                   -- The data value encoded is a value of type
+                   -- IntermediateType
+                   }),
+              appendix
+                BIT STRING
+                  (CONSTRAINED BY {
+                     -- the appendix value must be generated following
+                     -- the procedure specified in D.4 of DIS 11586-1 -- })
+  }
+}
+
+IntermediateType{KEY-INFORMATION:SupportedKIClasses} ::= SEQUENCE {
+  unprotectedItem      ABSTRACT-SYNTAX.&Type-- this type is constrained to being
+  -- the type of the unprotected item, or
+  -- BIT STRING if the unprotected item is
+  -- not derived from an ASN.1 abstract
+  -- syntax --,
+  initEncRules
+    OBJECT IDENTIFIER
+      DEFAULT {joint-iso-itu-t asn1(1) ber-derived(2) canonical-encoding(0)},
+  signOrSealAlgorithm  AlgorithmIdentifier OPTIONAL,
+  -- Identifies the signing or
+  -- sealing algorithm, and can convey
+  -- algorithm parameters 
+  hashAlgorithm        AlgorithmIdentifier OPTIONAL,
+  -- Identifies a hash function,
+  -- for use if a hash function is required
+  -- and the signOrSealAlgorithm identifier
+  -- does not imply a particular hash
+  -- function. Can also convey algorithm
+  -- parameters.
+  keyInformation
+    SEQUENCE {kiClass  KEY-INFORMATION.&kiClass({SupportedKIClasses}),
+              keyInfo  KEY-INFORMATION.&KiType({SupportedKIClasses}{@.kiClass})
+  } OPTIONAL
+  -- Key information may assume various
+  -- formats, governed by supported members
+  -- of the KEY-INFORMATION information
+  -- object class (defined at start of the
+  -- definitive ASN.1 module)
+}
+
+-- ************************************** 
+-- GULS SIGNATURE Security Transformation 
+-- ************************************** 
+gulsSignatureTransformation{KEY-INFORMATION:SupportedKIClasses}
+  SECURITY-TRANSFORMATION ::= {
+  IDENTIFIER              {securityTransformations guls-signature(5)}
+  INITIAL-ENCODING-RULES
+    {joint-iso-itu-t asn1(1) ber-derived(2) canonical-encoding(0)}
+  -- This default for initial encoding rules may be overridden
+  -- using a static protected parameter (initEncRules).
+  XFORMED-DATA-TYPE
+    SEQUENCE {initEncRules
+                OBJECT IDENTIFIER
+                  DEFAULT
+                    {joint-iso-itu-t asn1(1) ber-derived(2)
+                     canonical-encoding(0)},
+              signOrSealAlgorithm  AlgorithmIdentifier OPTIONAL,
+              -- Identifies the signing or
+              -- sealing algorithm, and can convey
+              -- algorithm parameters 
+              hashAlgorithm        AlgorithmIdentifier OPTIONAL,
+              -- Identifies a hash function,
+              -- for use if a hash function is required
+              -- and the signOrSealAlgorithm identifier
+              -- does not imply a particular hash
+              -- function. Can also convey algorithm parameters.
+              keyInformation
+                SEQUENCE {kiClass
+                            KEY-INFORMATION.&kiClass({SupportedKIClasses}),
+                          keyInfo
+                            KEY-INFORMATION.&KiType
+                              ({SupportedKIClasses}{@.kiClass})} OPTIONAL,
+              -- Key information may assume various
+              -- formats, governed by supported members
+              -- of the KEY-INFORMATION information
+              -- object class (defined at start of the
+              -- definitive ASN.1 module)
+              appendix
+                BIT STRING
+                  (CONSTRAINED BY {
+                     -- the appendix value must be generated following
+                     -- the procedure specified in D.5 of DIS 11586-1 -- })
+  }
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+
+
+-- content of stack:
+-- 

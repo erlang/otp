@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2012</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Eldap Release Notes</title>
+    <prepared>OTP team</prepared>
+    <docno></docno>
+    <date>2003-06-06</date>
+    <rev>B</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Eldap application.</p>
+
+<section><title>Eldap 1.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix dialyzer warnings in eldap when not matching the
+	    return value of ssl:close/1.</p>
+          <p>
+	    Own Id: OTP-15775</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Back port of bug fix ERL-893 from OTP-22 and document
+	    enhancements that will solve dialyzer warnings for users
+	    of the ssl application.</p>
+          <p>
+	    This change also affects public_key, eldap (and inet
+	    doc).</p>
+          <p>
+	    Own Id: OTP-15785 Aux Id: ERL-929, ERL-893, PR-2215 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition at close could cause the eldap client to
+	    exit with a badarg message as cause.</p>
+          <p>
+	    Own Id: OTP-15342 Aux Id: ERIERL-242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition at close could cause the eldap client to
+	    exit with a badarg message as cause.</p>
+          <p>
+	    Own Id: OTP-15342 Aux Id: ERIERL-242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition at close could cause the eldap client to
+	    exit with a badarg message as cause.</p>
+          <p>
+	    Own Id: OTP-15342 Aux Id: ERIERL-242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the underlying tcp connection is closed and an LDAP
+	    operation returned tcp_error, the client applications
+	    tend to close the ldap handle with eldap:close. This will
+	    cause a <c>{nocatch, {gen_tcp_error, ...}}</c> exception.</p>
+          <p>
+	    Such errors are now ignored during close, because the
+	    socket will be closed anyway.</p>
+          <p>
+	    Own Id: OTP-13590 Aux Id: PR-1048 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Modernize test suites</p>
+          <p>
+	    Own Id: OTP-13566</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ELDAP did not send an <c>'unBind'</c> request before
+	    closing the connection.</p>
+          <p>
+	    Own Id: OTP-13327</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handles the <c>referral</c> result code from LDAP
+	    servers. Adds the return value <c>{ok,
+	    {referral,UrlList}}</c> to some functions. See the Eldap
+	    reference manual for details.</p>
+          <p>
+	    Own Id: OTP-12272</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support added for LDAP Password Modify Extended Operation
+	    (RFC 3062). Thanks to danielwhite.</p>
+          <p>
+	    Own Id: OTP-12282</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrects that <c>eldap:close/1</c> returned a tuple
+	    instead of the specified atom <c>ok</c>.</p>
+          <p>
+	    Own Id: OTP-12349</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarification in the reference manual for
+	    <c>eldap:modify_dn/5</c>, <c>eldap:search/2</c> and
+	    <c>eldap:start_tls/3</c>.</p>
+          <p>
+	    Own Id: OTP-12354</p>
+        </item>
+        <item>
+          <p>
+	    The eldap test suites are extended and re-organized.</p>
+          <p>
+	    Own Id: OTP-12355</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that eldap:open did not use the Timeout parameter
+	    when calling ssl:connect. (Thanks Wiesław Bieniek for
+	    reporting)</p>
+          <p>
+	    Own Id: OTP-12311</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added the LDAP filter <c>extensibleMatch</c>.</p>
+          <p>
+	    Own Id: OTP-12174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Eldap 1.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>eldap:open/2</c> and <c>eldap:open/3</c> gave wrong
+	    return values for option errors.</p>
+          <p>
+	    Own Id: OTP-12182</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Nearly all TCP options are possible to give in the
+	    <c>eldap:open/2</c> call.</p>
+          <p>
+	    Own Id: OTP-12171</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    Add support for IPv6 connections, By including the
+	    [inet6] option in eldap:open/2. Default value is still
+	    [inet] (Thanks to Edwin Fine)</p>
+          <p>
+	    Own Id: OTP-11753</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug where eldap:search returned binaries instead of
+	    strings. (Thanks Simon MacMullen for the report)</p>
+          <p>
+	    Own Id: OTP-11768</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed {verify,0} from ssl-options because eldap does
+	    not support peer verification. Thanks to Florian Waas for
+	    reporting.</p>
+          <p>
+	    Own Id: OTP-11354</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ldap client eldap now supports the start_tls
+	    operation. This upgrades an existing tcp connection to
+	    encryption using tls, if the server supports it. See
+	    eldap:start_tls/2 and /3.</p>
+          <p>
+	    Own Id: OTP-11336</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed various dialyzer warnings</p>
+          <p>
+	    Own Id: OTP-10403 Aux Id: kunagi-258 [169] </p>
+        </item>
+        <item>
+          <p>
+	    Configure the SSL options fully in eldap.</p>
+          <p>
+	    Own Id: OTP-10728</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>Eldap 1.0</title>
+    <p>New application. </p>
+  </section>
+</chapter>

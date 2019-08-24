@@ -1,0 +1,60 @@
+
+case 100: { // wxEvtHandler::Connect
+  wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
+  int * winid  = (int *) bp; bp += 4;
+  int * lastId = (int *) bp; bp += 4;
+  int * skip   = (int *) bp; bp += 4;
+  int * haveUserData = (int *) bp; bp += 4;
+  wxeErlTerm * userData = NULL;
+  int * fun_cb = (int *) bp; bp += 4;
+  int * eventTypeLen = (int *) bp; bp += 4;
+  int * class_nameLen = (int *) bp; bp += 4;
+
+  if(*haveUserData) {
+      userData = new wxeErlTerm(&Ecmd.bin[0]);
+  }
+
+  int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
+  char *class_name = bp; bp+= *class_nameLen;
+  if(eventType > 0 ) {
+    wxeEvtListener * Evt_cb = new wxeEvtListener(Ecmd.caller,getRef(This, memenv),
+                                                 class_name,*fun_cb,
+                                                 *skip, userData, Ecmd.port);
+    This->Connect((int) *winid,(int) *lastId,eventType,
+	          (wxObjectEventFunction)(wxEventFunction) &wxeEvtListener::forward,
+	          Evt_cb, Evt_cb);
+    rt.addAtom("ok");
+    rt.addRef(getRef((void *)Evt_cb,memenv), "wxeEvtListener");
+    rt.addTupleCount(2);
+  } else {
+    rt.addAtom("badarg");
+    rt.addAtom("event_type");
+    rt.addTupleCount(2);
+  }
+  break;
+}
+case 101: { // wxEvtHandler::Disconnect
+  wxeEvtListener *Listener = (wxeEvtListener *) getPtr(bp,memenv); bp += 4;
+  wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
+  int * winid  = (int *) bp; bp += 4;
+  int * lastId = (int *) bp; bp += 4;
+  int * eventTypeLen = (int *) bp; bp += 4;
+
+  int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
+  if(eventType > 0) {
+    if(recurse_level > 1) {
+      delayed_delete->Append(Ecmd.Save(op));
+    } else {
+     bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
+                                    (wxObjectEventFunction)(wxEventFunction)
+                                    &wxeEvtListener::forward,
+                                    NULL, Listener);
+     rt.addBool(Result);
+    }
+  } else {
+    rt.addAtom("badarg");
+    rt.addAtom("event_type");
+    rt.addTupleCount(2);
+  }
+  break;
+}

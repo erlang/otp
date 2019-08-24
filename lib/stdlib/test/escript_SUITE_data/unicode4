@@ -1,0 +1,12 @@
+#!/usr/bin/env escript
+%% -*- erlang; encoding:utf-8 -*-
+
+-export([main/1]).
+
+main(_) ->
+    ok = io:setopts([{encoding,unicode}]),
+    Bin1 = <<"Ã¶rn_Ð ×©×××-×©×××+×©× æ¥æ¬èª">>,
+    L = [246,114,110,95,1024,32,1513,1500,1493,1501,45,1513,1500,1493,
+         1501,43,1513,1500,32,26085,26412,35486],
+    L = unicode:characters_to_list(Bin1, utf8),
+    ok.

@@ -1,0 +1,507 @@
+-- Module IPMSObjectIdentifiers (X.420:06/1999)
+IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  object-identifiers(0) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS -- nothing -- ;
+
+ID ::= OBJECT IDENTIFIER
+
+-- Interpersonal Messaging (not definitive)
+id-ipms ID ::=
+  {joint-iso-itu-t mhs(6) ipms(1)} -- not definitive
+
+-- Categories
+id-mod ID ::= {id-ipms  0} -- modules; not definitive
+
+id-ot ID ::= {id-ipms  1} -- object types
+
+id-pt ID ::= {id-ipms  2} -- port types
+
+id-et ID ::= {id-ipms  4} -- extended body part types
+
+id-hex ID ::= {id-ipms  5} -- heading extensions
+
+id-sat ID ::= {id-ipms  6} -- summary attributes
+
+id-hat ID ::= {id-ipms  7} -- heading attributes
+
+id-bat ID ::= {id-ipms  8} -- body attributes
+
+id-nat ID ::= {id-ipms  9} -- notification attributes
+
+id-mct ID ::= {id-ipms  10} -- message content types
+
+id-ep ID ::= {id-ipms  11} -- extended body part parameters
+
+id-eit ID ::= {id-ipms  12} -- encoded information types
+
+id-cat ID ::= {id-ipms  13} -- correlation attributes
+
+id-mr ID ::= {id-ipms  14} -- matching-rules
+
+id-aa ID ::= {id-ipms  15} -- auto-actions
+
+id-aae ID ::= {id-ipms  16} -- auto-action errors
+
+id-mst ID ::= {id-ipms  17} -- message store types
+
+id-sec ID ::= {id-ipms  18} -- ipm security extensions
+
+id-on ID ::= {id-ipms  19} -- other notification type extensions
+
+id-rex ID ::= {id-ipms  20} -- recipient extensions
+
+-- Modules
+id-mod-object-identifiers ID ::= {id-mod  0} -- not definitive
+
+id-mod-functional-objects ID ::= {id-mod  1} -- not definitive
+
+id-mod-information-objects ID ::= {id-mod  2} -- not definitive
+
+id-mod-abstract-service ID ::= {id-mod  3} -- not definitive
+
+id-mod-heading-extensions ID ::= {id-mod  6} -- not definitive
+
+id-mod-extended-body-part-types ID ::= {id-mod  7} -- not definitive
+
+id-mod-message-store-attributes ID ::= {id-mod  8} -- not definitive
+
+id-mod-file-transfer-body-part-type ID ::= {id-mod  9} -- not definitive
+
+id-mod-upper-bounds ID ::= {id-mod  10} -- not definitive
+
+id-mod-extended-voice-body-part-type ID ::= {id-mod  11} -- not definitive
+
+id-mod-forwarded-report-body-part-type ID ::= {id-mod  12} -- not definitive
+
+id-mod-auto-actions ID ::= {id-mod  13} -- not definitive
+
+id-mod-ipm-security-extensions ID ::= {id-mod  14} -- not definitive
+
+id-mod-forwarded-content-body-part-type ID ::= {id-mod  15} -- not definitive
+
+id-mod-pkcs7-body-part-type ID ::= {id-mod  16} -- not definitive
+
+-- Object types
+id-ot-ipms-user ID ::= {id-ot  1}
+
+id-ot-ipms ID ::= {id-ot  2}
+
+-- Port types
+id-pt-origination ID ::= {id-pt  0}
+
+id-pt-reception ID ::= {id-pt  1}
+
+id-pt-management ID ::= {id-pt  2}
+
+-- Extended body part types
+id-et-ia5-text ID ::= {id-et  0}
+
+id-et-g3-facsimile ID ::= {id-et  2}
+
+id-et-g4-class1 ID ::= {id-et  3}
+
+id-et-teletex ID ::= {id-et  4}
+
+id-et-videotex ID ::= {id-et  5}
+
+id-et-encrypted ID ::= {id-et  6}
+
+id-et-message ID ::= {id-et  7}
+
+id-et-mixed-mode ID ::= {id-et  8}
+
+id-et-bilaterally-defined ID ::= {id-et  9}
+
+id-et-nationally-defined ID ::= {id-et  10}
+
+id-et-general-text ID ::= {id-et  11}
+
+id-et-file-transfer ID ::= {id-et  12}
+
+--  Value {id-et 13} is no longer defined
+id-et-report ID ::= {id-et  14}
+
+id-et-notification ID ::= {id-et  15}
+
+id-et-voice ID ::= {id-et  16}
+
+id-et-content ID ::=
+  {id-et  17} -- This value is not used directly, only as a prefix
+
+id-et-pkcs7 ID ::= {id-et  18}
+
+-- Heading extensions
+id-hex-incomplete-copy ID ::= {id-hex  0}
+
+id-hex-languages ID ::= {id-hex  1}
+
+id-hex-auto-submitted ID ::= {id-hex  2}
+
+id-hex-body-part-signatures ID ::= {id-hex  3}
+
+id-hex-ipm-security-label ID ::= {id-hex  4}
+
+id-hex-authorization-time ID ::= {id-hex  5}
+
+id-hex-circulation-list-recipients ID ::= {id-hex  6}
+
+id-hex-distribution-codes ID ::= {id-hex  7}
+
+id-hex-extended-subject ID ::= {id-hex  8}
+
+id-hex-information-category ID ::= {id-hex  9}
+
+id-hex-manual-handling-instructions ID ::= {id-hex  10}
+
+id-hex-originators-reference ID ::= {id-hex  11}
+
+id-hex-precedence-policy-id ID ::= {id-hex  12}
+
+-- Summary attributes
+id-sat-ipm-entry-type ID ::= {id-sat  0}
+
+id-sat-ipm-synopsis ID ::= {id-sat  1}
+
+id-sat-body-parts-summary ID ::= {id-sat  2}
+
+id-sat-ipm-auto-discarded ID ::= {id-sat  3}
+
+-- Heading attributes
+id-hat-heading ID ::= {id-hat  0}
+
+id-hat-this-ipm ID ::= {id-hat  1}
+
+id-hat-originator ID ::= {id-hat  2}
+
+id-hat-replied-to-IPM ID ::= {id-hat  3}
+
+id-hat-subject ID ::= {id-hat  4}
+
+id-hat-expiry-time ID ::= {id-hat  5}
+
+id-hat-reply-time ID ::= {id-hat  6}
+
+id-hat-importance ID ::= {id-hat  7}
+
+id-hat-sensitivity ID ::= {id-hat  8}
+
+id-hat-auto-forwarded ID ::= {id-hat  9}
+
+id-hat-authorizing-users ID ::= {id-hat  10}
+
+id-hat-primary-recipients ID ::= {id-hat  11}
+
+id-hat-copy-recipients ID ::= {id-hat  12}
+
+id-hat-blind-copy-recipients ID ::= {id-hat  13}
+
+id-hat-obsoleted-IPMs ID ::= {id-hat  14}
+
+id-hat-related-IPMs ID ::= {id-hat  15}
+
+id-hat-reply-recipients ID ::= {id-hat  16}
+
+id-hat-incomplete-copy ID ::= {id-hat  17}
+
+id-hat-languages ID ::= {id-hat  18}
+
+id-hat-rn-requestors ID ::= {id-hat  19}
+
+id-hat-nrn-requestors ID ::= {id-hat  20}
+
+id-hat-reply-requestors ID ::= {id-hat  21}
+
+id-hat-auto-submitted ID ::= {id-hat  22}
+
+id-hat-body-part-signatures ID ::= {id-hat  23}
+
+id-hat-ipm-security-label ID ::= {id-hat  24}
+
+id-hat-body-part-security-label ID ::= {id-hat  25}
+
+id-hat-body-part-encryption-token ID ::= {id-hat  26}
+
+id-hat-authorization-time ID ::= {id-hat  27}
+
+id-hat-circulation-list-recipients ID ::= {id-hat  28}
+
+id-hat-distribution-codes ID ::= {id-hat  29}
+
+id-hat-extended-subject ID ::= {id-hat  30}
+
+id-hat-information-category ID ::= {id-hat  31}
+
+id-hat-manual-handling-instructions ID ::= {id-hat  32}
+
+id-hat-originators-reference ID ::= {id-hat  33}
+
+id-hat-precedence-policy-id ID ::= {id-hat  34}
+
+id-hat-forwarded-content-token ID ::= {id-hat  35}
+
+id-hat-forwarding-token ID ::= {id-hat  36}
+
+id-hat-precedence ID ::= {id-hat  37}
+
+id-hat-body-part-signature-verification-status ID ::= {id-hat  38}
+
+-- Body attributes
+id-bat-body ID ::= {id-bat  0}
+
+id-bat-ia5-text-body-parts ID ::= {id-bat  1}
+
+id-bat-g3-facsimile-body-parts ID ::= {id-bat  3}
+
+id-bat-g4-class1-body-parts ID ::= {id-bat  4}
+
+id-bat-teletex-body-parts ID ::= {id-bat  5}
+
+id-bat-videotex-body-parts ID ::= {id-bat  6}
+
+id-bat-encrypted-body-parts ID ::= {id-bat  7}
+
+id-bat-message-body-parts ID ::= {id-bat  8}
+
+id-bat-mixed-mode-body-parts ID ::= {id-bat  9}
+
+id-bat-bilaterally-defined-body-parts ID ::= {id-bat  10}
+
+id-bat-nationally-defined-body-parts ID ::= {id-bat  11}
+
+id-bat-extended-body-part-types ID ::= {id-bat  12}
+
+id-bat-ia5-text-parameters ID ::= {id-bat  13}
+
+id-bat-g3-facsimile-parameters ID ::= {id-bat  15}
+
+id-bat-teletex-parameters ID ::= {id-bat  16}
+
+id-bat-videotex-parameters ID ::= {id-bat  17}
+
+id-bat-encrypted-parameters ID ::= {id-bat  18}
+
+id-bat-message-parameters ID ::= {id-bat  19}
+
+id-bat-ia5-text-data ID ::= {id-bat  20}
+
+id-bat-g3-facsimile-data ID ::= {id-bat  22}
+
+id-bat-teletex-data ID ::= {id-bat  23}
+
+id-bat-videotex-data ID ::= {id-bat  24}
+
+id-bat-encrypted-data ID ::= {id-bat  25}
+
+id-bat-message-data ID ::= {id-bat  26}
+
+-- Notification attributes
+id-nat-subject-ipm ID ::= {id-nat  0}
+
+id-nat-ipn-originator ID ::= {id-nat  1}
+
+id-nat-ipm-intended-recipient ID ::= {id-nat  2}
+
+id-nat-conversion-eits ID ::= {id-nat  3}
+
+id-nat-non-receipt-reason ID ::= {id-nat  4}
+
+id-nat-discard-reason ID ::= {id-nat  5}
+
+id-nat-auto-forward-comment ID ::= {id-nat  6}
+
+id-nat-returned-ipm ID ::= {id-nat  7}
+
+id-nat-receipt-time ID ::= {id-nat  8}
+
+id-nat-acknowledgment-mode ID ::= {id-nat  9}
+
+id-nat-suppl-receipt-info ID ::= {id-nat  10}
+
+id-nat-notification-extensions ID ::= {id-nat  11}
+
+id-nat-nrn-extensions ID ::= {id-nat  12}
+
+id-nat-rn-extensions ID ::= {id-nat  13}
+
+id-nat-other-notification-type-fields ID ::= {id-nat  14}
+
+-- Correlation attributes
+id-cat-correlated-delivered-ipns ID ::= {id-cat  0}
+
+id-cat-correlated-delivered-replies ID ::= {id-cat  1}
+
+id-cat-delivered-ipn-summary ID ::= {id-cat  2}
+
+id-cat-delivered-replies-summary ID ::= {id-cat  3}
+
+id-cat-forwarded-ipms ID ::= {id-cat  4}
+
+id-cat-forwarding-ipms ID ::= {id-cat  5}
+
+id-cat-ipm-recipients ID ::= {id-cat  6}
+
+id-cat-obsoleted-ipms ID ::= {id-cat  7}
+
+id-cat-obsoleting-ipms ID ::= {id-cat  8}
+
+id-cat-related-ipms ID ::= {id-cat  9}
+
+id-cat-relating-ipms ID ::= {id-cat  10}
+
+id-cat-replied-to-ipm ID ::= {id-cat  11}
+
+id-cat-replying-ipms ID ::= {id-cat  12}
+
+id-cat-revised-reply-time ID ::= {id-cat  13}
+
+id-cat-submitted-ipn-status ID ::= {id-cat  14}
+
+id-cat-submitted-ipns ID ::= {id-cat  15}
+
+id-cat-submitted-reply-status ID ::= {id-cat  16}
+
+id-cat-subject-ipm ID ::= {id-cat  17}
+
+id-cat-recipient-category ID ::= {id-cat  18}
+
+-- Message content types (for use by MS and Directory)
+id-mct-p2-1984 ID ::=
+  {id-mct  0} -- P2 1984
+
+id-mct-p2-1988 ID ::= {id-mct  1} -- P2 1988
+
+-- Extended body part parameters
+id-ep-ia5-text ID ::= {id-ep  0}
+
+id-ep-g3-facsimile ID ::= {id-ep  2}
+
+id-ep-teletex ID ::= {id-ep  4}
+
+id-ep-videotex ID ::= {id-ep  5}
+
+id-ep-encrypted ID ::= {id-ep  6}
+
+id-ep-message ID ::= {id-ep  7}
+
+id-ep-general-text ID ::= {id-ep  11}
+
+id-ep-file-transfer ID ::= {id-ep  12}
+
+--  Value {id-ep 13} is no longer defined
+id-ep-notification ID ::= {id-ep  15}
+
+id-ep-voice ID ::= {id-ep  16}
+
+id-ep-content ID ::=
+  {id-ep  17} -- This value is not used directly, only as a prefix
+
+-- Encoded Information Types
+id-eit-file-transfer ID ::= {id-eit  0}
+
+id-eit-voice ID ::= {id-eit  1}
+
+-- Voice Encoded Information Types
+id-voice-11khz-sample ID ::=
+  {id-eit-voice  0}
+
+id-voice-22khz-sample ID ::= {id-eit-voice  1}
+
+id-voice-cd-quality ID ::= {id-eit-voice  2}
+
+id-voice-g711-mu-law ID ::= {id-eit-voice  3}
+
+id-voice-g726-32k-adpcm ID ::= {id-eit-voice  4}
+
+id-voice-g728-16k-ld-celp ID ::= {id-eit-voice  5}
+
+-- Matching-rules
+id-mr-ipm-identifier ID ::= {id-mr  0}
+
+id-mr-or-descriptor ID ::= {id-mr  1}
+
+id-mr-or-descriptor-elements ID ::= {id-mr  2}
+
+id-mr-or-descriptor-substring-elements ID ::= {id-mr  3}
+
+id-mr-recipient-specifier ID ::= {id-mr  4}
+
+id-mr-recipient-specifier-elements ID ::= {id-mr  5}
+
+id-mr-recipient-specifier-substring-elements ID ::= {id-mr  6}
+
+id-mr-ipm-location ID ::= {id-mr  7}
+
+id-mr-or-descriptor-single-element ID ::= {id-mr  8}
+
+id-mr-recipient-specifier-single-element ID ::= {id-mr  9}
+
+id-mr-circulation-member ID ::= {id-mr  10}
+
+id-mr-circulation-member-elements ID ::= {id-mr  11}
+
+id-mr-circulation-member-substring-elements ID ::= {id-mr  12}
+
+id-mr-circulation-member-single-element ID ::= {id-mr  13}
+
+id-mr-circulation-member-checkmark ID ::= {id-mr  14}
+
+id-mr-distribution-code ID ::= {id-mr  15}
+
+id-mr-information-category ID ::= {id-mr  16}
+
+-- Auto-actions
+id-aa-ipm-auto-acknowledgement ID ::= {id-aa  0}
+
+id-aa-ipm-auto-correlate ID ::= {id-aa  1}
+
+id-aa-ipm-auto-discard ID ::= {id-aa  2}
+
+id-aa-ipm-auto-advise ID ::= {id-aa  3}
+
+-- Auto-action-errors
+id-aae-auto-discard-error ID ::= {id-aae  0}
+
+id-aae-auto-forwarding-loop ID ::= {id-aae  1}
+
+id-aae-duplicate-ipn ID ::= {id-aae  2}
+
+-- Message Store types
+id-mst-invalid-assembly-instructions ID ::= {id-mst  0}
+
+id-mst-invalid-ipn ID ::= {id-mst  1}
+
+id-mst-assembly-instructions ID ::= {id-mst  2}
+
+id-mst-suspend-auto-acknowledgement ID ::= {id-mst  3}
+
+id-mst-prevent-nrn-generation ID ::= {id-mst  4}
+
+id-mst-originator-body-part-encryption-token ID ::= {id-mst  5}
+
+id-mst-originator-forwarded-content-token ID ::= {id-mst  6}
+
+id-mst-assembly-capability ID ::= {id-mst  7}
+
+-- Security extensions
+id-sec-ipm-security-request ID ::= {id-sec  0}
+
+id-sec-security-common-fields ID ::= {id-sec  1}
+
+-- Other notification types
+id-on-absence-advice ID ::= {id-on  0}
+
+id-on-change-of-address-advice ID ::= {id-on  1}
+
+-- Recipient extensions
+id-rex-circulation-list-indicator ID ::= {id-rex  0}
+
+id-rex-precedence ID ::= {id-rex  1}
+
+END -- of IPMSObjectIdentifiers
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

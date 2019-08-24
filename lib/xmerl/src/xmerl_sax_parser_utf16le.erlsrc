@@ -1,0 +1,83 @@
+%%-*-erlang-*-
+%%--------------------------------------------------------------------
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%% 
+%% %CopyrightEnd%
+%%----------------------------------------------------------------------
+%% File    : xmerl_sax_parser_utf16le.erl
+%% Description : 
+%%
+%% Created : 26 May 2008 
+%%----------------------------------------------------------------------
+-module(xmerl_sax_parser_utf16le).
+
+%%----------------------------------------------------------------------
+%% Macros
+%%----------------------------------------------------------------------
+-define(STRING_EMPTY, <<>>).
+-define(STRING(MatchStr), <<MatchStr/little-utf16>>).
+-define(STRING_REST(MatchStr, Rest), <<MatchStr/little-utf16,  Rest/binary>>).
+-define(APPEND_STRING(Rest, New), <<Rest/binary, New/binary>>).
+-define(TO_INPUT_FORMAT(Val), unicode:characters_to_binary(Val, unicode, {utf16, little})).
+
+-define(STRING_UNBOUND_REST(MatchChar, Rest), <<MatchChar/little-utf16, Rest/binary>>).
+-define(BYTE_ORDER_MARK_1, <<16#FF>>).
+-define(BYTE_ORDER_MARK_REST(Rest), <<16#FF, 16#FE, Rest/binary>>).
+
+-define(PARSE_BYTE_ORDER_MARK(Bytes, State),
+        parse_byte_order_mark(?STRING_EMPTY, State) ->
+               cf(?STRING_EMPTY, State, fun parse_byte_order_mark/2);
+        parse_byte_order_mark(?BYTE_ORDER_MARK_1, State) ->
+               cf(?BYTE_ORDER_MARK_1, State, fun parse_byte_order_mark/2);
+        parse_byte_order_mark(?BYTE_ORDER_MARK_REST(Rest), State) ->
+               parse_xml_decl(Rest, State);
+        parse_byte_order_mark(Bytes, State) ->
+               parse_xml_decl(Bytes, State)).
+
+-define(PARSE_XML_DECL(Bytes, State), 
+        parse_xml_decl(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State) when is_binary(Bytes) ->
+               case unicode:characters_to_list(Bytes, Enc) of 
+                   {incomplete, _, _} ->
+                       cf(Bytes, State, fun parse_xml_decl/2);
+                   {error, _Encoded, _Rest} ->
+                       ?fatal_error(State,  lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])));
+                   _ ->
+                       parse_prolog(Bytes, State)
+               end;       
+        parse_xml_decl(Bytes, State) ->
+               parse_prolog(Bytes, State)).
+
+-define(WHITESPACE(Bytes, State, Acc),
+        whitespace(?STRING_UNBOUND_REST(_C, _) = Bytes, State, Acc) -> 
+               {lists:reverse(Acc), Bytes, State};
+        whitespace(Bytes, #xmerl_sax_parser_state{encoding=Enc} = State, Acc) when is_binary(Bytes) -> 
+               case unicode:characters_to_list(Bytes, Enc) of 
+                   {incomplete, _, _} ->
+                       cf(Bytes, State, Acc, fun whitespace/3);
+                   {error, _Encoded, _Rest} ->
+                       ?fatal_error(State, lists:flatten(io_lib:format("Bad character, not in ~p\n", [Enc])))
+               end).
+
+-define(PARSE_EXTERNAL_ENTITY_BYTE_ORDER_MARK(Bytes, State),
+        parse_external_entity_byte_order_mark(?STRING_EMPTY, State) ->
+               cf(?STRING_EMPTY, State, fun parse_external_entity_byte_order_mark/2);
+        parse_external_entity_byte_order_mark(?BYTE_ORDER_MARK_1, State) ->
+               cf(?BYTE_ORDER_MARK_1, State, fun parse_external_entity_byte_order_mark/2);
+        parse_external_entity_byte_order_mark(?BYTE_ORDER_MARK_REST(Rest), State) ->
+               parse_external_entity_1(Rest, State);
+        parse_external_entity_byte_order_mark(Bytes, State) ->
+               parse_external_entity_1(Bytes, State)).

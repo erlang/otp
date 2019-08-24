@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>2012</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>assert.hrl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>assert.hrl</file>
+  <filesummary>Assert macros.</filesummary>
+  <description>
+    <p>The include file <c>assert.hrl</c> provides macros for inserting
+      assertions in your program code.</p>
+
+    <p>Include the following directive in the module from which the function is
+      called:</p>
+
+    <code type="none">
+-include_lib("stdlib/include/assert.hrl").</code>
+
+    <p>When an assertion succeeds, the assert macro yields the atom <c>ok</c>.
+      When an assertion fails, an exception of type <c>error</c> is generated.
+      The associated error term has the form <c>{Macro, Info}</c>. <c>Macro</c>
+      is the macro name, for example, <c>assertEqual</c>. <c>Info</c> is a list
+      of tagged values, such as <c>[{module, M}, {line, L}, ...]</c>, which
+      gives more information about the location and cause of the exception. All
+      entries in the <c>Info</c> list are optional; do not rely programmatically
+      on any of them being present.</p>
+
+    <p>Each assert macro has a corresponding version with an extra argument,
+      for adding comments to assertions. These can for example be printed as
+      part of error reports, to clarify the meaning of the check that
+      failed. For example, <c>?assertEqual(0, fib(0), "Fibonacci is defined
+      for zero")</c>. The comment text can be any character data (string,
+      UTF8-binary, or deep list of such data), and will be included in the
+      error term as <c>{comment, Text}</c>.</p>
+
+    <p>If the macro <c>NOASSERT</c> is defined when <c>assert.hrl</c> is read
+      by the compiler, the macros are defined as equivalent to the atom
+      <c>ok</c>. The test will not be performed and there is no cost at runtime.</p>
+
+    <p>For example, using <c>erlc</c> to compile your modules, the following
+      disables all assertions:</p>
+
+    <code type="none">
+erlc -DNOASSERT=true *.erl</code>
+
+    <p>(The value of <c>NOASSERT</c> does not matter, only the fact that it is
+      defined.)</p>
+
+    <p>A few other macros also have effect on the enabling or disabling of
+      assertions:</p>
+
+    <list type="bulleted">
+      <item><p>If <c>NODEBUG</c> is defined, it implies <c>NOASSERT</c> (unless
+        <c>DEBUG</c> is also defined, which overrides <c>NODEBUG</c>).</p>
+      </item>
+      <item><p>If <c>ASSERT</c> is defined, it overrides <c>NOASSERT</c>, that
+        is, the assertions remain enabled.</p></item>
+    </list>
+
+    <p>If you prefer, you can thus use only <c>DEBUG</c>/<c>NODEBUG</c> as the
+      main flags to control the behavior of the assertions (which is useful if
+      you have other compiler conditionals or debugging macros controlled by
+      those flags), or you can use <c>ASSERT</c>/<c>NOASSERT</c> to control only
+      the assert macros.</p>
+  </description>
+
+  <section>
+    <title>Macros</title>
+    <taglist>
+      <tag><c>assert(BoolExpr)</c></tag>
+      <item></item>
+      <tag><c>assert(BoolExpr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>BoolExpr</c> completes normally returning
+          <c>true</c>.</p>
+      </item>
+      <tag><c>assertNot(BoolExpr)</c></tag>
+      <item></item>
+      <tag><c>assertNot(BoolExpr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>BoolExpr</c> completes normally returning
+          <c>false</c>.</p>
+      </item>
+      <tag><c>assertMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertMatch(GuardedPattern, Expr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that
+          matches <c>GuardedPattern</c>, for example:</p>
+        <code type="none">
+?assertMatch({bork, _}, f())</code>
+        <p>Notice that a guard <c>when ...</c> can be included:</p>
+        <code type="none">
+?assertMatch({bork, X} when X > 0, f())</code>
+      </item>
+      <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotMatch(GuardedPattern, Expr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that does
+          not match <c>GuardedPattern</c>.</p>
+        <p>As in <c>assertMatch</c>, <c>GuardedPattern</c> can have a
+          <c>when</c> part.</p>
+      </item>
+      <tag><c>assertEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertEqual(ExpectedValue, Expr, Comment)</c></tag>
+      <item>
+         <p>Tests that <c>Expr</c> completes normally yielding a value that is
+           exactly equal to <c>ExpectedValue</c>.</p>
+      </item>
+      <tag><c>assertNotEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotEqual(ExpectedValue, Expr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that is
+          not exactly equal to <c>ExpectedValue</c>.</p>
+      </item>
+      <tag><c>assertException(Class, Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertException(Class, Term, Expr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>Expr</c> completes abnormally with an exception of type
+          <c>Class</c> and with the associated <c>Term</c>. The assertion fails
+          if <c>Expr</c> raises a different exception or if it completes
+          normally returning any value.</p>
+        <p>Notice that both <c>Class</c> and <c>Term</c> can be guarded
+          patterns, as in <c>assertMatch</c>.</p>
+      </item>
+      <tag><c>assertNotException(Class, Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotException(Class, Term, Expr, Comment)</c></tag>
+      <item>
+        <p>Tests that <c>Expr</c> does not evaluate abnormally with an
+          exception of type <c>Class</c> and with the associated <c>Term</c>.
+          The assertion succeeds if <c>Expr</c> raises a different exception or
+          if it completes normally returning any value.</p>
+        <p>As in <c>assertException</c>, both <c>Class</c> and <c>Term</c> can
+          be guarded patterns.</p>
+      </item>
+      <tag><c>assertError(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertError(Term, Expr, Comment)</c></tag>
+      <item>
+        <p>Equivalent to <c>assertException(error, Term, Expr)</c></p>
+      </item>
+      <tag><c>assertExit(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertExit(Term, Expr, Comment)</c></tag>
+      <item>
+        <p>Equivalent to <c>assertException(exit, Term, Expr)</c></p>
+      </item>
+      <tag><c>assertThrow(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertThrow(Term, Expr, Comment)</c></tag>
+      <item>
+        <p>Equivalent to <c>assertException(throw, Term, Expr)</c></p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
+      <seealso marker="erts:erlc"><c>erlc(3)</c></seealso></p>
+  </section>
+</fileref>

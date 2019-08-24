@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_fprof.xml"/>
+  <xi:include href="../specs/specs_make.xml"/>
+  <xi:include href="../specs/specs_lcnt.xml"/>
+  <xi:include href="../specs/specs_eprof.xml"/>
+  <xi:include href="../specs/specs_tags.xml"/>
+  <xi:include href="../specs/specs_cover.xml"/>
+  <xi:include href="../specs/specs_xref.xml"/>
+  <xi:include href="../specs/specs_instrument.xml"/>
+  <xi:include href="../specs/specs_erlang_mode.xml"/>
+</specs>

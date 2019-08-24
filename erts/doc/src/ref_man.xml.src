@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1996</year><year>2019</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>ERTS Reference Manual</title>
+    <prepared>Lars Thors&eacute;n</prepared>
+    <docno></docno>
+    <date>1997-05-15</date>
+    <rev>4.5.2</rev>
+    <file>application.xml</file>
+  </header>
+  <description>
+  </description>
+  <xi:include href="atomics.xml"/>
+  <xi:include href="counters.xml"/>
+  <xi:include href="driver_entry.xml"/>
+  <xi:include href="epmd.xml"/>
+  <xi:include href="erl.xml"/>
+  <xi:include href="erlang.xml"/>
+  <xi:include href="erlc.xml"/>
+  <xi:include href="erl_driver.xml"/>
+  <xi:include href="erl_nif.xml"/>
+  <xi:include href="erl_prim_loader.xml"/>
+  <xi:include href="erlsrv.xml"/>
+  <xi:include href="erl_tracer.xml"/>
+  <xi:include href="erts_alloc.xml"/>
+  <xi:include href="escript.xml"/>
+  <xi:include href="init.xml"/>
+  <xi:include href="persistent_term.xml"/>
+  <xi:include href="run_erl.xml"/>
+  %ESOCK_USE_SOCKET_XML%
+  <xi:include href="start.xml"/>
+  <xi:include href="start_erl.xml"/>
+  <xi:include href="werl.xml"/>
+  <xi:include href="zlib.xml"/>
+</application>
+

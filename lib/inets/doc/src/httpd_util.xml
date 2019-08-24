@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>httpd_util</title>
+    <prepared>Joakim Greben&ouml;</prepared>
+    <docno></docno>
+    <date>1997-10-14</date>
+    <rev>2.2</rev>
+    <file>httpd_util.sgml</file>
+  </header>
+  <module since="">httpd_util</module>
+  <modulesummary>Miscellaneous utility functions to be used when implementing 
+  Erlang web server API modules.</modulesummary>
+  <description>
+    <p>This module provides the Erlang web server API module
+      programmer with miscellaneous utility functions.</p>
+
+    <marker id="convert_request_date"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">convert_request_date(DateString) -> ErlDate|bad_date</name>
+      <fsummary>Converts the date to the Erlang date format.</fsummary>
+      <type>
+        <v>DateString = string()</v>
+        <v>ErlDate = calendar:datetime() </v>
+      </type>
+      <desc>
+        <p><c>convert_request_date/1</c> converts <c>DateString</c> to 
+          the Erlang date format. <c>DateString</c> must be in one of the 
+	  three date formats defined in 
+	<url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">create_etag(FileInfo) -> Etag</name>
+      <fsummary>Calculates the Etag for a file.</fsummary>
+      <type>
+        <v>FileInfo = file_info()</v>
+        <v>Etag = string()</v>
+      </type>
+      <desc>
+        <p><c>create_etag/1</c> calculates the Etag for a file from its
+          size and time for last modification. <c>FileInfo</c> is a record defined 
+          in <c>kernel/include/file.hrl</c>.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">day(NthDayOfWeek) -> DayOfWeek</name>
+      <fsummary>Converts the day of the week 
+      (integer [1-7]) to an abbreviated string.</fsummary>
+      <type>
+        <v>NthDayOfWeek = 1-7</v>
+        <v>DayOfWeek = string()</v>
+      </type>
+      <desc>
+        <p><c>day/1</c> converts the day of the week
+          (<c>NthDayOfWeek</c>) from an integer (1-7) to an abbreviated
+          string, that is:</p>
+        <p>1 = "Mon", 2 = "Tue", ..., 7 = "Sat".</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">decode_hex(HexValue) -> DecValue</name>
+      <fsummary>Converts a hexadecimal value into its decimal equivalent.</fsummary>
+      <type>
+        <v>HexValue = DecValue = string()</v>
+      </type>
+      <desc>
+        <p>Converts the hexadecimal value <c>HexValue</c> into its
+          decimal equivalent (<c>DecValue</c>).</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">flatlength(NestedList) -> Size</name>
+      <fsummary>Computes the size of a possibly nested list.</fsummary>
+      <type>
+        <v>NestedList = list()</v>
+        <v>Size = integer()</v>
+      </type>
+      <desc>
+        <p><c>flatlength/1</c> computes the size of the possibly nested
+          list <c>NestedList</c>, which can contain binaries.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">hexlist_to_integer(HexString) -> Number</name>
+      <fsummary>Converts a hexadecimal string to an integer.</fsummary>
+      <type>
+        <v>Number = integer()</v>
+        <v>HexString = string()</v>
+      </type>
+      <desc>
+        <p><c>hexlist_to_integer</c> converts the hexadecimal value of 
+          <c>HexString</c> to an integer.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">integer_to_hexlist(Number) -> HexString</name>
+      <fsummary>Converts an integer to a hexadecimal string.</fsummary>
+      <type>
+        <v>Number = integer()</v>
+        <v>HexString = string()</v>
+      </type>
+      <desc>
+        <p><c>integer_to_hexlist/1</c> returns a string representing
+          <c>Number</c> in a hexadecimal form.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">lookup(ETSTable,Key) -> Result</name>
+      <name since="">lookup(ETSTable,Key,Undefined) -> Result</name>
+      <fsummary>Extracts the first value associated with a <c>Key</c> 
+      in an ETS table.</fsummary>
+      <type>
+        <v>ETSTable = ets_table()</v>
+        <v>Key = term()</v>
+        <v>Result = term() | undefined | Undefined</v>
+        <v>Undefined = term()</v>
+      </type>
+      <desc>
+        <p><c>lookup</c> extracts <c>{Key,Value}</c> tuples from
+          <c>ETSTable</c> and returns the <c>Value</c> associated  
+          with <c>Key</c>. If <c>ETSTable</c> is of type <c>bag</c>,
+          only the first <c>Value</c> associated with <c>Key</c> is
+          returned. <c>lookup/2</c> returns <c>undefined</c> and
+          <c>lookup/3</c> returns <c>Undefined</c> if no <c>Value</c>
+          is found.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">lookup_mime(ConfigDB,Suffix)</name>
+      <name since="">lookup_mime(ConfigDB,Suffix,Undefined) -> MimeType</name>
+      <fsummary>Returns the MIME type associated with a specific file suffix.</fsummary>
+      <type>
+        <v>ConfigDB = ets_table()</v>
+        <v>Suffix = string()</v>
+        <v>MimeType = string() | undefined | Undefined</v>
+        <v>Undefined = term()</v>
+      </type>
+      <desc>
+        <p><c>lookup_mime</c> returns the MIME type associated with a
+          specific file suffix as specified in the file <c>mime.types</c>
+          (located in the 
+          <path unix="$SERVER_ROOT/conf/mime.types" windows="%SERVER_ROOT%\conf\mime.types">
+	config directory</path>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">lookup_mime_default(ConfigDB,Suffix)</name>
+      <name since="">lookup_mime_default(ConfigDB,Suffix,Undefined) -> MimeType</name>
+      <fsummary>Returns the MIME type associated with a specific file suffix 
+      or the value of the DefaultType.</fsummary>
+      <type>
+        <v>ConfigDB = ets_table()</v>
+        <v>Suffix = string()</v>
+        <v>MimeType = string() | undefined | Undefined</v>
+        <v>Undefined = term()</v>
+      </type>
+      <desc>
+        <p><c>lookup_mime_default</c> returns the MIME type associated
+          with a specific file suffix as specified in the
+          <c>mime.types</c> file (located in the
+          <path unix="$SERVER_ROOT/conf/mime.types" windows="%SERVER_ROOT%\conf\mime.types">
+	    config  directory</path>). 
+          If no appropriate association is found, the value of <c>DefaultType</c> is
+          returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">message(StatusCode,PhraseArgs,ConfigDB) -> Message</name>
+      <fsummary>Returns an informative HTTP 1.1 status string in HTML.</fsummary>
+      <type>
+        <v>StatusCode = 301 | 400 | 403 | 404 | 500 | 501 | 504</v>
+        <v>PhraseArgs = term()</v>
+        <v>ConfigDB = ets_table</v>
+        <v>Message = string()</v>
+      </type>
+      <desc>
+        <p><c>message/3</c> returns an informative HTTP 1.1 status
+          string in HTML. Each <c>StatusCode</c> requires a specific
+          <c>PhraseArgs</c>:
+          </p>
+        <taglist>
+          <tag><c>301</c></tag>
+          <item><p><c>string()</c>: A URL pointing at the new document
+           position.</p></item>
+          <tag><c>400 | 401 | 500</c></tag>
+          <item><p><c>none</c> (no <c>PhraseArgs</c>).</p></item>
+          <tag><c>403 | 404</c></tag>
+          <item><p><c>string()</c>: A <c>Request-URI</c> as described in
+          <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+	  </item>
+          <tag><c>501</c></tag>
+          <item><p><c>{Method,RequestURI,HTTPVersion}</c>: The HTTP
+          <c>Method</c>, <c>Request-URI</c>, and <c>HTTP-Version</c>
+           as defined in RFC 2616.</p></item>
+          <tag><c>504</c></tag>
+          <item><p><c>string()</c>: A string describing why the service
+           was unavailable.</p></item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">month(NthMonth) -> Month</name>
+      <fsummary>Converts the month as an integer (1-12) to an abbreviated string.</fsummary>
+      <type>
+        <v>NthMonth = 1-12</v>
+        <v>Month = string()</v>
+      </type>
+      <desc>
+        <p><c>month/1</c> converts the month <c>NthMonth</c> as an
+          integer (1-12) to an abbreviated string, that is: </p>
+        <p>1 = "Jan", 2 = "Feb", ..., 12 = "Dec".</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">multi_lookup(ETSTable,Key) -> Result</name>
+      <fsummary>Extracts the values associated with a key in an ETS table.</fsummary>
+      <type>
+        <v>ETSTable = ets_table()</v>
+        <v>Key = term()</v>
+        <v>Result = [term()]</v>
+      </type>
+      <desc>
+        <p><c>multi_lookup</c> extracts all <c>{Key,Value}</c> tuples
+          from an <c>ETSTable</c> and returns <em>all</em> <c>Values</c> 
+	associated with <c>Key</c> in a list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">reason_phrase(StatusCode) -> Description</name>
+      <fsummary>Returns the description of an HTTP 1.1 status code.</fsummary>
+      <type>
+        <v>StatusCode = 100| 200 | 201 | 202 | 204 | 205 | 206 | 300 | 301 | 302 | 303 | 304 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 410 411 | 412 | 413 | 414 415 | 416 | 417 | 500 | 501 | 502 | 503 | 504 | 505</v>
+        <v>Description = string()</v>
+      </type>
+      <desc>
+        <p><c>reason_phrase</c> returns <c>Description</c> of an
+          HTTP 1.1 <c>StatusCode</c>, for example, 200 is "OK" and 201
+          is "Created". For more information, see
+	<url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">rfc1123_date() -> RFC1123Date</name>
+      <name since="">rfc1123_date(Date) -> RFC1123Date</name>
+      <fsummary>Returns the current date in RFC 1123 format.</fsummary>
+      <type>
+        <v> Date = calendar:datetime()</v>
+        <v>RFC1123Date = string()</v>
+      </type>
+      <desc>
+        <p><c>rfc1123_date/0</c> returns the current date in RFC 1123
+          format. <c>rfc_date/1</c> converts the date in the Erlang format
+          to the RFC 1123 date format.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">split(String,RegExp,N) -> SplitRes</name>
+      <fsummary>Splits a string in N chunks using a regular expression.</fsummary>
+      <type>
+        <v>String = RegExp = string()</v>
+        <v>SplitRes = {ok, FieldList} | {error, errordesc()}</v>
+        <v>Fieldlist = [string()]</v>
+        <v>N = integer</v>
+      </type>
+      <desc>
+        <p><c>split/3</c> splits <c>String</c> in <c>N</c> chunks
+          using <c>RegExp</c>. <c>split/3</c> is equivalent to
+          <c>regexp:split/2</c> with the exception that <c>N</c>
+          defines the maximum number of fields in
+          <c>FieldList</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">split_script_path(RequestLine) -> Splitted</name>
+      <fsummary>Splits a <c>RequestLine</c> in a file reference to an executable, 
+      and a <c>QueryString</c> or a <c>PathInfo</c>string.</fsummary>
+      <type>
+        <v>RequestLine = string()</v>
+        <v>Splitted = not_a_script | {Path, PathInfo, QueryString}</v>
+        <v>Path = QueryString = PathInfo = string()</v>
+      </type>
+      <desc>
+        <p><c>split_script_path/1</c> is equivalent to
+          <c>split_path/1</c> with one exception. If the longest
+          possible path is not a regular, accessible, and executable
+          file, then <c>not_a_script</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">split_path(RequestLine) -> {Path,QueryStringOrPathInfo}</name>
+      <fsummary>Splits a <c>RequestLine</c> in a file reference, and a 
+      <c>QueryString</c> or a <c>PathInfo</c> string.</fsummary>
+      <type>
+        <v>RequestLine = Path = QueryStringOrPathInfo = string()</v>
+      </type>
+      <desc>
+        <p><c>split_path/1</c> splits <c>RequestLine</c> in a file
+          reference (<c>Path</c>), and a <c>QueryString</c> or a
+          <c>PathInfo</c> string as specified in
+	  <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.
+	  A <c>QueryString</c> is isolated from <c>Path</c> with a
+          question mark (<c>?</c>) and <c>PathInfo</c> with a slash
+          (/). In the case of a <c>QueryString</c>, everything before
+          <c>?</c> is a <c>Path</c> and everything after <c>?</c> is a
+          <c>QueryString</c>. In the case of a <c>PathInfo</c>,
+          <c>RequestLine</c> is scanned from left-to-right on the hunt
+          for longest possible <c>Path</c> being a file or a
+          directory. Everything after the longest possible
+          <c>Path</c>, isolated with a <c>/</c>, is regarded as
+          <c>PathInfo</c>. The resulting <c>Path</c> is decoded using
+          <c>decode_hex/1</c> before delivery.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">strip(String) -> Stripped</name>
+      <fsummary>Returns <c>String</c> where the leading and trailing space 
+      tabs are removed.</fsummary>
+      <type>
+        <v>String = Stripped = string()</v>
+      </type>
+      <desc>
+        <p><c>strip/1</c> removes any leading or trailing linear white
+          space from the string. Linear white space is to be read as
+          horizontal tab or space.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">suffix(FileName) -> Suffix</name>
+      <fsummary>Extracts the file suffix from a given filename.</fsummary>
+      <type>
+        <v>FileName = Suffix = string()</v>
+      </type>
+      <desc>
+        <p><c>suffix/1</c> is equivalent to
+          <c>filename:extension/1</c> with the exception that
+          <c>Suffix</c> is returned without a leading dot (<c>.</c>).</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="httpd">httpd(3)</seealso></p>
+  </section>
+  
+</erlref>

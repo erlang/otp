@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>disksup</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">disksup</module>
+  <modulesummary>A Disk Supervisor Process</modulesummary>
+  <description>
+    <p><c>disksup</c> is a process which supervises the available disk
+      space in the system. It is part of the OS_Mon application, see
+      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for Unix
+      and Windows.</p>
+    <p>Periodically checks the disks. For each disk or partition which
+      uses more than a certain amount of the available space, the alarm
+      <c>{{disk_almost_full, MountedOn}, []}</c> is set.</p>
+    <taglist>
+      <tag>On Unix</tag>
+      <item>
+        <p>All (locally) mounted disks are checked, including the swap
+          disk if it is present.</p>
+      </item>
+      <tag>On WIN32</tag>
+      <item>
+        <p>All logical drives of type "FIXED_DISK" are checked.</p>
+      </item>
+    </taglist>
+    <p>Alarms are reported to the SASL alarm handler, see
+      <seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>.
+      To set an alarm, <c>alarm_handler:set_alarm(Alarm)</c> is called
+      where <c>Alarm</c> is the alarm specified above.</p>
+    <p>The alarms are cleared automatically when the alarm cause is no
+      longer valid.</p>
+  </description>
+
+  <section>
+    <marker id="config"></marker>
+    <title>Configuration</title>
+    <p>The following configuration parameters can be used to change
+      the default values for time interval and threshold:</p>
+    <taglist>
+      <tag><c>disk_space_check_interval = int()>0</c></tag>
+      <item>
+        <p>The time interval, in minutes, for the periodic disk space
+          check. The default is 30 minutes.</p>
+      </item>
+      <tag><c>disk_almost_full_threshold = float()</c></tag>
+      <item>
+        <p>The threshold, as percentage of total disk space, for how
+          much disk can be utilized before the <c>disk_almost_full</c>
+          alarm is set. The default is 0.80 (80%).</p>
+      </item>
+      <tag><c>disksup_posix_only = bool()</c></tag>
+      <item>
+        <p>Specifies whether the <c>disksup</c> helper process should only
+          use POSIX conformant commands (<c>true</c>) or not. The default is
+          <c>false</c>. Setting this parameter to <c>true</c> can be
+          necessary on embedded systems with stripped-down versions
+          of Unix tools like <c>df</c>. The returned disk data and alarms
+          can be different when using this option.</p>
+        <p>The parameter is ignored on platforms that are known to not be
+          posix compatible (Windows and SunOS).</p>
+      </item>
+    </taglist>
+    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+      information about how to change the value of configuration
+      parameters.</p>
+  </section>
+  <funcs>
+    <func>
+      <name since="">get_disk_data() -> [DiskData]</name>
+      <fsummary>Get data for the disks in the system</fsummary>
+      <type>
+        <v>DiskData = {Id, KByte, Capacity}</v>
+        <v>&nbsp;Id = string()</v>
+        <v>&nbsp;KByte = int()</v>
+        <v>&nbsp;Capacity = int()</v>
+      </type>
+      <desc>
+        <p>Returns the result of the latest disk check. <c>Id</c> is a
+          string that identifies the disk or partition. <c>KByte</c> is
+          the total size of the disk or partition in kbytes.
+          <c>Capacity</c> is the percentage of disk space used.</p>
+        <p>The function is asynchronous in the sense that it does not
+          invoke a disk check, but returns the latest available value.</p>
+        <p>Returns <c>[{"none",0,0}]</c> if <c>disksup</c> is not
+          available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_check_interval() -> MS</name>
+      <fsummary>Get time interval, in milliseconds, for the periodic disk space check</fsummary>
+      <type>
+        <v>MS = int()</v>
+      </type>
+      <desc>
+        <p>Returns the time interval, in milliseconds, for the periodic
+          disk space check.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_check_interval(Minutes) -> ok</name>
+      <fsummary>Set time interval, in minutes, for the periodic disk space check</fsummary>
+      <type>
+        <v>Minutes = int()>=1</v>
+      </type>
+      <desc>
+        <p>Changes the time interval, given in minutes, for the periodic
+          disk space check.</p>
+        <p>The change will take effect after the next disk space check
+          and is non-persist. That is, in case of a process restart,
+          this value is forgotten and the default value will be used.
+          See <seealso marker="#config">Configuration</seealso> above.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">get_almost_full_threshold() -> Percent</name>
+      <fsummary>Get threshold, in percent, for disk space utilization</fsummary>
+      <type>
+        <v>Percent = int()</v>
+      </type>
+      <desc>
+        <p>Returns the threshold, in percent, for disk space utilization.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">set_almost_full_threshold(Float) -> ok</name>
+      <fsummary>Set threshold, as percentage represented by a float, for disk space utilization</fsummary>
+      <type>
+        <v>Float = float(), 0=&lt;Float=&lt;1</v>
+      </type>
+      <desc>
+        <p>Changes the threshold, given as a float, for disk space
+          utilization.</p>
+        <p>The change will take effect during the next disk space check
+          and is non-persist. That is, in case of a process restart,
+          this value is forgotten and the default value will be used.
+          See <seealso marker="#config">Configuration</seealso> above.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>,
+      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+  </section>
+</erlref>
+

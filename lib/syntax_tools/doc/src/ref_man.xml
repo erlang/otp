@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2006</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Syntax_Tools Reference Manual</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <description>
+    <p><em>Syntax_Tools</em> contains modules for handling abstract
+      Erlang syntax trees, in a way that is compatible with the "external
+      format" parse trees of the STDLIB module <c>erl_parse</c>, together
+      with utilities for reading source files, pretty-printing syntax trees,
+      merging and renaming modules, cleaning up obsolete constructs, and
+      doing metaprogramming in Erlang.</p>
+  </description>
+  <xi:include href="epp_dodger.xml"/>
+  <xi:include href="erl_comment_scan.xml"/>
+  <xi:include href="erl_prettypr.xml"/>
+  <xi:include href="erl_recomment.xml"/>
+  <xi:include href="erl_syntax.xml"/>
+  <xi:include href="erl_syntax_lib.xml"/>
+  <xi:include href="erl_tidy.xml"/>
+  <xi:include href="igor.xml"/>
+  <xi:include href="merl.xml"/>
+  <xi:include href="merl_transform.xml"/>
+  <xi:include href="prettypr.xml"/>
+</application>
+

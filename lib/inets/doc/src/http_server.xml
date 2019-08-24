@@ -1,0 +1,825 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+    <title>HTTP server</title>
+    <file>http_server.xml</file>
+  </header>
+
+  <section>
+    <title>Configuration</title>
+    <marker id="config"></marker>
+    <p>The HTTP server, also referred to as httpd, handles HTTP requests
+      as described in 
+      <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>
+      with a few exceptions, such as gateway
+      and proxy functionality. The server supports IPv6 as long as the
+      underlying mechanisms also do so.</p>
+
+    <p>The server implements numerous features, such as:</p>
+      <list type="bulleted">
+       <item>Secure Sockets Layer (SSL)</item>
+       <item>Erlang Scripting Interface (ESI)</item>
+       <item>Common Gateway Interface (CGI)</item>
+       <item>User Authentication (using Mnesia,
+       Dets or plain text database)</item>
+       <item>Common Logfile Format (with or without disk_log(3) support)</item>
+       <item>URL Aliasing</item>
+       <item>Action Mappings</item>
+       <item>Directory Listings</item>
+      </list>
+
+    <p>The configuration of the server is provided as an Erlang
+      property list. For backwards compatibility, a configuration
+      file using apache-style configuration directives is
+      supported.</p>
+
+    <p>As of <c>Inets</c> 5.0 the HTTP server is an easy to
+      start/stop and customize web server providing the most basic
+      web server functionality. Inets is designed for embedded systems
+      and if you want a full-fledged web server there are exists other 
+      erlang open source alternatives.</p>
+    
+    <p>Almost all server functionality has been implemented using an
+      especially crafted server API, which is described in the Erlang Web
+      Server API. This API can be used
+      to enhance the core server functionality, for example with custom
+      logging and authentication.</p>
+
+    <p>The following is to be put in the Erlang node application configuration 
+      file to start an HTTP server at application startup:</p>
+    
+    <code type="erl">
+      [{inets, [{services, [{httpd, [{proplist_file,
+                 "/var/tmp/server_root/conf/8888_props.conf"}]},
+                {httpd, [{proplist_file,
+                 "/var/tmp/server_root/conf/8080_props.conf"}]}]}]}].</code>
+
+    <p>The server is configured using an Erlang property list.
+      For the available properties, see
+      <seealso marker="httpd">httpd(3)</seealso>.
+      For backwards compatibility, apache-like configuration files
+      are also supported.
+    </p>
+    
+    <p>The available configuration properties are as follows:</p>
+    <code type="none">
+     httpd_service() -> {httpd, httpd()}
+     httpd()         -> [httpd_config()] 
+     httpd_config()  -> {file, file()} |
+                        {proplist_file, file()}
+                        {debug, debug()} |
+                        {accept_timeout, integer()}
+     debug()         -> disable | [debug_options()]
+     debug_options() -> {all_functions, modules()} | 
+                        {exported_functions, modules()} |
+                        {disable, modules()}
+     modules()       -> [atom()]</code>
+     <p>Here:</p>
+     <taglist>
+       <tag><c>{file, file()}</c></tag>
+       <item><p>If you use an old apace-like configuration file.</p></item>
+       <tag><c>{proplist_file, file()}</c></tag>
+       <item><p>File containing an Erlang property
+      list, followed by a full stop, describing the HTTP server
+      configuration.</p></item> 
+       <tag><c>{debug, debug()}</c></tag>
+       <item><p>Can enable trace on all functions or only exported functions 
+       on chosen modules.</p></item>
+       <tag><c>{accept_timeout, integer()}</c></tag>
+       <item><p>Sets the wanted time-out value for
+      the server to set up a request connection.</p></item>
+     </taglist>
+  </section>
+
+  <section>
+    <title>Getting Started</title>
+    <marker id="using_http_server_api"></marker>
+    <p>Start <c>Inets</c>:</p>
+    <code type="none">
+      1 > inets:start().
+      ok</code>
+    <p>Start an HTTP server with minimal required configuration.
+       If you specify port <c>0</c>, an arbitrary available port is
+       used, and you can use function <c>info</c> to find which port 
+       number that was picked:</p>
+
+    <code type="none">
+      2 > {ok, Pid} = inets:start(httpd, [{port, 0},
+      {server_name,"httpd_test"}, {server_root,"/tmp"},
+      {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
+      {ok, 0.79.0}      </code>
+    
+      <p>Call <c>info</c>:</p>
+    <code type="none">
+      3 >  httpd:info(Pid).
+      [{mime_types,[{"html","text/html"},{"htm","text/html"}]},
+      {server_name,"httpd_test"},
+      {bind_address, {127,0,0,1}},
+      {server_root,"/tmp"},
+      {port,59408},
+      {document_root,"/tmp/htdocs"}]</code>
+
+    <p>Reload the configuration without restarting the server:
+      
+    </p>
+    <code type="none">
+    4 > httpd:reload_config([{port, 59408},
+      {server_name,"httpd_test"}, {server_root,"/tmp/www_test"},
+      {document_root,"/tmp/www_test/htdocs"},
+      {bind_address, "localhost"}], non_disturbing).
+    ok.</code>
+
+    <note><p><c>port</c> and <c>bind_address</c> cannot be changed. 
+      Clients trying to access the server during the reload
+      get a service temporary unavailable answer.</p></note>
+
+    <code type="none">
+      5 >  httpd:info(Pid, [server_root, document_root]).
+      [{server_root,"/tmp/www_test"},{document_root,"/tmp/www_test/htdocs"}] </code>
+
+    <code type="none">
+      6 > ok = inets:stop(httpd, Pid).</code>
+    
+    <p>Alternative:</p>
+    
+    <code type="none">
+      6 > ok = inets:stop(httpd, {{127,0,0,1}, 59408}).</code>
+
+    <p>Notice that <c>bind_address</c> must be the IP address reported 
+    by function <c>info</c> and cannot be the hostname that is allowed 
+    when putting in <c>bind_address</c>.</p>
+  </section>
+
+  <section>
+    <title>Htaccess - User Configurable Authentication</title>
+    <marker id="htaccess"></marker>
+    <p>Web server users without server administrative privileges
+        that need to manage authentication of web pages that are local 
+	to their user can use the per-directory runtime configurable 
+	user-authentication scheme <c>htaccess</c>. 
+        It works as follows:</p>
+      <list type="bulleted">
+        <item>Each directory in the path to the requested asset is
+         searched for an access file (default is <c>.htaccess</c>), which 
+	 restricts the web servers rights to respond to a request. 
+	 If an access file is found, the rules in that file is applied to the
+         request.</item>
+        <item>The rules in an access file apply to files in the same
+         directory and in subdirectories. If there exists more than one
+         access file in the path to an asset, the rules in the
+         access file nearest the requested asset is applied.</item>
+        <item>To change the rules that restrict the use of 
+         an asset, the user only needs write access 
+         to the directory where the asset is.</item>
+        <item>All access files in the path to a requested asset are read
+         once per request. This means that the load on the server
+         increases when <c>htaccess</c> is used.</item>
+        <item>If a directory is limited both by authentication directives 
+	 in the HTTP server configuration file and by the <c>htaccess</c> 
+	 files, the user must be allowed to get access to the file by both 
+	 methods for the request to succeed.</item>
+      </list>
+
+    <section>
+      <title>Access Files Directives</title>
+        <p>In every directory under <c>DocumentRoot</c> or under an
+	<c>Alias</c> a user can place an access file. An access file
+	is a plain text file that specifies the restrictions to
+	consider before the web server answers to a
+          request. If there are more than one access file in the path
+          to the requested asset, the directives in the access file in
+          the directory nearest the asset is used.</p>
+        <taglist>
+	  <tag><em>"allow"</em></tag>
+          <item>
+	    <p><em>Syntax:</em> <c>Allow</c> from subnet <c>subnet | from all</c></p>
+	    <p><em>Default:</em> <c>from all</c></p>
+            <p>Same as directive <c>allow</c> for the server configuration file.</p>
+          </item>
+	  <tag><em>"AllowOverRide"</em></tag>
+          <item>  
+            <p><em>Syntax:</em> <c>AllowOverRide</c> <c>all | none | Directives</c></p>
+	    <p><em>Default:</em> <c>none</c></p>
+	    <p><c>AllowOverRide</c> specifies the parameters that
+              access files in subdirectories are not allowed to alter the value 
+              for. If the parameter is set to <c>none</c>, no further 
+              access files is parsed.
+              </p>
+            <p>If only one access file exists, setting this parameter to
+              <c>none</c> can ease the burden on the server as the server
+              then stops looking for access files.</p>
+          </item>
+	  <tag><em>"AuthGroupfile"</em></tag>
+          <item>
+            <p><em>Syntax:</em> <c>AuthGroupFile</c> Filename</p>
+	    <p><em>Default:</em> <c>none</c></p>
+            <p><c>AuthGroupFile</c> indicates which file that contains the list
+              of groups. The filename must contain the absolute path to the
+              file. The format of the file is one group per row and
+              every row contains the name of the group and the members
+              of the group, separated by a space, for example:</p>
+            <pre>
+GroupName: Member1 Member2 .... MemberN</pre>
+          </item>
+	  <tag><em>"AuthName"</em></tag>
+          <item>
+            <p><em>Syntax:</em> <c>AuthName</c> auth-domain</p>
+	    <p><em>Default:</em> <c>none</c></p>
+            <p>Same as directive <c>AuthName</c> for the server 
+	    configuration file.</p>
+          </item>
+	  <tag><em>"AuthType"</em></tag>
+          <item>
+            <p><em>Syntax:</em> <c>AuthType</c> <c>Basic</c></p>
+	    <p><em>Default:</em> <c>Basic</c></p>
+            <p><c>AuthType</c> specifies which authentication scheme to
+              be used. Only Basic Authenticating using UUEncoding of
+              the password and user ID is implemented.</p>
+          </item>
+	  <tag><em>"AuthUserFile"</em></tag>
+          <item>
+            <p><em>Syntax:</em> <c>AuthUserFile</c> Filename</p>
+	    <p><em>Default:</em><c>none</c></p>
+            <p><c>AuthUserFile</c> indicates which file that contains the list
+              of users. The filename must contain the absolute path to the
+              file. The username and password are not encrypted so do not
+              place the file with users in a directory that is accessible
+              through the web server. The format of the file is one user per row.
+              Every row contains <c>UserName</c> and <c>Password</c> separated 
+	      by a colon, for example:</p>
+            <pre>
+UserName:Password
+UserName:Password</pre>
+          </item>
+	  <tag><em>"deny"</em></tag>
+          <item>
+            <p><em>Syntax:</em> <c>deny</c> from subnet <c>subnet | from all</c></p>
+	    <p><em>Context:</em> Limit</p>
+            <p>Same as directive <c>deny</c> for the server configuration file.</p>
+          </item>
+	  <tag><em>"Limit"</em></tag>
+          <item> 
+            <p><em>Syntax:</em> <c><![CDATA[<Limit]]></c> RequestMethods<c>></c></p>
+	    <p><em>Default:</em> <c>none</c></p>
+            <p><c><![CDATA[<Limit>]]></c> and <c>&lt;/Limit&gt;</c> are used to enclose
+              a group of directives applying only to requests using
+              the specified methods. If no request method is specified,
+              all request methods are verified against the restrictions.</p>
+	      <p>Example:</p>
+            <pre>
+&lt;Limit POST GET HEAD&gt;
+  order allow deny
+  require group group1
+  allow from 123.145.244.5
+&lt;/Limit&gt;</pre>
+          </item>
+	  <tag><em>"order"</em></tag>
+          <item>   
+	    <p><em>Syntax:</em> <c>order</c> <c>allow deny | deny allow</c></p>
+	    <p><em>Default:</em> <c>allow deny</c></p>
+            <p><c>order</c> defines if the deny or allow control is to
+              be performed first.</p>
+            <p>If the order is set to <c>allow deny</c>, the users
+              network address is first controlled to be in the allow subset. 
+	      If the user network address is not in the allowed subset, the user
+              is denied to get the asset. If the network address is in the
+              allowed subset, a second control is performed. That is,
+              the user network address is not in the subset of network
+              addresses to be denied as specified by parameter <c>deny</c>.</p>
+            <p>If the order is set to <c>deny allow</c>, only users from networks
+              specified to be in the allowed subset succeeds to request  
+              assets in the limited area.</p>
+          </item>
+	  <tag><em>"require"</em></tag>
+          <item> 
+            <p><em>Syntax:</em> <c>require</c>
+              <c>group group1 group2... | user user1 user2...</c></p>
+	      <p><em>Default:</em> <c>none</c></p>
+	      <p><em>Context:</em> Limit</p>
+            <p>For more information, see directive <c>require</c>  in
+	    <seealso marker="mod_auth">mod_auth(3)</seealso>.</p>
+          </item>
+        </taglist>
+      </section>
+    </section>
+  
+    <section>
+      <title>Dynamic Web Pages</title>
+      <marker id="dynamic_we_pages"></marker>
+      <p><c>Inets</c> HTTP server provides two ways of creating dynamic web
+        pages, each with its own advantages and disadvantages:</p>
+	<taglist>
+       <tag><em>CGI scripts</em></tag>
+       <item><p>Common Gateway Interface (CGI) scripts can be written 
+       in any programming language. CGI scripts are standardized and 
+       supported by most web servers. The drawback with CGI scripts is that 
+       they are resource-intensive because of their design. CGI requires the 
+       server to fork a new OS process for each executable it needs to start.
+       </p></item>
+       <tag><em>ESI-functions</em></tag>
+       <item><p>Erlang Server Interface (ESI) functions provide a tight and efficient
+        interface to the execution of Erlang functions. This interface,
+        on the other hand, is <c>Inets</c> specific.</p></item>
+     </taglist>
+      
+      <section>
+        <title>CGI Version 1.1, RFC 3875</title>
+        <p>The module <c>mod_cgi</c> enables execution of 
+	<url href="http://www.ietf.org/rfc/rfc3875.txt">CGI scripts</url>
+          on the server. A file matching the definition of a
+          ScriptAlias config directive is treated as a CGI script. A CGI
+          script is executed by the server and its output is returned to
+          the client.</p>
+        <p>The CGI script response comprises a message header and a
+          message body, separated by a blank line. The message header
+          contains one or more header fields. The body can be
+          empty.</p>
+	 <p>Example:</p>
+      
+      <code>"Content-Type:text/plain\nAccept-Ranges:none\n\nsome very
+	plain text"</code>
+      
+        <p>The server interprets the message headers and most of them
+          are transformed into HTTP headers and sent back to the
+          client together with the message-body.</p>
+        <p>Support for CGI-1.1 is implemented in accordance with 
+	<url href="http://www.ietf.org/rfc/rfc3875.txt">RFC 3875</url>.</p>
+      </section>
+
+      <section>
+        <title>ESI</title>
+        <p>The Erlang server interface is implemented by
+          module <c>mod_esi</c>.</p>
+
+        <section>
+          <title>ERL Scheme</title>
+          <p>The erl scheme is designed to mimic plain CGI, but without
+            the extra overhead. An URL that calls an Erlang <c>erl</c> function
+            has the following syntax (regular expression): </p>
+          <code type="none">
+http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)</code>
+          <p>*** depends on how the ErlScriptAlias config
+            directive has been used.</p>
+          <p>The module <c>Module</c> referred to must be found in the code
+            path, and it must define a function <c>Function</c> with an arity
+            of two or three. It is preferable to implement a function
+            with arity three, as it permits to send chunks of the
+            web page to the client during the generation
+            phase instead of first generating the whole web page and
+            then sending it to the client. The option to implement a
+            function with arity two is only kept for
+            backwards compatibility reasons.
+            For implementation details of the ESI callback function, 
+	    see <seealso marker="mod_esi">mod_esi(3)</seealso>.</p>
+        </section>
+
+        <section>
+          <title>EVAL Scheme</title>
+          <p>The eval scheme is straight-forward and does not mimic the
+            behavior of plain CGI. An URL that calls an Erlang <c>eval</c>
+            function has the following syntax:</p>
+          <code type="none">
+http://your.server.org/***/Mod:Func(Arg1,...,ArgN)</code>
+          <p>*** depends on how the ErlScriptAlias config
+            directive has been used.</p>
+          <p>The module <c>Mod</c> referred to must be found in the code
+            path and data returned by the function <c>Func</c> is passed
+            back to the client. Data returned from the
+            function must take the form as specified in
+            the CGI specification. For implementation details of the ESI 
+	    callback function, 
+	    see <seealso marker="mod_esi">mod_esi(3)</seealso>.</p>
+          <note>
+            <p>The eval scheme can seriously threaten the
+              integrity of the Erlang node housing a web server, for
+              example:</p>
+            <code type="none">
+http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[])))</code>
+            <p>This effectively closes down the Erlang node.
+              Therefore, use the erl scheme instead, until this
+              security breach is fixed.</p>
+            <p>Today there are no good ways of solving this problem
+              and therefore the eval scheme can be removed in future
+              release of <c>Inets</c>.</p>
+          </note>
+        </section>
+      </section>
+    </section>
+
+  <section>
+    <title>Logging</title>
+    <marker id="logging"></marker>
+    <p>Three types of logs are supported: transfer logs,
+      security logs, and error logs. The de-facto standard Common
+        Logfile Format is used for the transfer and security logging.
+      There are numerous statistics programs available to analyze Common
+      Logfile Format. The Common Logfile Format looks as follows:
+        </p>
+    <p><em>remotehost rfc931 authuser [date] "request" status bytes</em></p>
+    <p>Here:</p>
+    <taglist>
+      <tag><em>remotehost</em></tag>
+      <item>Remote hostname.</item>
+      <tag><em>rfc931</em></tag>
+        <item>The client remote username (<url href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</url>).</item>
+      <tag><em>authuser</em></tag>
+      <item>The username used for authentication.</item>
+      <tag><em>[date]</em></tag>
+        <item>Date and time of the request (<url href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</url>).</item>
+      <tag><em>"request"</em></tag>
+        <item>The request line exactly as it came from the client (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
+        <tag><em>status</em></tag>
+        <item>The HTTP status code returned to the client  (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
+        <tag><em>bytes</em></tag>
+        <item>The content-length of the document transferred. </item>
+      </taglist>
+      <p>Internal server errors are recorded in the error log file. The
+        format of this file is a more unplanned format than the logs using
+      Common Logfile Format, but conforms to the following syntax:
+        </p>
+      <p><em>[date]</em> access to <em>path</em> failed for
+        <em>remotehost</em>, reason: <em>reason</em></p>
+  </section>
+  
+  <section>
+      <title>Erlang Web Server API</title>
+      <p>The process of handling an HTTP request involves several steps,
+        such as:</p>
+      <list type="bulleted">
+        <item>Setting up connections, sending and receiving data.</item>
+        <item>URI to filename translation.</item>
+        <item>Authentication/access checks.</item>
+        <item>Retrieving/generating the response.</item>
+        <item>Logging.</item>
+      </list>
+      <p>To provide customization and extensibility of the request 
+         handling of the HTTP servers, most of these steps are handled by 
+	 one or more modules. These modules can be replaced or removed at 
+	 runtime and new ones can be added. For each request, all modules are
+         traversed in the order specified by the module directive in the
+         server configuration file. Some parts, mainly the communication-
+         related steps, are considered server core functionality and are
+         not implemented using the Erlang web server API. A description of
+         functionality implemented by the Erlang webserver API is described
+         in <seealso marker="#Inets_Web_Server_Modules">Section 
+	 Inets Web Server Modules</seealso>.</p>
+
+      <p>A module can use data generated by previous modules in the
+        Erlang webserver API module sequence or generate data to be used
+        by consecutive Erlang Web Server API modules. This is
+        possible owing to an internal list of key-value tuples, referred to
+        as interaction data.</p>
+      <note>
+        <p>Interaction data enforces module dependencies and
+          is to be avoided if possible. This means that the order
+          of modules in the modules property is significant.</p>
+      </note>
+
+      <section>
+        <title>API Description</title>
+        <p>Each module that implements server functionality
+          using the Erlang web server API is to implement the following
+          call back functions:</p>
+        <list type="bulleted">
+          <item><c>do/1</c> (mandatory) - the function called when
+           a request is to be handled</item>
+          <item><c>load/2</c></item>
+          <item><c>store/2</c></item>
+          <item><c>remove/1</c></item>
+        </list>
+        <p>The latter functions are needed only when new config
+          directives are to be introduced. For details, see
+          <seealso marker="httpd">httpd(3)</seealso>.</p>
+      </section>
+    </section>
+
+  <section>
+    <title>Inets Web Server Modules</title>
+    <marker id="Inets_Web_Server_Modules"></marker>
+    <p>The convention is that
+      all modules implementing some web server functionality has the
+      name <c>mod_*</c>. When configuring the web server, an appropriate
+      selection of these modules is to be present in the module
+      directive. Notice that there are some interaction dependencies
+      to take into account, so the order of the modules cannot be
+      random.</p>
+
+    <section>
+      <title>mod_action - Filetype/Method-Based Script Execution</title>
+      <p>This module runs CGI scripts whenever a file of a
+	certain type or HTTP method (see 
+	<url href="http://tools.ietf.org/html/rfc1945">RFC 1945</url>)
+	is requested.
+      </p>
+      <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso>.</item>
+      </list>
+      <p>Exports the following Erlang Web Server API interaction data, if possible:
+      </p>
+      <taglist>
+	<tag><c>{new_request_uri, RequestURI}</c></tag>
+	<item>An alternative <c>RequestURI</c> has been generated.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>mod_alias - URL Aliasing</title>
+      <p>The <seealso marker="mod_alias">mod_alias</seealso>
+      module makes it possible to map different parts of the
+	host file system into the document tree, that is, creates aliases and
+	redirections.</p>
+        <p>Exports the following Erlang Web Server API interaction data, if possible:
+      </p>
+      <taglist>
+	<tag><c>{real_name, PathData}</c></tag>
+	<item><c>PathData</c> is the argument used for API function 
+	<seealso marker="mod_alias#path/3">mod_alias:path/3</seealso>.</item>
+      </taglist>
+    </section>
+    
+    <section>
+      <title>mod_auth - User Authentication</title>
+        <p>The <seealso marker="mod_auth">mod_auth(3)</seealso> 
+	module provides for basic user authentication using
+	textual files, Dets databases as well as Mnesia databases.</p>
+      <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+        </list>
+      <p>Exports the following Erlang Web Server API interaction data:
+      </p>
+      <taglist>
+	<tag><c>{remote_user, User}</c></tag>
+          <item>The username used for authentication.</item>
+      </taglist>
+      
+      
+      <section>
+	<title>Mnesia As Authentication Database</title>
+	
+	<p>If Mnesia is used as storage method, Mnesia must be
+	  started before the HTTP server. The first time Mnesia is
+	  started, the schema and the tables must be created before
+	  Mnesia is started. A simple example of a module with two
+	  functions that creates and start Mnesia is provided
+	  here. Function <c>first_start/0</c> is to be used the first
+	  time. It creates the schema and the tables.
+	  <c>start/0</c> is to be used in consecutive startups. 
+	  <c>start/0</c> starts Mnesia and waits for the tables to
+	  be initiated. This function must only be used when the
+	  schema and the tables are already created.</p>
+	
+	<code>
+-module(mnesia_test).
+-export([start/0,load_data/0]).
+-include_lib("mod_auth.hrl").
+
+first_start() ->
+    mnesia:create_schema([node()]),
+    mnesia:start(),
+    mnesia:create_table(httpd_user,
+                        [{type, bag},
+                         {disc_copies, [node()]},
+                         {attributes, record_info(fields, 
+                                                  httpd_user)}]),
+    mnesia:create_table(httpd_group,
+                        [{type, bag},
+                         {disc_copies, [node()]},          
+                         {attributes, record_info(fields, 
+                                                  httpd_group)}]),
+    mnesia:wait_for_tables([httpd_user, httpd_group], 60000).
+
+start() ->
+    mnesia:start(),
+    mnesia:wait_for_tables([httpd_user, httpd_group], 60000).  </code>
+	
+	<p>To create the Mnesia tables, we use two records defined in
+	  <c>mod_auth.hrl</c>, so that file must be included. <c>first_start/0</c> 
+	  creates a schema that specifies on which nodes the database is to reside. 
+	  Then it starts Mnesia and creates the tables. The first argument
+	  is the name of the tables, the second argument is a list of options of 
+	  how to create the table, see 
+	  <seealso marker="mnesia:mnesia"><c>mnesia(3)</c></seealso>, documentation for
+	  more information. As the implementation of the <c>mod_auth_mnesia</c> 
+	  saves one row for each user, the type must be <c>bag</c>.
+	  When the schema and the tables are created, function
+	  <seealso marker="mnesia:mnesia#start-0">mnesia:start/0</seealso>
+	  is used to start Mnesia  and
+	  waits for the tables to be loaded. Mnesia uses the
+	  directory specified as <c>mnesia_dir</c> at startup if specified,
+	  otherwise Mnesia uses the current directory. For security
+	  reasons, ensure that the Mnesia tables are stored outside
+	  the document tree of the HTTP server. If they are placed in the
+	  directory which it protects, clients can download the tables. 
+	  Only the Dets and Mnesia storage
+	  methods allow writing of dynamic user data to disk. <c>plain</c> is
+	  a read only method.</p>
+      </section>
+
+    </section>
+    
+    <section>
+      <title>mod_cgi - CGI Scripts</title>
+        <p>This module handles invoking of CGI scripts.</p>
+    </section>
+    
+    <section>
+      <title>mod_dir - Directories</title>
+      <p>This module generates an HTML directory listing
+	(Apache-style) if a client sends a request for a directory
+	instead of a file. This module must be removed from the
+	Modules config directive if directory listings is unwanted.</p>
+      <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+      </list>
+      <p>Exports the following Erlang Web Server API interaction data:
+      </p>
+      <taglist>
+	<tag><c>{mime_type, MimeType}</c></tag>
+	<item>The file suffix of the incoming URL mapped into a
+          <c>MimeType</c>.</item>
+        </taglist>
+      </section>
+
+    <section>
+      <title>mod_disk_log - Logging Using Disk_Log.</title>
+        <p>Standard logging using the "Common Logfile Format" and
+	<seealso marker="kernel:disk_log">disk_log(3)</seealso>.</p>
+        <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+        <list type="bulleted">
+	<item><c>remote_user</c> - from <c>mod_auth</c></item>
+      </list>
+    </section>
+
+    <section>
+      <title>mod_esi - Erlang Server Interface</title>
+      <p>The <seealso marker="mod_esi">mod_esi(3)</seealso>
+      module implements the Erlang Server Interface (ESI) providing a 
+      tight and efficient interface to the execution of Erlang functions.</p>
+      <p>Uses the following Erlang web server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>remote_user</c> - from <c>mod_auth</c></item>
+      </list>
+      <p>Exports the following Erlang web server API interaction data:
+          </p>
+      <taglist>
+	<tag><c>{mime_type, MimeType}</c></tag>
+	<item>The file suffix of the incoming URL mapped into a
+          <c>MimeType</c></item>
+        </taglist>
+      </section>
+    
+      <section>
+      <title>mod_get - Regular GET Requests</title>
+      <p>This module is responsible for handling GET requests to regular 
+	files. GET requests for parts of files is handled by <c>mod_range</c>.</p>
+        <p>Uses the following Erlang web server API interaction data:
+      </p>
+      <list type="bulleted">
+          <item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+      </list>
+      </section>
+    
+    <section>
+      <title>mod_head - Regular HEAD Requests</title>
+        <p>This module is responsible for handling HEAD requests to regular 
+	files. HEAD requests for dynamic content is handled by each module 
+	responsible for dynamic content.</p>
+        <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+        </list>
+    </section>
+    
+    <section>
+      <title>mod_htaccess - User Configurable Access</title>
+      <p>This module provides per-directory user configurable access
+          control.</p>
+      <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+          <item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+      </list>
+      <p>Exports the following Erlang Web Server API interaction data:
+      </p>
+      <taglist>
+	<tag><c>{remote_user_name, User}</c></tag>
+	<item>The username used for authentication.</item>
+        </taglist>
+    </section>
+    
+    <section>
+      <title>mod_log - Logging Using Text Files.</title>
+      <p>Standard logging using the "Common Logfile Format" and text
+	files.</p>
+        <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>remote_user</c> - from <c>mod_auth</c></item>
+        </list>
+    </section>
+    
+      <section>
+      <title>mod_range - Requests with Range Headers</title>
+      <p>This module responses to requests for one or many ranges of a
+	file. This is especially useful when downloading large files,
+	as a broken download can be resumed.</p>
+      <p>Notice that request for multiple parts of a document report a
+	size of zero to the log file.</p>
+        <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
+      </list>
+    </section>
+
+    <section>
+      <title>mod_response_control - Requests with If* Headers</title>
+      <p>This module controls that the conditions in the requests are
+	fulfilled. For example, a request can specify that the answer
+	only is of interest if the content is unchanged since the last
+	retrieval. If the content is changed, the range request is to
+	be converted to a request for the whole file instead.</p> 
+	<p>If a client sends more than one of the header fields that 
+	restricts the servers right to respond, the standard does not 
+	specify how this is to be handled.
+	<seealso marker="httpd">httpd(3)</seealso> controls each 
+	field in the following order and if one of the fields does not 
+	match the current state, the request is rejected with a proper 
+	response:</p>
+	<p><c>If-modified</c></p>
+	<p><c>If-Unmodified</c></p>
+	<p><c>If-Match</c></p>
+	<p><c>If-Nomatch</c></p>
+	
+      <p>Uses the following Erlang Web Server API interaction data:
+      </p>
+      <list type="bulleted">
+	<item><c>real_name</c> - from  <seealso marker="mod_alias">mod_alias</seealso></item>
+      </list>
+      <p>Exports the following Erlang Web Server API interaction data:
+      </p>
+      <taglist>
+	<tag><c>{if_range, send_file}</c></tag>
+	<item>The conditions for the range request are not fulfilled.
+	  The response must not be treated as a range request, instead it
+	  must be treated as an ordinary get request.</item>
+        </taglist>
+    </section>
+    
+    <section>
+      <title>mod_security - Security Filter</title>
+        <p>The <seealso marker="mod_security">mod_security</seealso> 
+	module serves as a filter for authenticated requests
+	handled in <seealso marker="mod_auth">mod_auth(3)</seealso>. 
+	It provides a possibility to restrict users from 
+	access for a specified amount of time if they fail to
+	authenticate several times. It logs failed authentication as
+	well as blocking of users, and it calls a configurable
+	callback module when the events occur.</p>
+      <p>There is also an
+	API to block or unblock users manually. This API can also list 
+	blocked users or users who have been authenticated within a 
+	configurable amount of time.</p>
+    </section>
+    
+    <section>
+      <title>mod_trace - TRACE Request</title>
+      <p><c>mod_trace</c> is responsible for handling of TRACE requests.
+	Trace is a new request method in HTTP/1.1. The intended use of
+	trace requests is for testing. The body of the trace response is
+	the request message that the responding web server or proxy
+	received.</p>
+    </section>
+  </section>
+</chapter>
+
+

@@ -1,0 +1,192 @@
+-- Module Colour-Attributes (T.415:03/1993)
+
+Colour-Attributes {2 8 1 5 14} DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  Colour-Expression, Colour-Table, Colour-Spaces-List, Colour-Characteristics;
+
+IMPORTS Character-Data
+          FROM Document-Profile-Descriptor; --  see 7.7 
+
+Real-Or-Int ::= CHOICE {a  REAL,
+                        b  INTEGER
+}
+
+Colour-Expression ::= SEQUENCE {
+  colour-access-mode  [0] IMPLICIT INTEGER {direct(0), indexed(1)},
+  a
+    [1]  CHOICE {direct-colour   [0] IMPLICIT Direct-Colour,
+                 indexed-colour  [1] IMPLICIT Indexed-Colour}
+}
+
+Direct-Colour ::= SET {
+  colour-space-id       [0] IMPLICIT INTEGER OPTIONAL,
+  colour-specification  [1]  Colour-Specification OPTIONAL,
+  colour-tolerance      [2]  Colour-Tolerance OPTIONAL
+}
+
+Colour-Specification ::= CHOICE {
+  cmyk-colour  [0] IMPLICIT CMYK-Colour,
+  rgb-colour   [1] IMPLICIT RGB-Colour,
+  cie-colour   [2] IMPLICIT CIE-Colour
+}
+
+CMYK-Colour ::= SET {
+  c-value  [0]  Real-Or-Int,
+  m-value  [1]  Real-Or-Int,
+  y-value  [2]  Real-Or-Int,
+  k-value  [3]  Real-Or-Int OPTIONAL
+}
+
+RGB-Colour ::= SET {
+  r-value  [0]  Real-Or-Int,
+  g-value  [1]  Real-Or-Int,
+  b-value  [2]  Real-Or-Int
+}
+
+CIE-Colour ::= SET {
+  x-value  [0]  Real-Or-Int,
+  y-value  [1]  Real-Or-Int,
+  z-value  [2]  Real-Or-Int
+}
+
+Colour-Tolerance ::= CHOICE {
+  unspecified-tolerance  [0] IMPLICIT NULL,
+  specified-tolerance    [1] IMPLICIT Specified-Tolerance
+}
+
+Specified-Tolerance ::= SET {
+  tolerance-value  [0]  Real-Or-Int,
+  tolerance-space  [1] IMPLICIT INTEGER {cieluv(3), cielab(4)}
+}
+
+Indexed-Colour ::= SET {index  [0] IMPLICIT INTEGER OPTIONAL
+}
+
+Colour-Table ::= SET {
+  colour-space-id       [0] IMPLICIT INTEGER,
+  colour-table-entries
+    [1] IMPLICIT SET OF
+                   SET {index               [0] IMPLICIT INTEGER,
+                        colour-coordinates  [1]  Colour-Specification,
+                        colour-tolerance    [2]  Colour-Tolerance OPTIONAL
+                   }
+}
+
+Colour-Characteristics ::= SET {
+  colour-spaces-present
+    [0] IMPLICIT SEQUENCE OF
+                   SET {colour-space-type        [0] IMPLICIT Colour-Space-Type,
+                        colour-calibration-type
+                          [1] IMPLICIT Colour-Space-Calibration-Type},
+  colour-modes-present         [1] IMPLICIT Colour-Modes-Present,
+  minimum-colour-tolerance     [2]  Colour-Tolerance OPTIONAL,
+  maximum-colour-table-length  [3] IMPLICIT INTEGER OPTIONAL,
+  -- "maximum number of colour table entries" 
+  maximum-rgb-lut-length       [4] IMPLICIT INTEGER OPTIONAL,
+  -- "maximum number of look-up table entries" 
+  maximum-cmy-k-grid-size      [5] IMPLICIT INTEGER OPTIONAL
+}
+
+Colour-Space-Type ::= INTEGER {rgb(0), cmyk(1), cmy(2), cieluv(3), cielab(4)}
+
+Colour-Space-Calibration-Type ::= INTEGER {
+  no-calibration(0), matrices(1), lookup-tables(2),
+  matrices-and-lookup-tables(3)}
+
+Colour-Modes-Present ::= INTEGER {direct(0), indexed(1), both(2)}
+
+Colour-Spaces-List ::= SET OF Colour-Space
+
+Colour-Space ::= SET {
+  colour-space-id      [0] IMPLICIT INTEGER,
+  colour-space-type    [1] IMPLICIT Colour-Space-Type,
+  colour-space-name    [2] IMPLICIT Character-Data OPTIONAL,
+  colour-data-scaling  [3]  Colour-Data-Scaling OPTIONAL,
+  calibration-data     [4]  Calibration-Data OPTIONAL
+}
+
+Colour-Data-Scaling ::= SET {
+  first-component   [0] IMPLICIT Scale-And-Offset,
+  second-component  [1] IMPLICIT Scale-And-Offset,
+  third-component   [2] IMPLICIT Scale-And-Offset,
+  fourth-component  [3] IMPLICIT Scale-And-Offset OPTIONAL
+}
+
+Scale-And-Offset ::= SET {
+  colour-scale   [0]  Real-Or-Int,
+  colour-offset  [1]  Real-Or-Int
+}
+
+Calibration-Data ::= CHOICE {
+  rgb     [0] IMPLICIT RGB-Calibration,
+  cmyk    [1] IMPLICIT CMY-K-Calibration,
+  cmy     [2] IMPLICIT CMY-K-Calibration,
+  cieluv  [3] IMPLICIT CIE-Calibration,
+  cielab  [4] IMPLICIT CIE-Calibration
+}
+
+CIE-Calibration ::= SET {reference-white  [0] IMPLICIT CIE-Ref
+}
+
+RGB-Calibration ::= SET {
+  reference-white  [0] IMPLICIT CIE-Ref,
+  matrix1          [1] IMPLICIT Three-by-Three-Matrix OPTIONAL,
+  lookup-table     [3] IMPLICIT Colour-Lookup-Table OPTIONAL,
+  matrix2          [2] IMPLICIT Three-by-Three-Matrix OPTIONAL
+}
+
+Three-by-Three-Matrix ::= SEQUENCE {
+  row-1  Three-Nums,
+  row-2  Three-Nums,
+  row-3  Three-Nums
+}
+
+Three-Nums ::= SEQUENCE {
+  column-1  Real-Or-Int,
+  column-2  Real-Or-Int,
+  column-3  Real-Or-Int
+}
+
+Colour-Lookup-Table ::= SET {
+  number-of-entries  [0] IMPLICIT INTEGER,
+  m                  [1] IMPLICIT INTEGER,
+  n                  [2] IMPLICIT INTEGER,
+  colour-table       [3] IMPLICIT SET OF Colour-Table-Entry
+}
+
+Colour-Table-Entry ::= SET {
+  index  [3] IMPLICIT INTEGER,
+  r      [0]  Real-Or-Int,
+  g      [1]  Real-Or-Int,
+  b      [2]  Real-Or-Int
+}
+
+CMY-K-Calibration ::= SET {
+  reference-white  [0] IMPLICIT CIE-Ref,
+  comment          [1] IMPLICIT Character-Data OPTIONAL,
+  cmyk-lut         [2] IMPLICIT Grid-Specification
+}
+
+Grid-Specification ::=
+  SET OF
+    SET {grid-location  [0] IMPLICIT CMYK-Colour,
+         grid-value     [1] IMPLICIT Grid-Value}
+
+Grid-Value ::= SET {
+  x-value  [0] IMPLICIT REAL,
+  y-value  [1] IMPLICIT REAL,
+  z-value  [2] IMPLICIT REAL
+}
+
+CIE-Ref ::= SET {
+  xn-value  [0]  Real-Or-Int,
+  yn-value  [1]  Real-Or-Int,
+  zn-value  [2]  Real-Or-Int
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

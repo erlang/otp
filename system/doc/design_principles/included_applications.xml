@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Included Applications</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>included_applications.xml</file>
+  </header>
+  <marker id="included appl"></marker>
+
+  <section>
+    <title>Introduction</title>
+    <p>An application can <em>include</em> other applications.
+      An <em>included application</em> has its own application directory
+      and <c>.app</c> file, but it is started as part of the supervisor
+      tree of another application.</p>
+    <p>An application can only be included by one other application.</p>
+    <p>An included application can include other applications.</p>
+    <p>An application that is not included by any other application is
+      called a <em>primary application</em>.</p>
+    <marker id="inclappls"></marker>
+    <image file="../design_principles/inclappls.gif">
+      <icaption>Primary Application and Included Applications</icaption>
+    </image>
+    <p>The application controller automatically loads any included
+      applications when loading a primary application, but does not start
+      them. Instead, the top supervisor of the included application
+      must be started by a supervisor in the including application.</p>
+    <p>This means that when running, an included application is in fact
+      part of the primary application, and a process in an included
+      application considers itself belonging to the primary
+      application.</p>
+  </section>
+
+  <section>
+    <title>Specifying Included Applications</title>
+    <p>Which applications to include is defined by
+      the <c>included_applications</c> key in the <c>.app</c> file:</p>
+    <pre>
+{application, prim_app,
+ [{description, "Tree application"},
+  {vsn, "1"},
+  {modules, [prim_app_cb, prim_app_sup, prim_app_server]},
+  {registered, [prim_app_server]},
+  {included_applications, [incl_app]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {prim_app_cb,[]}},
+  {env, [{file, "/usr/local/log"}]}
+ ]}.</pre>
+  </section>
+
+  <section>
+    <title>Synchronizing Processes during Startup</title>
+    <p>The supervisor tree of an included application is started as
+      part of the supervisor tree of the including application.
+      If there is a need for synchronization between processes in
+      the including and included applications, this can be achieved
+      by using <em>start phases</em>.</p>
+    <p>Start phases are defined by the <c>start_phases</c> key in
+      the <c>.app</c> file as a list of tuples <c>{Phase,PhaseArgs}</c>,
+      where <c>Phase</c> is an atom and <c>PhaseArgs</c> is a term.</p>
+    <p>The value of the <c>mod</c> key of the including application
+      must be set to <c>{application_starter,[Module,StartArgs]}</c>,
+      where <c>Module</c> as usual is the application callback module.
+      <c>StartArgs</c> is a term provided as argument to the callback
+      function <c>Module:start/2</c>:</p>
+    <code type="none">
+{application, prim_app,
+ [{description, "Tree application"},
+  {vsn, "1"},
+  {modules, [prim_app_cb, prim_app_sup, prim_app_server]},
+  {registered, [prim_app_server]},
+  {included_applications, [incl_app]},
+  {start_phases, [{init,[]}, {go,[]}]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {application_starter,[prim_app_cb,[]]}},
+  {env, [{file, "/usr/local/log"}]}
+ ]}.
+
+{application, incl_app,
+ [{description, "Included application"},
+  {vsn, "1"},
+  {modules, [incl_app_cb, incl_app_sup, incl_app_server]},
+  {registered, []},
+  {start_phases, [{go,[]}]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {incl_app_cb,[]}}
+ ]}.</code>
+    <p>When starting a primary application with included applications,
+    the primary application is started the normal way, that is:</p>
+    <list type="bulleted">
+      <item>The application controller creates an application master for
+      the application</item>
+      <item>The application master calls
+      <c>Module:start(normal, StartArgs)</c> to start the top
+      supervisor.</item>
+    </list>
+    <p>Then, for the primary application and each included application
+      in top-down, left-to-right order, the application master calls
+      <c>Module:start_phase(Phase, Type, PhaseArgs)</c> for each phase
+      defined for the primary application, in that order. If a phase
+      is not defined for an included application,
+      the function is not called for this phase and application.</p>
+    <p>The following requirements apply to the <c>.app</c> file for
+      an included application:</p>
+    <list type="bulleted">
+      <item>The <c>{mod, {Module,StartArgs}}</c> option must be included.
+      This option is used to find the callback module <c>Module</c> of the
+      application. <c>StartArgs</c> is ignored, as <c>Module:start/2</c>
+      is called only for the primary application.</item>
+      <item>If the included application itself contains included
+      applications, instead the
+      <c>{mod, {application_starter, [Module,StartArgs]}}</c> option
+      must be included.</item>
+      <item>The <c>{start_phases, [{Phase,PhaseArgs}]}</c> option must
+      be included, and the set of specified phases must be a subset
+      of the set of phases specified for the primary application.</item>
+    </list>
+    <p>When starting <c>prim_app</c> as defined above, the application
+    controller calls the following callback functions before
+    <c>application:start(prim_app)</c> returns a value:</p>
+    <code type="none">
+application:start(prim_app)
+ => prim_app_cb:start(normal, [])
+ => prim_app_cb:start_phase(init, normal, [])
+ => prim_app_cb:start_phase(go, normal, [])
+ => incl_app_cb:start_phase(go, normal, [])
+ok</code>
+  </section>
+</chapter>
+

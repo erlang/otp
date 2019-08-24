@@ -1,0 +1,66 @@
+-- module(Mvrasn-14-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Supplementary Service data types".
+--
+-- ASN.1 module: "MAP-SS-DataTypes".
+--
+-- =============================================================================
+
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+Mvrasn-14-4
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+    SS-SubscriptionOption,
+    SS-List,
+    maxNumOfSS
+;
+
+IMPORTS
+
+    SS-Code
+FROM Mvrasn-15-4
+
+;
+
+SS-SubscriptionOption ::= CHOICE {
+    cliRestrictionOption  [2]  CliRestrictionOption,
+    overrideCategory    [1]  OverrideCategory}
+
+CliRestrictionOption ::= ENUMERATED {
+    permanent  (0),
+    temporaryDefaultRestricted  (1),
+    temporaryDefaultAllowed  (2)}
+
+OverrideCategory ::= ENUMERATED {
+    overrideEnabled  (0),
+    overrideDisabled  (1)}
+
+SS-List ::= SEQUENCE SIZE (1..maxNumOfSS) OF
+                SS-Code
+
+maxNumOfSS  INTEGER ::= 30
+
+END

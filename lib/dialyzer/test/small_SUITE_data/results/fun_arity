@@ -1,0 +1,37 @@
+
+fun_arity.erl:100: Fun application will fail since _1 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:100: Function 'Mfa_0_ko'/1 has no local return
+fun_arity.erl:104: Fun application will fail since _1 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:104: Function 'Mfa_1_ko'/1 has no local return
+fun_arity.erl:111: Fun application will fail since _1 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:111: Function mFa_0_ko/1 has no local return
+fun_arity.erl:115: Fun application will fail since _1 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:115: Function mFa_1_ko/1 has no local return
+fun_arity.erl:122: Fun application will fail since _2 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:122: Function 'MFa_0_ko'/2 has no local return
+fun_arity.erl:126: Fun application will fail since _2 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:126: Function 'MFa_1_ko'/2 has no local return
+fun_arity.erl:35: Fun application will fail since _0 :: fun(() -> 'ok') is not a function of arity 1
+fun_arity.erl:35: Function f_0_ko/0 has no local return
+fun_arity.erl:39: Fun application will fail since _0 :: fun((_) -> 'ok') is not a function of arity 0
+fun_arity.erl:39: Function f_1_ko/0 has no local return
+fun_arity.erl:48: Fun application will fail since _0 :: fun(() -> 'ok') is not a function of arity 1
+fun_arity.erl:48: Function fa_0_ko/0 has no local return
+fun_arity.erl:53: Fun application will fail since _0 :: fun((_) -> 'ok') is not a function of arity 0
+fun_arity.erl:53: Function fa_1_ko/0 has no local return
+fun_arity.erl:63: Fun application will fail since _0 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:63: Function mfa_0_ko/0 has no local return
+fun_arity.erl:68: Fun application will fail since _0 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:68: Function mfa_1_ko/0 has no local return
+fun_arity.erl:76: Fun application will fail since _0 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:76: Function mfa_ne_0_ko/0 has no local return
+fun_arity.erl:78: Function mf_ne/0 will never be called
+fun_arity.erl:81: Fun application will fail since _0 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:81: Function mfa_ne_1_ko/0 has no local return
+fun_arity.erl:83: Function mf_ne/1 will never be called
+fun_arity.erl:89: Fun application will fail since _0 :: fun(() -> any()) is not a function of arity 1
+fun_arity.erl:89: Function mfa_nd_0_ko/0 has no local return
+fun_arity.erl:90: Call to missing or unexported function fun_arity:mf_nd/0
+fun_arity.erl:93: Fun application will fail since _0 :: fun((_) -> any()) is not a function of arity 0
+fun_arity.erl:93: Function mfa_nd_1_ko/0 has no local return
+fun_arity.erl:94: Call to missing or unexported function fun_arity:mf_nd/1

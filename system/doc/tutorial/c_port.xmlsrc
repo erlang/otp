@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Ports</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>c_port.xml</file>
+  </header>
+  <p>This section outlines an example of how to solve the example
+    problem in the <seealso marker="example">previous section</seealso>
+    by using a port.</p>
+  <p>The scenario is illustrated in the following figure:</p>
+  <image file="../tutorial/port.gif">
+    <icaption>Port Communication</icaption>
+  </image>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>All communication between Erlang and C must be established by
+      creating the port. The Erlang process that creates a port is
+      said to be <em>the connected process</em> of the port. All
+      communication to and from the port must go through the connected
+      process. If the connected process terminates, the port also
+      terminates (and the external program, if it is written
+      properly).</p>
+    <p>The port is created using the BIF <c>open_port/2</c> with
+      <c>{spawn,ExtPrg}</c> as the first argument. The string
+      <c>ExtPrg</c> is the name of the external program, including any
+      command line arguments. The second argument is a list of
+      options, in this case only <c>{packet,2}</c>. This option says
+      that a 2 byte length indicator is to be used to simplify the
+      communication between C and Erlang. The Erlang port
+      automatically adds the length indicator, but this must be done
+      explicitly in the external C program.</p>
+    <p>The process is also set to trap exits, which enables detection
+      of failure of the external program:</p>
+    <pre>
+-module(complex1).
+-export([start/1, init/1]).
+
+start(ExtPrg) ->
+  spawn(?MODULE, init, [ExtPrg]).
+
+init(ExtPrg) ->
+  register(complex, self()),
+  process_flag(trap_exit, true),
+  Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+  loop(Port).</pre>
+    <p>Now <c>complex1:foo/1</c> and <c>complex1:bar/1</c> can be
+      implemented. Both send a message to the <c>complex</c> process
+      and receive the following replies:</p>
+    <pre>
+foo(X) ->
+  call_port({foo, X}).
+bar(Y) ->
+  call_port({bar, Y}).
+
+call_port(Msg) ->
+  complex ! {call, self(), Msg},
+  receive
+    {complex, Result} ->
+      Result
+  end.</pre>
+    <p>The <c>complex</c> process does the following:</p>
+    <list type="bulleted">
+       <item>Encodes the message into a sequence of bytes.</item>
+       <item>Sends it to the port.</item>
+       <item>Waits for a reply.</item>
+       <item>Decodes the reply.</item>
+       <item>Sends it back to the caller:</item>
+     </list>
+    <pre>
+loop(Port) ->
+  receive
+    {call, Caller, Msg} ->
+      Port ! {self(), {command, encode(Msg)}},
+      receive
+        {Port, {data, Data}} ->
+          Caller ! {complex, decode(Data)}
+      end,
+      loop(Port)
+  end.</pre>
+    <p>Assuming that both the arguments and the results from the C
+      functions are less than 256, a simple encoding/decoding scheme
+      is employed. In this scheme, <c>foo</c> is represented by byte
+      1, <c>bar</c> is represented by 2, and the argument/result is
+      represented by a single byte as well:</p>
+    <pre>
+encode({foo, X}) -> [1, X];
+encode({bar, Y}) -> [2, Y].
+
+decode([Int]) -> Int.</pre>
+    <p>The resulting Erlang program, including functionality for
+      stopping the port and detecting port failures, is as follows:
+      </p>
+      <codeinclude file="complex1.erl" type="erl"/>
+  </section>
+
+  <section>
+    <title>C Program</title>
+    <p>On the C side, it is necessary to write functions for receiving
+      and sending data with 2 byte length indicators from/to Erlang.
+      By default, the C program is to read from standard input (file
+      descriptor 0) and write to standard output (file descriptor 1).
+      Examples of such functions, <c>read_cmd/1</c> and
+      <c>write_cmd/2</c>, follows:</p>
+      <codeinclude file="erl_comm.c" type="erl"/>
+    <p>Notice that <c>stdin</c> and <c>stdout</c> are for buffered
+      input/output and must <em>not</em> be used for the communication
+      with Erlang.</p>
+    <p>In the <c>main</c> function, the C program is to listen for a
+      message from Erlang and, according to the selected
+      encoding/decoding scheme, use the first byte to determine which
+      function to call and the second byte as argument to the
+      function. The result of calling the function is then to be sent
+      back to Erlang:</p>
+    <codeinclude file="port.c" tag="" type="none"></codeinclude>
+    <p>Notice that the C program is in a <c>while</c>-loop, checking
+      for the return value of <c>read_cmd/1</c>. This is because the C
+      program must detect when the port closes and terminates.</p>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p><em>Step 1.</em> Compile the C code:</p>
+    <pre>
+unix> <input>gcc -o extprg complex.c erl_comm.c port.c</input></pre>
+    <p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p>
+    <pre>
+unix> <input>erl</input>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1> <input>c(complex1).</input>
+{ok,complex1}</pre>
+    <p><em>Step 3.</em> Run the example:</p>
+    <pre>
+2> <input>complex1:start("extprg").</input>
+&lt;0.34.0>
+3> <input>complex1:foo(3).</input>
+4
+4> <input>complex1:bar(5).</input>
+10
+5> <input>complex1:stop().</input>
+stop</pre>
+  </section>
+</chapter>
+

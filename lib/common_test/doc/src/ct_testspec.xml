@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_testspec</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_testspec.xml</file>
+  </header>
+  <module since="OTP 19.3">ct_testspec</module>
+  <modulesummary>Parsing of test specifications for Common Test.
+  </modulesummary>
+
+<description>
+
+    <p>Parsing of test specifications for <c>Common Test</c>.</p>
+
+    <p>This module exports help functions for parsing of test specifications.</p>
+
+</description>
+
+  <funcs>
+    <func>
+    <name since="OTP 19.3">get_tests(SpecsIn) -&gt; {ok, [{Specs,Tests}]} | {error, Reason}</name>
+    <fsummary>Parse the given test specification files and return the tests to run and skip.</fsummary>
+      <type>
+        <v>SpecsIn = [string()] | [[string()]]</v>
+        <v>Specs = [string()]</v>
+        <v>Test = [{Node,Run,Skip}]</v>
+        <v>Node = atom()</v>
+        <v>Run = {Dir,Suites,Cases}</v>
+        <v>Skip = {Dir,Suites,Comment} | {Dir,Suites,Cases,Comment}</v>
+        <v>Dir = string()</v>
+        <v>Suites = atom | [atom()] | all</v>
+        <v>Cases = atom | [atom()] | all</v>
+        <v>Comment = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="add_nodes-1"/>
+        <p>Parse the given test specification files and return the
+        tests to run and skip.</p>
+
+        <p>If <c>SpecsIn=[Spec1,Spec2,...]</c>, separate tests will be
+        created per specification. If
+        <c>SpecsIn=[[Spec1,Spec2,...]]</c>, all specifications will be
+        merge into one test.</p>
+
+        <p>For each test, a <c>{Specs,Tests}</c> element is returned,
+        where <c>Specs</c> is a list of all included test
+        specifications, and <c>Tests</c> specifies actual tests to
+        run/skip per node.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+
+

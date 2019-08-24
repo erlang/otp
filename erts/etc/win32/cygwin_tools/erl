@@ -1,0 +1,49 @@
+#! /bin/sh
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2002-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+# 
+# Note! This shellscript expects to be run in a cygwin environment,
+# it converts erlc command lines to native windows erlc commands, which
+# basically means running the command cygpath on whatever is a path...
+
+CMD=""
+for x in "$@"; do 
+    case "$x" in
+	-I/*|-o/*)
+	    y=`echo $x | sed 's,^-[Io]\(/.*\),\1,g'`;
+	    z=`echo $x | sed 's,^-\([Io]\)\(/.*\),\1,g'`;
+	    #echo "Foooo:$z"
+	    MPATH=`cygpath -m $y`;
+	    CMD="$CMD -$z\"$MPATH\"";; 
+	/*)
+	    #echo "absolute:"$x;
+	    MPATH=`cygpath -m $x`;
+	    CMD="$CMD \"$MPATH\"";; 
+#	+{*);;
+	*)
+#	    y=`echo $x | sed 's,",\\\\\\\\\\\",g'`;
+	    y=`echo $x | sed 's,",\\\",g'`;
+	    CMD="$CMD \"$y\"";;
+    esac
+done
+#echo "$@"
+#eval echo erlc.exe $CMD
+ERL_TOP=`cygpath -m $ERL_TOP`
+export ERL_TOP
+eval erl.exe $CMD

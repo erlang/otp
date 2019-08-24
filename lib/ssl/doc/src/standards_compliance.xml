@@ -1,0 +1,2360 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2015</year>
+      <year>2019</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Standards Compliance</title>
+    <prepared>OTP team</prepared>
+    <docno></docno>
+    <date>2019-03-20</date>
+    <rev>A</rev>
+    <file>standards_compliance.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p>This section describes the current state of standards compliance of the ssl application.</p>
+  </section>
+
+  <section>
+    <title>Common (pre TLS 1.3)</title>
+    <list type="bulleted">
+      <item>For security reasons RSA key exchange cipher suites are no longer supported by default,
+      but can be configured. (OTP 21)
+      </item>
+      <item>For security reasons DES cipher suites are no longer supported by default,
+      but can be configured. (OTP 20)
+      </item>
+      <item>For security reasons 3DES cipher suites are no longer supported by default,
+      but can be configured. (OTP 21)
+      </item>
+      <item>Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
+      </item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported,
+      but not Diffie Hellman Certificates cipher suites.
+      </item>
+      <item>Elliptic Curve cipher suites are supported if the Crypto
+      application supports it and named curves are used.
+      </item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.
+      </item>
+      <item>IDEA cipher suites are not supported as they have
+      become deprecated by the TLS 1.2 specification so it is not
+      motivated to implement them.
+      </item>
+      <item>Compression is not supported.
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Common</title>
+    <list type="bulleted">
+      <item>CRL validation is supported.</item>
+      <item>Policy certificate extensions are not supported.</item>
+      <item>'Server Name Indication' extension
+      (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
+      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN) are supported. </item>
+      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
+      cipher suites, but they are not enabled by default.
+      </item>
+    </list>
+  </section>
+
+
+  <section>
+    <title>SSL 2.0</title>
+    <p>For security reasons SSL-2.0 is not supported. Interoperability with SSL-2.0 enabled clients dropped. (OTP 21)</p>
+  </section>
+
+  <section>
+    <title>SSL 3.0</title>
+    <p>For security reasons SSL-3.0 is no longer supported by default, but can be configured. (OTP 19)</p>
+  </section>
+
+  <section>
+    <title>TLS 1.0</title>
+    <p>For security reasons TLS-1.0 is no longer supported by default, but can be configured. (OTP 22)</p>
+  </section>
+
+  <section>
+    <title>TLS 1.1</title>
+    <p>For security reasons TLS-1.1 is no longer supported by default, but can be configured. (OTP 22)</p>
+  </section>
+
+  <section>
+    <title>TLS 1.2</title>
+    <p>Supported</p>
+  </section>
+
+  <section>
+    <title>DTLS 1.0</title>
+    <p>For security reasons DTLS-1.0 (based on TLS 1.1) is no longer supported by default, but can be configured. (OTP 22)</p>
+  </section>
+
+  <section>
+    <title>DTLS 1.2</title>
+    <p>Supported (based on TLS 1.2)</p>
+  </section>
+
+  <section>
+    <title>DTLS 1.3</title>
+    <p>Not yet supported</p>
+  </section>
+
+  <section>
+    <title>TLS 1.3</title>
+    <p>OTP-22 introduces basic support for TLS 1.3. Basic functionality
+    covers a simple TLS 1.3 handshake with support of the mandatory extensions
+    (supported_groups, signature_algorithms, key_share, supported_versions and
+    signature_algorithms_cert). The current implementation supports a selective set of cryptographic algorithms:</p>
+    <list type="bulleted">
+      <item>Key Exchange: ECDHE</item>
+      <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
+      <item>Ciphers: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384,
+      TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_CCM_SHA256</item>
+      <item>Signature Algorithms: rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pkcs1_sha512,
+      ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, ecdsa_secp521r1_sha512, rsa_pss_rsae_sha256,
+      rsa_pss_rsae_sha384, rsa_pss_rsae_sha512, rsa_pkcs1_sha1 and ecdsa_sha1</item>
+      <item>Certificates: RSA (it MUST use the rsaEncryption OID) and ECDSA keys</item>
+    </list>
+    <p>Other notable features:</p>
+    <list type="bulleted">
+      <item>PSK and session resumption not supported</item>
+      <item>Early data and 0-RTT not supported</item>
+      <item>Key and Initialization Vector Update not supported</item>
+    </list>
+    <p>For more detailed information see the
+    <seealso marker="#soc_table">Standards Compliance</seealso> below.</p>
+
+    <p> The following table describes the current state of standards compliance for TLS 1.3.</p>
+    <p>(<em>C</em> = Compliant, <em>NC</em> = Non-Compliant, <em>PC</em> = Partially-Compliant,
+    <em>NA</em> = Not Applicable)</p>
+    <marker id="soc_table"/>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Section</em></cell>
+        <cell align="left" valign="middle"><em>Feature</em></cell>
+	<cell align="left" valign="middle"><em>State</em></cell>
+	<cell align="left" valign="middle"><em>Since</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-1.2">
+	    1.3. Updates Affecting TLS 1.2
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Version downgrade protection mechanism</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">RSASSA-PSS signature schemes</cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (ClientHello) extension</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms_cert extension</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-2">
+	    2. Protocol Overview
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">(EC)DHE</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">PSK-only</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">PSK with (EC)DHE</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-2.1">
+	    2.1. Incorrect DHE share
+	  </url>
+	</cell>
+        <cell align="left" valign="middle">HelloRetryRequest</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-2.2">
+	    2.2. Resumption and Pre-Shared Key (PSK)
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-2.3">
+	    2.3. 0-RTT Data
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.1.1">
+	    4.1.1. Cryptographic Negotiation
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_groups extension</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms extension</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">pre_shared_key extension</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.1.2">
+	    4.1.2. Client Hello
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+     <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_name (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_groups (RFC7919)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">heartbeat (RFC6520)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">client_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">padding (RFC7685)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">key_share (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">pre_shared_key (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">psk_key_exchange_modes (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">cookie (RFC8446) </cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">oid_filters (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">post_handshake_auth (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms_cert (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_name (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_groups (RFC7919)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">heartbeat (RFC6520)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">client_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">padding (RFC7685)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">key_share (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">pre_shared_key (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">psk_key_exchange_modes (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">cookie (RFC8446) </cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">oid_filters (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">post_handshake_auth (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms_cert (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.1.3">
+	    4.1.3. Server Hello
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Version downgrade protection</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">key_share (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">pre_shared_key (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Version downgrade protection</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">key_share (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">pre_shared_key (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.1.4">
+	    4.1.4. Hello Retry Request
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">key_share (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">cookie (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.1">
+	    4.2.1. Supported Versions
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.2">
+	    4.2.2. Cookie
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.3">
+	    4.2.3. Signature Algorithms
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp256r1_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp384r1_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp521r1_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ed25519</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ed448</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha256</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha384</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha512</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_sha1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp256r1_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp384r1_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_secp521r1_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_rsae_sha512</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ed25519</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ed448</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha256</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha384</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pss_pss_sha512</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">rsa_pkcs1_sha1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ecdsa_sha1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.4">
+	    4.2.4. Certificate Authorities
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.5">
+	    4.2.5. OID Filters
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.6">
+	    4.2.6. Post-Handshake Client Authentication
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.7">
+	    4.2.7. Supported Groups
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp256r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp384r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp521r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">x25519</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">x448</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe2048</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe3072</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe4096</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe6144</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe8192</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp256r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp384r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">secp521r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">x25519</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">x448</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe2048</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe3072</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe4096</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe6144</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">ffdhe8192</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.8">
+	    4.2.8. Key Share
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.9">
+	    4.2.9. Pre-Shared Key Exchange Modes
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.10">
+	    4.2.10. Early Data Indication
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.11">
+	    4.2.11. Pre-Shared Key Extension
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.11.1">
+	    4.2.11.1. Ticket Age
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.11.2">
+	    4.2.11.2. PSK Binder
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.2.11.3">
+	    4.2.11.3. Processing Order
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.3.1">
+	    4.3.1. Encrypted Extensions
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_name (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_groups (RFC7919)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">heartbeat (RFC6520)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">client_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_name (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_groups (RFC7919)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">heartbeat (RFC6520)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">client_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">server_certificate_type (RFC7250)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.3.2">
+	    4.3.2. Certificate Request
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">oid_filters (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms_cert (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">oid_filters (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signature_algorithms_cert (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.1">
+	    4.4.1. The Transcript Hash
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.2">
+	    4.4.2. Certificate
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">status_request (RFC6066)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">signed_certificate_timestamp (RFC6962)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.2.1">
+	    4.4.2.1. OCSP Status and SCT Extensions
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.2.2">
+	    4.4.2.2. Server Certificate Selection
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The certificate type MUST be X.509v3, unless explicitly
+	negotiated otherwise</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The server's end-entity certificate's public key (and associated
+	restrictions) MUST be compatible with the selected authentication
+	algorithm from the client's "signature_algorithms" extension
+	(currently RSA, ECDSA, or EdDSA).</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The certificate MUST allow the key to be used for signing
+	with a signature scheme indicated in the client's "signature_algorithms"/"signature_algorithms_cert"
+	extensions</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The "server_name" and "certificate_authorities"
+	extensions are used to guide certificate selection.  As servers
+	MAY require the presence of the "server_name" extension, clients
+	SHOULD send this extension, when applicable.</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.2.3">
+	    4.4.2.3. Client Certificate Selection
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The certificate type MUST be X.509v3, unless explicitly
+	negotiated otherwise</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">If the "certificate_authorities" extension in the
+	CertificateRequest message was present, at least one of the
+	certificates in the certificate chain SHOULD be issued by one of
+	the listed CAs.</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The certificates MUST be signed using an acceptable signature
+	algorithm</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">If the CertificateRequest message contained a non-empty
+	"oid_filters" extension, the end-entity certificate MUST match the
+	extension OIDs that are recognized by the client</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.2.4">
+	    4.4.2.4. Receiving a Certificate Message
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.3">
+	    4.4.3. Certificate Verify
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.4.4">
+	    4.4.4. Finished
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.5">
+	    4.5. End of Early Data
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.6.1">
+	    4.6.1. New Session Ticket Message
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">early_data (RFC8446)</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.6.2">
+	    4.6.2. Post-Handshake Authentication
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-4.6.3">
+	    4.6.3. Key and Initialization Vector Update
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em>Client</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Server</em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-5.1">
+	    5.1. Record Layer
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST NOT be interleaved with other record types</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST NOT span key changes</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST NOT send zero-length fragments</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Alert messages MUST NOT be fragmented</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-5.2">
+	    5.2. Record Payload Protection
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-5.3">
+	    5.3. Per-Record Nonce
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-5.4">
+	    5.4. Record Padding
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MAY choose to pad</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST NOT send Handshake and Alert records that have a zero-length TLSInnerPlaintext.content</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">The padding sent is automatically verified</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-5.5">
+	    5.5. Limits on Key Usage
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-6.1">
+	    6.1. Closure Alerts
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">close_notify</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">user_cancelled</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-6.2">
+	    6.2. Error Alerts
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-7.1">
+	    7.1. Key Schedule
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-7.2">
+	    7.2. Updating Traffic Secrets
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-7.3">
+	    7.3. Traffic Key Calculation
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-7.5">
+	    7.5. Exporters
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-8">
+	    8. 0-RTT and Anti-Replay
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-8.1">
+	    8.1. Single-Use Tickets
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-8.2">
+	    8.2. Client Hello Recording
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-8.3">
+	    8.3. Freshness Checks
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-9.1">
+	    9.1. Mandatory-to-Implement Cipher Suites
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST implement the TLS_AES_128_GCM_SHA256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">SHOULD implement the TLS_AES_256_GCM_SHA384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">SHOULD implement the TLS_CHACHA20_POLY1305_SHA256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Digital signatures</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST support rsa_pkcs1_sha256 (for certificates)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST support rsa_pss_rsae_sha256 (for CertificateVerify and certificates)</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST support ecdsa_secp256r1_sha256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>Key Exchange</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST support key exchange with secp256r1</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">SHOULD support key exchange with X25519</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-9.2">
+	    9.2. Mandatory-to-Implement Extensions
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Supported Versions</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Cookie</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Signature Algorithms</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Signature Algorithms Certificate</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Negotiated Groups</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Key Share</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Server Name Indication</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>MUST send and use these extensions</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"supported_versions" is REQUIRED for ClientHello, ServerHello and HelloRetryRequest</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"signature_algorithms" is REQUIRED for certificate authentication</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"supported_groups" is REQUIRED for ClientHello messages using (EC)DHE key exchange</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"key_share" is REQUIRED for (EC)DHE key exchange</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"pre_shared_key" is REQUIRED for PSK key agreement</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">"psk_key_exchange_modes" is REQUIRED for PSK key agreement</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>TLS 1.3 ClientHello</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">If not containing a "pre_shared_key" extension, it MUST contain both a "signature_algorithms" extension and a "supported_groups" extension.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">If containing a "supported_groups" extension, it MUST also contain a "key_share" extension, and vice versa.  An empty KeyShare.client_shares vector is permitted.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>TLS 1.3 ServerHello</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">MUST support the use of the "server_name" extension</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-9.3">
+	    9.3. Protocol Invariants
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>MUST correctly handle extensible fields</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A client sending a ClientHello MUST support all parameters
+	advertised in it. Otherwise, the server may fail to interoperate by selecting one of those parameters.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A server receiving a ClientHello MUST correctly ignore all
+	unrecognized cipher suites, extensions, and other parameters. Otherwise, it may fail to
+	interoperate with newer clients. In TLS 1.3, a client receiving a CertificateRequest or
+	NewSessionTicket MUST also ignore all unrecognized extensions.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A middlebox which terminates a TLS connection MUST behave as a
+	compliant TLS server</cell>
+	<cell align="left" valign="middle"><em>NA</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A middlebox which forwards ClientHello parameters it does not
+	understand MUST NOT process any messages beyond that ClientHello. It MUST forward all subsequent
+	traffic unmodified.  Otherwise, it may fail to interoperate with newer clients and servers.</cell>
+	<cell align="left" valign="middle"><em>NA</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-B.4">
+	    B.4. Cipher Suites
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">TLS_AES_128_GCM_SHA256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">TLS_AES_256_GCM_SHA384</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">TLS_CHACHA20_POLY1305_SHA256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">TLS_AES_128_CCM_SHA256</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">TLS_AES_128_CCM_8_SHA256</cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-C.1">
+	    C.1. Random Number Generation and Seeding
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-C.2">
+	    C.2. Certificates and Authentication
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-C.3">
+	    C.3. Implementation Pitfalls
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-C.4">
+	    C.4. Client Tracking Prevention
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-C.5">
+	    C.5. Unauthenticated Operation
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-D.1">
+	    D.1. Negotiating with an Older Server
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-D.2">
+	    D.2. Negotiating with an Older Client
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-D.3">
+	    D.3. 0-RTT Backward Compatibility
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em></em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-D.4">
+	    D.4. Middlebox Compatibility Mode
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">
+	  <url href="https://tools.ietf.org/html/rfc8446#section-D.5">
+	    D.5. Security Restrictions Related to Backward Compatibility
+	  </url>
+	</cell>
+        <cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+
+      <tcaption>Standards Compliance</tcaption>
+    </table>
+
+  </section>
+
+</chapter>

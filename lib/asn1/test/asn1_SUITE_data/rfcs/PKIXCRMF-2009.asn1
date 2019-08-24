@@ -1,0 +1,409 @@
+  PKIXCRMF-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-crmf2005-02(55)}
+  DEFINITIONS IMPLICIT TAGS ::=
+  BEGIN
+  IMPORTS
+
+  AttributeSet{}, Extensions{}, EXTENSION, ATTRIBUTE,
+      SingleAttribute{}
+  FROM PKIX-CommonTypes-2009
+      {iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkixCommon-02(57) }
+
+  AlgorithmIdentifier{}, SIGNATURE-ALGORITHM, ALGORITHM,
+      DIGEST-ALGORITHM, MAC-ALGORITHM, PUBLIC-KEY
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+
+  Version, Name, Time, SubjectPublicKeyInfo, UniqueIdentifier, id-pkix,
+      SignatureAlgorithms
+  FROM PKIX1Explicit-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-explicit-02(51)}
+
+  GeneralName, CertExtensions
+  FROM PKIX1Implicit-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-implicit-02(59)}
+
+  EnvelopedData, CONTENT-TYPE
+  FROM CryptographicMessageSyntax-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-cms-2004-02(41)}
+  maca-hMAC-SHA1
+  FROM CryptographicMessageSyntaxAlgorithms-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-cmsalg-2001-02(37) }
+
+  mda-sha1
+  FROM PKIXAlgs-2009
+      { iso(1) identified-organization(3) dod(6)
+      internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-algorithms2008-02(56) } ;
+
+  -- arc for Internet X.509 PKI protocols and their components
+
+  id-pkip  OBJECT IDENTIFIER ::= { id-pkix 5 }
+
+  id-smime OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+       us(840) rsadsi(113549) pkcs(1) pkcs9(9) 16 }
+
+  id-ct   OBJECT IDENTIFIER ::= { id-smime  1 }  -- content types
+
+  -- Core definitions for this module
+
+  CertReqMessages ::= SEQUENCE SIZE (1..MAX) OF CertReqMsg
+
+  CertReqMsg ::= SEQUENCE {
+      certReq   CertRequest,
+      popo       ProofOfPossession  OPTIONAL,
+      -- content depends upon key type
+      regInfo   SEQUENCE SIZE(1..MAX) OF
+          SingleAttribute{{RegInfoSet}} OPTIONAL }
+
+  CertRequest ::= SEQUENCE {
+      certReqId     INTEGER,
+      -- ID for matching request and reply
+      certTemplate  CertTemplate,
+      -- Selected fields of cert to be issued
+      controls      Controls OPTIONAL }
+      -- Attributes affecting issuance
+
+  CertTemplate ::= SEQUENCE {
+      version      [0] Version               OPTIONAL,
+      serialNumber [1] INTEGER               OPTIONAL,
+      signingAlg   [2] AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                           {SignatureAlgorithms}}   OPTIONAL,
+      issuer       [3] Name                  OPTIONAL,
+      validity     [4] OptionalValidity      OPTIONAL,
+      subject      [5] Name                  OPTIONAL,
+      publicKey    [6] SubjectPublicKeyInfo  OPTIONAL,
+      issuerUID    [7] UniqueIdentifier      OPTIONAL,
+      subjectUID   [8] UniqueIdentifier      OPTIONAL,
+      extensions   [9] Extensions{{CertExtensions}}  OPTIONAL }
+
+  OptionalValidity ::= SEQUENCE {
+      notBefore  [0] Time OPTIONAL,
+      notAfter   [1] Time OPTIONAL } -- at least one MUST be present
+
+  Controls  ::= SEQUENCE SIZE(1..MAX) OF SingleAttribute
+                    {{RegControlSet}}
+
+  ProofOfPossession ::= CHOICE {
+      raVerified        [0] NULL,
+      -- used if the RA has already verified that the requester is in
+      -- possession of the private key
+      signature         [1] POPOSigningKey,
+      keyEncipherment   [2] POPOPrivKey,
+      keyAgreement      [3] POPOPrivKey }
+
+  POPOSigningKey ::= SEQUENCE {
+      poposkInput           [0] POPOSigningKeyInput OPTIONAL,
+      algorithmIdentifier   AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                                {SignatureAlgorithms}},
+      signature             BIT STRING }
+      -- The signature (using "algorithmIdentifier") is on the
+      -- DER-encoded value of poposkInput.  NOTE: If the CertReqMsg
+      -- certReq CertTemplate contains the subject and publicKey values,
+      -- then poposkInput MUST be omitted and the signature MUST be
+      -- computed over the DER-encoded value of CertReqMsg certReq.  If
+      -- the CertReqMsg certReq CertTemplate does not contain both the
+      -- public key and subject values (i.e., if it contains only one
+      -- of these, or neither), then poposkInput MUST be present and
+      -- MUST be signed.
+
+  POPOSigningKeyInput ::= SEQUENCE {
+      authInfo            CHOICE {
+       sender              [0] GeneralName,
+       -- used only if an authenticated identity has been
+       -- established for the sender (e.g., a DN from a
+       -- previously-issued and currently-valid certificate)
+       publicKeyMAC        PKMACValue },
+       -- used if no authenticated GeneralName currently exists for
+       -- the sender; publicKeyMAC contains a password-based MAC
+       -- on the DER-encoded value of publicKey
+      publicKey           SubjectPublicKeyInfo }  -- from CertTemplate
+
+  PKMACValue ::= SEQUENCE {
+      algId  AlgorithmIdentifier{MAC-ALGORITHM,
+                 {Password-MACAlgorithms}},
+      value  BIT STRING }
+
+  --
+  --  Define the currently only acceptable MAC algorithm to be used
+  --  for the PKMACValue structure
+  --
+
+  id-PasswordBasedMac OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+      usa(840) nt(113533) nsn(7) algorithms(66) 13 }
+
+  Password-MACAlgorithms MAC-ALGORITHM ::= {
+      {IDENTIFIER id-PasswordBasedMac
+       PARAMS TYPE PBMParameter ARE required
+       IS-KEYED-MAC TRUE
+      }, ...
+  }
+
+  PBMParameter ::= SEQUENCE {
+     salt                OCTET STRING,
+     owf                 AlgorithmIdentifier{DIGEST-ALGORITHM,
+                             {DigestAlgorithms}},
+     -- AlgId for a One-Way Function (SHA-1 recommended)
+     iterationCount      INTEGER,
+     -- number of times the OWF is applied
+     mac                 AlgorithmIdentifier{MAC-ALGORITHM,
+                             {MACAlgorithms}}
+     -- the MAC AlgId (e.g., DES-MAC, Triple-DES-MAC, or HMAC
+  }
+
+  DigestAlgorithms DIGEST-ALGORITHM ::= {
+     mda-sha1, ...
+  }
+
+  MACAlgorithms MAC-ALGORITHM ::= {
+      -- The modules containing the ASN.1 for the DES and 3DES MAC
+      -- algorithms have not been updated at the time that this is
+      -- being published.  Users of this module should define the
+      -- appropriate MAC-ALGORITHM objects and uncomment the
+      -- following lines if they support these MAC algorithms.
+      -- maca-des-mac | maca-3des-mac --
+      maca-hMAC-SHA1,
+      ...
+  }
+
+  POPOPrivKey ::= CHOICE {
+      thisMessage       [0] BIT STRING,         -- Deprecated
+      -- possession is proven in this message (which contains
+      -- the private key itself (encrypted for the CA))
+      subsequentMessage [1] SubsequentMessage,
+      -- possession will be proven in a subsequent message
+      dhMAC             [2] BIT STRING,         -- Deprecated
+      agreeMAC          [3] PKMACValue,
+      encryptedKey      [4] EnvelopedData }
+      -- for keyAgreement (only), possession is proven in this message
+      -- (which contains a MAC (over the DER-encoded value of the
+      -- certReq parameter in CertReqMsg, which MUST include both
+      -- subject and publicKey) based on a key derived from the end
+      -- entity's private DH key and the CA's public DH key);
+
+  SubsequentMessage ::= INTEGER {
+      encrCert (0),
+      -- requests that resulting certificate be encrypted for the
+      -- end entity (following which, POP will be proven in a
+      -- confirmation message)
+      challengeResp (1) }
+      -- requests that CA engage in challenge-response exchange with
+      -- end entity in order to prove private key possession
+
+  --
+  -- id-ct-encKeyWithID content type used as the content type for the
+  -- EnvelopedData in POPOPrivKey.
+  -- It contains both a private key and an identifier for key escrow
+  -- agents to check against recovery requestors.
+  --
+
+  ct-encKeyWithID CONTENT-TYPE ::=
+      { EncKeyWithID IDENTIFIED BY id-ct-encKeyWithID }
+
+  id-ct-encKeyWithID OBJECT IDENTIFIER ::= {id-ct 21}
+
+  EncKeyWithID ::= SEQUENCE {
+      privateKey           PrivateKeyInfo,
+      identifier CHOICE {
+          string             UTF8String,
+          generalName        GeneralName
+      } OPTIONAL
+  }
+
+  PrivateKeyInfo ::= SEQUENCE {
+     version                   INTEGER,
+     privateKeyAlgorithm       AlgorithmIdentifier{PUBLIC-KEY, {...}},
+     privateKey                OCTET STRING,
+               --  Structure of public key is in PUBLIC-KEY.&PrivateKey
+     attributes                [0] IMPLICIT Attributes OPTIONAL
+  }
+
+  Attributes ::= SET OF AttributeSet{{PrivateKeyAttributes}}
+  PrivateKeyAttributes ATTRIBUTE ::= {...}
+
+  --
+  -- 6.  Registration Controls in CRMF
+  --
+
+  id-regCtrl OBJECT IDENTIFIER ::= { id-pkip 1 }
+
+  RegControlSet ATTRIBUTE ::= {
+      regCtrl-regToken | regCtrl-authenticator |
+      regCtrl-pkiPublicationInfo | regCtrl-pkiArchiveOptions |
+      regCtrl-oldCertID | regCtrl-protocolEncrKey, ... }
+
+  --
+  --  6.1.  Registration Token Control
+  --
+
+  regCtrl-regToken ATTRIBUTE ::=
+      { TYPE RegToken IDENTIFIED BY id-regCtrl-regToken }
+
+  id-regCtrl-regToken OBJECT IDENTIFIER ::= { id-regCtrl 1 }
+
+  RegToken ::= UTF8String
+
+  --
+  --  6.2.  Authenticator Control
+  --
+
+  regCtrl-authenticator ATTRIBUTE ::=
+      { TYPE Authenticator IDENTIFIED BY id-regCtrl-authenticator }
+
+  id-regCtrl-authenticator OBJECT IDENTIFIER ::= { id-regCtrl 2 }
+
+  Authenticator ::= UTF8String
+
+  --
+  --  6.3.  Publication Information Control
+  --
+
+  regCtrl-pkiPublicationInfo ATTRIBUTE ::=
+      { TYPE PKIPublicationInfo IDENTIFIED BY
+          id-regCtrl-pkiPublicationInfo }
+
+  id-regCtrl-pkiPublicationInfo OBJECT IDENTIFIER ::= { id-regCtrl 3 }
+
+  PKIPublicationInfo ::= SEQUENCE {
+      action     INTEGER {
+                     dontPublish (0),
+                     pleasePublish (1) },
+      pubInfos  SEQUENCE SIZE (1..MAX) OF SinglePubInfo OPTIONAL }
+      -- pubInfos MUST NOT be present if action is "dontPublish"
+      -- (if action is "pleasePublish" and pubInfos is omitted,
+      -- "dontCare" is assumed)
+
+  SinglePubInfo ::= SEQUENCE {
+      pubMethod    INTEGER {
+          dontCare    (0),
+          x500        (1),
+          web         (2),
+          ldap        (3) },
+      pubLocation  GeneralName OPTIONAL }
+
+  --
+  --  6.4.  Archive Options Control
+  --
+
+  regCtrl-pkiArchiveOptions ATTRIBUTE ::=
+      { TYPE PKIArchiveOptions IDENTIFIED BY
+          id-regCtrl-pkiArchiveOptions }
+
+  id-regCtrl-pkiArchiveOptions OBJECT IDENTIFIER ::= { id-regCtrl 4 }
+
+  PKIArchiveOptions ::= CHOICE {
+      encryptedPrivKey     [0] EncryptedKey,
+      -- the actual value of the private key
+      keyGenParameters     [1] KeyGenParameters,
+      -- parameters that allow the private key to be re-generated
+      archiveRemGenPrivKey [2] BOOLEAN }
+      -- set to TRUE if sender wishes receiver to archive the private
+      -- key of a key pair that the receiver generates in response to
+      -- this request; set to FALSE if no archive is desired.
+
+  EncryptedKey ::= CHOICE {
+      encryptedValue        EncryptedValue,   -- Deprecated
+      envelopedData     [0] EnvelopedData }
+      -- The encrypted private key MUST be placed in the envelopedData
+      -- encryptedContentInfo encryptedContent OCTET STRING.
+
+  --
+  --  We skipped doing the full constraints here since this structure
+  --      has been deprecated in favor of EnvelopedData
+  --
+
+  EncryptedValue ::= SEQUENCE {
+      intendedAlg   [0] AlgorithmIdentifier{ALGORITHM, {...}}  OPTIONAL,
+      -- the intended algorithm for which the value will be used
+      symmAlg       [1] AlgorithmIdentifier{ALGORITHM, {...}}  OPTIONAL,
+      -- the symmetric algorithm used to encrypt the value
+      encSymmKey    [2] BIT STRING           OPTIONAL,
+      -- the (encrypted) symmetric key used to encrypt the value
+      keyAlg        [3] AlgorithmIdentifier{ALGORITHM, {...}}  OPTIONAL,
+      -- algorithm used to encrypt the symmetric key
+      valueHint     [4] OCTET STRING         OPTIONAL,
+      -- a brief description or identifier of the encValue content
+      -- (may be meaningful only to the sending entity, and used only
+      -- if EncryptedValue might be re-examined by the sending entity
+      -- in the future)
+      encValue       BIT STRING }
+      -- the encrypted value itself
+  -- When EncryptedValue is used to carry a private key (as opposed to
+  -- a certificate), implementations MUST support the encValue field
+  -- containing an encrypted PrivateKeyInfo as defined in [PKCS11],
+  -- section 12.11.  If encValue contains some other format/encoding
+  -- for the private key, the first octet of valueHint MAY be used
+  -- to indicate the format/encoding (but note that the possible values
+  -- of this octet are not specified at this time).  In all cases, the
+  -- intendedAlg field MUST be used to indicate at least the OID of
+  -- the intended algorithm of the private key, unless this information
+  -- is known a priori to both sender and receiver by some other means.
+
+  KeyGenParameters ::= OCTET STRING
+
+  --
+  --  6.5.  OldCert ID Control
+  --
+
+  regCtrl-oldCertID ATTRIBUTE ::=
+      { TYPE OldCertId IDENTIFIED BY id-regCtrl-oldCertID }
+
+  id-regCtrl-oldCertID  OBJECT IDENTIFIER ::= { id-regCtrl 5 }
+
+  OldCertId ::= CertId
+
+  CertId ::= SEQUENCE {
+      issuer           GeneralName,
+      serialNumber     INTEGER }
+
+  --
+  -- 6.6.  Protocol Encryption Key Control
+  --
+
+  regCtrl-protocolEncrKey ATTRIBUTE ::=
+      { TYPE ProtocolEncrKey IDENTIFIED BY id-regCtrl-protocolEncrKey }
+  id-regCtrl-protocolEncrKey    OBJECT IDENTIFIER ::= { id-regCtrl 6 }
+
+  ProtocolEncrKey ::= SubjectPublicKeyInfo
+
+  --
+  -- 7.  Registration Info in CRMF
+  --
+
+  id-regInfo OBJECT IDENTIFIER ::= { id-pkip 2 }
+
+  RegInfoSet ATTRIBUTE ::=
+      { regInfo-utf8Pairs | regInfo-certReq }
+
+  --
+  -- 7.1.  utf8Pairs RegInfo Control
+  --
+
+  regInfo-utf8Pairs ATTRIBUTE ::=
+      { TYPE UTF8Pairs IDENTIFIED BY id-regInfo-utf8Pairs }
+
+  id-regInfo-utf8Pairs    OBJECT IDENTIFIER ::= { id-regInfo 1 }
+  --with syntax
+  UTF8Pairs ::= UTF8String
+
+  --
+  --  7.2.  certReq RegInfo Control
+  --
+
+  regInfo-certReq ATTRIBUTE ::=
+      { TYPE CertReq IDENTIFIED BY id-regInfo-certReq }
+
+  id-regInfo-certReq       OBJECT IDENTIFIER ::= { id-regInfo 2 }
+  --with syntax
+  CertReq ::= CertRequest
+
+  END

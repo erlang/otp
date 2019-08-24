@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxDialog" name="custom_class_dialog">
+    <title>Custom Class Example</title>
+    <centered>1</centered>
+    <style>wxCAPTION|wxSYSTEM_MENU|wxRESIZE_BORDER</style>
+    <object class="wxFlexGridSizer">
+        <cols>1</cols>
+        <rows>0</rows>
+        <vgap>0</vgap>
+        <hgap>0</hgap>
+        <growablecols>0</growablecols>
+        <growablerows>0</growablerows>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxTextCtrl" name="message_textctrl">
+                <size>500,150</size>
+                <style>wxTE_MULTILINE</style>
+                <value>You can embed your own custom classes into an XRC file. This is referred to as attaching an unknown control.\n\nThere are 3 main cases when you would want to do this:\n\n(A) Most commonly: you have derived a class from one of the main wxWidgets controls, so that it can manage its own state and look after its own events, because it is better management to have a portable class with all the code for that control in there with the class, instead of being having many event handlers for that control scattered up in its parent dialog (which is allowed, but gets messy if a control has alot of methods). For example, if you require a wxListCtrl that popups a menu when right-clicked on an item, and you want the wxListCtrl to resize its columns in response to an OnSize(), and a few more methods, it makes better sourcecode logic to package all these methods into by a standalone derived wxListCtrl class, instead of having the parent dialog manage all these events and other functions. This is what the example below shows: it does a custom behaviour of resizing its first column to appropriately fill up the width of the control on a resize event, and it pops up a context-menu in response to a left click (and shades out popup menu item appropriately if there is no item currenty selected in the listctrl).\n\n(B)You have an utterly new widget that has no equivalent in the wxWindows class heirarchy, so you thus need to embed your class to get the needed functionality.\n\n(C) You are using one of the rarely used wxWindows controls that doesn't have an XRC handler in the XRC library. However, all of the major controls: wxButton, wxTextCtrl, etc have an XRC handler, so this is pretty rare, and you could always write your own XRC handler for that control if you wanted. You can choose the "Controls example" from the XRC demo menu to see all the controls that have an XRC handler.\n\nThe typical formula for attaching an unknown control is:\n\n(1) If you are deriving your own custom class to be embedded into the XRC, describe that class with its own .cpp and .h file. In this example it is custclass.cpp and custclass.h\n\n(2)Specify an "unknown" tag in the XRC file that you want to embed it into (see the unknown tag in custclass.xrc). This will be the placeholder of the new class.\n\n(3) Load the XRC dialog as usual, but before you show the dialog to the user, construct an instance of your custom control, and then use wxXmlResource::Get()-&gt;AttachUnknownControl() to put the custom class into its "unknown" placeholder in the XRC file.\n\nThe result is what you see below, a custom class control that fits in seemlessly with the whole dialog, the same as if it was read from XRC directly. Try out resizing this dialog, and watch the listctrl column resize, and right-click to call up its popup menu. By the way, if you look at the source of this XRC dialog, you will that this dialog node has a set of style flags that includes wxRESIZE__BORDER--that is why this dialog is resizable, whereas most of the rest of the dialogs in the XRC sample that don't include this tag, are not resizable.</value>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="unknown" name="custom_control_placeholder">
+            <size>100,100</size>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxButton" name="wxID_OK">
+                <label>OK</label>
+            </object>
+        </object>
+    </object>
+</object>
+
+</resource>

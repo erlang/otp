@@ -1,0 +1,4 @@
+
+chars.erl:37: Invalid type specification for function chars:f/1. The success typing is (#{'b':=50}) -> 'ok'
+chars.erl:40: Function t1/0 has no local return
+chars.erl:40: The call chars:f(#{'b'=>50}) breaks the contract (#{'a':=49,'b'=>50,'c'=>51}) -> 'ok'

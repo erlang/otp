@@ -1,0 +1,15 @@
+
+rec_use.erl:17: The attempt to match a term of type 
+          rec_adt:rec() against the pattern 
+          {'rec', _, 42} breaks the opacity of the term
+rec_use.erl:18: Guard test tuple_size
+         (R :: rec_adt:rec()) breaks the opacity of its argument
+rec_use.erl:23: The call rec_adt:get_a
+         (R :: tuple()) does not have an opaque term of type 
+          rec_adt:rec() as 1st argument
+rec_use.erl:27: Attempt to test for equality between a term of type 
+          {'rec', 'gazonk', 42} and a term of opaque type 
+          rec_adt:rec()
+rec_use.erl:30: The call erlang:tuple_size
+         (rec_adt:rec()) contains an opaque term as 1st argument when a structured term of type 
+          tuple() is expected

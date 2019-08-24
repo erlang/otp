@@ -1,0 +1,44 @@
+The original JAM compiler was first implemented by Joe Armstrong.
+
+The original BEAM compiler (v1) was first implemented by Bogumil Hausman.
+
+The original v2 and v3 compilers were implemented by Robert Virding.
+Björn Gustavsson adapted the code generation for the BEAM machine and
+added the optimisation passes.
+
+General improvements and corrections were made by Robert Virding,
+Arndt Jonasson, Tony Rogvall, Björn Gustavsson and Jan-Erik Dahlin.
+
+The bit syntax support was implemented by Björn Gustavsson, Arndt Jonasson
+and Robert Virding.
+
+The Core Erlang is used as an intermediate format in the v3 compiler (R7).
+Core Erlang was suggested by Richard Carlsson (HiPE).
+
+The new inliner in R8 is written by Richard Carlsson (HiPE).
+
+Updates, extensions, and bugfixes in the R8 compiler were made by Robert Virding,
+Richard Carlsson (HiPE), and Björn Gustavsson.
+
+Bjorn Gustavsson and Raimo Niskanen implemented the beam_validator compiler
+pass for R10B-2 (it makes that the compiler did not generate code that could
+crash the run-time system).
+
+The current maintainer of the compiler is Bjorn Gustavsson. To the R12B he
+added a simple form of stack trimming, as well as other optimizations.
+
+Original Authors and Contributors:
+
+Joe Armstrong
+Bogumil Hausman
+Robert Virding
+Björn Gustavsson
+Arndt Jonasson
+Tony Rogvall
+Jan-Erik Dahlin
+Richard Carlsson
+Raimo Niskanen
+
+Open Source Contributors:
+
+Robert Virding

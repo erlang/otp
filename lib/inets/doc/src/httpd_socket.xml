@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>httpd_socket</title>
+    <prepared>Joakim Greben&ouml;</prepared>
+    <docno></docno>
+    <date>1997-10-14</date>
+    <rev>2.2</rev>
+    <file>httpd_socket.sgml</file>
+  </header>
+  <module since="">httpd_socket</module>
+  <modulesummary>Communication utility functions to be used by the Erlang
+    web server API programmer.</modulesummary>
+  <description>
+    <p>This module provides the Erlang web server API module programmer
+    with utility functions for generic sockets communication. The
+    appropriate communication mechanism is transparently used, that
+    is, <c>ip_comm</c> or <c>ssl</c>.</p>
+    
+    <marker id="deliver"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">deliver(SocketType, Socket, Data) -> Result</name>
+      <fsummary>Sends binary data over socket.</fsummary>
+      <type>
+        <v>SocketType = socket_type()</v>
+        <v>Socket = socket()</v>
+        <v>Data = io_list() | binary()</v>
+        <v>Result = socket_closed | void()</v>
+      </type>
+      <desc>
+        <marker id="deliver"></marker>
+        <p><c>deliver/3</c> sends <c>Data</c> over
+	<c>Socket</c> using the specified <c>SocketType</c>. <c>Socket</c>
+	and <c>SocketType</c> is to be the socket and the <c>socket_type</c> 
+	form the <c>mod</c> record as defined in <c>httpd.hrl</c></p>
+    
+	<marker id="peername"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">peername(SocketType,Socket) -> {Port,IPAddress}</name>
+      <fsummary>Returns the port and IP address of the remote socket.</fsummary>
+      <type>
+        <v>SocketType = socket_type()</v>
+        <v>Socket = socket()</v>
+        <v>Port = integer()</v>
+        <v>IPAddress = string()</v>
+      </type>
+      <desc>
+        <marker id="peername"></marker>
+        <p><c>peername/2</c> returns the <c>Port</c> and
+	<c>IPAddress</c> of the remote <c>Socket</c>.</p>
+    
+	<marker id="resolve"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">resolve() -> HostName</name>
+      <fsummary>Returns the official name of the current host.</fsummary>
+      <type>
+        <v>HostName = string()</v>
+      </type>
+      <desc>
+        <marker id="resolve"></marker>
+        <p><c>resolve/0</c> returns the official <c>HostName</c> of
+	the current host. </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="see_also"></marker>
+    <title>SEE ALSO</title>
+    <p><seealso marker="httpd">httpd(3)</seealso></p>
+  </section>
+  
+</erlref>
+
+

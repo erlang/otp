@@ -1,0 +1,4 @@
+
+aaaa ICON "wx/msw/std.ico"
+#define ISOLATION_AWARE_ENABLED 1
+#include "wx/msw/wx.rc"

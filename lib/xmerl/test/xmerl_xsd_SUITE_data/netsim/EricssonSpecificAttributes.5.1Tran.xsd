@@ -1,0 +1,2164 @@
+<!--
+  Configuration data file vendor-specific XML schema
+  EricssonSpecificAttributes.5.1Tran.xsd Implementation of BCT I/face.Requires BCR/Bulk CM General installed
+  For use with ONLY with EricssonSpecificAttributes.5.1.xsd
+  NB!! See EricssonSpecificAttributes.5.1.xsd
+  Use Namespace for EricssonSpecificAttributes.5.1.xsd in all files which conform to this schema
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xn="genericNrm.xsd" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- EricssonSpecificAttributes version 5.1  vendor-specific data -->
+	<xs:import namespace="genericNrm.xsd" schemaLocation="genericNrm.xsd"/>
+	<xs:element name="vsDataAal0TpVccTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="alarmReport" minOccurs="0"/>
+						<xs:element name="continuityCheck" minOccurs="0"/>
+						<xs:element name="nomPmBlkSize" minOccurs="0"/>
+						<xs:element name="processorId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vclTpId" minOccurs="0"/>
+						<xs:element name="counterMode" minOccurs="0"/>
+						<xs:element name="counterActivation" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal1TpVccTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="nomPmBlockSize" minOccurs="0"/>
+						<xs:element name="ds0BundleId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vclTpId" minOccurs="0"/>
+						<xs:element name="counterMode" minOccurs="0"/>
+						<xs:element name="partialFill" minOccurs="0"/>
+						<xs:element name="alarmReport" minOccurs="0"/>
+						<xs:element name="cdvt" minOccurs="0"/>
+						<xs:element name="continuityCheck" minOccurs="0"/>
+						<xs:element name="counterActivation" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2Ap" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="aal2QoSCodePointProfileId" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+						<xs:element name="secondarySigLinkId" minOccurs="0"/>
+						<xs:element name="sigLinkId" minOccurs="0"/>
+						<xs:element name="timerErq" minOccurs="0"/>
+						<xs:element name="timerRel" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="allocationMode" minOccurs="0"/>
+						<xs:element name="reallocate" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAtmConfService" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="reallocateAllAal2Aps" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2PathDistributionUnit" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+						<xs:element name="aal2PathVccTpList" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="addPath" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="aal2PathVccTpId" minOccurs="0" maxOccurs="unbounded"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="removePath" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="aal2PathList" minOccurs="0" maxOccurs="unbounded"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2PathVccTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="aal2PathOwner" minOccurs="0"/>
+						<xs:element name="alarmReport" minOccurs="0"/>
+						<xs:element name="nomPmBlocksize" minOccurs="0"/>
+						<xs:element name="timerCu" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="continuityCheck" minOccurs="0"/>
+						<xs:element name="aal2PathId" minOccurs="0"/>
+						<xs:element name="vclTpId" minOccurs="0"/>
+						<xs:element name="aal2QoSAvailableProfiles" minOccurs="0"/>
+						<xs:element name="aal2QoSProfileId" minOccurs="0"/>
+						<xs:element name="counterMode" minOccurs="0"/>
+						<xs:element name="counterActivation" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2RoutingCase" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="numberDirection" minOccurs="0"/>
+						<xs:element name="routeList" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="routePriorityList" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="addAal2ApToRc" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="priority" minOccurs="0"/>
+									<xs:element name="route" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="removeAal2ApFromRc" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="route" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2Sp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="a2ea" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal5TpVccTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="alarmReport" minOccurs="0"/>
+						<xs:element name="continuityCheck" minOccurs="0"/>
+						<xs:element name="fromUserMaxSduSize" minOccurs="0"/>
+						<xs:element name="nomPmBlkSize" minOccurs="0"/>
+						<xs:element name="processorId" minOccurs="0"/>
+						<xs:element name="toUserMaxSduSize" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vclTpId" minOccurs="0"/>
+						<xs:element name="counterMode" minOccurs="0"/>
+						<xs:element name="counterActivation" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAtmCrossConnection" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vclTpAId" minOccurs="0"/>
+						<xs:element name="vclTpBId" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAtmTrafficDescriptor" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="egressAtmMcr" minOccurs="0"/>
+						<xs:element name="egressAtmPcr" minOccurs="0"/>
+						<xs:element name="egressAtmQos" minOccurs="0"/>
+						<xs:element name="ingressAtmMcr" minOccurs="0"/>
+						<xs:element name="ingressAtmPcr" minOccurs="0"/>
+						<xs:element name="ingressAtmQos" minOccurs="0"/>
+						<xs:element name="serviceCategory" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="packetDiscard" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAtmPort" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="uses" minOccurs="0"/>
+						<xs:element name="hecCorrectionMode" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataTransportNetwork" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataUniSaalProfile" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="profileData" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="congestionAbatement" minOccurs="0"/>
+									<xs:element name="congestionOnSet" minOccurs="0"/>
+									<xs:element name="initialCredit" minOccurs="0"/>
+									<xs:element name="maxCC" minOccurs="0"/>
+									<xs:element name="maxPD" minOccurs="0"/>
+									<xs:element name="maxStat" minOccurs="0"/>
+									<xs:element name="timerCC" minOccurs="0"/>
+									<xs:element name="timerIdle" minOccurs="0"/>
+									<xs:element name="timerKeepAlive" minOccurs="0"/>
+									<xs:element name="timerNoResponse" minOccurs="0"/>
+									<xs:element name="timerPoll" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataUniSaalTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="aal5TpVccTpId" minOccurs="0"/>
+						<xs:element name="maxSduSize" minOccurs="0"/>
+						<xs:element name="uniSaalProfileId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVclTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="atmTrafficDescriptorId" minOccurs="0"/>
+						<xs:element name="externalVci" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVpcTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="alarmReport" minOccurs="0"/>
+						<xs:element name="continuityCheck" minOccurs="0"/>
+						<xs:element name="nomPmBlkSize" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="counterMode" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVplTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="atmTrafficDescriptor" minOccurs="0"/>
+						<xs:element name="externalVpi" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIub" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="rbsId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNbapCommon" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="l2EstablishReqRetryT" minOccurs="0"/>
+						<xs:element name="activeUniSaalTpRef" minOccurs="0"/>
+						<xs:element name="standbyUniSaalTpRef" minOccurs="0"/>
+						<xs:element name="auditRetransmissionT" minOccurs="0"/>
+						<xs:element name="l2EstablishSupervisionT" minOccurs="0"/>
+						<xs:element name="l3EstablishSupervisionT" minOccurs="0"/>
+						<xs:element name="uniSaalTpRef1" minOccurs="0"/>
+						<xs:element name="uniSaalTpRef2" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNbapDedicated" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="l2EstablishReqRetryT" minOccurs="0"/>
+						<xs:element name="activeUniSaalTpRef" minOccurs="0"/>
+						<xs:element name="standbyUniSaalTpRef" minOccurs="0"/>
+						<xs:element name="l2EstablishSupervisionT" minOccurs="0"/>
+						<xs:element name="uniSaalTpRef1" minOccurs="0"/>
+						<xs:element name="uniSaalTpRef2" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNodeSynch" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="noOfSamples" minOccurs="0"/>
+						<xs:element name="supervisionIntervalT" minOccurs="0"/>
+						<xs:element name="phaseDiffThreshold" minOccurs="0"/>
+						<xs:element name="phaseMeasurement" minOccurs="0"/>
+						<xs:element name="accuracy" minOccurs="0"/>
+						<xs:element name="timeStamp" minOccurs="0"/>
+						<xs:element name="sampleIntervalInt" minOccurs="0"/>
+						<xs:element name="fixedWindowSizeInt" minOccurs="0"/>
+						<xs:element name="sampleIntervalSup" minOccurs="0"/>
+						<xs:element name="fixedWindowSizeSup" minOccurs="0"/>
+						<xs:element name="slidingWindowSize" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNodeSynchTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="nodeSynchRef" minOccurs="0"/>
+						<xs:element name="aal0TpRef1" minOccurs="0"/>
+						<xs:element name="aal0TpRef2" minOccurs="0"/>
+						<xs:element name="aal0TpRef3" minOccurs="0"/>
+						<xs:element name="aal0TpRef4" minOccurs="0"/>
+						<xs:element name="timDeviceRef" minOccurs="0"/>
+						<xs:element name="aal0TpRefs" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2QosCodePointProfile" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="qualityOfServiceCodePointA" minOccurs="0"/>
+						<xs:element name="qualityOfServiceCodePointB" minOccurs="0"/>
+						<xs:element name="qualityOfServiceCodePointC" minOccurs="0"/>
+						<xs:element name="qualityOfServiceCodePointD" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataAal2QosProfile" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="profileClassA" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="boundOnProbOfDelay" minOccurs="0"/>
+									<xs:element name="boundOnProbOfLoss" minOccurs="0"/>
+									<xs:element name="boundOnNodeDelay" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="profileClassB" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="boundOnProbOfDelay" minOccurs="0"/>
+									<xs:element name="boundOnProbOfLoss" minOccurs="0"/>
+									<xs:element name="boundOnNodeDelay" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="profileClassC" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="boundOnProbOfDelay" minOccurs="0"/>
+									<xs:element name="boundOnProbOfLoss" minOccurs="0"/>
+									<xs:element name="boundOnNodeDelay" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="profileClassD" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="boundOnProbOfDelay" minOccurs="0"/>
+									<xs:element name="boundOnProbOfLoss" minOccurs="0"/>
+									<xs:element name="boundOnNodeDelay" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bAp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="routeSetId" minOccurs="0"/>
+						<xs:element name="serviceInd" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSlItu" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="autoStartLink" minOccurs="0"/>
+						<xs:element name="linkCongestLevel" minOccurs="0"/>
+						<xs:element name="linkState" minOccurs="0"/>
+						<xs:element name="prioBeforeSio" minOccurs="0"/>
+						<xs:element name="signLinkCode" minOccurs="0"/>
+						<xs:element name="tpId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="deactivate" minOccurs="0"/>
+						<xs:element name="activate" minOccurs="0"/>
+						<xs:element name="emergencyActivate" minOccurs="0"/>
+						<xs:element name="localInhibit" minOccurs="0"/>
+						<xs:element name="localUninhibit" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSls" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="cLinkAnsi" minOccurs="0"/>
+						<xs:element name="mtp3bSrsId" minOccurs="0"/>
+						<xs:element name="periodicLinkTestFlag" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="deactivateLinkSet" minOccurs="0"/>
+						<xs:element name="activateLinkSet" minOccurs="0"/>
+						<xs:element name="emergencyActivateLinkSet" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSlTtc" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="autoStartLink" minOccurs="0"/>
+						<xs:element name="linkCongestLevel" minOccurs="0"/>
+						<xs:element name="linkState" minOccurs="0"/>
+						<xs:element name="signLinkCode" minOccurs="0"/>
+						<xs:element name="tpId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="prioBeforeSio" minOccurs="0"/>
+						<xs:element name="deactivate" minOccurs="0"/>
+						<xs:element name="activate" minOccurs="0"/>
+						<xs:element name="emergencyActivate" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSpItu" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="m3uaNoOfAttempsOfDauds" minOccurs="0"/>
+						<xs:element name="sendSltmBefLink" minOccurs="0"/>
+						<xs:element name="signallingPointCode" minOccurs="0"/>
+						<xs:element name="maxSizeChangeBuf" minOccurs="0"/>
+						<xs:element name="maxSizeReroutBuf" minOccurs="0"/>
+						<xs:element name="sioSpare" minOccurs="0"/>
+						<xs:element name="spPriority" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+                                                                        <xs:element name="prioCb" minOccurs="0"/>
+									<xs:element name="prioCo" minOccurs="0"/>
+                                                                        <xs:element name="prioEc" minOccurs="0"/>
+                                                                        <xs:element name="prioLink" minOccurs="0"/>
+									<xs:element name="prioRst" minOccurs="0"/>
+                                                                        <xs:element name="prioSlt" minOccurs="0"/>
+									<xs:element name="prioTfc" minOccurs="0"/>
+									<xs:element name="prioTra" minOccurs="0"/>
+									<xs:element name="prioUpu" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="networkInd" minOccurs="0"/>
+						<xs:element name="transFrHandler" minOccurs="0"/>
+						<xs:element name="nodeBehaviour" minOccurs="0"/>
+						<xs:element name="spTimer" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="timerT1" minOccurs="0"/>
+									<xs:element name="timerT2" minOccurs="0"/>
+									<xs:element name="timerT3" minOccurs="0"/>
+									<xs:element name="timerTBsnt" minOccurs="0"/>
+									<xs:element name="timerT4" minOccurs="0"/>
+									<xs:element name="timerT5" minOccurs="0"/>
+									<xs:element name="timerTRetrieval" minOccurs="0"/>
+									<xs:element name="timerT6" minOccurs="0"/>
+									<xs:element name="timerT8" minOccurs="0"/>
+									<xs:element name="timerT10" minOccurs="0"/>
+									<xs:element name="timerT12" minOccurs="0"/>
+									<xs:element name="timerT13" minOccurs="0"/>
+									<xs:element name="timerT14" minOccurs="0"/>
+									<xs:element name="timerTStart" minOccurs="0"/>
+									<xs:element name="timerT17" minOccurs="0"/>
+									<xs:element name="timerT18" minOccurs="0"/>
+									<xs:element name="timerT19" minOccurs="0"/>
+									<xs:element name="timerSltm" minOccurs="0"/>
+									<xs:element name="timerSlta" minOccurs="0"/>
+									<xs:element name="timerT20" minOccurs="0"/>
+									<xs:element name="timerT21" minOccurs="0"/>
+									<xs:element name="timerT22" minOccurs="0"/>
+									<xs:element name="timerT23" minOccurs="0"/>
+									<xs:element name="timerTc" minOccurs="0"/>
+									<xs:element name="timerM3uaTack" minOccurs="0"/>
+									<xs:element name="timerM3uaPeriodicAudit" minOccurs="0"/>
+									<xs:element name="timerM3uaT1" minOccurs="0"/>
+									<xs:element name="timerM3uaT3" minOccurs="0"/>
+									<xs:element name="timerM3uaT42" minOccurs="0"/>
+									<xs:element name="timerT15" minOccurs="0"/>
+									<xs:element name="timerM3uaT6" minOccurs="0"/>
+									<xs:element name="timerM3uaT41" minOccurs="0"/>
+									<xs:element name="timerM3uaTc" minOccurs="0"/>
+									<xs:element name="timerM3uaT8" minOccurs="0"/>
+									<xs:element name="timerM3uaT40" minOccurs="0"/>
+									<xs:element name="timerT16" minOccurs="0"/>
+									<xs:element name="timerTDlack" minOccurs="0"/>
+									<xs:element name="timerM3uaTassocack" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="noOfAttempsOfAssociationEstablishment" minOccurs="0"/>
+						<xs:element name="resendTfcInterval" minOccurs="0"/>
+						<xs:element name="statusIndInterval" minOccurs="0"/>
+						<xs:element name="testPatternSltm" minOccurs="0"/>
+						<xs:element name="version" minOccurs="0"/>
+						<xs:element name="noOfCongestLevelForNI" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="routeSetCongestTestFlag" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSpTtc" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="maxSizeChangeBuf" minOccurs="0"/>
+						<xs:element name="maxSizeReroutBuf" minOccurs="0"/>
+						<xs:element name="signallingPointCode" minOccurs="0"/>
+						<xs:element name="spPriority" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="prioCo" minOccurs="0"/>
+									<xs:element name="prioCb" minOccurs="0"/>
+									<xs:element name="prioEc" minOccurs="0"/>
+									<xs:element name="prioRst" minOccurs="0"/>
+									<xs:element name="prioTfa" minOccurs="0"/>
+									<xs:element name="prioRt" minOccurs="0"/>
+									<xs:element name="prioTfc" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="networkInd" minOccurs="0"/>
+						<xs:element name="spTimer" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="timerT1" minOccurs="0"/>
+									<xs:element name="timerT2" minOccurs="0"/>
+									<xs:element name="timerT3" minOccurs="0"/>
+									<xs:element name="timerT4" minOccurs="0"/>
+									<xs:element name="timerT6" minOccurs="0"/>
+									<xs:element name="timerT8" minOccurs="0"/>
+									<xs:element name="timerT10" minOccurs="0"/>
+									<xs:element name="timerT17" minOccurs="0"/>
+									<xs:element name="timerSrt" minOccurs="0"/>
+									<xs:element name="timerTBsnt" minOccurs="0"/>
+									<xs:element name="timerTRetrieval" minOccurs="0"/>
+									<xs:element name="timerTStart" minOccurs="0"/>
+									<xs:element name="timerTc" minOccurs="0"/>
+									<xs:element name="timerT15" minOccurs="0"/>
+									<xs:element name="timerT16" minOccurs="0"/>
+									<xs:element name="timerTDlack" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="statusIndInterval" minOccurs="0"/>
+						<xs:element name="nodeBehaviour" minOccurs="0"/>
+						<xs:element name="noOfCongestLevelForNI" minOccurs="0"/>
+						<xs:element name="testPatternSltm" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="resendTfcInterval" minOccurs="0"/>
+						<xs:element name="routeSetCongestTestFlag" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+						<xs:element name="m3uaNoOfAttempsOfDauds" minOccurs="0"/>
+						<xs:element name="noOfAttempsOfAssociationEstablishment" minOccurs="0"/>
+						<xs:element name="spTimerM3ua" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="timerM3uaPeriodicAudit" minOccurs="0"/>
+									<xs:element name="timerM3uaT1" minOccurs="0"/>
+									<xs:element name="timerM3uaT3" minOccurs="0"/>
+									<xs:element name="timerM3uaT40" minOccurs="0"/>
+									<xs:element name="timerM3uaT41" minOccurs="0"/>
+									<xs:element name="timerM3uaT42" minOccurs="0"/>
+									<xs:element name="timerM3uaT6" minOccurs="0"/>
+									<xs:element name="timerM3uaT8" minOccurs="0"/>
+									<xs:element name="timerM3uaTack" minOccurs="0"/>
+									<xs:element name="timerM3uaTassocack" minOccurs="0"/>
+									<xs:element name="timerM3uaTc" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSr" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="linkSetM3uId" minOccurs="0"/>
+						<xs:element name="priority" minOccurs="0"/>
+						<xs:element name="routeType" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="linkSetId" minOccurs="0"/>
+						<xs:element name="blockSignalingRoute" minOccurs="0"/>
+						<xs:element name="deBlockSignalingRoute" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSrs" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="autoReroute" minOccurs="0"/>
+						<xs:element name="destPointCode" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNniSaalProfile" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="profileData" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="congestionLevel1Abatement" minOccurs="0"/>
+									<xs:element name="maxStat" minOccurs="0"/>
+									<xs:element name="timerPoll" minOccurs="0"/>
+									<xs:element name="timerRepeatSrec" minOccurs="0"/>
+									<xs:element name="mps" minOccurs="0"/>
+									<xs:element name="congestionLevel1OnSet" minOccurs="0"/>
+									<xs:element name="congestionLevel2OnSet" minOccurs="0"/>
+									<xs:element name="nrOfPDUsDuringProving" minOccurs="0"/>
+									<xs:element name="timerT1" minOccurs="0"/>
+									<xs:element name="timerT2" minOccurs="0"/>
+									<xs:element name="timerT3" minOccurs="0"/>
+									<xs:element name="timerCC" minOccurs="0"/>
+									<xs:element name="congestionLevel3OnSet" minOccurs="0"/>
+									<xs:element name="initialCredit" minOccurs="0"/>
+									<xs:element name="timerIdle" minOccurs="0"/>
+									<xs:element name="timerKeepAlive" minOccurs="0"/>
+									<xs:element name="maxCC" minOccurs="0"/>
+									<xs:element name="maxNRP" minOccurs="0"/>
+									<xs:element name="timerNoCredit" minOccurs="0"/>
+									<xs:element name="maxPD" minOccurs="0"/>
+									<xs:element name="timerNoResponse" minOccurs="0"/>
+									<xs:element name="congestionLevel2Abatement" minOccurs="0"/>
+									<xs:element name="congestionLevel3Abatement" minOccurs="0"/>
+									<xs:element name="discardMessagesLevel1" minOccurs="0"/>
+									<xs:element name="discardMessagesLevel2" minOccurs="0"/>
+									<xs:element name="discardMessagesLevel3" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataNniSaalTp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="aal5TpVccTpId" minOccurs="0"/>
+						<xs:element name="maxSduSize" minOccurs="0"/>
+						<xs:element name="nniSaalProfileId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpApLocal" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="maxConn" minOccurs="0"/>
+						<xs:element name="ssN" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="useS1" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpApRemote" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="mtp3bApId" minOccurs="0"/>
+						<xs:element name="ssN" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpEntitySet" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="routeIds" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="newSubSystemNumber" minOccurs="0"/>
+						<xs:element name="sharingMode" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="newGlobalTitle" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="indicator" minOccurs="0"/>
+									<xs:element name="natureOfAddress" minOccurs="0"/>
+									<xs:element name="numberingPlan" minOccurs="0"/>
+									<xs:element name="translationType" minOccurs="0"/>
+									<xs:element name="addressInformation" minOccurs="0"/>
+									<xs:element name="encodingScheme" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpGlobalTitle" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="addressInformation" minOccurs="0"/>
+						<xs:element name="encodingScheme" minOccurs="0"/>
+						<xs:element name="gtIndicator" minOccurs="0"/>
+						<xs:element name="natureOfAddress" minOccurs="0"/>
+						<xs:element name="numberingPlan" minOccurs="0"/>
+						<xs:element name="sccpEntitySetId" minOccurs="0"/>
+						<xs:element name="translationType" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpScrc" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpSp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="accountDateFileOutput" minOccurs="0"/>
+						<xs:element name="accountPeriodFileOutput" minOccurs="0"/>
+						<xs:element name="accountTimeFileOutput" minOccurs="0"/>
+						<xs:element name="hopCounterSclc" minOccurs="0"/>
+						<xs:element name="hopCounterScoc" minOccurs="0"/>
+						<xs:element name="lowerConnThres" minOccurs="0"/>
+						<xs:element name="maxRelayedConn" minOccurs="0"/>
+						<xs:element name="mtp3bSpId" minOccurs="0"/>
+						<xs:element name="prioGeneral" minOccurs="0"/>
+						<xs:element name="prioIT" minOccurs="0"/>
+						<xs:element name="prioRLSD" minOccurs="0"/>
+						<xs:element name="prioSST" minOccurs="0"/>
+						<xs:element name="smiValue" minOccurs="0"/>
+						<xs:element name="swapUDTPointer" minOccurs="0"/>
+						<xs:element name="tCong" minOccurs="0"/>
+						<xs:element name="tGuard" minOccurs="0"/>
+						<xs:element name="tIar" minOccurs="0"/>
+						<xs:element name="tIas" minOccurs="0"/>
+						<xs:element name="tReass" minOccurs="0"/>
+						<xs:element name="tRel" minOccurs="0"/>
+						<xs:element name="tStatInfo" minOccurs="0"/>
+						<xs:element name="tconnEst" minOccurs="0"/>
+						<xs:element name="tconnResp" minOccurs="0"/>
+						<xs:element name="upperConnThres" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="useSCMG" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="sendSST" minOccurs="0"/>
+									<xs:element name="sendSSA" minOccurs="0"/>
+									<xs:element name="sendSSP" minOccurs="0"/>
+									<xs:element name="useSST" minOccurs="0"/>
+									<xs:element name="allowRemoteBroadcast" minOccurs="0"/>
+									<xs:element name="initiateTimerTcon" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataRnsap" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="preferredAddressing" minOccurs="0"/>
+						<xs:element name="sccpDisabledT" minOccurs="0"/>
+						<xs:element name="userOutOfServiceT" minOccurs="0"/>
+						<xs:element name="localSccpApRef" minOccurs="0"/>
+						<xs:element name="sccpGlobalTitleRef" minOccurs="0"/>
+						<xs:element name="remoteSccpApRef" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSlChina" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="autoStartLink" minOccurs="0"/>
+						<xs:element name="linkCongestLevel" minOccurs="0"/>
+						<xs:element name="linkState" minOccurs="0"/>
+						<xs:element name="prioBeforeSio" minOccurs="0"/>
+						<xs:element name="signLinkCode" minOccurs="0"/>
+						<xs:element name="tpId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="deactivate" minOccurs="0"/>
+						<xs:element name="activate" minOccurs="0"/>
+						<xs:element name="emergencyActivate" minOccurs="0"/>
+						<xs:element name="localInhibit" minOccurs="0"/>
+						<xs:element name="localUninhibit" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSpChina" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="m3uaNoOfAttempsOfDauds" minOccurs="0"/>
+						<xs:element name="routeSetCongestTestFlag" minOccurs="0"/>
+						<xs:element name="maxSizeChangeBuf" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+						<xs:element name="sendSltmBefLink" minOccurs="0"/>
+						<xs:element name="maxSizeReroutBuf" minOccurs="0"/>
+						<xs:element name="networkInd" minOccurs="0"/>
+						<xs:element name="signallingPointCode" minOccurs="0"/>
+						<xs:element name="sioSpare" minOccurs="0"/>
+						<xs:element name="nodeBehaviour" minOccurs="0"/>
+						<xs:element name="noOfAttempsOfAssociationEstablishment" minOccurs="0"/>
+						<xs:element name="spPriority" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+                                                                        <xs:element name="prioCb" minOccurs="0"/>
+									<xs:element name="prioCo" minOccurs="0"/>
+                                                                        <xs:element name="prioEc" minOccurs="0"/>
+                                                                        <xs:element name="prioLink" minOccurs="0"/>
+									<xs:element name="prioRst" minOccurs="0"/>
+                                                                        <xs:element name="prioSlt" minOccurs="0"/>
+									<xs:element name="prioTfc" minOccurs="0"/>
+									<xs:element name="prioTra" minOccurs="0"/>
+									<xs:element name="prioUpu" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="statusIndInterval" minOccurs="0"/>
+						<xs:element name="noOfCongestLevelForNI" minOccurs="0"/>
+						<xs:element name="resendTfcInterval" minOccurs="0"/>
+						<xs:element name="testPatternSltm" minOccurs="0"/>
+						<xs:element name="transFrHandler" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="version" minOccurs="0"/>
+						<xs:element name="spTimer" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="timerM3uaPeriodicAudit" minOccurs="0"/>
+									<xs:element name="timerM3uaT1" minOccurs="0"/>
+									<xs:element name="timerM3uaT3" minOccurs="0"/>
+									<xs:element name="timerM3uaT40" minOccurs="0"/>
+									<xs:element name="timerM3uaT41" minOccurs="0"/>
+									<xs:element name="timerM3uaT42" minOccurs="0"/>
+									<xs:element name="timerM3uaT6" minOccurs="0"/>
+									<xs:element name="timerM3uaT8" minOccurs="0"/>
+									<xs:element name="timerM3uaTack" minOccurs="0"/>
+									<xs:element name="timerM3uaTassocack" minOccurs="0"/>
+									<xs:element name="timerM3uaTc" minOccurs="0"/>
+									<xs:element name="timerSlta" minOccurs="0"/>
+									<xs:element name="timerSltm" minOccurs="0"/>
+									<xs:element name="timerT1" minOccurs="0"/>
+									<xs:element name="timerT10" minOccurs="0"/>
+									<xs:element name="timerT12" minOccurs="0"/>
+									<xs:element name="timerT13" minOccurs="0"/>
+									<xs:element name="timerT14" minOccurs="0"/>
+									<xs:element name="timerT15" minOccurs="0"/>
+									<xs:element name="timerT16" minOccurs="0"/>
+									<xs:element name="timerT17" minOccurs="0"/>
+									<xs:element name="timerT18" minOccurs="0"/>
+									<xs:element name="timerT19" minOccurs="0"/>
+									<xs:element name="timerT2" minOccurs="0"/>
+									<xs:element name="timerT20" minOccurs="0"/>
+									<xs:element name="timerT21" minOccurs="0"/>
+									<xs:element name="timerT22" minOccurs="0"/>
+									<xs:element name="timerT23" minOccurs="0"/>
+									<xs:element name="timerT3" minOccurs="0"/>
+									<xs:element name="timerT4" minOccurs="0"/>
+									<xs:element name="timerT5" minOccurs="0"/>
+									<xs:element name="timerT6" minOccurs="0"/>
+									<xs:element name="timerT8" minOccurs="0"/>
+									<xs:element name="timerTBsnt" minOccurs="0"/>
+									<xs:element name="timerTDlack" minOccurs="0"/>
+									<xs:element name="timerTRetrieval" minOccurs="0"/>
+									<xs:element name="timerTStart" minOccurs="0"/>
+									<xs:element name="timerTc" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataRanap" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="preferredAddressing" minOccurs="0"/>
+						<xs:element name="sccpDisabledT" minOccurs="0"/>
+						<xs:element name="cnDomainInd" minOccurs="0"/>
+						<xs:element name="noOfResetSendings" minOccurs="0"/>
+						<xs:element name="userOutOfServiceT" minOccurs="0"/>
+						<xs:element name="localSccpApRef" minOccurs="0"/>
+						<xs:element name="sccpGlobalTitleRef" minOccurs="0"/>
+						<xs:element name="remoteSccpApRef" minOccurs="0"/>
+						<xs:element name="resetResendT" minOccurs="0"/>
+						<xs:element name="resetAckGuardT" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="cnId" minOccurs="0"/>
+						<xs:element name="cnPlmnIdentity" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="mcc" minOccurs="0"/>
+									<xs:element name="mnc" minOccurs="0"/>
+									<xs:element name="mncLength" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="networkResourceIdentifier" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="relativeCapacity" minOccurs="0"/>
+						<xs:element name="packetDataRouterRef" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="cnOperatorRef" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSlAnsi" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="autoStartLink" minOccurs="0"/>
+						<xs:element name="linkCongestLevel" minOccurs="0"/>
+						<xs:element name="linkState" minOccurs="0"/>
+						<xs:element name="signLinkCode" minOccurs="0"/>
+						<xs:element name="tpId" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="deactivate" minOccurs="0"/>
+						<xs:element name="activate" minOccurs="0"/>
+						<xs:element name="emergencyActivate" minOccurs="0"/>
+						<xs:element name="localInhibit" minOccurs="0"/>
+						<xs:element name="localUninhibit" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMtp3bSpAnsi" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="m3uaNoOfAttempsOfDauds" minOccurs="0"/>
+						<xs:element name="maxSizeChangeBuf" minOccurs="0"/>
+						<xs:element name="maxSizeReroutBuf" minOccurs="0"/>
+						<xs:element name="networkInd" minOccurs="0"/>
+						<xs:element name="noOfAttempsOfAssociationEstablishment" minOccurs="0"/>
+						<xs:element name="noOfCongestLevelForNI" minOccurs="0"/>
+						<xs:element name="nodeBehaviour" minOccurs="0"/>
+						<xs:element name="resendTfcInterval" minOccurs="0"/>
+						<xs:element name="routeSetCongestTestFlag" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+						<xs:element name="sendSltmBefLink" minOccurs="0"/>
+						<xs:element name="signallingPointCode" minOccurs="0"/>
+						<xs:element name="statusIndInterval" minOccurs="0"/>
+						<xs:element name="sioSpare" minOccurs="0"/>
+						<xs:element name="testPatternSltm" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="spPriority" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+                                                                        <xs:element name="prioCb" minOccurs="0"/>
+									<xs:element name="prioCo" minOccurs="0"/>
+                                                                        <xs:element name="prioEc" minOccurs="0"/>
+                                                                        <xs:element name="prioLink" minOccurs="0"/>
+									<xs:element name="prioRst" minOccurs="0"/>
+                                                                        <xs:element name="prioSlt" minOccurs="0"/>
+									<xs:element name="prioTfc" minOccurs="0"/>
+									<xs:element name="prioTra" minOccurs="0"/>
+									<xs:element name="prioUpu" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="spTimer" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="timerM3uaPeriodicAudit" minOccurs="0"/>
+									<xs:element name="timerM3uaT1" minOccurs="0"/>
+									<xs:element name="timerM3uaT3" minOccurs="0"/>
+									<xs:element name="timerM3uaT40" minOccurs="0"/>
+									<xs:element name="timerM3uaT41" minOccurs="0"/>
+									<xs:element name="timerM3uaT42" minOccurs="0"/>
+									<xs:element name="timerM3uaT6" minOccurs="0"/>
+									<xs:element name="timerM3uaT8" minOccurs="0"/>
+									<xs:element name="timerM3uaTack" minOccurs="0"/>
+									<xs:element name="timerM3uaTassocack" minOccurs="0"/>
+									<xs:element name="timerM3uaTc" minOccurs="0"/>
+									<xs:element name="timerSlta" minOccurs="0"/>
+									<xs:element name="timerSltm" minOccurs="0"/>
+									<xs:element name="timerT1" minOccurs="0"/>
+									<xs:element name="timerT10" minOccurs="0"/>
+									<xs:element name="timerT12" minOccurs="0"/>
+									<xs:element name="timerT13" minOccurs="0"/>
+									<xs:element name="timerT14" minOccurs="0"/>
+									<xs:element name="timerT15" minOccurs="0"/>
+									<xs:element name="timerT16" minOccurs="0"/>
+									<xs:element name="timerT17" minOccurs="0"/>
+									<xs:element name="timerT2" minOccurs="0"/>
+									<xs:element name="timerT20" minOccurs="0"/>
+									<xs:element name="timerT21" minOccurs="0"/>
+									<xs:element name="timerT22" minOccurs="0"/>
+									<xs:element name="timerT23" minOccurs="0"/>
+									<xs:element name="timerT25" minOccurs="0"/>
+									<xs:element name="timerT26" minOccurs="0"/>
+									<xs:element name="timerT27" minOccurs="0"/>
+									<xs:element name="timerT28" minOccurs="0"/>
+									<xs:element name="timerT29" minOccurs="0"/>
+									<xs:element name="timerT3" minOccurs="0"/>
+									<xs:element name="timerT30" minOccurs="0"/>
+									<xs:element name="timerT31" minOccurs="0"/>
+									<xs:element name="timerT4" minOccurs="0"/>
+									<xs:element name="timerT5" minOccurs="0"/>
+									<xs:element name="timerT6" minOccurs="0"/>
+									<xs:element name="timerT8" minOccurs="0"/>
+									<xs:element name="timerTBsnt" minOccurs="0"/>
+									<xs:element name="timerTDlack" minOccurs="0"/>
+									<xs:element name="timerTRetrieval" minOccurs="0"/>
+									<xs:element name="timerTStart" minOccurs="0"/>
+									<xs:element name="timerTc" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="transFrHandler" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataPacketDataRouter" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="rncIpAddress" minOccurs="0"/>
+						<xs:element name="cnIuLinkIpAddress" minOccurs="0"/>
+						<xs:element name="timeToLive" minOccurs="0"/>
+						<xs:element name="pdrDeviceRef" minOccurs="0"/>
+						<xs:element name="aal5TpRef" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpAtmLink" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="interfaceName" minOccurs="0"/>
+						<xs:element name="ipAddress" minOccurs="0"/>
+						<xs:element name="metric" minOccurs="0"/>
+						<xs:element name="monitor" minOccurs="0"/>
+						<xs:element name="monitorInterval" minOccurs="0"/>
+						<xs:element name="monitorRetries" minOccurs="0"/>
+						<xs:element name="mtuSize" minOccurs="0"/>
+						<xs:element name="subnetMask" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="Aal5TpVccTpIdList" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="aal5TpVccTpSelectionMode" minOccurs="0"/>
+						<xs:element name="aal5TpVccTpId" minOccurs="0"/>
+						<xs:element name="assignIpAddress" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpRoutingTable" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="indexOfDeletableStaticRoutes" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="addStaticRoute" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+									<xs:element name="hopIpAddress" minOccurs="0"/>
+									<xs:element name="routeMetric" minOccurs="0"/>
+									<xs:element name="redistribute" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="deleteStaticRoute" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="routingTableEntry" minOccurs="0">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="active" minOccurs="0"/>
+												<xs:element name="destinationIpAddr" minOccurs="0"/>
+												<xs:element name="destinationNetworkMask" minOccurs="0"/>
+												<xs:element name="interfaceName" minOccurs="0"/>
+												<xs:element name="nextHopIpAddr" minOccurs="0"/>
+												<xs:element name="redistribute" minOccurs="0"/>
+												<xs:element name="routeMetric" minOccurs="0"/>
+												<xs:element name="routeType" minOccurs="0"/>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="dnsServer" minOccurs="0"/>
+						<xs:element name="isRecursiveSearch" minOccurs="0"/>
+						<xs:element name="isSubDomainName" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="retransInterval" minOccurs="0"/>
+						<xs:element name="noOfRetrans" minOccurs="0"/>
+						<xs:element name="isDefDomainName" minOccurs="0"/>
+						<xs:element name="defDomainName" minOccurs="0"/>
+						<xs:element name="useHostFile" minOccurs="0"/>
+						<xs:element name="dscp" minOccurs="0"/>
+						<xs:element name="icmpRedirect" minOccurs="0"/>
+						<xs:element name="udpChecksumState" minOccurs="0"/>
+						<xs:element name="connectionAttemptTimer" minOccurs="0"/>
+						<xs:element name="maxRetransmissionAttempts" minOccurs="0"/>
+						<xs:element name="workingMode" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpSystem" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+        <xs:element name="vsDataIpOam" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataOspf" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="ipMo" minOccurs="0"/>
+						<xs:element name="ospfASBdrRtrStatus" minOccurs="0"/>
+						<xs:element name="ospfAreaBdrRtrStatus" minOccurs="0"/>
+						<xs:element name="ospfRouterId" minOccurs="0"/>
+						<xs:element name="recoverTopoDb" minOccurs="0"/>
+						<xs:element name="topoDbStoreInterv" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataOspfArea" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="areaId" minOccurs="0"/>
+						<xs:element name="areaLsaChecksum" minOccurs="0"/>
+						<xs:element name="importExternalLsa" minOccurs="0"/>
+						<xs:element name="sendAreaSummary" minOccurs="0"/>
+						<xs:element name="stubArea" minOccurs="0"/>
+						<xs:element name="stubAreaMetric" minOccurs="0"/>
+						<xs:element name="stubAreaMetricType" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="range0" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+									<xs:element name="advertise" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="range1" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+									<xs:element name="advertise" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="range2" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+									<xs:element name="advertise" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="addAreaRange" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="rangeIndex" minOccurs="0"/>
+									<xs:element name="range" minOccurs="0">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="ipAddress" minOccurs="0"/>
+												<xs:element name="subnetMask" minOccurs="0"/>
+												<xs:element name="advertise" minOccurs="0"/>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="deleteAreaRange" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="rangeIndex" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataOspfInterface" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="helloInterval" minOccurs="0"/>
+						<xs:element name="interfacePriority" minOccurs="0"/>
+						<xs:element name="interfaceTransitDelay" minOccurs="0"/>
+						<xs:element name="lsaTransmissionInterval" minOccurs="0"/>
+						<xs:element name="ospfAreaRelated" minOccurs="0"/>
+						<xs:element name="relatedLink" minOccurs="0"/>
+						<xs:element name="routerDeadInterval" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataRncModule" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataTnApplication" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVirtualPath" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vplTpARef" minOccurs="0"/>
+						<xs:element name="vplTpBRef" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataM3uAssociation" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="mtp3bSrsId" minOccurs="0"/>
+						<xs:element name="sctpId" minOccurs="0"/>
+						<xs:element name="dscp" minOccurs="0"/>
+						<xs:element name="associationState" minOccurs="0"/>
+						<xs:element name="localIpMask" minOccurs="0"/>
+						<xs:element name="autoStartAssociation" minOccurs="0"/>
+						<xs:element name="remotePortNumber" minOccurs="0"/>
+						<xs:element name="remoteIpAddress1" minOccurs="0"/>
+						<xs:element name="remoteIpAddress2" minOccurs="0"/>
+						<xs:element name="localPortNumber" minOccurs="0"/>
+						<xs:element name="role" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpAccountingCriteria" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="usageType" minOccurs="0"/>
+						<xs:element name="ssN" minOccurs="0"/>
+						<xs:element name="countType" minOccurs="0"/>
+						<xs:element name="globalTitleId" minOccurs="0"/>
+						<xs:element name="pointerId" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSccpPolicing" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="originatingMtp3bSpc" minOccurs="0"/>
+						<xs:element name="destinationMtp3bSpc" minOccurs="0"/>
+						<xs:element name="originatingSccpSpId" minOccurs="0"/>
+						<xs:element name="originatingSccpSsn" minOccurs="0"/>
+						<xs:element name="destinationSccpSpId" minOccurs="0"/>
+						<xs:element name="destinationSccpSsn" minOccurs="0"/>
+						<xs:element name="policingGlobalTitle" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="indicator" minOccurs="0"/>
+									<xs:element name="natureOfAddress" minOccurs="0"/>
+									<xs:element name="numberingPlan" minOccurs="0"/>
+									<xs:element name="translationType" minOccurs="0"/>
+									<xs:element name="addressInformation" minOccurs="0"/>
+									<xs:element name="encodingScheme" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="discardOrReturnServiceMsg" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSctp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="numberOfAssociations" minOccurs="0"/>
+						<xs:element name="ipAccessHostGpbId" minOccurs="0"/>
+						<xs:element name="minimumRto" minOccurs="0"/>
+						<xs:element name="maximumRto" minOccurs="0"/>
+						<xs:element name="initialRto" minOccurs="0"/>
+						<xs:element name="rtoAlphaIndex" minOccurs="0"/>
+						<xs:element name="rtoBetaIndex" minOccurs="0"/>
+						<xs:element name="validCookieLife" minOccurs="0"/>
+						<xs:element name="allowedIncrementCookieLife" minOccurs="0"/>
+						<xs:element name="keyChangePeriod" minOccurs="0"/>
+						<xs:element name="associationMaxRtx" minOccurs="0"/>
+						<xs:element name="pathMaxRtx" minOccurs="0"/>
+						<xs:element name="maxInitialRtrAtt" minOccurs="0"/>
+						<xs:element name="maxShutDownRtrAtt" minOccurs="0"/>
+						<xs:element name="heartbeatInterval" minOccurs="0"/>
+						<xs:element name="heartbeatStatus" minOccurs="0"/>
+						<xs:element name="maxIncomingStream" minOccurs="0"/>
+						<xs:element name="maxOutgoingStream" minOccurs="0"/>
+						<xs:element name="maxUserDataSize" minOccurs="0"/>
+						<xs:element name="mBuffer" minOccurs="0"/>
+						<xs:element name="nThreshold" minOccurs="0"/>
+						<xs:element name="tSack" minOccurs="0"/>
+						<xs:element name="maxDataSizeIp" minOccurs="0"/>
+						<xs:element name="initialAdRecWin" minOccurs="0"/>
+						<xs:element name="intervalOobPkts" minOccurs="0"/>
+						<xs:element name="intervalLostUser" minOccurs="0"/>
+						<xs:element name="maxBurst" minOccurs="0"/>
+						<xs:element name="nPercentage" minOccurs="0"/>
+						<xs:element name="bundlingActivated" minOccurs="0"/>
+						<xs:element name="bundlingTimer" minOccurs="0"/>
+						<xs:element name="rpuId" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataEthernetLink" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="ipAddress" minOccurs="0"/>
+						<xs:element name="subnetMask" minOccurs="0"/>
+						<xs:element name="broadcastAddress" minOccurs="0"/>
+						<xs:element name="macAddress" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="mtuSize" minOccurs="0"/>
+						<xs:element name="metric" minOccurs="0"/>
+						<xs:element name="interfaceName" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="assignIpAddress" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ipAddress" minOccurs="0"/>
+									<xs:element name="subnetMask" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataImaGroup" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="physicalPortList" minOccurs="0" maxOccurs="unbounded"/>
+						<xs:element name="requiredNumberOfLinks" minOccurs="0"/>
+						<xs:element name="activeLinks" minOccurs="0" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataImaLink" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="uses" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpAccessHostGpb" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="generalProcessorUnitId" minOccurs="0"/>
+						<xs:element name="autoConfig" minOccurs="0"/>
+						<xs:element name="autoConfigIdentity" minOccurs="0"/>
+						<xs:element name="autoConfigIdentity2" minOccurs="0"/>
+						<xs:element name="ipAddress1" minOccurs="0"/>
+						<xs:element name="ipAddress2" minOccurs="0"/>
+						<xs:element name="ipDefaultTtl" minOccurs="0"/>
+						<xs:element name="ipReasmTimeout" minOccurs="0"/>
+						<xs:element name="interface1" minOccurs="0"/>
+						<xs:element name="interface2" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpAccessAutoConfig" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="networkPrefixLength" minOccurs="0"/>
+						<xs:element name="nrOfUnusedAdresses" minOccurs="0"/>
+						<xs:element name="totalNrOfAddresses" minOccurs="0"/>
+						<xs:element name="minIpAddress" minOccurs="0"/>
+						<xs:element name="maxIpAddress" minOccurs="0"/>
+						<xs:element name="subnet" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpInterface" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="vid" minOccurs="0"/>
+						<xs:element name="vLan" minOccurs="0"/>
+						<xs:element name="rps" minOccurs="0"/>
+						<xs:element name="mtu" minOccurs="0"/>
+						<xs:element name="networkPrefixLength" minOccurs="0"/>
+						<xs:element name="defaultRouter0" minOccurs="0"/>
+						<xs:element name="defaultRouter1" minOccurs="0"/>
+						<xs:element name="defaultRouter2" minOccurs="0"/>
+						<xs:element name="defaultRouterPingInterval" minOccurs="0"/>
+						<xs:element name="maxWaitForPingReply" minOccurs="0"/>
+						<xs:element name="maxNoOfFailedPings" minOccurs="0"/>
+						<xs:element name="noOfPingsBeforeOk" minOccurs="0"/>
+						<xs:element name="switchBackTimer" minOccurs="0"/>
+						<xs:element name="ownIpAddressActive" minOccurs="0"/>
+						<xs:element name="ownIpAddressPassive" minOccurs="0"/>
+						<xs:element name="subnet" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpAccessHostSpb" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="autoConfig" minOccurs="0"/>
+						<xs:element name="autoConfigIdentity" minOccurs="0"/>
+						<xs:element name="autoConfigIdentity2" minOccurs="0"/>
+						<xs:element name="interface2" minOccurs="0"/>
+						<xs:element name="spmId" minOccurs="0"/>
+						<xs:element name="ipAddress" minOccurs="0"/>
+						<xs:element name="ipAddress2" minOccurs="0"/>
+						<xs:element name="ipDefaultTtl" minOccurs="0"/>
+						<xs:element name="ipInterface" minOccurs="0"/>
+						<xs:element name="ipReasmTimeout" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIpEthPacketDataRouter" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="pdrDeviceRef" minOccurs="0"/>
+						<xs:element name="ipAccessHostSpbRef" minOccurs="0"/>
+						<xs:element name="ipAddressSelection" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSwManagement" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataReliableProgramUniter" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+		<xs:element name="vsDataSpDevicePool" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataPdrDevice" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataExchangeTerminal" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="description" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="aal2LayerDescription" minOccurs="0"/>
+									<xs:element name="atmLayerDescription" minOccurs="0"/>
+									<xs:element name="etType" minOccurs="0"/>
+									<xs:element name="physicalLayerDescription" minOccurs="0"/>
+									<xs:element name="tdmSupport" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+							<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataCbu" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataGeneralProcessorUnit" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVc4Ttp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="pathTraceFormat" minOccurs="0"/>
+							<xs:element name="transmittedPathTrace" minOccurs="0"/>
+							<xs:element name="expectedPathTrace" minOccurs="0"/>
+							<xs:element name="timConsequentAction" minOccurs="0"/>
+							<xs:element name="vcDegThreshold" minOccurs="0"/>
+							<xs:element name="vcDegM" minOccurs="0"/>
+							<xs:element name="auAisReporting" minOccurs="0"/>
+							<xs:element name="vcRdiReporting" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVc12Ttp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="transmittedPathTrace" minOccurs="0"/>
+							<xs:element name="expectedPathTrace" minOccurs="0"/>
+							<xs:element name="timConsequentAction" minOccurs="0"/>
+							<xs:element name="vcDegThreshold" minOccurs="0"/>
+							<xs:element name="vcDegM" minOccurs="0"/>
+							<xs:element name="tuAisReporting" minOccurs="0"/>
+							<xs:element name="vcRdiReporting" minOccurs="0"/>
+							<xs:element name="administrativeState" minOccurs="0"/>
+							<xs:element name="shutDownTimeout" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataE1Ttp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="degDegThr" minOccurs="0"/>
+							<xs:element name="degDegM" minOccurs="0"/>
+							<xs:element name="aisReporting" minOccurs="0"/>
+							<xs:element name="rdiReporting" minOccurs="0"/>
+							<xs:element name="crc4Mode" minOccurs="0"/>
+							<xs:element name="idlePattern" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSts1SpeTtp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="aisPReporting" minOccurs="0"/>
+							<xs:element name="rdiPReporting" minOccurs="0"/>
+							<xs:element name="timConsequentAction" minOccurs="0"/>
+							<xs:element name="expectedPathTrace" minOccurs="0"/>
+							<xs:element name="transmittedPathTrace" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataVt15Ttp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="administrativeState" minOccurs="0"/>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="aisVreporting" minOccurs="0"/>
+							<xs:element name="rdiVreporting" minOccurs="0"/>
+							<xs:element name="shutDownTimer" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataSts3CspeTtp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="aisPReporting" minOccurs="0"/>
+							<xs:element name="rdiPReporting" minOccurs="0"/>
+							<xs:element name="timConsequentAction" minOccurs="0"/>
+							<xs:element name="expectedPathTrace" minOccurs="0"/>
+							<xs:element name="transmittedPathTrace" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataT1Ttp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+							<xs:element name="userLabel" minOccurs="0"/>
+							<xs:element name="aisReporting" minOccurs="0"/>
+							<xs:element name="rdiReporting" minOccurs="0"/>
+							<xs:element name="idlePattern" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataIuLink" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="packetDataRouterRef" minOccurs="0" maxOccurs="unbounded" />
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataE1PhysPathTerm" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="loopback" minOccurs="0"/>
+						<xs:element name="crc4Mode" minOccurs="0"/>
+						<xs:element name="idlePattern" minOccurs="0"/>
+						<xs:element name="degDegThr" minOccurs="0"/>
+						<xs:element name="degDegM" minOccurs="0"/>
+						<xs:element name="rdiReporting" minOccurs="0"/>
+						<xs:element name="aisReporting" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataJ1PhysPathTerm" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					        <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="loopback" minOccurs="0"/>
+						<xs:element name="idlePattern" minOccurs="0"/>
+						<xs:element name="physicalLineType" minOccurs="0"/>
+						<xs:element name="degThreshold" minOccurs="0"/>
+						<xs:element name="rdiReporting" minOccurs="0"/>
+						<xs:element name="aisReporting" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataT1PhysPathTerm" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					        <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="loopback" minOccurs="0"/>
+						<xs:element name="rdiReporting" minOccurs="0"/>
+						<xs:element name="aisReporting" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+						<xs:element name="idlePattern" minOccurs="0"/>
+						<xs:element name="transmissionMode" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataDs0Bundle" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="listOfTimeSlots" minOccurs="0"/>
+						<xs:element name="tdmMode" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataT3PhysPathTerm" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					        <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="loopback" minOccurs="0"/>
+						<xs:element name="rdiReporting" minOccurs="0"/>
+						<xs:element name="aisReporting" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataE3PhysPathTerm" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					        <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="loopback" minOccurs="0"/>
+						<xs:element name="idlePattern" minOccurs="0"/>
+						<xs:element name="degDegThr" minOccurs="0"/>
+						<xs:element name="degDegM" minOccurs="0"/>
+						<xs:element name="rdiReporting" minOccurs="0"/>
+						<xs:element name="aisReporting" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataOs155SpiTtp" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					        <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="lineNo" minOccurs="0"/>
+						<xs:element name="standardMode" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+						<xs:element name="muxMode" minOccurs="0"/>
+						<xs:element name="msDegThreshold" minOccurs="0"/>
+						<xs:element name="msDegM" minOccurs="0"/>
+						<xs:element name="msRdiReporting" minOccurs="0"/>
+						<xs:element name="msAisReporting" minOccurs="0"/>
+						<xs:element name="loopBack" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataEtMfg" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+    <xs:element name="vsDataGigaBitEthernet" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+					     <xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="dscpPbitMap" minOccurs="0"/>
+						<xs:element name="autoNegotiation" minOccurs="0"/>
+						<xs:element name="frameFormat" minOccurs="0"/>
+						<xs:element name="primaryLink" minOccurs="0"/>
+						<xs:element name="protectiveMode" minOccurs="0"/>
+						<xs:element name="msDegM" minOccurs="0"/>
+						<xs:element name="shutDownTimeout" minOccurs="0"/>
+						<xs:element name="statePropagationDelay" minOccurs="0"/>
+						<xs:element name="switchBackTimer" minOccurs="0"/>
+						<xs:element name="setDscpPbit" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="dscp" minOccurs="0"/>
+									<xs:element name="pbit" minOccurs="0"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataFastEthernet" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="administrativeState" minOccurs="0"/>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="defaultRouter" minOccurs="0"/>
+						<xs:element name="mtu" minOccurs="0"/>
+						<xs:element name="networkPrefixLength" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMediumAccessUnit" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="connectorLabel" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="vsDataMspg" substitutionGroup="xn:vsData">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="xn:vsData">
+					<xs:sequence>
+						<xs:element name="userLabel" minOccurs="0"/>
+						<xs:element name="degCauseMsp" minOccurs="0"/>
+						<xs:element name="os155SpiStandbyId" minOccurs="0"/>
+						<xs:element name="os155SpiWorkingId" minOccurs="0"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

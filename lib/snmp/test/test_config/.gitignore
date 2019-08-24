@@ -1,0 +1,19 @@
+# Sys config files (Generated)
+/sys.config
+/sys-agent.config
+/sys-manager.config
+
+# Agent config files (Generated)
+/agent/agent.conf
+/agent/community.conf
+/agent/context.conf
+/agent/notify.conf
+/agent/standard.conf
+/agent/target_addr.conf
+/agent/target_params.conf
+/agent/usm.conf
+/agent/vacm.conf
+
+# Manager config files (Generated)
+/manager/manager.conf
+/manager/usm.conf

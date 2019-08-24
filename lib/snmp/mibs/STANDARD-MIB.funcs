@@ -1,0 +1,36 @@
+{sysUpTime, {snmp_standard_mib, sys_up_time, []}}.
+{sysDescr, {snmp_generic, variable_func, [{sysDescr, persistent}]}}.
+{sysObjectID, {snmp_generic, variable_func, [{sysObjectID, persistent}]}}.
+{sysContact, {snmp_generic, variable_func, [{sysContact, persistent}]}}.
+{sysName, {snmp_generic, variable_func, [{sysName, persistent}]}}.
+{sysLocation, {snmp_generic, variable_func, [{sysLocation, persistent}]}}.
+{sysServices, {snmp_generic, variable_func, [{sysServices, persistent}]}}.
+{snmpEnableAuthenTraps, {snmp_standard_mib, snmp_enable_authen_traps, []}}.
+
+{snmpInPkts, {snmp_standard_mib, variable_func, [snmpInPkts]}}.
+{snmpOutPkts, {snmp_standard_mib, variable_func, [snmpOutPkts]}}.
+{snmpInBadVersions, {snmp_standard_mib, variable_func, [snmpInBadVersions]}}.
+{snmpInBadCommunityNames, {snmp_standard_mib, variable_func, [snmpInBadCommunityNames]}}.
+{snmpInBadCommunityUses, {snmp_standard_mib, variable_func, [snmpInBadCommunityUses]}}.
+{snmpInASNParseErrs, {snmp_standard_mib, variable_func, [snmpInASNParseErrs]}}.
+{snmpInTooBigs, {snmp_standard_mib, variable_func, [snmpInTooBigs]}}.
+{snmpInNoSuchNames, {snmp_standard_mib, variable_func, [snmpInNoSuchNames]}}.
+{snmpInBadValues, {snmp_standard_mib, variable_func, [snmpInBadValues]}}.
+{snmpInReadOnlys, {snmp_standard_mib, variable_func, [snmpInReadOnlys]}}.
+{snmpInGenErrs, {snmp_standard_mib, variable_func, [snmpInGenErrs]}}.
+{snmpInTotalReqVars, {snmp_standard_mib, variable_func, [snmpInTotalReqVars]}}.
+{snmpInTotalSetVars, {snmp_standard_mib, variable_func, [snmpInTotalSetVars]}}.
+{snmpInGetRequests, {snmp_standard_mib, variable_func, [snmpInGetRequests]}}.
+{snmpInGetNexts, {snmp_standard_mib, variable_func, [snmpInGetNexts]}}.
+{snmpInSetRequests, {snmp_standard_mib, variable_func, [snmpInSetRequests]}}.
+{snmpInGetResponses, {snmp_standard_mib, variable_func, [snmpInGetResponses]}}.
+{snmpInTraps, {snmp_standard_mib, variable_func, [snmpInTraps]}}.
+{snmpOutTooBigs, {snmp_standard_mib, variable_func, [snmpOutTooBigs]}}.
+{snmpOutNoSuchNames, {snmp_standard_mib, variable_func, [snmpOutNoSuchNames]}}.
+{snmpOutBadValues, {snmp_standard_mib, variable_func, [snmpOutBadValues]}}.
+{snmpOutGenErrs, {snmp_standard_mib, variable_func, [snmpOutGenErrs]}}.
+{snmpOutGetRequests, {snmp_standard_mib, variable_func, [snmpOutGetRequests]}}.
+{snmpOutGetNexts, {snmp_standard_mib, variable_func, [snmpOutGetNexts]}}.
+{snmpOutSetRequests, {snmp_standard_mib, variable_func, [snmpOutSetRequests]}}.
+{snmpOutGetResponses, {snmp_standard_mib, variable_func, [snmpOutGetResponses]}}.
+{snmpOutTraps, {snmp_standard_mib, variable_func, [snmpOutTraps]}}.

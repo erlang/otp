@@ -1,0 +1,12 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+foo() ->
+    gurka ** nisse.
+
+
+blurf() blarf().
+
+
+
+	

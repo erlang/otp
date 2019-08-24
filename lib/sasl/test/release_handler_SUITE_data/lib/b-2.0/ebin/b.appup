@@ -1,0 +1,6 @@
+%% -*- erlang -*-
+{"2.0",
+ [{"1.0",[{delete_module,b_lib},
+	  {update,b_server,{advanced,[]},soft_purge,soft_purge,[]}]}],
+ [{"1.0",[{add_module,b_lib},
+	  {update,b_server,{advanced,[]},soft_purge,soft_purge,[]}]}]}.

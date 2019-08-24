@@ -1,0 +1,31 @@
+Creating the LFE-derived test suites
+====================================
+
+Here is how to create `lfe_andor_SUITE.core` and `lfe_guard_SUITE.core`
+files.
+
+First clone and build LFE.
+
+    git clone https://github.com/rvirding/lfe.git
+    cd lfe
+    git checkout v1.2.0
+    MAKEFLAGS='' make compile
+    export PATH=$(pwd)/bin:$PATH
+
+Apply the source patch to rename and fix up the LFE source code:
+
+    cd test
+    git apply $ERL_TOP/lib/compiler/test/lfe-source.patch
+    git reset --hard HEAD
+
+Compile the modules to Core Erlang:
+
+    lfec +to-core0 lfe*.lfe
+
+Apply the core patch to correct some invalid variable names:
+
+    git apply $ERL_TOP/lib/compiler/test/lfe-core.patch
+
+Copy the patched .core file to the test suite:
+
+    cp lfe*.core $ERL_TOP/lib/compiler/test

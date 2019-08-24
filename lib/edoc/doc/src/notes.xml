@@ -1,0 +1,827 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>EDoc Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the EDoc
+    application.</p>
+
+<section><title>Edoc 0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct links in the documentation. </p>
+          <p>
+	    Own Id: OTP-15761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Print a helpful message explaining that adding
+	    <c>{preprocess, true}</c> can help if reading a source
+	    file fails. </p>
+          <p>
+	    Own Id: OTP-15605 Aux Id: ERL-841 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Types and function specifications including the
+	    <c>map()</c> type are pretty-printed correctly. </p>
+          <p>
+	    Own Id: OTP-15117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The map type is correctly denoted as <c>map()</c> in
+	    function specifications and types. </p>
+          <p>
+	    Own Id: OTP-14777</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>To support stable builds, <c>edoc</c> no longer
+	    includes time stamps in the footer for generated
+	    files.</p>
+          <p>
+	    Own Id: OTP-14277</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Document the function tags <c>@param</c> and
+	    <c>@returns</c>. </p>
+          <p>
+	    Own Id: OTP-13930 Aux Id: PR-1175 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Improve types and specs in OTP documentation generated
+	    from Erlang source files. </p>
+          <p>
+	    Own Id: OTP-13720 Aux Id: ERL-120 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Handle typed record fields. </p>
+          <p>
+	    Own Id: OTP-13558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Assign correct names to list arguments. </p>
+          <p>
+	    Own Id: OTP-13234 Aux Id: ERL-63 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Unless the <c>sort_functions</c> option is <c>true</c>,
+	    <c>edoc_layout</c> does not sort functions.</p>
+          <p>
+	    Own Id: OTP-13302</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.17</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove functionality related to packages</p>
+          <p>
+	    Own Id: OTP-12431</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Maps: Properly align union typed assoc values in
+	    documentation</p>
+          <p>
+	    Own Id: OTP-12190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix spec to doc generation from erl_docgen and edoc for
+	    maps</p>
+          <p>
+	    Own Id: OTP-12058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The default encoding for Erlang source files is now
+	    UTF-8. As a temporary measure to ease the transition from
+	    the old default of Latin-1, if EDoc encounters byte
+	    sequences that are not valid UTF-8 sequences, EDoc will
+	    re-try in Latin-1 mode. This workaround will be removed
+	    in a future release. </p>
+          <p>
+	    Own Id: OTP-12008</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.12.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>EDoc sometimes failed to associate a comment with the
+	    preceding type declaration. This bug has been fixed.
+	    (Thanks to Serge Aleynikov for reporting the bug.) </p>
+          <p>
+	    Own Id: OTP-10866</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Since EDoc 0.7.7 (R14B02) separate values of union
+	    types can be annotated. However, the parser has hitherto
+	    chosen not to add the necessary parentheses due to
+	    backwards compatibility. </p> <p> From this release on
+	    code traversing the output of <c>edoc_parser</c> needs to
+	    take care of parentheses around separate values of union
+	    types. Examples of such code are layout modules and
+	    doclet modules. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10195</p>
+        </item>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    List behaviour callbacks in Edoc when using -callback
+	    attribute. (Thanks to Magnus Henoch.)</p>
+          <p>
+	    Added special case for file names under Windows. (Thanks
+	    to Beads Land-Trujillo.)</p>
+          <p>
+	    Own Id: OTP-10174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous documentation build updates</p>
+          <p>
+	    Own Id: OTP-9813</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>no_return</c> is a new built-in type. </p>
+          <p>
+	    Own Id: OTP-9350</p>
+        </item>
+        <item>
+          <p>
+	    synchronized with edoc development version</p>
+          <p>
+	    forgot to ensure that xmerl is found in path for
+	    include_lib to work</p>
+          <p>
+	    fix -spec declaration that doesn't work in R13B04</p>
+          <p>
+	    eliminate warnings about unused imports</p>
+          <p>
+	    removed CVS-keywords from source files (Thanks to Richard
+	    Carlsson )</p>
+          <p>
+	    Own Id: OTP-9463</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+          <p>
+	    Removed some never-matching clauses reported by dialyzer
+	    Fix macro expansion in comments following Erlang types
+	    URI-escape bytes as two hex digits always (reported by
+	    Alfonso De Gregorio) Updated author e-mail Recognize some
+	    more URI schemas in wiki text, in particular https
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9590</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix infinite loop for malformed edoc input</p>
+          <p>
+	    When processing an edoc comment with ``` in it, if the
+	    comment ends without a matching ''' then an infinite loop
+	    occurs in the function edoc_wiki:strip_empty_lines/2.
+	    This change fixes that by adding a clause to return from
+	    the function upon the end of the comment input. This
+	    allows an error to be thrown to indicate the problem,
+	    which is the same behaviour as leaving either `` or `
+	    unmatched. (Thanks to Taylor Venable)</p>
+          <p>
+	    Own Id: OTP-9165</p>
+        </item>
+        <item>
+	    <p> Bugs concerning the option
+	    <c>report_missing_types</c> that was added in EDoc-0.7.7
+	    have been corrected: the option was misspelled in the
+	    source, and local definitions as well as the function
+	    tags <c>@private</c> and <c>@hidden</c> were not handled
+	    correctly. (Thanks to Manolis Papadakis.) </p>
+          <p>
+	    Own Id: OTP-9301</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add encoding when parsing Wiki text. EDoc used to
+	    fail on strings such as "äåö". (Thanks to Richard
+	    Carlsson.) </p>
+          <p>
+	    Own Id: OTP-9109</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> It is now possible to use Erlang specifications and
+	    types in EDoc documentation. Erlang specifications and
+	    types will be used unless there is also a function
+	    specification (<c>@spec</c>) or a type alias
+	    (<c>@type</c>) with the same name. In the current
+	    implementation the placement of <c>-spec</c> matters: it
+	    should be placed where the <c>@spec</c> would otherwise
+	    have been placed. </p>
+	    <p>Not all Erlang types are included in the
+	    documentation, but only those exported by some
+	    <c>export_type</c> declaration or used by some documented
+	    Erlang specification (<c>-spec</c>). </p>
+	    <p> There is currently no support for overloaded Erlang
+	    specifications. </p>
+	    <p> The syntax definitions of EDoc have been augmented to
+	    cope with most of the Erlang types. (But we recommend
+	    that Erlang types should be used instead.) </p>
+	    <p> <c>edoc:read_source()</c> takes one new option,
+	    <c>report_missing_types</c>. <c>edoc_layout:module()</c>
+	    takes one new option, <c>pretty_printer</c>. </p>
+          <p>
+	    Own Id: OTP-8525</p>
+        </item>
+        <item>
+	    <p> The <c>edoc_lib</c> module is meant to be private,
+	    but since it is referred to from other man pages it has
+	    been included in the OTP documentation. The modifications
+	    introduced in this ticket make all functions private
+	    except those referred to from other pages. </p>
+          <p>
+	    Own Id: OTP-9110</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compiler warnings were eliminated.</p>
+          <p>
+	    Own Id: OTP-8855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Edoc now uses the new API functions to <c>inets</c>
+	    instead of the deprecated ones.</p>
+          <p>
+	    Own Id: OTP-8749</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-8190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates.</p>
+          <p>
+	    Own Id: OTP-7642</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correction to work with new versions of STDLIB that no
+	    longer has the <c>erl_internal:obsolete/3</c> function.</p>
+          <p>
+	    Own Id: OTP-7539</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor changes.</p>
+          <p>
+	    Own Id: OTP-7388</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.7.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates, mostly cosmetic.</p>
+          <p>
+	    Own Id: OTP-7243</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Edoc 0.7.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>Dialyzer warnings were eliminated.</p>
+          <p>Own Id: OTP-6737</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>EDoc 0.7.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Some missing files have been added:
+            <c><![CDATA[~/include/edoc_doclet.hrl]]></c>, <c><![CDATA[~/priv/edoc.dtd]]></c>,
+            <c><![CDATA[~/priv/erlang.png]]></c></p>
+          <p>Own Id: OTP-6457</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <list type="bulleted">
+            <item>Undefined macros only cause warnings, not errors.</item>
+            <item>New, built-in <c><![CDATA[@version]]></c> macro.</item>
+            <item>Documented the <c><![CDATA[@docfile]]></c> and <c><![CDATA[@headerfile]]></c>
+             generic tags.</item>
+            <item>Added recognition of <c><![CDATA["TODO:"]]></c> as a wiki
+             equivalent for <c><![CDATA[@todo]]></c> tags.</item>
+            <item>Added documentation about overview pages.</item>
+            <item><c><![CDATA['where']]></c> and <c><![CDATA[',']]></c> are allowed as
+             separators in specs.</item>
+            <item>Corrected ambiguity in spec grammar (possible
+             incompatibility issue - parentheses may need to be added
+             in some cases, in existing code).</item>
+            <item>Experimental (and undocumented) support for
+            <c><![CDATA[@param]]></c> and <c><![CDATA[@return]]></c> tags and corresponding
+            <c><![CDATA["..."]]></c> annotations on <c><![CDATA[@spec]]></c> parameters.</item>
+          </list>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6568</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>EDoc 0.7.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed some broken links in the documentation.</p>
+          <p>Own Id: OTP-6419</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>EDoc 0.7.0</title>
+    <p>Miscellaneous changes.</p>
+  </section>
+</chapter>
+

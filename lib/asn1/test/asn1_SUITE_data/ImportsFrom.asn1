@@ -1,0 +1,10 @@
+ImportsFrom DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+IMPORTS Int, Quoted-Seq FROM ImportsFrom2;
+i Int ::= 42
+My-Seq ::= Quoted-Seq
+
+END
+
+

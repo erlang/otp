@@ -1,0 +1,3 @@
+
+ets_insert_control_flow3.erl:21: The call ets:insert(Table::atom() | ets:tid(),{'root',[pos_integer()]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup(Table::atom() | ets:tid(),'root') call in ets_insert_control_flow3.erl on line 12
+ets_insert_control_flow3.erl:23: The call ets:insert(Table::atom() | ets:tid(),{'user',[pos_integer()]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup(Table::atom() | ets:tid(),'user') call in ets_insert_control_flow3.erl on line 13

@@ -1,0 +1,4 @@
+
+initial_dataflow.erl:11: The variable Q can never match since previous clauses completely covered the type #{}
+initial_dataflow.erl:5: Function test/0 has no local return
+initial_dataflow.erl:6: The pattern 'false' can never match the type 'true'

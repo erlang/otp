@@ -1,0 +1,4 @@
+{snmpEngineID, {snmp_framework_mib, snmpEngineID, []}}.
+{snmpEngineBoots, {snmp_framework_mib, snmpEngineBoots, []}}.
+{snmpEngineTime, {snmp_framework_mib, snmpEngineTime, []}}.
+{snmpEngineMaxMessageSize, {snmp_framework_mib, snmpEngineMaxMessageSize, []}}.

@@ -1,0 +1,3 @@
+
+higher_order_discrepancy.erl:19: Function g/1 has no local return
+higher_order_discrepancy.erl:19: The pattern 'bar' can never match the type 'foo'

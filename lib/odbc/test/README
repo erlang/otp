@@ -1,0 +1,87 @@
+-------------------------------------------------------------------------
+	TEST SUITE REQUIREMENTS
+-------------------------------------------------------------------------
+As third party products are involved when using ODBC you will have to
+setup your own test environment to be able to run the ODBC test
+suites.
+
+You need to install a database such as postgres, sql-server, oracle
+etc, and ODBC-drivers for that database. 
+
+Then you need to setup a test database, however you do not
+need to create any tables that will be done by the test suites.
+The test suites will also remove all tables that it creates when
+the test is complete.
+
+-------------------------------------------------------------------------
+ERLANG FILES YOU MAY NEED TO CHANGE
+-------------------------------------------------------------------------
+
+A remote database management system has a callback module to handle
+possible differences in data type handling etc, the callback module
+also defines the ODBC connection string. Currently available callback
+modules are postgres.erl, sqlserver.erl and oracle.erl. Depending on
+how you set things up you might want to edit the connection string in
+the callback module or even add your own callback module.
+
+The callback module used in each test case is defined by the ?RDBMS
+macro defined in odbc_test.hrl so you might need to change this to
+suite your purposes.
+
+-------------------------------------------------------------------------
+EXAMPLE
+-------------------------------------------------------------------------
+
+As an example say we have the database odbctestdb, with
+the user odbctest that has the password Sesame. The database
+runs on the host myhost.
+
+UINX/LINUX
+-----------
+
+Set up a database and install the unixODBC drivers. 
+Then the unix/linux user that should run the test suits needs an .odbc.ini
+file to map connection data. For example ODBC connection string:
+"DSN=Postgres;UID=odbctest" will need an .odbc.ini entry that looks
+something like this:
+
+--- Start example of .odbc.ini ----
+
+[Postgres]
+Driver=/usr/lib/psqlodbc.so 
+Description=Postgres driver
+ServerName=myhost
+Database=odbctestdb
+Port=5432
+LogonID=odbctest
+Password=Sesame
+
+---End example of .odbc.ini ------------
+
+
+WINDOWS MOST FLAVORS
+--------------------
+
+There will be a "ODBC data source administrator" tool under
+Control Panel -> Administrative Tools, use this to set up
+your database. Choose to connect with SQL Server authentication.
+As odbc connection string use: "DSN=odbctestdb;UID=odbctest;PWD=Sesame"
+
+
+> %CopyrightBegin%
+>
+> Copyright Ericsson AB 2010-2016. All Rights Reserved.
+>
+> Licensed under the Apache License, Version 2.0 (the "License");
+> you may not use this file except in compliance with the License.
+> You may obtain a copy of the License at
+>
+>     http://www.apache.org/licenses/LICENSE-2.0
+>
+> Unless required by applicable law or agreed to in writing, software
+> distributed under the License is distributed on an "AS IS" BASIS,
+> WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+> See the License for the specific language governing permissions and
+> limitations under the License.
+>
+> %CopyrightEnd%

@@ -1,0 +1,4 @@
+tar_SUITE.erl
+tar_SUITE_data
+{skip,{ets_SUITE,partly_bound,"System dependent"}}.
+{skip,{gen_server_SUITE,multicall_down,"Network dependent"}}.

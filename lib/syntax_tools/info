@@ -1,0 +1,3 @@
+group: tools
+short: A utility used to handle abstract Erlang syntax trees,
+short: reading source files differently, pretty-printing syntax trees.

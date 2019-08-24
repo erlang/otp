@@ -1,0 +1,58 @@
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2005-2016. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+# 
+
+include @erts_lib_make_ethread@
+
+CC = @CC@
+CFLAGST = @ERTS_CFLAGS@
+LIBST = @ERTS_LIBS@
+CFLAGSF = @CFLAGS@
+LIBSF = @LIBS@
+CP=cp
+CHMOD=chmod
+
+COMMON_CFLAGS = -Wall @DEFS@ -I@erts_lib_include_internal@ -I@erts_lib_include_internal_generated@
+
+EPTF_CFLAGS = $(CFLAGSF) $(COMMON_CFLAGS)
+EPTF_LIBS = -L@erts_lib_internal_path@ -lerts_internal@type_marker@ $(LIBSF)
+
+EPTT_CFLAGS = -DTHREAD_SAFE $(ETHR_DEFS) $(CFLAGST) $(COMMON_CFLAGS)
+EPTT_LIBS = -L@erts_lib_internal_path@ -lerts_internal_r@type_marker@ $(ETHR_LIBS) $(LIBST)
+
+GCC = .@DS@gccifier -CC"$(CC)"
+
+PROGS = erl_print_tests.true@exe@ erl_print_tests.false@exe@
+
+all: $(PROGS)
+
+@IFEQ@ (@cross@, yes)
+gccifier@exe@:
+	$(CP) ..@DS@utils@DS@gccifier.sh gccifier@exe@
+	$(CHMOD) a+x gccifier@exe@
+@ELSE@
+gccifier@exe@: ..@DS@utils@DS@gccifier.c
+	$(CC) $(CFLAGST) -o gccifier@exe@ ..@DS@utils@DS@gccifier.c $(LIBST)
+@ENDIF@
+
+erl_print_tests.false@exe@: gccifier@exe@ erl_print_tests.c
+	$(GCC) $(EPTF_CFLAGS) -o erl_print_tests.false@exe@ erl_print_tests.c $(EPTF_LIBS)
+
+erl_print_tests.true@exe@: gccifier@exe@ erl_print_tests.c
+	$(GCC) $(EPTT_CFLAGS) -o erl_print_tests.true@exe@ erl_print_tests.c $(EPTT_LIBS)

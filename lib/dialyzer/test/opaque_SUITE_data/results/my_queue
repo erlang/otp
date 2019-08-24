@@ -1,0 +1,7 @@
+
+my_queue_use.erl:15: The call my_queue_adt:is_empty([]) does not have an opaque term of type my_queue_adt:my_queue() as 1st argument
+my_queue_use.erl:19: The call my_queue_adt:add(42,Q0::[]) does not have an opaque term of type my_queue_adt:my_queue() as 2nd argument
+my_queue_use.erl:24: The attempt to match a term of type my_queue_adt:my_queue() against the pattern [42 | Q2] breaks the opacity of the term
+my_queue_use.erl:30: Attempt to test for equality between a term of type [] and a term of opaque type my_queue_adt:my_queue()
+my_queue_use.erl:34: Cons will produce an improper list since its 2nd argument is my_queue_adt:my_queue()
+my_queue_use.erl:34: The call my_queue_adt:dequeue(nonempty_maybe_improper_list(42,my_queue_adt:my_queue())) does not have an opaque term of type my_queue_adt:my_queue() as 1st argument

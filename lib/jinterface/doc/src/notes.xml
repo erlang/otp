@@ -1,0 +1,863 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Jinterface Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Jinterface application.</p>
+
+<section><title>Jinterface 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added support to receive export funs (<c>fun
+	    M:F/A</c>).</p>
+	    <p>Before this change, export funs sent to a jinterface
+	    node were encoded using an undocumented fallback tuple
+	    format <c>{M,F}</c>. Existing jinterface implementations
+	    expecting these tuples must be changed to instead use the
+	    existing <c>OtpErlangExternalFun</c> class.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15774 Aux Id: OTP-15712 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add module package name for Java 9</p>
+          <p>
+	    Own Id: OTP-14844</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove generation of atoms in old latin1 external format
+	    in the distribution between erlang nodes,
+	    <c>erl_interface</c>, and <c>jinterface</c>. The new utf8
+	    format for atoms was introduced in OTP R16. An OTP 20
+	    node can therefore not connect to nodes older than R16.</p>
+          <p>
+	    Atoms that can be encoded using latin1 are still encoded
+	    by <c>term_to_binary()</c> using latin1 encoding. Note
+	    that all atoms will by default be encoded using utf8 in a
+	    future Erlang/OTP release. For more information see the
+	    documentation of <seealso
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-14337</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Jinterface build on Maven</p>
+          <p>
+	    Own Id: OTP-13482</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle terms (pids,ports and refs) from nodes with a
+	    'creation' value larger than 3. This is a preparation of
+	    the distribution protocol to allow OTP 19 nodes to
+	    correctly communicate with future nodes (20 or higher).
+	    The 'creation' value differentiates different
+	    incarnations of the same node (name).</p>
+          <p>
+	    Own Id: OTP-13488</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing Term tag matching switch statement that was
+	    missing an external fun tag.</p>
+          <p>
+	    Own Id: OTP-13106</p>
+        </item>
+        <item>
+          <p>
+	    fixed writing small compressed values.</p>
+          <p>
+	    Own Id: OTP-13165</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reformat the sources for JInterface uniformly and
+	    according to the standard Java style guidelines. Provide
+	    description of the rules applied in Eclipse format (for
+	    other editors one can check the settings against these).</p>
+          <p>
+	    In short, the formatting style is: * indentation uses
+	    only spaces; each level is 4 positions * no trailing
+	    whitespace * mostly default Java style formatting (any
+	    difference is minor) * always use {} blocks * use 'final'
+	    as much as possible</p>
+          <p>
+	    Own Id: OTP-12333</p>
+        </item>
+        <item>
+          <p>
+	    Remove extra @param in javadoc as this gives an error
+	    when building the docs in java 1.8</p>
+          <p>
+	    Own Id: OTP-12746</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add basic transport factory implementation. This makes
+	    possible creating connections between nodes using ssh
+	    channels for example.</p>
+          <p>
+	    Own Id: OTP-12686</p>
+        </item>
+        <item>
+          <p>
+	    Add Jinterface generic match and bind methods to provide
+	    low level interface base methods sufficient for variety
+	    of higher level pattern matching/variable binding
+	    implementations.</p>
+          <p>
+	    Own Id: OTP-12691</p>
+        </item>
+        <item>
+          <p>
+	    Minimal Java version is now 1.6</p>
+          <p>
+	    Own Id: OTP-12715</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    handle empty .erlang.cookie without crashing and
+	    OtpErlangList.clone must not return null</p>
+          <p>
+	    Own Id: OTP-12210</p>
+        </item>
+        <item>
+          <p>
+	    This fixes all the compilation warnings in the Java code</p>
+          <p>
+	    Own Id: OTP-12211</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added an .appup file for the application.</p>
+          <p>
+	    Own Id: OTP-12358 Aux Id: OTP-12178 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added a <c>.app</c> file for the application.</p>
+          <p>
+	    Own Id: OTP-12178</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Array now show meaningful values in exceptions.</p>
+          <p>
+	    Own Id: OTP-12049</p>
+        </item>
+        <item>
+          <p>
+	    Documentation improvements.</p>
+          <p>
+	    Own Id: OTP-12050</p>
+        </item>
+        <item>
+          <p>
+	    Include the cause when raising a new IOException, which
+	    should make the reason for the exception clearer.</p>
+          <p>
+	    Own Id: OTP-12075</p>
+        </item>
+        <item>
+          <p>
+	    Arrays (here: md5 and freeVars) must not be compared with
+	    equals, which is broken (compares identity).</p>
+          <p>
+	    Own Id: OTP-12121</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implement support for Maps</p>
+          <p>
+	    The API and implementation are simplistic, like for lists
+	    and tuples, using arrays and without any connection to
+	    java.util.Map. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-11703</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in OtpErlangTuple constructor. Thanks to Vlad
+	    Dumitrescu.</p>
+          <p>
+	    Own Id: OTP-10819</p>
+        </item>
+        <item>
+          <p>
+	    Fixed finding cookie file on windows. Thanks to Vlad
+	    Dumitrescu</p>
+          <p>
+	    Own Id: OTP-10821</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Don't compress external binary format if this increases
+	    the size. Thanks to Nico Kruber.</p>
+          <p>
+	    Own Id: OTP-10822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    fix reading compressed binary terms from Java (Thanks to
+	    Nico Kruber)</p>
+          <p>
+	    Own Id: OTP-10505</p>
+        </item>
+        <item>
+          <p>
+	    OtpEpmd.lokupNames() no longer hangs when badly
+	    configured (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-10579</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Limited support for unicode atoms in the external format
+	    and in the internal representation of the vm. This is a
+	    preparative feature in order to support communication
+	    with future releases of Erlang/OTP that may create
+	    unicode atoms.</p>
+          <p>
+	    Own Id: OTP-10753</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct spelling of registered (Thanks to Richard
+	    Carlsson)</p>
+          <p>
+	    Own Id: OTP-9925</p>
+        </item>
+        <item>
+          <p>
+	    Java 1.5 has a bug where detecting codepoint offsets in
+	    strings that are created by String.substring() gives
+	    wrong results. The new implementation uses a different
+	    method, avoinding the issue. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-9927</p>
+        </item>
+        <item>
+          <p>
+	    Improve error message when creating a too long
+	    OtpErlangAtom. Also print the value that we tried to use
+	    for the atom. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-9928</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    JInterface: improve OtpOutputStream buffer allocation</p>
+          <p>
+	    Previously, the buffer was increased linearly by 2048
+	    bytes. I now propose to use an exponential increase
+	    function (similar to Javas ArrayList, e.g. always at
+	    least +50%). This significantly increases performance of
+	    e.g. doRPC for large parameters. (Thanks to Nico Kruber)</p>
+          <p>
+	    Own Id: OTP-9806</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some malformed distribution messages could cause VM to
+	    crash, this is now corrected.</p>
+          <p>
+	    Own Id: OTP-8993</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The OtpMbox class did not have a hash() method, which it
+	    should have because it overrides equals().</p>
+          <p>
+	    Own Id: OTP-8854</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An pom.xml file is now generated. (Thanks to Gabor
+	    Liptak.)</p>
+          <p>
+	    Own Id: OTP-8841</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Many Erlang classes, e.g. OtpErlangRef, was missing an
+	    implementation of the hashCode() method, making it futile
+	    to put them in hash structures such as HashMap. Bug and
+	    patch provided by Paul Guyot. We extended the patch to
+	    all classes and improved (?) on the hash algorithm.</p>
+          <p>
+	    Own Id: OTP-7899</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    jinterface uses the new environment variable
+	    ERL_EPMD_PORT the same way that erl, epmd and
+	    erl_interface do since R13A.</p>
+          <p>
+	    Own Id: OTP-7885</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A number of fixes and improvements from the ErlIDE group;
+	    Vlad Dumitrescu and Jakob Cederlund: JDK 1.5 is now a
+	    minimal requirement for building Jinterface. New method:
+	    OtpEpmd.lookupNames. OtpErlangList is now iterable.
+	    Non-proper lists are now allowed - you have to test if a
+	    list is proper or not. Non-proper lists can also be
+	    created. New methods: isProper, getHead, getTail and
+	    getNthTail. The get tail methods creates a sublist object
+	    that re-uses the original list. OtpErlangPid is now
+	    Comparable. Empty atoms can now be constructed, a missing
+	    feature pointed out by Sebastien Boisgerault on
+	    erlang-questions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug when Jinterface did not detect remote node
+	    disconnects has been corrected.</p>
+          <p>
+	    Own Id: OTP-7624</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Jinterface has been fixed to use the loopback interface
+	    when connecting to the Erlang Port Mapper Daemon - epmd.
+	    This facilitates firewall configuration and saves
+	    resources.</p>
+          <p>
+	    Own Id: OTP-7103</p>
+        </item>
+        <item>
+	    <p>Jinterface now refuses to connect to another node that
+	    does not agree on the other node's name. This has been a
+	    problem in that a connection was set up, but not used on
+	    a following send, which caused a second erroneous
+	    connection attempt to fail since the other (Erlang) node
+	    rejects a connection due to name disagreement.</p>
+	    <p>Problem reported and dissected by Alexander Lamb</p>
+          <p>
+	    Own Id: OTP-7330</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Jinterface has been updated to handle compressed
+	    terms, bitstring, new (IEEE) floats and bignums. This has
+	    caused a few incompatibilities.</p>
+	    <p>com.ericsson.otp.erlang.OtpOutputStream now extends
+	    java.io.ByteArrayOutputStream, previously
+	    java.lang.Object, and hence the method size() now return
+	    the number of bytes in the stream as dictated by the new
+	    parent class and not the buffer length as before. The new
+	    method length() returns what the old size() did return.
+	    The method count() is deprecated as it returns the same
+	    as the new size().</p>
+	    <p>com.ericsson.otp.erlang.OtpErlangLong now can handle
+	    larger values than 64-bit. Previously when larger than
+	    64-bit integers were sent to a Jinterface node, it caused
+	    an com.ericsson.otp.erlang.OtpDecodeException. Now the
+	    integer is accepted, but the return value of longValue()
+	    is silently truncated, as opposed to the return value of
+	    intValue() that now and previously raises an
+	    com.ericsson.otp.erlang.OtpRangeException for
+	    unrepresentable values. The new methods isLong() and
+	    isULong() can be used to determine if the value fits in a
+	    long.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-6809</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Jinterface 1.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>OtpMbox.receive()</c> and <c>OtpMbox.receive(long timeout)</c> can now throw
+            <c>OtpErlangDecodeException</c> if the received message
+            cannot be decoded. <c>null</c> is now only returned from
+            <c>OtpMbox.receive(long timeout)</c> if a timeout occurs.
+            <c>OtpMbox.receive()</c> will never return <c>null</c>.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-3932 Aux Id: seq5196 </p>
+        </item>
+        <item>
+          <p>Strings longer than 65535 bytes were encoded wrong by
+            jinterface.</p>
+          <p>Own Id: OTP-4883 Aux Id: OTP-4865 </p>
+        </item>
+        <item>
+          <p>Misc bugfixes: </p>
+          <list type="bulleted">
+            <item>
+              <p>A node pinging itself does no
+                longer cause the java program to hang.</p>
+              <p></p>
+            </item>
+            <item>
+              <p><c>OtpMbox.close()</c> uses exit reason
+                <c>'normal'</c> (atom) instead of <c>"normal"</c>
+                (string).</p>
+              <p></p>
+            </item>
+            <item>
+              <p>Added <c>OtpNode.closeMbox(OtpMbox mbox, OtpErlangObject reason)</c>.</p>
+              <p></p>
+            </item>
+            <item>
+              <p>Added <c>OtpMbox.exit(OtpErlangObject reason)</c>
+                and <c>OtpMbox.exit(String reason)</c>.</p>
+              <p></p>
+            </item>
+            <item>
+              <p>Added <c>OtpMbox.exit(OtpErlangPid to, OtpErlangObject reason)</c>.</p>
+              <p></p>
+            </item>
+            <item>
+              <p><c>OtpMbox.exit(OtpErlangPid to, String reason)</c>
+                is now equivalent to <c>OtpMbox.exit(to, new OtpErlangAtom(reason))</c>.</p>
+              <p></p>
+            </item>
+            <item>Exit signals from an Erlang node can now contain
+             any erlang term as reason, not only atoms. </item>
+          </list>
+          <p>Own Id: OTP-5088</p>
+        </item>
+        <item>
+          <p>For java versions 1.3.1 or later, <c>localStatus</c> was
+            not sent to registered status handler when
+            <c>OtpNode.close()</c> was called. This is now corrected.</p>
+          <p>Own Id: OTP-5169</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Process identifiers and port identifiers have been
+            made more unique. Previously 18 bits were used as id in
+            the internal representation of process and port
+            identifiers. Now 28 bits are used. </p>
+          <p>The maximum
+            limit on the number of concurrently existing processes
+            due to the representation of pids has been increased to
+            268435456 processes. The same is true for ports. This
+            limit will at least on a 32-bit architecture be
+            impossible to reach due to memory shortage. </p>
+          <p><em>NOTE:</em> By default, the <c>ERTS</c>, and the
+            <c>erl_interface</c>, <c>ei</c>, and <c>jinterface</c>
+            libraries are now only guaranteed to be compatible with
+            other Erlang/OTP components from the same release. It is
+            possible to set each component in compatibility mode of
+            an earlier release, though. See the documentation for
+            respective component on how to set it in compatibility
+            mode. </p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4968 Aux Id: OTP-4196 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Jinterface 1.2.1.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Output of Java long was truncated to 32 bits. IDL long
+            long and unsigned long long could not be used in a struct
+            for the Java backend. All unsigned integer types for the
+            Java backend had broken marshalling for large values.
+            These bugs has now been fixed.</p>
+          <p>Own Id: OTP-4763 Aux Id: seq8024 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

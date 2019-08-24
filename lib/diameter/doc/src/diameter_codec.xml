@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY records
+  '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
+  <!ENTITY types
+  '<seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>'>
+  <!ENTITY decode_format
+  '<seealso marker="diameter#decode_format">decode format</seealso>'>
+
+<!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<erlref>
+<header>
+<copyright>
+<year>2012</year>
+<year>2017</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>diameter_codec(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_codec.xml</file>
+</header>
+
+<module since="OTP R15B03">diameter_codec</module>
+<modulesummary>Decode and encode of Diameter messages.</modulesummary>
+
+<description>
+
+<p>
+Incoming Diameter messages are decoded from binary() before being
+communicated to &man_app; callbacks.
+Similarly, outgoing Diameter messages are encoded into binary() before
+being passed to the appropriate &man_transport; module for
+transmission.
+The functions documented here implement the default encode/decode.</p>
+
+<warning>
+<p>
+The diameter user does not need to call functions here explicitly when
+sending and receiving messages using &mod_call; and the callback
+interface documented in &man_app;: diameter itself provides encode/decode
+as a consequence of configuration passed to &mod_start_service;, and
+the results may differ from those returned by the functions documented
+here, depending on configuration.</p>
+</warning>
+
+<p>
+The &header; and &packet; records below
+are defined in diameter.hrl, which can be included as follows.</p>
+
+<pre>
+-include_lib("diameter/include/diameter.hrl").
+</pre>
+
+<p>
+Application-specific records are defined in the hrl
+files resulting from dictionary file compilation.</p>
+
+</description>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>DATA TYPES</title>
+
+<p></p>
+
+<taglist>
+
+<tag>
+<marker id="integers"/><c>uint8()&nbsp; = 0..255</c></tag><item/>
+<tag><c>uint24() = 0..16777215</c></tag><item/>
+<tag><c>uint32() = 0..4294967295</c></tag>
+<item>
+<p>
+8-bit, 24-bit and 32-bit integers occurring in Diameter and AVP
+headers.</p>
+</item>
+
+<tag>
+<marker id="avp"/><c>avp() = #diameter_avp{}</c></tag>
+<item>
+<p>
+The application-neutral representation of an AVP.
+Primarily intended for use by relay applications that need to handle
+arbitrary Diameter applications.
+A service implementing a specific Diameter application
+(for which it configures a dictionary) can manipulate values of type
+&message; instead.</p>
+
+<p>
+Fields have the following types.</p>
+
+<taglist>
+
+<tag><c>code = uint32()</c></tag><item/>
+<tag><c>is_mandatory = boolean()</c></tag><item/>
+<tag><c>need_encryption = boolean()</c></tag><item/>
+<tag><c>vendor_id = uint32() | undefined</c></tag>
+<item>
+<p>
+Values in the AVP header, corresponding to AVP Code, the M flag, P
+flags and Vendor-ID respectively.
+A Vendor-ID other than <c>undefined</c> implies a set V flag.</p>
+</item>
+
+<tag><c>data = iolist()</c></tag>
+<item>
+<p>
+The data bytes of the AVP.</p>
+</item>
+
+<tag><c>name = atom()</c></tag>
+<item>
+<p>
+The name of the AVP as defined in the dictionary file in question, or
+<c>undefined</c> if the AVP is unknown to the dictionary file in
+question.</p>
+</item>
+
+<tag><c>value = term()</c></tag>
+<item>
+<p>
+The decoded value of an AVP.
+Will be <c>undefined</c> on decode if the data bytes could
+not be decoded, the AVP is unknown, or if the &decode_format; is
+<c>none</c>.
+The type of a decoded value is as document in &types;.</p>
+</item>
+
+<tag><c>type = atom()</c></tag>
+<item>
+<p>
+The type of the AVP as specified in the dictionary file in question
+(or one it inherits).
+Possible types are <c>undefined</c> and the Diameter types:
+<c>OctetString</c>, <c>Integer32</c>, <c>Integer64</c>,
+<c>Unsigned32</c>, <c>Unsigned64</c>, <c>Float32</c>, <c>Float64</c>,
+<c>Grouped</c>, <c>Enumerated</c>, <c>Address</c>, <c>Time</c>,
+<c>UTF8String</c>, <c>DiameterIdentity</c>, <c>DiameterURI</c>,
+<c>IPFilterRule</c> and <c>QoSFilterRule</c>.</p>
+</item>
+
+</taglist>
+
+</item>
+
+<tag>
+<marker id="dictionary"/><c>dictionary() = module()</c></tag>
+<item>
+
+<p>
+The name of a generated dictionary module as generated by &man_compile;
+or &make_codec;.
+The interface provided by a dictionary module is an
+implementation detail that may change.</p>
+</item>
+
+<tag>
+<marker id="header"/><c>header() = #diameter_header{}</c></tag>
+<item>
+<p>
+The record representation of the Diameter header.
+Values in a &packet; returned by &decode; are as extracted from the
+incoming message.
+Values set in an &packet; passed to &encode; are preserved in the
+encoded binary(), with the exception of <c>length</c>, <c>cmd_code</c>
+and <c>application_id</c>, all of which are determined by the
+&dictionary; in question.</p>
+
+<note>
+<p>
+It is not necessary to set header fields explicitly in outgoing
+messages as diameter itself will set appropriate values.
+Setting inappropriate values can be useful for test purposes.</p>
+</note>
+
+<p>
+Fields have the following types.</p>
+
+<taglist>
+
+<tag><c>version = uint8()</c></tag><item/>
+<tag><c>length = uint24()</c></tag><item/>
+<tag><c>cmd_code = uint24()</c></tag><item/>
+<tag><c>application_id = uint32()</c></tag><item/>
+<tag><c>hop_by_hop_id = uint32()</c></tag><item/>
+<tag><c>end_to_end_id = uint32()</c></tag>
+<item>
+<p>
+Values of the Version, Message Length, Command-Code, Application-ID,
+Hop-by-Hop Identifier and End-to-End Identifier fields of the Diameter
+header.</p>
+</item>
+
+<tag><c>is_request = boolean()</c></tag><item/>
+<tag><c>is_proxiable = boolean()</c></tag><item/>
+<tag><c>is_error = boolean()</c></tag><item/>
+<tag><c>is_retransmitted = boolean()</c></tag>
+<item>
+<p>
+Values corresponding to the R(equest), P(roxiable), E(rror)
+and T(Potentially re-transmitted message) flags of the Diameter
+header.</p>
+</item>
+
+</taglist>
+
+</item>
+
+<tag>
+<marker id="message"/><c>message() = record()
+                                   | maybe_improper_list()</c></tag>
+<item>
+<p>
+The representation of a Diameter message as passed to
+&mod_call; or returned from a &app_handle_request; callback.
+The record representation is as outlined in &records;:
+a message as defined in a dictionary file is encoded as a record with
+one field for each component AVP.
+Equivalently, a message can also be encoded as a list whose head is
+the atom-valued message name (as specified in the relevant dictionary
+file) and whose tail is either a list of AVP name/values
+pairs or a map with values keyed on AVP names.
+The format at decode is determined by &mod_decode_format;.
+Any of the formats is accepted at encode.</p>
+
+<p>
+Another list-valued representation allows a message to be specified
+as a list whose head is a &header; and whose tail is an &avp; list.
+This representation is used by diameter itself when relaying requests
+as directed by the return value of a &app_handle_request; callback.
+It differs from the other two in that it bypasses the checks for
+messages that do not agree with their definitions in the dictionary in
+question: messages are sent exactly as specified.</p>
+
+</item>
+
+<tag>
+<marker id="packet"/><c>packet() = #diameter_packet{}</c></tag>
+<item>
+<p>
+A container for incoming and outgoing Diameter messages.
+Fields have the following types.</p>
+
+<taglist>
+
+<tag><c>header = &header; | undefined</c></tag>
+<item>
+<p>
+The Diameter header of the message.
+Can be (and typically should be) <c>undefined</c> for an outgoing
+message in a non-relay application, in which case diameter provides
+appropriate values.</p>
+</item>
+
+<tag><c>avps = [&avp;] | undefined</c></tag>
+<item>
+<p>
+The AVPs of the message.
+Ignored for an outgoing message if the <c>msg</c> field is set to a
+value other than <c>undefined</c>.</p>
+</item>
+
+<tag><c>msg = &message; | undefined</c></tag>
+<item>
+<p>
+The incoming/outgoing message.
+For an incoming message, a term corresponding to the configured
+&decode_format; if the message can be decoded in a non-relay
+application, <c>undefined</c> otherwise.
+For an outgoing message, setting a <c>[&header; | &avp;]</c> list is
+equivalent to setting the <c>header</c> and <c>avps</c> fields to the
+corresponding values.</p>
+
+<warning>
+<p>
+A value in the <c>msg</c> field does <em>not</em> imply an absence of
+decode errors.
+The <c>errors</c> field should also be examined.</p>
+</warning>
+
+</item>
+
+<tag><c>bin = binary()</c></tag>
+<item>
+<p>
+The incoming message prior to encode or the outgoing message after
+encode.</p>
+</item>
+
+<tag><c>errors = [5000..5999 | {5000..5999, avp()}]</c></tag>
+<item>
+<p>
+Errors detected at decode of an incoming message, as identified by
+a corresponding 5xxx series Result-Code (Permanent Failures).
+For an incoming request, these should be used to formulate an
+appropriate answer as documented for the &app_handle_request;
+callback in &man_app;.
+For an incoming answer, the &mod_application_opt;
+<c>answer_errors</c> determines the behaviour.</p>
+</item>
+
+<tag><c>transport_data = term()</c></tag>
+<item>
+<p>
+An arbitrary term of meaning only to the transport process in
+question, as documented in &man_transport;.</p>
+</item>
+
+</taglist>
+
+</item>
+
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name since="OTP R15B03">decode(Mod, Bin) -> Pkt</name>
+<fsummary>Decode a Diameter message.</fsummary>
+<type>
+<v>Mod = &dictionary;</v>
+<v>Bin = binary()</v>
+<v>Pkt = &packet;</v>
+</type>
+<desc>
+
+<p>
+Decode a Diameter message.</p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP R15B03">encode(Mod, Msg) -> Pkt</name>
+<fsummary>Encode a Diameter message.</fsummary>
+<type>
+<v>Mod = &dictionary;</v>
+<v>Msg = &message; | &packet;</v>
+<v>Pkt = &packet;</v>
+</type>
+<desc>
+
+<p>
+Encode a Diameter message.
+</p>
+
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_compile;, &man_app;, &man_dict;, &man_make;</p>
+
+</section>
+
+</erlref>

@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>net_kernel</title>
+    <prepared>Claes Wikstrom</prepared>
+    <docno>1</docno>
+    <date>1996-09-10</date>
+    <rev>A</rev>
+  </header>
+  <module since="">net_kernel</module>
+  <modulesummary>Erlang networking kernel.</modulesummary>
+  <description>
+    <p>The net kernel is a system process, registered as
+      <c>net_kernel</c>, which must be operational for distributed Erlang
+      to work. The purpose of this process is to implement parts of
+      the BIFs <c>spawn/4</c> and <c>spawn_link/4</c>, and to provide 
+      monitoring of the network.</p>
+    <p>An Erlang node is started using command-line flag
+      <c>-name</c> or <c>-sname</c>:</p>
+     <pre>
+$ <input>erl -sname foobar</input></pre>
+    <p>It is also possible to call <c>net_kernel:start([foobar])</c>
+      directly from the normal Erlang shell prompt:</p>
+    <pre>
+1> <input>net_kernel:start([foobar, shortnames]).</input>
+{ok,&lt;0.64.0>}
+(foobar@gringotts)2></pre>
+    <p>If the node is started with command-line flag <c>-sname</c>,
+      the node name is <c>foobar@Host</c>, where <c>Host</c> is
+      the short name of the host (not the fully qualified domain name).
+      If started with flag <c>-name</c>, the node name is <c>foobar@Host</c>,
+      where <c>Host</c> is the fully qualified domain name.
+      For more information, see
+      <seealso marker="erts:erl"><c>erl</c></seealso>.</p>
+    <p>Normally, connections are established automatically when
+      another node is referenced. This functionality can be disabled
+      by setting Kernel configuration parameter
+      <c>dist_auto_connect</c> to <c>never</c>, see
+      <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
+      connections must be established explicitly by calling
+      <seealso marker="#connect_node/1"><c>connect_node/1</c></seealso>.</p>
+    <p>Which nodes that are allowed to communicate with each other is handled
+      by the magic cookie system, see section
+      <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso>
+      in the Erlang Reference Manual.</p>
+    <warning>
+      <p>
+        Starting a distributed node without also specifying
+        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        will expose the node to attacks that may give the attacker
+        complete access to the node and in extension the cluster.
+        When using un-secure distributed nodes, make sure that the
+        network is configured to keep potential attackers out.
+        See the <seealso marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seealso> User's Guide
+        for details on how to setup a secure distributed node.
+      </p>
+    </warning>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="allow" arity="1" since=""/>
+      <fsummary>Permit access to a specified set of nodes</fsummary>
+      <desc>
+        <p>Permits access to the specified set of nodes.</p>
+        <p>Before the first call to <c>allow/1</c>, any node with the correct
+          cookie can be connected. When <c>allow/1</c> is called, a list
+          of allowed nodes is established. Any access attempts made from (or to)
+          nodes not in that list will be rejected.</p>
+        <p>Subsequent calls to <c>allow/1</c> will add the specified nodes
+          to the list of allowed nodes. It is not possible to remove nodes
+          from the list.</p>
+        <p>Returns <c>error</c> if any element in <c><anno>Nodes</anno></c> is not
+          an atom.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect_node" arity="1" since=""/>
+      <fsummary>Establish a connection to a node.</fsummary>
+      <desc>
+        <p>Establishes a connection to <c><anno>Node</anno></c>. Returns
+          <c>true</c> if a connection was established or was already
+	  established or if <c><anno>Node</anno></c> is the local node
+	  itself. Returns <c>false</c> if the connection attempt failed, and
+	  <c>ignored</c> if the local node is not alive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_net_ticktime" arity="0" since=""/>
+      <fsummary>Get <c>net_ticktime</c>.</fsummary>
+      <desc>
+        <p>Gets <c>net_ticktime</c> (see
+          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>).</p>
+        <p>Defined return values (<c><anno>Res</anno></c>):</p>
+        <taglist>
+          <tag><c><anno>NetTicktime</anno></c></tag>
+          <item><p><c>net_ticktime</c> is <c><anno>NetTicktime</anno></c>
+            seconds.</p></item>
+          <tag><c>{ongoing_change_to, <anno>NetTicktime</anno>}</c></tag>
+          <item><p><c>net_kernel</c> is currently changing
+            <c>net_ticktime</c> to <c><anno>NetTicktime</anno></c>
+            seconds.</p></item>
+          <tag><c>ignored</c></tag>
+          <item><p>The local node is not alive.</p></item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getopts" arity="2" since="OTP 19.1"/>
+      <fsummary>Get distribution socket options.</fsummary>
+      <desc>
+        <p>Get one or more options for the distribution socket
+	connected to <c><anno>Node</anno></c>.</p>
+        <p>If <c><anno>Node</anno></c> is a connected node
+	the return value is the same as from
+	<seealso marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seealso>
+	where <c>Sock</c> is the distribution socket for <c><anno>Node</anno></c>.</p>
+	<p>Returns <c>ignored</c> if the local node is not alive or
+	<c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not connected.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor_nodes" arity="1" since=""/>
+      <name name="monitor_nodes" arity="2" since=""/>
+      <fsummary>Subscribe to node status change messages.</fsummary>
+      <desc>
+        <p>The calling process subscribes or unsubscribes to node
+          status change messages. A <c>nodeup</c> message is delivered
+          to all subscribing processes when a new node is connected, and
+          a <c>nodedown</c> message is delivered when a node is
+          disconnected.</p>
+        <p>If <c><anno>Flag</anno></c> is <c>true</c>, a new subscription is
+          started. If <c><anno>Flag</anno></c> is <c>false</c>, all previous
+          subscriptions started with the same <c><anno>Options</anno></c>
+          are stopped. Two
+          option lists are considered the same if they contain the same
+          set of options.</p>
+        <p>As from Kernel version 2.11.4, and ERTS version
+          5.5.4, the following is guaranteed:</p>
+        <list type="bulleted">
+          <item><p><c>nodeup</c> messages are delivered before delivery
+            of any message from the remote node passed through the
+            newly established connection.</p></item>
+          <item><p><c>nodedown</c> messages are not delivered until all
+            messages from the remote node that have been passed
+            through the connection have been delivered.</p></item>
+        </list>
+        <p>Notice that this is <em>not</em> guaranteed for Kernel
+          versions before 2.11.4.</p>
+        <p>As from Kernel version 2.11.4, subscriptions can also be
+          made before the <c>net_kernel</c> server is started, that is,
+          <c>net_kernel:monitor_nodes/[1,2]</c> does not return
+          <c>ignored</c>.</p>
+        <p>As from Kernel version 2.13, and ERTS version
+          5.7, the following is guaranteed:</p>
+        <list type="bulleted">
+          <item><p><c>nodeup</c> messages are delivered after the
+	    corresponding node appears in results from
+	    <c>erlang:nodes/X</c>.</p></item>
+          <item><p><c>nodedown</c> messages are delivered after the
+	    corresponding node has disappeared in results from
+	    <c>erlang:nodes/X</c>.</p></item>
+        </list>
+        <p>Notice that this is <em>not</em> guaranteed for Kernel
+          versions before 2.13.</p>
+        <p>The format of the node status change messages depends on
+          <c><anno>Options</anno></c>. If <c><anno>Options</anno></c> is
+          <c>[]</c>, which is the default, the format is as follows:</p>
+        <code type="none">
+{nodeup, Node} | {nodedown, Node}
+  Node = node()</code>
+        <p>If <c><anno>Options</anno></c> is not <c>[]</c>, the format is
+          as follows:</p>
+        <code type="none">
+{nodeup, Node, InfoList} | {nodedown, Node, InfoList}
+  Node = node()
+  InfoList = [{Tag, Val}]</code>
+        <p><c>InfoList</c> is a list of tuples. Its contents depends on
+          <c><anno>Options</anno></c>, see below.</p>
+        <p>Also, when <c>OptionList == []</c>, only visible nodes, that
+          is, nodes that appear in the result of
+          <seealso marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seealso>,
+          are monitored.</p>
+        <p><c><anno>Option</anno></c> can be any of the following:</p>
+        <taglist>
+          <tag><c>{node_type, NodeType}</c></tag>
+          <item>
+            <p>Valid values for <c>NodeType</c>:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>Subscribe to node status change messages for visible
+               nodes only. The tuple <c>{node_type, visible}</c> is
+               included in <c>InfoList</c>.</p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>Subscribe to node status change messages for hidden
+               nodes only. The tuple <c>{node_type, hidden}</c> is
+               included in <c>InfoList</c>.</p></item>
+              <tag><c>all</c></tag>
+              <item><p>Subscribe to node status change messages for both
+               visible and hidden nodes. The tuple
+               <c>{node_type, visible | hidden}</c> is included in
+               <c>InfoList</c>.</p></item>
+            </taglist>
+          </item>
+          <tag><c>nodedown_reason</c></tag>
+          <item>
+            <p>The tuple <c>{nodedown_reason, Reason}</c> is included in
+              <c>InfoList</c> in <c>nodedown</c> messages.</p>
+            <p>
+	      <c>Reason</c> can, depending on which
+	      distribution module or process that is used be any term,
+	      but for the standard TCP distribution module it is
+	      any of the following:
+	    </p>
+            <taglist>
+              <tag><c>connection_setup_failed</c></tag>
+              <item><p>The connection setup failed (after <c>nodeup</c>
+                messages were sent).</p></item>
+              <tag><c>no_network</c></tag>
+              <item><p>No network is available.</p></item>
+              <tag><c>net_kernel_terminated</c></tag>
+              <item><p>The <c>net_kernel</c> process terminated.</p></item>
+              <tag><c>shutdown</c></tag>
+              <item><p>Unspecified connection shutdown.</p></item>
+              <tag><c>connection_closed</c></tag>
+              <item><p>The connection was closed.</p></item>
+              <tag><c>disconnect</c></tag>
+              <item><p>The connection was disconnected (forced from the
+                current node).</p></item>
+              <tag><c>net_tick_timeout</c></tag>
+              <item><p>Net tick time-out.</p></item>
+              <tag><c>send_net_tick_failed</c></tag>
+              <item><p>Failed to send net tick over the connection.</p></item>
+              <tag><c>get_status_failed</c></tag>
+              <item><p>Status information retrieval from the <c>Port</c>
+                holding the connection failed.</p></item>
+            </taglist>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_net_ticktime" arity="1" since=""/>
+      <name name="set_net_ticktime" arity="2" since=""/>
+      <fsummary>Set <c>net_ticktime</c>.</fsummary>
+      <desc>
+        <p>Sets <c>net_ticktime</c> (see
+          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>) to
+          <c><anno>NetTicktime</anno></c> seconds.
+          <c><anno>TransitionPeriod</anno></c> defaults to <c>60</c>.</p>
+        <p>Some definitions:</p>
+        <taglist>
+          <tag>Minimum transition traffic interval (<c>MTTI</c>)</tag>
+          <item><p><c>minimum(<anno>NetTicktime</anno>,
+            PreviousNetTicktime)*1000 div 4</c> milliseconds.</p></item>
+          <tag>Transition period</tag>
+          <item><p>The time of the least number of consecutive <c>MTTI</c>s
+            to cover <c><anno>TransitionPeriod</anno></c> seconds following
+            the call to <c>set_net_ticktime/2</c> (that is,
+            ((<c><anno>TransitionPeriod</anno>*1000 - 1) div MTTI + 1)*MTTI</c>
+            milliseconds).</p></item>
+        </taglist>
+        <p>If
+          <c><![CDATA[NetTicktime < PreviousNetTicktime]]></c>,
+          the <c>net_ticktime</c> change is done at the end of
+          the transition period; otherwise at the beginning. During
+          the transition period, <c>net_kernel</c> ensures that
+          there is outgoing traffic on all connections at least
+          every <c>MTTI</c> millisecond.</p>
+        <note>
+          <p>The <c>net_ticktime</c> changes must be initiated on all
+            nodes in the network (with the same <c><anno>NetTicktime</anno></c>)
+            before the end of any transition period on any node;
+            otherwise connections can erroneously be disconnected.</p>
+        </note>
+        <p>Returns one of the following:</p>
+        <taglist>
+          <tag><c>unchanged</c></tag>
+          <item>
+            <p><c>net_ticktime</c> already has the value of
+              <c><anno>NetTicktime</anno></c> and is left unchanged.</p>
+          </item>
+          <tag><c>change_initiated</c></tag>
+          <item>
+            <p><c>net_kernel</c> initiated the change of
+              <c>net_ticktime</c> to <c><anno>NetTicktime</anno></c>
+              seconds.</p>
+          </item>
+          <tag><c>{ongoing_change_to, <anno>NewNetTicktime</anno>}</c></tag>
+          <item>
+            <p>The request is <em>ignored</em> because
+              <c>net_kernel</c> is busy changing <c>net_ticktime</c> to
+              <c><anno>NewNetTicktime</anno></c> seconds.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="setopts" arity="2" since="OTP 19.1"/>
+      <fsummary>Set distribution socket options.</fsummary>
+      <desc>
+        <p>Set one or more options for distribution sockets.
+	Argument <c><anno>Node</anno></c> can be either one node name
+	or the atom <c>new</c> to affect the distribution sockets of all
+	future connected nodes.</p>
+        <p>The return value is the same as from
+	<seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
+	a connected node or <c>new</c>.</p>
+	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
+	will then also be added to kernel configration parameters
+	<seealso marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seealso>
+	and
+	<seealso marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seealso>.</p>
+	<p>Returns <c>ignored</c> if the local node is not alive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">start([Name]) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start([Name, NameType]) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start([Name, NameType, Ticktime]) -> {ok, pid()} | {error, Reason}</name>
+      <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>NameType = shortnames | longnames</v>
+        <v>Reason = {already_started, pid()} | term()</v>
+      </type>
+      <desc>
+        <p>Turns a non-distributed node into a distributed node by
+          starting <c>net_kernel</c> and other necessary processes.</p>
+        <p>Notice that the argument is a list with exactly one, two, or
+          three arguments. <c>NameType</c> defaults to <c>longnames</c>
+          and <c>Ticktime</c> to <c>15000</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" since=""/>
+      <fsummary>Turn a node into a non-distributed Erlang runtime system.</fsummary>
+      <desc>
+        <p>Turns a distributed node into a non-distributed node. For
+          other nodes in the network, this is the same as the node
+          going down. Only possible when the net kernel was started using
+          <seealso marker="#start/1"><c>start/1</c></seealso>,
+          otherwise <c>{error, not_allowed}</c> is returned. Returns
+          <c>{error, not_found}</c> if the local node is not alive.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Installation of Embedded Environment</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>(Peter H&ouml;gfeldt</approved>
+    <checked></checked>
+    <date>1997-05-26</date>
+    <rev>C</rev>
+    <file>target.sgml</file>
+  </header>
+  <p>This chapter is about installing a Embedded Environment. Solaris 
+    2.5.1 is the only UNIX operating system supported for embedded systems. 
+    The following topics are considered,</p>
+  <list type="bulleted">
+    <item>
+      <p>Creation of user and installation directory,</p>
+    </item>
+    <item>
+      <p>Installation of Embedded Environment,</p>
+    </item>
+    <item>
+      <p>Configuration for automatic start at reboot,</p>
+    </item>
+    <item>
+      <p>Making a hardware watchdog available,</p>
+    </item>
+    <item>
+      <p>Changing permission for reboot,</p>
+    </item>
+    <item>
+      <p>Patches for Solaris 2.5.1,</p>
+    </item>
+    <item>
+      <p>Configuration of the os_mon application.</p>
+    </item>
+  </list>
+  <p>Several of the procedures described below require expert knowledge of
+    the Solaris 2 operating system. For most of them super user privilege is 
+    needed.</p>
+
+  <section>
+    <title>Creation of user and installation directory</title>
+    <p>It is recommended that the Embedded Environment is run by an ordinary
+      user, i.e. a user which does not have super user privileges. </p>
+    <p>Throughout this chapter we assume that the user name is <c>otpuser</c>,
+      and that the home directory of that user is,</p>
+    <pre>
+/export/home/otpuser    </pre>
+    <p>Furthermore, we assume that in the home directory of <c>otpuser</c>,
+      there is a directory named <c>otp</c>, the full path of which is,</p>
+    <pre>
+/export/home/otpuser/otp    </pre>
+    <p>This directory is the <em>installation directory</em> of the Embedded 
+      Environment.</p>
+  </section>
+
+  <section>
+    <title>Installation of Embedded Environment</title>
+    <p>The procedure for installation of a Embedded Environment does not differ
+      from that of a Development Environment (see the chapter <em>Installation of Development Environment</em>), except for the following,</p>
+    <list type="bulleted">
+      <item>
+        <p>the (compressed) tape archive file should be extracted in 
+          the installation directory as defined above, and,</p>
+      </item>
+      <item>
+        <p>there is no need to link the start script to a standard directory
+          like <c>/usr/local/bin</c>.</p>
+      </item>
+    </list>
+    <p>The details for extracting the tape archive file is not repeated here.</p>
+  </section>
+
+  <section>
+    <title>Configuration for Automatic Start at Boot</title>
+    <p>A true Embedded Environment has to start when the system boots. This 
+      section accounts for the necessary configurations needed to achieve
+      that.</p>
+    <p>The embedded environment and all the applications will  start automatically
+      if the script file shown below is added to the <c>/etc/rc3.d</c> directory.
+      The file must be owned and readable by <c>root</c>, and its name cannot
+      be arbitrarily assigned. The following name is recommended,</p>
+    <pre>
+S75otp.system    </pre>
+    <p>For further details on initialization (and termination) scripts, and
+      naming thereof, see the file <c>/etc/init.d/README</c> on a Solaris
+      2.5.1 system.</p>
+    <pre>
+#!/bin/sh
+#  
+#  File name:  S75otp.system
+#  Purpose:    Automatically starts Erlang and applications when the 
+#              system starts
+#  Author:     janne@erlang.ericsson.se
+#  Resides in: /etc/rc3.d
+#
+
+if [ ! -d /usr/bin ]
+then                    # /usr not mounted
+        exit
+fi
+
+killproc() {            # kill the named process(es)
+        pid=`/usr/bin/ps -e |
+             /usr/bin/grep -w $1 |
+             /usr/bin/sed -e 's/^  *//' -e 's/ .*//'`
+        [ "$pid" != "" ] &amp;&amp; kill $pid
+}
+
+# Start/stop processes required for Erlang
+
+case "$1" in
+'start')
+        # Start the Erlang emulator
+        #
+        su - otpuser -c "/export/home/otpuser/otp/bin/start" &amp;
+        ;;
+'stop')
+        killproc beam
+        ;;
+*)
+        echo "Usage: $0 { start | stop }"
+        ;;
+esac    </pre>
+    <p>The file <c>/export/home/otpuser/otp/bin/start</c> referred to in the 
+      above script, is precisely the script <c>start</c> described in the next
+      chapter of this guide, <em>Starting an Embedded System</em>. The script 
+      variable <c>OTP_ROOT</c> in that <c>start</c> script corresponds to 
+      the example path </p>
+    <pre>
+/export/home/otpuser/otp    </pre>
+    <p>used in this section. The <c>start</c> script should be edited
+      accordingly.</p>
+    <p>Use of the <c>killproc</c> procedure in the above script could
+      be combined with a call to <c>erl_call</c>, e.g.</p>
+    <pre>
+  $SOME_PATH/erl_call -n Node init stop    </pre>
+    <p>in order to take Erlang down gracefully (see the <c>erl_call(1)</c> 
+      reference manual page for further details on the use of <c>erl_call</c>).
+      That however requires that Erlang runs as a distributed node which is 
+      not always the case.</p>
+    <p>The <c>killproc</c> procedure should not be removed: the purpose is
+      here to move from run level 3 (multi-user mode with networking resources)
+      to run level 2 (multi-user mode without such resources), in which Erlang
+      should not run.</p>
+  </section>
+
+  <section>
+    <title>Hardware Watchdog</title>
+    <p>For Solaris 2.5.1 running on VME boards from Force Computers, there
+      is a possibility to activate the onboard hardware watchdog, provided a
+      VME bus driver is added to the operating system. For further details
+      see the <em>Embedded Systems</em> documentation.</p>
+    <p>See also the <c>heart(3)</c> reference manual page in <em>Kernel</em>.</p>
+  </section>
+
+  <section>
+    <title>Changing permissions for reboot</title>
+    <p>If the <c>HEART_COMMAND</c> environment variable is to be set in
+      the <c>start</c> script of the next chapter, <em>Starting an Embedded System</em>, and if the value shall be set to the path of the Solaris 
+      <c>reboot</c> command, i.e.</p>
+    <pre>
+HEART_COMMAND=/usr/sbin/reboot    </pre>
+    <p>the ownership and file permissions for <c>/usr/sbin/reboot</c> must
+      be changed as follows,</p>
+    <pre>
+chown 0 /usr/sbin/reboot
+chmod 4755 /usr/sbin/reboot    </pre>
+    <p>See also the <c>heart(3)</c> reference manual page in <em>Kernel</em>.</p>
+  </section>
+
+  <section>
+    <title>The TERM environment variable</title>
+    <p>When the Erlang runtime system is automatically started from the 
+      <c>S75otp.system</c> script the <c>TERM</c> environment variable
+      has to be set. The following is a minimal setting,</p>
+    <pre>
+TERM=sun    </pre>
+    <p>which should be added to the <c>start</c> script described in the
+      next chapter.</p>
+  </section>
+
+  <section>
+    <title>Patches for Solaris 2.5.1</title>
+    <p>For proper functioning of flushing file system data to disk, the
+      Solaris 2.5.1 specific patch with number 103640-02 must be added
+      to the operating system.</p>
+  </section>
+
+  <section>
+    <title>Installation of module os_sup in application os_mon</title>
+    <p>The following four installation procedures requires superuser privilege.</p>
+
+    <section>
+      <title>Installation</title>
+      <list type="ordered">
+        <item>
+          <p><em>Make a copy the Solaris standard configuration file for syslogd.</em></p>
+          <list type="bulleted">
+            <item>
+              <p>Make a copy the Solaris standard configuration file for syslogd.
+                This file is usually named <c>syslog.conf</c> and found in the <c>/etc</c>
+                directory.</p>
+            </item>
+            <item>
+              <p>The file name of the copy must be <c>syslog.conf.ORIG</c> but the 
+                directory location is optional. Usually it is <c>/etc</c>.
+                </p>
+              <p>A simple way to do this is to issue the command</p>
+              <code type="none">
+    cp /etc/syslog.conf /etc/syslog.conf.ORIG</code>
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><em>Make an Erlang specific configuration file for syslogd.</em></p>
+          <list type="bulleted">
+            <item>
+              <p>Make an edited copy of the back-up copy previously made.</p>
+            </item>
+            <item>
+              <p>The file name must be <c>syslog.conf.OTP</c> and the path 
+                must be the same as the back-up copy.</p>
+            </item>
+            <item>
+              <p>The format of the configuration file is found in the man page for
+                <c>syslog.conf(5)</c>, by issuing the command <c>man syslog.conf</c>.</p>
+            </item>
+            <item>
+              <p>Usually a line is added which should state:</p>
+              <list type="bulleted">
+                <item>
+                  <p>which types of information that will be supervised by Erlang,</p>
+                </item>
+                <item>
+                  <p>the name of the file (actually a named pipe) that should receive
+                    the information.</p>
+                </item>
+              </list>
+            </item>
+            <item>
+              <p>If e.g. only information originating from the unix-kernel should
+                be supervised, the line should begin with <c>kern.LEVEL</c> (for the 
+                possible values of <c>LEVEL</c> see <c>syslog.conf(5)</c>).</p>
+            </item>
+            <item>
+              <p>After at least one tab-character, the line added should contain
+                the full name of the named pipe where syslogd writes its information. The
+                path must be the same as for the <c>syslog.conf.ORIG</c> and
+                <c>syslog.conf.OTP</c> files. The file name must be <c>syslog.otp</c>.</p>
+            </item>
+            <item>
+              <p>If the directory for the <c>syslog.conf.ORIG</c> and
+                <c>syslog.conf.OTP</c> files is <c>/etc</c> the line in
+                <c>syslog.conf.OTP</c> will look like:</p>
+              <code type="none">
+   kern.LEVEL                /etc/syslog.otp              </code>
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><em>Check the file privileges of the configuration files.</em></p>
+          <list type="bulleted">
+            <item>
+              <p>The configuration files should have <c>rw-r--r--</c> file 
+                privileges and be owned by root.</p>
+            </item>
+            <item>
+              <p>A simple way to do this is to issue the commands</p>
+              <code type="none">
+  chmod 644 /etc/syslog.conf
+  chmod 644 /etc/syslog.conf.ORIG
+  chmod 644 /etc/syslog.conf.OTP              </code>
+            </item>
+            <item>
+              <p><em>Note:</em> If the <c>syslog.conf.ORIG</c> and 
+                <c>syslog.conf.OTP</c> files are not in the <c>/etc</c> directory, 
+                the file path in the second and third command must be modified.</p>
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><em>Modify file privileges and ownership of the mod_syslog utility.</em></p>
+          <list type="bulleted">
+            <item>
+              <p>The file privileges and ownership of the <c>mod_syslog</c> utility
+                must be modified.</p>
+            </item>
+            <item>
+              <p>The full name of the binary executable file is derived from the 
+                position of the <c>os_mon</c> application if the file system by adding 
+                <c>/priv/bin/mod_syslog</c>. The generic full name of the binary executable
+                file is thus</p>
+              <code type="none"><![CDATA[
+  <OTP_ROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog              ]]></code>
+              <p><em>Example:</em> If the path to the otp-root is
+                <c>/usr/otp</c>, thus the path to the <c>os_mon</c> application is 
+                <c>/usr/otp/lib/os_mon-1.0</c> (assuming revision 1.0) and the full name 
+                of the binary executable file is 
+                <c>/usr/otp/lib/os_mon-1.0/priv/bin/mod_syslog</c>.</p>
+            </item>
+            <item>
+              <p>The binary executable file must be owned by root, have 
+                <c>rwsr-xr-x</c> file privileges, in particular the setuid bit of
+                user must be set.</p>
+            </item>
+            <item>
+              <p>A simple way to do this is to issue the commands</p>
+              <code type="none"><![CDATA[
+  cd <OTP_ROOT>/lib/os_mon-<rev>/priv/bin/mod_syslog
+  chmod 4755 mod_syslog
+  chown root mod_syslog              ]]></code>
+            </item>
+          </list>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Testing the application configuration file</title>
+      <p>The following procedure does not require root privilege.</p>
+      <list type="bulleted">
+        <item>
+          <p>Ensure that the configuration parameters for the <c>os_sup</c>
+            module in the <c>os_mon</c> application are correct.</p>
+        </item>
+        <item>
+          <p>Browse the application configuration file (do <em>not</em> edit
+            it). The full name of the application configuration file is derived
+            from the position of the os_mon-application if the file system by adding
+            <c>/ebin/os_mon.app</c>.</p>
+          <p>The generic full name of the file is thus</p>
+          <code type="none"><![CDATA[
+   <OTP_ROOT>/lib/os_mon-<rev>/ebin/os_mon.app.          ]]></code>
+          <p><em>Example:</em> If the path to the otp-root is <c>/usr/otp</c>,
+            thus the path to the <c>os_mon</c> application is <c>/usr/otp/lib/os_mon-1.0</c> (assuming revision 1.0) and the full name of the binary executable file
+            is <c>/usr/otp/lib/os_mon-1.0/ebin/os_mon.app</c>.</p>
+        </item>
+        <item>
+          <p>Ensure that the following configuration parameters are bound to
+            the correct values.</p>
+        </item>
+      </list>
+      <table>
+        <row>
+          <cell align="left" valign="top"><em>Parameter</em></cell>
+          <cell align="left" valign="top"><em>Function</em></cell>
+          <cell align="left" valign="top"><em>Standard value</em></cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">start_os_sup</cell>
+          <cell align="left" valign="middle">Specifies if os_sup will be started or not.</cell>
+          <cell align="left" valign="middle"><c>true</c>for the first instance on the hardware; <c>false</c>for the other instances.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">os_sup_own</cell>
+          <cell align="left" valign="middle">The directory for (1)the back-up copy, (2) the Erlang specific configuration file  for syslogd.</cell>
+          <cell align="left" valign="middle"><c>"/etc"</c></cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">os_sup_syslogconf</cell>
+          <cell align="left" valign="middle">The full name for the  Solaris standard configuration file for syslogd </cell>
+          <cell align="left" valign="middle"><c>"/etc/syslog.conf"</c></cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">error_tag</cell>
+          <cell align="left" valign="middle">The tag for the messages that are sent to the error logger in the Erlang runtime system.</cell>
+          <cell align="left" valign="middle"><c>std_error</c></cell>
+        </row>
+        <tcaption>Configuration Parameters</tcaption>
+      </table>
+      <p>If the values listed in the <c>os_mon.app</c> does not suite your 
+        needs, you should <c>not</c> edit that file. Instead you should
+        <em>override</em> values in a <em>system configuration file</em>, the
+        full pathname of which is given on the command line to <c>erl</c>.</p>
+      <p><em>Example:</em> The following is an example of the contents of an
+        application configuration file.</p>
+      <p></p>
+      <pre>
+[{os_mon, [{start_os_sup, true}, {os_sup_own, "/etc"}, 
+ {os_sup_syslogconf, "/etc/syslog.conf"}, {os_sup_errortag, std_error}]}].      </pre>
+    </section>
+
+    <section>
+      <title>Related documents</title>
+      <p>See also the <c>os_mon(3)</c>, <c>application(3)</c> and <c>erl(1)</c>
+        reference manual pages.</p>
+    </section>
+  </section>
+</chapter>
+

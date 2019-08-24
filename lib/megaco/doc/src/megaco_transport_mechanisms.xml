@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Transport mechanisms</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_transport_mechanisms.xml</file>
+  </header>
+
+  <section>
+    <title>Callback interface</title>
+    <p>The callback interface of the transport module contains several
+      functions. Some of which are mandatory while others are only
+      optional: </p>
+    <list type="bulleted">
+      <item>
+        <p><c><![CDATA[send_message]]></c> - Send a message. <em>Mandatory</em></p>
+      </item>
+      <item>
+        <p><c><![CDATA[block]]></c> - Block the transport. <em>Optional</em></p>
+        <p>This function is usefull for flow control.</p>
+      </item>
+      <item>
+        <p><c><![CDATA[unblock]]></c> - Unblock the transport. <em>Optional</em></p>
+      </item>
+    </list>
+    <p>For more detail, see the 
+      <seealso marker="megaco_transport">megaco_transport</seealso>
+      behaviour definition.</p>
+  </section>
+
+  <section>
+    <title>Examples</title>
+    <p>The Megaco/H.248 application contains implementations
+      for the two protocols specified by the Megaco/H.248 standard;
+      UDP, see <seealso marker="megaco_udp">megaco_udp</seealso>, 
+      and TCP/TPKT, see <seealso marker="megaco_tcp">megaco_tcp</seealso>. </p>
+  </section>
+</chapter>
+

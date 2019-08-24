@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>http_uri</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <module since="OTP R15B01">http_uri</module>
+  <modulesummary>URI utility module</modulesummary>
+
+  <description>
+    <p>This module provides utility functions for working with URIs, 
+    according to 
+    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
+  </description>
+  
+  <section>
+    <title>DATA TYPES</title>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <p><c>boolean() = true | false</c></p>
+    <p><c>string()</c> = list of ASCII characters</p>
+
+  </section>
+  
+  <section>
+    <title>URI DATA TYPES</title>
+    <p>Type definitions that are related to URI:</p>
+    
+<taglist>
+       <tag><c>uri() = string() | binary()</c></tag>
+       <item><p>Syntax according to the URI definition in RFC 3986,
+       for example, "http://www.erlang.org/"</p></item>
+       <tag><c>user_info() = string() | binary()</c></tag>
+       <item><p></p></item>
+       <tag><c>scheme() = atom()</c></tag>
+       <item><p>Example: http, https</p></item>
+       <tag><c>host() = string() | binary()</c></tag>
+       <item><p></p></item>
+       <tag><c>port() = inet:port_number()</c></tag>
+       <item><p></p></item>
+       <tag><c>path() = string() | binary()</c></tag>
+       <item><p>Represents a file path or directory path</p></item>
+       <tag><c>query() = string() | binary()</c></tag>
+       <item><p></p></item>
+       <tag><c>fragment() = string() | binary()</c></tag>
+       <item><p></p></item>
+     </taglist>
+   
+     <p>For more information about URI, see
+     <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
+    <marker id="scheme_defaults"></marker>
+  </section>
+  
+  <funcs>
+    <func>
+      <name since="OTP R15B01">decode(HexEncodedURI) -> URI</name>
+      
+      <fsummary>Decodes a hexadecimal encoded URI.</fsummary>
+      <type>
+        <v>HexEncodedURI = string() | binary() - A possibly hexadecimal encoded URI</v>
+        <v>URI = uri()</v>
+      </type>
+
+      <desc>
+        <p>Decodes a possibly hexadecimal encoded URI.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name since="OTP R15B01">encode(URI) -> HexEncodedURI</name>
+      
+      <fsummary>Encodes a hexadecimal encoded URI.</fsummary>
+      <type>
+        <v>URI = uri()</v>
+        <v>HexEncodedURI = string() | binary() - Hexadecimal encoded URI</v>
+      </type>
+
+      <desc>
+        <p>Encodes a hexadecimal encoded URI.</p>
+
+        <marker id="decode"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">parse(URI) -> {ok, Result} | {error, Reason}</name>
+      <name since="OTP R15B01">parse(URI, Options) -> {ok, Result} | {error, Reason}</name>
+      <fsummary>Parses a URI.</fsummary>
+      <type>
+        <v>URI = uri()</v> 
+        <v>Options = [Option]</v> 
+        <v>Option = {ipv6_host_with_brackets, boolean()} | 
+                    {scheme_defaults, scheme_defaults()} |
+                    {fragment, boolean()} |
+                    {scheme_validation_fun, fun()}</v>
+        <v>Result = {Scheme, UserInfo, Host, Port, Path, Query} |
+                    {Scheme, UserInfo, Host, Port, Path, Query, Fragment}</v>
+	<v>Scheme = scheme()</v>
+	<v>UserInfo = user_info()</v>
+	<v>Host = host()</v>
+	<v>Port = inet:port_number()</v>
+	<v>Path = path()</v>
+	<v>Query = query()</v>
+        <v>Fragment = fragment()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Parses a URI. If no scheme defaults 
+	are provided, the value of the
+	<seealso marker="#scheme_defaults">scheme_defaults</seealso>
+	function is used.</p>
+
+        <p>When parsing a URI with an unknown scheme (that is, 
+	a scheme not found in the scheme defaults), a port number must be 
+	provided, otherwise the parsing fails.</p>
+
+        <p>If the fragment option is <c>true</c>, the URI fragment is returned as
+          part of the parsing result, otherwise it is ignored.</p>
+
+        <p>Scheme validation fun is to be defined as follows:</p>
+
+	<code>
+fun(SchemeStr :: string() | binary()) ->
+	valid |	{error, Reason :: term()}.
+	</code>
+
+        <p>It is called before scheme string gets converted into scheme atom and
+        thus possible atom leak could be prevented</p>
+
+        <warning>
+          <p>The scheme portion of the URI gets converted into atom,
+          meaning that atom leak may occur. Specifying a scheme
+          validation fun is recommended unless the URI is already
+          sanitized.</p>
+        </warning>
+
+        <marker id="encode"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B01">scheme_defaults() -> SchemeDefaults</name>
+      <fsummary>A list of the scheme and their default ports.</fsummary>
+      <type>
+        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
+	<v>default_scheme_port_number() = inet:port_number()</v>
+      </type>
+      <desc>
+        <p>Provides a list of the scheme and their default 
+	port numbers supported (by default) by this utility.</p>
+
+        <marker id="parse"></marker>
+      </desc>
+    </func>
+
+   
+
+  </funcs>
+
+<!--
+  <section>
+    <title>SEE ALSO</title>
+    <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
+    <seealso marker="inets">inets(3)</seealso>,
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
+      <seealso marker="ssl:ssl">ssl(3)</seealso>
+    </p>
+  </section>
+-->
+
+</erlref>

@@ -1,0 +1,143 @@
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+#
+# HiPE level 0 bifs: compiler and linker support
+#
+# bif hipe_bifs:name/arity
+
+#bif hipe_bifs:read_u8/1
+#bif hipe_bifs:read_u32/1
+bif hipe_bifs:write_u8/2
+#bif hipe_bifs:write_s32/2
+bif hipe_bifs:write_u32/2
+# bif hipe_bifs:write_s64/2
+# bif hipe_bifs:write_u64/2
+
+bif hipe_bifs:bytearray/2
+bif hipe_bifs:bytearray_sub/2
+bif hipe_bifs:bytearray_update/3
+bif hipe_bifs:bitarray/2
+bif hipe_bifs:bitarray_sub/2
+bif hipe_bifs:bitarray_update/3
+bif hipe_bifs:array/2
+bif hipe_bifs:array_length/1
+bif hipe_bifs:array_sub/2
+bif hipe_bifs:array_update/3
+bif hipe_bifs:ref/1
+bif hipe_bifs:ref_get/1
+bif hipe_bifs:ref_set/2
+
+bif hipe_bifs:enter_code/3
+bif hipe_bifs:alloc_data/3
+bif hipe_bifs:constants_size/0
+bif hipe_bifs:merge_term/1
+
+bif hipe_bifs:fun_to_address/1
+bif hipe_bifs:commit_patch_load/1
+bif hipe_bifs:set_native_address/3
+#bif hipe_bifs:address_to_fun/1
+
+bif hipe_bifs:set_funinfo_native_address/3
+#bif hipe_bifs:invalidate_funinfo_native_addresses/1
+
+bif hipe_bifs:enter_sdesc/2
+
+bif hipe_bifs:bif_address/3
+bif hipe_bifs:primop_address/1
+#bif hipe_bifs:gbif_address/2
+
+bif hipe_bifs:atom_to_word/1
+bif hipe_bifs:term_to_word/1
+
+#bif hipe_bifs:make_fun/3
+bif hipe_bifs:get_fe/2
+bif hipe_bifs:set_native_address_in_fe/2
+
+bif hipe_bifs:find_na_or_make_stub/1
+
+bif hipe_bifs:check_crc/1
+bif hipe_bifs:system_crc/0
+bif hipe_bifs:get_rts_param/1
+
+#bif hipe_bifs:tuple_to_float/1
+
+bif hipe_bifs:patch_insn/3
+bif hipe_bifs:patch_call/3
+
+bif hipe_bifs:add_ref/2
+
+bif hipe_bifs:alloc_loader_state/1
+
+# atoms used by add_ref/2
+atom call
+atom load_mfa
+atom local
+atom remote
+
+# atoms used by hipe_bifs:patch_insn/3
+atom atom
+atom c_const
+atom call
+atom closure
+atom constant
+atom load_mfa
+atom x86_abs_pcrel
+
+# atom used by hipe_patch_address()
+atom load_fe
+
+atom suspend_msg
+atom suspend_msg_timeout
+atom suspend_0
+atom gc_1
+atom hipe_apply
+atom rethrow
+atom raw_raise
+atom find_na_or_make_stub
+atom nonclosure_address
+atom atomic_inc
+atom clear_timeout
+atom check_get_msg
+atom select_msg
+atom set_timeout
+atom cmp_2
+atom op_exact_eqeq_2
+atom conv_big_to_float
+atom fclearerror_error
+atom bs_put_big_integer
+atom bs_put_small_float
+atom bs_put_bits
+atom bs_allocate
+atom bs_get_integer_2
+atom bs_get_float_2
+atom bs_get_binary_2
+atom bs_reallocate
+atom bs_utf8_size
+atom bs_put_utf8
+atom bs_get_utf8
+atom bs_utf16_size
+atom bs_put_utf16be
+atom bs_put_utf16le
+atom bs_get_utf16
+atom bs_validate_unicode_retract
+atom emulate_fpe
+atom emasculate_binary
+atom is_divisible
+atom is_unicode

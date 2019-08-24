@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_cover</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_cover.xml</file>
+  </header>
+  <module since="">ct_cover</module>
+  <modulesummary>Common Test framework code coverage support module.
+  </modulesummary>
+
+<description>
+
+    <p><c>Common Test</c> framework code coverage support module.</p>
+
+    <p>This module exports help functions for performing code coverage
+      analysis.</p>
+
+</description>
+
+  <funcs>
+    <func>
+    <name since="">add_nodes(Nodes) -&gt; {ok, StartedNodes} | {error, Reason}</name>
+    <fsummary>Adds nodes to current cover test (only works if cover support
+      is active).</fsummary>
+      <type>
+        <v>Nodes = [atom()]</v>
+        <v>StartedNodes = [atom()]</v>
+        <v>Reason = cover_not_running | not_main_node</v>
+      </type>
+      <desc><marker id="add_nodes-1"/>
+        <p>Adds nodes to current cover test. Notice that this only works if
+          cover support is active.</p>
+
+        <p>To have effect, this function is to be called from
+          <c>init_per_suite/1</c> (see
+          <seealso marker="common_test"><c>common_test</c></seealso>)
+          before any tests are performed.</p>
+      </desc>
+    </func>
+
+    <func>
+    <name since="OTP R16B">cross_cover_analyse(Level, Tests) -&gt; ok</name>
+    <fsummary>Accumulates cover results over multiple tests.</fsummary>
+      <type>
+        <v>Level = overview | details</v>
+        <v>Tests = [{Tag, Dir}]</v>
+        <v>Tag = atom()</v>
+        <v>Dir = string()</v>
+      </type>
+      <desc><marker id="cross_cover_analyse-2"/>
+        <p>Accumulates cover results over multiple tests. See section
+          <seealso marker="cover_chapter#cross_cover">Cross Cover
+          Analysis</seealso> in the Users's Guide.</p>
+      </desc>
+    </func>
+
+    <func>
+    <name since="">remove_nodes(Nodes) -&gt; ok | {error, Reason}</name>
+    <fsummary>Removes nodes from the current cover test.</fsummary>
+      <type>
+        <v>Nodes = [atom()]</v>
+        <v>Reason = cover_not_running | not_main_node</v>
+      </type>
+      <desc><marker id="remove_nodes-1"/>
+        <p>Removes nodes from the current cover test.</p>
+
+        <p>Call this function to stop cover test on nodes previously
+          added with
+          <seealso marker="#add_nodes-1"><c>ct_cover:add_nodes/1</c></seealso>.
+          Results on the remote node are transferred to the <c>Common Test</c>
+          node.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

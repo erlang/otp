@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2010. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+# Author: Rickard Green
+#
+
+target=
+build_otp=
+erl_top=
+force=no
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+	-target)
+	    shift
+	    test $# -gt 0 || { echo "$0: Missing target" 1>&2; exit 1; }
+	    target="$1";;
+	-otp)
+	    shift
+	    test $# -gt 0 || { echo "$0: Missing otp release" 1>&2; exit 1; }
+	    build_otp="$1";;
+	-erl_top)
+	    shift
+	    test $# -gt 0 || { echo "$0: Missing erl top" 1>&2; exit 1; }
+	    erl_top="$1";;
+	-force)
+	    shift
+	    test $# -gt 0 || { echo "$0: Missing force value" 1>&2; exit 1; }
+	    force=$1;;
+	*)
+	    echo "$0: Bad argument: $1" 1>&2
+	    exit 1;;
+    esac
+    shift
+done
+
+test "X$target" != "X" || { echo "$0: Missing target" 1>&2; exit 1; }
+test "X$build_otp" != "X" || { echo "$0: Missing otp release" 1>&2; exit 1; }
+test "X$erl_top" != "X" || { echo "$0: Missing erl top" 1>&2; exit 1; }
+test "X$force" != "X" || { echo "$0: Missing force value" 1>&2; exit 1; }
+
+cd $erl_top
+
+cat > cross_check_erl.erl <<\EOF
+%
+% Copyright Ericsson AB 2010. All Rights Reserved.
+% 
+% Licensed under the Apache License, Version 2.0 (the "License");
+% you may not use this file except in compliance with the License.
+% You may obtain a copy of the License at
+%
+%     http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+% See the License for the specific language governing permissions and
+% limitations under the License.
+%
+
+-module(cross_check_erl).
+
+-export([start/0]).
+
+start() ->
+    OTP = case catch erlang:system_info(otp_release) of
+	      {'EXIT', _} -> "OTP";
+	      Rel -> "OTP-" ++ Rel
+	  end,
+    io:format("~s~n", [OTP]),
+    init:stop().
+
+EOF
+
+erlc cross_check_erl.erl 2>/dev/null \
+  && used_otp=`erl -noshell -noinput -boot start_clean -pa . -run cross_check_erl 2>/dev/null`
+
+res=$?
+
+rm -f cross_check_erl.erl cross_check_erl.beam
+
+test $res -eq 0 || {
+    cat 1>&2 <<EOF
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+* ERROR:   No usable Erlang/OTP system for the build machine found! Cannot
+*          cross compile without such a system.
+*
+*          Either build a bootstrap system for the build machine, or provide
+*          an Erlang/$build_otp system in the \$PATH, and try again. For more
+*          information on cross compiling Erlang/$build_otp, see the
+*          \$ERL_TOP/xcomp/README file.
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+EOF
+    exit 1
+}
+
+test "X$build_otp" = "X$used_otp" || {
+    test $force = yes || {
+	cat 1>&2 <<EOF
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+* ERROR:   Trying to cross compile an Erlang/$build_otp system with a different
+*          Erlang/$used_otp system. When cross compiling you should compile
+*          with an Erlang/OTP system of the same release. It is possible,
+*          however not recomended, to force the cross compilation even though
+*          the wrong Erlang/OTP system is used. For more information on this,
+*          and cross compiling Erlang/$build_otp in general, see the
+*          \$ERL_TOP/xcomp/README file.
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+EOF
+	exit 1
+    }
+
+    cat <<EOF
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+* WARNING: Cross compiling an Erlang/$build_otp system with a different
+*          Erlang/$used_otp system. When cross compiling you should compile
+*          with an Erlang/OTP system of the same release. This build might
+*          fail, or silently produce suboptimal code. For more information on
+*          cross compiling Erlang/$build_otp, see the \$ERL_TOP/xcomp/README
+*          file.
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+EOF
+}
+
+cat <<EOF
+*
+* Cross compiling Erlang/$build_otp for: $target
+*
+EOF
+
+exit 0

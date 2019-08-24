@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>snmpa_notification_delivery_info_receiver</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_notification_delivery_info_receiver.xml</file>
+  </header>
+  <module since="">snmpa_notification_delivery_info_receiver</module>
+  <modulesummary>
+    Behaviour module for the SNMP agent notification delivery 
+    information receiver.
+  </modulesummary>
+  <description>
+    <p>This module defines the behaviour of the notification 
+      delivery information receiver. </p>
+    <p>A <c>snmpa_notification_delivery_info_receiver</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#delivery_targets/3">delivery_targets/3</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#delivery_info/4">delivery_info/4</seealso></p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+
+    <p>Legacy notification delivery information receiver modules
+      used a target argument on the form
+      <c>{IpAddr, PortNumber}</c> instead of
+      <c>{Domain, Addr}</c>, and if the SNMP Agent is run without
+      changing the configuration to use transport domains
+      the notification delivery information receiver will still get
+      the old arguments and work as before.</p>
+
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>See the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+    <marker id="accept_recv"></marker>
+
+     <marker id="delivery_targets"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">delivery_targets(Tag, Targets, Extra) -> void()</name>
+      <fsummary>Inform about target addresses</fsummary>
+      <type>
+        <v>Tag = term()</v>
+        <v>Targets = [Target]</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()</v>
+        <v>Extra = term()</v>
+      </type>
+      <desc>
+        <p>Inform about target addresses. </p>
+        <p>This is the first function called when a notification delivery is
+          in progress. It informs the <c>receiver</c> which targets will
+          get the notification. The result of the delivery will be 
+          provided via successive calls to <c>delivery_info/4</c> function, 
+          see below.</p>
+
+        <marker id="delivery_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
+      <fsummary>Inform about delivery result</fsummary>
+      <type>
+        <v>Tag = term()</v>
+        <v>Targets = [Target]</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()</v>
+        <v>DeliveryResult = delivery_result()</v>
+        <v>delivery_result() = no_response | got_response</v>
+        <v>Extra = term()</v>
+      </type>
+      <desc>
+        <p>Inform about delivery result.</p>
+        <p>This function is called for each target in the <c>Targets</c>
+          argument of the <c>delivery_targets/3</c> function, see above. </p>
+        <p>The purpose is to inform the <c>receiver</c> of the 
+          result of the delivery (was the notification acknowledged or 
+          not) for each target.</p>
+
+      </desc>
+    </func>
+
+  </funcs>
+
+  
+</erlref>
+

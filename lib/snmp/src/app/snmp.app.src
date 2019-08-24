@@ -1,0 +1,145 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%% 
+%% %CopyrightEnd%
+%%
+
+{application, snmp,
+ [{description, "SNMP  CXC 138 13"},
+  {vsn, "%VSN%"},
+  {modules, [
+             %% Compiler modules (not in the runtime part of the app)
+             snmpc,
+             snmpc_lib,
+             snmpc_mib_gram,
+             snmpc_mib_to_hrl,
+             snmpc_misc,
+             snmpc_tok,
+
+             %% Application modules
+             snmp,
+             snmp_app,
+             snmp_app_sup,
+
+             %% Agent modules
+             snmpa,
+             snmpa_acm,
+             snmpa_agent,
+             snmpa_agent_sup,
+             snmpa_app,
+             snmpa_authentication_service, 
+             snmpa_conf,
+             snmpa_error,
+             snmpa_discovery_handler,
+             snmpa_discovery_handler_default,
+             snmpa_error_io,
+             snmpa_error_logger,
+             snmpa_error_report,
+             snmpa_get,
+             snmpa_get_lib,
+             snmpa_get_mechanism, 
+             snmpa_local_db,
+             snmpa_mib,
+             snmpa_mib_data,
+             snmpa_mib_data_tttn,
+             snmpa_mib_lib,
+             snmpa_mib_storage,
+             snmpa_mib_storage_ets,
+             snmpa_mib_storage_dets,
+             snmpa_mib_storage_mnesia,
+             snmpa_misc_sup,
+             snmpa_mpd,
+             snmpa_net_if,
+             snmpa_net_if_filter,
+             snmpa_network_interface,
+             snmpa_network_interface_filter,
+             snmpa_notification_delivery_info_receiver, 
+             snmpa_notification_filter,
+             snmpa_set,
+             snmpa_set_lib,
+             snmpa_set_mechanism, 
+             snmpa_supervisor,
+             snmpa_svbl,
+             snmpa_symbolic_store,
+             snmpa_target_cache,
+             snmpa_trap,
+             snmpa_usm,
+	     snmpa_vacm,
+	     snmp_community_mib,
+	     snmp_framework_mib,
+             snmp_generic,
+             snmp_generic_mnesia,
+             snmp_index,
+	     snmp_notification_mib,
+             snmp_shadow_table,
+             snmp_standard_mib,
+             snmp_target_mib,
+	     snmp_user_based_sm_mib,
+	     snmp_view_based_acm_mib,
+
+             %% Manager modules:
+             snmpm,
+             snmpm_conf,
+             snmpm_config,
+             snmpm_misc_sup,
+             snmpm_mpd,
+             snmpm_net_if,
+             snmpm_net_if_filter,
+             snmpm_net_if_mt,
+             snmpm_network_interface,
+             snmpm_network_interface_filter,
+             snmpm_server,
+             snmpm_server_sup,
+             snmpm_supervisor,
+             snmpm_user,
+             snmpm_user_default,
+             snmpm_user_old,
+             snmpm_usm,
+
+             %% Misc modules
+             snmp_conf,
+             snmp_config,
+             snmp_log,
+             snmp_mini_mib,
+             snmp_misc,
+             snmp_note_store,
+             snmp_pdus,
+             snmp_usm,
+	     snmp_verbosity
+             
+             ]},
+  %% Which registered process exist depend on the configuration:
+  %% If an agent is configured, then the following processes is
+  %% also started: snmp_agent_sup, snmp_local_db, snmp_master_agent,
+  %%               snmp_misc_sup, snmpa_supervisor and 
+  %%               snmp_symbolic_store
+  %% If an manager is configured, the the following processes is
+  %% also started: snmpm_supervisor, snmpm_config, snmpm_server, 
+  %%               snmpm_net_if 
+  %%               
+  %% 
+  {registered, [snmp_app_sup]},
+  {env, []},
+  %% If v3 authentication or encryption is used, 'crypto' must be started
+  %% before snmp.
+  %% The SNMP application _may_ also depend on mnesia (depends on the
+  %% configuration and use), and in that case mnesia must also be started,
+  %% before snmp.
+  {applications, [kernel, stdlib]},
+  {mod, {snmp_app, []}},
+  {runtime_dependencies, ["stdlib-2.5","runtime_tools-1.8.14","mnesia-4.12",
+			  "kernel-3.0","erts-6.0","crypto-3.3"]}]}.

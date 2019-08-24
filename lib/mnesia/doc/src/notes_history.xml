@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Mnesia Release Notes</title>
+    <prepared>Dan Gudmundsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>04-08-22</date>
+    <rev>AE</rev>
+    <file>notes_history.sgml</file>
+  </header>
+  <p>This document describes the changes made to the Mnesia system
+    from version to version.  The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Mnesia. Each release of Mnesia
+    thus constitutes one section in this document. The title of each
+    section is the version number of Mnesia.</p>
+
+  <section><title>Mnesia 4.3.7</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Removed a memory leak on ram-only nodes, introduced in
+            <c>mnesia-4.3.6</c>.</p>
+          <p>
+            Own Id: OTP-6936 Aux Id: seq10786 </p>
+        </item>
+      </list>
+    </section>
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Rearranging fragmented tables is an O(N^2)
+            operation.</p>
+          <p>Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>
+  
+
+  <section>
+    <title>Mnesia 4.3.6</title>
+
+      <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A bug causing lots of records to be lost at startup from
+            an installed fallback has been fixed. The bug did however
+            not show up when a backup file generated with
+            <c>mnesia:backup/1</c> or
+            <c>mnesia:backup_checkpoint/2</c> was installed as
+            fallback. In order to trigger the bug, the items in the
+            backup file had to be rearranged in such an order that
+            records from different tables were interleaved with each
+            other.</p>
+          <p>
+            Own Id: OTP-6903 Aux Id: seq10763 </p>
+        </item>
+        <item>
+          <p>
+            Mnesia sometimes failed to commit schema operations on
+            all nodes, this have been seen on smp machines but could
+            happen on single processor as well with some bad timing.</p>
+          <p>
+            Own Id: OTP-6904</p>
+        </item>
+        <item>
+          <p>
+            <c>mnesia:select/1</c> failed to return all matches on
+            remote nodes if something was written to the table
+            earlier in the same transaction.</p>
+          <p>
+            Own Id: OTP-6908</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Rearranging fragmented tables is an O(N^2)
+            operation.</p>
+          <p>Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The internal index tables on bag tables where not always
+            cleaned correctly. Thanks Christopher Faulet and Salazard
+            Remy.</p>
+          <p>Own Id: OTP-6587</p>
+        </item>
+        <item>
+          <p>Changing the copy type with
+            <c>mnesia:change_table_copy/3</c> on a node which was down
+            was not handled correctly, that caused an eternal table
+            lock on the alive nodes. Thanks Hal Snyder.</p>
+          <p>Own
+            Id: OTP-6709</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Rearranging fragmented tables is an O(N^2)
+            operation.</p>
+          <p>Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Adding fragments to ram_copies tables was allowed on
+            nodes that where down.</p>
+          <p>Own Id: OTP-6367</p>
+        </item>
+        <item>
+          <p>Mnesia leaked transaction decisions (memory and disk
+            space).</p>
+          <p>Own Id: OTP-6464</p>
+        </item>
+        <item>
+          <p><c>dirty_update_counter/3</c> did not work properly on
+            disc tables when the counter was not initiated (Thanks to
+            Sebastien Saint-Sevin).</p>
+          <p>Own Id: OTP-6545</p>
+        </item>
+        <item>
+          <p>Chunked <c>mnesia:select</c> on fragmented tables could
+            crash (Thanks to Primanathan Reddy).</p>
+          <p>Own Id:
+            OTP-6548</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Introduced a new configure parameter dc_dump_limit.</p>
+          <p>Removed dead code (dialyzer warnings) and debugging
+            features that called interpreter commands.</p>
+          <p>Minor
+            performance increase when a lot of simultaneous
+            transactions where active. </p>
+          <p>Thank you Scott Lystig
+            Fritchie for debugging and bug reports.</p>
+          <p>Own Id:
+            OTP-6478</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Rearranging fragmented tables is an O(N^2)
+            operation.</p>
+          <p>Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Mnesia could crash during startup when loading tables
+            from remote node. </p>
+          <p>Own Id: OTP-6298 Aux Id: seq10402 </p>
+        </item>
+        <item>
+          <p>Mnesia could fail to update all copies during
+            del_table_copy. </p>
+          <p>Own Id: OTP-6299</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Rearranging fragmented tables is an O(N^2) operation.</p>
+          <p>Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Mnesia sometimes failed to remove [d]ets table fixation,
+            when using <c>mnesia:first/1</c>,<c>mnesia:next/2</c> or
+            <c>qlc</c> this could cause that deleted records are not
+            actually deleted in the [d]ets table and that
+            <c>mnesia:[dirty_]first/1</c> reported the wrong key. </p>
+          <p>Own Id: OTP-6193 Aux Id: seq10376</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Mnesia could crash (bad match in mnesia_controller)
+            during start. </p>
+          <p>Own Id: OTP-6116 Aux Id: seq10305 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Mnesia 4.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Deleting tables during the start of mnesia on another
+            node caused problems. </p>
+          <p>Own Id: OTP-5928 Aux Id:
+            seq10111 </p>
+        </item>
+        <item>
+          <p>Killing processes that runs nested transactions could
+            crash mnesia. </p>
+          <p>Own Id: OTP-6027 Aux Id: seq10244 </p>
+        </item>
+        <item>
+          <p>Creating or deleting tables with a checkpoint activated
+            could crash mnesia </p>
+          <p>Own Id: OTP-6064</p>
+        </item>
+        <item>
+          <p>Table loading could be mixed with schema operations
+            which could cause troubles. </p>
+          <p>Own Id: OTP-6065 Aux Id:
+            seq10291 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added parallel table loaders to increase startup
+            performance when the system have many small tables. The
+            configuration variable <c>no_table_loaders</c> configures
+            the number of loaders, default is two. </p>
+          <p>Own Id:
+            OTP-6087</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

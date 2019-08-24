@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>erl_eval</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-21</date>
+    <rev>B</rev>
+    <file>erl_eval.xml</file>
+  </header>
+  <module since="">erl_eval</module>
+  <modulesummary>The Erlang meta interpreter.</modulesummary>
+  <description>
+    <p>This module provides an interpreter for Erlang expressions. The
+      expressions are in the abstract syntax as returned by
+      <seealso marker="erl_parse"><c>erl_parse</c></seealso>,
+      the Erlang parser, or <seealso marker="io"><c>io</c></seealso>.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="bindings"/>
+    </datatype>
+    <datatype>
+      <name name="binding_struct"/>
+      <desc><p>A binding structure.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="expression"/>
+    </datatype>
+    <datatype>
+      <name name="expressions"/>
+      <desc><p>As returned by <seealso marker="erl_parse#parse_exprs/1">
+        <c>erl_parse:parse_exprs/1</c></seealso> or
+        <seealso marker="io#parse_erl_exprs/2">
+        <c>io:parse_erl_exprs/2</c></seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="expression_list"/>
+    </datatype>
+    <datatype>
+      <name name="func_spec"/>
+    </datatype>
+    <datatype>
+      <name name="lfun_eval_handler"/>
+    </datatype>
+    <datatype>
+      <name name="lfun_value_handler"/>
+    </datatype>
+    <datatype>
+      <name name="local_function_handler"/>
+      <desc><p>Further described in section
+        <seealso marker="#local_function_handler">
+        Local Function Handler</seealso> in this module</p></desc>
+    </datatype>
+    <datatype>
+      <name name="name"/>
+    </datatype>
+    <datatype>
+      <name name="nlfun_handler"/>
+    </datatype>
+    <datatype>
+      <name name="non_local_function_handler"/>
+      <desc><p>Further described in section
+        <seealso marker="#non_local_function_handler">
+        Non-Local Function Handler</seealso> in this module.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="value"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="add_binding" arity="3" since=""/>
+      <fsummary>Add a binding.</fsummary>
+      <desc>
+        <p>Adds binding <c><anno>Name</anno>=<anno>Value</anno></c>
+          to <c><anno>BindingStruct</anno></c>.
+          Returns an updated binding structure.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="binding" arity="2" since=""/>
+      <fsummary>Return bindings.</fsummary>
+      <desc>
+        <p>Returns the binding of <c><anno>Name</anno></c>
+          in <c><anno>BindingStruct</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bindings" arity="1" since=""/>
+      <fsummary>Return bindings.</fsummary>
+      <desc>
+        <p>Returns the list of bindings contained in the binding
+          structure.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="del_binding" arity="2" since=""/>
+      <fsummary>Delete a binding.</fsummary>
+      <desc>
+        <p>Removes the binding of <c><anno>Name</anno></c>
+          in <c><anno>BindingStruct</anno></c>.
+          Returns an updated binding structure.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="expr" arity="2" since=""/>
+      <name name="expr" arity="3" since=""/>
+      <name name="expr" arity="4" since=""/>
+      <name name="expr" arity="5" since=""/>
+      <fsummary>Evaluate expression.</fsummary>
+      <desc>
+        <p>Evaluates <c><anno>Expression</anno></c> with the set of bindings
+          <c><anno>Bindings</anno></c>. <c><anno>Expression</anno></c> is an
+          expression in abstract syntax.
+          For an explanation of when and how to use arguments
+          <c><anno>LocalFunctionHandler</anno></c> and
+          <c><anno>NonLocalFunctionHandler</anno></c>, see sections
+          <seealso marker="#local_function_handler">
+          Local Function Handler</seealso> and
+          <seealso marker="#non_local_function_handler">
+          Non-Local Function Handler</seealso> in this module.</p>
+        <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
+          by default. If <c><anno>ReturnFormat</anno></c> is <c>value</c>,
+          only <c><anno>Value</anno></c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="expr_list" arity="2" since=""/>
+      <name name="expr_list" arity="3" since=""/>
+      <name name="expr_list" arity="4" since=""/>
+      <fsummary>Evaluate a list of expressions.</fsummary>
+      <desc>
+        <p>Evaluates a list of expressions in parallel, using the same
+          initial bindings for each expression. Attempts are made to
+          merge the bindings returned from each evaluation. This
+          function is useful in <c>LocalFunctionHandler</c>, see section
+          <seealso marker="#local_function_handler">
+          Local Function Handler</seealso> in this module.</p>
+        <p>Returns <c>{<anno>ValueList</anno>, <anno>NewBindings</anno>}</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="exprs" arity="2" since=""/>
+      <name name="exprs" arity="3" since=""/>
+      <name name="exprs" arity="4" since=""/>
+      <fsummary>Evaluate expressions.</fsummary>
+      <desc>
+        <p>Evaluates <c><anno>Expressions</anno></c> with the set of bindings
+          <c><anno>Bindings</anno></c>, where <c><anno>Expressions</anno></c>
+          is a sequence of expressions (in abstract syntax) of a type that can
+          be returned by <seealso marker="io#parse_erl_exprs/2">
+          <c>io:parse_erl_exprs/2</c></seealso>.
+          For an explanation of when and how to use arguments
+          <c><anno>LocalFunctionHandler</anno></c> and
+          <c><anno>NonLocalFunctionHandler</anno></c>, see sections
+          <seealso marker="#local_function_handler">
+          Local Function Handler</seealso> and
+          <seealso marker="#non_local_function_handler">
+          Non-Local Function Handler</seealso> in this module.</p>
+        <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new_bindings" arity="0" since=""/>
+      <fsummary>Return a bindings structure.</fsummary>
+      <desc>
+        <p>Returns an empty binding structure.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="local_function_handler"></marker>
+    <title>Local Function Handler</title>
+    <p>During evaluation of a function, no calls can be made to local
+      functions. An undefined function error would be
+      generated. However, the optional argument
+      <c>LocalFunctionHandler</c> can be used to define a function
+      that is called when there is a call to a local function. The
+      argument can have the following formats:</p>
+    <taglist>
+      <tag><c>{value,Func}</c></tag>
+      <item>
+        <p>This defines a local function handler that is called with:</p>
+        <code type="none">
+Func(Name, Arguments)</code>
+        <p><c>Name</c> is the name of the local function (an atom) and
+          <c>Arguments</c> is a list of the <em>evaluated</em>
+          arguments. The function handler returns the value of the
+          local function. In this case, the current bindings cannot be
+          accessed. To signal an error, the function
+          handler calls <c>exit/1</c> with a suitable exit value.</p>
+      </item>
+      <tag><c>{eval,Func}</c></tag>
+      <item>
+        <p>This defines a local function handler that is called with:</p>
+        <code type="none">
+Func(Name, Arguments, Bindings)</code>
+        <p><c>Name</c> is the name of the local function (an atom),
+          <c>Arguments</c> is a list of the <em>unevaluated</em>
+          arguments, and <c>Bindings</c> are the current variable
+          bindings. The function handler returns:</p>
+        <code type="none">
+{value,Value,NewBindings}</code>
+        <p><c>Value</c> is the value of the local function and
+          <c>NewBindings</c> are the updated variable bindings. In
+          this case, the function handler must itself evaluate all the
+          function arguments and manage the bindings. To signal an
+          error, the function handler calls <c>exit/1</c> with a
+          suitable exit value.</p>
+      </item>
+      <tag><c>none</c></tag>
+      <item>
+        <p>There is no local function handler.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="non_local_function_handler"></marker>
+    <title>Non-Local Function Handler</title>
+    <p>The optional argument <c>NonLocalFunctionHandler</c> can be
+      used to define a function that is called in the following
+      cases:</p>
+    <list type="bulleted">
+      <item><p>A functional object (fun) is called.</p></item>
+      <item><p>A built-in function is called.</p></item>
+      <item><p>A function is called using the <c>M:F</c> syntax, where <c>M</c>
+        and <c>F</c> are atoms or expressions.</p></item>
+      <item><p>An operator <c>Op/A</c> is called (this is handled as a call to
+        function <c>erlang:Op/A</c>).</p></item>
+    </list>
+    <p>Exceptions are calls to <c>erlang:apply/2,3</c>; neither of the
+      function handlers are called for such calls.
+      The argument can have the following formats:</p>
+    <taglist>
+      <tag><c>{value,Func}</c></tag>
+      <item>
+        <p>This defines a non-local function handler that is called with:</p>
+        <code type="none">
+Func(FuncSpec, Arguments)</code>
+        <p><c>FuncSpec</c> is the name of the function on the form
+          <c>{Module,Function}</c> or a fun, and <c>Arguments</c> is a
+          list of the <em>evaluated</em> arguments. The function
+          handler returns the value of the function. To
+          signal an error, the function handler calls
+          <c>exit/1</c> with a suitable exit value.</p>
+      </item>
+      <tag><c>none</c></tag>
+      <item>
+        <p>There is no non-local function handler.</p>
+      </item>
+    </taglist>
+    <note>
+      <p>For calls such as <c>erlang:apply(Fun, Args)</c> or
+        <c>erlang:apply(Module, Function, Args)</c>, the call of the
+        non-local function handler corresponding to the call to
+        <c>erlang:apply/2,3</c> itself
+        (<c>Func({erlang, apply}, [Fun, Args])</c> or
+        <c>Func({erlang, apply}, [Module, Function, Args])</c>)
+        never takes place.</p>
+      <p>The non-local function handler <em>is</em> however called with the
+        evaluated arguments of the call to
+        <c>erlang:apply/2,3</c>: <c>Func(Fun, Args)</c> or
+        <c>Func({Module, Function}, Args)</c> (assuming
+        that <c>{Module, Function}</c> is not <c>{erlang, apply}</c>).</p>
+     <p>Calls to functions defined by evaluating fun expressions
+        <c>"fun ... end"</c> are also hidden from non-local function
+        handlers.</p>
+   </note>
+    <p>The non-local function handler argument is probably not used as
+      frequently as the local function handler argument. A possible
+      use is to call <c>exit/1</c> on calls to functions that for some
+      reason are not allowed to be called.</p>
+  </section>
+
+  <section>
+    <title>Known Limitation</title>
+    <p>Undocumented functions in this module are not to be used.</p>
+  </section>
+</erlref>
+

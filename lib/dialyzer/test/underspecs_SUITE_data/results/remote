@@ -1,0 +1,9 @@
+
+remotes1.erl:17: The specification for remotes1:foo5/1 states that the function might also return 'ko' but the inferred return is 'ok'
+remotes1.erl:20: Type specification remotes1:foo6('ok' | 'ko') -> 'ok' is a supertype of the success typing: remotes1:foo6('ok') -> 'ok'
+remotes1.erl:25: The specification for remotes1:foo7/1 states that the function might also return 'ko' but the inferred return is 'ok'
+remotes1.erl:28: Type specification remotes1:foo8(local_type_42()) -> 'ok' is a supertype of the success typing: remotes1:foo8('ok') -> 'ok'
+remotes1.erl:33: The specification for remotes1:foo9/1 states that the function might also return 'ko' but the inferred return is 'ok'
+remotes1.erl:36: Type specification remotes1:foo10(local_and_known_remote_type_42()) -> 'ok' is a supertype of the success typing: remotes1:foo10('ok') -> 'ok'
+remotes1.erl:49: Type specification remotes1:foo13('ok') -> local_and_unknown_remote_type_42() is a supertype of the success typing: remotes1:foo13('ok') -> 'ok'
+remotes1.erl:52: Type specification remotes1:foo14(local_and_unknown_remote_type_42()) -> 'ok' is a supertype of the success typing: remotes1:foo14('ok') -> 'ok'

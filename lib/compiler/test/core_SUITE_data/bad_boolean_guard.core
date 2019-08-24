@@ -1,0 +1,32 @@
+module 'bad_boolean_guard' ['bad_boolean_guard'/0,
+			    'module_info'/0,
+			    'module_info'/1]
+    attributes []
+'bad_boolean_guard'/0 =
+    fun () ->
+	apply 'f'/1
+	    ('true')
+'f'/1 =
+    fun (_X_cor0) ->
+	case _X_cor0 of
+	  <X>
+	      when try
+		    call 'erlang':'and'
+			('bad', _X_cor0)
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      'not_ok'
+	  <_X_cor3> when 'true' ->
+	      'ok'
+	end
+'module_info'/0 =
+    fun () ->
+	call 'erlang':'get_module_info'
+	    ('bad_boolean_guard')
+'module_info'/1 =
+    fun (_X_cor0) ->
+	call 'erlang':'get_module_info'
+	    ('bad_boolean_guard', _X_cor0)
+end

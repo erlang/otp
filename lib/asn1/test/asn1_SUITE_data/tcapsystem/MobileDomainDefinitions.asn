@@ -1,0 +1,38 @@
+MobileDomainDefinitions {itu-t (0) identified-organization (4) etsi (0)
+	mobileDomain (0) mobileDomainDefinitions (0) version1 (1)}
+
+DEFINITIONS ::=
+
+BEGIN
+
+-- Mobile DomainId
+mobileDomainId OBJECT IDENTIFIER ::= 
+	{itu-t (0) identified-organization (4) etsi (0) mobileDomain (0)}
+
+-- Mobile Subdomains
+gsm-NetworkId OBJECT IDENTIFIER ::= 
+	{mobileDomainId gsm-Network (1)}
+
+gsm-AccessId OBJECT IDENTIFIER ::= 
+	{mobileDomainId gsm-Access (2)}
+
+gsm-OperationAndMaintenanceId OBJECT IDENTIFIER ::= 
+	{mobileDomainId gsm-Operation-Maintenance (3)}
+
+gsm-MessagingId OBJECT IDENTIFIER ::= 
+	{mobileDomainId gsm-Messaging (4)}
+
+-- Common Component Ids for structuring Mobile Subdomains
+CommonComponentId ::= INTEGER (0..9)
+
+ac-Id CommonComponentId ::= 0
+
+as-Id CommonComponentId ::= 1
+
+ase-Id CommonComponentId ::= 2
+
+moduleId CommonComponentId ::= 3
+
+er-Id CommonComponentId ::= 4
+
+END -- MobileDomainDefinitions

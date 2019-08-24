@@ -1,0 +1,12 @@
+$TTL	3600
+@	IN SOA	ns.otptest. lsa.otptest. (
+		1		; serial
+		60		; refresh
+		10		; retry
+		300		; expiry
+		30 )		; minimum
+
+	IN NS		ns.otptest.
+	IN MX	10	mx.otptest.
+
+c.1	IN PTR		resolve.otptest.

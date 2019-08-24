@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Profiling</title>
+    <prepared>Ingela Anderton</prepared>
+    <docno></docno>
+    <date>2001-11-02</date>
+    <rev></rev>
+    <file>profiling.xml</file>
+  </header>
+
+  <section>
+    <title>Do Not Guess About Performance - Profile</title>
+
+    <p>Even experienced software developers often guess wrong about where
+    the performance bottlenecks are in their programs. Therefore, profile
+    your program to see where the performance
+    bottlenecks are and concentrate on optimizing them.</p>
+
+    <p>Erlang/OTP contains several tools to help finding bottlenecks:</p>
+
+    <list type="bulleted">
+      <item><p><seealso marker="tools:fprof"><c>fprof</c></seealso> provides
+          the most detailed information about where the program time is spent,
+          but it significantly slows down the program it profiles.</p></item>
+
+      <item><p><seealso marker="tools:eprof"><c>eprof</c></seealso> provides
+          time information of each function used in the program. No call graph is
+          produced, but <c>eprof</c> has considerable less impact on the program it
+          profiles.</p>
+        <p>If the program is too large to be profiled by <c>fprof</c> or
+          <c>eprof</c>, <c>cprof</c> can be used to locate code parts that
+          are to be more thoroughly profiled using <c>fprof</c> or <c>eprof</c>.</p></item>
+
+      <item><p><seealso marker="tools:cprof"><c>cprof</c></seealso> is the
+          most lightweight tool, but it only provides execution counts on a
+          function basis (for all processes, not per process).</p></item>
+
+      <item><p><seealso marker="runtime_tools:dbg"><c>dbg</c></seealso> is the
+          generic erlang tracing frontend. By using the <c>timestamp</c> or
+          <c>cpu_timestamp</c> options it can be used to time how long function
+          calls in a live system take.</p></item>
+
+      <item><p><seealso marker="tools:lcnt"><c>lcnt</c></seealso> is used
+          to find contention points in the Erlang Run-Time System's internal
+          locking mechanisms. It is useful when looking for bottlenecks in
+          interaction between process, port, ets tables and other entities
+          that can be run in parallel.</p></item>
+
+    </list>
+
+    <p>The tools are further described in
+    <seealso marker="#profiling_tools">Tools</seealso>.</p>
+
+    <p>There are also several open source tools outside of Erlang/OTP
+    that can be used to help profiling. Some of them are:</p>
+
+    <list type="bulleted">
+      <item><url href="https://github.com/isacssouza/erlgrind">erlgrind</url>
+      can be used to visualize fprof data in kcachegrind.</item>
+      <item><url href="https://github.com/proger/eflame">eflame</url>
+      is an alternative to fprof that displays the profiling output as a flamegraph.</item>
+      <item><url href="https://ferd.github.io/recon/index.html">recon</url>
+      is a collection of Erlang profiling and debugging tools.
+      This tool comes with an accompanying E-book called
+      <url href="https://www.erlang-in-anger.com/">Erlang in Anger</url>.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Memory profiling</title>
+    <pre>eheap_alloc: Cannot allocate 1234567890 bytes of memory (of type "heap").</pre>
+    <p>The above slogan is one of the more common reasons for Erlang to terminate.
+      For unknown reasons the Erlang Run-Time System failed to allocate memory to
+      use. When this happens a crash dump is generated that contains information
+      about the state of the system as it ran out of memory. Use the
+      <seealso marker="observer:cdv"><c>crashdump_viewer</c></seealso> to get a
+      view of the memory is being used. Look for processes with large heaps or
+      many messages, large ets tables, etc.</p>
+    <p>When looking at memory usage in a running system the most basic function
+      to get information from is <seealso marker="erts:erlang#memory/0"><c>
+      erlang:memory()</c></seealso>. It returns the current memory usage
+      of the system. <seealso marker="tools:instrument"><c>instrument(3)</c></seealso>
+      can be used to get a more detailed breakdown of where memory is used.</p>
+    <p>Processes, ports and ets tables can then be inspecting using their
+      respective info functions, i.e.
+      <seealso marker="erts:erlang#process_info_memory"><c>erlang:process_info/2
+      </c></seealso>,
+      <seealso marker="erts:erlang#port_info_memory"><c>erlang:port_info/2
+      </c></seealso> and
+      <seealso marker="stdlib:ets#info/1"><c>ets:info/1</c></seealso>.
+    </p>
+    <p>Sometimes the system can enter a state where the reported memory
+      from <c>erlang:memory(total)</c> is very different from the
+      memory reported by the OS. This can be because of internal
+      fragmentation within the Erlang Run-Time System. Data about
+      how memory is allocated can be retrieved using
+      <seealso marker="erts:erlang#system_info_allocator">
+        <c>erlang:system_info(allocator)</c></seealso>.
+      The data you get from that function is very raw and not very plesant to read.
+      <url href="http://ferd.github.io/recon/recon_alloc.html">recon_alloc</url>
+      can be used to extract useful information from system_info
+      statistics counters.</p>
+  </section>
+
+  <section>
+    <title>Large Systems</title>
+    <p>For a large system, it can be interesting to run profiling
+      on a simulated and limited scenario to start with. But bottlenecks
+      have a tendency to appear or cause problems only when
+      many things are going on at the same time, and when
+      many nodes are involved. Therefore, it is also desirable to run
+      profiling in a system test plant on a real target system.</p>
+
+    <p>For a large system, you do not want to run the profiling
+      tools on the whole system. Instead you want to concentrate on
+      central processes and modules, which contribute for a big part
+      of the execution.</p>
+
+    <p>There are also some tools that can be used to get a view of the
+      whole system with more or less overhead.</p>
+    <list type="bulleted">
+      <item><seealso marker="observer:observer"><c>observer</c></seealso>
+      is a GUI tool that can connect to remote nodes and display a
+      variety of information about the running system.</item>
+      <item><seealso marker="observer:etop"><c>etop</c></seealso>
+      is a command line tool that can connect to remote nodes and
+      display information similar to what the UNIX tool top shows.</item>
+      <item><seealso marker="runtime_tools:msacc"><c>msacc</c></seealso>
+      allows the user to get a view of what the Erlang Run-Time system
+      is spending its time doing. Has a very low overhead, which makes it
+      useful to run in heavily loaded systems to get some idea of where
+      to start doing more granular profiling.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>What to Look For</title>
+    <p>When analyzing the result file from the profiling activity,
+      look for functions that are called many
+      times and have a long "own" execution time (time excluding calls
+      to other functions). Functions that are called a lot of
+      times can also be interesting, as even small things can add
+      up to quite a bit if repeated often. Also
+      ask yourself what you can do to reduce this time. The following
+      are appropriate types of questions to ask yourself:</p>
+
+    <list type="bulleted">
+      <item>Is it possible to reduce the number of times the function
+      is called?</item>
+      <item>Can any test be run less often if the order of tests is
+      changed?</item>
+      <item>Can any redundant tests be removed?</item>
+      <item>Does any calculated expression give the same result
+       each time?</item>
+      <item>Are there other ways to do this that are equivalent and
+       more efficient?</item>
+      <item>Can another internal data representation be used to make
+       things more efficient?</item>
+    </list>
+
+    <p>These questions are not always trivial to answer. Some
+    benchmarks might be needed to back up your theory and to avoid
+      making things slower if your theory is wrong. For details, see
+    <seealso marker="#benchmark">Benchmarking</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Tools</title>
+    <marker id="profiling_tools"></marker>
+    <section>
+      <title>fprof</title>
+      <p><c>fprof</c> measures the execution time for each function,
+      both own time, that is, how much time a function has used for its
+      own execution, and accumulated time, that is, including called
+      functions. The values are displayed per process. You also get
+      to know how many times each function has been called.</p>
+
+      <p><c>fprof</c> is based on trace to file to minimize runtime
+      performance impact. Using <c>fprof</c> is just a matter of
+      calling a few library functions, see the
+      <seealso marker="tools:fprof">fprof</seealso> manual page in
+      Tools.</p>
+    </section>
+
+    <section>
+      <title>eprof</title>
+      <p><c>eprof</c> is based on the Erlang <c>trace_info</c> BIFs.
+      <c>eprof</c> shows how much time has been used by each process,
+      and in which function calls this time has been spent. Time is
+      shown as percentage of total time and absolute time. For more
+      information, see the <seealso marker="tools:eprof">eprof</seealso>
+      manual page in Tools.</p>
+    </section>
+
+    <section>
+      <title>cprof</title>
+      <p><c>cprof</c> is something in between <c>fprof</c> and
+      <c>cover</c> regarding features. It counts how many times each
+      function is called when the program is run, on a per module
+      basis. <c>cprof</c> has a low performance degradation effect
+      (compared with <c>fprof</c>) and does not need to recompile
+      any modules to profile (compared with <c>cover</c>).
+      For more information, see the
+      <seealso marker="tools:cprof">cprof</seealso> manual page in
+      Tools.</p>
+    </section>
+
+    <section>
+      <title>Tool Summary</title>
+      <table>
+        <row>
+          <cell><em>Tool</em></cell>
+          <cell><em>Results</em></cell>
+          <cell><em>Size of Result</em></cell>
+          <cell><em>Effects on Program Execution Time</em></cell>
+          <cell><em>Records Number of Calls</em></cell>
+          <cell><em>Records Execution Time</em></cell>
+          <cell><em>Records Called by</em></cell>
+          <cell><em>Records Garbage Collection</em></cell>
+        </row>
+        <row>
+          <cell><c>fprof</c></cell>
+          <cell>Per process to screen/file</cell>
+          <cell>Large</cell>
+          <cell>Significant slowdown</cell>
+          <cell>Yes</cell>
+          <cell>Total and own</cell>
+          <cell>Yes</cell>
+          <cell>Yes</cell>
+        </row>
+        <row>
+          <cell><c>eprof</c></cell>
+          <cell>Per process/function to screen/file</cell>
+          <cell>Medium</cell>
+          <cell>Small slowdown</cell>
+          <cell>Yes</cell>
+          <cell>Only total</cell>
+          <cell>No</cell>
+          <cell>No</cell>
+        </row>
+        <row>
+          <cell><c>cprof</c></cell>
+          <cell>Per module to caller</cell>
+          <cell>Small</cell>
+          <cell>Small slowdown</cell>
+          <cell>Yes</cell>
+          <cell>No</cell>
+          <cell>No</cell>
+          <cell>No</cell>
+        </row>
+        <tcaption>Tool Summary</tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>dbg</title>
+      <p><c>dbg</c> is a generic Erlang trace tool. By using the
+      <c>timestamp</c> or <c>cpu_timestamp</c> options it can be used
+      as a precision instrument to profile how long time a function
+      call takes for a specific process. This can be very useful when
+      trying to understand where time is spent in a heavily loaded
+      system as it is possible to limit the scope of what is profiled
+      to be very small.
+      For more information, see the
+      <seealso marker="runtime_tools:dbg">dbg</seealso> manual page in
+      Runtime Tools.</p>
+    </section>
+
+    <section>
+      <title>lcnt</title>
+      <p><c>lcnt</c> is used to profile interactions inbetween
+        entities that run in parallel. For example if you have
+        a process that all other processes in the system needs
+        to interact with (maybe it has some global configuration),
+        then <c>lcnt</c> can be used to figure out if the interaction
+        with that process is a problem.</p>
+      <p>In the Erlang Run-time System entities are only run in parallel
+        when there are multiple schedulers. Therefore <c>lcnt</c> will
+        show more contention points (and thus be more useful) on systems
+        using many schedulers on many cores.</p>
+      <p>For more information, see the
+        <seealso marker="tools:lcnt">lcnt</seealso> manual page in Tools.</p>
+    </section>
+
+  </section>
+
+  <section>
+    <marker id="benchmark"></marker>
+    <title>Benchmarking</title>
+
+    <p>The main purpose of benchmarking is to find out which
+    implementation of a given algorithm or function is the fastest.
+    Benchmarking is far from an exact science. Today's operating systems
+    generally run background tasks that are difficult to turn off.
+    Caches and multiple CPU cores does not facilitate benchmarking.
+    It would be best to run UNIX computers in single-user mode when
+    benchmarking, but that is inconvenient to say the least for casual
+    testing.</p>
+    
+    <p>Benchmarks can measure wall-clock time or CPU time.</p>
+
+    <list type="bulleted">
+    <item><seealso marker="stdlib:timer#tc/3">timer:tc/3</seealso> measures
+    wall-clock time. The advantage with wall-clock time is that I/O,
+    swapping, and other activities in the operating system kernel are
+    included in the measurements. The disadvantage is that the
+    measurements vary a lot. Usually it is best to run the
+    benchmark several times and note the shortest time, which is to
+    be the minimum time that is possible to achieve under the best of
+    circumstances.</item>
+
+    <item><seealso marker="erts:erlang#statistics/1">statistics/1</seealso>
+    with argument <c>runtime</c> measures CPU time spent in the Erlang
+    virtual machine. The advantage with CPU time is that the results are more
+    consistent from run to run. The disadvantage is that the time
+    spent in the operating system kernel (such as swapping and I/O)
+    is not included. Therefore, measuring CPU time is misleading if
+    any I/O (file or socket) is involved.</item>
+    </list>
+
+    <p>It is probably a good idea to do both wall-clock measurements and
+    CPU time measurements.</p>
+
+    <p>Some final advice:</p>
+
+    <list type="bulleted">
+    <item>The granularity of both measurement types can be high.
+    Therefore, ensure that each individual measurement
+    lasts for at least several seconds.</item>
+
+    <item>To make the test fair, each new test run is to run in its own,
+    newly created Erlang process. Otherwise, if all tests run in the
+    same process, the later tests start out with larger heap sizes
+    and therefore probably do fewer garbage collections.
+    Also consider restarting the Erlang emulator between each test.</item>
+
+    <item>Do not assume that the fastest implementation of a given algorithm
+    on computer architecture X is also the fastest on computer architecture
+    Y.</item>
+    </list>
+  </section>
+</chapter>

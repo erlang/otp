@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Converts a SNMPv2 MIB to a SNMPv1 MIB
+# Some kind of ad hoc algorithm is used - the
+# v2 MIBs must be well-formatted.
+# mbj@erlang.ericsson.se 971114
+
+Out=nope
+
+while [ $# -gt 0 ];
+do
+  case $1 in
+  -h*)
+     echo "Usage: snmp-v2tov1 [-o OutFile] FileName"
+     echo "  Converts a SNMPv2 MIB to a SNMPv1 MIB"
+     exit;;
+  -o)
+     Out=$2
+     shift;
+     shift;;
+  *)
+     File=$1
+     shift;;
+  esac
+done
+
+if [ "X$Out" = "Xnope" ]
+then
+  Out=$File.v1
+fi
+
+%PERL% $ERL_TOP/lib/snmp/bin/snmp-v2tov1.pl $File | sed -f $ERL_TOP/lib/snmp/bin/snmp-v2tov1.sed > $Out

@@ -1,0 +1,5 @@
+
+zero_tuple.erl:4: Function t1/0 has no local return
+zero_tuple.erl:5: The pattern {} can never match the type 'a'
+zero_tuple.erl:8: Function t2/0 has no local return
+zero_tuple.erl:9: The pattern 'b' can never match the type 'a'

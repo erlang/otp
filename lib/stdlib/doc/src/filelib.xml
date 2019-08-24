@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>filelib</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <responsible>Bjorn Gustavsson</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>2003-01-21</date>
+    <rev>A</rev>
+    <file>filelib.xml</file>
+  </header>
+  <module since="">filelib</module>
+  <modulesummary>File utilities, such as wildcard matching of filenames.
+  </modulesummary>
+  <description>
+    <p>This module contains utilities on a higher level than the
+      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+
+    <p>This module does not support "raw" filenames (that is, files whose
+      names do not comply with the expected encoding). Such files are ignored
+      by the functions in this module.</p>
+
+    <p>For more information about raw filenames, see the
+      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+
+    <note>
+      <p>
+	Functionality in this module generally assumes valid input and
+	does not necessarily fail on input that does not use a valid
+	encoding, but may instead very likely produce invalid output.
+      </p>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+    </note>
+    <warning><p>
+      Currently null characters at the end of the filename
+      will be accepted by primitive file operations. Such
+      filenames are however still documented as invalid. The
+      implementation will also change in the future and
+      reject such filenames.
+    </p></warning>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="filename"/>
+    </datatype>
+    <datatype>
+      <name name="dirname"/>
+    </datatype>
+    <datatype>
+      <name name="dirname_all"/>
+    </datatype>
+    <datatype>
+      <name name="filename_all"/>
+    </datatype>
+    <datatype>
+      <name name="find_file_rule"/>
+    </datatype>
+    <datatype>
+      <name name="find_source_rule"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="ensure_dir" arity="1" since=""/>
+      <fsummary>Ensure that all parent directories for a file or directory
+        exist.</fsummary>
+      <desc>
+        <p>Ensures that all parent directories for the specified file or
+          directory name <c><anno>Name</anno></c>
+          exist, trying to create them if necessary.</p>
+        <p>Returns <c>ok</c> if all parent directories already exist
+          or can be created. Returns <c>{error, <anno>Reason</anno>}</c> if
+          some parent directory does not exist and cannot be created.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="file_size" arity="1" since=""/>
+      <fsummary>Return the size in bytes of a file.</fsummary>
+      <desc>
+        <p>Returns the size of the specified file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold_files" arity="5" since=""/>
+      <fsummary>Fold over all files matching a regular expression.</fsummary>
+      <desc>
+        <p>Folds function <c><anno>Fun</anno></c> over all (regular) files
+          <c><anno>F</anno></c> in directory <c><anno>Dir</anno></c> that match
+          the regular expression <c><anno>RegExp</anno></c> (for a description
+          of the allowed regular expressions,
+          see the <seealso marker="re"><c>re</c></seealso> module).
+          If <c><anno>Recursive</anno></c> is <c>true</c>, all subdirectories
+          to <c>Dir</c>
+          are processed. The regular expression matching is only done on
+          the filename without the directory part.</p>
+        <p>If Unicode filename translation is in effect and the file
+          system is transparent, filenames that cannot be
+          interpreted as Unicode can be encountered, in which case the
+          <c>fun()</c> must be prepared to handle raw filenames
+          (that is, binaries). If the regular expression contains
+          codepoints &gt; 255, it does not match filenames that do
+          not conform to the expected character encoding (that is, are not
+          encoded in valid UTF-8).</p>
+        <p>For more information about raw filenames, see the
+          <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_dir" arity="1" since=""/>
+      <fsummary>Test whether <c>Name</c> refers to a directory.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno></c>
+          refers to a directory, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_file" arity="1" since=""/>
+      <fsummary>Test whether <c>Name</c> refers to a file or directory.
+      </fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno></c>
+          refers to a file or a directory, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_regular" arity="1" since=""/>
+      <fsummary>Test whether <c>Name</c> refers to a (regular) file.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno></c>
+          refers to a (regular) file, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="last_modified" arity="1" since=""/>
+      <fsummary>Return the local date and time when a file was last modified.
+      </fsummary>
+      <desc>
+        <p>Returns the date and time the specified file or directory was last
+          modified, or <c>0</c> if the file does not exist.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wildcard" arity="1" since=""/>
+      <fsummary>Match filenames using Unix-style wildcards.</fsummary>
+      <desc>
+        <p>Returns a list of all files that match Unix-style wildcard string
+          <c><anno>Wildcard</anno></c>.</p>
+        <p>The wildcard string looks like an ordinary filename, except
+          that the following "wildcard characters" are interpreted in a special
+          way:</p>
+        <taglist>
+          <tag>?</tag>
+          <item>
+            <p>Matches one character.</p>
+          </item>
+          <tag>*</tag>
+          <item>
+            <p>Matches any number of characters up to the end of
+              the filename, the next dot, or the next slash.</p>
+          </item>
+          <tag>**</tag>
+          <item>
+            <p>Two adjacent <c>*</c> used as a single pattern match
+              all files and zero or more directories and subdirectories.</p>
+          </item>
+          <tag>[Character1,Character2,...]</tag>
+          <item>
+            <p>Matches any of the characters listed. Two characters
+              separated by a hyphen match a range of characters.
+              Example: <c>[A-Z]</c> matches any uppercase letter.</p>
+          </item>
+          <tag>{Item,...}</tag>
+          <item>
+            <p>Alternation. Matches one of the alternatives.</p>
+          </item>
+        </taglist>
+        <p>Other characters represent themselves. Only filenames that
+          have exactly the same character in the same position match.
+          Matching is case-sensitive, for example, "a" does not match "A".</p>
+	<p>Directory separators must always be written as <c>/</c>, even on
+	Windows.</p>
+	<p>A character preceded by <c>\</c> loses its special meaning. Note
+	that <c>\</c> must be written as <c>\\</c> in a string literal.
+	For example, "\\?*" will match any filename starting with <c>?</c>.</p>
+        <p>Notice that multiple "*" characters are allowed
+          (as in Unix wildcards, but opposed to Windows/DOS wildcards).</p>
+        <p><em>Examples:</em></p>
+        <p>The following examples assume that the current directory is the
+          top of an Erlang/OTP installation.</p>
+        <p>To find all <c>.beam</c> files in all applications, use the
+          following line:</p>
+        <code type="none">
+filelib:wildcard("lib/*/ebin/*.beam").</code>
+        <p>To find <c>.erl</c> or <c>.hrl</c> in all applications <c>src</c>
+          directories, use either of the following lines:</p>
+        <code type="none">
+filelib:wildcard("lib/*/src/*.?rl")</code>
+        <code type="none">
+filelib:wildcard("lib/*/src/*.{erl,hrl}")</code>
+        <p>To find all <c>.hrl</c> files in <c>src</c> or <c>include</c>
+          directories:</p>
+        <code type="none">
+filelib:wildcard("lib/*/{src,include}/*.hrl").</code>
+        <p>To find all <c>.erl</c> or <c>.hrl</c> files in either
+          <c>src</c> or <c>include</c> directories:</p>
+        <code type="none">
+filelib:wildcard("lib/*/{src,include}/*.{erl,hrl}")</code>
+        <p>To find all <c>.erl</c> or <c>.hrl</c> files in any subdirectory:</p>
+        <code type="none">
+filelib:wildcard("lib/**/*.{erl,hrl}")</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wildcard" arity="2" since=""/>
+      <fsummary>Match filenames using Unix-style wildcards starting at a
+        specified directory.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#wildcard/1"><c>wildcard/1</c></seealso>,
+          except that <c><anno>Cwd</anno></c> is used instead of the working
+          directory.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="find_file" arity="2" since="OTP 20.0"/>
+      <name name="find_file" arity="3" since="OTP 20.0"/>
+      <fsummary>Find a file relative to a given directory.</fsummary>
+      <desc>
+        <p>Looks for a file of the given name by applying suffix rules to
+        the given directory path. For example, a rule <c>{"ebin", "src"}</c>
+        means that if the directory path ends with <c>"ebin"</c>, the
+        corresponding path ending in <c>"src"</c> should be searched.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="1" since="OTP 20.0"/>
+      <fsummary>Find the source file for a given object file.</fsummary>
+      <desc>
+        <p>Equivalent to <c>find_source(Base, Dir)</c>, where <c>Dir</c> is
+        <c>filename:dirname(<anno>FilePath</anno>)</c> and <c>Base</c> is
+        <c>filename:basename(<anno>FilePath</anno>)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="2" since="OTP 20.0"/>
+      <name name="find_source" arity="3" since="OTP 20.0"/>
+      <fsummary>Find a source file relative to a given directory.</fsummary>
+      <desc>
+        <p>Applies file extension specific rules to find the source file for
+        a given object file relative to the object directory. For example,
+        for a file with the extension <c>.beam</c>, the default rule is to
+        look for a file with a corresponding extension <c>.erl</c> by
+        replacing the suffix <c>"ebin"</c> of the object directory path with
+        <c>"src"</c> or <c>"src/*"</c>.
+        The file search is done through <seealso
+        marker="#find_file/3"><c>find_file/3</c></seealso>. The directory of
+        the object file is always tried before any other directory specified
+        by the rules.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

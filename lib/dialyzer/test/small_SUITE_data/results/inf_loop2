@@ -1,0 +1,4 @@
+
+inf_loop2.erl:18: Function test/0 has no local return
+inf_loop2.erl:19: The call lists:reverse('gazonk') will never return since it differs in the 1st argument from the success typing arguments: ([any()])
+inf_loop2.erl:22: Function loop/0 will never be called

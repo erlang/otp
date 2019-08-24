@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Erlang on embedded systems</title>
+    <prepared>Fredrik Tillman</prepared>
+    <responsible></responsible>
+    <docno>ETX/B/SFP/TILLMAN:96-001</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1997-11-12</date>
+    <rev>PA1</rev>
+    <file>intro.sgml</file>
+  </header>
+  <p>This manual is a complement to the other manuals and describes how
+    to install, run and maintain Erlang on an embedded system.
+    </p>
+  <p>For more informaton about how to install and start Erlang read 
+    XXXXXXXX.
+    </p>
+
+  <section>
+    <title>Memory Usage</title>
+    <p>Solaris takes about 17 Mbyte of RAM on a system with 64 Mbyte of
+      total RAM. This leaves about 47 Mbyte for the applications. If
+      the system utilizes swapping, these figures cannot be improved
+      because unnecessary daemon processes are swapped out. However,
+      if swapping is disabled, or if the swap space is a precious
+      resource in the system, it becomes necessary to kill off
+      unnecessary daemon processes.
+      </p>
+    <p>The following start-scripts can be deleted to
+      prevent unnecessary daemons from starting:
+      </p>
+    <list type="bulleted">
+      <item><c>/etc/rc2.d/S72autoinstall</c></item>
+      <item><c>/etc/rc2.d/S74autofs</c></item>
+      <item><c>/etc/rc2.d/S76nscd</c></item>
+      <item><c>/etc/rc2.d/S80PRESERVE</c></item>
+      <item><c>/etc/rc2.d/S80lp</c></item>
+      <item><c>/etc/rc2.d/S88sendmail</c></item>
+      <item><c>/etc/rc2.d/S92volmgt</c></item>
+      <item><c>/etc/rc2.d/S93cacheos.finish</c></item>
+      <item><c>/etc/rc3.d/S15nfs.server</c></item>
+    </list>
+    <p>More information is expected from Sun on how to modify the
+      kernel in order to reduce the memory consumption. This will be
+      performed by modifying the <c>/etc/system</c> file.</p>
+  </section>
+
+  <section>
+    <title>Disk Space Usage</title>
+    <p>The disk space required by Solaris can be minimized by using the
+      Core User support installation. It requires about 80 Mbyte of
+      disk space. This installs only the minimum software required to
+      boot and run Solaris.  The disk space can be further reduced by
+      deleting unnecessary individual files. However, unless disk
+      space is a critical resource the effort required and the risks
+      involved may not be justified.</p>
+  </section>
+
+  <section>
+    <title>Other Issues</title>
+    <p>Future releases of OTP will include more information on how
+      Solaris can be configured for use with embedded systems to get
+      maximum performance. Issues which will be investigated include:
+      </p>
+    <list type="bulleted">
+      <item>how disabling swapping affects the system</item>
+      <item>how locking processes in memory may yield performance benefits.</item>
+    </list>
+  </section>
+</chapter>
+

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_global</title>
+    <prepared>Gordon Beaton</prepared>
+    <responsible>Gordon Beaton</responsible>
+    <docno></docno>
+    <approved>Gordon Beaton</approved>
+    <checked>Gordon Beaton</checked>
+    <date>1998-07-03</date>
+    <rev>A</rev>
+    <file>erl_global.xml</file>
+  </header>
+  <lib>erl_global</lib>
+  <libsummary>Access globally registered names.</libsummary>
+  <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
+    
+    <p>This module provides support for registering, looking
+      up, and unregistering names in the <c>global</c> module.
+      For more information, see
+      <seealso marker="kernel:global"><c>kernel:global</c></seealso>.</p>
+
+    <p>Notice that the functions below perform an RPC using an open file
+      descriptor provided by the caller. This file descriptor must
+      not be used for other traffic during the global operation, as the
+      function can then receive unexpected data and fail.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since=""><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
+      <fsummary>Obtain list of global names.</fsummary>
+      <type>
+        <v>int fd;</v>
+        <v>int *count;</v>
+      </type>
+      <desc>
+        <p>Retrieves a list of all known global names.</p>
+        <list type="bulleted">
+          <item><c>fd</c> is an open descriptor to an Erlang
+            connection.</item>
+          <item><c>count</c> is the address of an integer, or
+            <c>NULL</c>. If <c>count</c> is not <c>NULL</c>, it is
+            set by the function to the number of names found.</item>
+        </list>
+        <p>On success, the function returns an array of strings, each
+          containing a single registered name, and sets
+          <c>count</c> to
+          the number of names found. The array is terminated
+          by a single <c>NULL</c> pointer. On failure, the function returns
+          <c>NULL</c> and <c>count</c> is not modified.</p>
+        <note>
+          <p>It is the caller's responsibility to free the array
+            afterwards. It has been allocated by the function with a
+            single call to <c>malloc()</c>, so a single
+            <c>free()</c> is all that is necessary.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_global_register(fd,name,pid)</nametext></name>
+      <fsummary>Register a name in global.</fsummary>
+      <type>
+        <v>int fd;</v>
+        <v>const char *name;</v>
+        <v>ETERM *pid;</v>
+      </type>
+      <desc>
+        <p>Registers a name in <c>global</c>.</p>
+        <list type="bulleted">
+          <item><c>fd</c> is an open descriptor to an Erlang
+            connection.</item>
+          <item><c>name</c> is the name to register in
+            <c>global</c>.</item>
+          <item><c>pid</c> is the pid that is to be associated with
+            <c>name</c>. This value is returned by <c>global</c>
+            when processes request the location of <c>name</c>.
+          </item>
+        </list>
+        <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>erl_global_unregister(fd,name)</nametext></name>
+      <fsummary>Unregister a name from global.</fsummary>
+      <type>
+        <v>int fd;</v>
+        <v>const char *name;</v>
+      </type>
+      <desc>
+        <p>Unregisters a name from <c>global</c>.</p>
+        <list type="bulleted">
+          <item><c>fd</c> is an open descriptor to an Erlang
+            connection.</item>
+          <item><c>name</c> is the name to unregister from
+            <c>global</c>.</item>
+        </list>
+        <p>Returns <c>0</c> on success, otherwise <c>-1</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>ETERM *</ret><nametext>erl_global_whereis(fd,name,node)</nametext></name>
+      <fsummary>Look up a name in global.</fsummary>
+      <type>
+        <v>int fd;</v>
+        <v>const char *name;</v>
+        <v>char *node;</v>
+      </type>
+      <desc>
+        <p>Looks up a name in <c>global</c>.</p>
+        <list type="bulleted">
+          <item><c>fd</c> is an open descriptor to an Erlang
+            connection.</item>
+          <item><c>name</c> is the name that is to be looked up in
+            <c>global</c>.</item>
+        </list>
+        <p>If <c>node</c> is not <c>NULL</c>, it is a pointer to a
+          buffer where the function can fill in the name of the node where
+          <c>name</c> is found. <c>node</c> can be
+          passed directly to <c>erl_connect()</c> if necessary.</p>
+        <p>On success, the function returns an Erlang pid containing the address
+          of the specified name, and the node is initialized to
+          the node name where <c>name</c> is found. On failure,
+          <c>NULL</c> is returned and <c>node</c> is not
+          modified.</p>
+      </desc>
+    </func>
+  </funcs>
+</cref>

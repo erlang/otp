@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2005</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>STDLIB</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <app>STDLIB</app>
+  <appsummary>The STDLIB application.</appsummary>
+  <description>
+    <p>The STDLIB application is mandatory in the sense that the minimal
+      system based on Erlang/OTP consists of Kernel and STDLIB.
+      The STDLIB application contains no services.</p>
+  </description>
+
+  <section>
+    <title>Configuration</title>
+    <p>The following configuration parameters are defined for the STDLIB
+      application. For more information about configuration parameters, see the
+      <seealso marker="kernel:app"><c>app(4)</c></seealso> module in Kernel.</p>
+
+    <taglist>
+      <tag><c>shell_esc = icl | abort</c></tag>
+      <item>
+        <p>Can be used to change the behavior of the Erlang shell when
+          <em>^G</em> is pressed.</p>
+      </item>
+      <tag><c>restricted_shell = module()</c></tag>
+      <item>
+        <p>Can be used to run the Erlang shell in restricted mode.</p>
+      </item>
+      <tag><c>shell_catch_exception = boolean()</c></tag>
+      <item>
+        <p>Can be used to set the exception handling of the evaluator process of
+          Erlang shell.</p>
+      </item>
+      <tag><c>shell_history_length = integer() >= 0</c></tag>
+      <item>
+        <p>Can be used to determine how many commands are saved by the Erlang
+          shell.</p>
+      </item>
+      <tag><c>shell_prompt_func = {Mod, Func} | default</c></tag>
+      <item>
+        <p>where</p>
+        <list type="bulleted">
+          <item><c>Mod = atom()</c></item>
+          <item><c>Func = atom()</c></item>
+        </list>
+        <p>Can be used to set a customized Erlang shell prompt function.</p>
+      </item>
+      <tag><c>shell_saved_results = integer() >= 0</c></tag>
+      <item>
+        <p>Can be used to determine how many results are saved by the Erlang
+          shell.</p>
+      </item>
+      <tag><c>shell_strings = boolean()</c></tag>
+      <item>
+        <p>Can be used to determine how the Erlang shell outputs lists of
+          integers.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel:app"><c>app(4)</c></seealso>,
+      <seealso marker="kernel:application"><c>application(3)</c></seealso>,
+      <seealso marker="shell">shell(3)</seealso></p>
+  </section>
+</appref>
+

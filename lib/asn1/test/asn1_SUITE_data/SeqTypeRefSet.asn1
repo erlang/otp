@@ -1,0 +1,39 @@
+SeqTypeRefSet DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+SeqTRset ::=  SEQUENCE 
+{
+  seqSet SeqSet,
+  seqSetI [124] SeqSet,
+  seqSetE [125] EXPLICIT SeqSet,
+
+  seqSet-I SeqSetImp,
+  seqSetI-I [224] SeqSetImp,
+  seqSetE-I [225] EXPLICIT SeqSetImp,
+
+  seqSet-E SeqSetExp,
+  seqSetI-E [324] SeqSetExp,
+  seqSetE-E [325] EXPLICIT SeqSetExp
+
+}
+
+SeqSet ::= SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+SeqSetImp ::= [54] SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+SeqSetExp ::= [55] EXPLICIT SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+
+END

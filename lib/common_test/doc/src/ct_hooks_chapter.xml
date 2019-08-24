@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2011</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Common Test Hooks</title>
+    <prepared>Lukas Larsson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ct_hooks_chapter.xml</file>
+  </header>
+
+  <section>
+    <marker id="general"></marker>
+    <title>General</title>
+    <p>
+      The <em>Common Test Hook (CTH)</em> framework allows 
+      extensions of the default behavior of <c>Common Test</c> using hooks 
+      before and after all test suite calls. CTHs allow advanced <c>Common Test</c>
+      users to abstract out behavior that is common to multiple test suites
+      without littering all test suites with library calls. This can be used
+      for logging, starting, and monitoring external systems, 
+      building C files needed by the tests, and so on.</p>
+
+    <p>In brief, CTH allows you to do the following:</p>
+
+    <list type="bulleted">
+      <item>Manipulate the runtime configuration before each suite 
+      configuration call.</item>
+      <item>Manipulate the return of all suite configuration calls, and in 
+      extension, the result of the tests themselves.</item>
+    </list>
+    
+    <p>The following sections describe how to use CTHs, when they are run,
+      and how to manipulate the test results in a CTH.</p>
+
+    <warning><p>When executing within a CTH, all timetraps are shut off. So
+	if your CTH never returns, the entire test run is stalled.</p>
+    </warning>
+
+  </section>
+  
+  <section>
+    <marker id="installing"></marker>
+    <title>Installing a CTH</title>
+    <p>A CTH can be installed in multiple ways in your test run. You can do it
+      for all tests in a run, for specific test suites, and for specific groups 
+      within a test suite. If you want a CTH to be present in all test suites 
+      within your test run, there are three ways to accomplish that, as follows:
+    </p>
+
+    <list type="bulleted">
+      <item>Add <c>-ct_hooks</c> as an argument to 
+      <seealso marker="run_test_chapter#ct_run">ct_run</seealso>. 
+      To add multiple CTHs using this method, append them to each other
+      using the keyword <c>and</c>, that is, 
+      <c>ct_run -ct_hooks cth1 [{debug,true}] and cth2 ...</c>.</item>
+      <item>Add tag <c>ct_hooks</c> to your 
+      <seealso marker="run_test_chapter#test_specifications">
+      Test Specification</seealso>.</item>
+      <item>Add tag <c>ct_hooks</c> to your call to 
+      <seealso marker="ct#run_test-1">ct:run_test/1</seealso>.</item>
+    </list>
+
+    <p>CTHs can also be added within a test suite. This is done by returning
+    <c>{ct_hooks,[CTH]}</c> in the configuration list from 
+    <seealso marker="common_test#Module:suite-0">suite/0</seealso>,
+    <seealso marker="common_test#Module:init_per_suite-1">
+      init_per_suite/1</seealso>, or
+      <seealso marker="common_test#Module:init_per_group-2">
+    init_per_group/2</seealso>.</p>
+
+    <p>In this case, <c>CTH</c> can either be only the module name of the CTH 
+    or a tuple with the module name and the initial arguments, and optionally 
+    the hook priority of the CTH. For example, one of the following:</p>
+    <list type="bulleted">
+    <item><c>{ct_hooks,[my_cth_module]}</c></item> 
+    <item><c>{ct_hooks,[{my_cth_module,[{debug,true}]}]}</c></item>
+    <item><c>{ct_hooks,[{my_cth_module,[{debug,true}],500}]}</c></item>
+    </list>
+
+    <section>
+      <title>Overriding CTHs</title>
+      <p>By default, each installation of a CTH causes a new instance of it
+	to be activated. This can cause problems if you want to override 
+	CTHs in test specifications while still having them in the
+	suite information function. The 
+	<seealso marker="ct_hooks#Module:id-1">id/1</seealso>
+	callback exists to address this problem. By returning the same
+	<c>id</c> in both places, <c>Common Test</c> knows that this CTH
+	is already installed and does not try to install it again.</p>
+    </section>
+   
+    <section>
+      <title>CTH Execution Order</title>
+      <p>By default, each CTH installed is executed in the order that
+      they are installed for init calls, and then reversed for end calls.
+      This is not always desired, so <c>Common Test</c> allows
+      the user to specify a priority for each hook. The priority can either
+      be specified in the CTH function 
+      <seealso marker="ct_hooks#Module:init-2">init/2</seealso> or when 
+      installing the hook. The priority specified at installation overrides the 
+      priority returned by the CTH.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="scope"/>
+    <title>CTH Scope</title>
+    <p>Once the CTH is installed into a certain test run it remains there until
+      its scope is expired. The scope of a CTH depends on when it is 
+      installed, see the following table.
+      Function <seealso marker="ct_hooks#Module:init-2">init/2</seealso> is 
+      called at the beginning of the scope and function
+      <seealso marker="ct_hooks#Module:terminate-1">terminate/1</seealso> 
+      is called when the scope ends.</p>
+    <table>
+      <row>
+	<cell><em>CTH installed in</em></cell>
+	<cell><em>CTH scope begins before</em></cell>
+	<cell><em>CTH scope ends after</em></cell>
+      </row>
+      <row>
+	<cell><seealso marker="run_test_chapter#ct_run">ct_run</seealso></cell>
+	<cell>the first test suite is to be run</cell>
+	<cell>the last test suite has been run</cell>
+      </row>
+      <row>
+	<cell><seealso marker="ct#run_test-1">ct:run_test</seealso></cell>
+	<cell>the first test suite is run</cell>
+	<cell>the last test suite has been run</cell>
+      </row>
+      <row>
+	<cell><seealso marker="run_test_chapter#test_specifications">
+	  Test Specification</seealso></cell>
+	<cell>the first test suite is run</cell>
+	<cell>the last test suite has been run</cell>
+      </row>
+      <row>
+	<cell><seealso marker="common_test#Module:suite-0">suite/0
+	</seealso></cell>
+	<cell><seealso marker="ct_hooks#Module:pre_init_per_suite-3">
+	    pre_init_per_suite/3</seealso> is called</cell>
+	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
+	  post_end_per_suite/4</seealso> has been called for that test suite</cell>
+      </row>
+      <row>
+	<cell><seealso marker="common_test#Module:init_per_suite-1">
+	  init_per_suite/1</seealso></cell>
+	<cell><seealso marker="ct_hooks#Module:post_init_per_suite-4">
+	    post_init_per_suite/4</seealso> is called</cell>
+	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
+	  post_end_per_suite/4</seealso> has been called for that test suite</cell>
+      </row>
+      <row>
+	<cell><seealso marker="common_test#Module:init_per_group-2">
+	  init_per_group/2</seealso></cell>
+	<cell><seealso marker="ct_hooks#Module:post_init_per_group-5">
+	    post_init_per_group/5</seealso> is called</cell>
+	<cell><seealso marker="ct_hooks#Module:post_end_per_group-5">
+	  post_end_per_group/5</seealso> has been called for that group</cell>
+      </row>
+    <tcaption>Scope of a CTH</tcaption>
+    </table>
+    
+    <section>
+      <title>CTH Processes and Tables</title>
+      <p>CTHs are run with the same process scoping as normal test suites,
+	that is, a different process executes the <c>init_per_suite</c> hooks then the
+	<c>init_per_group</c> or <c>per_testcase</c> hooks. So if you want to spawn a 
+	process in the CTH, you cannot link with the CTH process, as it exits 
+	after the post hook ends. Also, if you for some reason need an ETS 
+	table with your CTH, you must spawn a process that handles it.</p>
+    </section>
+    
+    <section>
+      <title>External Configuration Data and Logging</title>
+      <p>Configuration data values in the CTH can be read
+	by calling 
+	<seealso marker="ct#get_config-1"><c>ct:get_config/1,2,3</c></seealso> 
+	(as explained in section
+	<seealso marker="config_file_chapter#require_config_data">Requiring and Reading Configuration Data</seealso>).
+	The configuration variables in question must, as always, first have been
+	required by a suite-, group-, or test case information function,
+	or by function <seealso marker="ct#require-1"><c>ct:require/1/2</c></seealso>.
+	The latter can also be used in CT hook functions.</p>
+      <p>The CT hook functions can call any logging function
+	in the <c>ct</c> interface to print information to the log files, or to
+	add comments in the suite overview page.
+      </p>
+    </section>    
+
+  </section>
+
+  <section>
+     <marker id="manipulating"/>
+    <title>Manipulating Tests</title>
+    <p>Through CTHs the results of tests and configuration functions can be manipulated. 
+    The main purpose to do this with CTHs is to allow common 
+    patterns to be abstracted out from test suites and applied to
+    multiple test suites without duplicating any code. All the callback
+    functions for a CTH follow a common interface described hereafter.</p>
+
+    <p><c>Common Test</c> always calls all available hook functions, even pre- 
+      and post hooks for configuration functions that are not implemented in the suite.
+      For example, <c>pre_init_per_suite(x_SUITE, ...)</c> and
+      <c>post_init_per_suite(x_SUITE, ...)</c> are called for test suite
+      <c>x_SUITE</c>, even if it does not export <c>init_per_suite/1</c>. 
+      With this feature hooks can be used as configuration fallbacks, and all
+      configuration functions can be replaced with hook functions.</p>
+
+    <section>
+      <marker id="pre"/>
+      <title>Pre Hooks</title>
+      <p>
+	In a CTH, the behavior can be hooked in before the following functions:</p>
+
+     <list type="bulleted">
+       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
+     </list>
+
+        <p>
+	This is done in the CTH functions called <c>pre_&lt;name of function&gt;</c>.
+	These functions take the arguments <c>SuiteName</c>, <c>Name</c> (group or test case name, if applicable), 
+	<c>Config</c>, and <c>CTHState</c>. The return value of the CTH function
+	is always a combination of a result for the suite/group/test and an 
+	updated <c>CTHState</c>.</p>
+
+	<p>To let the test suite continue on executing, return the configuration 
+	list that you want the test to use as the result.</p>
+
+        <p>All pre hooks, except <c>pre_end_per_testcase/4</c>, can
+        skip or fail the test by returning a tuple with <c>skip</c> or
+        <c>fail</c>, and a reason as the result.</p>
+
+	<p><em>Example:</em></p>
+	<code>
+ pre_init_per_suite(SuiteName, Config, CTHState) -&gt;
+   case db:connect() of
+     {error,_Reason} -&gt;
+       {{fail, "Could not connect to DB"}, CTHState};
+     {ok, Handle} -&gt;
+       {[{db_handle, Handle} | Config], CTHState#state{ handle = Handle }}
+   end.</code>
+
+  <note><p>If you use multiple CTHs, the first part of the return tuple is
+  used as input for the next CTH. So in the previous example the next CTH can
+  get <c>{fail,Reason}</c> as the second parameter. If you have many CTHs
+  interacting, do not let each CTH return <c>fail</c> or <c>skip</c>. 
+  Instead, return that an action is to be taken through the <c>Config</c> 
+  list and implement a CTH that, at the end, takes the correct action.</p></note>
+	
+    </section>
+    
+    <section>
+      <marker id="post"/>
+      <title>Post Hooks</title>
+      <p>In a CTH, behavior can be hooked in after the following functions:</p>
+      <list type="bulleted">
+       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
+     </list>
+
+     <p>
+      This is done in the CTH functions called <c>post_&lt;name of function&gt;</c>. 
+      These functions take the arguments <c>SuiteName</c>, <c>Name</c> (group or test case name, if applicable),
+      <c>Config</c>, <c>Return</c>, and <c>CTHState</c>. <c>Config</c> in this
+      case is the same <c>Config</c> as the testcase is called with. 
+      <c>Return</c> is the value returned by the testcase. If the testcase 
+      fails by crashing, <c>Return</c> is
+      <c>{'EXIT',{{Error,Reason},Stacktrace}}</c>.</p>
+      
+      <p>The return value of the CTH function is always a combination of a
+	result for the suite/group/test and an updated <c>CTHState</c>. If
+	you do not want the callback to affect the outcome of the test,
+	return the <c>Return</c> data as it is given to the CTH. You can also
+	modify the test result. By returning the <c>Config</c> list
+	with element <c>tc_status</c> removed, you can recover from a test 
+	failure. As in all the pre hooks, it is also possible to fail/skip
+	the test case in the post hook.</p>
+	
+	<p><em>Example:</em></p>
+	<code>
+ post_end_per_testcase(_Suite, _TC, Config, {'EXIT',{_,_}}, CTHState) -&gt;
+   case db:check_consistency() of
+     true ->
+       %% DB is good, pass the test.
+       {proplists:delete(tc_status, Config), CTHState};
+     false ->
+       %% DB is not good, mark as skipped instead of failing
+       {{skip, "DB is inconsisten!"}, CTHState}
+   end;
+ post_end_per_testcase(_Suite, _TC, Config, Return, CTHState) -&gt;
+   %% Do nothing if tc does not crash.
+   {Return, CTHState}.</code>
+
+      <note><p>Do recover from a testcase failure using CTHs only a last resort. 
+      If used wrongly, it can be very difficult to determine which tests that 
+      pass or fail in a test run.</p></note>
+  
+    </section>
+
+    <section>
+      <title>Skip and Fail Hooks</title>
+      <p>
+	After any post hook has been executed for all installed CTHs, 
+	<seealso marker="ct_hooks#Module:on_tc_fail-4">on_tc_fail</seealso>
+	or <seealso marker="ct_hooks#Module:on_tc_skip-4">on_tc_skip</seealso>
+	is called if the testcase failed or was skipped, respectively. 
+	You cannot affect the outcome of the tests any further at this point. 
+      </p>
+    </section>
+
+  </section>
+
+  <section>
+     <marker id="synchronizing"/>
+    <title>Synchronizing External User Applications with Common Test</title>
+    <p>CTHs can be used to synchronize test runs with external user applications.
+    The init function can, for example, start and/or communicate with an application that
+    has the purpose of preparing the SUT for an upcoming test run, or 
+    initialize a database for saving test data to during the test run. The
+    terminate function can similarly order such an application to reset the SUT
+    after the test run, and/or tell the application to finish active sessions
+    and terminate.
+    Any system error- or progress reports generated during the init- or
+    termination stage are saved in the 
+    <seealso marker="run_test_chapter#pre_post_test_io_log">Pre- and Post Test I/O Log</seealso>. 
+    (This is also true for any printouts made
+    with <c>ct:log/2</c> and <c>ct:pal/2</c>).</p>
+
+    <p>To ensure that <c>Common Test</c> does not start executing tests, or
+    closes its log files and shuts down, before the external application
+    is ready for it, <c>Common Test</c> can be synchronized with the application. 
+    During startup and shutdown, <c>Common Test</c> can be suspended, simply by
+    having a CTH evaluate a <c>receive</c> expression in the init- or terminate
+    function. The macros <c>?CT_HOOK_INIT_PROCESS</c> (the process executing the hook
+    init function) and <c>?CT_HOOK_TERMINATE_PROCESS</c> (the process executing
+    the hook terminate function) each specifies the name of the correct <c>Common Test</c>
+    process to send a message to. This is done to return from the <c>receive</c>.
+    These macros are defined in <c>ct.hrl</c>.
+    </p>
+  </section>
+
+  <section>
+    <marker id="example"/>
+     <title>Example CTH</title>
+     <p>The following CTH logs information about a test run into a format 
+       parseable by <seealso marker="kernel:file#consult-1">file:consult/1</seealso> 
+       (in Kernel):
+     </p>
+     <code>
+ %%% Common Test Example Common Test Hook module.
+ -module(example_cth).
+
+ %% Callbacks
+ -export([id/1]).
+ -export([init/2]).
+
+ -export([pre_init_per_suite/3]).
+ -export([post_init_per_suite/4]).
+ -export([pre_end_per_suite/3]).
+ -export([post_end_per_suite/4]).
+
+ -export([pre_init_per_group/4]).
+ -export([post_init_per_group/5]).
+ -export([pre_end_per_group/4]).
+ -export([post_end_per_group/5]).
+
+ -export([pre_init_per_testcase/4]).
+ -export([post_init_per_testcase/5]).
+ -export([pre_end_per_testcase/4]).
+ -export([post_end_per_testcase/5]).
+
+ -export([on_tc_fail/4]).
+ -export([on_tc_skip/4]).
+
+ -export([terminate/1]).
+
+ -record(state, { file_handle, total, suite_total, ts, tcs, data }).
+
+ %% Return a unique id for this CTH.
+ id(Opts) ->
+   proplists:get_value(filename, Opts, "/tmp/file.log").
+
+ %% Always called before any other callback function. Use this to initiate
+ %% any common state. 
+ init(Id, Opts) ->
+     {ok,D} = file:open(Id,[write]),
+     {ok, #state{ file_handle = D, total = 0, data = [] }}.
+
+ %% Called before init_per_suite is called.
+ pre_init_per_suite(Suite,Config,State) ->
+     {Config, State#state{ suite_total = 0, tcs = [] }}.
+
+ %% Called after init_per_suite.
+ post_init_per_suite(Suite,Config,Return,State) ->
+     {Return, State}.
+
+ %% Called before end_per_suite.
+ pre_end_per_suite(Suite,Config,State) ->
+     {Config, State}.
+
+ %% Called after end_per_suite.
+ post_end_per_suite(Suite,Config,Return,State) ->
+     Data = {suites, Suite, State#state.suite_total, lists:reverse(State#state.tcs)},
+     {Return, State#state{ data = [Data | State#state.data] ,
+                           total = State#state.total + State#state.suite_total } }.
+
+ %% Called before each init_per_group.
+ pre_init_per_group(Suite,Group,Config,State) ->
+     {Config, State}.
+
+ %% Called after each init_per_group.
+ post_init_per_group(Suite,Group,Config,Return,State) ->
+     {Return, State}.
+
+ %% Called before each end_per_group.
+ pre_end_per_group(Suite,Group,Config,State) ->
+     {Config, State}.
+
+ %% Called after each end_per_group.
+ post_end_per_group(Suite,Group,Config,Return,State) ->
+     {Return, State}.
+
+ %% Called before each init_per_testcase.
+ pre_init_per_testcase(Suite,TC,Config,State) ->
+     {Config, State#state{ ts = now(), total = State#state.suite_total + 1 } }.
+
+ %% Called after each init_per_testcase (immediately before the test case).
+ post_init_per_testcase(Suite,TC,Config,Return,State) ->
+     {Return, State}
+
+%% Called before each end_per_testcase (immediately after the test case).
+ pre_end_per_testcase(Suite,TC,Config,State) ->
+     {Config, State}.
+
+ %% Called after each end_per_testcase.
+ post_end_per_testcase(Suite,TC,Config,Return,State) ->
+     TCInfo = {testcase, Suite, TC, Return, timer:now_diff(now(), State#state.ts)},
+     {Return, State#state{ ts = undefined, tcs = [TCInfo | State#state.tcs] } }.
+
+ %% Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
+ %% post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
+ on_tc_fail(Suite, TC, Reason, State) ->
+     State.
+
+ %% Called when a test case is skipped by either user action
+ %% or due to an init function failing.  
+ on_tc_skip(Suite, TC, Reason, State) ->
+     State.
+
+ %% Called when the scope of the CTH is done
+ terminate(State) ->
+     io:format(State#state.file_handle, "~p.~n",
+                [{test_run, State#state.total, State#state.data}]),
+     file:close(State#state.file_handle),
+     ok.</code>
+  </section>
+
+  <section>
+     <marker id="builtin_cths"/>
+    <title>Built-In CTHs</title>
+    <p><c>Common Test</c> is delivered with some general-purpose CTHs that
+    can be enabled by the user to provide generic testing functionality.
+    Some of these CTHs are enabled by default when <c>common_test</c> is started to run.
+    They can be disabled by setting <c>enable_builtin_hooks</c> to
+    <c>false</c> on the command line or in the test specification. The following
+    two CTHs are delivered with <c>Common Test</c>:</p>
+
+    <taglist>
+       <tag><c>cth_log_redirect</c></tag>
+       <item>
+       <p>Built-in</p>
+       <p>Captures all log events that would normally be printed by the default
+        logger handler, and prints them to the current test case log.
+	If an event cannot be associated with a test case, it is printed in
+	the <c>Common Test</c> framework log.
+	This happens for test cases running in parallel and events occuring
+	in-between test cases. You can configure the level of
+	<seealso marker="sasl:sasl_app">SASL</seealso> reports
+	using the normal SASL mechanisms.</p>
+       </item>
+       <tag><c>cth_surefire</c></tag>
+       <item>
+       <p>Not built-in</p>
+       <p>Captures all test results and outputs them as surefire
+	XML into a file. The created file is by default
+	called <c>junit_report.xml</c>. The file name can be changed by
+	setting option <c>path</c> for this hook, for example:</p>
+
+	<p><c>-ct_hooks cth_surefire [{path,"/tmp/report.xml"}]</c></p>
+
+	<p>If option <c>url_base</c> is set, an extra
+	attribute named <c>url</c> is added to each
+	<c>testsuite</c> and <c>testcase</c> XML element. The value
+	is constructed from <c>url_base</c> and a relative path
+	to the test suite or test case log, respectively, for example:</p>
+
+	<p><c>-ct_hooks cth_surefire [{url_base, "http://myserver.com/"}]</c></p>
+
+	<p>gives an URL attribute value similar to</p>
+
+	<p><c>"http://myserver.com/ct_run.ct@myhost.2012-12-12_11.19.39/
+x86_64-unknown-linux-gnu.my_test.logs/run.2012-12-12_11.19.39/suite.log.html"</c></p>
+
+	<p>Surefire XML can, for example, be used by Jenkins to display test
+	results.</p>
+       </item>
+     </taglist>
+
+  </section>
+
+</chapter>
+
+
+
+

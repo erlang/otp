@@ -1,0 +1,14 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROGS = sockopt_helper@exe@
+
+all: $(PROGS)
+
+sockopt_helper@exe@: sockopt_helper@obj@
+	$(LD) $(CROSSLDFLAGS) -o sockopt_helper sockopt_helper@obj@ @LIBS@
+
+sockopt_helper@obj@: sockopt_helper.c
+	$(CC) -c -o sockopt_helper@obj@ $(CFLAGS) sockopt_helper.c

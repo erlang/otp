@@ -1,0 +1,1525 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE terms SYSTEM "terms.dtd">
+
+<terms>
+  <term>
+    <id>agent</id>
+    <shortdef>agent</shortdef>
+    <def>
+An entity that terminates a management protocol in the Network Element.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>API</id>
+    <shortdef>API</shortdef>
+    <def>
+Application Programming Interface. The interface towards an application. Usually this is a set of functions available, but can also be a set of messages sent to or from an application.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>application</id>
+    <shortdef>application</shortdef>
+    <def>
+A collection of resources which is required to offer a specific service.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>appmon</id>
+    <shortdef>Application Monitor</shortdef>
+    <def>
+A graphical node and application process tree viewer. See also appmon.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>Appmon</id>
+    <shortdef>Appmon</shortdef>
+    <def>
+Application name for the Application Monitor within Erlang/OTP. A graphical node and process viewer.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>app callback</id>
+    <shortdef>application callback module</shortdef>
+    <def>
+A module which is called when the application is started, and when it has stopped. Every application has one application callback module.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>AC</id>
+    <shortdef>application controller</shortdef>
+    <def>
+A process which coordinates all operations on applications.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>app master</id>
+    <shortdef>application master</shortdef>
+    <def>
+The application master is a process that monitors the application. It is provided by the Erlang run-time system. Every application has an application master process.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>.app file</id>
+    <shortdef>application resource file</shortdef>
+    <def>
+Specifies the resources required by the application and how the application should be started. Every application has one application resource file, called AppName.app.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>arity</id>
+    <shortdef>arity</shortdef>
+    <def>
+Denotes the number of arguments to a function.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>ASN.1</id>
+    <shortdef>ASN.1</shortdef>
+    <def>
+Abstract Syntax Notation One - an ITU-T and ISO standard notation for describing data formats used in communication protocols.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>ASN.1 Compiler</id>
+    <shortdef>ASN.1 Compiler</shortdef>
+    <def>
+The Erlang/OTP ASN.1 Compiler translates an ASN.1 module into a corresponding Erlang module with encode and decode functions.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>atom</id>
+    <shortdef>atom</shortdef>
+    <def>
+An atom is a constant. Atoms always starts with a lower case letter (a-z) and are terminated by a non-alphanumeric character - otherwise they must be quoted (enclosed in ' '). An atom is a data type in Erlang, used to enhance the legibility of programs.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>atomicity</id>
+    <shortdef>atomicity</shortdef>
+    <def>
+Atomicity refers to the "all or nothing" property. If a transaction succeeds (i.e. commits), then all its effects on the data is captured in the database. If the transaction does not succeed (i.e. aborts), then none of its effect on the data is captured in the database. In other words, the transaction processing algorithm guarantees that the database will not reflect a partitial effect of a transaction.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>attach</id>
+    <shortdef>attach</shortdef>
+    <def>
+The debugger may attach to a process. When attached, the debugger may show process details, such as message queues and variable bindings.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>behaviour</id>
+    <shortdef>behaviour</shortdef>
+    <def>
+A "pattern of design" which can be used to build applications and processes in an applications.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>BIF</id>
+    <shortdef>BIF</shortdef>
+    <def>
+Built-In Functions which perform operations that are impossible or inefficient to program in Erlang itself. Are defined in the module Erlang in the application kernel    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>binary</id>
+    <shortdef>binary</shortdef>
+    <def>
+A data type in Erlang which is used to store an area of untyped memory. Binaries are used for efficiently handling large quantities of untyped data.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>boolean</id>
+    <shortdef>boolean</shortdef>
+    <def>
+A common data type in programming and specification languages. The value can be either true or false.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>boot file</id>
+    <shortdef>boot file</shortdef>
+    <def>
+A binary file with extension .boot which is read during start of an Erlang node. See SASL User's Guide for more info.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>break point</id>
+    <shortdef>break point</shortdef>
+    <def>
+By setting a break point using the debugger, the user specifies a position in the source code of a module where execution is to be suspended and control transferred to the debugger.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>CAshort</id>
+    <shortdef>CA</shortdef>
+    <def>
+See Certification Authority.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>CA certificate</id>
+    <shortdef>CA certificate</shortdef>
+    <def>
+A certificate containing a CA's public key. Network entities use this public key to verify certificates signed with the CA's private key.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>callback function</id>
+    <shortdef>callback function</shortdef>
+    <def>
+A callback function is a function exported from a callback module, that a generic behaviour calls to perform a specific task.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>callback module</id>
+    <shortdef>callback module</shortdef>
+    <def>
+A callback module is a module that implements the specific parts of a generic behaviour.  The generic behaviour specifies which callback functions must be exported from the module.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>certificate</id>
+    <shortdef>certificate</shortdef>
+    <def>
+A file used for authenticating network entities under the SSL protocol. A certificate contains information about its owner (called the subject) and issuer, plus the owner's public key and a signature made by a CA. Network entities verify these signatures using CA certificates.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>CAlong</id>
+    <shortdef>Certification Authority (CA)</shortdef>
+    <def>
+A trusted third party whose purpose is to sign certificates for network entities it has authenticated using secure means. Other network entities can check the signature to verify that a CA has authenticated the bearer of a certificate.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>CSRlong</id>
+    <shortdef>Certificate Signing Request (CSR)</shortdef>
+    <def>
+An unsigned certificate for submission to a Certification Authority, which signs it with its private key. Once the CSR is signed, it becomes a certificate.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>child</id>
+    <shortdef>child</shortdef>
+    <def>
+A supervised process. See also permanent, transient, temporary child.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>cipher</id>
+    <shortdef>cipher</shortdef>
+    <def>
+A system of encryption.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>ClearCase</id>
+    <shortdef>ClearCase</shortdef>
+    <def>
+A configuration management system from Rational Software Corporation.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>client-server model</id>
+    <shortdef>client-server model</shortdef>
+    <def>
+A model where there is a server, which manages some resource, and a number of clients which send requests to the server to access the resource. The client-server model is one of the basic programming techniques for coordinating the activities of several parallel processes.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>cover</id>
+    <shortdef>Coverage Analyser</shortdef>
+    <def>
+Module name for the coverage analyser tool, located in the Tools application.    </def>
+    <resp>gunilla</resp>
+  </term>
+  <term>
+    <id>CORBAlong</id>
+    <shortdef>Common Object Request Broker Architecture (CORBA)</shortdef>
+    <def>
+A specification of an architecture for a distributed object system    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>CORBA</id>
+    <shortdef>Common Object Request Broker Architecture (CORBA)</shortdef>
+    <def>
+A specification of an architecture for a distributed object system    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>compiler</id>
+    <shortdef>compiler</shortdef>
+    <def>
+A compiler is a translator. A common type of compilers are those who takes source code for a programming language and translates it into code that is executable on a specific platform. E.g. the Erlang compiler translates Erlang source code to an intermediary code that is executable by the Erlang Run Time System.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>consistency</id>
+    <shortdef>consistency</shortdef>
+    <def>
+Consistency refers to the requirement that, given a consistent initial database state, the state of the database after the successful execution of a transaction is also consistent; that is, a transaction transforms the database from a consistent state to another consistent state. Database consistency may be defined as a set of rules or constraints. If the execution of a transaction causes the consistency constraints to be violated, the transaction is not accepted (and thus aborted) by the system.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>cookie</id>
+    <shortdef>cookie</shortdef>
+    <def>
+A magic cookie is a secret atom assigned to each Erlang node. The Erlang nodes in a distributed system must know each others cookies in order to authorize each other for communication    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>CORBAshort</id>
+    <shortdef>CORBA</shortdef>
+    <def>
+See Common Object RequestBroker Architecture.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>Coverage Analyser</id>
+    <shortdef>Coverage Analyser</shortdef>
+    <def>
+A tool which provides a set of functions for coverage analysis of Erlang programs, i.e observing how many times each line or function are executed. See also cover.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>coverage analysis</id>
+    <shortdef>coverage analysis</shortdef>
+    <def>
+The task of determining which lines, or how many lines of code, has actually been executed. Useful for determining the completeness of test suites.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>cross reference tool</id>
+    <shortdef>cross reference tool</shortdef>
+    <def>
+A tool that can be used for finding dependencies between functions, modules, applications and releases. The Erlang/OTP cross reference tool is called xref and is part of the Tools application.    </def>
+    <resp>gunilla</resp>
+  </term>
+  <term>
+    <id>CSRshort</id>
+    <shortdef>CSR</shortdef>
+    <def>
+See Certificate Signing Request.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>data type</id>
+    <shortdef>data type</shortdef>
+    <def>
+The data types in Erlang are numbers, atoms, tuples, lists, pids, funs, records, ports, references and binaries. The values of Erlang data types can be stored in variables.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>DBMSlong</id>
+    <shortdef>Database Management System (DBMS)</shortdef>
+    <def>
+A database is a collection of data and a DBMS is a system which manages the database. Applications accesses the database through the database management system.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>DBMSshort</id>
+    <shortdef>DBMS</shortdef>
+    <def>
+See Database Management System.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>Debugger</id>
+    <shortdef>Debugger</shortdef>
+    <def>
+An Erlang/OTP tool which provides mechanisms which makes it possible to see what happens during the execution of code in specified modules, or when processes crash.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>dets</id>
+    <shortdef>dets</shortdef>
+    <def>
+A module within the stdlib application, which provides a term storage, and which is used as the underlying file storage mechanism by the Mnesia DBMS.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>dirty operations</id>
+    <shortdef>dirty operations</shortdef>
+    <def>
+Functions which manipulate data in a DBMS, without using transactions.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>distributed application</id>
+    <shortdef>distributed application</shortdef>
+    <def>
+An application which runs on one of several nodes. May be restarted on another node. (See local application.)    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>DNSshort</id>
+    <shortdef>DNS</shortdef>
+    <def>
+See Domain Name System.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>Docbuilder</id>
+    <shortdef>Docbuilder</shortdef>
+    <def>
+The documentation system used in Erlang/OTP.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>DNSlong</id>
+    <shortdef>Domain Name System (DNS)</shortdef>
+    <def>
+DNS is a service that map names to internet addresses    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>DTD</id>
+    <shortdef>DTD</shortdef>
+    <def>
+Document Type Definition as defined in SGML.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>durability</id>
+    <shortdef>durability</shortdef>
+    <def>
+If a transaction succeeds, then its effect on the data is persistently captured, and will survive subsequent system failures resulting in loss of data in volatile memory. Durability is usually enforced by first writing modified data to some non-volatile memory (usually disc), before a transaction is allowed to commit. If there is a system failure, the state of the non-volatile memory must be recovered to reflect the effect of all and only committed transactions.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>Emacs</id>
+    <shortdef>Emacs</shortdef>
+    <def>
+A widely used text editor which allows customization of its behaviour. An Erlang mode for Emacs is included in the Erlang deliverables.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Emacs for Erlang</id>
+    <shortdef>Emacs for Erlang</shortdef>
+    <def>
+A tool which provides a major mode for editing Erlang source files in Emacs.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>encaps</id>
+    <shortdef>encapsulation</shortdef>
+    <def>
+Data can be encapsulated into another data element.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>eprof</id>
+    <shortdef>eprof</shortdef>
+    <def>
+A module in the tools application. See Profiler.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>erl</id>
+    <shortdef>erl</shortdef>
+    <def>
+The command which starts an Erlang run-time system.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>erl_interface</id>
+    <shortdef>erl_interface library</shortdef>
+    <def>
+A thread safe library with C-functions which makes it possible to write a C-program which appears as one of the nodes in a system of distributed Erlang nodes.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Erlang</id>
+    <shortdef>Erlang</shortdef>
+    <def>
+Erlang is a functional programming language intended for designing large industrial soft real time systems.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Erlang emulator</id>
+    <shortdef>Erlang emulator</shortdef>
+    <def>
+Another word for Erlang Virtual Machine.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>ERTSlong</id>
+    <shortdef>Erlang Run Time System</shortdef>
+    <def>
+A fundamental part of Erlang/OTP which contains the Erlang Virtual Machine, the kernel and stdlib applications. The Erlang Run Time System is a mandatory part which all other Erlang applications are dependent upon.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Erlang VM</id>
+    <shortdef>Erlang Virtual Machine</shortdef>
+    <def>
+The virtual machine, which makes Erlang/OTP work together with a specific OS/HW platform. The Erlang Virtual Machine is available on several different platforms. The Erlang Virtual Machine is the glue which makes it possible to run an Erlang application on any platform without change.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>ERTSshort</id>
+    <shortdef>ERTS</shortdef>
+    <def>
+See Erlang Run Time System.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>ETS</id>
+    <shortdef>ETS</shortdef>
+    <def>
+Erlang Term Storage tables.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>EVAshort</id>
+    <shortdef>EVA</shortdef>
+    <def>
+See Event and Alarm handling application    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>EVAlong</id>
+    <shortdef>Event and Alarm handling application (EVA)</shortdef>
+    <def>
+An application that consists of Fault Management functionality, such as sending and logging of events and alarms.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>event handler</id>
+    <shortdef>event handler</shortdef>
+    <def>
+A module exporting functions which can process events sent to an event manager process. The event handler is a behaviour of type gen_event.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>event manager</id>
+    <shortdef>event manager</shortdef>
+    <def>
+A process to which events of a certain category is sent. gen_event handler can be installed in the event manager.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>exit signal</id>
+    <shortdef>exit signal</shortdef>
+    <def>
+A signal which is sent from a terminating process to the processes and ports it is linked to. An EXIT signal has the following format: {'EXIT', Exiting_Process_Id, Reason}.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>foo</id>
+    <shortdef>foo</shortdef>
+    <def>
+Algebraic place holder.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>FSM</id>
+    <shortdef>FSM</shortdef>
+    <def>
+Finite State Machine.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>fun</id>
+    <shortdef>fun</shortdef>
+    <def>
+A data type, introduced in Erlang 4.4, which represent functional objects.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>function</id>
+    <shortdef>function</shortdef>
+    <def>
+Erlang programs are written entirely in terms of modules with functions. A function can have arguments and does always return a result. A function can be exported which makes it available for calls from other modules. Non exported functions can only be called internally within the module.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Gateway</id>
+    <shortdef>gateway</shortdef>
+    <def>
+A server which acts as an intermediary for some other server. Unlike a proxy, a gateway receives requests as if it were the origin server for the requested resource; the requesting client may not be aware that it is communicating with a gateway.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>gen_event</id>
+    <shortdef>gen_event</shortdef>
+    <def>
+A behaviour used for programming event handling mechanisms, such as alarm handlers, error loggers, and plug-and-play handlers.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>gen_fsm</id>
+    <shortdef>gen_fsm</shortdef>
+    <def>
+A behaviour used for programming finite state machines.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>gen_server</id>
+    <shortdef>gen_server</shortdef>
+    <def>
+A behaviour used for programming client-server processes.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>gterm</id>
+    <shortdef>Global Glossary Database</shortdef>
+    <def>
+A glossary database used to list common acronymns and defintions etc.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>xref</id>
+    <shortdef>xref</shortdef>
+    <def>
+A cross reference tool that can be used for finding dependencies between functions, modules, applications and releases. Part of the Tools application.    </def>
+    <resp>gunilla</resp>
+  </term>
+  <term>
+    <id>GSlong</id>
+    <shortdef>Graphics System</shortdef>
+    <def>
+A library module which provides a graphics interface for Erlang.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>grid</id>
+    <shortdef>grid</shortdef>
+    <def>
+A multi-column object which is used to display tables. (Graphics System.)    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>GSshort</id>
+    <shortdef>GS</shortdef>
+    <def>
+See Graphics System.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>GS Contributions</id>
+    <shortdef>GS Contributions</shortdef>
+    <def>
+Unsupported user supplied tools which are included with the Erlang/OTP software release.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>GUI</id>
+    <shortdef>GUI</shortdef>
+    <def>
+Graphical User Interface    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>Home Directory</id>
+    <shortdef>Home Directory</shortdef>
+    <def>
+The position of a user account in the file system. The Home Directory is automatically passed to the Erlang run-time system at startup. On Unix the contents of the environment variable "HOME" is passed. Om Win32 the concatenation of the environment variables "HOMEDRIVE" and "HOMEPATH" is passed, or if these variables are not set, the value returned by the Win32 API function "GetWindowsDirectory" is passed.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>host name</id>
+    <shortdef>host name</shortdef>
+    <def>
+The name of a machine on a network, e.g. erlang.ericsson.se.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>HTML</id>
+    <shortdef>HTML</shortdef>
+    <def>
+Hypertext Markup Language.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>HTTP</id>
+    <shortdef>HTTP</shortdef>
+    <def>
+Hypertext Transfer Protocol.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>HTTPS</id>
+    <shortdef>HTTPS</shortdef>
+    <def>
+The Hypertext Transport Protocol, Secure, the standard SSL communication mechanism of the World Wide Web.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>IDLshort</id>
+    <shortdef>IDL</shortdef>
+    <def>
+See Interface Description Language.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>IDLlong</id>
+    <shortdef>Interface Description Language (IDL)</shortdef>
+    <def>
+The interface specification language created by OMG.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>indexing</id>
+    <shortdef>indexing</shortdef>
+    <def>
+Fast lookup using an (usually enumerated) key.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>I1</id>
+    <shortdef>INETS</shortdef>
+    <def>
+The Internet Services application    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>initial call</id>
+    <shortdef>initial call</shortdef>
+    <def>
+The first call to an interpreted function (when using the Interpreter).    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>instrumentation function</id>
+    <shortdef>instrumentation function</shortdef>
+    <def>
+A function used to implement a Managed Object, i.e. give access to the real resources behind an MO.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>IDLlong</id>
+    <shortdef>Interface Description Language (IDL)</shortdef>
+    <def>
+The interface specification language created by OMG.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>interpreter</id>
+    <shortdef>interpreter</shortdef>
+    <def>
+An application which provides mechanisms which make it possible to see what happens during the execution of code in specified (interpreted) modules, or when processes crash.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>isolation</id>
+    <shortdef>isolation</shortdef>
+    <def>
+A transaction executes as if no other concurrent transactions are executing, and thus its execution results are equivalent to those obtained by executing database transactions serially. A system which maintains transaction isolation is also said to be enforcing serializability.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>kernel</id>
+    <shortdef>kernel</shortdef>
+    <def>
+An application which contains file servers, code servers and other code necessary for the Erlang run-time system.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>key</id>
+    <shortdef>key</shortdef>
+    <def>
+A file containing the value that must be fed into an algorithm in order to encrypt or decrypt a message.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>key pair</id>
+    <shortdef>key pair</shortdef>
+    <def>
+A set of two keys used in public key cryptography. One is the public key used to encrypt data, and the other is the private key necessary to decrypt the same data.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>list</id>
+    <shortdef>list</shortdef>
+    <def>
+Terms separated by commas and enclosed in square brackets [ ] are called lists. A list is a data type in Erlang, used for storing a variable number of terms. It is dynamically sized. The first element of the list is referred to as the head of the list, and the remainer of the list as the tail.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>list box</id>
+    <shortdef>list box </shortdef>
+    <def>
+A list of labels with optional scroll bars attached. (Graphics System.)    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>lc</id>
+    <shortdef>list comprehension</shortdef>
+    <def>
+A language construct in Erlang which are analogous to set comprehensions in Zermelo-Frankel set theory. Analogous to the 'setof' and 'findall' predicates in Prolog.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>local application</id>
+    <shortdef>local application</shortdef>
+    <def>
+An application which runs on one node and which are always started at the local node only. (See distributed application.)    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>manager</id>
+    <shortdef>manager</shortdef>
+    <def>
+An entity that terminates a management protocol in the Network Management Station.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>Master Agent</id>
+    <shortdef>Master Agent</shortdef>
+    <def>
+The SNMP agent system consists of one Master Agent which terminates the SNMP protocol    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>MIB</id>
+    <shortdef>Management Information Base (MIB)</shortdef>
+    <def>
+An abstract definition of the management information available through a management interface in a system.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>matching</id>
+    <shortdef>matching</shortdef>
+    <def>
+See pattern matching.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>message queue</id>
+    <shortdef>message queue</shortdef>
+    <def>
+The queue of not yet received messages that are in the mailbox of a process.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>Mnemosyne</id>
+    <shortdef>Mnemosyne</shortdef>
+    <def>
+Mnemosyne was the query language of Mnesia up to the R11B release. Supersed by QLC.</def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>Mnesia</id>
+    <shortdef>Mnesia</shortdef>
+    <def>
+Mnesia is a distributed Database Management System, appropriate for telecommunications applications and other applications with need of continuous operation and soft real-time properties.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>MIBshort</id>
+    <shortdef>MIB</shortdef>
+    <def>
+See Management Information Base.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>MIME</id>
+    <shortdef>MIME</shortdef>
+    <def>
+Multi-purpose Internet Mail Extensions.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>MOlong</id>
+    <shortdef>Managed Object (MO)</shortdef>
+    <def>
+The abstract management information defined in a MIB.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>MO</id>
+    <shortdef>MO</shortdef>
+    <def>
+Managed Object; The abstract management information defined in a MIB.    </def>
+    <resp>nibe</resp>
+  </term>
+  <term>
+    <id>MOshort</id>
+    <shortdef>MO</shortdef>
+    <def>
+See Managed Object.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>module</id>
+    <shortdef>module</shortdef>
+    <def>
+Module is the unit for compilation and for loading in Erlang. A Module contains a module declaration, export declarations and code representing the functions in the module.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>NCSA</id>
+    <shortdef>NCSA</shortdef>
+    <def>
+The National Center for Supercomputing Applications.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>NEshort</id>
+    <shortdef>NE</shortdef>
+    <def>
+See Network Element.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>NElong</id>
+    <shortdef>Network Element</shortdef>
+    <def>
+In OTP, the Network Element is the entire distributed OTP system, meaning that the distributed OTP system is managed as one entity.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>NE</id>
+    <shortdef>NE</shortdef>
+    <def>
+Network Element; In OTP, the Network Element is the entire distributed OTP system, meaning that the distributed OTP system is managed as one entity.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>NMSlong</id>
+    <shortdef>Network Management Station (NMS)</shortdef>
+    <def>
+The place where the operator manages the network.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>NMS</id>
+    <shortdef>NMS</shortdef>
+    <def>
+Network Management Station; The place where the operator manages the network.    </def>
+    <resp>nibe</resp>
+  </term>
+  <term>
+    <id>NMSshort</id>
+    <shortdef>NMS</shortdef>
+    <def>
+See Network Management Station.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>node</id>
+    <shortdef>node</shortdef>
+    <def>
+An executing Erlang run-time system which can communicate with other Erlang run-time systems.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>node name</id>
+    <shortdef>node name</shortdef>
+    <def>
+A node name is an atom constructed as the concatenation of a name supplied by the user, an "@" character, and the name of the host where the node is executing.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>notation</id>
+    <shortdef>notation</shortdef>
+    <def>
+How things are written.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>notification</id>
+    <shortdef>notification</shortdef>
+    <def>
+Information of an event.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>NROFF</id>
+    <shortdef>NROFF</shortdef>
+    <def>
+A text formatting language for line printer quality output devices that runs on the UNIX operating system.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>number</id>
+    <shortdef>number</shortdef>
+    <def>
+A data type in Erlang. Are subdivided into integers, for storing natural numbers, or floats, for storing real numbers.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>OMGlong</id>
+    <shortdef>Object Managment Group (OMG)</shortdef>
+    <def>
+A standardisation group for all specifications in the area of CORBA.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>OMGshort</id>
+    <shortdef>OMG</shortdef>
+    <def>
+Object Managment Group.    </def>
+    <resp>lars</resp>
+  </term>
+  <term>
+    <id>OTP</id>
+    <shortdef>OTP</shortdef>
+    <def>
+Open Telecom Platform    </def>
+    <resp>mike</resp>
+  </term>
+  <term>
+    <id>os_mon</id>
+    <shortdef>os_mon</shortdef>
+    <def>
+An application which monitors the behaviour of the underlying operating system    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>parser generator</id>
+    <shortdef>parser generator</shortdef>
+    <def>
+A tool for making compilers which takes a grammar description as input and generates a complete program (a parser) which recognizes input which complies with the grammar. YECC is a parser generator included in the Erlang/OTP.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>pass phrase</id>
+    <shortdef>pass phrase</shortdef>
+    <def>
+The word or phrase which authenticates the user who is authorized to use private key file. The pass phrase prevents unauthorized users from starting, restarting, or reconfiguring the server.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>pattern matching</id>
+    <shortdef>pattern matching</shortdef>
+    <def>
+A basic mechanism in Erlang for assigning values to variables and for controlling the flow of a program.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>permanent child</id>
+    <shortdef>permanent child</shortdef>
+    <def>
+A supervised process which always is restarted when it dies.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>Pid</id>
+    <shortdef>Pid</shortdef>
+    <def>
+Process Identifier. A data type in Erlang for storing process references. The process identity of the process displayed in the line.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Pman</id>
+    <shortdef>Pman</shortdef>
+    <def>
+Module and application name for the Process Trace Tool.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>point</id>
+    <shortdef>point</shortdef>
+    <def>
+A unit used to indicate the size of a typeface. Equal to 1/72 inches.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>pointer</id>
+    <shortdef>pointer</shortdef>
+    <def>
+A pointer tells where data is stored. Memory pointers are not used in Erlang.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>port</id>
+    <shortdef>port</shortdef>
+    <def>
+A data type in Erlang. Ports provide the basic mechanism for communication with the external world.    </def>
+    <resp>peterl</resp>
+  </term>
+  <term>
+    <id>port controller</id>
+    <shortdef>port controller</shortdef>
+    <def>
+An Erlang process which controls a port program. A port has exactly one port controller.    </def>
+    <resp>peterl</resp>
+  </term>
+  <term>
+    <id>port program</id>
+    <shortdef>port program</shortdef>
+    <def>
+A program that runs as an external program in the operating system and which the Erlang run-time system can start and communicate with by means of the Erlang port mechanism.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>PostScript</id>
+    <shortdef>PostScript</shortdef>
+    <def>
+A language describing a fully laid-out page in terms of fonts, lines, grey scales, and so on, in a way that is interpretable by a printer. The language was developed by Adobe Systems.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>pretty-printed</id>
+    <shortdef>pretty-printed</shortdef>
+    <def>
+Nicely formatted code or data, e.g. C or Erlang, with indents and tabs etc.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>primitive</id>
+    <shortdef>primitive</shortdef>
+    <def>
+The basic elements in a programming language.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>private key</id>
+    <shortdef>private key</shortdef>
+    <def>
+The secret key in a pair, used to decrypt incoming messages and sign outgoing ones.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>process</id>
+    <shortdef>process</shortdef>
+    <def>
+A process is a self-contained separate unit of execution which exists concurrently with other processes in the system. The BIF "spawn/3" creates and starts the execution of a new process.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>process dictionary</id>
+    <shortdef>process dictionary</shortdef>
+    <def>
+Each process has an associated dictionary which provides the process with simple destructive storage capabilities.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Process Manager</id>
+    <shortdef>Process Manager</shortdef>
+    <def>
+Obsolete name for the Process Trace Tool.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>Process Trace Tool</id>
+    <shortdef>Process Trace Tool</shortdef>
+    <def>
+A tool which gives an overview of the processes in the Erlang run-time system. See also Pman.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>Profiler</id>
+    <shortdef>Profiler</shortdef>
+    <def>
+Another name for eprof, a tool used to profile a system in order to find out how much time is spent in various segments of a program.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>program</id>
+    <shortdef>program</shortdef>
+    <def>
+Routines which can be executed by a computer.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>Proxy</id>
+    <shortdef>proxy</shortdef>
+    <def>
+An intermediary program which acts as both a server and a client for the purpose of making requests on behalf of other clients.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>public key</id>
+    <shortdef>public key</shortdef>
+    <def>
+The publicly available key in a key pair, used to encrypt messages bound for its owner and to decrypt signatures made by its owner.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>query</id>
+    <shortdef>query</shortdef>
+    <def>
+Queries are used for accessing the data in a Database Management System. The query specify a maybe complicated relation that should hold for all of the selected data. This could involve several tables as well as conditions like for instance less then and greater then.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>query language</id>
+    <shortdef>query language</shortdef>
+    <def>
+A language which is specially designed to express database queries. Examples of query languages are QLC and SQL.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>receive</id>
+    <shortdef>receive</shortdef>
+    <def>
+A primitive for message processing in Erlang, receives a message from a process.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>record</id>
+    <shortdef>record</shortdef>
+    <def>
+A data structure intended for storing a fixed number of related Erlang terms, it is similar to a "struct" in C or a "record" in Pascal.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>recursion</id>
+    <shortdef>recursion</shortdef>
+    <def>
+A function is recursive if it calls itself until the result desired is attained. Recursion is the heart of functional programming.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>reference</id>
+    <shortdef>reference</shortdef>
+    <def>
+A data type in Erlang for storing system unique references.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>release handler</id>
+    <shortdef>release handler</shortdef>
+    <def>
+A SASL process which handles software upgrade.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>relup</id>
+    <shortdef>release upgrade script</shortdef>
+    <def>
+A script with instructions to the release handler of how the release should be installed in the system.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>RPC</id>
+    <shortdef>Remote Proceedure Call</shortdef>
+    <def>
+A technique for evaluating a function transparently on a remote node.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>resource</id>
+    <shortdef>resource</shortdef>
+    <def>
+The actual resource to be managed.  A resource is represented by a Managed Object. Each resource is mapped to one or several resources.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>resources</id>
+    <shortdef>resources</shortdef>
+    <def>
+The actual resources to be managed.  A resource is represented by a Managed Object. Each resource is mapped to one or several resources.    </def>
+    <resp>nibe</resp>
+  </term>
+  <term>
+    <id>RFC</id>
+    <shortdef>RFC</shortdef>
+    <def>
+A "Request for Comments" used as a proposed standard by IETF.    </def>
+    <resp>jocke</resp>
+  </term>
+  <term>
+    <id>SASLshort</id>
+    <shortdef>SASL</shortdef>
+    <def>
+See System Architecture Support Libraries.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>schema</id>
+    <shortdef>schema</shortdef>
+    <def>
+The schema contains the definitions and whereabouts for all tables. In Mnesia it is realized as a special table named "schema".    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>schema functions</id>
+    <shortdef>schema functions</shortdef>
+    <def>
+The functions which are available for managing schemas.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>SDL</id>
+    <shortdef>SDL</shortdef>
+    <def>
+Specification and Description Language. A ITU-T standard specification language which is used to specify the behaviour of switching systems.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>send</id>
+    <shortdef>send</shortdef>
+    <def>
+A primitive for message processing in Erlang, sends a message to a process.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>shell</id>
+    <shortdef>shell</shortdef>
+    <def>
+The shell is an interactive front-end to an Erlang node where Erlang expressions can be evaluated.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>shell prompt</id>
+    <shortdef>shell prompt</shortdef>
+    <def>
+The text or symbol shown on the screen when the shell is ready to receive commands.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>SNMPEAlong</id>
+    <shortdef>Simple Network Management Protocol Extensible Agent (SNMPEA).</shortdef>
+    <def>
+An Erlang/OTP application that includes a bilingual extensible SNMP agent.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>single assignment</id>
+    <shortdef>single assignment</shortdef>
+    <def>
+Means that once a variable has been assigned a value, the value can never be changed. Erlang is a single assignment language.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>single step</id>
+    <shortdef>single step</shortdef>
+    <def>
+Single stepping is a function provided by the debugger. By single stepping the developer may use the debugger to follow the execution of a process and see what actually happens at each function call.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>slave</id>
+    <shortdef>slave</shortdef>
+    <def>
+Not in control, can never take over by himself.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>SSLlong</id>
+    <shortdef>Secure Sockets Layer (SSL)</shortdef>
+    <def>
+A protocol created by Netscape Communications Corporation for authentication and encryption over TCP/IP networks, including Web.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>signature</id>
+    <shortdef>signature</shortdef>
+    <def>
+An encrypted text block that validates a certificate or other file. A Certification Authority (CA) creates a signature by generating a hash of the public key embedded in a certificate, then encrypting the hash with its own private key. Only the CA's public key can decrypt the signature, verifying that the CA has authenticated the network entity that owns the certificate.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>SNMPshort</id>
+    <shortdef>SNMP</shortdef>
+    <def>
+Simple Network Management Protocol.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>SNMPshort</id>
+    <shortdef>SNMPEA</shortdef>
+    <def>
+See Simple Network Management Protocol Extensible Agent.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>spawn</id>
+    <shortdef>spawn</shortdef>
+    <def>
+A primitive for multiprocessing in Erlang, that starts a parallel computation (called a process). The creation of a new process    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>SSLshort</id>
+    <shortdef>SSL</shortdef>
+    <def>
+See Secure Sockets Layer.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>SSLeay</id>
+    <shortdef>SSLeay</shortdef>
+    <def>
+An SSL library developed by Eric Yong (eay@mincom.oz.au).    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>SSLTOP</id>
+    <shortdef>SSLTOP</shortdef>
+    <def>
+The path to your SSL directory, a subdirectory of ServerRoot.    </def>
+    <resp>helen</resp>
+  </term>
+  <term>
+    <id>start script</id>
+    <shortdef>start script</shortdef>
+    <def>
+A start script is a file with .script extension which is the source when a boot file is created. See SASL User's Guide for more info.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>stdlib</id>
+    <shortdef>stdlib</shortdef>
+    <def>
+An application within Erlang/OTP which contains modules for manipulating lists, strings, files, etc.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>sticky directory</id>
+    <shortdef>sticky directory</shortdef>
+    <def>
+A directory containing Erlang object code that is part of the runtime system.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>sticky lock</id>
+    <shortdef>sticky lock</shortdef>
+    <def>
+A lock which lingers at a node after the transaction which first acquired the lock has terminated. Once a process has obtained a sticky lock on a node, subsequent locks acquired by processes on the same node, can be set without need of involving remote nodes.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>string</id>
+    <shortdef>string</shortdef>
+    <def>
+The ASCII or ISO-8859-1 representation of the list of characters occurring within quotation marks in Erlang code.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>Subagent</id>
+    <shortdef>Subagent</shortdef>
+    <def>
+The SNMP agent system consists of one Master Agent (See Master Agent) and zero or more Subagents which can be used to distribute the SNMP agent system on several nodes.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>supervision tree</id>
+    <shortdef>supervision tree</shortdef>
+    <def>
+A hierarcial tree of processes used to program fault tolerant systems.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>supervisor</id>
+    <shortdef>supervisor</shortdef>
+    <def>
+A behaviour to stucture fault tolerant computations, and program supervision trees with.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>sup_bridge</id>
+    <shortdef>supervisor bridge</shortdef>
+    <def>
+A behaviour used to connect a process, or subsystem, to a supervisor tree.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>SASLlong</id>
+    <shortdef>System Architecture Support Libraries (SASL)</shortdef>
+    <def>
+An Erlang/OTP application which contains services for error logging, release handling and report browsing.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>.config</id>
+    <shortdef>system configuration file</shortdef>
+    <def>
+A file which specifies configuration parameters for the applications in the system.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>table lock</id>
+    <shortdef>table lock</shortdef>
+    <def>
+Table locks are locks which are set on whole tables. They may either be read locks or write locks.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>Table Visualizer</id>
+    <shortdef>Table Visualizer</shortdef>
+    <def>
+A tool which enables the user to examine ETS and Mnesia tables.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>temporary child</id>
+    <shortdef>temporary child</shortdef>
+    <def>
+A supervised process which is never restarted when it dies.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>term</id>
+    <shortdef>term</shortdef>
+    <def>
+The super type of all Erlang types.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>Toolbar</id>
+    <shortdef>Toolbar</shortdef>
+    <def>
+A tool that provides an simplistic interface to the other various Erlang/OTP tools    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>tools</id>
+    <shortdef>tools</shortdef>
+    <def>
+An application within Erlang/OTP which contains the tools which are not applications themselves.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>transaction</id>
+    <shortdef>transaction</shortdef>
+    <def>
+Transactions groups a set of database accesses into an atomic unit. All transactions has the ACID (atomicity, concistency, isolation and durability) properties.    </def>
+    <resp>hakan</resp>
+  </term>
+  <term>
+    <id>transient child</id>
+    <shortdef>transient child</shortdef>
+    <def>
+A supervised process which is restarted if it dies non-normally.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>trigger</id>
+    <shortdef>trigger</shortdef>
+    <def>
+The Interpreter. A break point that is reached by a process triggers if it is active, and the execution of the process is stopped.    </def>
+    <resp>olin</resp>
+  </term>
+  <term>
+    <id>tty</id>
+    <shortdef>tty</shortdef>
+    <def>
+tty is a simple command line interface program where keystrokes are collected and interpreted. Originally meant teletypewriter equipment. Now it usually means the user console/terminal/shell window.    </def>
+    <resp>kent</resp>
+  </term>
+  <term>
+    <id>tuple</id>
+    <shortdef>tuple</shortdef>
+    <def>
+A tuple is a data type in Erlang. Tuples are used as place holders for complex data structures. Tuples may contain anything of any size, and are written as sequences of terms separated by commas, and enclosed in curly brackets { }.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>variable</id>
+    <shortdef>variable</shortdef>
+    <def>
+An alias for a memory position, in which a value can be put. Erlang variables always start with an upper case letter.    </def>
+    <resp>kenneth</resp>
+  </term>
+  <term>
+    <id>workers</id>
+    <shortdef>workers</shortdef>
+    <def>
+The lower nodes in a supervision tree. These are the processes that actually performs some real work, e.g. servers.    </def>
+    <resp>mbj</resp>
+  </term>
+  <term>
+    <id>YECC</id>
+    <shortdef>YECC</shortdef>
+    <def>
+A LALR-1 parser generator included in Erlang/OTP. It is written in Erlang and generates a parser as an Erlang module.    </def>
+    <resp>kenneth</resp>
+  </term>
+</terms>
+

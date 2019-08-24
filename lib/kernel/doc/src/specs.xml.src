@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_application.xml"/>
+  <xi:include href="../specs/specs_auth.xml"/>
+  <xi:include href="../specs/specs_code.xml"/>
+  <xi:include href="../specs/specs_disk_log.xml"/>
+  <xi:include href="../specs/specs_erl_boot_server.xml"/>
+  <xi:include href="../specs/specs_erl_ddll.xml"/>
+  <xi:include href="../specs/specs_erl_epmd.xml"/>
+  <xi:include href="../specs/specs_erl_prim_loader_stub.xml"/>
+  <xi:include href="../specs/specs_erlang_stub.xml"/>
+  <xi:include href="../specs/specs_error_handler.xml"/>
+  <xi:include href="../specs/specs_error_logger.xml"/>
+  <xi:include href="../specs/specs_file.xml"/>
+  <xi:include href="../specs/specs_gen_tcp.xml"/>
+  <xi:include href="../specs/specs_gen_udp.xml"/>
+  <xi:include href="../specs/specs_gen_sctp.xml"/>
+  <xi:include href="../specs/specs_global.xml"/>
+  <xi:include href="../specs/specs_global_group.xml"/>
+  <xi:include href="../specs/specs_heart.xml"/>
+  <xi:include href="../specs/specs_inet.xml"/>
+  <xi:include href="../specs/specs_inet_res.xml"/>
+  <xi:include href="../specs/specs_init_stub.xml"/>
+  <xi:include href="../specs/specs_logger.xml"/>
+  <xi:include href="../specs/specs_logger_filters.xml"/>
+  <xi:include href="../specs/specs_logger_formatter.xml"/>
+  <xi:include href="../specs/specs_logger_std_h.xml"/>
+  <xi:include href="../specs/specs_logger_disk_log_h.xml"/>
+  %ESOCK_USE_NET_SPECS_XML%
+  <xi:include href="../specs/specs_net_adm.xml"/>
+  <xi:include href="../specs/specs_net_kernel.xml"/>
+  <xi:include href="../specs/specs_os.xml"/>
+  <xi:include href="../specs/specs_pg2.xml"/>
+  <xi:include href="../specs/specs_rpc.xml"/>
+  <xi:include href="../specs/specs_seq_trace.xml"/>
+  <xi:include href="../specs/specs_user.xml"/>
+  <xi:include href="../specs/specs_wrap_log_reader.xml"/>
+  <xi:include href="../specs/specs_zlib_stub.xml"/>
+</specs>

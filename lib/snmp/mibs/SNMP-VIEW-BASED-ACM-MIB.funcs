@@ -1,0 +1,7 @@
+{vacmAccessTable, {snmp_view_based_acm_mib, vacmAccessTable, []}}.
+{vacmContextTable, {snmp_view_based_acm_mib, vacmContextTable, []}}.
+{vacmSecurityToGroupTable,
+   {snmp_view_based_acm_mib, vacmSecurityToGroupTable, []}}.
+{vacmViewSpinLock, {snmp_view_based_acm_mib, vacmViewSpinLock, []}}.
+{vacmViewTreeFamilyTable,
+   {snmp_view_based_acm_mib, vacmViewTreeFamilyTable, []}}.

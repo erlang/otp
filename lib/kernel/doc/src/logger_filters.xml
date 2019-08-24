@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger_filters</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger_filters.xml</file>
+  </header>
+  <module since="OTP 21.0">logger_filters</module>
+  <modulesummary>Filters to use with Logger.</modulesummary>
+
+  <description>
+    <p>All functions exported from this module can be used as primary
+      or handler
+      filters. See <seealso marker="logger#add_primary_filter-2">
+	<c>logger:add_primary_filter/2</c></seealso>
+      and <seealso marker="logger#add_handler_filter-3">
+	<c>logger:add_handler_filter/3</c></seealso> for more information
+      about how filters are added.</p>
+    <p>Filters are removed with <seealso marker="logger#remove_primary_filter-1">
+	<c>logger:remove_primary_filter/1</c></seealso>
+      and <seealso marker="logger#remove_handler_filter-2">
+	<c>logger:remove_handler_filter/2</c></seealso>.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="domain" arity="2" since="OTP 21.0"/>
+      <fsummary>Filter log events based on the domain field in
+	metadata.</fsummary>
+      <desc>
+	<p>This filter provides a way of filtering log events based on a
+	  <c>domain</c> field in <c>Metadata</c>. This field is
+	  optional, and the purpose of using it is to group log events
+	  from, for example, a specific functional area. This allows
+	  filtering or other specialized treatment in a Logger
+	  handler.</p>
+
+	<p>A domain field must be a list of atoms, creating smaller
+	  and more specialized domains as the list grows longer. The
+	  greatest domain is <c>[]</c>, which comprises all possible
+	  domains.</p>
+
+	<p>For example, consider the following domains:</p>
+	<pre>
+D1 = [otp]
+D2 = [otp, sasl]</pre>
+
+	<p><c>D1</c> is the greatest of the two, and is said to be a
+	  super-domain of <c>D2</c>. <c>D2</c> is a
+	  sub-domain <c>D1</c>. Both <c>D1</c> and <c>D2</c> are
+	  sub-domains of <c>[]</c>.</p>
+
+	<p>The above domains are used for logs originating from
+	  Erlang/OTP. D1 specifies that the log event comes from
+	  Erlang/OTP in general, and D2 indicates that the log event
+	  is a so
+	  called <seealso marker="logger_chapter#sasl_reports">SASL
+	  report</seealso>.</p>
+
+	<p>The <c><anno>Extra</anno></c> parameter to
+	  the <c>domain/2</c> function is specified when adding the
+	  filter via <seealso marker="logger#add_primary_filter-2">
+	    <c>logger:add_primary_filter/2</c></seealso>
+	  or <seealso marker="logger#add_handler_filter-3">
+	    <c>logger:add_handler_filter/3</c></seealso>.</p>
+
+	<p>The filter compares the value of the <c>domain</c> field in
+	  the log event's metadata (<c>Domain</c>) against
+	  <c><anno>MatchDomain</anno></c>. The filter matches if the
+	  value of <c>Compare</c> is:</p>
+
+	<taglist>
+	  <tag><c>sub</c></tag>
+	  <item>
+	    <p>and <c>Domain</c> is equal to or a sub-domain
+	      of <c>MatchDomain</c>, that is, if <c>MatchDomain</c> is
+	      a prefix of <c>Domain</c>.</p>
+	  </item>
+	  <tag><c>super</c></tag>
+	  <item>
+	    <p>and <c>Domain</c> is equal to or a super-domain
+	      of <c>MatchDomain</c>, that is, if <c>Domain</c> is a
+	      prefix of <c>MatchDomain</c>.</p>
+	  </item>
+	  <tag><c>equal</c></tag>
+	  <item>
+	    <p>and <c>Domain</c> is equal to <c>MatchDomain</c>.</p>
+	  </item>
+	  <tag><c>not_equal</c></tag>
+	  <item>
+	    <p>and <c>Domain</c> differs from <c>MatchDomain</c>, or
+	      if there is no domain field in metadata.</p>
+	  </item>
+	  <tag><c>undefined</c></tag>
+	  <item>
+	    <p>and there is no domain field in metadata. In this
+	      case <c><anno>MatchDomain</anno></c> must be set
+	      to <c>[]</c>.</p>
+	  </item>
+	</taglist>
+
+        <p>If the filter matches and <c><anno>Action</anno></c> is
+          <c>log</c>, the log event is allowed. If the filter matches
+          and <c><anno>Action</anno></c> is <c>stop</c>, the log event
+          is stopped.</p>
+
+	<p>If the filter does not match, it returns <c>ignore</c>,
+	  meaning that other filters, or the value of the
+	  configuration parameter <c>filter_default</c>, decide if the
+	  event is allowed or not.</p>
+
+	<p>Log events that do not contain any domain field, match only
+	  when <c><anno>Compare</anno></c> is equal
+	  to <c>undefined</c> or <c>not_equal</c>.</p>
+
+	<p>Example: stop all events with domain <c>[otp,
+	  sasl | _]</c></p>
+
+	<code>
+logger:set_handler_config(h1, filter_default, log). % this is the default
+Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
+logger:add_handler_filter(h1, no_sasl, Filter).
+ok</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="level" arity="2" since="OTP 21.0"/>
+      <fsummary>Filter log events based on the log level.</fsummary>
+      <desc>
+	  <p>This filter provides a way of filtering log events based
+	    on the log level. It matches log events by comparing the
+	    log level with a specified <c>MatchLevel</c></p>
+
+	  <p>The <c><anno>Extra</anno></c> parameter is specified when
+	    adding the filter
+	    via <seealso marker="logger#add_primary_filter-2">
+	      <c>logger:add_primary_filter/2</c></seealso>
+	    or <seealso marker="logger#add_handler_filter-3">
+	      <c>logger:add_handler_filter/3</c></seealso>.</p>
+
+	  <p>The filter compares the value of the event's log level
+	    (<c>Level</c>) to <c><anno>MatchLevel</anno></c> by
+	    calling <seealso marker="logger#compare_levels-2">
+	      <c>logger:compare_levels(Level, MatchLevel)</c></seealso>.
+	    The filter matches if the value
+	    of <c><anno>Operator</anno></c> is:</p>
+
+	  <taglist>
+	    <tag><c>neq</c></tag>
+	    <item><p>and the compare function returns <c>lt</c>
+		or <c>gt</c>.</p></item>
+	    <tag><c>eq</c></tag>
+	    <item><p>and the compare function returns <c>eq</c>.</p></item>
+	    <tag><c>lt</c></tag>
+	    <item><p>and the compare function returns <c>lt</c>.</p></item>
+	    <tag><c>gt</c></tag>
+	    <item><p>and the compare function returns <c>gt</c>.</p></item>
+	    <tag><c>lteq</c></tag>
+	    <item><p>and the compare function returns <c>lt</c>
+		or <c>eq</c>.</p></item>
+	    <tag><c>gteq</c></tag>
+	    <item><p>and the compare function returns <c>gt</c>
+		or <c>eq</c>.</p></item>
+	  </taglist>
+
+          <p>If the filter matches and <c><anno>Action</anno></c> is
+            <c>log</c>, the log event is allowed. If the filter
+            matches and <c><anno>Action</anno></c> is <c>stop</c>, the
+            log event is stopped.</p>
+
+	  <p>If the filter does not match, it returns <c>ignore</c>,
+	    meaning that other filters, or the value of the
+	    configuration parameter <c>filter_default</c>, will decide
+	    if the event is allowed or not.</p>
+
+	  <p>Example: only allow debug level log events</p>
+
+	  <code>
+logger:set_handler_config(h1, filter_default, stop).
+Filter = {fun logger_filters:level/2, {log, eq, debug}}.
+logger:add_handler_filter(h1, debug_only, Filter).
+ok</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="progress" arity="2" since="OTP 21.0"/>
+      <fsummary>Filter progress reports from supervisor and application_controller.</fsummary>
+      <desc>
+	  <p>This filter matches all progress reports
+	    from <c>supervisor</c> and <c>application_controller</c>.</p>
+
+	  <p>If <c><anno>Extra</anno></c> is <c>log</c>, the progress
+	    reports are allowed. If <c><anno>Extra</anno></c>
+	    is <c>stop</c>, the progress reports are stopped.</p>
+
+	  <p>The filter returns <c>ignore</c> for all other log events.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remote_gl" arity="2" since="OTP 21.0"/>
+      <fsummary>Filter events with group leader on remote node.</fsummary>
+      <desc>
+	  <p>This filter matches all events originating from a process
+	    that has its group leader on a remote node.</p>
+
+	  <p>If <c><anno>Extra</anno></c> is <c>log</c>, the matching
+	    events are allowed. If <c><anno>Extra</anno></c>
+	    is <c>stop</c>, the matching events are stopped.</p>
+
+	  <p>The filter returns <c>ignore</c> for all other log events.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="logger"><c>logger(3)</c></seealso>
+    </p>
+  </section>
+</erlref>
+
+

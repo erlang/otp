@@ -1,0 +1,25 @@
+
+wsp_pdu.erl:1063: The pattern [H | Hs] can never match the type []
+wsp_pdu.erl:1162: The call wsp_pdu:parse_push_flag(Value::[any()]) will never return since it differs in the 1st argument from the success typing arguments: (integer())
+wsp_pdu.erl:2400: Function decode_retry_after/2 has no local return
+wsp_pdu.erl:2403: The call wsp_pdu:d_date(Data1::binary()) will never return since it differs in the 1st argument from the success typing arguments: (integer() | {'short',binary()})
+wsp_pdu.erl:2406: Guard test is_integer(Sec::{[byte()] | byte() | {'long',binary()} | {'short',binary()},binary()}) can never succeed
+wsp_pdu.erl:2408: The pattern {'short', Data2} can never match the type {[byte()] | byte() | {'long',binary()} | {'short',binary()},binary()}
+wsp_pdu.erl:2755: Function parse_push_flag/1 has no local return
+wsp_pdu.erl:2756: The call erlang:integer_to_list(Value::[any()]) breaks the contract (Integer) -> string() when Integer :: integer()
+wsp_pdu.erl:2875: The call wsp_pdu:d_text_string(Data::byte()) will never return since it differs in the 1st argument from the success typing arguments: (binary())
+wsp_pdu.erl:2976: The call wsp_pdu:d_q_value(QData::byte()) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>>)
+wsp_pdu.erl:3336: The call wsp_pdu:encode_typed_field(Ver::any(),'Q-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3342: The call wsp_pdu:encode_typed_field(Ver::any(),'Ver-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3349: The call wsp_pdu:encode_typed_field(Ver::any(),'Integer-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3367: The call wsp_pdu:encode_typed_field(Ver::any(),'Field-name',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3405: The call wsp_pdu:encode_typed_field(Ver::any(),'Delta-seconds-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3437: The call wsp_pdu:encode_typed_field(Ver::any(),'Integer-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())
+wsp_pdu.erl:3455: The call wsp_pdu:decode_typed_field('Version-value',Data::binary(),Version::any()) will never return since it differs in the 1st argument from the success typing arguments: ('Constrained-encoding' | 'Date-value' | 'Delta-seconds-value' | 'Field-name' | 'No-value' | 'Q-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',binary(),any())
+wsp_pdu.erl:3459: The call wsp_pdu:decode_typed_field('Integer-value',Data::binary(),Version::any()) will never return since it differs in the 1st argument from the success typing arguments: ('Constrained-encoding' | 'Date-value' | 'Delta-seconds-value' | 'Field-name' | 'No-value' | 'Q-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',binary(),any())
+wsp_pdu.erl:3531: The call wsp_pdu:decode_typed_field('Integer-value',Data::binary(),Version::any()) will never return since it differs in the 1st argument from the success typing arguments: ('Constrained-encoding' | 'Date-value' | 'Delta-seconds-value' | 'Field-name' | 'No-value' | 'Q-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',binary(),any())
+wsp_pdu.erl:3593: The pattern 'Delta-Seconds-value' can never match the type 'Delta-seconds-value' | 'Field-name' | 'Integer-value' | 'No-value' | 'Q-value' | 'Ver-value'
+wsp_pdu.erl:4844: The call wsp_pdu:d_long('data') will never return since it differs in the 1st argument from the success typing arguments: (binary())
+wsp_pdu.erl:510: The variable _ can never match since previous clauses completely covered the type 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+wsp_pdu.erl:512: The variable _ can never match since previous clauses completely covered the type 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+wsp_pdu.erl:5265: Call to missing or unexported function inet:ip_to_bytes/1

@@ -1,0 +1,10 @@
+{application, appinc,
+     [{description, "Test of new app file, including appnew"},
+      {id, "CXC 138 ai"},
+      {vsn, "2.0"},
+      {applications, [kernel]},
+      {modules, []},
+      {registered, []},
+      {included_applications, [appinc1, appinc2]},
+      {start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]},
+      {mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}]}. 

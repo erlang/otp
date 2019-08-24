@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Upgrade when Erlang/OTP has Changed</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2014-02-19</date>
+    <rev></rev>
+    <file>upgrade.xml</file>
+  </header>
+  <marker id="upgrade section"></marker>
+
+  <section>
+    <title>Introduction</title>
+    <marker id="upgrade"></marker>
+    <p>As of Erlang/OTP 17, most applications deliver a valid
+      application upgrade file (<c>appup</c>). In earlier releases, a
+      majority of the applications in Erlang/OTP did not support
+      upgrade. Many of the applications use the
+      <c>restart_application</c> instruction. These are applications
+      for which it is not crucial to support real soft upgrade, for
+      example, tools and library applications. The
+      <c>restart_application</c> instruction
+      ensures that all modules in the application are reloaded and
+      thereby running the new code.</p>
+  </section>
+
+  <section>
+    <title>Upgrade of Core Applications</title>
+    <p>The core applications ERTS, Kernel, STDLIB,
+      and SASL never allow real soft upgrade, but require the
+      Erlang emulator to be restarted. This is indicated to the
+      <c>release_handler</c> by the upgrade instruction
+      <c>restart_new_emulator</c>. This instruction is always the
+      very first instruction executed, and it restarts the
+      emulator with the new versions of the above mentioned core
+      applications and the old versions of all other applications.
+      When the node is back up, all other upgrade instructions are
+      executed, making sure each application is finally running its
+      new version.</p>
+    <p>It might seem strange to do a two-step upgrade instead of
+      just restarting the emulator with the new version of all
+      applications. The reason for this design decision is to allow
+      <c>code_change</c> functions to have side effects, for example,
+      changing data on disk. It also guarantees that the upgrade
+      mechanism for non-core applications does not differ depending
+      on whether or not core applications are changed at the same time.</p>
+    <p>If, however, the more brutal variant is preferred, the
+      the release upgrade file can be handwritten using only the
+      single upgrade instruction <c>restart_emulator</c>. This
+      instruction, in contrast to <c>restart_new_emulator</c>,
+      causes the emulator to restart with the new versions of
+      <em>all</em> applications.</p>
+    <p><em>Note:</em> If other instructions are included before
+      <c>restart_emulator</c> in the handwritten <c>relup</c> file,
+      they are executed in the old emulator. This is a big risk
+      since there is no guarantee that new beam code can be loaded
+      into the old emulator. Adding instructions after
+      <c>restart_emulator</c> has no effect as the
+      <c>release_handler</c> will not execute them.</p>
+    <p>For information about the release upgrade file, see the
+      <seealso marker="sasl:relup">relup(4)</seealso> manual page
+      in SASL.
+      For more information about upgrade instructions, see the
+      <seealso marker="sasl:appup">appup(4)</seealso> manual page
+      in SASL.</p>
+  </section>
+
+  <section>
+    <title>Applications that Still do Not Allow Code Upgrade</title>
+    <p>A few applications, such as HiPE, do not support upgrade.
+      This is indicated by an application upgrade file containing only
+      <c>{Vsn,[],[]}</c>. Any attempt at creating a release upgrade file
+      with such input fails. The only way to force an upgrade involving
+      applications like this is to
+      handwrite the file <c>relup</c>, preferably as described above
+      with only the <c>restart_emulator</c> instruction.</p>
+  </section>
+</chapter>

@@ -1,0 +1,30 @@
+<<wxPrintout
+case ~s: { // wxPrintout::wxPrintout taylormade
+  int onPreparePrinting=0,onBeginPrinting=0,onEndPrinting=0,onBeginDocument=0,
+    onEndDocument=0,hasPage=0,getPageInfo=0;
+  int * titleLen = (int *) bp; bp += 4;
+  wxString title = wxString(bp, wxConvUTF8);
+  bp += *titleLen+((8-((4+ *titleLen) & 7)) & 7);
+  int onPrintPage=*(int *) bp; bp += 4;
+  while( * (int*) bp) { 
+    switch (* (int*) bp) { 
+    case 1: {bp += 4; onPreparePrinting = *(int *) bp; bp += 4;} break;
+    case 2: {bp += 4; onBeginPrinting = *(int *) bp; bp += 4;} break;
+    case 3: {bp += 4; onEndPrinting = *(int *) bp; bp += 4;} break;
+    case 4: {bp += 4; onBeginDocument = *(int *) bp; bp += 4;} break;
+    case 5: {bp += 4; onEndDocument = *(int *) bp; bp += 4;} break;
+    case 6: {bp += 4; hasPage = *(int *) bp; bp += 4;} break;
+    case 7: {bp += 4; getPageInfo = *(int *) bp; bp += 4;} break;
+    }
+  }
+  wxEPrintout *Result = new wxEPrintout(title,onPrintPage,
+					onPreparePrinting,
+					onBeginPrinting,onEndPrinting,
+					onBeginDocument,onEndDocument,
+					hasPage,getPageInfo, Ecmd.port);
+
+  rt.addRef(getRef((void *)Result,memenv), "wxPrintout");
+  break;
+}
+wxPrintout>>
+

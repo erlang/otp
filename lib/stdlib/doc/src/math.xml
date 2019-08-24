@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>math</title>
+    <prepared>Joe Armstrong</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-15</date>
+    <rev>B</rev>
+    <file>math.xml</file>
+  </header>
+  <module since="">math</module>
+  <modulesummary>Mathematical functions.</modulesummary>
+  <description>
+    <p>This module provides an interface to a number of mathematical
+      functions.</p>
+
+    <note>
+      <p>Not all functions are provided on all platforms. In particular,
+        the <seealso marker="#erf/1"><c>erf/1</c></seealso> and
+        <seealso marker="#erfc/1"><c>erfc/1</c></seealso> functions
+        are not provided on Windows.</p>
+    </note>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="acos" arity="1" since=""/>
+      <name name="acosh" arity="1" since=""/>
+      <name name="asin" arity="1" since=""/>
+      <name name="asinh" arity="1" since=""/>
+      <name name="atan" arity="1" since=""/>
+      <name name="atan2" arity="2" since=""/>
+      <name name="atanh" arity="1" since=""/>
+      <name name="ceil" arity="1" since="OTP 20.0"/>
+      <name name="cos" arity="1" since=""/>
+      <name name="cosh" arity="1" since=""/>
+      <name name="exp" arity="1" since=""/>
+      <name name="floor" arity="1" since="OTP 20.0"/>
+      <name name="fmod" arity="2" since="OTP 20.0"/>
+      <name name="log" arity="1" since=""/>
+      <name name="log10" arity="1" since=""/>
+      <name name="log2" arity="1" since="OTP 18.0"/>
+      <name name="pow" arity="2" since=""/>
+      <name name="sin" arity="1" since=""/>
+      <name name="sinh" arity="1" since=""/>
+      <name name="sqrt" arity="1" since=""/>
+      <name name="tan" arity="1" since=""/>
+      <name name="tanh" arity="1" since=""/>
+      <fsummary>Diverse math functions.</fsummary>
+      <type variable="X" name_i="6"/>
+      <type variable="Y" name_i="6"/>
+      <desc>
+        <p>A collection of mathematical functions that return floats. Arguments
+          are numbers.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="erf" arity="1" since=""/>
+      <fsummary>Error function.</fsummary>
+      <desc>
+        <p>Returns the error function of <c><anno>X</anno></c>, where:</p>
+        <pre>
+erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="erfc" arity="1" since=""/>
+      <fsummary>Another error function.</fsummary>
+      <desc>
+        <p><c>erfc(X)</c> returns <c>1.0</c> - <c>erf(X)</c>, computed by
+          methods that avoid cancellation for large <c><anno>X</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pi" arity="0" since=""/>
+      <fsummary>A useful number.</fsummary>
+      <desc>
+        <p>A useful number.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>Limitations</title>
+    <p>As these are the C library, the same limitations apply.</p>
+  </section>
+</erlref>
+

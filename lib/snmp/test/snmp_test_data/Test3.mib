@@ -1,0 +1,123 @@
+Test3 DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, snmpModules, mib-2
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    tEntry
+        FROM Test2;
+
+t3MIB MODULE-IDENTITY
+    LAST-UPDATED "1203090000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib, used to test processing of requests."
+    ::= { snmpModules 42 }
+
+
+-- Administrative assignments ****************************************
+
+t3MIBObjects     OBJECT IDENTIFIER ::= { t3MIB 1 }
+t3MIBConformance OBJECT IDENTIFIER ::= { t3MIB 2 }
+
+
+-- test4 OBJECT IDENTIFIER ::= { mib-2 18 }
+
+tAugTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TAugEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "This table AUGMENTS tTable of the Test2 MIB."
+    ::= { t3MIBObjects 1 }
+
+tAugEntry OBJECT-TYPE
+    SYNTAX     TAugEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    AUGMENTS      { tEntry }
+    ::= { tAugTable 1 }
+
+TAugEntry ::= SEQUENCE {
+    tFoo1     OCTET STRING,
+    tFoo2     OCTET STRING,
+    tBar1     Integer32,
+    tBar2     Integer32
+}
+
+tFoo1 OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A string."
+    DEFVAL { "foo 1" }
+    ::= { tAugEntry 1 }
+
+tFoo2 OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..255))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A string."
+    DEFVAL { "foo 2" }
+    ::= { tAugEntry 2 }
+
+tBar1 OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "An integer."
+    DEFVAL { 42 }
+    ::= { tAugEntry 3 }
+
+tBar2 OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An integer."
+    DEFVAL { 42 }
+    ::= { tAugEntry 4 }
+
+
+-- Conformance Information *******************************************
+
+t3MIBCompliances OBJECT IDENTIFIER
+                            ::= { t3MIBConformance 1 }
+t3MIBGroups      OBJECT IDENTIFIER
+                            ::= { t3MIBConformance 2 }
+
+-- Compliance statements
+
+t3MIBCompliance MODULE-COMPLIANCE
+    STATUS       current
+    DESCRIPTION
+        "The compliance statement for SNMP engines which
+         implement the SNMP-COMMUNITY-MIB."
+
+    MODULE       -- this module
+        MANDATORY-GROUPS { t3Group }
+
+    ::= { t3MIBCompliances 1 }
+
+t3Group OBJECT-GROUP
+    OBJECTS {
+        tFoo1,
+        tFoo2,
+        tBar1,
+        tBar2
+    }
+    STATUS       current
+    DESCRIPTION
+        "A group."
+    ::= { t3MIBGroups 1 }
+
+
+END

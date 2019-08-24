@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Funs</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>funs.xml</file>
+  </header>
+
+  <section>
+    <title>map</title>
+    <p>The following function, <c>double</c>, doubles every element in a list:</p>
+    <code type="none">
+double([H|T]) -> [2*H|double(T)];
+double([])    -> [].</code>
+    <p>Hence, the argument entered as input is doubled as follows:</p>
+    <pre>
+> <input>double([1,2,3,4]).</input>
+[2,4,6,8]</pre>
+    <p>The following function, <c>add_one</c>, adds one to every
+      element in a list:</p>
+    <code type="none">
+add_one([H|T]) -> [H+1|add_one(T)];
+add_one([])    -> [].</code>
+    <p>The functions <c>double</c> and <c>add_one</c> have a
+      similar structure. This can be used by writing a function
+      <c>map</c> that expresses this similarity:</p>
+    <codeinclude file="funs1.erl" tag="%1" type="erl"></codeinclude>
+    <p>The functions <c>double</c> and <c>add_one</c> can now be expressed
+    in terms of <c>map</c> as follows:</p>
+    <code type="none">
+double(L)  -> map(fun(X) -> 2*X end, L).
+add_one(L) -> map(fun(X) -> 1 + X end, L).</code>
+    <p><c>map(F, List)</c> is a function that takes a function
+      <c>F</c> and a list <c>L</c> as arguments and returns a new
+      list, obtained by applying <c>F</c> to each of
+      the elements in <c>L</c>.</p>
+    <p>The process of abstracting out the common features of a number
+      of different programs is called <em>procedural abstraction</em>.
+      Procedural abstraction can be used to write several
+      different functions that have a similar structure, but differ
+      in some minor detail. This is done as follows:</p>
+    <list type="ordered">
+      <item><em>Step 1.</em> Write one function that represents the common features of
+       these functions.</item>
+      <item><em>Step 2.</em> Parameterize the difference in terms of functions that
+       are passed as arguments to the common function.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>foreach</title>
+    <p>This section illustrates procedural abstraction. Initially,
+    the following two examples are written as conventional
+      functions.</p>
+      <p>This function prints all elements of a list onto a stream:</p>
+    <code type="none">
+print_list(Stream, [H|T]) ->
+    io:format(Stream, "~p~n", [H]),
+    print_list(Stream, T);
+print_list(Stream, []) ->
+    true.</code>
+     <p>This function broadcasts a message to a list of processes:</p>
+    <code type="none">
+broadcast(Msg, [Pid|Pids]) ->
+    Pid ! Msg,
+    broadcast(Msg, Pids);
+broadcast(_, []) ->
+    true.</code>
+    <p>These two functions have a similar structure. They both
+      iterate over a list and do something to each element in the list.
+      The "something" is passed on as an extra argument to
+      the function that does this.</p>
+    <p>The function <c>foreach</c> expresses this similarity:</p>
+    <codeinclude file="funs1.erl" tag="%2" type="erl"></codeinclude>
+    <p>Using the function <c>foreach</c>, the function <c>print_list</c> becomes:</p>
+    <code type="none">
+foreach(fun(H) -> io:format(S, "~p~n",[H]) end, L)</code>
+     <p>Using the function <c>foreach</c>, the function <c>broadcast</c> becomes:</p>
+    <code type="none">
+foreach(fun(Pid) -> Pid ! M end, L)</code>
+    <p><c>foreach</c> is evaluated for its side-effect and not its
+      value. <c>foreach(Fun ,L)</c> calls <c>Fun(X)</c> for each
+      element <c>X</c> in <c>L</c> and the processing occurs in
+      the order that the elements were defined in <c>L</c>.
+      <c>map</c> does not define the order in which its elements are
+      processed.</p>
+  </section>
+
+  <section>
+    <title>Syntax of Funs</title>
+    <p>Funs are written with the following syntax (see <seealso
+      marker="doc/reference_manual:expressions#funs">Fun Expressions
+      </seealso> for full description):</p>
+    <code type="none">
+F = fun (Arg1, Arg2, ... ArgN) ->
+        ...
+    end</code>
+    <p>This creates an anonymous function of <c>N</c> arguments and
+      binds it to the variable <c>F</c>.</p>
+    <p>Another function, <c>FunctionName</c>, written in the same module,
+    can be passed as an argument, using the following syntax:</p>
+    <code type="none">
+F = fun FunctionName/Arity</code>
+    <p>With this form of function reference, the function that is
+      referred to does not need to be exported from the module.</p>
+    <p>It is also possible to refer to a function defined in a different module,
+      with the following syntax:</p>
+    <code type="none">
+F = fun Module:FunctionName/Arity</code>
+    <p>In this case, the function must be exported from the module in
+      question.</p>
+    <p>The following program illustrates the different ways of creating
+      funs:</p>
+    <codeinclude file="fun_test.erl" tag="%1" type="erl"></codeinclude>
+    <p>The fun <c>F</c> can be evaluated with the following syntax:</p>
+    <code type="none">
+F(Arg1, Arg2, ..., Argn)</code>
+    <p>To check whether a term is a fun, use the test
+      <c>is_function/1</c> in a guard.</p>
+      <p><em>Example:</em></p>
+    <code type="none">
+f(F, Args) when is_function(F) ->
+   apply(F, Args);
+f(N, _) when is_integer(N) ->
+   N.</code>
+    <p>Funs are a distinct type. The BIFs <c>erlang:fun_info/1,2</c> can
+      be used to retrieve information about a fun, and the BIF
+      <c>erlang:fun_to_list/1</c> returns a textual representation of a fun.
+      The <c>check_process_code/2</c> BIF returns <c>true</c> if the process
+      contains funs that depend on the old version of a module.</p>
+  </section>
+
+  <section>
+    <title>Variable Bindings Within a Fun</title>
+    <p>The scope rules for variables that occur in funs are as
+      follows:</p>
+    <list type="bulleted">
+      <item>All variables that occur in the head of a fun are assumed
+       to be "fresh" variables.</item>
+      <item>Variables that are defined before the fun, and that
+       occur in function calls or guard tests within the fun, have
+       the values they had outside the fun.</item>
+      <item>Variables cannot be exported from a fun.</item>
+    </list>
+    <p>The following examples illustrate these rules:</p>
+    <code type="none">
+print_list(File, List) ->
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(X) -> io:format(Stream,"~p~n",[X]) end, List),
+    file:close(Stream).</code>
+    <p>Here, the variable <c>X</c>, defined in
+      the head of the fun, is a new variable. The variable
+      <c>Stream</c>, which is used within the fun, gets its value
+      from the <c>file:open</c> line.</p>
+    <p>As any variable that occurs in the head of a fun is
+      considered a new variable, it is equally valid to write
+      as follows:</p>
+    <code type="none">
+print_list(File, List) ->
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(File) -> 
+                io:format(Stream,"~p~n",[File]) 
+            end, List),
+    file:close(Stream).</code>
+    <p>Here, <c>File</c> is used as the new variable
+      instead of <c>X</c>. This is not so wise because code in the fun
+      body cannot refer to the variable <c>File</c>, which is
+      defined outside of the fun. Compiling this example gives
+      the following diagnostic:</p>
+    <code type="none">
+./FileName.erl:Line: Warning: variable 'File' 
+      shadowed in 'fun'</code>
+    <p>This indicates that the variable <c>File</c>, which is defined
+      inside the fun, collides with the variable <c>File</c>, which is
+      defined outside the fun.</p>
+    <p>The rules for importing variables into a fun has the consequence
+      that certain pattern matching operations must be moved into
+      guard expressions and cannot be written in the head of the fun.
+      For example, you might write the following code if you intend
+      the first clause of <c>F</c> to be evaluated when the value of
+      its argument is <c>Y</c>:</p>
+    <code type="none">
+f(...) ->
+    Y = ...
+    map(fun(X) when X == Y ->
+             ;
+           (_) ->
+             ...
+        end, ...)
+    ...</code>
+    <p>instead of writing the following code:</p>
+    <code type="none">
+f(...) ->
+    Y = ...
+    map(fun(Y) ->
+             ;
+           (_) ->
+             ...
+        end, ...)
+    ...</code>
+  </section>
+
+  <section>
+    <title>Funs and Module Lists</title>
+    <p>The following examples show a dialogue with the Erlang shell.
+      All the higher order functions discussed are exported from
+      the module <c>lists</c>.</p>
+
+    <section>
+      <title>map</title>
+      <p><c>map</c> takes a function of one argument and a list of terms:</p>
+      <codeinclude file="funs1.erl" tag="%1" type="erl"></codeinclude>
+      <p>It returns the list obtained by applying the function
+        to every argument in the list.</p>
+	<p>When a new fun is defined in the shell, the value of the fun
+        is printed as <c><![CDATA[Fun#<erl_eval>]]></c>:</p>
+      <pre>
+> <input>Double = fun(X) -> 2 * X end.</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>lists:map(Double, [1,2,3,4,5]).</input>
+[2,4,6,8,10]</pre>
+
+    </section>
+
+    <section>
+      <title>any</title>
+      <p><c>any</c> takes a predicate <c>P</c> of one argument and a
+        list of terms:</p>
+      <codeinclude file="funs1.erl" tag="%4" type="erl"></codeinclude>
+      <p>A predicate is a function that returns <c>true</c> or <c>false</c>.
+      <c>any</c> is <c>true</c> if there is a term <c>X</c> in the list such that
+      <c>P(X)</c> is <c>true</c>.</p>
+      <p>A predicate <c>Big(X)</c> is defined, which is <c>true</c> if
+        its argument is greater that 10:</p>
+      <pre>
+> <input>Big =  fun(X) -> if X > 10 -> true; true -> false end end.</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>lists:any(Big, [1,2,3,4]).</input>
+false
+> <input>lists:any(Big, [1,2,3,12,5]).</input>
+true</pre>
+    </section>
+
+    <section>
+      <title>all</title>
+      <p><c>all</c> has the same arguments as <c>any</c>:</p>
+      <codeinclude file="funs1.erl" tag="%3" type="erl"></codeinclude>
+      <p>It is <c>true</c>
+        if the predicate applied to all elements in the list is <c>true</c>.</p>
+      <pre>
+> <input>lists:all(Big, [1,2,3,4,12,6]).</input>   
+false
+> <input>lists:all(Big, [12,13,14,15]).</input>       
+true</pre>
+    </section>
+
+    <section>
+      <title>foreach</title>
+      <p><c>foreach</c> takes a function of one argument and a list of
+        terms:</p>
+      <codeinclude file="funs1.erl" tag="%2" type="erl"></codeinclude>
+      <p>The function is applied to each argument in the list.
+        <c>foreach</c> returns <c>ok</c>. It is only used for its
+        side-effect:</p>
+      <pre>
+> <input>lists:foreach(fun(X) -> io:format("~w~n",[X]) end, [1,2,3,4]).</input> 
+1
+2
+3
+4
+ok</pre>
+    </section>
+
+    <section>
+      <title>foldl</title>
+      <p><c>foldl</c> takes a function of two arguments, an
+        accumulator and a list:</p>
+      <codeinclude file="funs1.erl" tag="%8" type="erl"></codeinclude>
+      <p>The function is called with two
+        arguments. The first argument is the successive elements in
+        the list. The second argument is the accumulator. The function
+        must return a new accumulator, which is used the next time
+        the function is called.</p>
+      <p>If you have a list of lists <c>L = ["I","like","Erlang"]</c>,
+        then you can sum the lengths of all the strings in <c>L</c> as
+        follows:</p>
+      <pre>
+> <input>L = ["I","like","Erlang"].</input>
+["I","like","Erlang"]
+10> <input>lists:foldl(fun(X, Sum) -> length(X) + Sum end, 0, L).</input>                    
+11</pre>
+      <p><c>foldl</c> works like a <c>while</c> loop in an imperative
+        language:</p>
+      <code type="none">
+L =  ["I","like","Erlang"],
+Sum = 0,
+while( L != []){
+    Sum += length(head(L)),
+    L = tail(L)
+end</code>
+    </section>
+
+    <section>
+      <title>mapfoldl</title>
+      <p><c>mapfoldl</c> simultaneously maps and folds over a list:</p>
+      <codeinclude file="funs1.erl" tag="%10" type="erl"></codeinclude>
+      <p>The following example shows how to change all letters in
+        <c>L</c> to upper case and then count them.</p>
+      <p>First the change to upper case:</p>
+      <pre>
+> <input>Upcase =  fun(X) when $a =&lt; X,  X =&lt; $z -> X + $A - $a;</input>
+<input>(X) -> X</input> 
+<input>end.</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>Upcase_word =</input> 
+<input>fun(X) -></input> 
+<input>lists:map(Upcase, X)</input> 
+<input>end.</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>Upcase_word("Erlang").</input>
+"ERLANG"
+> <input>lists:map(Upcase_word, L).</input>
+["I","LIKE","ERLANG"]</pre>
+      <p>Now, the fold and the map can be done at the same time:</p>
+      <pre>
+> <input>lists:mapfoldl(fun(Word, Sum) -></input>
+<input>{Upcase_word(Word), Sum + length(Word)}</input>
+<input>end, 0, L).</input>
+{["I","LIKE","ERLANG"],11}</pre>
+    </section>
+
+    <section>
+      <title>filter</title>
+      <p><c>filter</c> takes a predicate of one argument and a list
+        and returns all elements in the list that satisfy
+        the predicate:</p>
+      <codeinclude file="funs1.erl" tag="%9" type="erl"></codeinclude>
+      <pre>
+> <input>lists:filter(Big, [500,12,2,45,6,7]).</input>
+[500,12,45]</pre>
+      <p>Combining maps and filters enables writing of very succinct
+        code. For example, to define a set difference
+        function <c>diff(L1, L2)</c> to be
+        the difference between the lists <c>L1</c> and <c>L2</c>,
+        the code can be written as follows:</p>
+      <code type="none">
+diff(L1, L2) -> 
+    filter(fun(X) -> not member(X, L2) end, L1).</code>
+      <p>This gives the list of all elements in L1 that are not contained
+        in L2.</p>
+	<p> The AND intersection of the list <c>L1</c> and <c>L2</c> is
+        also easily defined:</p>
+      <code type="none">
+intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
+    </section>
+
+    <section>
+      <title>takewhile</title>
+      <p><c>takewhile(P, L)</c> takes elements <c>X</c> from a list
+        <c>L</c> as long as the predicate <c>P(X)</c> is true:</p>
+      <codeinclude file="funs1.erl" tag="%5" type="erl"></codeinclude>
+      <pre>
+> <input>lists:takewhile(Big, [200,500,45,5,3,45,6]).</input>  
+[200,500,45]</pre>
+    </section>
+
+    <section>
+      <title>dropwhile</title>
+      <p><c>dropwhile</c> is the complement of <c>takewhile</c>:</p>
+      <codeinclude file="funs1.erl" tag="%6" type="erl"></codeinclude>
+      <pre>
+> <input>lists:dropwhile(Big, [200,500,45,5,3,45,6]).</input>
+[5,3,45,6]</pre>
+    </section>
+
+    <section>
+      <title>splitwith</title>
+      <p><c>splitwith(P, L)</c> splits the list <c>L</c> into the two
+        sublists <c>{L1, L2}</c>, where <c>L = takewhile(P, L)</c>
+        and <c>L2 = dropwhile(P, L)</c>:</p>
+      <codeinclude file="funs1.erl" tag="%7" type="erl"></codeinclude>
+      <pre>
+> <input>lists:splitwith(Big, [200,500,45,5,3,45,6]).</input>
+{[200,500,45],[5,3,45,6]}</pre>
+    </section>
+  </section>
+
+  <section>
+    <title>Funs Returning Funs</title>
+    <p>So far, only functions that take
+      funs as arguments have been described. More powerful
+      functions, that themselves return funs, can also be written. The following
+      examples illustrate these type of functions.</p>
+
+    <section>
+      <title>Simple Higher Order Functions</title>
+      <p><c>Adder(X)</c> is a function that given <c>X</c>, returns
+        a new function <c>G</c> such that <c>G(K)</c> returns
+        <c>K + X</c>:</p>
+      <pre>
+> <input>Adder = fun(X) -> fun(Y) -> X + Y end end.</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>Add6 = Adder(6).</input>
+#Fun&lt;erl_eval.6.72228031&gt;
+> <input>Add6(10).</input>
+16</pre>
+    </section>
+
+    <section>
+      <title>Infinite Lists</title>
+      <p>The idea is to write something like:</p>
+      <code type="none">
+-module(lazy).
+-export([ints_from/1]).
+ints_from(N) ->
+    fun() ->
+            [N|ints_from(N+1)]
+    end.</code>
+      <p>Then proceed as follows:</p>
+      <pre>
+> <input>XX = lazy:ints_from(1).</input>
+#Fun&lt;lazy.0.29874839&gt;
+> <input>XX().</input>
+[1|#Fun&lt;lazy.0.29874839&gt;]
+> <input>hd(XX()).</input>
+1
+> <input>Y = tl(XX()).</input>
+#Fun&lt;lazy.0.29874839&gt;
+> <input>hd(Y()).</input>
+2</pre>
+      <p>And so on. This is an example of "lazy embedding".</p>
+    </section>
+
+    <section>
+      <title>Parsing</title>
+      <p>The following examples show parsers of the following type:</p>
+      <pre>
+Parser(Toks) -> {ok, Tree, Toks1} | fail</pre>
+      <p><c>Toks</c> is the list of tokens to be parsed. A successful
+        parse returns <c>{ok, Tree, Toks1}</c>.</p>
+	<list type="bulleted">
+       <item><c>Tree</c> is a parse tree.</item>
+       <item><c>Toks1</c> is a tail of <c>Tree</c> that
+        contains symbols encountered after the structure that was
+        correctly parsed.</item>
+     </list>
+      <p>An unsuccessful parse returns <c>fail</c>.</p>
+      <p>The following example illustrates a simple, functional
+        parser that parses the grammar:</p>
+      <pre>
+(a | b) &amp; (c | d)</pre>
+      <p>The following code defines a function <c>pconst(X)</c> in
+        the module <c>funparse</c>, which returns a fun that parses a
+        list of tokens:</p>
+      <codeinclude file="funparse.erl" tag="%14" type="erl"></codeinclude>
+      <p>This function can be used as follows:</p>
+      <pre>
+> <input>P1 = funparse:pconst(a).</input>
+#Fun&lt;funparse.0.22674075&gt;
+> <input>P1([a,b,c]).</input>
+{ok,{const,a},[b,c]}
+> <input>P1([x,y,z]).</input>     
+fail</pre>
+      <p>Next, the two higher order functions <c>pand</c>
+        and <c>por</c> are defined. They combine primitive parsers to produce more
+        complex parsers.</p>
+	<p>First <c>pand</c>:</p>
+      <codeinclude file="funparse.erl" tag="%16" type="erl"></codeinclude>
+      <p>Given a parser <c>P1</c> for grammar <c>G1</c>, and a parser
+        <c>P2</c> for grammar <c>G2</c>, <c>pand(P1, P2)</c> returns a
+        parser for the grammar, which consists of sequences of tokens
+        that satisfy <c>G1</c>, followed by sequences of tokens that
+        satisfy <c>G2</c>.</p>
+      <p><c>por(P1, P2)</c> returns a parser for the language
+        described by the grammar <c>G1</c> or <c>G2</c>:</p>
+      <codeinclude file="funparse.erl" tag="%15" type="erl"></codeinclude>
+      <p>The original problem was to parse the grammar
+        <c><![CDATA[(a | b) & (c | d)]]></c>. The following code addresses this
+        problem:</p>
+      <codeinclude file="funparse.erl" tag="%13" type="erl"></codeinclude>
+      <p>The following code adds a parser interface to the grammar:</p>
+      <codeinclude file="funparse.erl" tag="%12" type="erl"></codeinclude>
+      <p>The parser can be tested as follows:</p>
+      <pre>
+> <input>funparse:parse([a,c]).</input>
+{ok,{'and',{'or',1,{const,a}},{'or',1,{const,c}}}}
+> <input>funparse:parse([a,d]).</input> 
+{ok,{'and',{'or',1,{const,a}},{'or',2,{const,d}}}}
+> <input>funparse:parse([b,c]).</input>   
+{ok,{'and',{'or',2,{const,b}},{'or',1,{const,c}}}}
+> <input>funparse:parse([b,d]).</input> 
+{ok,{'and',{'or',2,{const,b}},{'or',2,{const,d}}}}
+> <input>funparse:parse([a,b]).</input>   
+fail</pre>
+    </section>
+  </section>
+</chapter>
+

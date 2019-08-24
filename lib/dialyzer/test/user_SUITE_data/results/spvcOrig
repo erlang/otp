@@ -1,0 +1,193 @@
+
+spvcOrig.erl:1238: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVcc',25) can never succeed
+spvcOrig.erl:1241: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpc',20) can never succeed
+spvcOrig.erl:1244: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:1247: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVccPerm',17) can never succeed
+spvcOrig.erl:1250: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVc',6) can never succeed
+spvcOrig.erl:1253: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVp',6) can never succeed
+spvcOrig.erl:1256: Guard test is_record(Spvc::[] | #spvcObj{},'pchVc',32) can never succeed
+spvcOrig.erl:1259: Guard test is_record(Spvc::[] | #spvcObj{},'pchVp',33) can never succeed
+spvcOrig.erl:1262: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFr',21) can never succeed
+spvcOrig.erl:1265: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFrPerm',6) can never succeed
+spvcOrig.erl:1268: The pattern {If_Value, _, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:1270: The pattern {If_Value, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:1272: The pattern {If_Value, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:1274: The pattern [If_Value | _] can never match the type [] | #spvcObj{}
+spvcOrig.erl:1380: The variable _ can never match since previous clauses completely covered the type any()
+spvcOrig.erl:1389: The variable _ can never match since previous clauses completely covered the type any()
+spvcOrig.erl:1576: Guard test is_record(Row::[any(),...],'spvcObj',24) can never succeed
+spvcOrig.erl:1583: Guard test is_record(Row::[any(),...],'spvcVcc',25) can never succeed
+spvcOrig.erl:1586: Guard test is_record(Row::[any(),...],'spvcVpc',20) can never succeed
+spvcOrig.erl:1589: Guard test is_record(Row::[any(),...],'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:1592: Guard test is_record(Row::[any(),...],'spvcVccPerm',17) can never succeed
+spvcOrig.erl:1595: Guard test is_record(Row::[any(),...],'spvcTargetVc',6) can never succeed
+spvcOrig.erl:1598: Guard test is_record(Row::[any(),...],'spvcTargetVp',6) can never succeed
+spvcOrig.erl:1601: Guard test is_record(Row::[any(),...],'pchVc',32) can never succeed
+spvcOrig.erl:1604: Guard test is_record(Row::[any(),...],'pchVp',33) can never succeed
+spvcOrig.erl:1607: Guard test is_record(Row::[any(),...],'spvcFr',21) can never succeed
+spvcOrig.erl:1610: Guard test is_record(Row::[any(),...],'spvcFrPerm',6) can never succeed
+spvcOrig.erl:1613: The pattern {If_Value, _, _, _} can never match the type [any(),...]
+spvcOrig.erl:1615: The pattern {If_Value, _, _} can never match the type [any(),...]
+spvcOrig.erl:1617: The pattern {If_Value, _} can never match the type [any(),...]
+spvcOrig.erl:1621: The variable _ can never match since previous clauses completely covered the type [any(),...]
+spvcOrig.erl:1731: The pattern [_, _, _, _] can never match the type tuple()
+spvcOrig.erl:1733: The pattern [_, _, _] can never match the type tuple()
+spvcOrig.erl:1735: The pattern [_, _] can never match the type tuple()
+spvcOrig.erl:264: The pattern {If_Value, Vpi_Value} can never match the type {_,_,_}
+spvcOrig.erl:271: Guard test is_integer(Vci_Value::'no_vc') can never succeed
+spvcOrig.erl:275: The pattern {If_Value, Vpi_Value} can never match the type {_,_,'no_vc'}
+spvcOrig.erl:305: The pattern {'spvcVcc', 'targetAddress'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:307: The pattern {'spvcVcc', 'selectType'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:309: The pattern {'spvcVcc', 'targetVpi'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:311: The pattern {'spvcVcc', 'targetVci'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:313: The pattern {'spvcVcc', 'releaseCause'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:315: The pattern {'spvcVcc', 'releaseDiagnostic'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:317: The pattern {'spvcVcc', 'retryInterval'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:319: The pattern {'spvcVcc', 'retryTimer'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:321: The pattern {'spvcVcc', 'retryThreshold'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:323: The pattern {'spvcVcc', 'retryFailures'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:325: The pattern {'spvcVcc', 'retryLimit'} can never match the type {'spvcFr','rowStatus'} | {'spvcVcc','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:329: The pattern {'spvcVcc', 'restart'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:331: The pattern {'spvcVcc', 'targetSelectType_any'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:333: The pattern {'spvcVcc', 'targetSelectType_required'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:335: The pattern {'spvcVpc', 'targetAddress'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:337: The pattern {'spvcVpc', 'selectType'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:339: The pattern {'spvcVpc', 'targetVpi'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:341: The pattern {'spvcVpc', 'releaseCause'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:343: The pattern {'spvcVpc', 'releaseDiagnostic'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:345: The pattern {'spvcVpc', 'retryInterval'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:347: The pattern {'spvcVpc', 'retryTimer'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:349: The pattern {'spvcVpc', 'retryThreshold'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:351: The pattern {'spvcVpc', 'retryFailures'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:353: The pattern {'spvcVpc', 'retryLimit'} can never match the type {'spvcFr','rowStatus'} | {'spvcVpc','rowStatus'}
+spvcOrig.erl:357: The pattern {'spvcVpc', 'restart'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:359: The pattern {'spvcVpc', 'targetSelectType_any'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:361: The pattern {'spvcVpc', 'targetSelectType_required'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:363: The pattern {'spvcFr', 'targetAddress'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:365: The pattern {'spvcFr', 'selectType'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:367: The pattern {'spvcFr', 'identifier'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:369: The pattern {'spvcFr', 'targetVpi'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:371: The pattern {'spvcFr', 'targetVci'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:373: The pattern {'spvcFr', 'translation'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:375: The pattern {'spvcFr', 'releaseCause'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:377: The pattern {'spvcFr', 'releaseDiagnostic'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:379: The pattern {'spvcFr', 'operStatus'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:381: The pattern {'spvcFr', 'adminStatus'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:383: The pattern {'spvcFr', 'restart'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:385: The pattern {'spvcFr', 'retryInterval'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:387: The pattern {'spvcFr', 'retryTimer'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:389: The pattern {'spvcFr', 'retryThreshold'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:391: The pattern {'spvcFr', 'retryFailures'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:393: The pattern {'spvcFr', 'retryLimit'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:395: The pattern {'spvcFr', 'lastChange'} can never match the type {'spvcFr','rowStatus'}
+spvcOrig.erl:404: Guard test is_record(Row::[any(),...],'spvcObj',24) can never succeed
+spvcOrig.erl:411: Guard test is_record(Row::[any(),...],'spvcVcc',25) can never succeed
+spvcOrig.erl:414: Guard test is_record(Row::[any(),...],'spvcVpc',20) can never succeed
+spvcOrig.erl:417: Guard test is_record(Row::[any(),...],'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:420: Guard test is_record(Row::[any(),...],'spvcVccPerm',17) can never succeed
+spvcOrig.erl:423: Guard test is_record(Row::[any(),...],'spvcTargetVc',6) can never succeed
+spvcOrig.erl:426: Guard test is_record(Row::[any(),...],'spvcTargetVp',6) can never succeed
+spvcOrig.erl:429: Guard test is_record(Row::[any(),...],'pchVc',32) can never succeed
+spvcOrig.erl:432: Guard test is_record(Row::[any(),...],'pchVp',33) can never succeed
+spvcOrig.erl:435: Guard test is_record(Row::[any(),...],'spvcFr',21) can never succeed
+spvcOrig.erl:438: Guard test is_record(Row::[any(),...],'spvcFrPerm',6) can never succeed
+spvcOrig.erl:441: The pattern {If_Value, _, _, _} can never match the type [any(),...]
+spvcOrig.erl:443: The pattern {If_Value, _, _} can never match the type [any(),...]
+spvcOrig.erl:445: The pattern {If_Value, _} can never match the type [any(),...]
+spvcOrig.erl:449: The variable _ can never match since previous clauses completely covered the type [any(),...]
+spvcOrig.erl:468: Guard test is_record(Row::[any(),...],'spvcObj',24) can never succeed
+spvcOrig.erl:475: Guard test is_record(Row::[any(),...],'spvcVcc',25) can never succeed
+spvcOrig.erl:478: Guard test is_record(Row::[any(),...],'spvcVpc',20) can never succeed
+spvcOrig.erl:481: Guard test is_record(Row::[any(),...],'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:484: Guard test is_record(Row::[any(),...],'spvcVccPerm',17) can never succeed
+spvcOrig.erl:487: Guard test is_record(Row::[any(),...],'spvcTargetVc',6) can never succeed
+spvcOrig.erl:490: Guard test is_record(Row::[any(),...],'spvcTargetVp',6) can never succeed
+spvcOrig.erl:493: Guard test is_record(Row::[any(),...],'pchVc',32) can never succeed
+spvcOrig.erl:496: Guard test is_record(Row::[any(),...],'pchVp',33) can never succeed
+spvcOrig.erl:499: Guard test is_record(Row::[any(),...],'spvcFr',21) can never succeed
+spvcOrig.erl:502: Guard test is_record(Row::[any(),...],'spvcFrPerm',6) can never succeed
+spvcOrig.erl:505: The pattern {If_Value, _, _, _} can never match the type [any(),...]
+spvcOrig.erl:507: The pattern {If_Value, _, _} can never match the type [any(),...]
+spvcOrig.erl:509: The pattern {If_Value, _} can never match the type [any(),...]
+spvcOrig.erl:513: The variable _ can never match since previous clauses completely covered the type [any(),...]
+spvcOrig.erl:546: The pattern {_, _, _, _} can never match the type [any(),...]
+spvcOrig.erl:548: The pattern {_, _, _} can never match the type [any(),...]
+spvcOrig.erl:550: The pattern {_, _} can never match the type [any(),...]
+spvcOrig.erl:559: The pattern {'spvcVcc', 'targetAddress'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:561: The pattern {'spvcVcc', 'selectType'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:563: The pattern {'spvcVcc', 'targetVpi'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:565: The pattern {'spvcVcc', 'targetVci'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:567: The pattern {'spvcVcc', 'releaseCause'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:569: The pattern {'spvcVcc', 'releaseDiagnostic'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:571: The pattern {'spvcVcc', 'retryInterval'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:573: The pattern {'spvcVcc', 'retryTimer'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:575: The pattern {'spvcVcc', 'retryThreshold'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:577: The pattern {'spvcVcc', 'retryFailures'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:579: The pattern {'spvcVcc', 'retryLimit'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:581: The pattern {'spvcVcc', 'rowStatus'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:585: The pattern {'spvcVcc', 'targetSelectType_any'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:587: The pattern {'spvcVcc', 'targetSelectType_required'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:589: The pattern {'spvcVpc', 'targetAddress'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:591: The pattern {'spvcVpc', 'selectType'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:593: The pattern {'spvcVpc', 'targetVpi'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:595: The pattern {'spvcVpc', 'releaseCause'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:597: The pattern {'spvcVpc', 'releaseDiagnostic'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:599: The pattern {'spvcVpc', 'retryInterval'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:601: The pattern {'spvcVpc', 'retryTimer'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:603: The pattern {'spvcVpc', 'retryThreshold'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:605: The pattern {'spvcVpc', 'retryFailures'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:607: The pattern {'spvcVpc', 'retryLimit'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:609: The pattern {'spvcVpc', 'rowStatus'} can never match the type {'spvcFr','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:613: The pattern {'spvcVpc', 'targetSelectType_any'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:615: The pattern {'spvcVpc', 'targetSelectType_required'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:617: The pattern {'spvcFr', 'targetAddress'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:619: The pattern {'spvcFr', 'selectType'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:621: The pattern {'spvcFr', 'identifier'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:623: The pattern {'spvcFr', 'targetVpi'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:625: The pattern {'spvcFr', 'targetVci'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:627: The pattern {'spvcFr', 'translation'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:629: The pattern {'spvcFr', 'releaseCause'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:631: The pattern {'spvcFr', 'releaseDiagnostic'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:633: The pattern {'spvcFr', 'operStatus'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:635: The pattern {'spvcFr', 'adminStatus'} can never match the type {'spvcFr','restart'}
+spvcOrig.erl:639: The pattern {'spvcFr', 'retryInterval'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:641: The pattern {'spvcFr', 'retryTimer'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:643: The pattern {'spvcFr', 'retryThreshold'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:645: The pattern {'spvcFr', 'retryFailures'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:647: The pattern {'spvcFr', 'retryLimit'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:649: The pattern {'spvcFr', 'lastChange'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:651: The pattern {'spvcFr', 'rowStatus'} can never match the type {'spvcFr','restart'} | {'spvcVcc','restart'} | {'spvcVpc','restart'}
+spvcOrig.erl:730: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVcc',25) can never succeed
+spvcOrig.erl:733: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpc',20) can never succeed
+spvcOrig.erl:736: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:739: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVccPerm',17) can never succeed
+spvcOrig.erl:742: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVc',6) can never succeed
+spvcOrig.erl:745: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVp',6) can never succeed
+spvcOrig.erl:748: Guard test is_record(Spvc::[] | #spvcObj{},'pchVc',32) can never succeed
+spvcOrig.erl:751: Guard test is_record(Spvc::[] | #spvcObj{},'pchVp',33) can never succeed
+spvcOrig.erl:754: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFr',21) can never succeed
+spvcOrig.erl:757: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFrPerm',6) can never succeed
+spvcOrig.erl:760: The pattern {If_Value, _, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:762: The pattern {If_Value, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:764: The pattern {If_Value, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:766: The pattern [If_Value | _] can never match the type [] | #spvcObj{}
+spvcOrig.erl:802: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVcc',25) can never succeed
+spvcOrig.erl:805: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpc',20) can never succeed
+spvcOrig.erl:808: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVpcPerm',12) can never succeed
+spvcOrig.erl:811: Guard test is_record(Spvc::[] | #spvcObj{},'spvcVccPerm',17) can never succeed
+spvcOrig.erl:814: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVc',6) can never succeed
+spvcOrig.erl:817: Guard test is_record(Spvc::[] | #spvcObj{},'spvcTargetVp',6) can never succeed
+spvcOrig.erl:820: Guard test is_record(Spvc::[] | #spvcObj{},'pchVc',32) can never succeed
+spvcOrig.erl:823: Guard test is_record(Spvc::[] | #spvcObj{},'pchVp',33) can never succeed
+spvcOrig.erl:826: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFr',21) can never succeed
+spvcOrig.erl:829: Guard test is_record(Spvc::[] | #spvcObj{},'spvcFrPerm',6) can never succeed
+spvcOrig.erl:832: The pattern {If_Value, _, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:834: The pattern {If_Value, _, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:836: The pattern {If_Value, _} can never match the type [] | #spvcObj{}
+spvcOrig.erl:838: The pattern [If_Value | _] can never match the type [] | #spvcObj{}
+spvcOrig.erl:951: The pattern [IfIndex_Value, Vpi_Value, Vci_Value, _] can never match the type tuple()
+spvcOrig.erl:953: The pattern [IfIndex_Value, Vpi_Value, _] can never match the type tuple()
+spvcOrig.erl:974: The pattern [IfIndex_Value, Vpi_Value, Vci_Value, _] can never match the type tuple()
+spvcOrig.erl:976: The pattern [IfIndex_Value, Vpi_Value, _] can never match the type tuple()
+spvcOrig.erl:996: The pattern [IfIndex_Value, Vpi_Value, Vci_Value, _] can never match the type tuple()
+spvcOrig.erl:998: The pattern [IfIndex_Value, Vpi_Value, _] can never match the type tuple()

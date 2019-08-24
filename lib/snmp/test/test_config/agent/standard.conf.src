@@ -1,0 +1,21 @@
+%% This file defines the STANDARD-MIB info.
+%% Each row is a 2-tuple:
+%% {StandardVariable, Value}.
+%% For example
+%% {sysDescr, "Erlang SNMP agent"}.
+%% {sysObjectID, [1,2,3]}.
+%% {sysContact, "foo@bar.ericsson.se"}.
+%% {sysName, "test"}.
+%% {sysLocation, "erlang"}.
+%% {sysServices, 72}.
+%% {snmpEnableAuthenTraps, enabled}.
+%%
+
+
+{sysDescr,              "Erlang SNMP agent"}.
+{sysObjectID,           [1,2,3]}.
+{sysContact,            "%SYS_CONTACT%"}.
+{sysLocation,           "%SYS_LOCATION%"}.
+{sysServices,           72}.
+{snmpEnableAuthenTraps, disabled}.
+{sysName,               "%SYS_NAME%"}.

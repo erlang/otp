@@ -1,0 +1,186 @@
+<mim xmlns="http://www.ericsson.com/is/isco/mim/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ericsson.com/is/isco/mim/2.0 /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/doc/15519/mim.xsd ">
+   <exception name="dummyException">
+    <description>
+      Exception description
+    </description>
+    <exceptionParameter name="dummyExcPar1">
+      <description>
+	Exception parameter description
+      </description>
+      <dataType><integer/></dataType>
+    </exceptionParameter>
+    <exceptionParameter name="dummyExcPar2">
+      <description>
+	Exception parameter description
+      </description>
+      <dataType>
+	<integer/>
+      </dataType>
+    </exceptionParameter>
+  </exception>
+
+	
+	 <class name="DummyActions">
+		 <singleton/>
+		 <attribute name="dummy">
+			 <dataType><integer/></dataType>
+		 </attribute>
+    <action name="actNoParams">
+      <description>
+	Action with no parameters
+      </description>
+      <returnType>
+	<description>
+	  Maybe strange to describe void, but here is a description anyway.
+	</description>
+	<void/>
+      </returnType>
+    </action>
+    <action name="actOneParam">
+      <description>
+	Action with one parameter
+      </description>
+      <returnType>
+	<dataType>
+	  <string>
+	    <validValues>
+	      <value name="ok"/>
+	      <value name="error"/>
+	    </validValues>
+	  </string>
+	</dataType>
+      </returnType>
+      <parameter name="a">
+	<dataType>
+	  <integer>
+	    <range>
+	      <min>0</min>
+	      <max>3</max>
+	    </range>
+	  </integer>
+	</dataType>
+      </parameter>
+    </action>
+    <action name="actManyParams">
+      <description>
+	Action with many parameters, even some optional
+      </description>
+      <returnType>
+	<dataType>
+	  <integer>
+	    <range>
+	      <min>0</min>
+	      <max>100</max>
+	    </range>
+	  </integer>
+	</dataType>
+      </returnType>
+      <parameter name="a">
+	<dataType>
+	  <integer>
+	    <range>
+	      <min>0</min>
+	      <max>3</max>
+	    </range>
+	  </integer>
+	</dataType>
+      </parameter>
+      <parameter name="b">
+	<dataType>
+	  <integer>
+	    <range>
+	      <min>0</min>
+	      <max>3</max>
+	    </range>
+	  </integer>
+	</dataType>
+      </parameter>
+      <parameter name="c">
+	<dataType>
+	  <integer>
+	    <range>
+	      <min>0</min>
+	      <max>3</max>
+	    </range>
+	  </integer>
+	</dataType>
+	<initialValue>0</initialValue>
+	<isOptional/>
+      </parameter>
+      <parameter name="d">
+	<description>parameterdescription</description>
+	<dataType>
+	  <integer/>
+	</dataType>
+	<isOptional/>
+      </parameter>
+    </action>
+    <action name="actComplexParams">
+      <description>
+	Action with parameters with complex datatypes
+      </description>
+      <returnType>
+		  <description>
+			  Here is a description of the return value for this action.
+		  </description>
+		  <dataType>
+			  <string>
+				  <validValues>
+					  <value name="siri"/>
+					  <value name="sara"/>
+				  </validValues>
+			  </string>
+		  </dataType>
+	  </returnType>
+      <parameter name="dummyParameter">
+		  <dataType><integer/></dataType>
+      </parameter>
+      <parameter name="structParameter">
+	<dataType>
+	  <struct>
+	    <structMember name="a">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	    <structMember name="b">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	  </struct>
+	</dataType>
+      </parameter>
+      <raisesException name="dummyException"/>
+    </action>
+    <action name="actComplexReturn">
+      <returnType>
+	<dataType>
+	  <struct>
+	    <structMember name="a">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	    <structMember name="b">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	  </struct>
+	</dataType>
+      </returnType>
+    </action>
+    <action name="actException">
+      <returnType>
+	<void/>
+      </returnType>
+      <raisesException name="dummyException"/>
+    </action>
+  </class>
+
+
+  <relationship name="Top">
+    <containment>
+      <parent>
+	<hasClass name="top_mim:Is"/>
+      </parent>
+      <child>
+	<hasClass name="DummyActions"/>
+      </child>
+    </containment>
+  </relationship>
+
+</mim>

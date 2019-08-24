@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_ftp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_ftp.xml</file>
+  </header>
+  <module since="">ct_ftp</module>
+  <modulesummary>FTP client module (based on the FTP application).</modulesummary>
+
+  <description>
+
+    <p>FTP client module (based on the <c>ftp</c> application).</p>
+
+  </description>
+
+  <section>
+    <title>Data Types</title>
+    <marker id="types"/>
+    <taglist>
+      <tag><c>connection() = handle() | target_name()</c></tag>
+        <item><marker id="type-connection"/>
+          <p>For <c>target_name</c>, see module
+            <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+
+      <tag><c>handle() = handle()</c></tag>
+        <item><marker id="type-handle"/>
+          <p>Handle for a specific FTP connection, see module
+            <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+    </taglist>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="">cd(Connection, Dir) -&gt; ok | {error, Reason}</name>
+      <fsummary>Changes directory on remote host.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>Dir = string()</v>
+      </type>
+      <desc><marker id="cd-2"/>
+        <p>Changes directory on remote host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">close(Connection) -&gt; ok | {error, Reason}</name>
+      <fsummary>Closes the FTP connection.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+      </type>
+      <desc><marker id="close-1"/>
+        <p>Closes the FTP connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">delete(Connection, File) -&gt; ok | {error, Reason}</name>
+      <fsummary>Deletes a file on remote host.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>File = string()</v>
+      </type>
+      <desc><marker id="delete-2"/>
+        <p>Deletes a file on remote host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get(KeyOrName, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Opens an FTP connection and fetches a file from the remote
+        host.</fsummary>
+      <type>
+        <v>KeyOrName = Key | Name</v>
+        <v>Key = atom()</v>
+        <v>Name = target_name()</v>
+        <v>RemoteFile = string()</v>
+        <v>LocalFile = string()</v>
+      </type>
+      <desc><marker id="get-3"/>
+        <p>Opens an FTP connection and fetches a file from the remote
+          host.</p>
+
+        <p><c>RemoteFile</c> and <c>LocalFile</c> must be absolute paths.</p>
+
+        <p>The configuration file must be as for
+          <seealso marker="#put-3"><c>ct_ftp:put/3</c></seealso>.</p>
+
+        <p>For <c>target_name</c>, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p>
+
+        <p>See also
+          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ls(Connection, Dir) -&gt; {ok, Listing} | {error, Reason}</name>
+      <fsummary>Lists directory Dir.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>Dir = string()</v>
+        <v>Listing = string()</v>
+      </type>
+      <desc><marker id="ls-2"/>
+        <p>Lists directory <c>Dir</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">open(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
+      <fsummary>Opens an FTP connection to the specified node.</fsummary>
+      <type>
+        <v>KeyOrName = Key | Name</v>
+        <v>Key = atom()</v>
+        <v>Name = target_name()</v>
+        <v>Handle = handle()</v>
+      </type>
+      <desc><marker id="open-1"/>
+        <p>Opens an FTP connection to the specified node.</p>
+
+        <p>You can open a connection for a particular <c>Name</c> and use the
+          same name as reference for all following subsequent operations.
+          If you want
+          the connection to be associated with <c>Handle</c> instead (if you,
+          for example, need to open multiple connections to a host), use
+          <c>Key</c>, the configuration variable name, to specify the target.
+          A connection without an associated target name can only be closed
+          with the handle value.</p>
+
+        <p>For information on how to create a new <c>Name</c>, see
+          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+
+        <p>For <c>target_name</c>, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">put(KeyOrName, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Opens an FTP connection and sends a file to the remote
+        host.</fsummary>
+      <type>
+        <v>KeyOrName = Key | Name</v>
+        <v>Key = atom()</v>
+        <v>Name = target_name()</v>
+        <v>LocalFile = string()</v>
+        <v>RemoteFile = string()</v>
+      </type>
+      <desc><marker id="put-3"/>
+        <p>Opens an FTP connection and sends a file to the remote host.</p>
+
+        <p><c>LocalFile</c> and <c>RemoteFile</c> must be absolute paths.</p>
+
+        <p>For <c>target_name</c>, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p>
+
+        <p>If the target host is a "special" node, the FTP address must be
+          specified in the configuration file as follows:</p>
+
+        <pre>
+ {node,[{ftp,IpAddr}]}.</pre>
+
+        <p>If the target host is something else, for example, a UNIX host,
+          the configuration file must also include the username and password
+          (both strings):</p>
+
+        <pre>
+ {unix,[{ftp,IpAddr},
+        {username,Username},
+        {password,Password}]}.</pre>
+
+        <p>See also
+          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">recv(Connection, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Fetches a file over FTP.</fsummary>
+      <desc><marker id="recv-2"/>
+        <p>Fetches a file over FTP.</p>
+
+        <p>The file gets the same name on the local host.</p>
+
+        <p>See also <seealso marker="#recv-3"><c>ct_ftp:recv/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">recv(Connection, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Fetches a file over FTP.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>RemoteFile = string()</v>
+        <v>LocalFile = string()</v>
+      </type>
+      <desc><marker id="recv-3"/>
+        <p>Fetches a file over FTP.</p>
+
+        <p>The file is named <c>LocalFile</c> on the local host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">send(Connection, LocalFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Sends a file over FTP.</fsummary>
+      <desc><marker id="send-2"/>
+        <p>Sends a file over FTP.</p>
+
+        <p>The file gets the same name on the remote host.</p>
+
+        <p>See also
+          <seealso marker="#send-3"><c>ct_ftp:send/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">send(Connection, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <fsummary>Sends a file over FTP.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>LocalFile = string()</v>
+        <v>RemoteFile = string()</v>
+      </type>
+      <desc><marker id="send-3"/>
+        <p>Sends a file over FTP.</p>
+
+        <p>The file is named <c>RemoteFile</c> on the remote host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">type(Connection, Type) -&gt; ok | {error, Reason}</name>
+      <fsummary>Changes the file transfer type.</fsummary>
+      <type>
+        <v>Connection = connection()</v>
+        <v>Type = ascii | binary</v>
+      </type>
+      <desc><marker id="type-2"/>
+        <p>Changes the file transfer type.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

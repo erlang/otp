@@ -1,0 +1,115 @@
+-- **************************************************************
+--
+-- Information Element Definitions
+--
+-- **************************************************************
+
+Param -- { object identifier to be allocated }-- 
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- A
+
+Criticality		::= ENUMERATED { reject, ignore, notify }
+
+Presence		::= ENUMERATED { optional, conditional, mandatory }
+
+ProtocolExtensionID	::= INTEGER (0..65535)
+
+RANAP-PROTOCOL-EXTENSION ::= CLASS {
+	&id				ProtocolExtensionID 				UNIQUE,
+	&criticality			Criticality,
+	&Extension,
+	&presence		Presence
+}
+WITH SYNTAX {
+	ID				&id
+	CRITICALITY			&criticality
+	EXTENSION			&Extension
+	PRESENCE		&presence
+}
+
+ProtocolExtensionContainer {RANAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= 
+	SEQUENCE (SIZE (1..10)) OF
+	ProtocolExtensionField {{ExtensionSetParam}}
+
+ProtocolExtensionField {RANAP-PROTOCOL-EXTENSION : ExtensionSetParam} ::= SEQUENCE {
+	id  RANAP-PROTOCOL-EXTENSION.&id	({ExtensionSetParam}),
+	criticality  RANAP-PROTOCOL-EXTENSION.&criticality ({ExtensionSetParam}{@id}),
+	extensionValue	RANAP-PROTOCOL-EXTENSION.&Extension ({ExtensionSetParam}{@id})
+}
+
+
+AllocationOrRetentionPriority ::= SEQUENCE {
+	priorityLevel			BOOLEAN,
+	iE-Extensions			ProtocolExtensionContainer { {AllocationOrRetentionPriority-ExtIEs} } OPTIONAL,
+	...
+}
+
+AllocationOrRetentionPriority-ExtIEs RANAP-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+obj1 RANAP-PROTOCOL-EXTENSION ::= {
+	ID id-one
+	CRITICALITY ignore
+	EXTENSION INTEGER
+	PRESENCE optional
+}
+
+obj2 RANAP-PROTOCOL-EXTENSION ::= {
+	ID id-two
+	CRITICALITY ignore
+	EXTENSION BOOLEAN
+	PRESENCE optional
+}
+
+id-one		INTEGER ::= 1
+id-two		INTEGER ::= 2
+
+-- The following code for test of OTP-4242, ValueFromObject 
+-- Similar use as in the Camel spec
+
+CONFIG-DATA ::= CLASS {
+  &minLevel   INTEGER,
+  &maxLevel   INTEGER
+}
+WITH SYNTAX {
+  MINLEVEL &minLevel
+  MAXLEVEL &maxLevel
+}
+
+config-data CONFIG-DATA ::= {MINLEVEL 1 MAXLEVEL 3}
+
+OS1 ::= OCTET STRING (SIZE (config-data.&minLevel .. config-data.&maxLevel))
+
+POS2 {CONFIG-DATA:obj} ::= OCTET STRING (SIZE(obj.&minLevel .. obj.&maxLevel))
+
+OS2 ::= POS2 {config-data}
+
+--
+-- Test a CLASS without the user-friendly syntax.
+--
+
+CL ::= CLASS {
+  &code INTEGER UNIQUE,
+  &Data
+}
+
+P{T} ::= CHOICE { a INTEGER, b T }
+
+o1 CL ::= {
+   &code 42,
+   &Data P{BOOLEAN}
+}
+
+SetCL CL ::= { o1 }
+
+Scl ::= SEQUENCE {
+    code CL.&code ({SetCL}),
+    data CL.&Data ({SetCL}{@code})
+}
+
+END
+

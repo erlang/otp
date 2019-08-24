@@ -1,0 +1,157 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%%% indentation of if case receive statements
+
+%%% Not everything in these test are set in stone
+%%% better indentation rules can be added but by having
+%%% these tests we can see what changes in new implementations
+%%% and notice when doing unintentional changes
+
+indent_if(1, Z) ->
+    %% If
+    if Z >= 0 ->
+            X = 43 div Z,
+            X;
+       Z =< 10 ->
+            X = 43 div Z,
+            X;
+       Z == 5 orelse
+       Z == 7 ->
+            X = 43 div Z,
+            X;
+       is_number(Z),
+       Z < 32 ->
+            Z;
+       is_number(Z);
+       Z < 32 ->
+            Z * 32;
+       true ->
+            if_works
+    end;
+indent_if(2, Z) ->
+    %% If
+    if
+        Z >= 0 ->
+            X = 43 div Z,
+            X
+      ; Z =< 10 ->
+            43 div Z
+      ; Z == 5 orelse
+        Z == 7 ->
+            X = 43 div Z,
+            X
+      ; is_number(Z),
+        Z < 32 ->
+            Z
+      ; true ->
+            if_works
+    end.
+
+indent_case(1, Z) ->
+    %% Case
+    case {Z, foo, bar} of
+        {Z,_,_} ->
+            X = 43 div 4,
+            foo(X);
+        {Z,_,_}	when
+              Z =:= 42 ->                       % line should be indented as a when
+            X = 43 div 4,
+            foo(X);
+        {Z,_,_}
+          when   Z < 10 orelse
+                 Z =:= foo ->			% Binary op alignment here !!!
+            X = 43 div 4,
+            Bool = Z < 5 orelse                 % Binary op args align differently after when
+                Z =:= foo,                      % and elsewhere ???
+            foo(X);
+        {Z,_,_}
+          when					% when should be indented
+              Z < 10				% and the guards should follow when
+              andalso				% unsure about how though
+              true ->
+            X = 43 div 4,
+            foo(X)
+    end;
+indent_case(2, Z) ->
+    %% Case
+    case {Z, foo, bar} of
+        {Z,_,_} ->
+            X = 43 div 4,
+            foo(X)
+      ; {Z,_,_}	when
+              Z =:= 42 ->                       % line should be indented as a when
+            X = 43 div 4,
+            foo(X)
+      ; {Z,_,_}
+          when Z < 10 ->			% when should be indented
+            X = 43 div 4,
+            foo(X)
+      ; {Z,_,_}
+          when					% when should be indented
+              Z < 10				% and the guards should follow when
+              andalso				% unsure about how though
+              true ->
+            X = 43 div 4,
+            foo(X)
+    end.
+
+indent_begin(Z) ->
+    %% Begin
+    begin
+        sune,
+        Z = 74234 +
+            foo(8456) +
+            345 div 43,
+        Foo = begin
+                  ok,
+                  foo(234),
+                  begin
+                      io:format("Down here\n")
+                  end
+              end,
+        {Foo,
+         bar}
+    end.
+
+indent_receive(1) ->
+    %% receive
+    receive
+        {Z,_,_} ->
+            X = 43 div 4,
+            foo(X)
+      ; Z ->
+            X = 43 div 4,
+            foo(X)
+    end,
+    ok;
+indent_receive(2) ->
+    receive
+        {Z,_,_} ->
+            X = 43 div 4,
+            foo(X);
+        Z 					% added clause
+          when Z =:= 1 ->			% This line should be indented by 2
+            X = 43 div 4,
+            foo(X);
+        Z when					% added clause
+              Z =:= 2 ->			% This line should be indented by 2
+            X = 43 div 4,
+            foo(X);
+        Z ->
+            X = 43 div 4,
+            foo(X)
+    after infinity ->
+            foo(X),
+            asd(X),
+            5*43
+    end,
+    ok;
+indent_receive() ->
+    receive
+    after 10 ->
+            foo(X),
+            asd(X),
+            5*43
+    end,
+    ok.

@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>os_sup</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">os_sup</module>
+  <modulesummary>Interface to OS System Messages</modulesummary>
+  <description>
+    <p><c>os_sup</c> is a process providing a message passing service
+      from the operating system to the error logger in the Erlang
+      runtime system. It is part of the OS_Mon application, see
+      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for
+      Solaris and Windows.</p>
+    <p>Messages received from the operating system results in an
+      user defined callback function being called. This function can do
+      whatever filtering and formatting is necessary and then deploy any
+      type of logging suitable for the user's application.</p>
+  </description>
+
+  <section>
+    <title>Solaris Operation</title>
+    <p>The Solaris (SunOS 5.x) messages are retrieved from
+      the syslog-daemon, <c>syslogd</c>.</p>
+    <p>Enabling the service includes actions which require root
+      privileges, such as change of ownership and file privileges of an
+      executable binary file, and creating a modified copy of
+      the configuration file for <c>syslogd</c>. When <c>os_sup</c> is
+      terminated, the service must be disabled, meaning the original
+      configuration must be restored. Enabling/disabling can be done
+      either outside or inside <c>os_sup</c>, see
+      <seealso marker="#config">Configuration</seealso> below.</p>
+    <warning>
+      <p>This process cannot run in multiple instances on the same
+        hardware. OS_Mon must be configured to start <c>os_sup</c> on
+        one node only if two or more Erlang nodes execute on the same
+        machine.</p>
+    </warning>
+    <p>The format of received events is not defined.</p>
+  </section>
+
+  <section>
+    <title>Windows Operation</title>
+    <p>The Windows messages are retrieved from the eventlog file.</p>
+    <p>The <c>nteventlog</c> module is used to implement <c>os_sup</c>.
+      See <seealso marker="nteventlog">nteventlog(3)</seealso>. Note
+      that the start functions of <c>nteventlog</c> does not need to be
+      used, in this case the process is started automatically as part of
+      the OS_Mon supervision tree.</p>
+    <p>OS messages are formatted as a tuple
+      <c>{Time, Category, Facility, Severity, Message}</c>:</p>
+    <taglist>
+      <tag><c>Time = {MegaSecs, Secs, MicroSecs}</c></tag>
+      <item>
+        <p>A time stamp as returned by the BIF <c>now()</c>.</p>
+      </item>
+      <tag><c>Category = string()</c></tag>
+      <item>
+        <p>Usually one of <c>"System"</c>, <c>"Application"</c> or
+          <c>"Security"</c>. Note that the NT eventlog viewer has
+          another notion of category, which in most cases is totally
+          meaningless and therefore not imported into Erlang. What is
+          called a category here is one of the main three types of
+          events occurring in a normal NT system.</p>
+      </item>
+      <tag><c>Facility = string()</c></tag>
+      <item>
+        <p>The source of the message, usually the name of
+          the application that generated it. This could be almost any
+          string. When matching messages from certain applications,
+          the version number of the application may have to be
+          accounted for. This is what the NT event viewer calls
+          "source".</p>
+      </item>
+      <tag><c>Severity = string()</c></tag>
+      <item>
+        <p>One of <c>"Error"</c>, <c>"Warning"</c>,
+          <c>"Informational"</c>, <c>"Audit_Success"</c>,
+          <c>"Audit_Faulure"</c> or, in case of a currently unknown
+          Windows NT version <c>"Severity_Unknown"</c>.</p>
+      </item>
+      <tag><c>Message = string()</c></tag>
+      <item>
+        <p>Formatted exactly as it would be in the NT eventlog viewer.
+          Binary data is not imported into Erlang.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="config"></marker>
+    <title>Configuration</title>
+    <taglist>
+      <tag><c>os_sup_mfa = {Module, Function, Args}</c></tag>
+      <item>
+        <p>The callback function to use. <c>Module</c> and
+          <c>Function</c> are atoms and <c>Args</c> is a list of terms.
+          When an OS message <c>Msg</c> is received, this function is
+          called as <c>apply(Module, Function, [Msg | Args])</c>.</p>
+        <p>Default is <c>{os_sup, error_report, [Tag]}</c> which will
+          send the event to the error logger using
+          <seealso marker="kernel:error_logger#error_report/2">error_logger:error_report(Tag, Msg)</seealso>. <c>Tag</c> is the value of
+          <c>os_sup_errortag</c>, see below.</p>
+      </item>
+      <tag><c>os_sup_errortag = atom()</c></tag>
+      <item>
+        <p>This parameter defines the error report type used when
+          messages are sent to error logger using the default callback
+          function. Default is <c>std_error</c>, which means the events
+          are handled by the standard event handler.</p>
+      </item>
+      <tag><c>os_sup_enable = bool()</c></tag>
+      <item>
+        <p>Solaris only. Defines if the service should be enabled (and
+          disabled) inside (<c>true</c>) or outside (<c>false</c>)
+          <c>os_sup</c>. For backwards compatibility reasons,
+          the default is <c>true</c>. The recommended value is
+          <c>false</c>, as the Erlang emulator should normally not be
+          run with <c>root</c> privileges, as is required for enabling
+          the service.</p>
+      </item>
+      <tag><c>os_sup_own = string()</c></tag>
+      <item>
+        <p>Solaris only. Defines the directory which contains
+          the backup copy and the Erlang specific configuration files
+          for <c>syslogd</c>, and a named pipe to receive the messages
+          from <c>syslogd</c>. Default is <c>"/etc"</c>.</p>
+      </item>
+      <tag><c>os_sup_syslogconf = string()</c></tag>
+      <item>
+        <p>Solaris only. Defines the full name of the configuration file
+          for <c>syslogd</c>. Default is <c>"/etc/syslog.conf"</c>.</p>
+      </item>
+    </taglist>
+  </section>
+  <funcs>
+    <func>
+      <name since="">enable() -> ok | {error, Res}</name>
+      <name since="">enable(Dir, Conf) -> ok | {error, Error}</name>
+      <fsummary>Enable the service (Solaris only)</fsummary>
+      <type>
+        <v>Dir = Conf = Res = string()</v>
+      </type>
+      <desc>
+        <p>Enables the <c>os_sup</c> service. Needed on Solaris only.</p>
+        <p>If the configuration parameter <c>os_sup_enable</c> is
+          <c>false</c>, this function is called automatically by
+          <c>os_sup</c>, using the values of <c>os_sup_own</c> and
+          <c>os_sup_syslogconf</c> as arguments.</p>
+        <p>If <c>os_sup_enable</c> is <c>true</c>, this function must
+          be called <em>before</em> OS_Mon/<c>os_sup</c> is started.
+          <c>Dir</c> defines the directory which contains the backup
+          copy and the Erlang specific configuration files for
+          <c>syslogd</c>, and a named pipe to receive the messages
+          from <c>syslogd</c>. Defaults to <c>"/etc"</c>. <c>Conf</c>
+          defines the full name of the configuration file for
+          <c>syslogd</c>. Default is <c>"/etc/syslog.conf"</c>.</p>
+        <p>Results in a OS call to:</p>
+        <code type="none"><![CDATA[
+<PRIVDIR>/bin/mod_syslog otp Dir Conf
+        ]]></code>
+        <p>where <c><![CDATA[<PRIVDIR>]]></c> is the <c>priv</c> directory of
+          OS_Mon, <c>code:priv_dir(os_mon)</c>.</p>
+        <p>Returns <c>ok</c> if this yields the expected result
+          <c>"0"</c>, and <c>{error, Res}</c> if it yields anything
+          else.</p>
+        <note>
+          <p>This function requires root privileges to succeed.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name since="">disable() -> ok | {error, Res}</name>
+      <name since="">disable(Dir, Conf) -> ok | {error, Error}</name>
+      <fsummary>Disable the service (Solaris only)</fsummary>
+      <type>
+        <v>Dir = Conf = Res = string()</v>
+      </type>
+      <desc>
+        <p>Disables the <c>os_sup</c> service. Needed on Solaris only.</p>
+        <p>If the configuration parameter <c>os_sup_enable</c> is
+          <c>false</c>, this function is called automatically by
+          <c>os_sup</c>, using the same arguments as when
+          <c>enable/2</c> was called.</p>
+        <p>If <c>os_sup_enable</c> is <c>true</c>, this function must
+          be called <em>after</em> OS_Mon/<c>os_sup</c> is stopped.
+          <c>Dir</c> defines the directory which contains the backup
+          copy and the Erlang specific configuration files for
+          <c>syslogd</c>, and a named pipe to receive the messages
+          from <c>syslogd</c>. Defaults to <c>"/etc"</c>. <c>Conf</c>
+          defines the full name of the configuration file for
+          <c>syslogd</c>. Default is <c>"/etc/syslog.conf"</c>.</p>
+        <p>Results in a OS call to:</p>
+        <code type="none"><![CDATA[
+<PRIVDIR>/bin/mod_syslog nootp Dir Conf
+        ]]></code>
+        <p>where <c><![CDATA[<PRIVDIR>]]></c> is the <c>priv</c> directory of
+          OS_Mon, <c>code:priv_dir(os_mon)</c>.</p>
+        <p>Returns <c>ok</c> if this yields the expected result
+          <c>"0"</c>, and <c>{error, Res}</c> if it yields anything
+          else.</p>
+        <note>
+          <p>This function requires root privileges to succeed.</p>
+        </note>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See also</title>
+    <p><seealso marker="kernel:error_logger">error_logger(3)</seealso>,
+      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><c>syslogd(1M)</c>, <c>syslog.conf(4)</c> in the Solaris
+      documentation.</p>
+    <p></p>
+  </section>
+</erlref>
+

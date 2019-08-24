@@ -1,0 +1,1412 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Runtime_Tools Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Runtime_Tools
+    application.</p>
+
+<section><title>Runtime_Tools 1.13.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates to build system necessary due to move of
+	    configuration of <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update of systemtap trace example scripts.</p>
+          <p>
+	    Own Id: OTP-15670</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize <c>observer</c> by using new
+	    <c>system_info(ets_count)</c> instead of more expensive
+	    <c>length(ets:all())</c>.</p>
+          <p>
+	    Own Id: OTP-15163 Aux Id: PR-1844 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New utility module <c>scheduler</c> which makes it easier
+	    to measure scheduler utilization.</p>
+          <p>
+	    Own Id: OTP-14904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>system_information:to_file/1</c> will now use
+	    slightly less memory.</p>
+          <p>
+	    Own Id: OTP-14816</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New family of <c>erts_alloc</c> strategies: Age Order
+	    First Fit. Similar to "address order", but instead the
+	    oldest possible carrier is always chosen for allocation.</p>
+          <p>
+	    Own Id: OTP-14917 Aux Id: ERIERL-88 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A faulty encoding comment was added when saving trace
+	    patterns to file. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14479</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add compile option <c>-compile(no_native)</c> in modules
+	    with <c>on_load</c> directive which is not yet supported
+	    by HiPE.</p>
+          <p>
+	    Own Id: OTP-14316 Aux Id: PR-1390 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+	    <p> Sockets can now be bound to device (SO_BINDTODEVICE)
+	    on platforms where it is supported. </p> <p> This has
+	    been implemented e.g to support VRF-Lite under Linux; see
+	    <url
+	    href="https://www.kernel.org/doc/Documentation/networking/vrf.txt">
+	    VRF </url>, and GitHub pull request <url
+	    href="https://github.com/erlang/otp/pull/1326">#1326</url>.
+	    </p>
+          <p>
+	    Own Id: OTP-14357 Aux Id: PR-1326 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop erroneously reported the average scheduler
+	    utilization since the tool was first started instead of
+	    the scheduler utilization since last update. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14090 Aux Id: seq13232 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.10.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct some minor documentation issues. </p>
+          <p>
+	    Own Id: OTP-13891</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in dbg:trace_port/2 that could cause the trace ip
+	    driver to produce faulty error reports "...(re)selected
+	    before stop_select was called for driver trace_ip_drv".</p>
+          <p>
+	    Own Id: OTP-13576 Aux Id: ERL-119 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add microstate accounting</p>
+          <p>
+	    Microstate accounting is a way to track which state the
+	    different threads within ERTS are in. The main usage area
+	    is to pin point performance bottlenecks by checking which
+	    states the threads are in and then from there figuring
+	    out why and where to optimize.</p>
+          <p>
+	    Since checking whether microstate accounting is on or off
+	    is relatively expensive only a few of the states are
+	    enabled by default and more states can be enabled through
+	    configure.</p>
+          <p>
+	    There is a convenience module called msacc that has been
+	    added to runtime_tools that can assist in gathering and
+	    interpreting the data from Microstate accounting.</p>
+          <p>
+	    For more information see <seealso
+	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
+	    _)</seealso> and the <seealso
+	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    runtime_tools.</p>
+          <p>
+	    Own Id: OTP-12345</p>
+        </item>
+        <item>
+          <p>
+	    Update observer GUI to support tracing on ports, and to
+	    set matchspecs for send/receive. This required some minor
+	    bugfixes in runtime_tools/dbg.</p>
+          <p>
+	    Own Id: OTP-13481</p>
+        </item>
+        <item>
+          <p>
+	    Update dbg and ttb to work with a tracer module as tracer
+	    and tracing on ports.</p>
+          <p>
+	    Own Id: OTP-13500</p>
+        </item>
+        <item>
+          <p>
+	    Updated dbg to accept the new trace options
+	    <c>monotonic_timestamp</c> and
+	    <c>strict_monotonic_timestamp</c>.</p>
+          <p>
+	    Own Id: OTP-13502</p>
+        </item>
+        <item>
+          <p>
+	    Introduce LTTng tracing via Erlang tracing.</p>
+          <p>
+	    For LTTng to be enabled OTP needs to be built with
+	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
+	    <p>The dynamic trace module <c>dyntrace</c> is now
+	    capable to be used as a LTTng sink for Erlang tracing.
+	    For a list of all tracepoints, see <seealso
+	    marker="runtime_tools:LTTng">Runtime Tools User's
+	    Guide</seealso> .</p>
+	    <p>This feature also introduces an incompatible change in
+	    trace tags. The trace tags <c>gc_start</c> and
+	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
+	    <c>gc_minor_end</c> and <c>gc_major_start</c>,
+	    <c>gc_major_end</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13532</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>dbg:trace_client()</c> now uses a read buffer to
+	    speed up reading of trace files.</p>
+          <p>
+	    Own Id: OTP-13279</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarified dbg:stop documentation</p>
+          <p>
+	    Own Id: OTP-13078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>trace_file_drv</c> did not handle <c>EINTR</c>
+	    correct which caused it to fail when the runtime system
+	    received a signal.</p>
+          <p>
+	    Own Id: OTP-12890 Aux Id: seq12885 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The trace process started by <c>dbg</c> would not always
+	    terminate when <c>dbg:stop/0</c> was called.</p>
+          <p>
+	    Own Id: OTP-12517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>nif_version</c> to <c>erlang:system_info/1</c> in
+	    order to get the NIF API version of the runtime system in
+	    a way similar to <c>driver_version</c>.</p>
+          <p>
+	    Own Id: OTP-12298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for the return value of
+	    dbg:{stop,stop_clear} functions are now correct (Thanks
+	    to Luca Favatella)</p>
+          <p>
+	    Own Id: OTP-11603</p>
+        </item>
+        <item>
+          <p>
+	    Fix DTrace build on Illumos. (Thanks to Ryan Zezeski.)</p>
+          <p>
+	    Own Id: OTP-11622</p>
+        </item>
+        <item>
+          <p>
+	    Do not turn off scheduler_wall_time, as it can interfere
+	    with other applications usage.</p>
+          <p>
+	    Own Id: OTP-11693 Aux Id: seq12528 </p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow install path to have unicode characters.</p>
+          <p>
+	    Own Id: OTP-10877</p>
+        </item>
+        <item>
+          <p>
+	    The <c>erts_alloc_config</c> tool has been updated to
+	    produce configurations that better fit todays SMP support
+	    in the VM.</p>
+          <p>
+	    Own Id: OTP-11662</p>
+        </item>
+        <item>
+          <p>
+	    The <seealso
+	    marker="kernel:app"><c>app</c></seealso>-file key
+	    <seealso
+	    marker="kernel:app#runtime_dependencies"><c>runtime_dependencies</c></seealso>
+	    has been introduced.</p>
+          <p>
+	    Runtime dependencies have been added to all app-files in
+	    OTP. Note that these may not be completely correct during
+	    OTP 17, but this is actively being worked on.</p>
+          <p>
+	    The function <seealso
+	    marker="runtime_tools:system_information#sanity_check/0"><c>system_information:sanity_check/0</c></seealso>
+	    will verify all declared runtime dependencies in the
+	    system when called.</p>
+          <p>
+	    Own Id: OTP-11773</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Observer did not produce correct result when ERTS
+	    internal memory allocators had been disabled.</p>
+          <p>
+	    Own Id: OTP-11520</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The process trace flag 'silent' is now allowed in call to
+	    dbg:p/2.</p>
+          <p>
+	    Own Id: OTP-11222</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some bugs related to calculation of CPU/scheduler
+	    utilization in observer are corrected.</p>
+          <p>
+	    Current function for a process is accepted to be
+	    'undefined' when running hipe.</p>
+          <p>
+	    Own Id: OTP-10894</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Table Viewer refresh crash on no more existing ets
+	    tables (Thanks to Peti Gömori)</p>
+          <p>
+	    Own Id: OTP-10635</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    User Guides for the dynamic tracing tools dtrace and
+	    systemtap have been added to the documentation.</p>
+          <p>
+	    Own Id: OTP-10155</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    The backend module appmon_info.erl is moved from appmon
+	    application to runtime_tools. This allows appmon to be
+	    run from a remote erlang node towards a target node which
+	    does not have appmon (and its dependencies) installed, as
+	    long as runtime_tools is installed there.</p>
+          <p>
+	    Own Id: OTP-10786</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change the module-level docs to give complete
+	    step-by-step instructions for using the `dyntrace:p()`
+	    trace function. (Thanks to Scott Lystig Fritchie)</p>
+          <p>
+	    Own Id: OTP-10141</p>
+        </item>
+        <item>
+          <p>
+	    Add 1024 separate USDT probes to dyntrace.erl and
+	    dyntrace.c (Thanks to Scott Lystig Fritchie)</p>
+          <p>
+	    Own Id: OTP-10143</p>
+        </item>
+        <item>
+          <p>
+	    Relocate bodies of DTrace probes to the statically-linked
+	    VM.</p>
+          <p>
+	    Due to various operating systems (in both the DTrace and
+	    SystemTap worlds) not fully supporting DTrace probes (or
+	    SystemTap-compatibility mode probes) in shared libraries,
+	    we relocate those probes to the statically-linked virtual
+	    machine. This could be seen as pollution of the pristine
+	    VM by a (yet) experimental feature. However:</p>
+          <p>
+	    1. This code can be eliminated completely by the C
+	    preprocessor. 2. Leaving the probes in the dyntrace NIF
+	    shared library simply does not work correctly on too many
+	    platforms. *Many* thanks to Macneil Shonle at Basho for
+	    assisting when my RSI-injured fingers gave out. (note:
+	    Solaris 10 and FreeBSD 9.0-RELEASE can take a long time
+	    to compile)</p>
+          <p>
+	    Own Id: OTP-10189</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The DTrace source patch from Scott Lystig Fritchie is
+	    integrated in the source tree. Using an emulator with
+	    dtrace probe is still not supported for production use,
+	    but may be a valuable debugging tool. Configure with
+	    --with-dynamic-trace=dtrace (or
+	    --with-dynamic-trace=systemtap) to create a build with
+	    dtrace probes enabled. See runtime_tools for
+	    documentation and examples.</p>
+          <p>
+	    Own Id: OTP-10017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Earlier dbg:stop only did erlang:trace_delivered and did
+	    not flush the trace file driver. Therefore there could
+	    still be trace messages that were delivered to the driver
+	    (guaranteed by erlang:trace_delivered) but not yet
+	    written to the file when dbg:stop returned. Flushing is
+	    now added on each node before the dbg process terminates.</p>
+          <p>
+	    Own Id: OTP-9651</p>
+        </item>
+        <item>
+          <p>
+	    File handles created by the trace_file_drv driver was
+	    inherited to child processes. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9658</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+          <p>
+	    Two new built-in trace pattern aliases have been added:
+	    caller_trace (c) and caller_exception_trace (cx). See the
+	    dbg:ltp/0 documentation for more info.</p>
+          <p>
+	    Own Id: OTP-9458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new built-in trace pattern aliases have been added:
+	    caller_trace (c) and caller_exception_trace (cx). See the
+	    dbg:ltp/0 documentation for more info.</p>
+          <p>
+	    Own Id: OTP-9458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a big number of trace patterns are set by inviso the
+	    Erlang VM could get unresponsive for several seconds.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9048 Aux Id: seq11480 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor corrections and removal of a temporary workaround.</p>
+          <p>
+	    Own Id: OTP-8755 Aux Id: seq-11628, seq-11639 </p>
+        </item>
+        <item>
+          <p>
+	    Small fix in inviso_autostart_server.</p>
+          <p>
+	    Own Id: OTP-8783 Aux Id: seq11628 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-8705</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Cross compilation improvements and other build system
+	    improvements.</p>
+	    <p>Most notable:</p> <list><item> Lots of cross
+	    compilation improvements. The old cross compilation
+	    support was more or less non-existing as well as broken.
+	    Please, note that the cross compilation support should
+	    still be considered as experimental. Also note that old
+	    cross compilation configurations cannot be used without
+	    modifications. For more information on cross compiling
+	    Erlang/OTP see the <c>$ERL_TOP/INSTALL-CROSS.md</c> file.
+	    </item><item> Support for staged install using <url
+	    href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</url>.
+	    The old broken <c>INSTALL_PREFIX</c> has also been fixed.
+	    For more information see the <c>$ERL_TOP/INSTALL.md</c>
+	    file. </item><item> Documentation of the <c>release</c>
+	    target of the top <c>Makefile</c>. For more information
+	    see the <c>$ERL_TOP/INSTALL.md</c> file. </item><item>
+	    <c>make install</c> now by default creates relative
+	    symbolic links instead of absolute ones. For more
+	    information see the <c>$ERL_TOP/INSTALL.md</c> file.
+	    </item><item> <c>$ERL_TOP/configure --help=recursive</c>
+	    now works and prints help for all applications with
+	    <c>configure</c> scripts. </item><item> Doing <c>make
+	    install</c>, or <c>make release</c> directly after
+	    <c>make all</c> no longer triggers miscellaneous
+	    rebuilds. </item><item> Existing bootstrap system is now
+	    used when doing <c>make install</c>, or <c>make
+	    release</c> without a preceding <c>make all</c>.
+	    </item><item> The <c>crypto</c> and <c>ssl</c>
+	    applications use the same runtime library path when
+	    dynamically linking against <c>libssl.so</c> and
+	    <c>libcrypto.so</c>. The runtime library search path has
+	    also been extended. </item><item> The <c>configure</c>
+	    scripts of <c>erl_interface</c> and <c>odbc</c> now
+	    search for thread libraries and thread library quirks the
+	    same way as ERTS do. </item><item> The
+	    <c>configure</c> script of the <c>odbc</c> application
+	    now also looks for odbc libraries in <c>lib64</c> and
+	    <c>lib/64</c> directories when building on a 64-bit
+	    system. </item><item> The <c>config.h.in</c> file in the
+	    <c>erl_interface</c> application is now automatically
+	    generated in instead of statically updated which reduces
+	    the risk of <c>configure</c> tests without any effect.
+	    </item></list>
+	    <p>(Thanks to Henrik Riomar for suggestions and
+	    testing)</p>
+	    <p>(Thanks to Winston Smith for the AVR32-Linux cross
+	    configuration and testing)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8323</p>
+        </item>
+        <item>
+          <p>
+	    Cleanups suggested by tidier and modernization of types
+	    and specs.</p>
+          <p>
+	    Own Id: OTP-8455</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>Makefile.in</c> has been updated to use the LDFLAGS
+	    environment variable (if set). (Thanks to Davide
+	    Pesavento.)</p>
+          <p>
+	    Own Id: OTP-8157</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> would crash if the emulator's custom
+	    allocators had been turned off (e.g. using the
+	    <c>+Meamin</c> option).</p>
+          <p>
+	    Own Id: OTP-7519</p>
+        </item>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+        <item>
+	    <p>Now, dbg:p/2 accepts {X,Y,Z} process specification as
+	    stated in the documentation. It also now accepts
+	    "&lt;X.Y.Z&gt;" like from erlang:pid_to_list/1.</p>
+	    <p>There is now a pre-saved match spec in dbg that saves
+	    a lot of typing. Use dbg:ltp/0 to find out more...</p>
+          <p>
+	    Own Id: OTP-7867</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a timestamp problem where some events could be
+	    sent out of order. Minor fixes to presentation of
+	    data.</p>
+          <p>
+	    Own Id: OTP-7544 Aux Id: otp-7442 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>etop</c> now collects process information faster
+	    and more reliably than before (a race condition reported
+	    by Igor Goryachev has been eliminated).</p>
+	    <p>Trace messages could be lost when <c>ttb:stop/0</c>
+	    was called.</p>
+          <p>
+	    Own Id: OTP-7164</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation has been updated so as to reflect
+	    the last updates of the Erlang shell as well as the minor
+	    modifications of the control sequence <c>p</c> of the
+	    <c>io_lib</c> module.</p> <p>Superfluous empty lines have
+	    been removed from code examples and from Erlang shell
+	    examples.</p>
+          <p>
+	    Own Id: OTP-6944 Aux Id: OTP-6554, OTP-6911 </p>
+        </item>
+        <item>
+	    <p>Memory management improvements especially for the
+	    runtime system with SMP support:</p> <list> <item> The
+	    runtime system with SMP support can now use multiple,
+	    thread specific instances of most memory allocators. This
+	    improves performance since it reduces lock contention in
+	    the memory allocators. It may however increase memory
+	    usage for some applications. The runtime system with SMP
+	    support will by default enable this feature on most
+	    allocators. The amount of instances used can be
+	    configured. </item> <item> <c>driver_alloc()</c>,
+	    <c>driver_realloc()</c>, and <c>driver_free()</c> now use
+	    their own erts specific memory allocator instead of the
+	    default <c>malloc()</c> implementation on the system.
+	    </item> <item> The default configuration of some
+	    allocators have been changed to fit applications that use
+	    much memory better. </item> <item> Some new
+	    <c>erts_alloc</c> configuration parameters have been
+	    added. </item> <item> <c>erts_alloc_config</c> has been
+	    modified to be able to create configurations suitable for
+	    multiple instances of allocators. </item> <item> The
+	    returned value from <c>erlang:system_info({allocator,
+	    Alloc})</c> has been changed. This since an allocator may
+	    now run in multiple instances. </item> </list> <p>If you
+	    for some reason want the memory allocators to be
+	    configured as before, you can pass the <c>+Mea r11b</c>
+	    command-line argument to <c>erl</c>.</p> <p>For more
+	    information see the <c>erts_alloc(3)</c>, the
+	    <c>erts_alloc_config(3)</c>, and the <c>erlang(3)</c>
+	    documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7100</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>dbg</c> could leave traced processes in a suspended
+	    state if the tracer process was killed with exit reason
+	    <c>kill</c>.</p>
+          <p>
+	    <c>erlang:suspend_process/2</c> has been introduced which
+	    accepts an option list as second argument. For more
+	    information see the <c>erlang(3)</c> documentation.</p>
+          <p>
+	    Processes suspended via
+	    <c>erlang:suspend_process/[1,2]</c> will now be
+	    automatically resumed if the process that called
+	    <c>erlang:suspend_process/[1,2]</c> terminates.</p>
+          <p>
+	    Processes could previously be suspended by one process
+	    and resumed by another unless someone was tracing the
+	    suspendee. This is <em>not</em> possible anymore. The
+	    process resuming a process <em>has</em> to be the one
+	    that suspended it.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-6946</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The undocumented and unsupported function
+	    <c>dbg:tracer/1</c> has been removed. The undocumented,
+	    unsupported, and broken function <c>dbg:i/1</c> has been
+	    removed.</p>
+          <p>
+	    Own Id: OTP-6939</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.6.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            In this release the following has been fixed and
+            enhanced: Autostart: It is now possible to configure
+            modules that shall be loaded by the autostart mechanism.
+            This because it is not certain that all application
+            systems make use of the OTP boot script to set up paths
+            to all Erlang modules. Runtime_tools/Inviso: A bug in the
+            fetch_log functionality has been fixed. Further a bug
+            that was (supposedly) fixed in a previous patch
+            concerning meta-tracer write_ti has been fixed (again) in
+            this patch. A bug in inviso_as_lib making remote
+            autostart config file updates fail has been fixed.
+            Inviso: inviso_tool has been given a flush API.</p>
+          <p>
+            Own Id: OTP-6918</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+<section><title>Runtime_Tools 1.6.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The following bugs/improvements have been done: Internal
+            interworking between inviso_rt and inviso_rt_meta. The
+            call function used by inviso_rt to call inviso_rt_meta is
+            now protected with a monitor. Inviso_rt_meta now includes
+            the timestamp of the incoming meta trace message when
+            calling the call-callback. (Makes it possible to add a
+            "better" timestamp to the ti-file.) Bug in inviso_tool
+            making it not remove trace patterns when terminating. Bug
+            in internal function h_start_session making inviso_tool
+            crash if there were no active nodes to start the session
+            on. The user-inviso_tool and inviso API-inviso control
+            component request/response gen_server protocols had
+            default time-out. Since many trace operations can be time
+            consuming, a longer time-out is necessary. Improved
+            overload protection. It is now possible to let the
+            overload protection renew itself (e.g after an exit from
+            an external overload protector). Inviso_rt_meta now fully
+            uses the exception_trace match spec action term. Run
+            Trace Case API (as in contrast to activate and deactivate
+            trace case APIs) in inviso_tool. Flush trace-port API
+            added to inviso. Get_session_data API added to
+            inviso_tool. Improved inviso_tool:stop making it possible
+            to name nodes which shall not have their trace patterns
+            removed when inviso_tool terminates. Bug in handling of
+            writing multiple ti-entries if returned from a
+            call/return_from call-back in inviso_rt_meta Process
+            trace flags are no longer explicitly removed by the
+            inviso_tool when it terminates. Not necessary.
+            Inviso_tool get_autostart_data adopted to standard
+            autostarter.</p>
+          <p>
+            *** INCOMPATIBILITY with Meta trace call-backs are called
+            with different arguments now. ***</p>
+          <p>
+            Own Id: OTP-6881</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Runtime_Tools 1.6.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in inviso_rt_meta caused an ETS table containing
+            information on initiated (init_tpm) functions to be lost
+            when suspending tracing. Further an enhancement to
+            inviso_rt has been introduced making it possible to
+            activate process trace flags based on globally registered
+            names. It is then not an error to activate a global name
+            on a node where the name does not reside. The process
+            count in the return value will simply be set to zero
+            (hence exactly one node in the NodeResult part of the
+            return value will indicate one matching process found). A
+            bug was found in fetch_log API. At the same time the
+            fetch_log functionality was enhanced to also offer flow
+            control making fetcher processes send chunks of
+            transferred file data at a slower pace.</p>
+          <p>Own Id: OTP-6703</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689 Aux Id: OTP-6742 </p>
+        </item>
+        <item>
+          <p>An experimental tool called <c>erts_alloc_config</c>
+            has been added. <c>erts_alloc_config</c> is intended to
+            be used to aid creation of an <c>erts_alloc</c>
+            configuration that is suitable for a limited number of
+            runtime scenarios. For more information see the
+            <c>erts_alloc_config(3)</c> documentation.</p>
+          <p>Own Id: OTP-6700</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Misc improvements.</p>
+          <p>Own Id: OTP-6576</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>This application has been updated to eliminate warnings
+            by Dialyzer.</p>
+          <p>Own Id: OTP-6551</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>This ticket includes several improvements and bugfixes to
+            both runtime_tools and inviso. The overload mechanism can
+            now also react to incoming messages. This is useful if
+            an external overload watch-dog is used. Some improvements
+            of variable bindings has been done to the default
+            autostart mechanism - inviso_autostart_server. Autostart
+            "jobs" can now be done in parallel, allowing for some
+            jobs to hang waiting for some parts of the traced system
+            to become ready before proceeding. Previously when using
+            named meta-match-specs (tpm_ms) ending up with zero
+            match-specs still kept the meta trace pattern active.
+            This caused zero match-specs to be equal to unlimited
+            meta tracing on that particular function. If the internal
+            database becomes empty of meta match specs, meta trace
+            pattern is removed for that function. Standard public
+            loop data in the inviso runtime meta tracer process is
+            now extended to a 2-tuple. The functions ctp/1 and ctpl/1
+            are added making it possible to remove trace patterns for
+            a list of functions rather than one by one.
+            Inviso_rt_meta will now accept a list of binaries to be
+            output into the trace information file, in additions to a
+            single binary. Further it is also possible to make own
+            output to the trace information file using the write_ti/1
+            function. An error was discovered in inviso_rt making the
+            inviso_rt_meta remain rather than terminate if the
+            inviso_rt terminated due to "running alone" (not allowed
+            to run without a control component). A new tool,
+            inviso_tool, has been added to the inviso application.</p>
+          <p>Own Id: OTP-6426</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Several minor bugs and race conditions eliminated in the
+            runtime_tools and observer applications.</p>
+          <p>Own Id: OTP-6265</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>There are new BIFs <c>erlang:spawn_monitor/1,3</c>,
+            and the new option <c>monitor</c> for
+            <c>spawn_opt/2,3,4,5</c>.</p>
+          <p>The <c>observer_backend</c> module has been updated to
+            handle the new BIFs.</p>
+          <p>Own Id: OTP-6281</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.6</title>
+    <p>Added the runtime part of the Inviso tracer, see the new Inviso
+      application for more information. This also meant adding an
+      application callback module and an application supervisor tree
+      for Runtime_Tools.</p>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.5.1.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>dbg</c> manual page has been updated with information
+            about how to avoid deadlock when tracing.</p>
+          <p>Own Id: OTP-5373 Aux Id: seq9729</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Runtime_Tools 1.5.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Linked in drivers in the Crypto, and Asn1 applications
+            are now compiled with the <c>-D_THREAD_SAFE</c> and
+            <c>-D_REENTRANT</c> switches on unix when the emulator has
+            thread support enabled.</p>
+          <p>Linked in drivers on MacOSX are not compiled with the
+            undocumented <c>-lbundle1.o</c> switch anymore. Thanks to
+            Sean Hinde who sent us a patch.</p>
+          <p>Linked in driver in Crypto, and port programs in SSL, now
+            compiles on OSF1.</p>
+          <p>Minor <c>Makefile</c> improvements in Runtime_Tools.</p>
+          <p>Own Id: OTP-5346</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

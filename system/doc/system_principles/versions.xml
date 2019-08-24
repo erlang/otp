@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Versions</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2014-02-19</date>
+    <rev></rev>
+    <file>versions.xml</file>
+  </header>
+
+  <section>
+    <marker id="versions section"></marker>
+    <title>OTP Version</title>
+    <p>As of OTP release 17, the OTP release number corresponds to
+    the major part of the OTP version. The OTP version as a concept was
+    introduced in OTP 17. The version scheme used is described in detail in
+    <seealso marker="#version_scheme">Version Scheme</seealso>.</p>
+    <p>OTP of a specific version is a set of applications of specific
+    versions. The application versions identified by an OTP version
+    corresponds to application versions that have been tested together
+    by the Erlang/OTP team at Ericsson AB. An OTP system can, however, be
+    put together with applications from different OTP versions. Such a
+    combination of application versions has not been tested by the
+    Erlang/OTP team. It is therefore <em>always preferred to use OTP
+    applications from one single OTP version</em>.</p>
+    <p>Release candidates have an <c>-rc&lt;N&gt;</c>
+    suffix. The suffix <c>-rc0</c> is used during development up to
+    the first release candidate.</p>
+
+    <section>
+      <title>Retrieving Current OTP Version</title>
+      <p>In an OTP source code tree, the OTP version can be read from
+      the text file <c>&lt;OTP source root&gt;/OTP_VERSION</c>. The
+      absolute path to the file can be constructed by calling
+      <c>filename:join([</c><seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso><c>, "OTP_VERSION"])</c>.</p>
+      <p>In an installed OTP development system, the OTP version can be read
+      from the text file <c>&lt;OTP installation root&gt;/releases/&lt;OTP release number&gt;/OTP_VERSION</c>.
+      The absolute path to the file can by constructed by calling
+      <c>filename:join([</c><seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso><c>, "releases", </c><seealso marker="erts:erlang#system_info_otp_release"><c>erlang:system_info(otp_release)</c></seealso><c>, "OTP_VERSION"]).</c></p>
+      <p>If the version read from the <c>OTP_VERSION</c> file in a
+      development system has a <c>**</c> suffix, the system has been
+      patched using the
+      <seealso marker="../installation_guide/OTP-PATCH-APPLY"><c>otp_patch_apply</c></seealso>
+      tool. In this case, the system consists of application
+      versions from multiple OTP versions. The version preceding the <c>**</c>
+      suffix corresponds to the OTP version of the base system that
+      has been patched. Notice that if a development system is updated by
+      other means than <c>otp_patch_apply</c>, the file <c>OTP_VERSION</c>
+      can identify an incorrect OTP version.</p>
+      <p>No <c>OTP_VERSION</c> file is placed in a
+      <seealso marker="create_target">target system</seealso> created
+      by OTP tools. This since one easily can create a target system
+      where it is hard to even determine the base OTP version. You can,
+      however, place such a file there if you know the OTP version.</p>
+    </section>
+
+    <section>
+      <title>OTP Versions Table</title>
+      <p>The text file <c>&lt;OTP source root&gt;/otp_versions.table</c>,
+      which is part of the source code, contains information about all
+      OTP versions from OTP 17.0 up to the current OTP version. Each line
+      contains information about application versions that are part of a
+      specific OTP version, and has the following format:</p>
+      <pre>
+&lt;OtpVersion&gt; : &lt;ChangedAppVersions&gt; # &lt;UnchangedAppVersions&gt; :</pre>
+      <p><c>&lt;OtpVersion&gt;</c> has the format <c>OTP-&lt;VSN&gt;</c>,
+      that is, the same as the git tag used to identify the source.</p>
+      <p><c>&lt;ChangedAppVersions&gt;</c> and
+      <c>&lt;UnchangedAppVersions&gt;</c> are space-separated lists of
+      application versions and has the format
+      <c>&lt;application&gt;-&lt;vsn&gt;</c>.</p>
+      <list type="bulleted">
+	<item><c>&lt;ChangedAppVersions&gt;</c> corresponds to changed
+	applications with new version numbers in this OTP version.</item>
+	<item><c>&lt;UnchangedAppVersions&gt;</c> corresponds to unchanged
+	application versions in this OTP version.</item>
+      </list>
+      <p>Both of them can be empty, but not at the same time.
+      If <c>&lt;ChangedAppVersions&gt;</c> is empty, no changes have
+      been made that change the build result of any application. This could,
+      for example, be a pure bug fix of the build system. The order of lines
+      is undefined. All white-space characters in this file are either space
+      (character 32) or line-break (character 10).</p>
+      <p>By using ordinary UNIX tools like <c>sed</c> and <c>grep</c> one
+      can easily find answers to various questions like:</p>
+      <list type="bulleted">
+	<item><p>Which OTP versions are <c>kernel-3.0</c> part of?</p>
+	<p><c>$ grep ' kernel-3\.0 ' otp_versions.table</c> </p></item>
+	<item><p>In which OTP version was <c>kernel-3.0</c> introduced?</p>
+	<p><c>$ sed 's/#.*//;/ kernel-3\.0 /!d' otp_versions.table</c>
+	</p></item>
+      </list>
+      <p>The above commands give a bit more information than the exact
+      answers, but adequate information when manually searching for answers
+      to these questions.</p>
+      <warning><p>The format of the <c>otp_versions.table</c> might be
+      subject to changes during the OTP 17 release.</p></warning>
+    </section>
+  </section>
+
+  <section>
+    <title>Application Version</title>
+    <p>As of OTP 17.0 application versions use the same
+    <seealso marker="#version_scheme">version scheme</seealso> as the
+    OTP version. Application versions part of a release candidate will
+    however not have an <c>-rc&lt;N&gt;</c> suffix as the OTP version.
+    Also note that a major increment in an application version does not
+    necessarily imply a major increment of the OTP version. This depends
+    on whether the major change in the application is considered as a
+    major change for OTP as a whole or not.</p>
+  </section>
+
+  <section>
+    <marker id="version_scheme"/>
+    <title>Version Scheme</title>
+    <note><p>The version scheme was changed as of OTP 17.0. This implies
+    that application versions used prior to OTP 17.0 do not adhere to this
+    version scheme. <seealso marker="#otp_17_0_app_versions">A list of
+    application versions used in OTP 17.0</seealso> is included at the
+    end of this section</p></note>
+    <p>In the normal case, a version is constructed as
+    <c>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</c>,
+    where <c>&lt;Major&gt;</c> is the most significant part.</p>
+    <p>However, more dot-separated parts than this can exist.
+    The dot-separated parts consist of non-negative integers. If
+    all parts less significant than <c>&lt;Minor&gt;</c> equals
+    <c>0</c>, they are omitted. The three normal parts
+    <c>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</c> are changed as
+    follows:</p>
+    <list type="bulleted">
+      <item><c>&lt;Major&gt;</c> - Increases when major changes,
+      including incompatibilities, are made.</item>
+      <item><c>&lt;Minor&gt;</c> - Increases when new
+      functionality is added.</item>
+      <item><c>&lt;Patch&gt;</c> - Increases when pure bug fixes
+      are made.</item>
+    </list>
+    <p>When a part in the version number increases, all less significant
+    parts are set to <c>0</c>.</p>
+    <p>An application version or an OTP version identifies source code
+    versions. That is, it implies nothing about how the application
+    or OTP has been built.</p>
+
+    <section>
+      <title>Order of Versions</title>
+      <p>Version numbers in general are only partially ordered. However,
+      normal version numbers (with three parts) as of OTP 17.0 have a total
+      or linear order. This applies both to normal OTP versions and
+      normal application versions.</p>
+      <p>When comparing two version numbers that have an order, one
+      compare each part as ordinary integers from the most
+      significant part to less significant parts. The order is
+      defined by the first parts of the same significance that
+      differ. An OTP version with a larger version includes all
+      changes that are part of a smaller OTP version. The same
+      goes for application versions.</p>
+      <p>In general, versions can have more than three parts.
+      The versions are then only partially ordered. Such
+      versions are only used when branching off from another branch. When an extra
+      part (out of the normal three parts) is added to a version number,
+      a new branch of versions is made. The new branch has a linear
+      order against the base version. However, versions on different
+      branches have no order, and therefore one can only conclude
+      that they all include what is included in their
+      closest common ancestor. When branching multiple times from the
+      same base version, <c>0</c> parts are added between the base
+      version and the least significant <c>1</c> part until a unique
+      version is found. Versions that have an order can be compared
+      as described in the previous paragraph.</p>
+      <p>An example of branched versions: The version <c>6.0.2.1</c>
+      is a branched version from the base version <c>6.0.2</c>.
+      Versions on the form <c>6.0.2.&lt;X&gt;</c> can be compared
+      with normal versions smaller than or equal to <c>6.0.2</c>,
+      and other versions on the form <c>6.0.2.&lt;X&gt;</c>. The
+      version <c>6.0.2.1</c> will include all changes in
+      <c>6.0.2</c>. However, <c>6.0.3</c> will most likely
+      <em>not</em> include all changes in <c>6.0.2.1</c> (note that
+      these versions have no order). A second branched version from the base
+      version <c>6.0.2</c> will be version <c>6.0.2.0.1</c>, and a
+      third branched version will be <c>6.0.2.0.0.1</c>.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="releases_and_patches"/>
+    <title>Releases and Patches</title>
+    <p>
+      When a new OTP release is released it will have an OTP
+      version on the form <c>&lt;Major&gt;.0</c> where the
+      major OTP version number equals the release number.
+      The major version number is increased one step since the
+      last major version. All other OTP versions with the same
+      major OTP version number are patches on that OTP release.
+    </p>
+    <p>
+      Patches are either released as maintenance patch packages
+      or emergency patch packages. The only difference is that
+      maintenance patch packages are planned and usually contain
+      more changes than emergency patch packages. Emergency patch
+      packages are released to solve one or more specific issues
+      when such are discovered.
+    </p>
+    <p>
+      The release of a maintenance patch package usually imply
+      an increase of the OTP <c>&lt;Minor&gt;</c> version while
+      the release of an emergency patch package usually imply an
+      increase of the OTP <c>&lt;Patch&gt;</c> version. This is
+      however not necessarily always the case since changes of
+      OTP versions are based on the actual changes in the code
+      and not based on whether the patch was planned or not.
+      For more information see the
+      <seealso marker="#version_scheme">Version Scheme</seealso>
+      section above.
+    </p>
+  </section>
+
+  <section>
+    <marker id="otp_versions_tree"/>
+    <title>OTP Versions Tree</title>
+    <p>
+      All released OTP versions can be found in the
+      <url href="http://www.erlang.org/download/otp_versions_tree.html">OTP
+      Versions Tree</url> which is automatically updated whenever
+      we release a new OTP version. Note that every version number as
+      such explicitly define its position in the version tree. Nothing
+      more than the version numbers are needed in order to construct
+      the tree. The root of the tree is OTP version 17.0 which is when
+      we introduced the new
+      <seealso marker="#version_scheme">version scheme</seealso>. The
+      green versions are normal versions released on the main track.
+      Old <seealso marker="#releases_and_patches">OTP releases</seealso>
+      will be maintained for a while on <c>maint</c> branches that have
+      branched off from the main track. Old <c>maint</c> branches always
+      branch off from the main track when the next OTP release is
+      introduced into the main track. Versions on these old <c>maint</c>
+      branches are marked blue. Besides the green and blue versions,
+      there are also gray versions. These are versions on branches
+      introduced in order to fix a specific problem for a specific
+      customer on a specific base version. Branches with gray versions
+      will typically become dead ends very quickly if not immediately.
+    </p>
+  </section>
+
+  <section>
+    <marker id="otp_17_0_app_versions"/>
+    <title>OTP 17.0 Application Versions</title>
+    <p>The following list details the application versions that
+    were part of OTP 17.0. If
+    the normal part of an application version number compares
+    as smaller than the corresponding application version in the list,
+    the version number does not adhere to the version scheme introduced
+    in OTP 17.0 and is to be considered as not having an order against
+    versions used as of OTP 17.0.</p>
+    <list>
+      <item><c>asn1-3.0</c></item>
+      <item><c>common_test-1.8</c></item>
+      <item><c>compiler-5.0</c></item>
+      <item><c>cosEvent-2.1.15</c></item>
+      <item><c>cosEventDomain-1.1.14</c></item>
+      <item><c>cosFileTransfer-1.1.16</c></item>
+      <item><c>cosNotification-1.1.21</c></item>
+      <item><c>cosProperty-1.1.17</c></item>
+      <item><c>cosTime-1.1.14</c></item>
+      <item><c>cosTransactions-1.2.14</c></item>
+      <item><c>crypto-3.3</c></item>
+      <item><c>debugger-4.0</c></item>
+      <item><c>dialyzer-2.7</c></item>
+      <item><c>diameter-1.6</c></item>
+      <item><c>edoc-0.7.13</c></item>
+      <item><c>eldap-1.0.3</c></item>
+      <item><c>erl_docgen-0.3.5</c></item>
+      <item><c>erl_interface-3.7.16</c></item>
+      <item><c>erts-6.0</c></item>
+      <item><c>et-1.5</c></item>
+      <item><c>eunit-2.2.7</c></item>
+      <item><c>gs-1.5.16</c></item>
+      <item><c>hipe-3.10.3</c></item>
+      <item><c>ic-4.3.5</c></item>
+      <item><c>inets-5.10</c></item>
+      <item><c>jinterface-1.5.9</c></item>
+      <item><c>kernel-3.0</c></item>
+      <item><c>megaco-3.17.1</c></item>
+      <item><c>mnesia-4.12</c></item>
+      <item><c>observer-2.0</c></item>
+      <item><c>odbc-2.10.20</c></item>
+      <item><c>orber-3.6.27</c></item>
+      <item><c>os_mon-2.2.15</c></item>
+      <item><c>ose-1.0</c></item>
+      <item><c>otp_mibs-1.0.9</c></item>
+      <item><c>parsetools-2.0.11</c></item>
+      <item><c>percept-0.8.9</c></item>
+      <item><c>public_key-0.22</c></item>
+      <item><c>reltool-0.6.5</c></item>
+      <item><c>runtime_tools-1.8.14</c></item>
+      <item><c>sasl-2.4</c></item>
+      <item><c>snmp-4.25.1</c></item>
+      <item><c>ssh-3.0.1</c></item>
+      <item><c>ssl-5.3.4</c></item>
+      <item><c>stdlib-2.0</c></item>
+      <item><c>syntax_tools-1.6.14</c></item>
+      <item><c>test_server-3.7</c></item>
+      <item><c>tools-2.6.14</c></item>
+      <item><c>typer-0.9.6</c></item>
+      <item><c>webtool-0.8.10</c></item>
+      <item><c>wx-1.2</c></item>
+      <item><c>xmerl-1.3.7</c></item>
+    </list>
+  </section>
+</chapter>
+

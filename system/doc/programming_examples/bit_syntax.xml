@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Bit Syntax</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>bit_syntax.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The complete specification for the bit syntax appears in the
+    <seealso marker="doc/reference_manual:expressions#bit_syntax">Reference Manual</seealso>.</p>
+    <p>In Erlang, a Bin is used for constructing binaries and matching
+      binary patterns. A Bin is written with the following syntax:</p>
+    <code type="none"><![CDATA[
+      <<E1, E2, ... En>>]]></code>
+    <p>A Bin is a low-level sequence of bits or bytes.
+    The purpose of a Bin is to enable construction of binaries:</p>
+    <code type="none"><![CDATA[
+Bin = <<E1, E2, ... En>>]]></code>
+    <p>All elements must be bound. Or match a binary:</p>
+    <code type="none"><![CDATA[
+<<E1, E2, ... En>> = Bin ]]></code>
+    <p>Here, <c>Bin</c> is bound and the elements are bound or
+      unbound, as in any match.</p>
+    <p>A Bin does not need to consist of a whole number of bytes.</p>
+
+    <p>A <em>bitstring</em> is a sequence of zero or more bits, where
+    the number of bits does not need to be divisible by 8. If the number
+    of bits is divisible by 8, the bitstring is also a binary.</p>
+    <p>Each element specifies a certain <em>segment</em> of the bitstring.
+      A segment is a set of contiguous bits of the binary (not
+      necessarily on a byte boundary). The first element specifies
+      the initial segment, the second element specifies the following
+      segment, and so on.</p>
+    <p>The following examples illustrate how binaries are constructed,
+      or matched, and how elements and tails are specified.</p>
+
+    <section>
+      <title>Examples</title>
+      <p><em>Example 1:</em> A binary can be constructed from a set of
+        constants or a string literal:</p>
+      <code type="none"><![CDATA[
+Bin11 = <<1, 17, 42>>,
+Bin12 = <<"abc">>]]></code>
+      <p>This gives two binaries of size 3, with the following evaluations:</p>
+	<list type="bulleted">
+       <item><c>binary_to_list(Bin11)</c> evaluates to <c>[1, 17, 42]</c>.</item>
+       <item><c>binary_to_list(Bin12)</c> evaluates to <c>[97, 98, 99]</c>.</item>
+     </list>
+      <p><em>Example 2:</em>Similarly, a binary can be constructed
+        from a set of bound variables:</p>
+      <code type="none"><![CDATA[
+A = 1, B = 17, C = 42,
+Bin2 = <<A, B, C:16>>]]></code>
+      <p>This gives a binary of size 4.
+      Here, a <em>size expression</em> is used for the variable <c>C</c> to
+        specify a 16-bits segment of <c>Bin2</c>.</p>
+	<p><c>binary_to_list(Bin2)</c> evaluates to <c>[1, 17, 00, 42]</c>.</p>
+      <p><em>Example 3:</em> A Bin can also be used for matching.
+        <c>D</c>, <c>E</c>, and <c>F</c> are unbound variables, and
+        <c>Bin2</c> is bound, as in Example 2:</p>
+      <code type="none"><![CDATA[
+<<D:16, E, F/binary>> = Bin2]]></code>
+      <p>This gives <c>D = 273</c>, <c>E = 00</c>, and F binds to a binary
+        of size 1: <c>binary_to_list(F) = [42]</c>.</p>
+      <p><em>Example 4:</em> The following is a more elaborate example
+        of matching. Here, <c>Dgram</c> is bound to the consecutive
+        bytes of an IP datagram of IP protocol version 4. The ambition is
+      to extract the header and the data of the datagram:</p>
+      <code type="none"><![CDATA[
+-define(IP_VERSION, 4).
+-define(IP_MIN_HDR_LEN, 5).
+
+DgramSize = byte_size(Dgram),
+case Dgram of 
+    <<?IP_VERSION:4, HLen:4, SrvcType:8, TotLen:16, 
+      ID:16, Flgs:3, FragOff:13,
+      TTL:8, Proto:8, HdrChkSum:16,
+      SrcIP:32,
+      DestIP:32, RestDgram/binary>> when HLen>=5, 4*HLen=<DgramSize ->
+        OptsLen = 4*(HLen - ?IP_MIN_HDR_LEN),
+        <<Opts:OptsLen/binary,Data/binary>> = RestDgram,
+    ...
+end.]]></code>
+      <p>Here, the segment corresponding to the <c>Opts</c> variable
+        has a <em>type modifier</em>, specifying that <c>Opts</c> is to
+        bind to a binary. All other variables have the default type
+        equal to unsigned integer.</p>
+      <p>An IP datagram header is of variable length. This length is
+        measured in the number of 32-bit words and is given in
+        the segment corresponding to <c>HLen</c>. The minimum value of
+        <c>HLen</c> is 5. It is the segment corresponding to <c>Opts</c>
+        that is variable, so if <c>HLen</c> is equal to 5, <c>Opts</c>
+        becomes an empty binary.</p>
+      <p>The tail variables <c>RestDgram</c> and <c>Data</c> bind to
+        binaries, as all tail variables do. Both can bind to empty
+        binaries.</p>
+	<p>The match of <c>Dgram</c> fails if one of the following occurs:</p>
+	<list type="bulleted">
+       <item>The first 4-bits segment of <c>Dgram</c> is not equal to 4.</item>
+       <item><c>HLen</c> is less than 5.</item>
+       <item>The size of <c>Dgram</c> is less than <c>4*HLen</c>.</item>
+     </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Lexical Note</title>
+    <p>Notice that "<c><![CDATA[B=<<1>>]]></c>" will be interpreted as
+      "<c><![CDATA[B =< <1>>]]></c>", which is a syntax error.
+      The correct way to write the expression is:
+      <c><![CDATA[B = <<1>>]]></c>.</p>
+  </section>
+
+  <section>
+    <title>Segments</title>
+    <p>Each segment has the following general syntax:</p>
+    <p><c>Value:Size/TypeSpecifierList</c></p>
+    <p>The <c>Size</c> or the <c>TypeSpecifier</c>, or both, can be
+      omitted. Thus, the following variants are allowed:</p>
+      <list type="bulleted">
+       <item><c>Value</c></item>
+       <item><c>Value:Size</c></item>
+       <item><c>Value/TypeSpecifierList</c></item>
+     </list>
+    <p>Default values are used when specifications are missing.
+      The default values are described in
+      <seealso marker="#Defaults">Defaults</seealso>.</p>
+    <p>The <c>Value</c> part is any expression, when used in binary construction.
+      Used in binary matching, the <c>Value</c> part must
+      be a literal or a variable. For more information about
+      the <c>Value</c> part, see
+      <seealso marker="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</seealso>
+      and
+      <seealso marker="#Matching Binaries">Matching Binaries</seealso>.</p>
+    <p>The <c>Size</c> part of the segment multiplied by the unit in
+      <c>TypeSpecifierList</c> (described later) gives the number
+      of bits for the segment. In construction, <c>Size</c> is any
+      expression that evaluates to an integer. In matching,
+      <c>Size</c> must be a constant expression or a variable.</p>
+    <p>The <c>TypeSpecifierList</c> is a list of type specifiers
+      separated by hyphens.</p>
+    <taglist>
+      <tag>Type</tag>
+      <item>The most commonly used types are <c>integer</c>, <c>float</c>, and <c>binary</c>.
+      See <seealso marker="doc/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seealso> for a complete description.
+</item>
+      <tag>Signedness</tag>
+      <item>The signedness specification can be either <c>signed</c>
+       or <c>unsigned</c>. Notice that signedness only matters for
+       matching.</item>
+      <tag>Endianness</tag>
+      <item>The endianness specification can be either <c>big</c>,
+      <c>little</c>, or <c>native</c>. Native-endian means that
+       the endian is resolved at load time, to be either
+       big-endian or little-endian, depending on what is "native"
+       for the CPU that the Erlang machine is run on.</item>
+      <tag>Unit</tag>
+      <item>The unit size is given as <c>unit:IntegerLiteral</c>.
+       The allowed range is 1-256. It is multiplied by
+       the <c>Size</c> specifier to give the effective size of
+       the segment. The unit size specifies the alignment
+       for binary segments without size.</item>
+    </taglist>
+    <p><em>Example:</em></p>
+    <code type="none">
+X:4/little-signed-integer-unit:8</code>
+    <p>This element has a total size of 4*8 = 32 bits, and it contains
+      a signed integer in little-endian order.</p>
+  </section>
+
+  <section>
+    <title>Defaults</title>
+    <p><marker id="Defaults"></marker>The default type for
+     a segment is integer. The default
+      type does not depend on the value, even if the value is a
+      literal. For example, the default type in <c><![CDATA[<<3.14>>]]></c> is
+      integer, not float.</p>
+    <p>The default <c>Size</c> depends on the type. For integer it is
+      8. For float it is 64. For binary it is all of the binary. In
+      matching, this default value is only valid for the last
+      element. All other binary elements in matching must have a size
+      specification.</p>
+    <p>The default unit depends on the the type. For <c>integer</c>,
+      <c>float</c>, and <c>bitstring</c> it is 1. For binary it is 8.</p>
+    <p>The default signedness is <c>unsigned</c>.</p>
+    <p>The default endianness is <c>big</c>.</p>
+  </section>
+
+  <section>
+    <title>Constructing Binaries and Bitstrings</title>
+    <marker id="Constructing Binaries and Bitstrings"></marker>
+    <p>This section describes the rules for constructing binaries using
+      the bit syntax. Unlike when constructing lists or tuples,
+      the construction of a binary can fail with a <c>badarg</c>
+      exception.</p>
+    <p>There can be zero or more segments in a binary to be
+      constructed. The expression <c><![CDATA[<<>>]]></c> constructs a zero
+      length binary.</p>
+    <p>Each segment in a binary can consist of zero or more bits.
+      There are no alignment rules for individual segments of type
+      <c>integer</c> and <c>float</c>. For binaries and bitstrings
+      without size, the unit specifies the alignment. Since the default
+      alignment for the <c>binary</c> type is 8, the size of a binary
+      segment must be a multiple of 8 bits, that is, only whole bytes.</p>
+      <p><em>Example:</em></p>
+    <code type="none"><![CDATA[
+<<Bin/binary,Bitstring/bitstring>>]]></code>
+    <p>The variable <c>Bin</c> must contain a whole number of bytes,
+    because the <c>binary</c> type defaults to <c>unit:8</c>.
+    A <c>badarg</c> exception is generated if <c>Bin</c>
+    consist of, for example, 17 bits.</p>
+
+    <p>The <c>Bitstring</c> variable can consist of
+    any number of bits, for example, 0, 1, 8, 11, 17, 42, and so on.
+    This is because the default <c>unit</c> for bitstrings is 1.</p>
+
+    <p>For clarity, it is recommended not to change the unit
+    size for binaries. Instead, use <c>binary</c> when you need byte alignment
+    and <c>bitstring</c> when you need bit alignment.</p>
+
+    <p>The following example successfully constructs a bitstring of 7 bits,
+      provided that all of X and Y are integers:</p>
+    <code type="none"><![CDATA[
+<<X:1,Y:6>>]]></code>
+    <p>As mentioned earlier, segments have the following general syntax:</p>
+    <p><c>Value:Size/TypeSpecifierList</c></p>
+    <p>When constructing binaries, <c>Value</c> and <c>Size</c> can be
+      any Erlang expression. However, for syntactical reasons, both
+      <c>Value</c> and <c>Size</c> must be enclosed in parenthesis if
+      the expression consists of anything more than a single literal
+      or a variable. The following gives a compiler syntax error:</p>
+    <code type="none"><![CDATA[
+<<X+1:8>>]]></code>
+    <p>This expression must be rewritten into the following,
+    to be accepted by the compiler:</p>
+    <code type="none"><![CDATA[
+<<(X+1):8>>]]></code>
+
+    <section>
+      <title>Including Literal Strings</title>
+      <p>A literal string can be written instead of an element:</p>
+      <code type="none"><![CDATA[
+<<"hello">>]]></code>
+      <p>This is syntactic sugar for the following:</p>
+      <code type="none"><![CDATA[
+<<$h,$e,$l,$l,$o>>]]></code>
+    </section>
+  </section>
+
+  <section>
+    <title>Matching Binaries</title>
+    <marker id="Matching Binaries"></marker>
+    <p>This section describes the rules for matching binaries, using
+      the bit syntax.</p>
+    <p>There can be zero or more segments in a binary pattern.
+      A binary pattern can occur wherever patterns are allowed,
+      including inside other patterns. Binary patterns cannot be nested.
+      The pattern <c><![CDATA[<<>>]]></c> matches a zero length binary.</p>
+    <p>Each segment in a binary can consist of zero or more bits.
+       A segment of type <c>binary</c> must have a size evenly divisible by 8
+    (or divisible by the unit size, if the unit size has been changed).
+    A segment of type <c>bitstring</c> has no restrictions on the size.</p>
+    <p>As mentioned earlier, segments have the following general syntax:</p>
+    <p><c>Value:Size/TypeSpecifierList</c></p>
+    <p>When matching <c>Value</c>, value must be either a variable or
+      an integer, or a floating point literal. Expressions are not
+      allowed.</p>
+    <p><c>Size</c> must be an integer literal, or a previously bound
+      variable. The following is not allowed:</p>
+    <code type="none"><![CDATA[
+foo(N, <<X:N,T/binary>>) ->
+   {X,T}.]]></code>
+    <p>The two occurrences of <c>N</c> are not related. The compiler
+      will complain that the <c>N</c> in the size field is unbound.</p>
+    <p>The correct way to write this example is as follows:</p>
+    <code type="none"><![CDATA[
+foo(N, Bin) ->
+   <<X:N,T/binary>> = Bin,
+   {X,T}.]]></code>
+
+    <section>
+      <title>Getting the Rest of the Binary or Bitstring</title>
+      <p>To match out the rest of a binary, specify a binary field
+        without size:</p>
+      <code type="none"><![CDATA[
+foo(<<A:8,Rest/binary>>) ->]]></code>
+      <p>The size of the tail must be evenly divisible by 8.</p>
+
+      <p>To match out the rest of a bitstring, specify a field
+        without size:</p>
+      <code type="none"><![CDATA[
+foo(<<A:8,Rest/bitstring>>) ->]]></code>
+      <p>There are no restrictions on the number of bits in the tail.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Appending to a Binary</title>
+    <p>Appending to a binary in an efficient way can be done as follows:</p>
+    <code type="none"><![CDATA[
+triples_to_bin(T) ->
+    triples_to_bin(T, <<>>).
+
+triples_to_bin([{X,Y,Z} | T], Acc) ->
+    triples_to_bin(T, <<Acc/binary,X:32,Y:32,Z:32>>);
+triples_to_bin([], Acc) -> 
+    Acc.]]></code>
+  </section>
+</chapter>
+

@@ -1,0 +1,324 @@
+-- Module DirectoryShadowAbstractService (X.525:08/1997)
+DirectoryShadowAbstractService {joint-iso-itu-t ds(5) module(1)
+  directoryShadowAbstractService(15) 4} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- EXPORTS All 
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the directory service.
+IMPORTS
+  -- from ITU-T Rec. X.501 | ISO/IEC 9594-2
+  directoryAbstractService, directoryOperationalBindingTypes,
+    informationFramework, disp, distributedOperations,
+    dsaOperationalAttributeTypes, enhancedSecurity, opBindingManagement
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  Attribute, AttributeType, CONTEXT, DistinguishedName,
+    RelativeDistinguishedName, SubtreeSpecification
+    FROM InformationFramework {joint-iso-itu-t ds(5) module(1)
+      informationFramework(1) 3}
+  OPERATIONAL-BINDING, OperationalBindingID
+    FROM OperationalBindingManagement {joint-iso-itu-t ds(5) module(1)
+      opBindingManagement(18) 3}
+  DSEType, SupplierAndConsumers
+    FROM DSAOperationalAttributeTypes {joint-iso-itu-t ds(5) module(1)
+      dsaOperationalAttributeTypes(22) 3}
+  OPTIONALLY-PROTECTED{}, OPTIONALLY-PROTECTED-SEQ{}
+    FROM EnhancedSecurity {joint-iso-itu-t ds(5) module(1) enhancedSecurity(28)
+      1}
+  -- from ITU-T Rec. X.511 | ISO/IEC 9594-3
+  CommonResultsSeq, ContextSelection, directoryBind, directoryUnbind,
+    EntryModification, SecurityParameters
+    FROM DirectoryAbstractService {joint-iso-itu-t ds(5) module(1)
+      directoryAbstractService(2) 3}
+  -- from ITU-T Rec. X.518 | ISO/IEC 9594-4
+  AccessPoint
+    FROM DistributedOperations {joint-iso-itu-t ds(5) module(1)
+      distributedOperations(3) 3}
+  -- from ITU-T Rec. X.519 | ISO/IEC 9594-5
+  id-op-binding-shadow
+    FROM DirectoryOperationalBindingTypes {joint-iso-itu-t ds(5) module(1)
+      directoryOperationalBindingTypes(25) 3}
+  id-errcode-shadowError, id-opcode-coordinateShadowUpdate,
+    id-opcode-requestShadowUpdate, id-opcode-updateShadow,
+    reliableShadowSupplierInitiatedAC, reliableShadowConsumerInitiatedAC,
+    shadowConsumerInitiatedAC, shadowSupplierInitiatedAC
+    FROM DirectoryInformationShadowProtocol {joint-iso-itu-t ds(5) module(1)
+      disp(16) 3}
+  -- from ITU-T Rec. X.880 | ISO/IEC 13712-1
+  ERROR, OPERATION
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)};
+
+-- bind and unbind operations 
+dSAShadowBind OPERATION ::= directoryBind
+
+dSAShadowUnbind OPERATION ::= directoryUnbind
+
+-- shadow operational binding 
+shadowOperationalBinding OPERATIONAL-BINDING ::= {
+  AGREEMENT             ShadowingAgreementInfo
+  APPLICATION CONTEXTS
+    {{shadowSupplierInitiatedAC
+      APPLIES TO  {All-operations-supplier-initiated}} |
+      {shadowConsumerInitiatedAC
+       APPLIES TO  {All-operations-consumer-initiated}} |
+      {reliableShadowSupplierInitiatedAC
+       APPLIES TO  {All-operations-supplier-initiated}} |
+      {reliableShadowConsumerInitiatedAC
+       APPLIES TO  {All-operations-consumer-initiated}}}
+  ASYMMETRIC ROLE-A
+    { -- shadow supplier roleESTABLISHMENT-INITIATOR  TRUE
+                             ESTABLISHMENT-PARAMETER  NULL
+                             MODIFICATION-INITIATOR   TRUE
+                             TERMINATION-INITIATOR    TRUE}
+  ROLE-B
+    { -- shadow consumer roleESTABLISHMENT-INITIATOR  TRUE
+                             ESTABLISHMENT-PARAMETER  NULL
+                             MODIFICATION-INITIATOR   TRUE
+                             MODIFICATION-PARAMETER   ModificationParameter
+                             TERMINATION-INITIATOR    TRUE}
+  ID                    id-op-binding-shadow
+}
+
+-- types 
+ModificationParameter ::= SEQUENCE {
+  secondaryShadows  SET OF SupplierAndConsumers
+}
+
+AgreementID ::= OperationalBindingID
+
+ShadowingAgreementInfo ::= SEQUENCE {
+  shadowSubject     UnitOfReplication,
+  updateMode        UpdateMode DEFAULT supplierInitiated:onChange:TRUE,
+  master            AccessPoint OPTIONAL,
+  secondaryShadows  [2]  BOOLEAN DEFAULT FALSE
+}
+
+UnitOfReplication ::= SEQUENCE {
+  area              AreaSpecification,
+  attributes        AttributeSelection,
+  knowledge         Knowledge OPTIONAL,
+  subordinates      BOOLEAN DEFAULT FALSE,
+  contextSelection  ContextSelection OPTIONAL,
+  supplyContexts
+    [0]  CHOICE {allContexts       NULL,
+                 selectedContexts  SET SIZE (1..MAX) OF CONTEXT.&id} OPTIONAL
+}
+
+AreaSpecification ::= SEQUENCE {
+  contextPrefix    DistinguishedName,
+  replicationArea  SubtreeSpecification
+}
+
+Knowledge ::= SEQUENCE {
+  knowledgeType      ENUMERATED {master(0), shadow(1), both(2)},
+  extendedKnowledge  BOOLEAN DEFAULT FALSE
+}
+
+AttributeSelection ::= SET OF ClassAttributeSelection
+
+ClassAttributeSelection ::= SEQUENCE {
+  class            OBJECT IDENTIFIER OPTIONAL,
+  classAttributes  ClassAttributes DEFAULT allAttributes:NULL
+}
+
+ClassAttributes ::= CHOICE {
+  allAttributes  NULL,
+  include        [0]  AttributeTypes,
+  exclude        [1]  AttributeTypes
+}
+
+AttributeTypes ::= SET OF AttributeType
+
+UpdateMode ::= CHOICE {
+  supplierInitiated  [0]  SupplierUpdateMode,
+  consumerInitiated  [1]  ConsumerUpdateMode
+}
+
+SupplierUpdateMode ::= CHOICE {
+  onChange   BOOLEAN,
+  scheduled  SchedulingParameters
+}
+
+ConsumerUpdateMode ::= SchedulingParameters
+
+SchedulingParameters ::= SEQUENCE {
+  periodic    PeriodicStrategy OPTIONAL, -- must be present if othertimes is set to FALSE 
+  othertimes  BOOLEAN DEFAULT FALSE
+}
+
+PeriodicStrategy ::= SEQUENCE {
+  beginTime       Time OPTIONAL,
+  windowSize      INTEGER,
+  updateInterval  INTEGER
+}
+
+Time ::= GeneralizedTime
+
+-- as per 34.2 b) and c) of CCITT Rec. X.208 and ISO/IEC 8824
+-- shadow operations, arguments, and results 
+All-operations-consumer-initiated OPERATION ::=
+  {requestShadowUpdate | updateShadow}
+
+All-operations-supplier-initiated OPERATION ::=
+  {coordinateShadowUpdate | updateShadow}
+
+coordinateShadowUpdate OPERATION ::= {
+  ARGUMENT  CoordinateShadowUpdateArgument
+  RESULT    CoordinateShadowUpdateResult
+  ERRORS    {shadowError}
+  CODE      id-opcode-coordinateShadowUpdate
+}
+
+CoordinateShadowUpdateArgument ::=
+  OPTIONALLY-PROTECTED
+    {[0]  SEQUENCE {agreementID         AgreementID,
+                    lastUpdate          Time OPTIONAL,
+                    updateStrategy
+                      CHOICE {standard
+                                ENUMERATED {noChanges(0), incremental(1),
+                                            total(2)},
+                              other     EXTERNAL},
+                    securityParameters  SecurityParameters OPTIONAL}}
+
+CoordinateShadowUpdateResult ::= CHOICE {
+  null         NULL,
+  information
+    OPTIONALLY-PROTECTED{[0]  SEQUENCE {greementID  AgreementID,
+                                        lastUpdate  Time OPTIONAL,
+                                        COMPONENTS OF CommonResultsSeq
+      }}
+}
+
+requestShadowUpdate OPERATION ::= {
+  ARGUMENT  RequestShadowUpdateArgument
+  RESULT    RequestShadowUpdateResult
+  ERRORS    {shadowError}
+  CODE      id-opcode-requestShadowUpdate
+}
+
+RequestShadowUpdateArgument ::=
+  OPTIONALLY-PROTECTED
+    {[0]  SEQUENCE {agreementID         AgreementID,
+                    lastUpdate          Time OPTIONAL,
+                    requestedStrategy
+                      CHOICE {standard  ENUMERATED {incremental(1), total(2)},
+                              other     EXTERNAL},
+                    securityParameters  SecurityParameters OPTIONAL}}
+
+RequestShadowUpdateResult ::= CHOICE {
+  null         NULL,
+  information
+    OPTIONALLY-PROTECTED{[0]  SEQUENCE {agreementID  AgreementID,
+                                        lastUpdate   Time OPTIONAL,
+                                        COMPONENTS OF CommonResultsSeq
+      }}
+}
+
+updateShadow OPERATION ::= {
+  ARGUMENT  UpdateShadowArgument
+  RESULT    UpdateShadowResult
+  ERRORS    {shadowError}
+  CODE      id-opcode-updateShadow
+}
+
+UpdateShadowArgument ::=
+  OPTIONALLY-PROTECTED
+    {[0]  SEQUENCE {agreementID         AgreementID,
+                    updateTime          Time,
+                    updateWindow        UpdateWindow OPTIONAL,
+                    updatedInfo         RefreshInformation,
+                    securityParameters  SecurityParameters OPTIONAL}}
+
+UpdateShadowResult ::= CHOICE {
+  null         NULL,
+  information
+    OPTIONALLY-PROTECTED{[0]  SEQUENCE {agreementID  AgreementID,
+                                        lastUpdate   Time OPTIONAL,
+                                        COMPONENTS OF CommonResultsSeq
+      }}
+}
+
+UpdateWindow ::= SEQUENCE {start  Time,
+                           stop   Time
+}
+
+RefreshInformation ::= CHOICE {
+  noRefresh      NULL,
+  total          [0]  TotalRefresh,
+  incremental    [1]  IncrementalRefresh,
+  otherStrategy  EXTERNAL
+}
+
+TotalRefresh ::= SEQUENCE {
+  sDSE     SDSEContent OPTIONAL,
+  subtree  SET SIZE (1..MAX) OF Subtree OPTIONAL
+}
+
+SDSEContent ::= SEQUENCE {
+  sDSEType          SDSEType,
+  subComplete       [0]  BOOLEAN DEFAULT FALSE,
+  attComplete       [1]  BOOLEAN OPTIONAL,
+  attributes        SET OF Attribute,
+  attValIncomplete  SET OF AttributeType DEFAULT {}
+}
+
+SDSEType ::= DSEType
+
+Subtree ::= SEQUENCE {
+  rdn  RelativeDistinguishedName,
+  COMPONENTS OF TotalRefresh
+}
+
+IncrementalRefresh ::= SEQUENCE OF IncrementalStepRefresh
+
+IncrementalStepRefresh ::= SEQUENCE {
+  sDSEChanges
+    CHOICE {add     [0]  SDSEContent,
+            remove  NULL,
+            modify  [1]  ContentChange} OPTIONAL,
+  subordinateUpdates  SEQUENCE SIZE (1..MAX) OF SubordinateChanges OPTIONAL
+}
+
+ContentChange ::= SEQUENCE {
+  rename
+    CHOICE {newRDN  RelativeDistinguishedName,
+            newDN   DistinguishedName} OPTIONAL,
+  attributeChanges
+    CHOICE {replace  [0]  SET SIZE (1..MAX) OF Attribute,
+            changes  [1]  SEQUENCE SIZE (1..MAX) OF EntryModification
+  } OPTIONAL,
+  sDSEType          SDSEType,
+  subComplete       [2]  BOOLEAN DEFAULT FALSE,
+  attComplete       [3]  BOOLEAN OPTIONAL,
+  attValIncomplete  SET OF AttributeType DEFAULT {}
+}
+
+SubordinateChanges ::= SEQUENCE {
+  subordinate  RelativeDistinguishedName,
+  changes      IncrementalStepRefresh
+}
+
+-- errors and parameters 
+shadowError ERROR ::= {
+  PARAMETER OPTIONALLY-PROTECTED-SEQ
+    {SEQUENCE {problem       ShadowProblem,
+               lastUpdate    Time OPTIONAL,
+               updateWindow  UpdateWindow OPTIONAL,
+               COMPONENTS OF CommonResultsSeq}}
+  CODE                                id-errcode-shadowError
+}
+
+ShadowProblem ::= INTEGER {
+  invalidAgreementID(1), inactiveAgreement(2), invalidInformationReceived(3),
+  unsupportedStrategy(4), missedPrevious(5), fullUpdateRequired(6),
+  unwillingToPerform(7), unsuitableTiming(8), updateAlreadyReceived(9),
+  invalidSequencing(10), insufficientResources(11)}
+
+END -- DirectoryShadowAbstractService
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

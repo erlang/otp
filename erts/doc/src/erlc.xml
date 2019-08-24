@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erlc</title>
+    <prepared>Bj&ouml;rn Gustavsson</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-03-24</date>
+    <rev>A</rev>
+    <file>erlc.xml</file>
+  </header>
+  <com>erlc</com>
+  <comsummary>Compiler</comsummary>
+  <description>
+    <p>The <c><![CDATA[erlc]]></c> program provides a common way to run
+      all compilers in the Erlang system.
+      Depending on the extension of each input file, <c><![CDATA[erlc]]></c>
+      invokes the appropriate compiler.
+      Regardless of which compiler is used, the same flags are used to provide
+      parameters, such as include paths and output directory.</p>
+    <p>The current working directory, <c>"."</c>, is not included
+      in the code path when running the compiler. This is to avoid loading
+      Beam files from the current working directory that could potentially
+      be in conflict with the compiler or the Erlang/OTP system used by the
+      compiler.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>erlc flags file1.ext file2.ext...</name>
+      <fsummary>Compile files.</fsummary>
+      <desc>
+        <p>Compiles one or more files. The files must include the extension,
+          for example, <c><![CDATA[.erl]]></c> for Erlang source code, or
+          <c><![CDATA[.yrl]]></c> for Yecc source code.
+          <c><![CDATA[Erlc]]></c> uses the extension to invoke the correct
+          compiler.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Generally Useful Flags</title>
+    <p>The following flags are supported:</p>
+    <taglist>
+      <tag><c>-I &lt;Directory&gt;</c></tag>
+      <item>
+        <p>Instructs the compiler to search for include files in
+          the <c>Directory</c>. When encountering an
+          <c><![CDATA[-include]]></c> or <c><![CDATA[-include_lib]]></c>
+          directive, the compiler searches for header files in the following
+          directories:</p>
+        <list type="bulleted">
+          <item>
+            <p><c><![CDATA["."]]></c>, the current working directory of the
+              file server</p>
+          </item>
+          <item>
+            <p>The base name of the compiled file</p>
+          </item>
+          <item>
+            <p>The directories specified using option <c><![CDATA[-I]]></c>;
+              the directory specified last is searched first</p>
+          </item>
+        </list>
+      </item>
+      <tag><c>-o &lt;Directory&gt;</c></tag>
+      <item>
+        <p>The directory where the compiler is to place the output files.
+          Defaults to the current working directory.</p>
+      </item>
+      <tag><c>-D&lt;Name&gt;</c></tag>
+      <item>
+        <p>Defines a macro.</p>
+      </item>
+      <tag><c>-D&lt;Name&gt;=&lt;Value&gt;</c></tag>
+      <item>
+        <p>Defines a macro with the specified value.
+          The value can be any Erlang term.
+          Depending on the platform, the value may need to be
+          quoted if the shell itself interprets certain characters.
+          On Unix, terms containing tuples and lists
+          must be quoted. Terms containing spaces
+          must be quoted on all platforms.</p>
+      </item>
+      <tag><c>-W&lt;Error&gt;</c></tag>
+      <item>
+        <p>Makes all warnings into errors.</p>
+      </item>
+      <tag><c>-W&lt;Number&gt;</c></tag>
+      <item>
+        <p>Sets warning level to <c>Number</c>. Defaults to
+          <c><![CDATA[1]]></c>. To turn off warnings,
+          use <c><![CDATA[-W0]]></c>.</p>
+      </item>
+      <tag><c>-W</c></tag>
+      <item>
+        <p>Same as <c><![CDATA[-W1]]></c>. Default.</p>
+      </item>
+      <tag><c>-v</c></tag>
+      <item>
+        <p>Enables verbose output.</p>
+      </item>
+      <tag><c>-b &lt;Output_type&gt;</c></tag>
+      <item>
+        <p>Specifies the type of output file.
+          <c>Output_type</c> is the same as the file extension
+          of the output file, but without the period.
+          This option is ignored by compilers that have
+          a single output format.</p>
+      </item>
+      <tag><c>-smp</c></tag>
+      <item>
+        <p>Compiles using the SMP emulator. This is mainly useful
+          for compiling native code, which must be compiled with the same
+          runtime system that it is to be run on.</p>
+      </item>
+      <tag><c>-M</c></tag>
+      <item>
+        <p>Produces a Makefile rule to track header dependencies. The
+          rule is sent to <c>stdout</c>. No object file is produced.</p>
+      </item>
+
+      <tag><c>-MMD</c></tag>
+      <item>
+        <p>Generate dependencies as a side-effect. The object file
+	will be produced as normal. This option overrides the
+	option <c><![CDATA[-M]]></c>.</p>
+      </item>
+
+      <tag><c>-MF &lt;Makefile&gt;</c></tag>
+      <item>
+        <p>As option <c><![CDATA[-M]]></c>, except that the
+          Makefile is written to <c>Makefile</c>. No object
+          file is produced.</p>
+      </item>
+      <tag><c>-MD</c></tag>
+      <item>
+        <p>Same as <c><![CDATA[-M -MF <File>.Pbeam]]></c>.</p>
+      </item>
+      <tag><c>-MT &lt;Target&gt;</c></tag>
+      <item>
+        <p>In conjunction with option <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, changes the name of the rule emitted
+          to <c>Target</c>.</p>
+      </item>
+      <tag><c>-MQ &lt;Target&gt;</c></tag>
+      <item>
+        <p>As option <c><![CDATA[-MT]]></c>, except that characters special to
+          <c>make/1</c> are quoted.</p>
+      </item>
+      <tag><c>-MP</c></tag>
+      <item>
+        <p>In conjunction with option <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, adds a phony target for each dependency.</p>
+      </item>
+      <tag><c>-MG</c></tag>
+      <item>
+        <p>In conjunction with option <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, considers missing headers as generated
+          files and adds them to the dependencies.</p>
+      </item>
+      <tag><c>--</c></tag>
+      <item>
+        <p>Signals that no more options will follow.
+          The rest of the arguments is treated as filenames,
+          even if they start with hyphens.</p>
+      </item>
+      <tag><c>+&lt;Term&gt;</c></tag>
+      <item>
+        <p>A flag starting with a plus (<c>+</c>) rather than a hyphen
+          is converted to an Erlang term and passed unchanged to
+          the compiler.
+          For example, option <c><![CDATA[export_all]]></c> for the Erlang
+          compiler can be specified as follows:</p>
+        <pre>
+erlc +export_all file.erl</pre>
+        <p>Depending on the platform, the value may need to be
+          quoted if the shell itself interprets certain characters.
+          On Unix, terms containing tuples and lists
+          must be quoted. Terms containing spaces
+          must be quoted on all platforms.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Special Flags</title>
+    <p>The following flags are useful in special situations,
+      such as rebuilding the OTP system:</p>
+    <taglist>
+      <tag><c>-pa &lt;Directory&gt;</c></tag>
+      <item>
+        <p>Appends <c>Directory</c> to the front of the code path in
+          the invoked Erlang emulator.
+          This can be used to invoke another
+          compiler than the default one.</p>
+      </item>
+      <tag><c>-pz &lt;Directory&gt;</c></tag>
+      <item>
+        <p>Appends <c>Directory</c> to the code path in
+          the invoked Erlang emulator.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Supported Compilers</title>
+    <p>The following compilers are supported:</p>
+    <taglist>
+      <tag><c>.erl</c></tag>
+      <item>
+        <p>Erlang source code. It generates a <c><![CDATA[.beam]]></c> file.</p>
+        <p>Options <c>-P</c>, <c>-E</c>, and <c>-S</c> are equivalent to
+          <c>+'P'</c>, <c>+'E'</c>, and <c>+'S'</c>, except that it is not
+          necessary to include the single quotes to protect them from the
+          shell.</p>
+        <p>Supported options: <c>-I</c>, <c>-o</c>, <c>-D</c>, <c>-v</c>,
+          <c>-W</c>, <c>-b</c>.</p>
+      </item>
+      <tag><c>.S</c></tag>
+      <item>
+        <p>Erlang assembler source code. It generates a <c><![CDATA[.beam]]></c>
+          file.</p>
+        <p>Supported options: same as for <c>.erl</c>.</p>
+      </item>
+      <tag><c>.core</c></tag>
+      <item>
+        <p>Erlang core source code. It generates a <c><![CDATA[.beam]]></c>
+          file.</p>
+        <p>Supported options: same as for <c>.erl</c>.</p>
+      </item>
+      <tag><c>.yrl</c></tag>
+      <item>
+        <p>Yecc source code. It generates an <c><![CDATA[.erl]]></c> file.</p>
+        <p>Use option <c>-I</c> with the name of a file to use that file
+          as a customized prologue file (option
+          <c><![CDATA[includefile]]></c>).</p>
+        <p>Supported options: <c>-o</c>, <c>-v</c>, <c>-I</c>, <c>-W</c>.</p>
+      </item>
+      <tag><c>.mib</c></tag>
+      <item>
+        <p>MIB for SNMP. It generates a <c><![CDATA[.bin]]></c> file.</p>
+        <p>Supported options: <c>-I</c>, <c>-o</c>, <c>-W</c>.</p>
+      </item>
+      <tag><c>.bin</c></tag>
+      <item>
+        <p>A compiled MIB for SNMP. It generates a <c><![CDATA[.hrl]]></c>
+          file.</p>
+        <p>Supported options: <c>-o</c>, <c>-v</c>.</p>
+      </item>
+      <tag><c>.rel</c></tag>
+      <item>
+        <p>Script file. It generates a boot file.</p>
+        <p>Use option <c>-I</c> to name directories to be searched for
+          application files (equivalent to the <c><![CDATA[path]]></c> in the
+          option list for <c><![CDATA[systools:make_script/2]]></c>).</p>
+        <p>Supported option: <c>-o</c>.</p>
+      </item>
+      <tag><c>.asn1</c></tag>
+      <item>
+        <p>ASN1 file. It creates an <c><![CDATA[.erl]]></c>,
+          <c><![CDATA[.hrl]]></c>, and <c><![CDATA[.asn1db]]></c> file from
+          an <c><![CDATA[.asn1]]></c> file. Also compiles the
+          <c><![CDATA[.erl]]></c> using the Erlang compiler unless option
+          <c><![CDATA[+noobj]]></c> is specified.</p>
+        <p>Supported options: <c>-I</c>, <c>-o</c>, <c>-b</c>, <c>-W</c>.</p>
+      </item>
+      <tag><c>.idl</c></tag>
+      <item>
+        <p>IC file. It runs the IDL compiler.</p>
+        <p>Supported options: <c>-I</c>, <c>-o</c>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Environment Variables</title>
+    <taglist>
+      <tag><c>ERLC_EMULATOR</c></tag>
+      <item>The command for starting the emulator. Defaults to <c>erl</c>
+        in the same directory as the <c>erlc</c> program itself,
+        or, if it does not exist, <c>erl</c> in any of the directories
+        specified in environment variable <c>PATH</c>.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl"><c>erl(1)</c></seealso>,
+      <seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
+      <seealso marker="parsetools:yecc"><c>yecc(3)</c></seealso>,
+      <seealso marker="snmp:snmp"><c>snmp(3)</c></seealso></p>
+  </section>
+</comref>
+

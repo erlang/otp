@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>ttb</title>
+    <prepared>Siri Hansen, Bartlomiej Puzon</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2010-08-13</date>
+    <rev>PA1</rev>
+    <file>ttb.xml</file>
+  </header>
+  <module since="">ttb</module>
+  <modulesummary>A base for building trace tools for distributed systems.</modulesummary>
+  <description>
+    <p>The Trace Tool Builder, <c>ttb</c>, is a base for building trace
+      tools for distributed systems.
+      </p>
+    <p>When using <c>ttb</c>, do not use module <c>dbg</c> in application
+      Runtime_Tools in parallel.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="OTP R15B">start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
+      <fsummary>Start a trace port on each specified node.</fsummary>
+      <type>
+        <v>Result = see p/2</v>
+        <v>Nodes = see tracer/2</v>
+        <v>Patterns = [tuple()]</v>
+        <v>FlagSpec = {Procs, Flags}</v>
+        <v>Proc = see p/2</v>
+        <v>Flags = see p/2</v>
+        <v>Opts = see tracer/2</v>
+      </type>
+      <desc>
+        <p>This function is a shortcut allowing to start a trace with one command. Each
+          tuple in <c>Patterns</c> is converted to a list, which in turn is passed to
+          <c>ttb:tpl/2,3,4</c>.</p>
+         <p>The call:</p>
+	 <pre>
+> <input>ttb:start_trace([Node, OtherNode],
+                  [{mod, foo, []}, {mod, bar, 2}],
+                  {all, call},
+                  [{file, File}, {handler,{fun myhandler/4, S}}]).</input></pre>
+         <p> is equivalent to:</p>
+	 <pre>
+> <input>ttb:start_trace([Node, OtherNode],
+                  [{file, File}, {handler,{fun myhandler/4, S}}]),
+ttb:tpl(mod, foo, []),
+ttb:tpl(mod, bar, 2, []),
+ttb:p(all, call).</input></pre>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tracer() -> Result</name>
+      <fsummary>Equivalent to tracer(node()).</fsummary>
+      <desc>
+        <p>Equivalent to <c>tracer(node())</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tracer(Shortcut) -> Result</name>
+      <fsummary>Handy shortcuts for common tracing settings.</fsummary>
+      <type>
+        <v>Shortcut = shell | dbg</v>
+      </type>
+      <desc>
+	<p>Handy shortcuts for common tracing settings.</p>
+        <p><c>shell</c> is equivalent to <c>tracer(node(),[{file, {local, "ttb"}}, shell])</c>.</p>
+        <p><c>dbg</c> is equivalent to <c>tracer(node(),[{shell, only}])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tracer(Nodes) -> Result</name>
+      <fsummary>Equivalent to tracer(Nodes,[]).</fsummary>
+      <desc>
+        <p>Equivalent to <c>tracer(Nodes,[])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tracer(Nodes,Opts) -> Result</name>
+      <fsummary>Start a trace port on each specified node.</fsummary>
+      <type>
+        <v>Result = {ok, ActivatedNodes} | {error,Reason}</v>
+        <v>Nodes   = atom() | [atom()] | all | existing | new</v>
+        <v>Opts = Opt | [Opt]</v>
+        <v>Opt = {file,Client} | {handler, FormatHandler} | {process_info,PI} |
+          shell | {shell, ShellSpec} | {timer, TimerSpec} |
+	  {overload_check, {MSec, Module, Function}} |
+	{flush, MSec} | resume | {resume, FetchTimeout} |
+	{queue_size, QueueSize}</v>
+        <v>TimerSpec = MSec | {MSec, StopOpts}</v>
+        <v>MSec = FetchTimeout = integer()</v>
+        <v>Module = Function = atom() </v>
+        <v>StopOpts = see stop/2</v>
+        <v>Client = File | {local, File}</v>
+        <v>File = Filename | Wrap</v>
+        <v>Filename = string()</v>
+        <v>Wrap = {wrap,Filename} | {wrap,Filename,Size,Count}</v>
+        <v>FormatHandler = See format/2</v>
+        <v>PI = true | false </v>
+        <v>ShellSpec = true | false | only</v>
+	<v>QueueSize = non_neg_integer()</v>
+      </type>
+      <desc>
+        <p>Starts a file trace port on all specified nodes
+          and points the system tracer for sequential tracing to
+          the same port.
+          </p>
+	<p><em>Options:</em></p>
+	<taglist>
+       <tag><c>Filename</c></tag>
+       <item><p>The specified <c>Filename</c> is prefixed with the node name. 
+       Default <c>Filename</c> is <c>ttb</c>.</p></item>
+       <tag><c>File={wrap,Filename,Size,Count}</c></tag>
+       <item><p>Can be used if the size of the trace logs must be limited. 
+       Default values are
+       <c>Size=128*1024</c> and <c>Count=8</c>.</p></item>
+       <tag><c>Client</c></tag>
+       <item><p>When tracing diskless nodes, <c>ttb</c> must be started
+          from an external "trace control node" with disk access, and
+          <c>Client</c> must be <c>{local, File}</c>. All
+          trace information is then sent to the trace control node where
+          it is written to file.</p></item>
+       <tag><c>queue_size</c></tag>
+       <item><p>When tracing to shell or <c>{local,File}</c>, an ip
+	  trace driver is used internally. The ip trace driver has a
+	  queue of maximum <c>QueueSize</c> messages waiting to be
+	  delivered. If the driver cannot deliver messages as fast as
+	  they are produced, the queue size might be exceeded and
+	  messages are dropped. This parameter is optional, and is
+	  only useful if many <c>{drop,N}</c> trace messages are
+	  received by the trace handler. It has no meaning if shell
+	  or <c>{local,File}</c> is not used. See
+	  <seealso marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seealso>
+	  for more information about the ip trace driver.</p></item>
+       <tag><c>process_info</c></tag>
+       <item><p>Indicates if process
+          information is to be collected. If <c>PI = true</c> (which is
+          default), each process identifier <c>Pid</c> is replaced by a
+          tuple <c>{Pid,ProcessInfo,Node}</c>, where <c>ProcessInfo</c>
+          is the registered process name, its globally registered name,
+          or its initial function. To turn off this functionality, 
+          set <c>PI = false</c>.</p></item>
+       <tag><c>{shell, ShellSpec}</c></tag>
+       <item><p>Indicates that trace messages are to be printed on the 
+          console as they are received by the tracing process. This implies 
+	  trace client <c>{local, File}</c>. If <c>ShellSpec</c>
+          is <c>only</c> (instead of <c>true</c>), no trace logs are stored.</p></item>
+       <tag><c>shell</c></tag>
+       <item><p>Shortcut for <c>{shell, true}</c>.</p></item>
+       <tag><c>timer</c></tag>
+       <item><p>Indicates that the trace is to be
+          automatically stopped after <c>MSec</c> milliseconds. <c>StopOpts</c>
+          are passed to command <c>ttb:stop/2</c> if specified (default is <c>[]</c>).
+          Notice that the timing is approximate, as delays related to
+          network communication are always present. The timer starts after
+          <c>ttb:p/2</c> is issued, so you can set up your trace patterns before.</p></item>
+       <tag><c>overload_check</c></tag>
+       <item><p>Allows to enable overload
+          checking on the nodes under trace. <c>Module:Function(check)</c>
+          is performed each <c>MSec</c> millisecond. If the check returns
+          <c>true</c>, the tracing is disabled on a specified node.</p>
+          <p><c>Module:Function</c> must be able to handle at least three
+          atoms: <c>init</c>, <c>check</c>, and <c>stop</c>. <c>init</c> and
+          <c>stop</c> allows you to initialize and clean
+          up the check environment.</p>
+          <p>When a node gets overloaded, it is not possible to issue <c>ttb:p/2</c>
+          or any command from the <c>ttb:tp/2,3,4</c> family, as it would lead to
+          inconsistent tracing state (different trace specifications on
+          different nodes).</p></item>
+       <tag><c>flush</c></tag>
+       <item><p>Periodically flushes all file trace
+          port clients (see
+	  <seealso marker="runtime_tools:dbg#flush_trace_port/1">
+	  <c>dbg:flush_trace_port/1</c></seealso>). When enabled,
+          the buffers are freed each <c>MSec</c> millisecond. This option is
+          not allowed with <c>{file, {local, File}}</c> tracing.</p></item>
+       <tag><c>{resume, FetchTimeout}</c></tag>
+       <item><p>Enables the autoresume feature.
+          When enabled, remote nodes try to reconnect to the controlling node
+          if they are restarted. The feature requires application Runtime_Tools
+          to be started (so it has to be present in the <c>.boot</c>
+          scripts if the traced nodes run with embedded Erlang). If this is
+          not possible, resume can be performed manually by starting
+          <c>Runtime_Tools</c> remotely using 
+	  <seealso marker="kernel:rpc#call/4"><c>rpc:call/4</c></seealso>.</p>
+          <p><c>ttb</c> tries to fetch all logs from a reconnecting node before
+          reinitializing the trace. This must finish within <c>FetchTimeout</c> 
+	  milliseconds or is aborted.</p>
+          <p>By default, autostart information is stored in a file named
+          <c>ttb_autostart.bin</c> on each node. If this is not desired
+          (for example, on diskless nodes), a custom module handling autostart
+          information storage and retrieval can be provided by specifying
+          environment variable <c>ttb_autostart_module</c> for the application
+	  Runtime_Tools. The module must respond to the following API:</p>
+	  <taglist>
+            <tag><c>write_config(Data) -> ok</c></tag>
+            <item><p>Stores the provided data for further retrieval. It is
+              important to realize that the data storage used must not
+              be affected by the node crash.</p></item>
+            <tag><c>read_config() -> {ok, Data} | {error, Error}</c></tag>
+            <item><p>Retrieves configuration stored with <c>write_config(Data)</c>.</p></item>
+            <tag><c>delete_config() -> ok</c></tag>
+            <item><p>Deletes configuration stored with <c>write_config(Data)</c>.
+              Notice that after this call any subsequent calls to <c>read_config</c>
+              must return <c>{error, Error}</c>.</p>
+            </item>
+	  </taglist>
+	  <p><c>resume</c> implies the default <c>FetchTimeout</c>, which is
+          10 seconds</p>
+       </item>
+     </taglist>
+          
+      </desc>
+    </func>
+
+    <func>
+      <name since="">p(Item,Flags) -> Return</name>
+      <fsummary>Set the specified trace flags on the specified processes or ports.</fsummary>
+      <type>
+        <v>Return  = {ok,[{Item,MatchDesc}]}</v>
+        <v>Items   = Item | [Item]</v>
+	<v>Item    = pid() | port() | RegName | {global,GlobalRegName} |
+	  all | processes | ports |
+	  existing | existing_processes | existing_ports |
+	  new | new_processes | new_ports</v>
+        <v>RegName = atom()</v>
+	<v>GlobalRegName = term()</v>
+        <v>Flags   = Flag | [Flag]</v>
+      </type>
+      <desc>
+        <p>Sets the specified trace flags on the specified processes
+          or ports. Flag <c>timestamp</c> is always turned on.
+          </p>
+        <p>See the Reference Manual for module 
+	<seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>
+          for the possible trace flags. Parameter
+          <c>MatchDesc</c> is the same as returned from 
+	<c>dbg:p/2</c>.</p>
+        <p>Processes can be specified as registered names, globally
+          registered names, or process identifiers. Ports can be
+          specified as registered names or port identifiers. If a
+          registered name is specified, the flags are set on
+          processes/ports with this name on all active nodes.</p>
+        <p>Issuing this command starts the timer for this trace if option
+          <c>timer</c> is specified with <c>tracer/2</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">tp, tpl, ctp, ctpl, ctpg</name>
+      <name since="OTP 19.0">tpe, ctpe</name>
+      <fsummary>Set and clear trace patterns.</fsummary>
+      <desc>
+        <p>These functions are to be used with trace
+          flag <c>call</c>, <c>send</c>, and <c>'receive'</c> for
+          setting and clearing trace patterns.</p>
+	<p>When trace flag <c>call</c> is set on a process,
+          function calls are traced on that process if a trace
+          pattern is set for the called function.</p>
+	<p>The <c>send</c> and <c>'receive'</c> flags enable tracing
+	  of all messages sent and received by the process/port. Trace
+	  patterns set with <c>tpe</c> may limit traced messages based
+	  on the message content, the sender, and/or the receiver.</p>
+	<p>Trace patterns specify how to trace a function or a message
+          by using match specifications. Match specifications are
+          described in the
+          <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>.
+          </p>
+        <p>These functions are equivalent to the corresponding
+          functions in module
+	  <seealso marker="runtime_tools:dbg">dbg</seealso>,
+	  but all calls are stored in the
+          history. The history buffer makes it easy to create configuration
+          files; the same trace environment can be set up many
+          times, for example, to compare two test runs. It also
+          reduces the amount of typing when using <c>ttb</c> from the
+          Erlang shell.
+          </p>
+        <taglist>
+          <tag><c>tp</c></tag>
+          <item><p>Sets trace patterns on global function calls.</p></item>
+          <tag><c>tpl</c></tag>
+          <item><p>Sets trace patterns on local and global function calls.</p></item>
+          <tag><c>tpe</c></tag>
+          <item><p>Sets trace patterns on messages.</p></item>
+          <tag><c>ctp</c></tag>
+          <item><p>Clears trace patterns on local and global function
+           calls.</p></item>
+          <tag><c>ctpl</c></tag>
+          <item><p>Clears trace patterns on local function calls.</p></item>
+          <tag><c>ctpg</c></tag>
+          <item><p>Clears trace patterns on global function calls.</p></item>
+          <tag><c>ctpe</c></tag>
+          <item><p>Clears trace patterns on messages.</p></item>
+        </taglist>
+        <p>With <c>tp</c> and <c>tpl</c>, one of the match specification shortcuts
+          can be used (for example, <c>ttb:tp(foo_module, caller)</c>).</p>
+	  <p>The shortcuts are as follows:</p>
+          <list type="bulleted">
+            <item><c>return</c> - for <c>[{'_',[],[{return_trace}]}]</c>
+              (report the return value from a traced function)</item>
+            <item><c>caller</c> - for <c>[{'_',[],[{message,{caller}}]}]</c>
+              (report the calling function)</item>
+            <item><c>{codestr, Str}</c> - for <c>dbg:fun2ms/1</c> arguments
+              passed as strings (example: <c>"fun(_) -> return_trace() end"</c>)
+            </item>
+          </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">list_history() -> History</name>
+      <fsummary>Return all calls stored in history.</fsummary>
+      <type>
+        <v>History = [{N,Func,Args}]</v>
+      </type>
+      <desc>
+        <p>All calls to <c>ttb</c> is stored in the history. This
+          function returns the current content of the history. Any entry
+          can be reexecuted with <c>run_history/1</c> or stored in a
+          configuration file with <c>write_config/2,3</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_history(N) -> ok | {error, Reason}</name>
+      <fsummary>Execute one entry of the history.</fsummary>
+      <type>
+        <v>N = integer() | [integer()]</v>
+      </type>
+      <desc>
+        <p>Executes the specified entry or entries from the history
+          list. To list history, use <c>list_history/0</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">write_config(ConfigFile,Config)</name>
+      <fsummary>Equivalent to write_config(ConfigFile,Config,[]).</fsummary>
+      <desc>
+        <p>Equivalent to <c>write_config(ConfigFile,Config,[])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}</name>
+      <fsummary>Create a configuration file.</fsummary>
+      <type>
+        <v>ConfigFile = string()</v>
+        <v>Config = all | [integer()] | [{Mod,Func,Args}]</v>
+        <v>Mod = atom()</v>
+        <v>Func = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Opts = Opt | [Opt]</v>
+        <v>Opt = append</v>
+      </type>
+      <desc>
+        <p>Creates or extends a configuration file, which can be
+          used for restoring a specific configuration later.
+          </p>
+        <p>The contents of the configuration file can either be fetched from
+          the history or specified directly as a list of
+          <c>{Mod,Func,Args}</c>.
+          </p>
+        <p>If the complete history is to be stored in the configuration file,
+          <c>Config</c> must be <c>all</c>. If only a selected number
+          of entries from the history are to be stored, <c>Config</c>
+          must be a list of integers pointing out the entries to be
+          stored.
+          </p>
+        <p>If <c>Opts</c> is not specified or if it is <c>[]</c>,
+          <c>ConfigFile</c> is deleted and a new file is created. If
+          <c>Opts = [append]</c>, <c>ConfigFile</c> is not deleted.
+          The new information is appended at the end of the file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_config(ConfigFile) -> ok | {error,Reason}</name>
+      <fsummary>Execute all entries in a configuration file.</fsummary>
+      <type>
+        <v>ConfigFile = string()</v>
+      </type>
+      <desc>
+        <p>Executes all entries in the specified configuration file. 
+	Notice that the history of the last trace is always available 
+	in file <c>ttb_last_config</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">run_config(ConfigFile,NumList) -> ok | {error,Reason}</name>
+      <fsummary>Execute selected entries from a configuration file.</fsummary>
+      <type>
+        <v>ConfigFile = string()</v>
+        <v>NumList = [integer()]</v>
+      </type>
+      <desc>
+        <p>Executes selected entries from the specified configuration
+          file. <c>NumList</c> is a list of integers pointing out the
+          entries to be executed.
+          </p>
+        <p>To list the contents of a configuration file, use
+          <c>list_config/1</c>.</p>
+        <p>Notice that the history of the last trace is always available 
+	   in file <c>ttb_last_config</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">list_config(ConfigFile) -> Config | {error,Reason}</name>
+      <fsummary>List all entries in a configuration file.</fsummary>
+      <type>
+        <v>ConfigFile = string()</v>
+        <v>Config = [{N,Func,Args}]</v>
+      </type>
+      <desc>
+        <p>Lists all entries in the specified configuration file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">write_trace_info(Key,Info) -> ok</name>
+      <fsummary>Write any information to file <c>.ti</c>.</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Info = Data | fun() -> Data</v>
+        <v>Data = term()</v>
+      </type>
+      <desc>
+        <p>File <c>.ti</c> contains <c>{Key,ValueList}</c>
+          tuples. This function adds <c>Data</c> to the <c>ValueList</c>
+          associated with <c>Key</c>. All information written with this
+          function is included in the call to the format handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">seq_trigger_ms() -> MatchSpec</name>
+      <fsummary>Equivalent to seq_trigger_ms(all).</fsummary>
+      <desc>
+        <p>Equivalent to <c>seq_trigger_ms(all)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">seq_trigger_ms(Flags) -> MatchSpec</name>
+      <fsummary>Return a match_spec() which starts sequential tracing.</fsummary>
+      <type>
+        <v>MatchSpec = match_spec()</v>
+        <v>Flags = all | SeqTraceFlag | [SeqTraceFlag]</v>
+        <v>SeqTraceFlag = atom()</v>
+      </type>
+      <desc>
+        <p>A match specification can turn on or off sequential
+          tracing. This function returns a match specification, which
+          turns on sequential tracing with the specified <c>Flags</c>.
+          </p>
+        <p>This match specification can be specified as the last argument
+          to <c>tp</c> or <c>tpl</c>. The activated <c>Item</c>
+          then becomes a <em>trigger</em> for sequential tracing. This
+          means that if the item is called on a process with trace flag
+          <c>call</c> set, the process is "contaminated"
+          with token <c>seq_trace</c>.
+          </p>
+        <p>If <c>Flags = all</c>, all possible flags are set.
+          </p>
+        <p>The possible values for <c>SeqTraceFlag</c> are available in
+	<seealso marker="kernel:seq_trace"><c>seq_trace</c></seealso>.</p>
+	 <p>For a description of the <c>match_spec()</c> syntax, 
+	   see section
+	   <seealso marker="erts:match_spec"><c>Match Specifications in Erlang</c></seealso>
+	   in ERTS, which explains the general match specification "language".
+          </p>
+        <note>
+          <p>The <em>system tracer</em> for sequential tracing is
+            automatically initiated by <c>ttb</c> when a trace port is
+            started with <c>ttb:tracer/0,1,2</c>.</p>
+        </note>
+        <p>An example of how to use function <c>seq_trigger_ms/0,1</c> follows:</p>
+        <pre>
+(tiger@durin)5> <input>ttb:tracer().</input>
+{ok,[tiger@durin]}
+(tiger@durin)6> <input>ttb:p(all,call).</input>
+{ok,{[all],[call]}}
+(tiger@durin)7> <input>ttb:tp(mod,func,ttb:seq_trigger_ms()).</input>
+{ok,[{matched,1},{saved,1}]}
+(tiger@durin)8></pre>
+        <p>Whenever <c>mod:func(...)</c> is called after this,
+          token <c>seq_trace</c> is set on the executing process.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">stop()</name>
+      <fsummary>Equivalent to stop([]).</fsummary>
+      <desc>
+        <p>Equivalent to <c>stop([])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">stop(Opts) -> stopped | {stopped, Dir}</name>
+      <fsummary>Stop tracing and fetch/format logs from all nodes.</fsummary>
+      <type>
+        <v>Opts = Opt | [Opt]</v>
+        <v>Opt = nofetch | {fetch_dir, Dir} | format | {format, FormatOpts} | return_fetch_dir</v>
+        <v>Dir = string()</v>
+        <v>FormatOpts = see format/2</v>
+      </type>
+      <desc>
+        <p>Stops tracing on all nodes. Logs and
+          trace information files are sent to the trace control
+          node and stored in a directory named
+          <c>ttb_upload_FileName-Timestamp</c>, where <c>Filename</c> is
+          the one provided with <c>{file, File}</c> during trace setup
+          and <c>Timestamp</c> is of the
+          form <c>yyyymmdd-hhmmss</c>. Even logs from nodes on the same
+          machine as the trace control node are moved to this directory.
+          The history list is saved to a file named <c>ttb_last_config</c>
+          for further reference (as it is no longer accessible
+          through history and configuration management functions, like
+          <c>ttb:list_history/0</c>).
+        </p>
+	<p><em>Options:</em></p>
+	<taglist>
+       <tag><c>nofetch</c></tag>
+       <item><p>Indicates that trace logs are not to be
+          collected after tracing is stopped.</p></item>
+       <tag><c>{fetch, Dir}</c></tag>
+       <item><p>Allows specification of the directory
+          to fetch the data to. If the directory already exists, an
+          error is thrown.</p></item>
+       <tag><c>format</c></tag>
+       <item><p>Indicates the trace logs to be formatted after tracing 
+       is stopped. All logs in the fetch directory are merged.</p></item>
+       <tag><c>return_fetch_dir</c></tag>
+       <item><p>Indicates the return value
+          to be <c>{stopped, Dir}</c> and not just <c>stopped</c>.
+          This implies <c>fetch</c>.</p></item>
+     </taglist>
+
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B">get_et_handler()</name>
+      <fsummary>Return the <c>et</c> handler.</fsummary>
+      <desc>
+        <p>Returns the <c>et</c> handler, which can be used with <c>format/2</c>
+          or <c>tracer/2</c>.</p>
+	  <p>Example: <c>ttb:format(Dir, [{handler, ttb:get_et_handler()}])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format(File)</name>
+      <fsummary>Equivalent to <c>format(File,[])</c>.</fsummary>
+      <desc>
+        <p>Equivalent to <c>format(File,[])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format(File,Options) -> ok | {error, Reason}</name>
+      <fsummary>Format a binary trace log.</fsummary>
+      <type>
+        <v>File = string() | [string()]</v>
+        <d>This can be the name of a binary log, a list of such logs,
+	or the name of a directory containing one or more binary logs.</d>
+        <v>Options = Opt | [Opt]</v>
+        <v>Opt = {out,Out} | {handler,FormatHandler} | disable_sort</v>
+        <v>Out = standard_io | string()</v>
+        <v>FormatHandler = {Function, InitialState}</v>
+        <v>Function = fun(Fd,Trace,TraceInfo,State) -> State</v>
+        <v>Fd = standard_io | FileDescriptor</v>
+        <d>File descriptor of the destination file <c>Out</c>.</d>
+        <v>Trace = tuple()</v>
+        <d>The trace message. For details, see the Reference Manual for 
+	module <c>erlang</c>.</d>
+        <v>TraceInfo = [{Key,ValueList}]</v>
+        <d>Includes the keys <c>flags</c>, <c>client</c>, and <c>node</c>.
+	If <c>handler</c> is specified as option to the tracer function, this 
+	is also included. Also, all information written with function
+	<c>write_trace_info/2</c> is included.</d>
+      </type>
+      <desc>
+        <p>Reads the specified binary trace log(s). The logs are processed
+          in the order of their time stamps as long as option <c>disable_sort</c>
+          is not specified.
+        </p>
+        <p>If <c>FormatHandler = {Function,InitialState}</c>,
+          <c>Function</c> is called for each trace message.</p>
+	  <p>If <c>FormatHandler = get_et_handler()</c>, <c>et_viewer</c> in
+          application ET is used for presenting
+          the trace log graphically. <c>ttb</c> provides a few different
+          filters that can be selected from menu <em>Filters and scaling</em> 
+	  in the <c>et_viewer</c>.</p>
+	  <p>If <c>FormatHandler</c> is not specified, a
+          default handler is used presenting each trace message as a
+          text line.
+          </p>
+        <p>The state returned from each call of <c>Function</c> is passed to 
+	  the next call, even if the next call is to format a message from another 
+	  log file.
+          </p>
+        <p>If <c>Out</c> is specified, <c>FormatHandler</c> gets the
+          file descriptor to <c>Out</c> as the first parameter.
+          </p>
+        <p><c>Out</c> is ignored if the <c>et</c> format handler is used.
+          </p>
+        <p>Wrap logs can be formatted one by one or all at once. To
+          format one of the wrap logs in a set, specify the exact file name.
+          To format the whole set of wrap logs, specify the name
+          with <c>*</c> instead of the wrap count. For examples, see the
+          <seealso marker="ttb_ug#format"><c>User's Guide</c></seealso>.
+	  </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

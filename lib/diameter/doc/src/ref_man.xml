@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+
+<header>
+<copyright>
+<year>2011</year>
+<year>2016</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>Diameter Reference Manual</title>
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>ref_man.xml</file>
+</header>
+
+<description>
+<p>
+The Diameter application is a framework for building
+applications on top of the Diameter protocol. </p>
+
+</description>
+
+<xi:include href="diameter.xml"/>
+<xi:include href="diameterc.xml"/>
+<xi:include href="diameter_app.xml"/>
+<xi:include href="diameter_codec.xml"/>
+<xi:include href="diameter_dict.xml"/>
+<xi:include href="diameter_make.xml"/>
+<xi:include href="diameter_transport.xml"/>
+<xi:include href="diameter_tcp.xml"/>
+<xi:include href="diameter_sctp.xml"/>
+
+</application>

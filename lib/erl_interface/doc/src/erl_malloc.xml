@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>erl_malloc</title>
+    <prepared>Torbj&ouml;rn T&ouml;rnkvist</prepared>
+    <responsible>Torbj&ouml;rn T&ouml;rnkvist</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
+    <date>1998-07-03</date>
+    <rev>A</rev>
+    <file>erl_malloc.xml</file>
+  </header>
+  <lib>erl_malloc</lib>
+  <libsummary>Memory allocation functions.</libsummary>
+  <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
+    <p>This module provides functions for allocating and deallocating
+      memory.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since=""><ret>ETERM *</ret><nametext>erl_alloc_eterm(etype)</nametext></name>
+      <fsummary>Allocate an ETERM structure.</fsummary>
+      <type>
+        <v>unsigned char etype;</v>
+      </type>
+      <desc>
+        <p>Allocates an <c>(ETERM)</c> structure.</p>
+        <p>Specify <c>etype</c> as one of the following
+          constants:</p>
+        <list type="bulleted">
+          <item><c>ERL_INTEGER</c>
+          </item>
+          <item><c>ERL_U_INTEGER</c> (unsigned integer)
+          </item>
+          <item><c>ERL_ATOM</c>
+          </item>
+          <item><c>ERL_PID</c> (Erlang process identifier)
+          </item>
+          <item><c>ERL_PORT</c>
+          </item>
+          <item><c>ERL_REF</c> (Erlang reference)
+          </item>
+          <item><c>ERL_LIST</c>
+          </item>
+          <item><c>ERL_EMPTY_LIST</c>
+          </item>
+          <item><c>ERL_TUPLE</c>
+          </item>
+          <item><c>ERL_BINARY</c>
+          </item>
+          <item><c>ERL_FLOAT</c>
+          </item>
+          <item><c>ERL_VARIABLE</c>
+          </item>
+          <item><c>ERL_SMALL_BIG</c> (bignum)
+          </item>
+          <item><c>ERL_U_SMALL_BIG</c> (bignum)
+          </item>
+        </list>
+        <p><c>ERL_SMALL_BIG</c> and
+          <c>ERL_U_SMALL_BIG</c> are for
+          creating Erlang <c>bignums</c>, which can contain integers
+          of any size. The size of an integer in Erlang is machine-dependent,
+          but any integer &gt; 2^28 requires a bignum.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_eterm_release(void)</nametext></name>
+      <fsummary>Clear the ETERM freelist.</fsummary>
+      <desc>
+        <p>Clears the freelist, where blocks are placed when they are
+          released by <c>erl_free_term()</c> and
+          <c>erl_free_compound()</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_eterm_statistics(allocated, freed)</nametext></name>
+      <fsummary>Report term allocation statistics.</fsummary>
+      <type>
+        <v>long *allocated;</v>
+        <v>long *freed;</v>
+      </type>
+      <desc>
+        <p>Reports term allocation statistics.</p>
+        <p><c>allocated</c> and <c>freed</c> are
+          initialized to
+          contain information about the fix-allocator used to allocate
+          <c>ETERM</c> components.</p>
+        <list type="bulleted">
+          <item>
+            <p><c>allocated</c> is the number of blocks currently
+              allocated to <c>ETERM</c> objects.</p>
+          </item>
+          <item>
+            <p><c>freed</c> is the length of the freelist, where
+              blocks are placed when they are
+              released by <c>erl_free_term()</c> and
+              <c>erl_free_compound()</c>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
+      <fsummary>Free some memory.</fsummary>
+      <type>
+        <v>void *ptr;</v>
+      </type>
+      <desc>
+        <p>Calls the standard
+          <c>free()</c> function.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_free_array(array, size)</nametext></name>
+      <fsummary>Free an array of ETERM structures.</fsummary>
+      <type>
+        <v>ETERM **array;</v>
+        <v>int size;</v>
+      </type>
+      <desc>
+        <p>Frees an array of Erlang terms.</p>
+        <list type="bulleted">
+          <item><c>array</c> is an array of ETERM* objects.</item>
+          <item><c>size</c> is the number of terms in the array.
+          </item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_free_compound(t)</nametext></name>
+      <fsummary>Free an array of ETERM structures.</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Normally it is the programmer's responsibility to free each
+          Erlang term that has been returned from any of the
+          <c>Erl_Interface</c> functions. However, as many of the
+          functions that build new Erlang terms in fact share objects
+          with other existing terms, it can be difficult for the
+          programmer to maintain pointers to all such terms to
+          free them individually.</p>
+        <p><c>erl_free_compound()</c> recursively frees all of the
+          subterms associated with a specified Erlang term, regardless of
+          whether we are still holding pointers to the subterms.</p>
+        <p>For an example, see section
+            <seealso marker="ei_users_guide#building_terms_and_patterns">Building Terms and Patterns</seealso>
+            in the User's Guide.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
+      <fsummary>Free an ETERM structure.</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Frees an Erlang term.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>void</ret><nametext>erl_malloc(size)</nametext></name>
+      <fsummary>Allocate some memory.</fsummary>
+      <type>
+        <v>long size;</v>
+      </type>
+      <desc>
+        <p>Calls the standard
+          <c>malloc()</c> function.</p>
+      </desc>
+    </func>
+  </funcs>
+</cref>

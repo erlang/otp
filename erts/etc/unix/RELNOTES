@@ -1,0 +1,328 @@
+ 
+ %CopyrightBegin%
+ 
+ Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ %CopyrightEnd%
+ 
+=============================================================================
+
+Release Notes Erlang 4.3.1, Stockholm, October 1995
+
+This is a maintenance release correcting some minor problems in the 4.3
+release. The changes are mostly related to problems when using Erlang in
+an distributed environment. For features and incompatibilities look in the
+following description of the 4.3 release.
+
+-- If you already have the 4.3 release and run in an distributed environment
+   you should change all nodes to 4.3.1 since some changes could (at least
+   potentially) create problems/incompatibilities. (You ought to change
+   anyway due to bugs fixed...).
+
+=============================================================================
+
+Release Notes Erlang 4.3, Stockholm, June 1995
+
+This is a list of the changes, fixes, and enhancements which have occurred
+between the Erlang 4.2 release of March 1994, and the Erlang 4.3 release of
+June 1995. There is also information on problems reported for 4.2 that still
+remain in release 4.3. For a more detailed description of new or changed
+functions, please refer to the respective manual pages, which are referred
+to as man-page(3) or man-page(1).
+
+Erlang release 4.3 is basically the same system as release 4.2.
+A large number of improvements and enhancements have, however,
+occurred. The 4.3 system is largely source code compatible with
+the 4.2 system, but there is a number of incompatibilities.
+
+***  Major Improvements
+------------------------------------------------------------------
+
+-- The system is considerably faster and smaller.
+   A fully networked system now requires less than a Megabyte
+   of memory to start.
+
+--  The system has built-in hashlists which makes it possible
+    to store,search and manipulate very large quantities of data,
+    see ets(3).
+
+--  Bignums, integers can now be arbitrarily large (almost)
+
+--  A fully integrated  debugger/interpreter that can be used
+    to debug distributed applications, see int(3), and
+    the user manual.
+
+--  Distributed Erlang can now be run in environments where DNS
+    (The Domain Name system) is not configured, see dist_erl(1).
+
+--  A new trace/3 BIF which can be used for a variety of
+    purposes, see erlang(3).
+
+
+*** Minor improvements and new modules.
+---------------------------------------------------------------------
+
+--  A new BIF to monitor other nodes, monitor_node/2,
+    see erlang(3).
+
+--  Floating point exceptions and bad parameters to math functions
+    are now handled correctly, (possibly not implemented on all
+    architectures)
+
+--  epmd can be used to access DNS, see epmd(3).
+
+--  Erlang now contains MACROS, include files, structures, etc.
+    These are currently not documented, and are used at the
+    user's own risk, as the syntax might change.
+
+--  The configuration of the Erlang system has been simplified.
+    Not many users are aware of this possibility at all, however.
+    The only parameter left for configuration is now the size of
+    TMP_BUF, so no upper limits remain for the number of functions,
+    modules, etc.
+
+--  Parallel make, see make(3).
+
+--  generic.erl, is recommended for writing servers,
+    see generic(3).
+
+--  timer.erl a new module to be used for various types of timing
+    related activities.
+
+--  The new formatter ~p has been introduced into the formatting
+    routines. io:format("String ~p", [Term]). will print the
+    term Term with any lists of integers that seem to be strings
+    as strings. This means that the majority of printouts will
+    now have a more attractive appearance. However, it also means
+    that some lists of integers that are real "lists of integers"
+    will be displayed as strings. Example:
+
+    1> [65,66].
+    "AB"
+
+--  Deep lists can now be sent to ports. The lists must be well formed
+    but can contain integers and binaries.
+
+--  There is a new interface to udp/ip, see udp(3).
+
+--  slave.erl is a new and nicer way to start up slave nodes in a
+    UNIX environment.
+
+--  ddd.erl is a distributed fully replicated data dictionary.
+
+--  queue.erl FIFO queues as an abstract datatype.
+
+--  There are enhancements in the socket interface, see socket(3).
+
+--  rpc.erl is a new module that now contains some of the functions
+    that used to be in net.erl, which has now been removed,
+    see rpc(3).
+
+-- lists.erl contains some new functionality, see lists(3).
+
+-- BIF erlang:now() returns the current time.
+   This BIF is guaranteed to produce continuously increasing values.
+
+-- The new module auth.erl is for handling authentication, see auth(3).
+
+-- The file $HOME/.erlang.cookie is now automatically and
+   silently created if it does not exist. This means that new and/or
+   naive users can ignore the issues of cookies entirely.
+
+-- user.erl has been slightly rewritten so that Erlang
+   programs can now be part of a UNIX pipe, see erl(3), io(3).
+
+-- The new library directory tools now contain various
+   "tools"
+
+
+*** Command line flags changes.
+-------------------------------------------------------------------
+
+-- The -s and -h flags take values measured in H_GRAIN and S_GRAIN
+   H_GRAIN == S_GRAIN == 64. (Default is 1, which means that the default
+   heap and stack size is 64 words.)
+
+-- The maximum size of the atom_table is now configurable from
+   the command line.
+
+-- erl -sname Name starts a new node with a short name. (s == short),
+   see erl(1).
+
+-- The breakhandler can now be turned off with the aid of the flag +B.
+
+-- init.erl has been rewritten. A  -load flag is now accepted,
+   see init(3).
+
+-- The -cookie flag is no longer necessary if the system is to
+   read the $HOME/.erlang.cookie file. This is the default.
+
+-- The flag -env Variable Value extends the UNIX environment
+   for the Erlang system, see erl(3).
+
+
+***  Reported Fixed Bugs and Malfunctions
+-------------------------------------------------------------------
+
+-- Do not assume that the first two directory entries "." and ".."
+   make file:list_dir() work better in some environments.
+
+-- Faster/better garbage collection.
+
+-- Stack sizes are automatically shrunk.
+
+-- Distributed Erlang now handles the case when for example the
+   Ethernet plug is unplugged. Erlang continuously polls all
+   remote nodes to ensure that the remote nodes are really alive.
+
+-- A bug has been corrected in the terminal driver. The system
+   could fail after a large series of printouts without any
+   newlines "\n" at all.
+
+-- Formating of floats: a '9' would sometimes become a ':'.
+
+-- Formating with the use of '*' and negativ size fields now work
+   as expected.
+
+-- The format of the 'EXIT' values is now ALWAYS the same
+   regardless of where the 'EXIT' was produced.
+
+-- Bugs in exit/2 when the first argument is a port
+   and second argument is a tuple, have been fixed.
+
+-- A bug in the random generator has been fixed, see random(3))
+
+-- Object code can now be 'trace' compiled by passing the
+   flag 'trace' to the compiler. This is necessary for
+   the trace/3 BIF to work on function calls.
+
+-- error_logger has been improved and is more flexible, see error_logger(3).
+
+-- The compiler is not so verbose any more.
+
+-- A bug in the loading of code has been fixed. It is now possible to load
+   code into the "hole" created by erlang:delete_module/1.
+
+-- The file system now accepts very large messages. In 4.2 there
+   was a limit of 64K, which meant that some VERY large modules
+   could not be compiled.
+
+-- Support for real interrupts/signals in linked-in drivers have been added.
+
+-- open_port does not make new atoms all the time.
+
+-- statistics(io) does now return two counters,
+   one for all input and one for all output.
+
+-- There have been minor bug fixes in the erl_interface c-library.
+
+
+***  New TOOLS for Software Development/Tuning/Debugging
+---------------------------------------------------------------
+
+-- int, is a fully integrated debugger/interpreter, see int(3).
+
+-- eprof, is a (tty-based) tool for real-time profiling, see eprof(3).
+
+-- dbg, is a (tty-based) interface to the the trace/3 BIF, see dbg(3).
+
+-- pman, is a (pxw-based) interface to the trace/3 BIF.
+
+-- emseq, is a (tty-based) message sequence chart tool. (Not documented)
+
+-- perfmon, is a (pxw-based) performance monitor. (Not documented)
+
+-- exref, is a (tty-based) cross-reference tool.
+
+
+***  New Targets Not Generally Available for 4.2
+------------------------------------------------------------------
+
+FreeBSD running on PCs
+LINUX running on PCs
+QNX
+
+
+*** Incompatibilities with 4.2.
+--------------------------------------------------------------------
+
+--  The BIF node_link/1 has been replace by monitor_node/2
+    See erlang(3).
+
+-- The 4.3 system is not object code compatible with 4.2.
+   This means that all source code has to be recompiled. It
+   is not possible to load 4.2 object code. It is also not
+   possible to run distribution between 4.3 and erlier versions
+   due to the new alive check.
+
+-- The external term format has been changed. This will only affect
+   programs where the BIF term_to_binary/1 has been used for writing
+   output on files. The directory misc/external contains a program
+   ext42_to_ext43.erl that can be used for converting files and
+   binaries from 4.2 format to 4.3 format. This will affect very
+   few programs.
+
+-- The names of the Erlang specific i/o modules are now prefixed by
+   "erl_", for example erl_scan and erl_parse.
+
+-- The calls to tokenize/parse have been changed, partially to make their
+   naming more systematic and also to handle the new line number
+   information. Their return values have also been made more regular with
+   all functions returning 'ok', {ok, Value} or {ok, Value, EndLine} where
+   appropriate when successful, and {error, ErrorInfo} or
+   {error, ErrorInfo, EndLine} if there is an error.
+
+-- There is a standardised error information format, ErrorInfo above, which
+   is returned for all input functions. It has the format:
+        {ErrorLine, Module, ErrorDescriptor}
+   where a string describing the error can be obtained by calling
+        apply(Module, format_error, [ErrorDescriptor]).
+   The handling of line number is application specific.
+
+-- The function io:read/1/2 now returns {ok, Term} or {error, ErrorInfo}
+   for consistency.
+
+-- The Erlang tokeniser/parser has been converted to return line number
+   information in the token and parse formats. These formats can now
+   be handled by the pretty printer (erl_pp) but it does not make use of them.
+
+-- The function file:open/2 now returns {ok, Pid} or {error, What}. This is
+   consistent with the return values from the rest of the i/o system.
+
+-- RTFMP! (Read The Friendly Man Pages)
+
+-- Module net.erl has been removed. The functionality of net.erl
+   now resides in the rpc, auth and net_kernel modules.
+
+-- The old debug BIFs (including the module debugger.erl) have
+   been removed. The BIF trace/3 replaces it.
+
+-- The BIF not_alive/0 has been removed.
+
+
+*** Documentation:
+--------------
+
+All manual pages have been updated, some of them substantially.
+
+
+*** Known problems:
+---------------
+
+The $HOME/.erlang file should be run before the shell is started.
+
+The Postscript documentation in the doc directory assumes A4 paper.
+
+list_to_pid/1 on remote pids may behave in an unexpected manner.

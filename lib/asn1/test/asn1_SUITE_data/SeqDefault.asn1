@@ -1,0 +1,88 @@
+SeqDefault DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+SeqDef1 ::= SEQUENCE 
+{
+  bool1 BOOLEAN DEFAULT TRUE,
+  int1  INTEGER,
+  seq1  SeqIn DEFAULT {}
+}
+
+SeqDef1Imp ::= SEQUENCE 
+{
+  bool1 [1] BOOLEAN DEFAULT TRUE,
+  int1  INTEGER,
+  seq1  [2] SeqIn DEFAULT {}
+}
+
+SeqDef1Exp ::= SEQUENCE 
+{
+  bool1 [1] EXPLICIT BOOLEAN DEFAULT TRUE,
+  int1  INTEGER,
+  seq1  [2] EXPLICIT SeqIn DEFAULT {}
+}
+
+SeqDef2 ::= SEQUENCE 
+{
+  seq2  SeqIn DEFAULT {},
+  bool2 BOOLEAN DEFAULT TRUE,
+  int2  INTEGER
+}
+
+SeqDef2Imp ::= SEQUENCE 
+{
+  seq2  [1] SeqIn DEFAULT {},
+  bool2 [2] BOOLEAN DEFAULT TRUE,
+  int2  INTEGER
+}
+
+SeqDef2Exp ::= SEQUENCE 
+{
+  seq2  [1] EXPLICIT SeqIn DEFAULT {},
+  bool2 [2] EXPLICIT BOOLEAN,
+  int2  INTEGER
+}
+
+SeqDef3 ::= SEQUENCE 
+{
+  bool3 BOOLEAN DEFAULT TRUE,
+  seq3  SeqIn DEFAULT {},
+  int3  INTEGER DEFAULT 17
+}
+
+SeqDef3Imp ::= SEQUENCE 
+{
+  bool3 [1] BOOLEAN DEFAULT TRUE,
+  seq3  [2] SeqIn DEFAULT {},
+  int3  INTEGER DEFAULT 17
+}
+
+SeqDef3Exp ::= SEQUENCE 
+{
+  bool3 [1] EXPLICIT BOOLEAN DEFAULT TRUE,
+  seq3  [2] EXPLICIT SeqIn DEFAULT {},
+  int3  INTEGER DEFAULT 17
+}
+
+
+
+SeqIn ::= SEQUENCE 
+{
+  boolIn  BOOLEAN OPTIONAL,
+  intIn  INTEGER DEFAULT 12
+}
+
+SeqExp ::= SEQUENCE
+{
+  bool BOOLEAN,
+  ...,
+  int INTEGER
+}
+
+SeqDef4 ::= SEQUENCE {
+  seq SeqExp DEFAULT { bool TRUE, int 42 }
+}
+
+END

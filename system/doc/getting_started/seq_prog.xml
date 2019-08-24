@@ -1,0 +1,1378 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Sequential Programming</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>seq_prog.xml</file>
+  </header>
+
+  <section>
+    <title>The Erlang Shell</title>
+    <p>
+      Most operating systems have a command interpreter or shell, UNIX
+      and Linux have many, Windows has the command prompt. Erlang has
+      its own shell where bits of Erlang code can be written directly,
+      and be evaluated to see what happens
+      (see the <seealso marker="stdlib:shell">shell(3)</seealso>
+      manual page in STDLIB).
+    </p>
+    <p>Start
+      the Erlang shell (in Linux or UNIX) by starting a shell or
+      command interpreter in your operating system and typing
+      <c>erl</c>. You will see something like this.</p>
+    <pre>
+% <input>erl</input>
+Erlang R15B (erts-5.9.1) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.9.1  (abort with ^G)
+1></pre>
+    <p>Type "2 + 5." in the shell and then press Enter (carriage return).
+    Notice that you tell the shell you are done entering code by finishing
+    with a full stop "." and a carriage return.</p>
+    <pre>
+1> <input>2 + 5.</input>
+7
+2></pre>
+    <p>As shown, the Erlang shell numbers the lines that
+      can be entered, (as 1&gt; 2&gt;) and that it correctly says
+      that 2 + 5 is 7. If you make writing mistakes in the shell,
+      you can delete with the backspace key, as in most shells.
+      There are many more editing commands in the shell
+      (see <seealso marker="erts:tty">tty - A command line interface</seealso> in ERTS User's Guide).</p>
+    <p>(Notice that many line numbers given by the shell in the
+      following examples are out of sequence. This is because this
+      tutorial was written and code-tested in separate sessions).</p>
+    <p>Here is a bit more complex calculation:</p>
+    <pre>
+2> <input>(42 + 77) * 66 / 3.</input>
+2618.0</pre>
+    <p>Notice the use of brackets, the multiplication operator "*",
+      and the division operator "/", as in normal arithmetic (see
+      <seealso marker="doc/reference_manual:expressions">Expressions</seealso>).</p>
+    <p>Press Control-C to shut down the Erlang system and the Erlang
+      shell.</p>
+    <p>The following output is shown:</p>
+    <pre>
+BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
+       (v)ersion (k)ill (D)b-tables (d)istribution
+<input>a</input>
+%</pre>
+    <p>Type "a" to leave the Erlang system.</p>
+    <p>Another way to shut down the Erlang system is by entering
+      <c>halt()</c>:</p>
+    <pre>
+3> <input>halt().</input>
+% </pre>
+  </section>
+
+  <section>
+    <title>Modules and Functions</title>
+    <p>A programming language is not much use if you only can run code
+      from the shell. So here is a small Erlang program. Enter it into
+      a file named <c>tut.erl</c> using a suitable
+      text editor. The file name <c>tut.erl</c> is important, and also
+      that it is in the same directory as the one where you started
+      <c>erl</c>). If you are lucky your editor has an Erlang mode
+      that makes it easier for you to enter and format your code
+      nicely (see <seealso
+      marker="tools:erlang_mode_chapter">The Erlang mode for
+      Emacs</seealso> in Tools User's Guide), but you can manage
+      perfectly well without. Here is the code to enter:</p>
+    <code type="none">
+-module(tut).
+-export([double/1]).
+
+double(X) ->
+    2 * X.</code>
+    <p>It is not hard to guess that this program doubles the value of
+      numbers. The first two lines of the code are described later.
+      Let us compile the program. This can be done in an Erlang shell
+      as follows, where <c>c</c> means compile:</p>
+    <pre>
+3> <input>c(tut).</input>
+{ok,tut}</pre>
+    <p>The <c>{ok,tut}</c> means that the compilation is OK. If it
+      says "error" it means that there is some mistake in the text
+      that you entered. Additional error messages gives an idea to
+      what is wrong so you can modify the text and then try to compile
+      the program again.</p>
+    <p>Now run the program:</p>
+    <pre>
+4> <input>tut:double(10).</input>
+20</pre>
+    <p>As expected, double of 10 is 20.</p>
+    <p>Now let us get back to the first two lines of the code. Erlang
+      programs are
+      written in files. Each file contains an Erlang
+      <em>module</em>. The first line of code in the module is
+      the module name (see
+      <seealso marker="doc/reference_manual:modules">Modules</seealso>):</p>
+    <code type="none">
+-module(tut).</code>
+    <p>Thus, the module is called <em>tut</em>. Notice
+      the full stop "." at the end of the line. The files which are
+      used to store
+      the module must have the same name as the module but with
+      the extension ".erl". In this case the file name is <c>tut.erl</c>.
+      When using a function in another module, the syntax
+      <c>module_name:function_name(arguments)</c> is used. So the
+      following means call function <c>double</c> in module <c>tut</c>
+      with argument "10".</p>
+    <pre>
+4> <input>tut:double(10).</input></pre>
+    <p>The second line says that the module <c>tut</c> contains a
+      function called <c>double</c>, which takes one argument
+      (<c>X</c> in our example):</p>
+    <code type="none">
+-export([double/1]).</code>
+    <p>The second line also says that this function can be called from
+      outside the module <c>tut</c>. More about this later. Again,
+      notice the "." at the end of the line.</p>
+    <p>Now for a more complicated example, the factorial of a number.
+      For example, the factorial of 4 is 4 * 3 * 2 * 1, which equals 24.</p>
+    <p>Enter the following code in a file named <c>tut1.erl</c>:</p>
+    <code type="none">
+-module(tut1).
+-export([fac/1]).
+
+fac(1) ->
+    1;
+fac(N) ->
+    N * fac(N - 1).</code>
+    <p>So this is a module, called <c>tut1</c> that contains a
+      function called <c>fac></c>, which takes one argument,
+      <c>N</c>.</p>
+    <p>The first part says that the factorial of 1 is 1.:</p>
+    <code type="none">
+fac(1) ->
+    1;</code>
+    <p>Notice that this part ends with a semicolon ";" that indicates
+      that there is more of the function <c>fac></c> to come.</p>
+    <p>The second part says that the factorial of N is N multiplied
+      by the factorial of N - 1:</p>
+    <code type="none">
+fac(N) ->
+    N * fac(N - 1).</code>
+    <p>Notice that this part ends with a "." saying that there are
+      no more parts of this function.</p>
+    <p>Compile the file:</p>
+    <pre>
+5> <input>c(tut1).</input>
+{ok,tut1}</pre>
+    <p>And now calculate the factorial of 4.</p>
+    <pre>
+6> <input>tut1:fac(4).</input>
+24</pre>
+    <p>Here the function <c>fac></c> in module <c>tut1</c> is called
+      with argument <c>4</c>.</p>
+    <p>A function can have many arguments. Let us expand the module
+      <c>tut1</c> with the function to multiply two numbers:</p>
+    <code type="none">
+-module(tut1).
+-export([fac/1, mult/2]).
+
+fac(1) ->
+    1;
+fac(N) ->
+    N * fac(N - 1).
+
+mult(X, Y) ->
+    X * Y.</code>
+    <p>Notice that it is also required to expand the <c>-export</c> line
+      with the information that there is another function <c>mult</c>
+      with two arguments.</p>
+    <p>Compile:</p>
+    <pre>
+7> <input>c(tut1).</input>
+{ok,tut1}</pre>
+    <p>Try out the new function <c>mult</c>:</p>
+    <pre>
+8> <input>tut1:mult(3,4).</input>
+12</pre>
+    <p>In this example the numbers are integers and the arguments
+      in the functions in the code <c>N</c>, <c>X</c>, and <c>Y</c> are
+      called variables. Variables must start with a capital letter
+      (see
+      <seealso marker="doc/reference_manual:expressions">Variables</seealso>).
+      Examples of variables are
+      <c>Number</c>, <c>ShoeSize</c>, and <c>Age</c>.</p>
+  </section>
+
+  <section>
+    <title>Atoms</title>
+    <p>Atom is another data type in Erlang. Atoms start with a small
+      letter (see
+      <seealso marker="doc/reference_manual:data_types">Atom</seealso>),
+      for example, <c>charles</c>,
+      <c>centimeter</c>, and <c>inch</c>. Atoms are simply names, nothing
+      else. They are not like variables, which can have a value.</p>
+    <p>Enter the next program in a file named <c>tut2.erl</c>). It can be
+      useful for converting from inches to centimeters and conversely:</p>
+    <code type="none">
+-module(tut2).
+-export([convert/2]).
+
+convert(M, inch) ->
+    M / 2.54;
+
+convert(N, centimeter) ->
+    N * 2.54.</code>
+    <p>Compile:</p>
+    <pre>
+9> <input>c(tut2).</input>
+{ok,tut2}
+</pre>
+    <p>Test:</p>
+ <pre>
+10> <input>tut2:convert(3, inch).</input>
+1.1811023622047243
+11> <input>tut2:convert(7, centimeter).</input>
+17.78</pre>
+    <p>Notice the introduction of decimals (floating point numbers)
+      without any explanation. Hopefully you can cope with that.</p>
+    <p>Let us see what happens if something other than <c>centimeter</c> or
+      <c>inch</c> is entered in the <c>convert</c> function:</p>
+    <pre>
+12> <input>tut2:convert(3, miles).</input>
+** exception error: no function clause matching tut2:convert(3,miles) (tut2.erl, line 4)</pre>
+    <p>The two parts of the <c>convert</c> function are called its
+      clauses. As shown, <c>miles</c> is not part of either of
+      the clauses. The Erlang system cannot <em>match</em> either of
+      the clauses so an error message <c>function_clause</c> is returned.
+      The shell formats the error message nicely, but the error tuple
+      is saved in the shell's history list and can be output by the shell
+      command <c>v/1</c>:</p>
+    <pre>
+13> <input>v(12).</input>
+{'EXIT',{function_clause,[{tut2,convert,
+                                [3,miles],
+                                [{file,"tut2.erl"},{line,4}]},
+                          {erl_eval,do_apply,6,
+                                    [{file,"erl_eval.erl"},{line,677}]},
+                          {shell,exprs,7,[{file,"shell.erl"},{line,687}]},
+                          {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
+                          {shell,eval_loop,3,
+                                 [{file,"shell.erl"},{line,627}]}]}}</pre>
+  </section>
+
+  <section>
+    <title>Tuples</title>
+    <p>Now the <c>tut2</c> program is hardly good programming style.
+      Consider:</p>
+    <code type="none">
+tut2:convert(3, inch).</code>
+    <p>Does this mean that 3 is in inches? Or does it mean that 3 is
+      in centimeters
+      and is to be converted to inches? Erlang has a way to group
+      things together to make things more understandable. These are called
+      <em>tuples</em> and are surrounded by curly brackets, "{" and "}".</p>
+    <p>So, <c>{inch,3}</c> denotes 3 inches and
+      <c>{centimeter,5}</c> denotes 5 centimeters. Now let us write a
+      new program that converts centimeters to inches and conversely.
+      Enter the following code in a file called <c>tut3.erl</c>):</p>
+    <code type="none">
+-module(tut3).
+-export([convert_length/1]).
+
+convert_length({centimeter, X}) ->
+    {inch, X / 2.54};
+convert_length({inch, Y}) ->
+    {centimeter, Y * 2.54}.</code>
+    <p>Compile and test:</p>
+    <pre>
+14> <input>c(tut3).</input>
+{ok,tut3}
+15> <input>tut3:convert_length({inch, 5}).</input>
+{centimeter,12.7}
+16> <input>tut3:convert_length(tut3:convert_length({inch, 5})).</input>
+{inch,5.0}</pre>
+    <p>Notice on line 16 that 5 inches is converted to centimeters and back
+      again and reassuringly get back to the original value. That is,
+      the argument to a function can be the result of another function.
+      Consider how line 16 (above) works.
+      The argument given to the function <c>{inch,5}</c> is first
+      matched against the first head clause of <c>convert_length</c>,
+      that is, <c>convert_length({centimeter,X})</c>. It can be seen
+      that <c>{centimeter,X}</c> does not match <c>{inch,5}</c>
+      (the head is the bit before the "-&gt;"). This having failed,
+      let us try
+      the head of the next clause that is, <c>convert_length({inch,Y})</c>.
+      This matches, and <c>Y</c> gets the value 5.</p>
+    <p>Tuples can have more than two parts, in fact
+      as many parts as you want, and contain any valid Erlang
+      <em>term</em>. For example, to represent the temperature of
+      various cities of the world:</p>
+    <code type="none">
+{moscow, {c, -10}}
+{cape_town, {f, 70}}
+{paris, {f, 28}}</code>
+    <p>Tuples have a fixed number of items in them. Each item in a
+      tuple is called an <em>element</em>. In the tuple
+      <c>{moscow,{c,-10}}</c>, element 1 is <c>moscow</c> and element
+      2 is <c>{c,-10}</c>. Here <c>c</c> represents Celsius and
+      <c>f</c> Fahrenheit.</p>
+  </section>
+
+  <section>
+    <title>Lists</title>
+    <p>Whereas tuples group things together, it is also needed to
+      represent lists of things. Lists in Erlang are surrounded by
+      square brackets, "[" and "]". For example, a list of the
+      temperatures of various cities in the world can be:</p>
+    <code type="none">
+[{moscow, {c, -10}}, {cape_town, {f, 70}}, {stockholm, {c, -4}},
+ {paris, {f, 28}}, {london, {f, 36}}]</code>
+    <p>Notice that this list was so long that it did not fit on one line.
+      This does not matter, Erlang allows line breaks at all "sensible
+      places" but not, for example, in the middle of atoms, integers,
+       and others.</p>
+    <p>A useful way of looking at parts of lists, is by using "|".
+      This is best explained by an example using the shell:</p>
+    <pre>
+17> <input>[First |TheRest] = [1,2,3,4,5].</input>
+[1,2,3,4,5]
+18> <input>First.</input>
+1
+19> <input>TheRest.</input>
+[2,3,4,5]</pre>
+    <p>To separate the first elements of the list from the rest of the
+      list, <c>|</c> is used. <c>First</c> has got value 1 and
+      <c>TheRest</c> has got the value [2,3,4,5].</p>
+    <p>Another example:</p>
+    <pre>
+20> <input>[E1, E2 | R] = [1,2,3,4,5,6,7].</input>
+[1,2,3,4,5,6,7]
+21> <input>E1.</input>
+1
+22> <input>E2.</input>
+2
+23> <input>R.</input>
+[3,4,5,6,7]</pre>
+    <p>Here you see the use of <c>|</c> to get the first two elements from
+      the list. If you try to get more elements from the list
+      than there are elements in the list, an error is returned. Notice
+      also the special case of the list with no elements, []:</p>
+    <pre>
+24> <input>[A, B | C] = [1, 2].</input>
+[1,2]
+25> <input>A.</input>
+1
+26> <input>B.</input>
+2
+27> <input>C.</input>
+[]</pre>
+    <p>In the previous examples, new variable names are used, instead of
+      reusing the old ones: <c>First</c>, <c>TheRest</c>, <c>E1</c>,
+      <c>E2</c>, <c>R</c>, <c>A</c>, <c>B</c>, and <c>C</c>. The reason
+      for this is that a variable can only be given a value once in its
+      context (scope). More about this later.</p>
+    <p>The following example shows how to find the length of a list.
+     Enter the following code in a file named <c>tut4.erl</c>):</p>
+    <code type="none">
+-module(tut4).
+
+-export([list_length/1]).
+
+list_length([]) ->
+    0;    
+list_length([First | Rest]) ->
+    1 + list_length(Rest).</code>
+    <p>Compile and test:</p>
+    <pre>
+28> <input>c(tut4).</input>
+{ok,tut4}
+29> <input>tut4:list_length([1,2,3,4,5,6,7]).</input>
+7</pre>
+    <p>Explanation:</p>
+    <code type="none">
+list_length([]) ->
+    0;</code>
+    <p>The length of an empty list is obviously 0.</p>
+    <code type="none">
+list_length([First | Rest]) ->
+    1 + list_length(Rest).</code>
+    <p>The length of a list with the first element <c>First</c> and
+      the remaining elements <c>Rest</c> is 1 + the length of
+      <c>Rest</c>.</p>
+    <p>(Advanced readers only: This is not tail recursive, there is a
+      better way to write this function.)</p>
+    <p>In general, tuples are used where "records"
+      or "structs" are used in other languages. Also, lists are used when
+      representing things with varying sizes, that is, where
+      linked lists are used in other languages.</p>
+    <p>Erlang does not have a string data type. Instead, strings can be
+      represented by lists of Unicode characters. This implies for example that
+      the list <c>[97,98,99]</c> is equivalent to "abc". The Erlang shell is
+      "clever" and guesses what list you  mean and outputs it
+      in what it thinks is the most appropriate form, for example:</p>
+    <pre>
+30> <input>[97,98,99].</input>
+"abc"</pre>
+  </section>
+
+  <section>
+    <title>Maps</title>
+    <p>Maps are a set of key to value associations. These associations
+      are encapsulated with "#{" and "}". To create an association
+      from "key" to value 42:</p>
+<code type="none">
+> #{ "key" => 42 }.
+#{"key" => 42}</code>
+    <p>Let us jump straight into the deep end with an example using some
+      interesting features.</p>
+    <p>The following example shows how to calculate alpha blending
+      using maps to reference color and alpha channels. Enter the code
+      in a file named <c>color.erl</c>):</p>
+    <code type="none">
+-module(color).
+
+-export([new/4, blend/2]).
+
+-define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).
+
+new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
+                  ?is_channel(B), ?is_channel(A) ->
+    #{red =&gt; R, green =&gt; G, blue =&gt; B, alpha =&gt; A}.
+
+blend(Src,Dst) ->
+    blend(Src,Dst,alpha(Src,Dst)).
+
+blend(Src,Dst,Alpha) when Alpha > 0.0 ->
+    Dst#{
+        red   := red(Src,Dst) / Alpha,
+        green := green(Src,Dst) / Alpha,
+        blue  := blue(Src,Dst) / Alpha,
+        alpha := Alpha
+    };
+blend(_,Dst,_) ->
+    Dst#{
+        red   := 0.0,
+        green := 0.0,
+        blue  := 0.0,
+        alpha := 0.0
+    }.
+
+alpha(#{alpha := SA}, #{alpha := DA}) ->
+    SA + DA*(1.0 - SA).
+
+red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).
+green(#{green := SV, alpha := SA}, #{green := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).
+blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).</code>
+    <p>Compile and test:</p>
+    <pre>
+> <input>c(color).</input>
+{ok,color}
+> <input>C1 = color:new(0.3,0.4,0.5,1.0).</input>
+#{alpha => 1.0,blue => 0.5,green => 0.4,red => 0.3}
+> <input>C2 = color:new(1.0,0.8,0.1,0.3).</input>
+#{alpha => 0.3,blue => 0.1,green => 0.8,red => 1.0}
+> <input>color:blend(C1,C2).</input>
+#{alpha => 1.0,blue => 0.5,green => 0.4,red => 0.3}
+> <input>color:blend(C2,C1).</input>
+#{alpha => 1.0,blue => 0.38,green => 0.52,red => 0.51}
+</pre>
+    <p>This example warrants some explanation:</p>
+    <code type="none">
+-define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).</code>
+    <p>First a macro <c>is_channel</c> is defined to help with the
+      guard tests. This is only here for convenience and to reduce
+      syntax cluttering. For more information about macros, see
+      <seealso marker="doc/reference_manual:macros">
+      The Preprocessor</seealso>.
+    </p>
+    <code type="none">
+new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
+                  ?is_channel(B), ?is_channel(A) ->
+    #{red =&gt; R, green =&gt; G, blue =&gt; B, alpha =&gt; A}.</code>
+    <p>The function <c>new/4</c> creates a new map term and lets the keys
+      <c>red</c>, <c>green</c>, <c>blue</c>, and <c>alpha</c> be
+      associated with an initial value. In this case, only float
+      values between and including 0.0 and 1.0 are allowed, as ensured
+      by the <c>?is_channel/1</c> macro for each argument. Only the
+      <c>=></c> operator is allowed when creating a new map.
+    </p>
+    <p>By calling <c>blend/2</c> on any color term created by
+      <c>new/4</c>, the resulting color can be calculated as
+      determined by the two map terms.
+    </p>
+    <p>The first thing <c>blend/2</c> does is to calculate the
+      resulting alpha channel:
+    </p>
+    <code type="none">
+alpha(#{alpha := SA}, #{alpha := DA}) ->
+    SA + DA*(1.0 - SA).</code>
+    <p>The value associated with key <c>alpha</c> is fetched for both
+      arguments using the <c>:=</c> operator. The other keys in the
+      map are ignored, only the key <c>alpha</c> is required and
+      checked for.
+    </p>
+    <p>This is also the case for functions <c>red/2</c>,
+      <c>blue/2</c>, and <c>green/2</c>.</p>
+    <code type="none">
+red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).</code>
+    <p>The difference here is that a check is made for two keys in
+      each map argument. The other keys are ignored.
+    </p>
+    <p>Finally, let us return the resulting color in <c>blend/3</c>:
+    </p>
+    <code type="none">
+blend(Src,Dst,Alpha) when Alpha > 0.0 ->
+    Dst#{
+        red   := red(Src,Dst) / Alpha,
+        green := green(Src,Dst) / Alpha,
+        blue  := blue(Src,Dst) / Alpha,
+        alpha := Alpha
+    };</code>
+    <p>The <c>Dst</c> map is updated with new channel values. The
+      syntax for updating an existing key with a new value is with the
+      <c>:=</c> operator.
+    </p>
+  </section>
+
+  <section>
+    <title>Standard Modules and Manual Pages</title>
+    <p>Erlang has many standard modules to help you do things. For
+      example, the module <c>io</c> contains many functions that help
+      in doing formatted input/output. To look up information about
+      standard modules, the command <c>erl -man</c> can be used at the
+      operating shell or command prompt (the same place as you started
+      <c>erl</c>). Try the operating system shell command:</p>
+    <pre>
+% <input>erl -man io</input>
+ERLANG MODULE DEFINITION                                    io(3)
+
+MODULE
+     io - Standard I/O Server Interface Functions
+
+DESCRIPTION
+     This module provides an  interface  to  standard  Erlang  IO
+     servers. The output functions all return ok if they are suc-
+     ...</pre>
+    <p>If this does not work on your system, the documentation is
+      included as HTML in the Erlang/OTP release. You can also read
+      the documentation as HTML or download it as PDF from either of
+      the sites www.erlang.se (commercial Erlang) or www.erlang.org
+      (open source). For example, for Erlang/OTP release R9B:</p>
+    <code type="none">
+http://www.erlang.org/doc/r9b/doc/index.html</code>
+  </section>
+
+  <section>
+    <title>Writing Output to a Terminal</title>
+    <p>It is nice to be able to do formatted output in examples, so
+      the next example shows a simple way to use the <c>io:format</c>
+      function. Like all other exported functions, you can test the
+      <c>io:format</c> function in the shell:</p>
+    <pre>
+31> <input>io:format("hello world~n", []).</input>
+hello world
+ok
+32> <input>io:format("this outputs one Erlang term: ~w~n", [hello]).</input>
+this outputs one Erlang term: hello
+ok
+33> <input>io:format("this outputs two Erlang terms: ~w~w~n", [hello, world]).</input>
+this outputs two Erlang terms: helloworld
+ok
+34> <input>io:format("this outputs two Erlang terms: ~w ~w~n", [hello, world]).</input>
+this outputs two Erlang terms: hello world
+ok</pre>
+    <p>The function <c>format/2</c> (that is, <c>format</c> with two
+      arguments) takes two lists. The first one is nearly always a list
+      written between " ". This list is printed out as it is,
+      except that each ~w is replaced by a term taken in order from
+      the second list. Each ~n is replaced by a new line.
+      The <c>io:format/2</c> function itself returns the atom <c>ok</c>
+      if everything goes as planned. Like other functions in Erlang, it
+      crashes if an error occurs. This is not a fault in Erlang, it is
+      a deliberate policy. Erlang has sophisticated mechanisms to
+      handle errors which are shown later. As an exercise, try to
+      make <c>io:format</c> crash, it should not be difficult. But
+      notice that although <c>io:format</c> crashes, the Erlang shell
+      itself does not crash.</p>
+  </section>
+
+  <section>
+    <title>A Larger Example</title>
+    <p>Now for a larger example to consolidate what you have learnt so
+      far. Assume that you have a list of temperature readings from a number
+      of cities in the world. Some of them are in Celsius
+      and some in Fahrenheit (as in the previous list). First let us
+      convert them all to Celsius, then let us print the data neatly.</p>
+    <code type="none">
+%% This module is in file tut5.erl
+
+-module(tut5).
+-export([format_temps/1]).
+
+%% Only this function is exported
+format_temps([])->                        % No output for an empty list
+    ok;
+format_temps([City | Rest]) ->
+    print_temp(convert_to_celsius(City)),
+    format_temps(Rest).
+
+convert_to_celsius({Name, {c, Temp}}) ->  % No conversion needed
+    {Name, {c, Temp}};
+convert_to_celsius({Name, {f, Temp}}) ->  % Do the conversion
+    {Name, {c, (Temp - 32) * 5 / 9}}.
+
+print_temp({Name, {c, Temp}}) ->
+    io:format("~-15w ~w c~n", [Name, Temp]).</code>
+    <pre>
+35> <input>c(tut5).</input>
+{ok,tut5}
+36> <input>tut5:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+moscow          -10 c
+cape_town       21.11111111111111 c
+stockholm       -4 c
+paris           -2.2222222222222223 c
+london          2.2222222222222223 c
+ok</pre>
+    <p>Before looking at how this program works, notice that
+      a few comments are added to the code. A comment starts with a
+      %-character and goes on to the end of the line. Notice also that
+      the <c>-export([format_temps/1]).</c> line only includes
+      the function <c>format_temps/1</c>. The other functions are
+      <em>local</em> functions, that is, they are not visible from outside
+      the module <c>tut5</c>.</p>
+    <p>Notice also that when testing the program from the shell,
+      the input is spread over two lines as the line was too long.</p>
+    <p>When <c>format_temps</c> is called the first time, <c>City</c>
+      gets the value <c>{moscow,{c,-10}}</c> and <c>Rest</c> is
+      the rest of the list. So the function
+      <c>print_temp(convert_to_celsius({moscow,{c,-10}}))</c> is called.</p>
+    <p>Here is a function call as
+      <c>convert_to_celsius({moscow,{c,-10}})</c> as the argument to
+      the function <c>print_temp</c>. When function calls are <em>nested</em>
+      like this, they execute (evaluate) from the inside out.
+      That is, first <c>convert_to_celsius({moscow,{c,-10}})</c> is evaluated,
+      which gives the value <c>{moscow,{c,-10}}</c> as the temperature
+      is already in Celsius. Then <c>print_temp({moscow,{c,-10}})</c>
+      is evaluated.
+      The function <c>convert_to_celsius</c> works in a similar way to
+      the <c>convert_length</c> function in the previous example.</p>
+    <p><c>print_temp</c> simply calls <c>io:format</c> in a similar way
+      to what has been described above. Notice that ~-15w says to print
+      the "term" with a field length (width) of 15 and left justify it.
+      (see the <seealso marker="stdlib:io#fwrite/1">io(3)</seealso>) manual page in STDLIB.</p>
+    <p>Now <c>format_temps(Rest)</c> is called with the rest of the list
+      as an argument. This way of doing things is similar to the loop
+      constructs in other languages. (Yes, this is recursion, but do not
+      let that worry you.) So the same <c>format_temps</c> function is
+      called again, this time <c>City</c> gets the value
+      <c>{cape_town,{f,70}}</c> and the same procedure is repeated as
+      before. This is done until the list becomes empty, that is [],
+      which causes the first clause <c>format_temps([])</c> to match.
+      This simply returns (results in) the atom <c>ok</c>, so
+      the program ends.</p>
+  </section>
+
+  <section>
+    <title>Matching, Guards, and Scope of Variables</title>
+    <p>It can be useful to find the maximum and minimum temperature
+      in lists like this. Before extending the program to do this,
+      let us look at functions for finding the maximum value of
+      the elements in a list:</p>
+    <code type="none">
+-module(tut6).
+-export([list_max/1]).
+
+list_max([Head|Rest]) ->
+   list_max(Rest, Head).
+
+list_max([], Res) ->
+    Res;
+list_max([Head|Rest], Result_so_far) when Head > Result_so_far ->
+    list_max(Rest, Head);
+list_max([Head|Rest], Result_so_far)  ->
+    list_max(Rest, Result_so_far).</code>
+    <pre>
+37> <input>c(tut6).</input>
+{ok,tut6}
+38> <input>tut6:list_max([1,2,3,4,5,7,4,3,2,1]).</input>
+7</pre>
+    <p>First notice that two functions have the same name,
+      <c>list_max</c>. However, each of these takes a different number
+      of arguments (parameters). In Erlang these are regarded as
+      completely different functions. Where you need to distinguish
+      between these functions, you write Name/Arity, where
+      Name is the function name and Arity is
+      the number of arguments, in this case <c>list_max/1</c> and
+      <c>list_max/2</c>.</p>
+    <p>In this example you walk through a list "carrying" a
+      value, in this case <c>Result_so_far</c>.
+      <c>list_max/1</c> simply assumes that the max value of the list
+      is the head of the list and calls <c>list_max/2</c> with the rest
+      of the list and the value of the head of the list. In the above
+      this would be <c>list_max([2,3,4,5,7,4,3,2,1],1)</c>. If you tried
+      to use <c>list_max/1</c> with an empty list or tried to use it
+      with something that is not a list at all, you would cause an error.
+      Notice that the Erlang philosophy is not to handle errors of this
+      type in the function they occur, but to do so elsewhere. More
+      about this later.</p>
+    <p>In <c>list_max/2</c>, you walk down the list and use <c>Head</c>
+      instead of <c>Result_so_far</c> when <c>Head</c> &gt;
+      <c>Result_so_far</c>. <c>when</c> is a special word used before
+      the -&gt; in the function to say that you only use this part
+      of the function if the test that follows is true. A test
+      of this type is called <em>guard</em>. If the guard is false (that is,
+      the guard fails), the next part of the function is tried. In this
+      case, if <c>Head</c> is not greater than <c>Result_so_far</c>, then
+      it must be smaller or equal to it. This means that a guard on
+      the next part of the function is not needed.</p>
+    <p>Some useful operators in guards are:
+    </p><list type="bulleted"><item>&lt; less than</item>
+    <item>&gt; greater than</item>
+    <item>== equal</item>
+    <item>&gt;= greater or equal</item>
+    <item>=&lt; less or equal</item>
+    <item>/= not equal</item></list>
+    <p>(see <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>).</p>
+    <p>To change the above program to one that works out the minimum
+      value of the element in a list, you only need to
+      write &lt; instead of &gt;. (But it would be wise to change
+      the name of the function to <c>list_min</c>.)</p>
+    <p>Earlier it was mentioned that a variable can only be
+      given a value once in its scope. In the above you see
+      that <c>Result_so_far</c> is given several values. This is
+      OK since every time you call <c>list_max/2</c> you create a new
+      scope and one can regard <c>Result_so_far</c> as a
+      different variable in each scope.</p>
+    <p>Another way of creating and giving a variable a value is by using
+      the match operator = . So if you write <c>M = 5</c>, a variable
+      called <c>M</c> is created with the value 5. If, in
+      the same scope, you then write <c>M = 6</c>, an error is returned. Try
+      this out in the shell:</p>
+    <pre>
+39> <input>M = 5.</input>
+5
+40> <input>M = 6.</input>
+** exception error: no match of right hand side value 6
+41> <input>M = M + 1.</input>
+** exception error: no match of right hand side value 6
+42> <input>N = M + 1.</input>
+6</pre>
+    <p>The use of the match operator is particularly useful for pulling
+      apart Erlang terms and creating new ones.</p>
+    <pre>
+43> <input>{X, Y} = {paris, {f, 28}}.</input>
+{paris,{f,28}}
+44> <input>X.</input>
+paris
+45> <input>Y.</input>
+{f,28}</pre>
+    <p>Here <c>X</c> gets the value <c>paris</c> and
+      <c>Y</c><c>{f,28}</c>.</p>
+    <p>If you try to do the same again with another city,
+      an error is returned:</p>
+    <pre>
+46> <input>{X, Y} = {london, {f, 36}}.</input>
+** exception error: no match of right hand side value {london,{f,36}}</pre>
+    <p>Variables can also be used to improve the readability of
+      programs. For example, in function <c>list_max/2</c> above,
+      you can write:</p>
+    <code type="none">
+list_max([Head|Rest], Result_so_far) when Head > Result_so_far ->
+    New_result_far = Head,
+    list_max(Rest, New_result_far);</code>
+    <p>This is possibly a little clearer.</p>
+  </section>
+
+  <section>
+    <title>More About Lists</title>
+    <p>Remember that the | operator can be used to get the head of a
+      list:</p>
+    <pre>
+47> <input>[M1|T1] = [paris, london, rome].</input>
+[paris,london,rome]
+48> <input>M1.</input>
+paris
+49> <input>T1.</input>
+[london,rome]</pre>
+    <p>The | operator can also be used to add a head to a list:</p>
+    <pre>
+50> <input>L1 = [madrid | T1].</input>
+[madrid,london,rome]
+51> <input>L1.</input>
+[madrid,london,rome]</pre>
+    <p>Now an example of this when working with lists - reversing
+      the order of a list:</p>
+    <code type="none">
+-module(tut8).
+
+-export([reverse/1]).
+
+reverse(List) ->
+    reverse(List, []).
+
+reverse([Head | Rest], Reversed_List) ->
+    reverse(Rest, [Head | Reversed_List]);
+reverse([], Reversed_List) ->
+    Reversed_List.</code>
+    <pre>
+52> <input>c(tut8).</input>
+{ok,tut8}
+53> <input>tut8:reverse([1,2,3]).</input>
+[3,2,1]</pre>
+    <p>Consider how <c>Reversed_List</c> is built. It starts as [],
+      then successively the heads are taken off of the list to be reversed
+      and added to the the <c>Reversed_List</c>, as shown in
+      the following:</p>
+    <code type="none">
+reverse([1|2,3], []) =>
+    reverse([2,3], [1|[]])
+
+reverse([2|3], [1]) =>
+    reverse([3], [2|[1])
+
+reverse([3|[]], [2,1]) =>
+    reverse([], [3|[2,1]])
+
+reverse([], [3,2,1]) =>
+    [3,2,1]</code>
+    <p>The module <c>lists</c> contains many functions for
+      manipulating lists, for example, for reversing them. So before
+      writing a list-manipulating function it is a good idea to check
+      if one not already is written for you
+      (see the <seealso marker="stdlib:lists">lists(3)</seealso>
+      manual page in STDLIB).</p>
+    <p>Now let us get back to the cities and temperatures, but take a more
+      structured approach this time. First let us convert the whole list
+      to Celsius as follows:</p>
+    <code type="none">
+-module(tut7).
+-export([format_temps/1]).
+
+format_temps(List_of_cities) ->
+    convert_list_to_c(List_of_cities).
+
+convert_list_to_c([{Name, {f, F}} | Rest]) ->
+    Converted_City = {Name, {c, (F -32)* 5 / 9}},
+    [Converted_City | convert_list_to_c(Rest)];
+
+convert_list_to_c([City | Rest]) ->
+    [City | convert_list_to_c(Rest)];
+
+convert_list_to_c([]) ->
+    [].</code>
+    <p>Test the function:</p>
+    <pre>
+54> <input>c(tut7).</input>
+{ok, tut7}.
+55> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+[{moscow,{c,-10}},
+ {cape_town,{c,21.11111111111111}},
+ {stockholm,{c,-4}},
+ {paris,{c,-2.2222222222222223}},
+ {london,{c,2.2222222222222223}}]</pre>
+    <p>Explanation:</p>
+    <code type="none">
+format_temps(List_of_cities) ->
+    convert_list_to_c(List_of_cities).</code>
+    <p>Here <c>format_temps/1</c> calls
+      <c>convert_list_to_c/1</c>. <c>convert_list_to_c/1</c> takes off
+      the head of the <c>List_of_cities</c>, converts it to Celsius if
+      needed. The | operator is used to add the (maybe) converted
+      to the converted rest of the list:</p>
+    <code type="none">
+[Converted_City | convert_list_to_c(Rest)];</code>
+    <p>or:</p>
+    <code type="none">
+[City | convert_list_to_c(Rest)];</code>
+    <p>This is done until the end of the list is reached, that is,
+      the list is empty:</p>
+    <code type="none">
+convert_list_to_c([]) ->
+    [].</code>
+    <p>Now when the list is converted, a function to print it is added:</p>
+    <code type="none">
+-module(tut7).
+-export([format_temps/1]).
+
+format_temps(List_of_cities) ->
+    Converted_List = convert_list_to_c(List_of_cities),
+    print_temp(Converted_List).
+
+convert_list_to_c([{Name, {f, F}} | Rest]) ->
+    Converted_City = {Name, {c, (F -32)* 5 / 9}},
+    [Converted_City | convert_list_to_c(Rest)];
+
+convert_list_to_c([City | Rest]) ->
+    [City | convert_list_to_c(Rest)];
+
+convert_list_to_c([]) ->
+    [].
+
+print_temp([{Name, {c, Temp}} | Rest]) ->
+    io:format("~-15w ~w c~n", [Name, Temp]),
+    print_temp(Rest);
+print_temp([]) ->
+    ok.</code>
+    <pre>
+56> <input>c(tut7).</input>
+{ok,tut7}
+57> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+moscow          -10 c
+cape_town       21.11111111111111 c
+stockholm       -4 c
+paris           -2.2222222222222223 c
+london          2.2222222222222223 c
+ok</pre>
+    <p>Now a function has to be added to find the cities with
+      the maximum and minimum temperatures. The following program is not
+      the most efficient way of doing this as you walk through the list
+      of cities four times. But it is better to first strive for
+      clarity and correctness and to make programs efficient only if
+      needed.</p>
+    <code type="none"><![CDATA[
+-module(tut7).
+-export([format_temps/1]).
+
+format_temps(List_of_cities) ->
+    Converted_List = convert_list_to_c(List_of_cities),
+    print_temp(Converted_List),
+    {Max_city, Min_city} = find_max_and_min(Converted_List),
+    print_max_and_min(Max_city, Min_city).
+
+convert_list_to_c([{Name, {f, Temp}} | Rest]) ->
+    Converted_City = {Name, {c, (Temp -32)* 5 / 9}},
+    [Converted_City | convert_list_to_c(Rest)];
+
+convert_list_to_c([City | Rest]) ->
+    [City | convert_list_to_c(Rest)];
+
+convert_list_to_c([]) ->
+    [].
+
+print_temp([{Name, {c, Temp}} | Rest]) ->
+    io:format("~-15w ~w c~n", [Name, Temp]),
+    print_temp(Rest);
+print_temp([]) ->
+    ok.
+
+find_max_and_min([City | Rest]) ->
+    find_max_and_min(Rest, City, City).
+
+find_max_and_min([{Name, {c, Temp}} | Rest], 
+         {Max_Name, {c, Max_Temp}}, 
+         {Min_Name, {c, Min_Temp}}) ->
+    if 
+        Temp > Max_Temp ->
+            Max_City = {Name, {c, Temp}};           % Change
+        true -> 
+            Max_City = {Max_Name, {c, Max_Temp}} % Unchanged
+    end,
+    if
+         Temp < Min_Temp ->
+            Min_City = {Name, {c, Temp}};           % Change
+        true -> 
+            Min_City = {Min_Name, {c, Min_Temp}} % Unchanged
+    end,
+    find_max_and_min(Rest, Max_City, Min_City);
+
+find_max_and_min([], Max_City, Min_City) ->
+    {Max_City, Min_City}.
+
+print_max_and_min({Max_name, {c, Max_temp}}, {Min_name, {c, Min_temp}}) ->
+    io:format("Max temperature was ~w c in ~w~n", [Max_temp, Max_name]),
+    io:format("Min temperature was ~w c in ~w~n", [Min_temp, Min_name]).]]></code><pre>
+58> <input>c(tut7).</input>
+{ok, tut7}
+59> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+moscow          -10 c
+cape_town       21.11111111111111 c
+stockholm       -4 c
+paris           -2.2222222222222223 c
+london          2.2222222222222223 c
+Max temperature was 21.11111111111111 c in cape_town
+Min temperature was -10 c in moscow
+ok</pre>
+  </section>
+
+  <section>
+    <title>If and Case</title>
+    <p>The function <c>find_max_and_min</c> works out the maximum and
+      minimum temperature. A new construct, <c>if</c>, is introduced here.
+      If works as follows:</p>
+    <code type="none">
+if
+    Condition 1 ->
+        Action 1;
+    Condition 2 ->
+        Action 2;
+    Condition 3 ->
+        Action 3;
+    Condition 4 ->
+        Action 4
+end</code>
+    <p>Notice that there is no ";" before <c>end</c>. Conditions do
+      the same as guards, that is, tests that succeed or fail. Erlang
+      starts at the top
+      and tests until it finds a condition that succeeds. Then it evaluates
+      (performs) the action following the condition and ignores all
+      other conditions and actions before the <c>end</c>. If no
+      condition matches, a run-time failure occurs. A condition
+      that always succeeds is the atom <c>true</c>. This is
+      often used last in an <c>if</c>, meaning, do the action following
+      the <c>true</c> if all other conditions have failed.</p>
+    <p>The following is a short program to show the workings of
+      <c>if</c>.</p>
+    <code type="none">
+-module(tut9).
+-export([test_if/2]).
+
+test_if(A, B) ->
+    if 
+        A == 5 ->
+            io:format("A == 5~n", []),
+            a_equals_5;
+        B == 6 ->
+            io:format("B == 6~n", []),
+            b_equals_6;
+        A == 2, B == 3 ->                      %That is A equals 2 and B equals 3
+            io:format("A == 2, B == 3~n", []),
+            a_equals_2_b_equals_3;
+        A == 1 ; B == 7 ->                     %That is A equals 1 or B equals 7
+            io:format("A == 1 ; B == 7~n", []),
+            a_equals_1_or_b_equals_7
+    end.</code>
+    <p>Testing this program gives:</p>
+    <pre>
+60> <input>c(tut9).</input>
+{ok,tut9}
+61> <input>tut9:test_if(5,33).</input>
+A == 5
+a_equals_5
+62> <input>tut9:test_if(33,6).</input>
+B == 6
+b_equals_6
+63> <input>tut9:test_if(2, 3).</input>
+A == 2, B == 3
+a_equals_2_b_equals_3
+64> <input>tut9:test_if(1, 33).</input>
+A == 1 ; B == 7
+a_equals_1_or_b_equals_7
+65> <input>tut9:test_if(33, 7).</input>
+A == 1 ; B == 7
+a_equals_1_or_b_equals_7
+66> <input>tut9:test_if(33, 33).</input>
+** exception error: no true branch found when evaluating an if expression
+     in function  tut9:test_if/2 (tut9.erl, line 5)</pre>
+    <p>Notice that <c>tut9:test_if(33,33)</c> does not cause any
+      condition to succeed. This leads to the run time error
+      <c>if_clause</c>, here nicely formatted by the shell. See
+      <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>
+      for details of the many guard tests available.</p>
+    <p><c>case</c> is another construct in Erlang. Recall that the
+      <c>convert_length</c> function was written as:</p>
+    <code type="none">
+convert_length({centimeter, X}) ->
+    {inch, X / 2.54};
+convert_length({inch, Y}) ->
+    {centimeter, Y * 2.54}.</code>
+    <p>The same program can also be written as:</p>
+    <code type="none">
+-module(tut10).
+-export([convert_length/1]).
+
+convert_length(Length) ->
+    case Length of
+        {centimeter, X} ->
+            {inch, X / 2.54};
+        {inch, Y} ->
+            {centimeter, Y * 2.54}
+    end.</code>
+    <pre>
+67> <input>c(tut10).</input>
+{ok,tut10}
+68> <input>tut10:convert_length({inch, 6}).</input>
+{centimeter,15.24}
+69> <input>tut10:convert_length({centimeter, 2.5}).</input>
+{inch,0.984251968503937}</pre>
+    <p>Both <c>case</c> and <c>if</c> have <em>return values</em>, that is,
+      in the above example <c>case</c> returned
+      either <c>{inch,X/2.54}</c> or <c>{centimeter,Y*2.54}</c>.
+      The behaviour of <c>case</c> can also be modified by using guards.
+      The following example clarifies this. It
+      tells us the length of a month, given the year.
+      The year must be known, since February has 29 days in a leap year.</p>
+    <code type="none">
+-module(tut11).
+-export([month_length/2]).
+
+month_length(Year, Month) ->
+    %% All years divisible by 400 are leap
+    %% Years divisible by 100 are not leap (except the 400 rule above)
+    %% Years divisible by 4 are leap (except the 100 rule above)
+    Leap = if
+        trunc(Year / 400) * 400 == Year ->
+            leap;
+        trunc(Year / 100) * 100 == Year ->
+            not_leap;
+        trunc(Year / 4) * 4 == Year ->
+            leap;
+        true ->
+            not_leap
+    end,  
+    case Month of
+        sep -> 30;
+        apr -> 30;
+        jun -> 30;
+        nov -> 30;
+        feb when Leap == leap -> 29;
+        feb -> 28;
+        jan -> 31;
+        mar -> 31;
+        may -> 31;
+        jul -> 31;
+        aug -> 31;
+        oct -> 31;
+        dec -> 31
+    end.</code>
+    <pre>
+70> <input>c(tut11).</input>
+{ok,tut11}
+71> <input>tut11:month_length(2004, feb).</input>
+29
+72> <input>tut11:month_length(2003, feb).</input>
+28
+73> <input>tut11:month_length(1947, aug).</input>
+31</pre>
+  </section>
+
+  <section>
+    <title>Built-In Functions (BIFs)</title>
+    <p>BIFs are functions that for some reason are
+      built-in to the Erlang virtual machine. BIFs often implement
+      functionality that is impossible or is too
+      inefficient to implement in Erlang. Some BIFs can be called
+      using the function name only but they are by default belonging
+      to the <c>erlang</c> module. For example, the call to the
+      BIF <c>trunc</c>
+      below is equivalent to a call to <c>erlang:trunc</c>.</p>
+    <p>As shown, first it is checked if a year is leap. If a
+      year is divisible by 400, it is a leap year. To determine this,
+      first divide the year by 400 and use the BIF
+      <c>trunc</c> (more about this later) to cut off any decimals. Then
+      multiply by 400 again and see if the same value is returned again.
+      For example, year 2004:</p>
+    <code type="none">
+2004 / 400 = 5.01
+trunc(5.01) = 5
+5 * 400 = 2000</code>
+    <p>2000 is not the same as 2004, so 2004 is not divisible by 400.
+    Year 2000:</p>
+    <code type="none">
+2000 / 400 = 5.0
+trunc(5.0) = 5
+5 * 400 = 2000</code>
+    <p>That is, a leap year. The next two <c>trunc</c>-tests evaluate
+      if the year is divisible by 100 or 4 in the same way. The first
+      <c>if</c> returns <c>leap</c> or <c>not_leap</c>, which lands up
+      in the variable <c>Leap</c>. This variable is used in the guard
+      for <c>feb</c> in the following <c>case</c> that tells us how
+      long the month is.</p>
+    <p>This example showed the use of <c>trunc</c>. It is easier
+      to use the Erlang operator <c>rem</c> that gives the remainder
+      after division, for example:</p>
+    <pre>
+74> <input>2004 rem 400.</input>
+4</pre>
+    <p>So instead of writing:</p>
+    <code type="none">
+trunc(Year / 400) * 400 == Year ->
+    leap;</code>
+    <p>it can be written:</p>
+    <code type="none">
+Year rem 400 == 0 ->
+    leap;</code>
+    <p>There are many other BIFs such as
+      <c>trunc</c>. Only a few BIFs can be used in guards,
+      and you cannot use functions you have defined yourself in guards.
+      (see
+      <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>)
+      (For advanced readers: This is to ensure that guards do not have side
+      effects.) Let us play with a few of these functions in the shell:</p>
+    <pre>
+75> <input>trunc(5.6).</input>
+5
+76> <input>round(5.6).</input>
+6
+77> <input>length([a,b,c,d]).</input>
+4
+78> <input>float(5).</input>
+5.0
+79> <input>is_atom(hello).</input>
+true
+80> <input>is_atom("hello").</input>
+false
+81> <input>is_tuple({paris, {c, 30}}).</input>
+true
+82> <input>is_tuple([paris, {c, 30}]).</input>
+false</pre>
+    <p>All of these can be used in guards. Now for some BIFs that cannot be
+      used in guards:</p>
+    <pre>
+83> <input>atom_to_list(hello).</input>
+"hello"
+84> <input>list_to_atom("goodbye").</input>
+goodbye
+85> <input>integer_to_list(22).</input>
+"22"</pre>
+    <p>These three BIFs do conversions that would be difficult (or
+      impossible) to do in Erlang.</p>
+  </section>
+
+  <section>
+    <title>Higher-Order Functions (Funs)</title>
+    <p>Erlang, like most modern functional programming languages, has
+      higher-order functions. Here is an example using the shell:</p>
+    <pre>
+86> <input>Xf = fun(X) -> X * 2 end.</input>
+#Fun&lt;erl_eval.5.123085357&gt;
+87> <input>Xf(5).</input>
+10</pre>
+    <p>Here is defined a function that doubles
+      the value of a number and assigned this function to a variable. Thus
+      <c>Xf(5)</c> returns value 10. Two useful functions when
+      working with lists are <c>foreach</c> and <c>map</c>, which are
+      defined as follows:</p>
+    <code type="none">
+foreach(Fun, [First|Rest]) ->
+    Fun(First),
+    foreach(Fun, Rest);
+foreach(Fun, []) ->
+    ok.
+
+map(Fun, [First|Rest]) -> 
+    [Fun(First)|map(Fun,Rest)];
+map(Fun, []) -> 
+    [].</code>
+    <p>These two functions are provided in the standard module
+      <c>lists</c>. <c>foreach</c> takes a list and applies a fun to
+      every element in the list. <c>map</c> creates a new list by
+      applying a fun to every element in a list. Going back to
+      the shell, <c>map</c> is used and a fun to add 3 to
+      every element of a list:</p>
+    <pre>
+88> <input>Add_3 = fun(X) -> X + 3 end.</input>
+#Fun&lt;erl_eval.5.123085357&gt;
+89> <input>lists:map(Add_3, [1,2,3]).</input>
+[4,5,6]</pre>
+    <p>Let us (again) print the temperatures in a list of cities:</p>
+    <pre>
+90> <input>Print_City = fun({City, {X, Temp}}) -> io:format("~-15w ~w ~w~n",</input>
+<input>[City, X, Temp]) end.</input>
+#Fun&lt;erl_eval.5.123085357&gt;
+91> <input>lists:foreach(Print_City, [{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+moscow          c -10
+cape_town       f 70
+stockholm       c -4
+paris           f 28
+london          f 36
+ok</pre>
+    <p>Let us now define a fun that can be used to go through a list
+      of cities and temperatures and transform them all to Celsius.</p>
+    <code type="none">
+-module(tut13).
+
+-export([convert_list_to_c/1]).
+
+convert_to_c({Name, {f, Temp}}) ->
+    {Name, {c, trunc((Temp - 32) * 5 / 9)}};
+convert_to_c({Name, {c, Temp}}) ->
+    {Name, {c, Temp}}.
+
+convert_list_to_c(List) ->
+    lists:map(fun convert_to_c/1, List).</code>
+    <pre>
+92> <input>tut13:convert_list_to_c([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+[{moscow,{c,-10}},
+ {cape_town,{c,21}},
+ {stockholm,{c,-4}},
+ {paris,{c,-2}},
+ {london,{c,2}}]</pre>
+    <p>The <c>convert_to_c</c> function is the same as before, but here
+      it is used as a fun:</p>
+    <code type="none">
+lists:map(fun convert_to_c/1, List)</code>
+    <p>When a function defined elsewhere is used as a fun, it can be referred
+      to as <c>Function/Arity</c> (remember that <c>Arity</c> =
+      number of arguments). So in the <c>map</c>-call
+      <c>lists:map(fun convert_to_c/1, List)</c> is written. As shown,
+      <c>convert_list_to_c</c> becomes much shorter and easier to
+      understand.</p>
+    <p>The standard module <c>lists</c> also contains a function
+      <c>sort(Fun, List)</c> where <c>Fun</c> is a fun with two
+      arguments. This fun returns <c>true</c> if the first
+      argument is less than the second argument, or else <c>false</c>.
+      Sorting is added to the <c>convert_list_to_c</c>:</p>
+    <code type="none"><![CDATA[
+-module(tut13).
+
+-export([convert_list_to_c/1]).
+
+convert_to_c({Name, {f, Temp}}) ->
+    {Name, {c, trunc((Temp - 32) * 5 / 9)}};
+convert_to_c({Name, {c, Temp}}) ->
+    {Name, {c, Temp}}.
+
+convert_list_to_c(List) ->
+    New_list = lists:map(fun convert_to_c/1, List),
+    lists:sort(fun({_, {c, Temp1}}, {_, {c, Temp2}}) ->
+                       Temp1 < Temp2 end, New_list).]]></code>
+    <pre>
+93> <input>c(tut13).</input>
+{ok,tut13}
+94> <input>tut13:convert_list_to_c([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
+<input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
+[{moscow,{c,-10}},
+ {stockholm,{c,-4}},
+ {paris,{c,-2}},
+ {london,{c,2}},
+ {cape_town,{c,21}}]</pre>
+    <p>In <c>sort</c> the fun is used:</p>
+    <code type="none"><![CDATA[
+fun({_, {c, Temp1}}, {_, {c, Temp2}}) -> Temp1 < Temp2 end,]]></code>
+    <p>Here the concept of an <em>anonymous variable</em>
+      "_" is introduced. This is simply shorthand for a variable that
+      gets a value, but the value is ignored. This can be used
+      anywhere suitable, not just in funs. <c><![CDATA[Temp1 < Temp2]]></c>
+      returns <c>true</c> if <c>Temp1</c> is less than <c>Temp2</c>.</p>
+  </section>
+</chapter>
+

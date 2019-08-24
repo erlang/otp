@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>httpc</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <module since="OTP R13B04">httpc</module>
+  <modulesummary>An HTTP/1.1 client</modulesummary>
+
+  <description>
+    <p>This module provides the API to an HTTP/1.1 compatible client according 
+      to <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>. 
+    Caching is not supported.</p>
+    <note>
+      <p>When starting the <c>Inets</c> application, a manager process for the
+	default profile is started. The functions in this API
+	that do not explicitly use a profile accesses the
+	default profile. A profile keeps track of proxy options,
+	cookies, and other options that can be applied to more than one
+	request.</p>
+
+	<p>If the scheme <c>https</c> is used, the <c>SSL</c> application must
+	be started. When <c>https</c> links need to go through a proxy, the
+	CONNECT method extension to HTTP-1.1 is used to establish a
+	tunnel and then the connection is upgraded to TLS.
+	However, "TLS upgrade" according to <url href="http://www.ietf.org/rfc/rfc2817.txt">RFC 2817</url>is not
+	supported.</p>
+
+      <p>Pipelining is only used if the pipeline
+      time-out is set, otherwise persistent connections without
+      pipelining are used. That is, the client always waits for
+      the previous response before sending the next request.</p>
+    </note>
+    <p>Some examples are provided in the <seealso
+    marker="http_client">Inets User's Guide</seealso>.</p>
+  </description>
+  
+  <section>
+    <title>DATA TYPES</title>
+    <marker id="DATA_TYPES"></marker>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <p><c>boolean() = true | false</c></p>
+    <p><c>string()</c> = list of ASCII characters</p>
+    <p><c>request_id() = reference()</c></p>
+    <p><c>profile() = atom()</c></p>
+    <p><c>path() = string()</c> representing a file path or directory path</p>
+    <p><c>ip_address()</c> = See the
+    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
+    <p><c>socket_opt()</c> = See the options used by
+    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
+    <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>
+  
+  </section>
+  
+  <section>
+    <title>HTTP DATA TYPES</title>
+    <p>Type definitions related to HTTP:</p>
+
+    <p><c>method() = head | get | put | post | trace | options | delete | patch</c></p>
+    <taglist>
+      <tag><c>request()</c></tag>
+      <item><p>= <c>{url(), headers()}</c></p>
+      <p>| <c>{url(), headers(), content_type(), body()}</c></p>
+      </item>
+    </taglist>
+    <p><c>url() = string()</c> syntax according to the URI definition in
+    <url href="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396</url>, 
+    for example <c>"http://www.erlang.org"</c></p>
+    <p><c>status_line() = {http_version(), status_code(), reason_phrase()}</c></p>
+    <p><c>http_version() = string()</c>, for example, <c>"HTTP/1.1"</c></p>
+    <p><c>status_code() = integer()</c></p>
+    <p><c>reason_phrase() = string()</c></p>
+    <p><c>content_type() = string()</c></p>
+    <p><c>headers() = [header()]</c></p>
+    <p><c>header() = {field(), value()}</c></p>
+    <p><c>field() = string()</c></p>
+    <p><c>value() = string()</c></p>
+    <taglist>
+      <tag><c>body()</c></tag>
+      <item><p>= <c>string() | binary()</c></p>
+      <p>| <c>{fun(accumulator())</c></p>
+      <p><c> -> body_processing_result(), accumulator()}</c></p>
+      <p>| <c>{chunkify, fun(accumulator())</c></p>
+      <p><c> -> body_processing_result(), accumulator()}</c></p>
+      </item>
+    </taglist>
+    <p><c>body_processing_result() = eof | {ok, iolist(), accumulator()}</c></p>
+    <p><c>accumulator() = term()</c></p>
+    <p><c>filename() = string()</c></p>
+ <p>For more information about HTTP, see
+ <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p> 
+</section>
+  
+  <section>
+    <title>SSL DATA TYPES</title>
+    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    about <c>SSL</c> options (<c>ssloptions()</c>). </p>
+  </section>
+
+  <section>
+    <title>HTTP CLIENT SERVICE START/STOP</title>
+    
+    <p>An HTTP client can be configured to start when starting the <c>Inets</c>
+      application or started dynamically in runtime by calling the
+      <c>Inets</c> application API <c>inets:start(httpc, ServiceConfig)</c>
+      or <c>inets:start(httpc,  ServiceConfig, How)</c>,
+      see <seealso marker="inets">inets(3)</seealso>.
+      The configuration options are as follows:</p>
+    <taglist>
+      <tag>{profile, profile()}</tag>
+      <item><p>Name of the profile, see
+	<seealso marker="#DATA_TYPES">DATA TYPES</seealso>.
+      This option is mandatory.</p></item>
+      <tag>{data_dir, path()}</tag>
+      <item><p>Directory where the profile
+	can save persistent data. If omitted, all cookies are treated
+	as session cookies.</p></item>
+    </taglist>
+
+    <p>The client can be stopped using <c>inets:stop(httpc, Pid)</c> or
+    <c>inets:stop(httpc, Profile)</c>.</p>
+  </section>
+  
+  <funcs>
+   
+    <func>
+      <name since="OTP R13B04">cancel_request(RequestId) -></name>
+      <name since="OTP R13B04">cancel_request(RequestId, Profile) -> ok</name>
+      <fsummary>Cancels an asynchronous HTTP request.</fsummary>
+      <type>
+        <v>RequestId = request_id() - A unique identifier as returned
+        by request/4</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+      </type>
+      <desc>
+        <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
+	that the request response is not delivered. Because it is asynchronous,
+	the request can already have been completed when the cancellation arrives.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R13B04">cookie_header(Url) -> </name>
+      <name since="OTP R13B04">cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
+      <name since="OTP R15B">cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
+      <fsummary>Returns the cookie header that would have been sent when
+      making a request to URL using the profile <c>Profile</c>.</fsummary>
+      <type>
+        <v>Url = url()</v>
+        <v>Opts = [cookie_header_opt()]</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c>.</d>
+        <v>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</v>
+      </type>
+      <desc>
+        <p>Returns the cookie header that would have been sent
+	when making a request to <c>Url</c> using profile <c>Profile</c>.
+	If no profile is specified, the default profile is used.</p>
+	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
+	parse IPv6 addresses. For details,
+	see argument <c>Options</c> of
+	<seealso marker="#request-4">request/[4,5]</seealso>.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name since="OTP R15B01">get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
+      <name since="OTP R15B01">get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
+      <fsummary>Gets the currently used options.</fsummary>
+      <type>
+        <v>OptionItems = all | [option_item()]</v>
+	<v>option_item() = proxy |
+	                   https_proxy |
+                           max_sessions | 
+			   keep_alive_timeout | 
+	                   max_keep_alive_length | 
+			   pipeline_timeout | 
+			   max_pipeline_length | 
+			   cookies | 
+			   ipfamily | 
+			   ip | 
+			   port | 
+			   socket_opts | 
+	                   verbose |
+	                   unix_socket</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can used.</d>
+        <v>Values = [{option_item(), term()}]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieves the options currently used by the client.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">info() -> list()</name>
+      <name since="OTP R15B02">info(Profile) -> list()</name>
+      <fsummary>Produces a list of miscellaneous information.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+      </type>
+      <desc>
+        <p>Produces a list of miscellaneous information. 
+	Intended for debugging. 
+	If no profile is specified, the default profile is used.</p>
+      </desc>
+    </func>
+
+    
+    <func>
+      <name since="OTP R13B04">reset_cookies() -> void()</name>
+      <name since="OTP R13B04">reset_cookies(Profile) -> void()</name>
+      <fsummary>Resets the cookie database.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+      </type>
+      <desc>
+        <p>Resets (clears) the cookie database for the specified 
+	<c>Profile</c>. If no profile is specified the default profile 
+	is used.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R13B04">request(Url) -> </name>
+      <name since="OTP R13B04">request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
+      <fsummary>Sends a get HTTP request.</fsummary>
+      <type>
+        <v>Url = url()</v> 
+	<v>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id()</v>
+	<v>Body = string() | binary()</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>httpc:request(get, {Url, []}, [], [])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options) -></name>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options, Profile) -> {ok, Result} | {ok, saved_to_file} | {error, Reason}</name>
+      
+      <fsummary>Sends an HTTP request.</fsummary>
+      <type>
+        <v>Method = method()</v>
+        <v>Request = request()</v>
+        <v>HTTPOptions = http_options()</v>
+        <v>http_options() = [http_option()]</v>
+        <v>http_option() = {timeout,         timeout()} | 
+                           {connect_timeout, timeout()} | 
+                           {ssl,             ssloptions()} | 
+                           {essl,            ssloptions()} | 
+                           {autoredirect,    boolean()} | 
+                           {proxy_auth, {userstring(), passwordstring()}} | 
+                           {version,         http_version()} | 
+                           {relaxed,         boolean()}</v>
+        <v>timeout() = integer() >= 0 | infinity</v>
+        <v>Options = options()</v>
+        <v>options() = [option()]</v>
+        <v>option() = {sync,                    boolean()} | 
+                      {stream,                  stream_to()} | 
+                      {body_format,             body_format()} | 
+                      {full_result,             boolean()} | 
+                      {headers_as_is,           boolean() |
+                      {socket_opts,             socket_opts()} | 
+                      {receiver,                receiver()} |
+	              {ipv6_host_with_brackets, boolean()}</v>
+        <v>stream_to() = none | self | {self, once} | filename()</v>
+        <v>socket_opts() = [socket_opt()]</v>
+        <v>receiver() = pid() | function()/1 | {Module, Function, Args}</v>
+        <v>Module = atom()</v>
+        <v>Function = atom()</v>
+        <v>Args = list()</v>
+	<v>body_format() = string | binary</v>
+        <v>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id()</v>
+        <v>Body = string() | binary()</v>
+        <v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+        <v>Reason = term()</v>
+      </type>
+
+      <desc>
+        <p>Sends an HTTP request. The function can be both synchronous
+	and asynchronous. In the latter case, the function returns
+	<c>{ok, RequestId}</c> and then the information is delivered
+	to the <c>receiver</c> depending on that value.</p>
+
+        <p>HTTP option (<c>http_option()</c>) details:</p>
+        <marker id="request2_http_options"></marker>
+        <taglist>
+          <tag><c><![CDATA[timeout]]></c></tag>
+          <item>
+            <p>Time-out time for the request.</p>
+            <p>The clock starts ticking when the request is sent.</p>
+            <p>Time is in milliseconds.</p>
+            <p>Default is <c>infinity</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[connect_timeout]]></c></tag>
+          <item>
+            <p>Connection time-out time, used during the initial request, 
+	    when the client is <em>connecting</em> to the server.</p>
+            <p>Time is in milliseconds.</p>
+            <p>Default is the value of option <c>timeout</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[ssl]]></c></tag>
+          <item>
+            <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
+            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
+	  </item>
+
+          <tag><c><![CDATA[autoredirect]]></c></tag>
+          <item>
+	    <p>The client automatically retrieves the information
+	    from the new URI and returns that as the result, instead 
+	    of a 30X-result code.</p>
+	    <p>For some 30X-result codes, automatic redirect 
+	    is not allowed. In these cases the 30X-result is always
+	    returned.</p>
+	    <p>Default is <c>true</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[proxy_auth]]></c></tag>
+          <item>
+            <p>A proxy-authorization header using the provided username and 
+	    password is added to the request.</p>
+	  </item>
+
+          <tag><c><![CDATA[version]]></c></tag>
+          <item>
+            <p>Can be used to make the client act as an <c>HTTP/1.0</c> or
+	    <c>HTTP/0.9</c> client. By default this is an <c>HTTP/1.1</c> 
+	    client. When using <c>HTTP/1.0</c> persistent connections are 
+	    not used.</p>
+	    <p>Default is the string <c>"HTTP/1.1"</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[relaxed]]></c></tag>
+          <item>
+            <p>If set to <c>true</c>, workarounds for known server deviations 
+	    from the HTTP-standard are enabled.</p>
+            <p>Default is <c>false</c>.</p>
+	  </item>
+        </taglist>
+
+        <p>Option (<c>option()</c>) details:</p>
+        <taglist>
+          <tag><c><![CDATA[sync]]></c></tag>
+          <item>
+            <p>Option for the request to be synchronous or asynchronous.</p>
+            <p>Default is <c>true</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[stream]]></c></tag>
+          <item>
+            <p>Streams the body of a 200 or 206 response to the calling 
+	    process or to a file. When streaming to the calling process 
+	    using option <c>self</c>, the following stream messages
+	    are sent to that process: <c>{http, {RequestId,
+	    stream_start, Headers}}, {http, {RequestId, stream,
+	    BinBodyPart}}, and {http, {RequestId, stream_end, Headers}}</c>.</p>
+	    <p>When streaming to the calling processes using option
+	    <c>{self, once}</c>, the first message has an extra
+	    element, that is, <c>{http, {RequestId, stream_start, Headers, Pid}}</c>.
+	    This is the process id to be used as an argument to
+	    <c>httpc:stream_next/1</c> to trigger the next message to be sent to
+	    the calling process.</p>
+	    <p>Notice that chunked encoding can add
+	    headers so that there are more headers in the <c>stream_end</c>
+	    message than in <c>stream_start</c>.
+	    When streaming to a file and the request is asynchronous, the
+	    message <c>{http, {RequestId, saved_to_file}}</c> is sent.</p>
+            <p>Default is <c>none</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[body_format]]></c></tag>
+          <item>
+            <p>Defines if the body is to be delivered as a string or 
+	    binary. This option is only valid for the synchronous 
+	    request.</p>
+            <p>Default is <c>string</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[full_result]]></c></tag>
+          <item>
+            <p>Defines if a "full result" is to be returned to the caller (that is,
+	    the body, the headers, and the entire status line) or not 
+	    (the body and the status code).</p>
+            <p>Default is <c>true</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[headers_as_is]]></c></tag>
+          <item>
+            <p>Defines if the headers provided by the user are to be made 
+	    lower case or to be regarded as case sensitive.</p>
+            <p>The HTTP standard requires them to be 
+	    case insensitive. Use this feature only if there is 
+	    no other way to communicate with the server or for testing 
+	    purpose. When this option is used, no headers 
+	    are automatically added. All necessary headers must be
+	    provided by the user.</p>
+	    <p>Default is <c>false</c>.</p>
+	  </item>
+
+          <tag><c><![CDATA[socket_opts]]></c></tag>
+          <item>
+            <p>Socket options to be used for this request.</p>
+	    <p>Overrides any value set by function
+	    <seealso marker="#set_options-1">set_options</seealso>.</p>
+            <p>The validity of the options is <em>not</em> checked by
+            the HTTP client they are assumed to be correct and passed
+            on to ssl application and inet driver, which may reject
+            them if they are not correct.
+	    </p>
+	    <note>
+	      <p>
+		Persistent connections are not supported when setting the
+		<c>socket_opts</c> option. When <c>socket_opts</c> is not
+		set the current implementation assumes the requests to the
+		same host, port combination will use the same socket options.
+	      </p>
+	    </note>
+	    
+            <p>By default the socket options set by function
+	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
+	     are used when establishing a connection.</p>
+	  </item>
+
+          <tag><c><![CDATA[receiver]]></c></tag>
+          <item>
+            <p>Defines how the client delivers the result of an
+	    asynchronous request (<c>sync</c> has the value 
+	    <c>false</c>).</p>
+
+            <taglist>
+              <tag><c><![CDATA[pid()]]></c></tag>
+              <item>
+	        <p>Messages are sent to this process in the format 
+		<c>{http, ReplyInfo}</c>.</p>
+	      </item>
+
+              <tag><c><![CDATA[function/1]]></c></tag>
+              <item>
+	        <p>Information is delivered to the receiver through calls 
+		to the provided fun <c>Receiver(ReplyInfo)</c>.</p>
+  	      </item>
+
+              <tag><c><![CDATA[{Module, Function, Args}]]></c></tag>
+              <item>
+	        <p>Information is delivered to the receiver through calls 
+		to the callback function 
+		<c>apply(Module, Function, [ReplyInfo | Args])</c>.</p>
+	      </item>
+            </taglist>
+            <p>In all of these cases, <c>ReplyInfo</c> has the following
+              structure:</p>
+
+<pre>
+{RequestId, saved_to_file}
+{RequestId, {error, Reason}}
+{RequestId, Result}
+{RequestId, stream_start, Headers}
+{RequestId, stream_start, Headers, HandlerPid}
+{RequestId, stream, BinBodyPart}
+{RequestId, stream_end, Headers}</pre>
+
+            <p>Default is the <c>pid</c> of the process calling the request 
+	    function (<c>self()</c>). </p>
+
+	    <marker id="ipv6_host_with_brackets"></marker>
+	  </item>
+
+          <tag><c><![CDATA[ipv6_host_with_brackets]]></c></tag>
+          <item>
+            <p>Defines when parsing the Host-Port part of an URI with an IPv6 address 
+	    with brackets, if those brackets are to be retained (<c>true</c>) 
+	    or stripped (<c>false</c>).</p>
+            <p>Default is <c>false</c>.</p>
+	  </item>
+
+        </taglist>
+      </desc>
+    </func>
+
+  
+    <func>
+      <name since="OTP R13B04">set_options(Options) -> </name>
+      <name since="OTP R13B04">set_options(Options, Profile) -> ok | {error, Reason}</name>
+      <fsummary>Sets options to be used for subsequent requests.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {proxy, {Proxy, NoProxy}}</v>
+	<v>| {https_proxy, {Proxy, NoProxy}}</v>
+	<v>| {max_sessions, MaxSessions}</v>
+	<v>| {max_keep_alive_length, MaxKeepAlive}</v>
+	<v>| {keep_alive_timeout, KeepAliveTimeout}</v>
+	<v>| {max_pipeline_length, MaxPipeline}</v>
+	<v>| {pipeline_timeout, PipelineTimeout}</v>
+	<v>| {cookies, CookieMode}</v>
+	<v>| {ipfamily, IpFamily}</v>
+	<v>| {ip, IpAddress}</v>
+	<v>| {port, Port}</v>
+	<v>| {socket_opts, socket_opts()}</v>
+	<v>| {verbose, VerboseMode}</v>
+	<v>| {unix_socket, UnixSocket}</v>
+        <v>Proxy = {Hostname, Port}</v>
+        <v>Hostname = string()</v>
+        <d>Example: "localhost" or "foo.bar.se"</d>
+        <v>Port = integer()</v>
+        <d>Example: 8080</d>
+        <v>NoProxy = [NoProxyDesc]</v>
+        <v>NoProxyDesc = DomainDesc | HostName | IPDesc</v>
+        <v>DomainDesc = "*.Domain"</v>
+        <d>Example: "*.ericsson.se"</d>
+        <v>IpDesc = string()</v>
+        <d>Example: "134.138" or "[FEDC:BA98" 
+	(all IP addresses starting with 134.138 or FEDC:BA98), 
+	"66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP address). 
+	<c>proxy</c> defaults to <c>{undefined, []}</c>, 
+	that is, no proxy is configured and 
+	<c>https_proxy</c> defaults to the value of <c>proxy</c>.</d>	
+	<v>MaxSessions = integer()</v>
+        <d>Maximum number of persistent connections to a host.
+	Default is <c>2</c>.</d>
+	<v>MaxKeepAlive = integer()</v>
+	<d>Maximum number of outstanding requests on the same connection to 
+	a host. Default is <c>5</c>.</d>
+	<v>KeepAliveTimeout = integer()</v>
+	<d>If a persistent connection is idle longer than the 
+	<c>keep_alive_timeout</c> in milliseconds, 
+	the client closes the connection.
+	The server can also have such a time-out but do not take that for granted.
+	Default is <c>120000</c> (= 2 min).</d>
+	<v>MaxPipeline = integer()</v>
+	<d>Maximum number of outstanding requests on a pipelined connection 
+	to a host. Default is <c>2</c>.</d>
+	<v>PipelineTimeout = integer()</v>
+	<d>If a persistent connection is idle longer than the 
+	<c>pipeline_timeout</c> in milliseconds, 
+	the client closes the connection. Default is <c>0</c>,
+	which results in pipelining not being used.</d>
+        <v>CookieMode = enabled | disabled | verify</v>
+        <d>If cookies are enabled, all valid cookies are automatically 
+	saved in the cookie database of the client manager.
+	If option <c>verify</c> is used, function <c>store_cookies/2</c>
+	has to be called for the cookies to be saved. 
+	Default is <c>disabled</c>.</d>
+	<v>IpFamily = inet | inet6 | local</v>
+	<d>Default is <c>inet</c>.</d>
+	<v>IpAddress = ip_address()</v>
+	<d>If the host has several network interfaces, this option specifies 
+	which one to use. 
+	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	for details.</d>
+	<v>Port = integer()</v>
+	<d>Local port number to use. 
+	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	for details.</d>
+	<v>socket_opts() = [socket_opt()]</v>
+	<d>The options are appended to the socket options used by the 
+	client. 
+	These are the default values when a new request handler
+	is started (for the initial connect). They are passed directly 
+        to the underlying transport (<c>gen_tcp</c> or <c>SSL</c>) 
+	<em>without</em> verification.</d>
+	<v>VerboseMode = false | verbose | debug | trace</v>
+	<d>Default is <c>false</c>.
+	This option is used to switch on (or off) 
+	different levels of Erlang trace on the client. 
+	It is a debug feature.</d>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>UnixSocket = path()</v>
+	<d>
+	  Experimental option for sending HTTP requests over a unix domain socket. The value
+	  of <c>unix_socket</c> shall be the full path to a unix domain socket file with read/write
+	  permissions for the erlang process. Default is <c>undefined</c>.
+	</d>
+      </type>
+      <desc>
+	<p>Sets options to be used for subsequent requests.</p>
+	<note>
+	  <p>If possible, the client keeps its connections
+	  alive and uses persistent connections
+	  with or without pipeline depending on configuration
+	  and current circumstances. The HTTP/1.1 specification does not
+	  provide a guideline for how many requests that are
+	  ideal to be sent on a persistent connection.
+	  This depends much on the application.</p>
+	  <p>A long queue of requests can cause a
+	  user-perceived delay, as earlier requests can take a long time
+	  to complete. The HTTP/1.1 specification suggests a
+	  limit of two persistent connections per server, which is the
+	  default value of option <c>max_sessions</c>.</p>
+	  <p>
+            The current implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	  </p>
+	</note>
+        <marker id="get_options"></marker>
+      </desc>
+    </func>
+     
+    <func>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url) -> </name>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
+      <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
+      client profile cookie database.</fsummary>
+      <type>
+        <v>SetCookieHeaders = headers() - where field = "set-cookie"</v>
+        <v>Url = url()</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+      </type>
+      <desc>
+        <p>Saves the cookies defined in <c>SetCookieHeaders</c>
+	in the client profile cookie database.
+	Call this function if option <c>cookies</c> is set to <c>verify</c>.
+	If no profile is specified, the default profile is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R13B04">stream_next(Pid) -> ok</name>
+      <fsummary>Triggers the next message to be streamed, that is,
+	the same behavior as active one for sockets.
+      </fsummary>
+      <type>
+        <v>Pid = pid()</v>
+	<d>As received in the <c>stream_start message</c></d>
+      </type>
+      <desc>
+        <p>Triggers the next message to be streamed, that is,
+	the same behavior as active ones for sockets.</p>
+
+        <marker id="verify_cookies"></marker>
+        <marker id="store_cookies"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP R13B04">which_cookies() -> cookies()</name>
+      <name since="OTP R13B04">which_cookies(Profile) -> cookies()</name>
+      <fsummary>Dumps the entire cookie database.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>cookies() = [cookie_stores()]</v>
+	<v>cookie_stores() = {cookies, cookies()} | {session_cookies, cookies()}</v>
+	<v>cookies() = [cookie()]</v>
+	<v>cookie() = term()</v>
+      </type>
+      <desc>
+        <p>Produces a list of the entire cookie database.
+	Intended for debugging/testing purposes. 
+	If no profile is specified, the default profile is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R15B02">which_sessions() -> session_info()</name>
+      <name since="OTP R15B02">which_sessions(Profile) -> session_info()</name>
+      <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
+	<v>GoodSessions = session()</v>
+	<v>BadSessions = tuple()</v>
+	<v>NonSessions = term()</v>
+      </type>
+      <desc>
+        <p>Produces a slightly processed dump of the session 
+	database. It is intended for debugging. 
+	If no profile is specified, the default profile is used.</p>
+      </desc>
+    </func>
+
+  
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
+    <seealso marker="inets">inets(3)</seealso>,
+    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
+    <seealso marker="ssl:ssl">ssl(3)</seealso>
+    </p>
+  </section>
+  
+</erlref>

@@ -1,0 +1,719 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Parsetools Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Parsetools application.</p>
+
+<section><title>Parsetools 2.1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Warnings about unused functions in <c>leexinc.hrl</c>
+	    are suppressed. </p>
+          <p>
+	    Own Id: OTP-14697</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor documentation fixes</p>
+          <p>
+	    Own Id: OTP-14276 Aux Id: PR-1357 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct counting of newlines when rules with newlines
+	    are used in Leex. </p>
+          <p>
+	    Own Id: OTP-13916 Aux Id: ERL-263 </p>
+        </item>
+        <item>
+	    <p> Correct handling of Unicode in Leex. </p>
+          <p>
+	    Own Id: OTP-13919</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Yecc generates Dialyzer suppressions to avoid
+	    warnings when operator precedence declarations are used.
+	    </p>
+          <p>
+	    Own Id: OTP-13681</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the documentation of the error tuple returned by
+	    Yecc and Leex.</p>
+          <p>
+	    Own Id: OTP-13031</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The new <c>-dialyzer()</c> attribute is used for
+	    suppressing Dialyzer warnings in generated code. </p>
+          <p>
+	    Own Id: OTP-12271</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The line counter becomes invalid when rules with linewrap
+	    are used. This issue appears because the parsing FSM does
+	    not roll back the line counter after attempting such a
+	    rule.</p>
+          <p>
+	    Own Id: OTP-12238</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    A Yecc example has been updated in the documentation
+	    (Thanks to Pierre Fenoll.)</p>
+          <p>
+	    Own Id: OTP-11749</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug causing Yecc to generate badly formed parsers
+	    when encountering very simple recursive rules has been
+	    fixed. (Thanks to Eric Pailleau.) </p>
+          <p>
+	    Own Id: OTP-11269</p>
+        </item>
+        <item>
+	    <p> A bug where Unicode filenames combined with Latin-1
+	    encoding could crash Yecc and Leex has been fixed. </p>
+          <p>
+	    Own Id: OTP-11286</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix leex module`s inability to build unicode-aware
+	    lexers. Thanks to Pierre Fenoll.</p>
+          <p>
+	    Own Id: OTP-11313</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p> The file <c>esyntax.yrl</c> has been removed. </p>
+          <p>
+	    Own Id: OTP-10660</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer warnings have been removed. </p>
+          <p>
+	    Own Id: OTP-8318</p>
+        </item>
+        <item>
+          <p>
+	    yecc: add warnings_as_errors option(Thanks to Tuncer
+	    ayaz)</p>
+          <p>
+	    Own Id: OTP-9376</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect order of pseudo variables in yecc example</p>
+          <p>
+	    The example is for converting from infix to prefix. This
+	    change uses to correct ordering of the triplet. (Thanks
+	    to Garret Smith)</p>
+          <p>
+	    Own Id: OTP-9484</p>
+        </item>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The formating of Yecc's error messages has been
+	    improved. (Thanks to Joe Armstrong.) </p>
+          <p>
+	    Own Id: OTP-8919</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Running HiPE-compiled Yecc parsers no longer results
+	    in a <c>function_clause</c> error.</p>
+          <p>
+	    Own Id: OTP-8771</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Yecc failed to report reduce/reduce conflicts where
+	    one of the reductions involved the root symbol. This bug
+	    has been fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8483</p>
+        </item>
+        <item>
+	    <p>A bug introduced in Parsetools 1.4.4 (R12B-2) has been
+	    fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8486</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cleanups suggested by tidier and modernization of types
+	    and specs.</p>
+          <p>
+	    Own Id: OTP-8455</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Leex no longer uses the deprecated <c>regexp</c>
+		module. (Thanks to Robert Virding.).</p>
+          <p>
+	    Own Id: OTP-8231</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p>A minor bug in <c>leex(3)</c> has been fixed.</p>
+          <p>
+	    Own Id: OTP-8197</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Leex, a lexical analyzer generator for Erlang,
+		has been added to Parsetools. This initial version
+		should be considered experimental; it is known
+		that there will be changes and additions.
+		(Thanks to Robert Virding.).</p>
+          <p>
+	    Own Id: OTP-8013</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p>The parsers generated by Yecc now report correct
+            error lines when possible.</p>
+          <p>
+	    Own Id: OTP-7969</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 1.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in yeccpre.hrl introduced in R13A has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-7945</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 1.4.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Updated file headers.</p>
+          <p>
+	    Own Id: OTP-7798</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 1.4.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>yecc</c> grammar has been augmented with an
+	    optional header section. (Thanks to Richard
+	    Carlsson.)</p>
+          <p>
+	    Own Id: OTP-7292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Parsetools 1.4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The size of the code generated by Yecc has 
+	    been reduced. The  code is also faster.</p>
+	    <p>Macros can now be used in actions.</p>
+          <p>
+	    Own Id: OTP-7224</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 1.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>tuple_size/1</c> and <c>byte_size/1</c> have been
+	    substituted for <c>size/1</c>.</p>
+          <p>
+	    Own Id: OTP-7009</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 1.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The size of the code generated by yecc has been
+	    reduced. </p>
+	    <p>A note regarding the <c>includefile</c> option:
+	    although yecc can cope with includefiles based on some
+	    earlier <c>yeccpre.hrl</c> it is recommended for
+	    efficiency reasons to update includefiles as to follow
+	    the pattern in the latest <c>yeccpre.hrl</c>.</p>
+          <p>
+	    Own Id: OTP-6851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Parsetools 1.4.1.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Parsetools 1.4.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug concerning precedence declarations of
+            non-terminals "one level up" has been fixed in yecc.</p>
+          <p>Own Id: OTP-6362</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Parsetools 1.4</title>
+
+    <section>
+      <title>Improvements and Fixed Bugs</title>
+      <p>Several modifications of Yecc have been made:</p>
+      <list type="bulleted">
+        <item>
+          <p>The new functions <c>file/1,2</c> take the
+            role of the old functions <c>yecc/2,3,4</c>. The
+            latter functions are no longer documented but are
+            kept for backward compatibility.</p>
+        </item>
+        <item>
+          <p>More checks of the grammar file have been 
+            implemented. Examples are warnings for unused 
+            non-terminals and duplicated declarations.</p>
+        </item>
+        <item>
+          <p>Invalid pseudo variables are no longer 
+            replaced by <c>'$undefined'</c> but cause a failure.</p>
+        </item>
+        <item>
+          <p>Reserved words no longer need to be quoted
+            when used as terminals or non-terminals.</p>
+        </item>
+        <item>
+          <p>When compiling the generated parser file errors
+            and warnings concerning user code refer to 
+            the grammar file, not the parser file.</p>
+        </item>
+        <item>
+          <p>Yecc emits a warning if there are conflicts
+            in the grammar. The new declaration <c>Expect</c> can
+            be used to suppress this warning.</p>
+        </item>
+        <item>
+          <p>The new operator precedence declaration
+            <c>Nonassoc</c> can be used to declare operators with
+            no associativity.</p>
+        </item>
+        <item>
+          <p>Precedence can be given to more than one operator
+            with one single operator precedence declaration.</p>
+        </item>
+        <item>
+          <p>The function <c>parse_and_scan/1</c> in the
+            default includefile accepts <c>{Function, A}</c>
+            as well as {{M,F}, A} as tokenizer function.
+            Exceptions in the tokenizer are never caught.</p>
+        </item>
+        <item>
+          <p>The functions <c>yecc:file/1,2</c> can be accessed
+            from the Erlang shell via the new functions <c>c:y/1,2</c> 
+            in STDLIB.</p>
+        </item>
+      </list>
+      <p>See yecc(3) for further details.</p>
+      <p>Own Id: OTP-5366</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Parsetools 1.3.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in <c>Yecc</c> that was introduced in R9B has been
+            removed. Another bug concerning precedence declaration
+            "one level up" has been fixed.</p>
+          <p>Own Id: OTP-5461</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Parsetools 1.3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in the file <c>parsetools/include/yeccpre.hrl</c>
+            caused <c>yecc:parse_and_scan/1</c> to always report a
+            parse failure when the lexer reported end-of-file. This
+            problem has been fixed.</p>
+          <p>Own Id: OTP-5369</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

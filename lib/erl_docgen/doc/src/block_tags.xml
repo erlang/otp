@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Block Tags</title>
+    <prepared/>
+    <docno/>
+    <date/>
+    <rev/>
+    <file>block_tags.xml</file>
+  </header>
+
+  <p>Block tags typically define a separate block of information, such
+    as a paragraph or a list.</p>
+
+  <p>The following subset of block tags are common for all DTDs in
+    the OTP DTD suite:
+    <marker id="block_subset"></marker>
+    <seealso marker="#pTAG">&lt;p&gt;</seealso>,
+    <seealso marker="#preTAG">&lt;pre&gt;</seealso>,
+    <seealso marker="#codeTAG">&lt;code&gt;</seealso>,
+    <seealso marker="#listTAG">&lt;list&gt;</seealso>,
+    <seealso marker="#taglistTAG">&lt;taglist&gt;</seealso>,
+    <seealso marker="#codeincludeTAG">&lt;codeinclude&gt;</seealso> and
+    <seealso marker="#erlevalTAG">&lt;erleval&gt;</seealso>.
+  </p>
+
+  <section>
+    <marker id="brTAG"></marker>
+    <title>&lt;br&gt; - Line Break</title>
+
+    <p>Forces a newline. Example:</p>
+    <pre>
+Eat yourself&lt;br/&gt;senseless!
+    </pre>
+    <p>results in:</p>
+    <p>Eat yourself<br/>senseless!</p>
+
+    <p>The <c><![CDATA[<br>]]></c> tag is both a block- and an inline
+      tag.</p>
+  </section>
+
+  <section>
+    <marker id="codeTAG"></marker>
+    <title>&lt;code&gt; - Code Example</title>
+
+    <p>Highlight code examples. Example:</p>
+    <pre>
+&lt;code>
+sum([H|T]) ->
+    H + sum(T);
+sum([]) ->
+    0.
+&lt;/code>
+    </pre>
+    <p>results in:</p>
+    <code>
+sum([H|T]) ->
+    H + sum(T);
+sum([]) ->
+    0.
+    </code>
+
+    <p>There is an attribute <c>type = "erl" | "c" | "none"</c>, but
+      currently this attribute is ignored. Default value
+      is <c>"none"</c></p>
+
+    <note>
+      <p>No tags are allowed within the tag and no
+	<seealso marker="character_entities">character
+	  entities</seealso> are expanded.</p>
+    </note>
+  </section>
+
+  <section>
+    <marker id="codeincludeTAG"></marker>
+    <title>&lt;codeinclude&gt; - Code Inclusion</title>
+
+    <p>Include external code snippets. The attribute <c>file</c>
+      gives the file name and <c>tag</c> defines a string which
+      delimits the code snippet. Example:</p>
+    <pre>
+&lt;codeinclude file="example.txt" tag="%% Erlang example"/&gt;
+    </pre>
+    <p>results in:</p>
+    <codeinclude file="example.txt" tag="%% Erlang example"/>
+
+    <p>provided there is a file named <c>examples.txt</c> looking like this:
+    </p>
+    <code>
+...
+
+%% Erlang example
+-module(example).
+
+start() ->
+    {error,"Pid required!"}.
+start(Pid) ->
+    spawn(fun() -> init(Pid) end).
+%% Erlang example
+
+...
+    </code>
+
+    <p>If the <c>tag</c> attribute is omitted, the whole file is
+    included.</p>
+
+    <p>There is also an attribute <c>type = "erl" | "c" | "none"</c>, but
+      currently this attribute is ignored. Default value
+      is <c>"none"</c></p>
+  </section>
+
+  <section>
+    <marker id="erlevalTAG"></marker>
+    <title>&lt;erleval&gt; - Erlang Evaluation</title>
+
+    <p>Include the result from evaluating an Erlang expression. Example:
+    </p>
+    <code><![CDATA[
+<erleval expr="{A,b,C}={a,b,c}. "/>
+      ]]></code>
+    <p>results in:</p>
+    <erleval expr="{A,b,C}={a,b,c}. "></erleval>
+
+    <p>Note the '.' and space after the expression.</p>
+  </section>
+
+  <section>
+    <marker id="listTAG"></marker>
+    <title>&lt;list&gt; - List</title>
+
+    <p>The attribute <c>type = "ordered"|"bulleted"</c> decides if
+      the list is numbered or bulleted. Default is <c>"bulleted"</c>.
+    </p>
+
+    <p>Lists contains list items, tag <c><![CDATA[<item>]]></c>, which
+      can contain plain text,
+      the <seealso marker="#block_subset">common subset of block
+	tags</seealso> and <seealso marker="inline_tags">inline
+	tags</seealso>. Example:</p>
+    <pre>
+&lt;list type="ordered"&gt;
+  &lt;item&gt;Askosal:
+    &lt;list&gt;
+      &lt;item&gt;Nullalisis&lt;/item>
+      &lt;item&gt;Facilisis&lt;/item>
+    &lt;/list&gt;
+  &lt;/item>
+  &lt;item&gt;Ankara&lt;/item>
+&lt;/list&gt;
+    </pre>
+    <p>results in:</p>
+    <list type="ordered">
+      <item>
+	<p>Askosal:</p>
+	<list type="bulleted">
+	  <item>Nullalisis</item>
+	  <item>Facilisis</item>
+	</list>
+      </item>
+      <item>Ankara</item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="markerTAG"></marker>
+    <title>&lt;marker&gt; - Marker</title>
+
+    <p>Used as an anchor for hypertext references. The
+      <c><![CDATA[<marker>]]></c> tag is both a block- and an inline
+      tag and is described in
+      the <seealso marker="inline_tags#markerTAG">Inline Tags</seealso>
+      section.</p>
+  </section>
+
+  <section>
+    <marker id="pTAG"></marker>
+    <title>&lt;p&gt; - Paragraph</title>
+
+    <p>Paragraphs contain plain text and
+      <seealso marker="inline_tags">inline tags</seealso>. Example:</p>
+    <pre>
+&lt;p&gt;I call specific attention to
+  the authority given by the &lt;em&gt;21st Amendment&lt;/em&gt;
+  to the Constitution to prohibit transportation
+  or importation of intoxicating liquors into
+  any State in violation of the laws of such
+  State.&lt;/p&gt;
+    </pre>
+    <p>results in:</p>
+    <p>I call specific attention to
+      the authority given by the <em>21st Amendment</em>
+      to the Constitution to prohibit transportation
+      or importation of intoxicating liquors into
+      any State in violation of the laws of such
+      State.</p>
+  </section>
+
+  <section>
+    <marker id="noteTAG"></marker>
+    <title>&lt;note&gt; - Note</title>
+
+    <p>Highlights a note. Can contain block tags except
+      <c><![CDATA[<note>]]></c>, <c><![CDATA[<warning>]]></c>,
+      <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.
+      Example:</p>
+<pre>
+&lt;note>
+  &lt;p>This function is mainly intended for debugging.&lt;/p>
+&lt;/note>
+  </pre>
+    <p>results in:</p>
+    <note>
+      <p>This function is mainly intended for debugging.</p>
+    </note>
+  </section>
+
+  <section>
+    <marker id="preTAG"></marker>
+    <title>&lt;pre&gt; - Pre-formatted Text</title>
+
+    <p>Used for documentation of system interaction. Can contain text,
+      <seealso marker="inline_tags#seealsoTAG">seealso</seealso>,  
+      <seealso marker="inline_tags#urlTAG">url</seealso> and
+      <c><![CDATA[<input>]]></c> tags.</p>
+
+    <p>The <c><![CDATA[<input>]]></c> tag is used to highlight user
+      input. Example:</p>
+    <pre>
+&lt;pre&gt;
+$ &lt;input&gt;erl&lt;/input&gt;
+Erlang (BEAM) emulator version 5.5.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.3  (abort with ^G)
+1&gt; &lt;input&gt;pwd().&lt;/input&gt;
+/home/user
+2&gt; &lt;input&gt;halt().&lt;/input&gt;
+&lt;/pre&gt;
+    </pre>
+    <p> results in:</p>
+    <pre>
+$ <input>erl</input>
+Erlang (BEAM) emulator version 5.5.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.3  (abort with ^G)
+1> <input>pwd().</input>
+/home/user
+2> <input>halt().</input>
+    </pre>
+
+    <p>All <seealso marker="character_entities">character
+	entities</seealso> are expanded.</p>
+  </section>
+
+  <section>
+    <marker id="quoteTAG"></marker>
+    <title>&lt;quote&gt; - Quotation</title>
+
+    <p>Highlight quotations from other works, or dialog spoken by
+      characters in a narrative. Contains one or more
+      <seealso marker="#pTAG">&lt;p&gt;</seealso> tags. Example:</p>
+    <pre>
+&lt;p&gt;Whereas Section 217(a) of the Act of Congress entitled
+"An Act ..." approved June 16, 1933, provides as follows:&lt;/p&gt;
+&lt;quote&gt;
+  &lt;p&gt;Section 217(a) The President shall proclaim the law.&lt;/p>
+&lt;/quote&gt;
+    </pre>
+    <p>results in:</p>
+    <p>Whereas Section 217(a) of the Act of Congress entitled
+      "An Act ..." approved June 16, 1933, provides as follows:</p>
+    <quote>
+      <p>Section 217(a) The President shall proclaim the law.</p>
+    </quote>
+  </section>
+
+  <section>
+    <marker id="taglistTAG"></marker>
+    <marker id="tagTAG"></marker>
+    <title>&lt;taglist&gt; - Definition List</title>
+
+    <p>Definition lists contains pairs of tags,
+      <c><![CDATA[<tag>]]></c>, and list items,
+      <c><![CDATA[<item>]]></c>.</p>
+
+    <p><c><![CDATA[<tag>]]></c> can contain plain text,
+      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso>,
+      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>,
+      <seealso marker="inline_tags#seealsoTAG">&lt;seealso&gt;</seealso>
+      and <seealso marker="inline_tags#urlTAG">&lt;url&gt;</seealso>
+      tags.</p>
+
+    <p><c><![CDATA[<item>]]></c> can contain plain text,
+      the <seealso marker="#block_subset">common subset of block
+	tags</seealso> and <seealso marker="inline_tags">inline
+	tags</seealso>. Example:</p>
+    <pre>
+&lt;taglist>
+  &lt;tag>&lt;c>eacces&lt;/c>&lt;/tag>
+  &lt;item>Permission denied.&lt;/item>
+  &lt;tag>&lt;c>enoent&lt;/c>&lt;/tag>
+  &lt;item>No such file or directory.&lt;/item>
+&lt;/taglist>
+    </pre>
+    <p>results in:</p>
+    <taglist>
+      <tag><c>eacces</c></tag>
+      <item>Permission denied.</item>
+      <tag><c>enoent</c></tag>
+      <item>No such file or directory.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="warningTAG"></marker>
+    <title>&lt;warning&gt; - Warning</title>
+
+    <p>Highlights a warning. Can contain block tags except
+      <c><![CDATA[<note>]]></c>, <c><![CDATA[<warning>]]></c>,
+      <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.
+      Example:</p>
+<pre>
+&lt;warning>
+  &lt;p>This function might be removed in a future version without
+    prior warning.&lt;/p>
+&lt;/warning>
+  </pre>
+    <p>results in:</p>
+    <warning>
+      <p>This function might be removed in a future version without
+	prior warning.</p>
+    </warning>
+  </section>
+
+  <section>
+    <marker id="imageTAG"></marker>
+    <marker id="icaptionTAG"></marker>
+    <title>&lt;image&gt; - Image</title>
+
+    <p>Graphics is imported using the <c><![CDATA[<image>]]></c> tag.
+      An image caption <c><![CDATA[<icaption>]]></c>, containing plain
+      text, must be supplied. Example:</p>
+    <pre>
+&lt;image file="man"&gt;
+  &lt;icaption&gt;A Silly Man&lt;/icaption&gt;
+&lt;/image&gt;
+    </pre>
+    <p>results in:</p>
+    <image file="man.gif">
+      <icaption>A Silly Man</icaption>
+    </image>
+
+    <p>This assumes that <c>man.gif</c> exists in the current directory.
+    </p>
+  </section>
+
+  <section>
+    <marker id="tableTAG"></marker>
+    <marker id="rowTAG"></marker>
+    <marker id="cellTAG"></marker>
+    <marker id="tcaptionTAG"></marker>
+    <title>&lt;table&gt; - Table</title>
+
+    <p>The table format is similar to how tables are described in HTML
+      3.2. A table contains one or more rows, <c><![CDATA[<row>]]></c>,
+      and a table caption <c><![CDATA[<tcaption>]]></c>, containing
+      plain text.</p>
+
+    <p>Each row contains one or more cells, <c><![CDATA[<cell>]]></c>.
+      The attributes <c>align = "left"|"center"|"right"</c> and
+      <c>valign = "top"|"middle"|"bottom"</c> decides how text is
+      aligned in the cell horizontally and vertically. Default is
+      "<c>left</c>" and "<c>middle</c>".</p>
+
+    <p>Each cell contains plain text and
+      <seealso marker="inline_tags">inline tags</seealso>. Example:</p>
+    <pre><![CDATA[
+    <table>
+      <row>
+        <cell align="left" valign="top"><em>Boys</em></cell>
+        <cell align="center" valign="middle"><em>Girls</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Juda</cell>
+        <cell align="right" valign="bottom">Susy</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Anders</cell>
+        <cell align="left" valign="middle">Victoria</cell>
+      </row>
+      <tcaption>A table caption</tcaption>
+    </table>
+    ]]></pre>
+    <p>results in:</p>
+    <table>
+      <row>
+        <cell align="left" valign="top"><em>Boys</em></cell>
+        <cell align="center" valign="middle"><em>Girls</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Juda</cell>
+        <cell align="right" valign="bottom">Susy</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Anders</cell>
+        <cell align="left" valign="middle">Victoria</cell>
+      </row>
+      <tcaption>A table caption</tcaption>
+    </table>
+  </section>
+</chapter>
+

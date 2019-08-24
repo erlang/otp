@@ -1,0 +1,15 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROG = estone_cat
+PROGS = $(PROG)@exe@
+
+all: $(PROGS)
+
+$(PROG)@exe@: $(PROG)@obj@
+	$(LD) $(CROSSLDFLAGS) -o $(PROG) $(PROG)@obj@ @LIBS@
+
+$(PROG)@obj@: $(PROG).c
+	$(CC) -c -o $(PROG)@obj@ $(CFLAGS) $(PROG).c

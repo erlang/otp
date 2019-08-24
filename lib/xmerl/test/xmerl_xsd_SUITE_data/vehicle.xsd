@@ -1,0 +1,82 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="vehicle">
+   <xs:complexType>
+    <xs:attribute name="plateNumber" type="xs:integer"/>
+    <xs:attribute name="state" type="twoLetterCode"/>
+   </xs:complexType>
+  </xs:element>
+
+  <xs:element name="state">
+   <xs:complexType>
+    <xs:sequence>
+     <xs:element name="code" type="twoLetterCode"/>
+     <xs:element ref="vehicle" maxOccurs="unbounded"/>
+     <xs:element ref="person" maxOccurs="unbounded"/>
+    </xs:sequence>
+   </xs:complexType>
+
+   <xs:key name="reg"> <!-- vehicles are keyed by their plate within states -->
+    <xs:selector xpath=".//vehicle"/>
+    <xs:field xpath="@plateNumber"/>
+   </xs:key>
+  </xs:element>
+
+  <xs:element name="root">
+   <xs:complexType>
+    <xs:sequence>
+     <xs:element ref="state" maxOccurs="51"/>
+    </xs:sequence>
+   </xs:complexType>
+
+   <xs:key name="state"> <!-- states are keyed by their code -->
+    <xs:selector xpath=".//state"/>
+    <xs:field xpath="code"/>
+   </xs:key>
+
+   <xs:keyref name="vehicleState" refer="state">
+    <!-- every vehicle refers to its state -->
+    <xs:selector xpath=".//vehicle"/>
+    <xs:field xpath="@state"/>
+   </xs:keyref>
+
+   <xs:key name="regKey"> <!-- vehicles are keyed by a pair of state and plate -->
+    <xs:selector xpath=".//vehicle"/>
+    <xs:field xpath="@state"/>
+    <xs:field xpath="@plateNumber"/>
+   </xs:key>
+
+   <xs:keyref name="carRef" refer="regKey"> <!-- people's cars are a reference -->
+    <xs:selector xpath=".//car"/>
+    <xs:field xpath="@regState"/>
+    <xs:field xpath="@regPlate"/>
+   </xs:keyref>
+
+  </xs:element>
+
+  <xs:element name="person">
+   <xs:complexType>
+    <xs:sequence>
+     <xs:element name="car" maxOccurs="2">
+      <xs:complexType>
+       <xs:attribute name="regState" type="twoLetterCode"/>
+       <xs:attribute name="regPlate" type="xs:integer"/>
+      </xs:complexType>
+     </xs:element>
+    </xs:sequence>
+   </xs:complexType>
+  </xs:element>
+
+  <xs:simpleType name="twoLetterCode">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="threeLetterCode">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

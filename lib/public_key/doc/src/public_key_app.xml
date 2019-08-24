@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2016</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>public_key</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>public_key_app.sgml</file>
+  </header>
+  <app>public_key</app>
+  <appsummary>Provides functions to handle public-key infrastructure. </appsummary>
+  <description>
+    
+    <p> Provides encode/decode of different file formats (PEM, OpenSSH),
+    digital signature and verification functions, 
+    validation of certificate paths and certificate revocation lists (CRLs) and
+    other functions for handling of certificates, keys and CRLs.</p>
+
+    <list type="bulleted">
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> -
+      Internet X.509 Public-Key Infrastructure Certificate and Certificate Revocation List 
+      (CRL) Profile. Certificate policies are currently not supported. </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc3447.txt"> PKCS-1 </url> - 
+      RSA Cryptography Standard </item>
+      <item>Supports <url href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf"> DSS</url> - 
+      Digital Signature Standard (DSA - Digital Signature Algorithm)</item>
+      <item>Supports 
+      <url href="http://www.emc.com/emc-plus/rsa-labs/standards-initiatives/pkcs-3-diffie-hellman-key-agreement-standar.htm"> PKCS-3 </url> - 
+      Diffie-Hellman Key Agreement Standard </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc2898.txt"> PKCS-5</url> - 
+      Password-Based Cryptography Standard </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/fc3565.txt"> AES </url> -
+      Use of the Advanced Encryption Standard (AES) Algorithm in Cryptographic Message Syntax (CMS)
+      </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc5208.txt"> PKCS-8</url> - 
+      Private-Key Information Syntax Standard</item>
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc5967.txt"> PKCS-10</url> - 
+      Certification Request Syntax Standard</item>
+    </list>
+   </description>
+
+  <section>
+    <title>DEPENDENCIES</title>
+    <p>The <c>public_key</c> application uses the 
+    Crypto application to perform cryptographic operations and the
+    ASN-1 application to handle PKIX-ASN-1 specifications, hence
+    these applications must be loaded for the <c>public_key</c> application to work. 
+    In an embedded environment this means they must be started with
+    <c>application:start/[1,2]</c> before the <c>public_key</c> application is 
+    started.</p>
+  </section>
+ 
+  <section>
+    <title>ERROR LOGGER AND EVENT HANDLERS</title>
+    <p> The <c>public_key</c> application is a library application
+    and does not use the error logger. The functions will either succeed
+    or fail with a runtime error.
+    </p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+	<p><seealso marker="kernel:application">application(3)</seealso></p>
+  </section>
+  
+</appref>

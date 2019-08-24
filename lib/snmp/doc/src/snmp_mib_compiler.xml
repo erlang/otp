@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>The MIB Compiler</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_mib_compiler.xml</file>
+  </header>
+  <p>The chapter <em>The MIB Compiler</em> describes the MIB compiler
+    and contains the following topics:
+    </p>
+  <list type="bulleted">
+    <item>Operation</item>
+    <item>Import</item>
+    <item>Consistency checking between MIBs</item>
+    <item>.hrl file generation</item>
+    <item>Emacs integration</item>
+    <item>Deviations from the standard
+    </item>
+  </list>
+  <note>
+    <p>When importing MIBs, ensure that the imported MIBs as well as the 
+      importing MIB are compiled using the same version of the 
+      SNMP-compiler.</p>
+  </note>
+
+  <section>
+    <title>Operation</title>
+    <p>The MIB must be written as a text file in SMIv1 or SMIv2 using 
+      an ASN.1 notation before
+      it will be compiled. This text file must have the same name as the MIB,
+      but with the suffix <c>.mib</c>. This is necessary for handling
+      the <c>IMPORT</c> statement.
+      </p>
+    <p>The association file, which contains the names of
+      instrumentation functions for the MIB, should have the suffix
+      <c>.funcs</c>. If the compiler does not find the association file,
+      it gives a warning message and uses default instrumentation
+      functions.  (See <seealso marker="snmp_instr_functions#snmp_3">Default Instrumentation</seealso> for more details).
+      </p>
+    <p>The MIB compiler is started with a call to
+      <c><![CDATA[snmpc:compile(<mibname>).]]></c> For example:
+      </p>
+    <code type="none">
+snmpc:compile("RFC1213-MIB").
+    </code>
+    <p>The output is a new file which is called <c><![CDATA[<mibname>.bin]]></c>.
+      </p>
+    <p>The MIB compiler understands both SMIv1 and SMIv2 MIBs.  It
+      uses the MODULE-IDENTITY statement to determinate if the MIB is
+      written in SMI version 1 or 2.
+      </p>
+  </section>
+
+  <section>
+    <title>Importing MIBs</title>
+    <p>The compiler handles the <c>IMPORT</c> statement. It is important to
+      import the compiled file and not the ASN.1 (source) file. A MIB must
+      be recompiled to make changes visible to other MIBs importing it.
+      </p>
+    <p>The compiled files of the imported MIBs must be present in the
+      current directory, or a directory in the current path. The path is
+      supplied with the <c>{i, Path}</c> option, for example:
+      </p>
+    <code type="none">
+snmpc:compile("MY-MIB", 
+       [{i, ["friend_mibs/", "../standard_mibs/"]}]).
+    </code>
+    <p>It is also possible to import MIBs from OTP applications in an
+      <c>"include_lib"</c> like fashion with the <c>il</c>
+      option. Example:
+      </p>
+    <code type="none">
+snmpc:compile("MY-MIB", 
+       [{il, ["snmp/priv/mibs/", "myapp/priv/mibs/"]}]).
+    </code>
+    <p>finds the latest version of the <c>snmp</c> and <c>myapp</c>
+      applications in the OTP system and uses the expanded paths as
+      include paths.
+      </p>
+    <p>Note that an SMIv2 MIB can import an SMIv1 MIB and vice versa.
+      </p>
+    <p>The following MIBs are built-ins of the Erlang SNMP compiler:
+      SNMPv2-SMI, RFC-1215, RFC-1212, SNMPv2-TC, SNMPv2-CONF, and
+      RFC1155-SMI. They cannot therefore be compiled separately.
+      </p>
+  </section>
+
+  <section>
+    <title>MIB Consistency Checking</title>
+    <p>When an MIB is compiled, the compiler detects if several
+      managed objects use the same <c>OBJECT IDENTIFIER</c>. If that is
+      the case, it issues an error message. However, the compiler cannot
+      detect Oid conflicts between different MIBs. These kinds of
+      conflicts generate an error at load time. To avoid this, the
+      following function can be used to do consistency checking between
+      MIBs:
+      </p>
+    <pre>
+
+erl><input>snmpc:is_consistent(ListOfMibNames).</input>
+    </pre>
+    <p><c>ListOfMibNames</c> is a list of compiled MIBs, for example
+      <c>["RFC1213-MIB", "MY-MIB"]</c>. The function also performs
+      consistency checking of trap definitions.</p>
+  </section>
+
+  <section>
+    <title>.hrl File Generation</title>
+    <p>It is possible to generate an <c>.hrl</c> file which contains
+      definitions of Erlang constants from a compiled MIB file. This
+      file can then be included in Erlang source code. The file will
+      contain constants for:
+      </p>
+    <list type="bulleted">
+      <item>object Identifiers for tables, table entries and variables</item>
+      <item>column numbers</item>
+      <item>enumerated values</item>
+      <item>default values for variables and table columns.
+      </item>
+    </list>
+    <p>Use the following command to  generate a .hrl file from an MIB:
+      </p>
+    <pre>
+erl><input>snmpc:mib_to_hrl(MibName).</input>
+    </pre>
+  </section>
+
+  <section>
+    <title>Emacs Integration</title>
+    <p>With the Emacs editor, the <c>next-error</c> (<c>C-X `</c>)
+      function can be used indicate where a compilation error occurred,
+      provided the error message is described by a line number.
+      </p>
+    <p>Use <c>M-x compile</c> to compile an MIB from inside Emacs, and
+      enter:
+      </p>
+    <pre>
+ <input>erl -s snmpc compile &lt;MibName&gt; -noshell</input>
+    </pre>
+    <p>An example of <c><![CDATA[<MibName>]]></c> is <c>RFC1213-MIB</c>.
+      </p>
+  </section>
+
+  <section>
+    <title>Compiling from a Shell or a Makefile</title>
+    <p>The <c>erlc</c> commands can be used to compile SNMP MIBs. Example:
+      </p>
+    <pre>
+ <input>erlc MY-MIB.mib</input>
+    </pre>
+    <p>All the standard <c>erlc</c> flags are supported, e.g.
+      </p>
+    <pre>
+ <input>erlc -I mymibs -o mymibs -W MY-MIB.mib</input>
+    </pre>
+    <p>The flags specific to the MIB compiler can be specified by
+      using the <c>+</c> syntax:
+      </p>
+    <pre>
+ <input>erlc +'{group_check,false}' MY-MIB.mib</input>
+    </pre>
+  </section>
+
+  <section>
+    <title>Deviations from the Standard</title>
+    <p>In some aspects the Erlang MIB compiler does not follow or
+      implement the SMI fully. Here are the differences:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>Tables must be written in the following order:
+          <c>tableObject</c>, <c>entryObject</c>, <c>column1</c>, ...,
+          <c>columnN</c> (in order).</p>
+      </item>
+      <item>
+        <p>Integer values, for example in the <c>SIZE</c> expression
+          must be entered in decimal syntax, not in hex or bit syntax.</p>
+      </item>
+      <item>
+        <p>Symbolic names must be unique within a MIB and within a
+          system.</p>
+      </item>
+      <item>
+        <p>Hyphens are allowed in SMIv2 (a pragmatic approach).  The
+          reason for this is that according to SMIv2, hyphens are allowed
+          for objects converted from SMIv1, but not for others.  This is
+          impossible to check for the compiler.</p>
+      </item>
+      <item>
+        <p>If a word is a keyword in any of SMIv1 or SMIv2, it is a
+          keyword in the compiler (deviates from SMIv1 only).</p>
+      </item>
+      <item>
+        <p>Indexes in a table must be objects, not types (deviates
+          from SMIv1 only).</p>
+      </item>
+      <item>
+        <p>A subset of all semantic checks on types are
+          implemented. For example, strictly the <c>TimeTicks</c> may not
+          be sub-classed but the compiler allows this (standard MIBs must
+          pass through the compiler) (deviates from SMIv2 only).</p>
+      </item>
+      <item>
+        <p>The <c>MIB.Object</c> syntax is not implemented (since all
+          objects must be unique anyway).</p>
+      </item>
+      <item>
+        <p>Two different names cannot define the same OBJECT IDENTIFIER.</p>
+      </item>
+      <item>
+        <p>The type checking in the SEQUENCE construct is non-strict 
+          (i.e. subtypes may be specified).  The reason for this is 
+          that some standard MIBs use this.</p>
+      </item>
+      <item>A definition has normally a status field. When the status field
+       has the value deprecated, then the MIB-compiler will ignore this 
+       definition. With the MIB-compiler option <c>{deprecated,true}</c> 
+       the MIB-compiler does not ignore the deprecated definitions.</item>
+      <item>An object has a DESCRIPTIONS field. The descriptions-field will 
+       not be included in the compiled mib by default. In order to get 
+       the description, the mib must be compiled with the option 
+      <c>description</c>.</item>
+    </list>
+  </section>
+</chapter>
+

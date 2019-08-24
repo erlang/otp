@@ -1,0 +1,5 @@
+{merge_tests, false}.
+{config, "../config2/cfg21"}.
+{suites, "../tests1", t12_SUITE}.
+{suites, "../tests1", t12_SUITE}.
+{suites, "../tests2", t22_SUITE}.

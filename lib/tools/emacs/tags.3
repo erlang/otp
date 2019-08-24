@@ -1,0 +1,61 @@
+.TH TAGS 3 1996-05-30 "Ericsson Software Technology" "ERLANG MODULE DEFINITION"
+.SH MODULE
+tags \- Generate Emacs TAGS file from Erlang source files.
+.SH DESCRIPTION
+A TAGS file is used by Emacs to find function and variable definitions
+in any source file in a big project.  This module can generate a TAGS
+file from Erlang source files.  It recognises functions, records, and
+defines.
+.SH EXPORTS
+.TP 8
+.B root([Options])
+Create a TAGS file covering all files in the Erlang distribution.
+.TP 8
+.B file(File [, Options])
+Create a TAGS file for the file `File'.
+.TP 8
+.B files(FileList [, Options])
+Create a TAGS file for the files in the list `FileList'.
+.TP 8
+.B dir(Dir [, Options])
+Create a TAGS file for all files in directory `Dir'.
+.TP 8
+.B dirs(DirList [, Options])
+Create a TAGS file for all files in any directory in `DirList'.
+.TP 8
+.B subdir(Dir [, Options])
+Descend recursively down the directory `Dir' and create a TAGS file
+based on all files found.
+.TP 8
+.B subdirs(DirList [, Options])
+Descend recursively down all the directories in `DirList' and create a
+TAGS file based on all files found.
+.SH OPTIONS
+The functions above have an optional argument, \fBOptions\fR.  It is a
+list which can contain the following elements:
+.TP 8
+.B {outfile, NameOfTAGSFile}
+Create a TAGS file named `NameOfTAGSFile'.
+.TP 8
+.B {outdir, NameOfDirectory}
+Create a file named TAGS in the directory `NameOfDirectory'.
+.P
+The default behaviour is to create a file named "TAGS" in the current
+directory.
+.SH SEE ALSO
+GNU Emacs Manual, chapter "Editing Programs", section "Tag Tables".
+.P
+Erlang mode V2.0 for Emacs.
+.SH AUTHOR
+.nf
+Anders Lindgren
+.fi
+
+.\" Local Variables:
+.\" mode: nroff
+.\" eval: (auto-fill-mode 1)
+.\" left-margin: 0
+.\" fill-column: 70
+.\" version-control: never
+.\" indent-tabs-mode: nil
+.\" End:

@@ -1,0 +1,14 @@
+NoImport DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+  Typ
+  FROM IMP;
+
+
+Seq2 ::= SEQUENCE {
+  a Typ,
+  b INTEGER}
+
+END

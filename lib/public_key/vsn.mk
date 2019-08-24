@@ -1,0 +1,1 @@
+PUBLIC_KEY_VSN = 1.6.7

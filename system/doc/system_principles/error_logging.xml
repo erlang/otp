@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Error Logging</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>error_logging.xml</file>
+  </header>
+  <marker id="error logging"></marker>
+
+  <section>
+    <title>Error Information From the Runtime System</title>
+    <p>Error information from the runtime system, that is, information
+      about a process terminating because of an uncaught error exception,
+      is by default written to terminal (tty):</p>
+    <code type="none"><![CDATA[
+=ERROR REPORT==== 9-Dec-2003::13:25:02 ===
+Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,eval_loop,2}]}]]></code>
+    <p>The error information is handled by Logger, which is part of
+      the Kernel application.</p>
+    <p>The exit reasons (such as <c>badarg</c>) used by
+      the runtime system are described in
+      <seealso marker="doc/reference_manual:errors#exit_reasons">
+      Errors and Error Handling</seealso>.</p>
+    <p>For information about Logger and its user
+      interface, see the
+      <seealso marker="kernel:logger">logger(3)</seealso>
+      manual page and
+      the <seealso marker="kernel:logger_chapter">Logging</seealso>
+      section in the Kernel User's Guide. The system can be configured so that
+      log events are
+      written to file or to tty, or both. In addition, user-defined
+      applications can send and format log events using
+      Logger.</p>
+  </section>
+
+  <section>
+    <title>Log events from OTP behaviours</title>
+    <p>The standard behaviours (<c>supervisor</c>, <c>gen_server</c>,
+      and so on) send progress and error information to
+      Logger. Progress reports are by default not logged, but can be
+      enabled by setting the primary log level to <c>info</c>, for
+      example by using the Kernel configuration
+      parameter <c>logger_level</c>. Supervisor reports, crash reports
+      and other error and information reports are by default logged
+      through the log handler which is set up when the Kernel
+      application is started.</p>
+    <p>Prior to Erlang/OTP 21.0, supervisor, crash, and progress
+      reports were only logged when the SASL application was
+      running. This behaviour can, for backwards compatibility, be
+      enabled by setting the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso>
+      to <c>true</c>. For more information, see
+      <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
+      in the SASL User's Guide.</p>
+    <pre>
+% <input>erl -kernel logger_level info</input>
+Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
+
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.916404 ===
+    application: kernel
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.922908 ===
+    application: stdlib
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.925755 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.74.0>},
+              {id,disk_log_sup},
+              {mfargs,{disk_log_sup,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,1000},
+              {child_type,supervisor}]
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.926056 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.75.0>},
+              {id,disk_log_server},
+              {mfargs,{disk_log_server,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,2000},
+              {child_type,worker}]
+Eshell V10.0  (abort with ^G)
+1> </pre>
+  </section>
+</chapter>
+

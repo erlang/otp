@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-06-15</date>
+    <rev>%VSN%</rev>
+    <file>megaco_intro.xml</file>
+  </header>
+  <p>Megaco/H.248 is a protocol for control of elements in a
+    physically decomposed multimedia gateway, enabling separation of
+    call control from media conversion. A Media Gateway Controller
+    (MGC) controls one or more Media Gateways (MG).</p>
+  <p>This version of the stack supports version 1, 2 and 3 as 
+    defined by:</p>
+  <list type="bulleted">
+    <item>
+      <p>version 1 - RFC 3525 and H.248-IG (v10-v13)</p>
+    </item>
+    <item>
+      <p>version 2 - draft-ietf-megaco-h248v2-04 &amp; H.248.1 
+        v2 Corrigendum 1 (03/2004)</p>
+    </item>
+    <item>
+      <p>version 3: </p>
+      <list type="bulleted">
+        <item>
+          <p>prev3a - as defined by TD-33 (except segments)</p>
+        </item>
+        <item>
+          <p>prev3b - TD-33 updated to be backward compatible with v2 
+            (except segments)</p>
+        </item>
+        <item>
+          <p>prev3c - As defined by ITU H.248.1 (09/2005) 
+            (except segments)</p>
+        </item>
+        <item>
+          <p>v3 - Full version 3 as defined by ITU H.248.1 (09/2005) 
+            (including segments)</p>
+        </item>
+      </list>
+    </item>
+  </list>
+  <p>The semantics of the protocol has jointly been defined by two
+    standardization bodies:</p>
+  <list type="bulleted">
+    <item>
+      <p>IETF - which calls the protocol Megaco</p>
+    </item>
+    <item>
+      <p>ITU  - which calls the protocol H.248</p>
+    </item>
+  </list>
+
+  <section>
+    <title>Scope and Purpose</title>
+    <p>This manual describes the Megaco application, as a component
+      of the Erlang/Open Telecom Platform development environment. It
+      is assumed that the reader is familiar with the Erlang
+      Development Environment, which is described in a separate User's
+      Guide.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>The following prerequisites is required for understanding the
+      material in the Megaco User's Guide:</p>
+    <list type="bulleted">
+      <item>
+        <p>the basics of the Megaco/H.248 protocol</p>
+      </item>
+      <item>
+        <p>the basics of the Abstract Syntax Notation One (ASN.1)</p>
+      </item>
+      <item>
+        <p>familiarity with the Erlang system and Erlang programming</p>
+      </item>
+    </list>
+    <p>The application requires Erlang/OTP release R10B or later.</p>
+  </section>
+
+  <section>
+    <title>About This Manual</title>
+    <p>In addition to this introductory chapter, the Megaco User's
+      Guide contains the following chapters:</p>
+    <list type="bulleted">
+      <item>
+        <p>Chapter 2: "Architecture" describes the architecture
+          and typical usage of the application.</p>
+      </item>
+      <item>
+        <p>Chapter 3: "Internal form and its encodings" describes
+          the internal form of Megaco/H.248 messages and its various
+          encodings.</p>
+      </item>
+      <item>
+        <p>Chapter 4: "Transport mechanisms" describes how
+          different mechanisms can be used to transport the
+          Megaco/H.248 messages.</p>
+      </item>
+      <item>
+        <p>Chapter 5: "Debugging" describes tracing and debugging.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Where to Find More Information</title>
+    <p>Refer to the following documentation for more information about
+      Megaco/H.248 and about the Erlang/OTP development system:</p>
+    <list type="bulleted">
+      <item>
+        <p><url href="http://www.erlang.org/project/megaco/standard/rfc3525.txt">version 1, RFC 3525</url></p>
+      </item>
+      <item>
+        <p><url href="http://www.ietf.org/rfc/rfc3015.txt">old version 1, RFC 3015</url></p>
+      </item>
+      <item>
+        <p><url href="http://www.erlang.org/project/megaco/standard/H.248.1-Corr1-200403.doc">Version 2 Corrigendum 1</url></p>
+      </item>
+      <item>
+        <p><url href="http://www.erlang.org/project/megaco/standard/draft-ietf-megaco-h248v2-04.txt">version 2, draft-ietf-megaco-h248v2-04</url></p>
+      </item>
+      <item>
+        <p><url href="http://www.itu.int/">TD-33 (Draft H.248.1 version 3)</url></p>
+      </item>
+      <item>
+        <p><url href="http://www.itu.int/">H.248.1 version 3</url></p>
+      </item>
+      <item>
+        <p>the ASN.1 application User's Guide</p>
+      </item>
+      <item>
+        <p>the Megaco application Reference Manual</p>
+      </item>
+      <item>
+        <p>Concurrent Programming in Erlang, 2nd Edition (1996),
+          Prentice-Hall, ISBN 0-13-508301-X.</p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

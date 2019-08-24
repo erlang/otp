@@ -1,0 +1,28 @@
+%% The system group
+{sysUpTime, {snmp_standard_mib, sys_up_time, []}}.
+{sysDescr, {snmp_generic, variable_func, [{sysDescr, permanent}]}}.
+{sysObjectID, {snmp_generic, variable_func, [{sysObjectID, permanent}]}}.
+{sysContact, {snmp_generic, variable_func, [{sysContact, permanent}]}}.
+{sysName, {snmp_generic, variable_func, [{sysName, permanent}]}}.
+{sysLocation, {snmp_generic, variable_func, [{sysLocation, permanent}]}}.
+{sysServices, {snmp_generic, variable_func, [{sysServices, permanent}]}}.
+
+{sysORLastChange, {snmp_generic, variable_func, [{sysORLastChange, volatile}]}}.
+{sysORTable, {snmp_standard_mib, sys_or_table, []}}.
+
+%% Snmp special objects
+{snmpEnableAuthenTraps, {snmp_standard_mib, snmp_enable_authen_traps, []}}.
+{snmpSetSerialNo, {snmp_standard_mib, snmp_set_serial_no, []}}.
+
+%% Counters
+{snmpInPkts, {snmp_standard_mib, variable_func, [snmpInPkts]}}.
+{snmpInBadVersions, {snmp_standard_mib, variable_func, [snmpInBadVersions]}}.
+{snmpInBadCommunityNames, {snmp_standard_mib, variable_func, [snmpInBadCommunityNames]}}.
+{snmpInBadCommunityUses, {snmp_standard_mib, variable_func, [snmpInBadCommunityUses]}}.
+{snmpInASNParseErrs, {snmp_standard_mib, variable_func, [snmpInASNParseErrs]}}.
+{snmpProxyDrops, {snmp_standard_mib, variable_func, [snmpProxyDrops]}}.
+{snmpSilentDrops, {snmp_standard_mib, variable_func, [snmpSilentDrops]}}.
+
+%% Dummy objects, included in notifications
+{snmpTrapEnterprise, {snmp_standard_mib, dummy, []}}.
+{snmpTrapOID, {snmp_standard_mib, dummy, []}}.

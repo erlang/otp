@@ -1,0 +1,235 @@
+    -*- html -*-
+
+    wx Documentation
+
+@author Dan Gudmundsson
+@copyright 2008-2009 Ericsson AB
+
+@title wx the erlang binding of wxWidgets
+
+@doc The <em>wx</em> application is an erlang binding
+of <em>wxWidgets</em>. This document describes the erlang mapping to
+wxWidgets and it's implementation. It is not a complete
+users guide to wxWidgets. If you need that, you will have to read the wxWidgets
+documentation instead. <em>wx</em> tries to keep a one-to-one mapping with
+the original API so that the original documentation and examples shall be
+as easy as possible to use.
+
+wxErlang examples and test suite can be found in the erlang src release.
+They can also provide some help on how to use the API.
+
+This is currently a very brief introduction to <em>wx</em>.  The
+application is still under development, which means the interface may change,
+and the test suite currently have a poor coverage ratio.
+
+== Contents ==
+
+<ol>
+  <li>{@section Introduction}</li>
+  <li>{@section Multiple processes and memory handling}</li>
+  <li>{@section Event Handling}</li> 
+  <li>{@section Acknowledgments}</li>
+</ol>
+
+== Introduction == 
+
+The original <em>wxWidgets</em> is an object-oriented (C++) API and
+that is reflected in the erlang mapping. In most cases each class in
+wxWidgets is represented as a module in erlang. This gives
+the <em>wx</em> application a huge interface, spread over several
+modules, and it all starts with the <em>wx</em>
+module. The <em>wx</em> module contains functions to create and
+destroy the GUI, i.e. <code>wx:new/0</code>, <code>wx:destroy/0</code>, and
+some other useful functions. 
+
+Objects or object references in <em>wx</em> should be seen as erlang
+processes rather than erlang terms. When you operate on them they can
+change state, e.g. they are not functional objects as erlang terms are.
+Each object has a type or rather a class, which is manipulated with
+the corresponding module or by sub-classes of that object. Type
+checking is done so that a module only operates on it's objects or 
+inherited classes.
+
+An object is created with <em>new</em> and destroyed with 
+<em>destroy</em>.  Most functions in the classes are named the same
+as their C++ counterpart, except that for convenience, in erlang
+they start with a lowercase letter and the first argument is the
+object reference. Optional arguments are last and expressed as tagged
+tuples in any order.
+
+For example the <em>wxWindow</em> C++ class is implemented in the  
+<em>wxWindow</em> erlang module and the
+member <em>wxWindow::CenterOnParent</em> is
+thus <em>wxWindow:centerOnParent</em>.  The following C++ code:
+<pre>
+  wxWindow MyWin = new wxWindow();
+  MyWin.CenterOnParent(wxVERTICAL);
+  ...
+  delete MyWin;
+</pre>
+would in erlang look like:
+<pre>
+  MyWin = wxWindow:new(),
+  wxWindow:centerOnParent(MyWin, [{dir,?wxVERTICAL}]),
+  ...
+  wxWindow:destroy(MyWin),
+</pre>
+
+When you are reading wxWidgets documentation or the examples, you will
+notice that some of the most basic classes are missing in <em>wx</em>, 
+they are directly mapped to corresponding erlang terms:
+
+<dl>
+  <dt><em>wxPoint</em> is represented by {Xcoord,Ycoord}</dt>
+  <dt><em>wxSize</em> is represented by {Width,Height}</dt>
+  <dt><em>wxRect</em> is represented by {Xcoord,Ycoord,Width,Height}</dt>
+  <dt><em>wxColour</em> is represented by {Red,Green,Blue[,Alpha]}</dt>
+  <dt><em>wxPoint</em> is represented by {Xcoord,Ycoord}</dt>
+  <dt><em>wxString</em> is represented by {@link //stdlib/unicode:charlist()}</dt>
+  <dt><em>wxGBPosition</em> is represented by {Row,Column}</dt>
+  <dt><em>wxGBSpan</em> is represented by {RowSpan,ColumnSPan}</dt>
+  <dt><em>wxGridCellCoords</em> is represented by {Row,Column}</dt>
+</dl>
+
+In the places where the erlang API differs from the original one it should
+be obvious from the erlang documentation which representation has
+been used. E.g. the C++ arrays and/or lists are sometimes represented
+as erlang lists and sometimes as tuples.
+
+Colours are represented with {Red,Green,Blue[,Alpha]}, the Alpha value
+is optional when used as an argument to functions, but it will always be
+returned from <em>wx</em> functions.
+
+Defines, enumerations and global variables exists in
+<code>wx.hrl</code> as defines. Most of these defines are constants
+but not all. Some are platform dependent and therefore the global
+variables must be instantiated during runtime.  These will be acquired from
+the driver with a call, so not all defines can be used in matching
+statements. Class local enumerations will be prefixed with the class
+name and a underscore as in <code>ClassName_Enum</code>.
+
+Additionally some global functions, i.e. non-class functions, exist in
+the <c>wx_misc</c> module.
+
+<em>wxErlang</em> is implemented as a (threaded) driver and a rather direct
+interface to the C++ API, with the drawback that if the erlang
+programmer does an error, it might crash the emulator.
+
+Since the driver is threaded it requires a <em>smp</em> enabled emulator,
+that provides a thread safe interface to the driver.
+
+== Multiple processes and memory handling == 
+
+The intention is that each erlang application calls wx:new() once to
+setup it's GUI which creates an environment and a memory mapping.  To
+be able to use <em>wx</em> from several processes in your application,
+you must share the environment. You can get the active environment with
+<code>wx:get_env/0</code> and set it in the new processes
+with <code>wx:set_env/1</code>.  Two processes or applications which
+have both called wx:new() will not be able use each others objects.
+
+<pre>
+  wx:new(), 
+  MyWin = wxFrame:new(wx:null(), 42, "Example", []),
+  Env = wx:get_env(),
+  spawn(fun() -> 
+           wx:set_env(Env),
+           %% Here you can do wx calls from your helper process.
+           ...
+        end),
+  ...
+</pre>
+
+When <code>wx:destroy/0</code> is invoked or when all processes in the
+application have died, the memory is deleted and all windows created
+by that application are closed.
+
+The <em>wx</em> application never cleans or garbage collects memory as
+long as the user application is alive. Most of the objects are deleted
+when a window is closed,  or at least all the objects which have a parent
+argument that is non null.  By using
+<code>wxCLASS:destroy/1</code> when possible you can avoid an
+increasing memory usage. This is especially important when
+<em>wxWidgets</em> assumes or recommends that you (or rather the C++
+programmer) have allocated the object on the stack since that will
+never be done in the erlang binding. For example <code>wxDC</code> class
+or its sub-classes or <code>wxSizerFlags</code>. 
+
+Currently the dialogs show modal function freezes wxWidgets
+until the dialog is closed. That is intended but in erlang where you
+can have several GUI applications running at the same time it causes
+trouble. This will hopefully be fixed in future <em>wxWidgets</em>
+releases.
+
+== Event Handling ==
+
+Event handling in <em>wx</em> differs most from the original API.
+You must specify every event you want to handle in <em>wxWidgets</em>,
+that is the same in the erlang binding but you can choose to receive
+the events as messages or handle them with callback  <em>funs</em>.
+
+Otherwise the event subscription is handled as <em>wxWidgets</em>
+dynamic event-handler connection. You subscribe to events of a certain
+type from objects with an <em>ID</em> or within a range of <em>ID</em>s. The
+callback <em>fun</em> is optional, if not supplied the event will be sent to the
+process that called <em>connect/2</em>. Thus, a handler is a callback <em>fun</em>
+or a process which will receive an event message.
+
+Events are handled in order from bottom to top, in the widgets
+hierarchy, by the last subscribed handler first. Depending on
+if <code>wxEvent:skip()</code> is called the event will be handled by the
+other handler(s) afterwards. Most of the events have default event
+handler(s) installed.
+
+Message events looks like {@link wxEvtHandler:wx(). #wx{id=integer(),
+obj=wx:wxObject(), userData=term(), event=Rec} }.  The <em>id</em> is
+the identifier of the object that received the event. The <em>obj</em>
+field contains the object that you used <em>connect</em> on.
+The <em>userData</em> field contains a user supplied term, this is an
+option to <em>connect</em>.  And the <em>event</em> field contains a record
+with event type dependent information. The first element in the event
+record is always the type you subscribed to. For example if you
+subscribed to
+<em>key_up</em> events you will receive the
+<code>#wx{event=Event}</code> where <em>Event</em> will be a
+<em>wxKey</em> event record where <code>Event#wxKey.type =
+key_up</code>.
+
+In <em>wxWidgets</em> the developer has to call 
+<code>wxEvent:skip()</code> if he wants the event to be processed by
+other handlers. You can do the same in <em>wx</em> if you use
+callbacks. If you want the event as messages you just don't supply a
+callback and you can set the <em>skip</em> option in <em>connect</em>
+call to true or false, the default it is false.  True means that you get
+the message but let the subsequent handlers also handle the event. If
+you want to change this behavior dynamically you must use callbacks and
+call <code>wxEvent:skip()</code>.
+
+Callback event handling is done by using the optional
+callback <em>fun/2</em> when attaching the
+handler. The <em>fun(#wx{},wxObject()</em> must take two arguments
+where the first is the same as with message events described above and
+the second is an object reference to the actual event object. With the
+event object you can call <code>wxEvent:skip()</code> and access all
+the data. When using callbacks you must call <code>wxEvent:skip()</code>
+by yourself if you want any of the events to be forwarded to the
+following handlers. The actual event objects are deleted after
+the <em>fun</em> returns.
+
+The callbacks are always invoked by another process and have
+exclusive usage of the GUI when invoked. This means that a callback <em>fun</em>
+cannot use the process dictionary and should not make calls to other
+processes.  Calls to another process inside a callback <em>fun</em> may cause a
+deadlock if the other process is waiting on completion of his call to
+the GUI.
+
+== Acknowledgments ==
+
+Mats-Ola Persson wrote the initial <em>wxWidgets</em> binding as part
+of his master thesis. The current version is a total re-write but many
+ideas have been reused. The reason for the re-write was mostly due to
+the limited requirements he had been given by us.
+
+Also thanks to the <em>wxWidgets</em> team that develops and supports
+it so we have something to use.
+

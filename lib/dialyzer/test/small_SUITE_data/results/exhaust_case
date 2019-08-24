@@ -1,0 +1,3 @@
+
+exhaust_case.erl:17: The pattern 42 can never match the type 'bar' | 'foo'
+exhaust_case.erl:18: The variable _other can never match since previous clauses completely covered the type 'bar' | 'foo'

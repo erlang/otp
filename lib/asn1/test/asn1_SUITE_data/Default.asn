@@ -1,0 +1,182 @@
+Default DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+SeqInts ::= SEQUENCE {
+  a   INTEGER DEFAULT 1,
+  b   INTEGER DEFAULT -1,
+  c   INTEGER {one(1),two(2),three(3)} DEFAULT three,
+  d   INTEGER DEFAULT one
+}
+
+SetInts ::= SET {
+  a INTEGER DEFAULT 1,
+  b INTEGER DEFAULT -1,
+  c INTEGER {one(1),two(2),three(3)} DEFAULT three,
+  d INTEGER DEFAULT one
+}
+
+
+SeqBS ::= SEQUENCE {
+  a BIT STRING DEFAULT '1010110'B,
+  b BIT STRING DEFAULT 'A8A'H,
+  c BIT STRING {first(0),second(1),third(2)} DEFAULT {second},
+  d BIT STRING DEFAULT onelist,
+  e BIT STRING DEFAULT '01011010'B
+}
+
+SeqBS2 ::= SEQUENCE {
+  bs BIT STRING {a(0), z(25)} DEFAULT '101'B
+}
+
+SetBS ::= SET {
+  a BIT STRING DEFAULT '1010110'B,
+  b BIT STRING DEFAULT 'A8A'H,
+  c BIT STRING {first(0),second(1),third(2)} DEFAULT {second},
+  d BIT STRING DEFAULT onelist
+}
+
+onelist BIT STRING ::= '1001'B
+
+SeqOS ::= SEQUENCE {
+  a OCTET STRING DEFAULT '1010110'B,
+  b OCTET STRING DEFAULT 'A8A'H,
+  c NULL DEFAULT NULL
+}
+
+SetOS ::= SET {
+  a OCTET STRING DEFAULT '1010110'B,
+  b OCTET STRING DEFAULT 'A8A'H,
+  c NULL DEFAULT NULL
+}
+
+E ::= ENUMERATED {b1,b2,b3}
+
+SeqOI ::= SEQUENCE {
+  a OBJECT IDENTIFIER  DEFAULT {1 2 14 15},
+  b OBJECT IDENTIFIER  DEFAULT {iso member-body f(250) 3 4},
+  c OBJECT IDENTIFIER  DEFAULT {ftam 2 f(250) 4}--,
+}
+
+SetOI ::= SET {
+  a OBJECT IDENTIFIER  DEFAULT {1 2 14 15},
+  b OBJECT IDENTIFIER  DEFAULT {iso member-body f(250) 3 4},
+  c OBJECT IDENTIFIER  DEFAULT {ftam 2 f(250) 4}--,
+}
+
+SeqEnum ::= SEQUENCE {
+  a ENUMERATED {b1,b2,b3,b4,b5} DEFAULT b4,
+  b F DEFAULT b2
+}
+
+SetEnum ::= SET {
+  a ENUMERATED {b1,b2,b3,b4,b5} DEFAULT b4,
+  b F DEFAULT b2
+}
+
+ftam OBJECT IDENTIFIER ::= {iso standard 8571}
+
+F ::= E
+
+SeqIntBool ::= SEQUENCE {
+  a SEQUENCE{
+    aa INTEGER,
+    ab INTEGER} DEFAULT {aa 12, ab 13},
+  b S2 DEFAULT {a 14, b TRUE},
+  c S2 DEFAULT s
+}
+
+SetIntBool ::= SET {
+  a SET{
+    aa INTEGER,
+    ab INTEGER} DEFAULT {aa 12, ab 13},
+  b S2 DEFAULT {a 14, b TRUE},
+  c S2 DEFAULT s
+}
+
+SeqStrings ::= SEQUENCE {
+  a  NumericString DEFAULT "123456789",
+  b1  IA5String DEFAULT "abcdef",
+  b2  IA5String DEFAULT {0,13},
+  b3  IA5String DEFAULT {"First line",cr,"Second line"},
+  c  PrintableString DEFAULT "Printable string",
+  d  UniversalString DEFAULT {0,0,1,14}
+}
+
+SetStrings ::= SET {
+  a  NumericString DEFAULT "123456789",
+  b1  IA5String DEFAULT "abcdef",
+  b2  IA5String DEFAULT {0,13},
+  b3  IA5String DEFAULT {"First line",cr,"Second line"},
+  c  PrintableString DEFAULT "Printable string",
+  d  UniversalString DEFAULT {0,0,1,14}
+}
+
+S1 ::= SEQUENCE {
+  a  SEQUENCE {aa  INTEGER, ab S2} DEFAULT {aa 1, ab {a two, b TRUE}},
+  b  S4 DEFAULT s4
+}
+
+S2 ::= SEQUENCE {
+  a INTEGER DEFAULT one,
+  b BOOLEAN OPTIONAL
+}
+
+S3 ::= SEQUENCE {
+  a SEQUENCE OF INTEGER DEFAULT {11,12,13},
+  b SEQUENCE OF C DEFAULT {a:11,b:TRUE,c:13},
+  c SO DEFAULT so,
+  d SEQUENCE OF S2 DEFAULT {{a 20,b TRUE},{a 30, b FALSE}}
+}
+
+S3set ::= SET {
+  a  SET OF CHOICE {a BOOLEAN,b INTEGER,c S2} DEFAULT {c:{a 3,b TRUE},b:17,a:FALSE},
+  b SO DEFAULT so
+}
+
+S4 ::= SEQUENCE {
+  a S2 DEFAULT {},
+  b SEQUENCE {ba BOOLEAN,bb INTEGER} DEFAULT {ba TRUE,bb 0}
+}
+
+s4 S4 ::= {a {a 2,b TRUE}, b  {ba TRUE, bb 5}}
+
+C ::= CHOICE{
+  a  INTEGER,
+  b  BOOLEAN,
+  c  INTEGER
+}
+
+SO ::= SEQUENCE OF INTEGER
+
+so SEQUENCE OF INTEGER ::= {1,2,3,4}
+
+s S2 ::= {a 15,b FALSE}
+
+one INTEGER ::= 1
+two INTEGER ::= 2
+three INTEGER ::= 3
+four INTEGER ::= 4
+
+cr IA5String ::= {0,13}
+
+SeqNamedInts ::= SEQUENCE {
+   i1 INTEGER {first(0), last(31)} DEFAULT 15,
+   i2 INTEGER {first(0), last(31)} DEFAULT 31
+}
+
+S5 ::= SEQUENCE {
+   s3 S3 DEFAULT {},
+   so SEQUENCE OF OBJECT IDENTIFIER DEFAULT {
+               {itu-t question 999},
+               {itu-t question 555}
+	       },
+   soe SEQUENCE OF OBJECT IDENTIFIER DEFAULT { }
+}
+
+SOI ::= SEQUENCE {
+   soi SEQUENCE OF OBJECT IDENTIFIER
+        DEFAULT { {iso member-body f(250) 9 55}, {iso member-body f(250) 3 4} }
+}
+
+END

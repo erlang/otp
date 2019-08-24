@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Compilation and Code Loading</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>code_loading.xml</file>
+  </header>
+  <p>How code is compiled and loaded is not a language issue, but
+    is system-dependent. This section describes compilation and
+    code loading in Erlang/OTP with references to relevant parts of
+    the documentation.</p>
+
+  <section>
+    <title>Compilation</title>
+    <p>Erlang programs must be <em>compiled</em> to object code.
+      The compiler can generate a new file that contains the object
+      code. The current abstract machine, which runs the object code, is
+      called BEAM, therefore the object files get the suffix
+      <c>.beam</c>. The compiler can also generate a binary which can
+      be loaded directly.</p>
+    <p>The compiler is located in the module <c>compile</c> (see the
+      <seealso marker="compiler:compile">compile(3)</seealso> manual page in
+      Compiler).</p>
+    <pre>
+compile:file(Module)
+compile:file(Module, Options)</pre>
+    <p>The Erlang shell understands the command <c>c(Module)</c> which
+      both compiles and loads <c>Module</c>.</p>
+    <p>There is also a module <c>make</c>, which provides a set of
+      functions similar to the UNIX type Make functions, see the
+      <seealso marker="tools:make">make(3)</seealso>
+      manual page in Tools.</p>
+    <p>The compiler can also be accessed from the OS prompt, see the
+      <seealso marker="erts:erl">erl(1)</seealso> manual page in ERTS.</p>
+    <pre>
+% erl -compile <input>Module1</input>...<input>ModuleN</input>
+% erl -make</pre>
+    <p>The <c>erlc</c> program provides an even better way to compile
+      modules from the shell, see the
+      <seealso marker="erts:erlc">erlc(1)</seealso> manual page in ERTS.
+      It understands a
+      number of flags that can be used to define macros, add search
+      paths for include files, and more.</p>
+    <pre>
+% erlc <input>&lt;flags&gt;</input> <input>File1.erl</input>...<input>FileN.erl</input></pre>
+  </section>
+
+  <section>
+    <marker id="loading"></marker>
+    <title>Code Loading</title>
+    <p>The object code must be <em>loaded</em> into the Erlang runtime
+      system. This is handled by the <em>code server</em>, see the
+      <seealso marker="kernel:code">code(3)</seealso>
+      manual page in Kernel.</p>
+    <p>The code server loads code according to a code loading strategy,
+      which is either <em>interactive</em> (default) or
+      <em>embedded</em>. In interactive mode, code is searched for in
+      a <em>code path</em> and loaded when first referenced. In
+      embedded mode, code is loaded at start-up according to a
+      <em>boot script</em>. This is described in
+      <seealso marker="doc/system_principles:system_principles#code_loading">
+      System Principles </seealso>.</p>
+  </section>
+
+  <section>
+    <title>Code Replacement</title>
+    <p>Erlang supports change of code in a running system. Code
+      replacement is done on module level.</p>
+    <p>The code of a module can exist in two variants in a system:
+      <em>current</em> and <em>old</em>. When a module is loaded into
+      the system for the first time, the code becomes 'current'. If then
+      a new instance of the module is loaded, the code of the previous
+      instance becomes 'old' and the new instance becomes 'current'.</p>
+    <p>Both old and current code is valid, and can be evaluated
+      concurrently. Fully qualified function calls always refer to
+      current code. Old code can still be evaluated because of processes
+      lingering in the old code.</p>
+    <p>If a third instance of the module is loaded, the code server
+      removes (purges) the old code and any processes lingering in it is
+      terminated. Then the third instance becomes 'current' and
+      the previously current code becomes 'old'.</p>
+    <p>To change from old code to current code, a process must make a
+      fully qualified function call.</p>
+      <p><em>Example:</em></p>
+    <pre>
+-module(m).
+-export([loop/0]).
+
+loop() ->
+    receive
+        code_switch ->
+            m:loop();
+        Msg ->
+            ...
+            loop()
+    end.</pre>
+    <p>To make the process change code, send the message
+      <c>code_switch</c> to it. The process then makes a fully
+      qualified call to <c>m:loop()</c> and changes to current code.
+      Notice that <c>m:loop/0</c> must be exported.</p>
+    <p>For code replacement of funs to work, use the syntax
+      <c>fun Module:FunctionName/Arity</c>.</p>
+  </section>
+
+  <section>
+    <marker id="on_load"></marker>
+    <title>Running a Function When a Module is Loaded</title>
+
+    <p>The <c>-on_load()</c> directive names a function that is to
+    be run automatically when a module is loaded.</p>
+    <p>Its syntax is as follows:</p>
+
+<pre>
+-on_load(Name/0).</pre>
+
+    <p>It is not necessary to export the function. It is called in a
+    freshly spawned process (which terminates as soon as the function
+    returns).</p>
+
+    <p>The function must return <c>ok</c> if the module is to
+    become the new current code for the module and become
+    callable.</p>
+
+    <p>Returning any other value or generating an exception
+    causes the new code to be unloaded. If the return value is not an
+    atom, a warning error report is sent to the error logger.</p>
+
+    <p>If there already is current code for the module, that code will
+    remain current and can be called until the <c>on_load</c> function
+    has returned. If the <c>on_load</c> function fails, the current
+    code (if any) will remain current. If there is no current code for
+    a module, any process that makes an external call to the module
+    before the <c>on_load</c> function has finished will be suspended
+    until the <c>on_load</c> function have finished.</p>
+
+    <note>
+      <p>Before OTP 19, if the <c>on_load</c> function failed, any
+      previously current code would become old, essentially leaving
+      the system without any working and reachable instance of the
+      module.  That problem has been eliminated in OTP 19.</p>
+    </note>
+
+    <p>In embedded mode, first all modules are loaded.
+      Then all <c>on_load</c> functions are called. The system is
+      terminated unless all of the <c>on_load</c> functions return
+      <c>ok</c>.</p>
+
+    <p><em>Example:</em></p>
+
+    <pre>
+-module(m).
+-on_load(load_my_nifs/0).
+
+load_my_nifs() ->
+    NifPath = ...,    %Set up the path to the NIF library.
+    Info = ...,       %Initialize the Info term
+    erlang:load_nif(NifPath, Info).</pre>
+
+    <p>If the call to <c>erlang:load_nif/2</c> fails, the module
+      is unloaded and a  warning report is sent to
+      the error loader.</p>
+
+  </section>
+
+</chapter>
+

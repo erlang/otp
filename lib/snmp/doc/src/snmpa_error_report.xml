@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_error_report</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_error_report.xml</file>
+  </header>
+  <module since="">snmpa_error_report</module>
+  <modulesummary>Behaviour module for reporting SNMP agent errors</modulesummary>
+  <description>
+    <marker id="desc"></marker>
+    <p>This module defines the behaviour of the agent error reporting.
+      A <c>snmpa_error_report</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p>config_err/2</p>
+      </item>
+      <item>
+        <p>user_err/2</p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">config_err(Format, Args) -> void()</name>
+      <fsummary>Called if a configuration error occurs</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Args = list()</v>
+      </type>
+      <desc>
+        <p>The function is called if an error occurs during the
+          configuration phase, for example if a syntax error is found in
+          a configuration file.
+          </p>
+        <p><c>Format</c> and <c>Args</c> are as in
+          <c>io:format(Format, Args)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">user_err(Format, Args) -> void()</name>
+      <fsummary>Called if a user related error occurs</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Args = list()</v>
+      </type>
+      <desc>
+        <p>The function is called if a user related error occurs at
+          run-time, for example if a user defined instrumentation
+          function returns erroneous.
+          </p>
+        <p><c>Format</c> and <c>Args</c> are as in
+          <c>io:format(Format, Args)</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

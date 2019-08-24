@@ -1,0 +1,41 @@
+<!--
+  3GPP TS 32.615 v4.5 Bulk CM IRP
+  Configuration data file base XML schema
+  configData.xsd
+  -->
+<schema targetNamespace="configData.xsd" xmlns:bc="configData.xsd" xmlns:xn="genericNrm.xsd" xmlns:es="EricssonSpecificAttributes.5.1.xsd" xmlns="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- Configuration data file root XML element -->
+	<import namespace="genericNrm.xsd" schemaLocation="genericNrm.xsd"/>
+	<import namespace="EricssonSpecificAttributes.5.1.xsd" schemaLocation="EricssonSpecificAttributes.5.1.xsd"/>
+	<element name="bulkCmConfigDataFile">
+		<complexType>
+			<sequence>
+				<element name="fileHeader">
+					<complexType>
+						<attribute name="fileFormatVersion" type="string" use="required"/>
+						<attribute name="senderName" type="string" use="optional"/>
+						<attribute name="vendorName" type="string" use="optional"/>
+					</complexType>
+				</element>
+				<element name="configData" maxOccurs="unbounded">
+					<complexType>
+						<choice>
+							<element ref="xn:SubNetwork"/>
+							<element ref="xn:MeContext"/>
+							<!--
+								<element ref="xn:ManagedElement"/>
+								Not Possible at this level in Ericsson Model
+							-->
+						</choice>
+						<attribute name="dnPrefix" type="string" use="optional"/>
+					</complexType>
+				</element>
+				<element name="fileFooter">
+					<complexType>
+						<attribute name="dateTime" type="dateTime" use="required"/>
+					</complexType>
+				</element>
+			</sequence>
+		</complexType>
+	</element>
+</schema>

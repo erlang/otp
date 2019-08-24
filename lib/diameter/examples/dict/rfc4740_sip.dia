@@ -1,0 +1,447 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+;;
+;; RFC 4740, Diameter Session Initiation Protocol (SIP) Application
+;;
+
+@id 6
+
+@inherits common
+@inherits rfc4590_digest
+
+;; ===========================================================================
+
+@avp_types
+
+    SIP-Accounting-Information          368  Grouped      M
+    SIP-Accounting-Server-URI           369  DiameterURI  M
+    SIP-Credit-Control-Server-URI       370  DiameterURI  M
+    SIP-Server-URI                      371  UTF8String   M
+    SIP-Server-Capabilities             372  Grouped      M
+    SIP-Mandatory-Capability            373  Unsigned32   M
+    SIP-Optional-Capability             374  Unsigned32   M
+    SIP-Server-Assignment-Type          375  Enumerated   M
+    SIP-Auth-Data-Item                  376  Grouped      M
+    SIP-Authentication-Scheme           377  Enumerated   M
+    SIP-Item-Number                     378  Unsigned32   M
+    SIP-Authenticate                    379  Grouped      M
+    SIP-Authorization                   380  Grouped      M
+    SIP-Authentication-Info             381  Grouped      M
+    SIP-Number-Auth-Items               382  Unsigned32   M
+    SIP-Deregistration-Reason           383  Grouped      M
+    SIP-Reason-Code                     384  Enumerated   M
+    SIP-Reason-Info                     385  UTF8String   M
+    SIP-Visited-Network-Id              386  UTF8String   M
+    SIP-User-Authorization-Type         387  Enumerated   M
+    SIP-Supported-User-Data-Type        388  UTF8String   M
+    SIP-User-Data                       389  Grouped      M
+    SIP-User-Data-Type                  390  UTF8String   M
+    SIP-User-Data-Contents              391  OctetString  M
+    SIP-User-Data-Already-Available     392  Enumerated   M
+    SIP-Method                          393  UTF8String   M
+
+;; ===========================================================================
+
+@messages
+
+   ;; 8.1.  User-Authorization-Request
+
+   UAR ::= < Diameter Header: 283, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { SIP-AOR }
+           [ Destination-Host ]
+           [ User-Name ]
+           [ SIP-Visited-Network-Id ]
+           [ SIP-User-Authorization-Type ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.2.  User-Authorization-Answer
+
+   UAA ::= < Diameter Header: 283, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Result-Code }
+           { Origin-Host }
+           { Origin-Realm }
+           [ SIP-Server-URI ]
+           [ SIP-Server-Capabilities ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.3.  Server-Assignment-Request
+
+   SAR ::= < Diameter Header: 284, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { SIP-Server-Assignment-Type }
+           { SIP-User-Data-Already-Available }
+           [ Destination-Host ]
+           [ User-Name ]
+           [ SIP-Server-URI ]
+         * [ SIP-Supported-User-Data-Type ]
+         * [ SIP-AOR ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.4.  Server-Assignment-Answer
+
+   SAA ::= < Diameter Header: 284, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+         * [ SIP-User-Data ]
+           [ SIP-Accounting-Information ]
+         * [ SIP-Supported-User-Data-Type ]
+           [ User-Name ]
+           [ Auth-Grace-Period ]
+           [ Authorization-Lifetime ]
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.5.  Location-Info-Request
+
+  LIR ::= < Diameter Header: 285, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { SIP-AOR }
+           [ Destination-Host ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.6.  Location-Info-Answer
+
+   LIA ::= < Diameter Header: 285, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ SIP-Server-URI ]
+           [ SIP-Server-Capabilities ]
+           [ Auth-Grace-Period ]
+           [ Authorization-Lifetime ]
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.7.  Multimedia-Auth-Request
+
+   MAR ::= < Diameter Header: 286, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { SIP-AOR }
+           { SIP-Method }
+           [ Destination-Host ]
+           [ User-Name ]
+           [ SIP-Server-URI ]
+           [ SIP-Number-Auth-Items ]
+           [ SIP-Auth-Data-Item ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.8.  Multimedia-Auth-Answer
+
+   MAA ::= < Diameter Header: 286, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ User-Name ]
+           [ SIP-AOR ]
+           [ SIP-Number-Auth-Items ]
+         * [ SIP-Auth-Data-Item ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.9.  Registration-Termination-Request
+
+   RTR ::= < Diameter Header: 287, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Host }
+           { SIP-Deregistration-Reason }
+           [ Destination-Realm ]
+           [ User-Name ]
+         * [ SIP-AOR ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.10.  Registration-Termination-Answer
+
+   RTA ::= < Diameter Header: 287, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.11.  Push-Profile-Request
+
+   PPR ::= < Diameter Header: 288, REQ, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           { Destination-Realm }
+           { User-Name }
+         * [ SIP-User-Data ]
+           [ SIP-Accounting-Information ]
+           [ Destination-Host ]
+           [ Authorization-Lifetime ]
+           [ Auth-Grace-Period ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+   ;; 8.12.  Push-Profile-Answer
+
+   PPA ::= < Diameter Header: 288, PXY >
+
+           < Session-Id >
+           { Auth-Application-Id }
+           { Result-Code }
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Redirect-Host ]
+           [ Redirect-Host-Usage ]
+           [ Redirect-Max-Cache-Time ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+         * [ AVP ]
+
+;; ===========================================================================
+
+@grouped
+
+   SIP-Accounting-Information ::= < AVP Header: 368 >
+
+         * [ SIP-Accounting-Server-URI ]
+         * [ SIP-Credit-Control-Server-URI ]
+         * [ AVP]
+
+   SIP-Server-Capabilities ::= < AVP Header: 372 >
+
+         * [ SIP-Mandatory-Capability ]
+         * [ SIP-Optional-Capability ]
+         * [ SIP-Server-URI ]
+         * [ AVP ]
+
+   SIP-Auth-Data-Item ::= < AVP Header: 376 >
+
+           { SIP-Authentication-Scheme }
+           [ SIP-Item-Number ]
+           [ SIP-Authenticate ]
+           [ SIP-Authorization ]
+           [ SIP-Authentication-Info ]
+         * [ AVP ]
+
+   SIP-Authenticate ::= < AVP Header: 379 >
+
+           { Digest-Realm }
+           { Digest-Nonce }
+           [ Digest-Domain ]
+           [ Digest-Opaque ]
+           [ Digest-Stale ]
+           [ Digest-Algorithm ]
+           [ Digest-Qop ]
+           [ Digest-HA1]
+         * [ Digest-Auth-Param ]
+         * [ AVP ]
+
+   SIP-Authorization ::= < AVP Header: 380 >
+
+           { Digest-Username }
+           { Digest-Realm }
+           { Digest-Nonce }
+           { Digest-URI }
+           { Digest-Response }
+           [ Digest-Algorithm ]
+           [ Digest-CNonce ]
+           [ Digest-Opaque ]
+           [ Digest-Qop ]
+           [ Digest-Nonce-Count ]
+           [ Digest-Method]
+           [ Digest-Entity-Body-Hash ]
+         * [ Digest-Auth-Param ]
+         * [ AVP ]
+
+   SIP-Authentication-Info ::= < AVP Header: 381 >
+
+           [ Digest-Nextnonce ]
+           [ Digest-Qop ]
+           [ Digest-Response-Auth ]
+           [ Digest-CNonce ]
+           [ Digest-Nonce-Count ]
+         * [ AVP ]
+
+   SIP-Deregistration-Reason ::= < AVP Header: 383 >
+
+           { SIP-Reason-Code }
+           [ SIP-Reason-Info ]
+         * [ AVP ]
+
+   SIP-User-Data ::= < AVP Header: 389 >
+
+           { SIP-User-Data-Type }
+           { SIP-User-Data-Contents }
+         * [ AVP ]
+
+;; ===========================================================================
+
+@enum SIP-Server-Assignment-Type
+
+   NO_ASSIGNMENT                  0
+   REGISTRATION                   1
+   RE_REGISTRATION                2
+   UNREGISTERED_USER              3
+   TIMEOUT_DEREGISTRATION         4
+   USER_DEREGISTRATION            5
+   TIMEOUT_DEREGISTRATION_STORE   6
+   USER_DEREGISTRATION_STORE      7
+   ADMINISTRATIVE_DEREGISTRATION  8
+   AUTHENTICATION_FAILURE         9
+   AUTHENTICATION_TIMEOUT        10
+   DEREGISTRATION_TOO_MUCH_DATA  11
+
+@enum SIP-Authentication-Scheme
+
+   DIGEST                         0
+
+@enum SIP-Reason-Code
+
+   PERMANENT_TERMINATION          0
+   NEW_SIP_SERVER_ASSIGNED        1
+   SIP_SERVER_CHANGE              2
+   REMOVE_SIP_SERVER              3
+
+@enum SIP-User-Authorization-Type
+
+   REGISTRATION                   0
+   DEREGISTRATION                 1
+   REGISTRATION_AND_CAPABILITIES  2
+
+@enum SIP-User-Data-Already-Available
+
+   USER_DATA_NOT_AVAILABLE        0
+   USER_DATA_ALREADY_AVAILABLE    1
+
+;; ===========================================================================
+
+@define Result-Code
+
+   ;; Success
+
+   FIRST_REGISTRATION                   2003
+   SUBSEQUENT_REGISTRATION              2004
+   UNREGISTERED_SERVICE                 2005
+   SUCCESS_SERVER_NAME_NOT_STORED       2006
+   SERVER_SELECTION                     2007
+   SUCCESS_AUTH_SENT_SERVER_NOT_STORED  2008
+
+   ;; Transient Failures
+
+   USER_NAME_REQUIRED                   4013
+
+   ;; Permanent Failures
+
+   USER_UNKNOWN                         5032
+   IDENTITIES_DONT_MATCH                5033
+   IDENTITY_NOT_REGISTERED              5034
+   ROAMING_NOT_ALLOWED                  5035
+   IDENTITY_ALREADY_REGISTERED          5036
+   AUTH_SCHEME_NOT_SUPPORTED            5037
+   IN_ASSIGNMENT_TYPE                   5038
+   TOO_MUCH_DATA                        5039
+   NOT_SUPPORTED_USER_DATA              5040

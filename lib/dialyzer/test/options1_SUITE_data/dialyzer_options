@@ -1,0 +1,2 @@
+{dialyzer_options, [{indent_opt, false}, {include_dirs, ["my_include"]}, {defines, [{'COMPILER_VSN', 42}]}, {warnings, [no_improper_lists]}]}.
+{time_limit, 30}.

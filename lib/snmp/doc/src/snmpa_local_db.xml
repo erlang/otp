@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_local_db</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_local_db.xml</file>
+  </header>
+  <module since="">snmpa_local_db</module>
+  <modulesummary>The SNMP built-in database</modulesummary>
+  <description>
+    <p>The module <c>snmpa_local_db</c> contains functions for
+      implementing tables (and variables) using the SNMP built-in 
+      database. The database exists in two instances, one volatile 
+      and one persistent. The volatile database is implemented with 
+      ets. The persistent database is implemented with dets. 
+      </p>
+    <p>There is a scaling problem with this database.
+      </p>
+    <list type="bulleted">
+      <item>Insertions and deletions are inefficient for large tables.
+      </item>
+    </list>
+    <p>This problem is best solved by using Mnesia instead.
+      </p>
+    <p>The following functions describe the interface to 
+      <c>snmpa_local_db</c>. Each function has a Mnesia equivalent. 
+      The argument <c>NameDb</c> is a tuple <c>{Name, Db}</c> where 
+      <c>Name</c> is the symbolic name of the managed object (as defined 
+      in the MIB), and <c>Db</c> is either <c>volatile</c> or 
+      <c>persistent</c>. <c>mnesia</c> is not possible since all these 
+      functions are <c>snmpa_local_db</c> specific.
+      </p>
+  </description>
+
+  <section>
+    <title>Common Data Types</title>
+    <p>In the functions defined below, the following types are
+      used:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p><c>NameDb = {Name, Db}</c></p>
+      </item>
+      <item>
+        <p><c>Name = atom(), Db = volatile | persistent</c></p>
+      </item>
+      <item>
+        <p><c>RowIndex = [int()]</c></p>
+      </item>
+      <item>
+        <p><c>Cols = [Col] | [{Col, Value}], Col = int(), Value = term()</c></p>
+      </item>
+    </list>
+    <p>where <c>RowIndex</c> denotes the last part of the OID, that
+      specifies the index of the row in the table.  <c>Cols</c> is a
+      list of column numbers in case of a get operation, and a list of
+      column numbers and values in case of a set operation.
+      </p>
+  </section>
+  <funcs>
+    <func>
+      <name since="">dump() -> ok | {error, Reason}</name>
+      <fsummary>Dump the database to disk</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>This function can be used to manually dump the database 
+          to file.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">match(NameDb, Pattern)</name>
+      <fsummary>Perform a match on the table</fsummary>
+      <desc>
+        <p>Performs an ets/dets matching on the table. 
+          See Stdlib documentation, module ets, for a description of 
+          <c>Pattern</c> and the return values.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">print()</name>
+      <name since="">print(TableName)</name>
+      <name since="">print(TableName, Db)</name>
+      <fsummary>Print the database to screen</fsummary>
+      <type>
+        <v>TableName = atom()</v>
+      </type>
+      <desc>
+        <p>Prints the contents of the database on
+          screen. This is useful for debugging since the 
+          <c>STANDARD-MIB</c> and <c>OTP-SNMPEA-MIB</c> 
+          (and maybe your own MIBs) are stored in <c>snmpa_local_db</c>.
+          </p>
+        <p><c>TableName</c> is an atom for a table in the database. 
+          When no name is supplied, the whole database is shown.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_create(NameDb) -> bool()</name>
+      <fsummary>Create a table</fsummary>
+      <desc>
+        <p>Creates a table. If the table already exist, the old copy
+          is destroyed.
+          </p>
+        <p>Returns <c>false</c> if the <c>NameDb</c> argument is
+          incorrectly specified, <c>true</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_create_row(NameDb, RowIndex, Row) -> bool()</name>
+      <fsummary>Create a row in a table</fsummary>
+      <type>
+        <v>Row = {Val1, Val2, ..., ValN}</v>
+        <v>Val1 = Val2 = ... = ValN = term()</v>
+      </type>
+      <desc>
+        <p>Creates a row in a table.  <c>Row</c> is a tuple with
+          values for all columns, including the index columns.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_delete(NameDb) -> void()</name>
+      <fsummary>Delete a table</fsummary>
+      <desc>
+        <p>Deletes a table.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_delete_row(NameDb, RowIndex) -> bool()</name>
+      <fsummary>Delete the row in the table</fsummary>
+      <desc>
+        <p>Deletes the row in the table.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_exists(NameDb) -> bool()</name>
+      <fsummary>Check if a table exists</fsummary>
+      <desc>
+        <p>Checks if a table exists.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">table_get_row(NameDb, RowIndex) -> Row | undefined</name>
+      <fsummary>Get a row from the table</fsummary>
+      <type>
+        <v>Row = {Val1, Val2, ..., ValN}</v>
+        <v>Val1 = Val2 = ... = ValN = term()</v>
+      </type>
+      <desc>
+        <p><c>Row</c> is a tuple with values for all columns,
+          including the index columns.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>ets(3), dets(3), snmp_generic(3)
+      </p>
+  </section>
+  
+</erlref>
+

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The following part is an internal DTD. 
+     The DTD defines which structure is allowed
+     in the XML content. -->
+<!DOCTYPE people [
+<!ELEMENT people (person)+ >
+<!ELEMENT person (name , (profession)+  , (hobby)*)+ >
+<!ELEMENT name   (first_name , (middle_initial)? , last_name) >
+<!ELEMENT first_name (#PCDATA)>
+<!ELEMENT last_name  (#PCDATA)>
+<!ELEMENT profession (#PCDATA)>
+<!ELEMENT middle_initial (#PCDATA)>
+<!ELEMENT hobby      (#PCDATA)>
+<!ATTLIST person
+           born    NMTOKEN    #IMPLIED
+           died    NMTOKEN    #IMPLIED>
+]>
+<!-- The following part is the element of this XML document -->
+<!-- Example XML inspired from XML In A Nutshell -->
+<people>
+  <person born="1912" died="1954">
+    <name>
+      <first_name>Alan</first_name>
+      <last_name>Turing</last_name>
+    </name>
+    <profession>computer scientist</profession>
+    <profession>mathematician</profession>
+    <profession>cryptographer</profession>
+  </person>
+  <person born="1918" died="1988">
+    <name>
+      <first_name>Richard</first_name>
+      <middle_initial>P</middle_initial>
+      <last_name>Feynman</last_name>
+    </name>
+    <profession>physicist</profession>
+    <hobby>Playing the bongos</hobby>
+  </person>
+</people>

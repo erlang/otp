@@ -1,0 +1,129 @@
+
+ %CopyrightBegin%
+ 
+ Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ 
+ %CopyrightEnd%
+
+
+
+HiPE x86 ABI
+============
+This document describes aspects of HiPE's runtime system
+that are specific for the x86 (IA32) architecture.
+
+Register Usage
+--------------
+%esp and %ebp are fixed and must be preserved by calls (callee-save).
+%eax, %edx, %ecx, %ebx, %edi are clobbered by calls (caller-save).
+%esi is a fixed global register (unallocatable).
+
+%esp is the native code stack pointer, growing towards lower addresses.
+%ebp (aka P) is the current process' "Process*".
+%esi (aka HP) is the current process' heap pointer. (If HP_IN_ESI is true.)
+
+The caller-save registers are used as temporary scratch registers
+and for parameters in function calls.
+
+[XXX: Eventually, when we have better register allocation in place,
+the current "Process*" may be put in %fs instead, which will make
+%ebp available as a general-purpose register.]
+
+Calling Convention
+------------------
+The first NR_ARG_REGS (a tunable parameter between 0 and 5, inclusive)
+parameters are passed in %eax, %edx, %ecx, %ebx, and %edi.
+
+The first return value from a function is placed in %eax, the second
+(if any) is placed in %edx.
+
+The callee returns by using the "ret $N" instruction, which also
+deallocates the stacked actual parameters.
+
+Stack Frame Layout
+------------------
+[From top to bottom: formals in left-to-right order, incoming return
+address, fixed-size chunk for locals & spills, variable-size area
+for actuals, outgoing return address. %esp normally points at the
+bottom of the fixed-size chunk, except during a recursive call.
+The callee pops the actuals, so no %esp adjustment at return.]
+
+Stack Descriptors
+-----------------
+sdesc_fsize() is the frame size excluding the return address word.
+
+Stacks and Unix Signal Handlers
+-------------------------------
+Each Erlang process has its own private native code stack.
+This stack is managed by the compiler and the runtime system.
+It is not guaranteed to have space for a Unix signal handler.
+The Unix process MUST employ an "alternate signal stack" using
+sigaltstack(), and all user-defined signal handlers MUST be
+registered with sigaction() and the SA_ONSTACK flag. Failure
+to observe these rules may lead to memory corruption errors.
+
+
+Standard Unix x86 Calling Conventions
+=====================================
+
+%eax, %edx, %ecx are clobbered by calls (caller-save)
+%esp, %ebp, %ebx, %esi, %edi are preserved by calls (callee-save)
+%eax and %edx receive function call return values
+%esp is the stack pointer (fixed)
+%ebp is optional frame pointer or local variable
+actual parameters are pushed right-to-left
+caller deallocates parameters after return (addl $N,%esp)
+
+Windows 32-bit C Calling Conventions
+====================================
+
+%esp, %ebp, %ebx, %esi, %edi are preserved by calls (callee-save)
+%eax and %edx receive function call return values
+Parameters not passed in registers are pushed right-to-left on the stack.
+
+Windows supports several calling conventions on x86 that differ
+in whether caller or callee pops off stacked parameters, whether
+any parameters are passed in registers, and how function names
+are mangled.
+
+The __cdecl convention
+----------------------
+Default for C and C++ application code.
+No parameters are passed in registers.
+Caller deallocates parameters after return (addl $N, %esp).
+A function name is prefixed by a "_".
+
+The __stdcall convention
+------------------------
+Used for calling Win32 API functions.
+No parameters are passed in registers.
+Callee deallocates parameters during return (ret $N).
+A function name is prefixed by a "_" and suffixed by "@" and the
+number of bytes of stack space the parameters use in decimal.
+Prototypes are required. Varargs functions are converted to __cdecl.
+
+The __fastcall convention
+------------------------
+The first two parameters are passed in %ecx and %edx.
+Callee deallocates stacked parameters during return (ret $N).
+A function name is prefixed by a "@" and suffixed by "@" and the
+number of bytes of stack space the parameters use in decimal.
+
+The __thiscall convention
+-------------------------
+Used for C++ member functions.
+Similar to __cdecl except for the implicit 'this' parameter
+which is passed in %ecx rather than being pushed on the stack.
+No name mangling occurs.

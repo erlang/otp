@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent">
+  %also;
+]>
+
+<chapter>
+<header>
+<copyright>
+<year>2011</year><year>2016</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>Introduction</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_intro.xml</file>
+</header>
+
+<p>
+The diameter application is an implementation of the Diameter protocol
+as defined by &the_rfc;.
+It supports arbitrary Diameter applications by way of a
+<em>dictionary</em> interface that allows messages and AVPs to be
+defined and input into diameter as configuration.
+It has support for all roles defined in the RFC: client, server and
+agent.
+This chapter provides a short overview of the application.</p>
+
+<p>
+A Diameter node is implemented by configuring a <em>service</em> and
+one or more <em>transports</em> using the interface module
+<seealso marker="diameter">diameter</seealso>.
+The service configuration defines the Diameter applications to be
+supported by the node and, typically, the capabilities that it should
+send to remote peers at capabilities exchange upon the establishment
+of transport connections.
+A transport is configured on a service and provides protocol-specific
+send/receive functionality by way of a transport interface defined by
+diameter and implemented by a transport module.
+The diameter application provides two transport modules: <seealso
+marker="diameter_tcp">diameter_tcp</seealso> and <seealso
+marker="diameter_sctp">diameter_sctp</seealso> for transport over TCP
+(using <seealso marker="kernel:gen_tcp">gen_tcp</seealso>) and SCTP
+(using <seealso marker="kernel:gen_sctp">gen_sctp</seealso>) respectively.
+Other transports can be provided by any module that implements
+diameter's <seealso marker="diameter_transport">transport
+interface</seealso>.</p>
+
+<p>
+While a service typically implements a single Diameter node (as
+identified by an Origin-Host AVP), transports can themselves be
+associated with capabilities AVPs so that a single service can be
+used to implement more than one Diameter node.</p>
+
+<p>
+Each Diameter application defined on a service is configured with a
+callback module that implements the <seealso
+marker="diameter_app">application interface</seealso> through which
+diameter communicates the connectivity of remote peers, requests peer
+selection for outgoing requests, and communicates the reception of
+incoming Diameter request and answer messages.
+An application using diameter implements these application callback
+modules to provide the functionality of the Diameter node(s) it
+implements.</p>
+
+<p>
+Each Diameter application is also configured with a
+dictionary module
+that provide encode/decode functionality for outgoing/incoming
+Diameter messages belonging to the application.
+A dictionary module is generated from a <seealso
+marker="diameter_dict">dictionary file</seealso> using the <seealso
+marker="diameterc">diameterc</seealso> utility.
+Dictionaries for the &the_rfc; Diameter Common Messages, Base
+Accounting and Relay applications are provided with the diameter
+application.</p>
+
+</chapter>
+

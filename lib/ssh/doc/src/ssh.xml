@@ -1,0 +1,1250 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+      
+      http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+    
+    <title>ssh</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2007-10-06</date>
+    <rev></rev>
+  </header>
+  <module since="">ssh</module>
+  <modulesummary>Main API of the ssh application</modulesummary>
+  <description>
+    <p>This is the interface module for the <c>SSH</c> application.
+    The Secure Shell (SSH) Protocol is a protocol for secure remote login
+    and other secure network services over an insecure network.
+    See <seealso marker="ssh:SSH_app#supported">ssh(6)</seealso> for details of supported RFCs, versions,
+    algorithms and unicode handling.
+    </p>
+    <p>With the SSH application it is possible to start <i>clients</i> and to start <i>daemons</i> (servers).
+    </p>
+    <p>Clients are started with
+    <seealso marker="#connect/2">connect/2</seealso>, 
+    <seealso marker="#connect/3">connect/3</seealso> or 
+    <seealso marker="#connect/4">connect/4</seealso>. They open an encrypted connection on top of TCP/IP.
+    In that encrypted connection one or more channels could be opened with
+    <seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
+    </p>
+    <p>Each channel is an isolated "pipe" between a client-side process and a server-side process. Those process
+    pairs could handle for example file transfers (sftp) or remote command execution (shell, exec and/or cli).
+    If a custom shell is implemented, the user of the client could execute the special commands remotely. Note that
+    the user is not necessarily a human but probably a system interfacing the SSH app.
+    </p>
+    <p>A server-side subssystem (channel) server is requested by the client with
+    <seealso marker="ssh_connection#subsystem/4">ssh_connection:subsystem/4</seealso>. 
+    </p>
+    <p>A server (daemon) is started with 
+    <seealso marker="#daemon/2">daemon/1</seealso>,
+    <seealso marker="#daemon/2">daemon/2</seealso> or
+    <seealso marker="#daemon/2">daemon/3</seealso>.
+    Possible channel handlers (subsystems) are declared with the
+    <seealso marker="#type-subsystem_daemon_option">subsystem</seealso> option when the daemon is started.
+    </p>
+    <p>To just run a shell on a remote machine, there are functions that bundles the needed 
+    three steps needed into one:
+    <seealso marker="#shell/1">shell/1,2,3</seealso>.
+    Similarily, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
+    <seealso marker="ssh_sftp#start_channel/1">ssh_sftp:start_channel/1,2,3</seealso>.
+    </p>
+    <p>To write your own client channel handler, use the behaviour 
+    <seealso marker="ssh_client_channel">ssh_client_channel</seealso>. For server channel handlers use 
+    <seealso marker="ssh_server_channel">ssh_server_channel</seealso> behaviour (replaces ssh_daemon_channel).
+    </p>
+    <p>Both clients and daemons accepts options that controls the exact behaviour. Some options are common to both.
+    The three sets are called 
+    <seealso marker="#type-client_options">Client Options</seealso>, 
+    <seealso marker="#type-daemon_options">Daemon Options</seealso> and
+    <seealso marker="#type-common_options">Common Options</seealso>.
+    </p>
+    <p>The descriptions of the options uses the 
+    <seealso marker="doc/reference_manual:typespec">Erlang Type Language</seealso> with explaining text.
+    </p>
+    <note>
+    <p>The <seealso marker="users_guide">User's Guide</seealso> has examples and a
+    <seealso marker="using_ssh">Getting Started</seealso>
+    section.
+    </p>
+    </note>
+  </description>
+
+  <section>
+    <title>Keys and files</title>
+    <p>A number of objects must be present for the SSH application to work. 
+    Thoose objects are per default stored in files.
+    The default names, paths and file formats are the same as for
+    <url href="http://www.openssh.com">OpenSSH</url>. Keys could be generated with the <c>ssh-keygen</c>
+    program from OpenSSH. See the
+    <seealso marker="using_ssh#running-an-erlang-ssh-daemon">User's Guide</seealso>.
+    </p>
+
+    <p>The paths could easily be changed by options:
+    <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
+    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
+    </p>
+    <p>A completly different storage could be interfaced by writing call-back modules
+    using the behaviours
+    <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
+    <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+    A callback module is installed with the option
+    <seealso marker="#type-key_cb_common_option"><c>key_cb</c></seealso>
+    to the client and/or the daemon.
+    </p>
+
+    <section>
+      <title>Daemons</title>
+      <p>The keys are by default stored in files:</p>
+      <list>
+	<item>Mandatory: one or more <i>Host key(s)</i>, both private and public. Default is to
+	store them in the directory <c>/etc/ssh</c> in the files
+	<list>
+	  <item><c>ssh_host_dsa_key</c> and <c>ssh_host_dsa_key.pub</c></item>
+	  <item><c>ssh_host_rsa_key</c> and <c>ssh_host_rsa_key.pub</c></item>
+	  <item><c>ssh_host_ecdsa_key</c> and <c>ssh_host_ecdsa_key.pub</c></item>
+	</list>
+	<p>The host keys directory could be changed with the option 
+	<seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.</p>
+	</item>
+	<item>Optional: one or more <i>User's public key</i> in case of <c>publickey</c> authorization.
+	Default is to store them concatenated in the file <c>.ssh/authorized_keys</c> in the user's home directory.
+	<p>The user keys directory could be changed with the option 
+	<seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>.</p>
+	</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Clients</title>
+      <p>The keys and some other data are by default stored in files in the directory <c>.ssh</c>
+      in the user's home directory.</p>
+      <p>The directory could be changed with the option 
+      <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>.
+      </p>
+      <list>
+	<item>Optional: a list of <i>Host public key(s)</i> for previously connected hosts. This list
+	is handled by the SSH application without any need of user assistance. The default
+	is to store them in the file <c>known_hosts</c>.
+	<p>The 
+	<seealso marker="#type-host_accepting_client_options">host_accepting_client_options()</seealso>
+	are associated with this list of keys.
+	</p>
+	</item>
+	<item>Optional: one or more <i>User's private key(s)</i> in case of <c>publickey</c> authorization.
+	The default files are
+	<list>
+	  <item><c>id_dsa</c> and <c>id_dsa.pub</c></item>
+	  <item><c>id_rsa</c> and <c>id_rsa.pub</c></item>
+	  <item><c>id_ecdsa</c> and <c>id_ecdsa.pub</c></item>
+	</list>
+	</item>
+      </list>
+    </section>
+
+  </section>
+
+  <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
+
+  <datatypes>
+
+    <datatype_title>Client Options</datatype_title>
+
+    <datatype>
+      <name name="client_options"/>
+      <name name="client_option"/>
+      <desc>
+      <p>Options for <seealso marker="#connect/3">clients</seealso>.
+      The individual options are further explained below or by following the hyperlinks.
+      </p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="host_accepting_client_options"/>
+      <name name="accept_hosts"/>
+      <name name="fp_digest_alg"/>
+      <name name="accept_callback"/>
+      <name name="fingerprint"/>
+      <desc>
+	<taglist>
+          <tag><c>silently_accept_hosts</c></tag>
+	  <item>
+            <p>This option guides the <c>connect</c> function on how to act when the connected server presents a Host 
+            Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
+            accept or reject the new Host Key.
+            See the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+            for specifying the path to the file <c>known_hosts</c> where previously accepted Host Keys are recorded.
+	    See also the option 
+	    <seealso marker="#type-key_cb_common_option">key_cb</seealso>
+	    for the general way to handle keys.
+	    </p>
+            <p>The option can be given in three different forms as seen above:</p>
+	    <list>
+	      <item>The value is a <c>boolean()</c>.
+	      The value <c>true</c> will make the client accept any unknown Host Key without any user interaction.
+	      The value <c>false</c> preserves the default behaviour of asking the user on stdio.
+              </item>
+              <item>An <c>accept_callback()</c> will be called and the boolean return value <c>true</c>
+	      will make the client
+              accept the Host Key. A return value of <c>false</c> will make the client to reject the Host Key and as a
+              result the connection will be closed. The arguments to the fun are:
+              <list type="bulleted">
+	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
+                <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>
+                calculates it.
+                </item>
+              </list>
+              </item>
+              <item>A tuple <c>{HashAlgoSpec, accept_callback}</c>. The <c>HashAlgoSpec</c>
+	      specifies which hash algorithm
+              shall be used to calculate the fingerprint used in the call of the <c>accept_callback()</c>.
+	      The <c>HashALgoSpec</c>
+              is either an atom or a list of atoms as the first argument in
+              <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
+              If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the
+	      <c>accept_callback()</c> will be 
+              a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
+              </item>
+            </list>
+	  </item>
+	  
+	  <tag><c>user_interaction</c></tag>
+	  <item>
+	    <p>If <c>false</c>, disables the client to connect to the server
+	    if any user interaction is needed, such as accepting
+	    the server to be added to the <c>known_hosts</c> file, or
+	    supplying a password.</p>
+	    <p>Even if user interaction is allowed it can be
+	    suppressed by other options, such as <c>silently_accept_hosts</c>
+	    and <c>password</c>. However, those options are not always desirable
+	    to use from a security point of view.</p>
+	    <p>Defaults to <c>true</c>.</p>
+	  </item>
+
+	  <tag><c>save_accepted_host</c></tag>
+	  <item>
+	    <p>If <c>true</c>, the client saves an accepted host key to avoid the
+	    accept question the next time the same host is connected. If the option
+	    <seealso marker="#type-key_cb_common_option"><c>key_cb</c></seealso>
+	    is not present, the key is saved in the file "known_hosts". See option
+	    <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> for
+	    the location of that file.
+	    </p>
+	    <p>If <c>false</c>, the key is not saved and the key will still be unknown
+	    at the next access of the same host.
+	    </p>
+	    <p>Defaults to <c>true</c></p>
+	  </item>
+
+	  <tag><c>quiet_mode</c></tag>
+	  <item>
+	    <p>If <c>true</c>, the client does not print anything on authorization.</p>
+	    <p>Defaults to <c>false</c></p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="authentication_client_options"/>
+      <desc>
+	<taglist>
+	  <tag><c>user</c></tag>
+          <item>
+	    <p>Provides the username. If this option is not given, <c>ssh</c>
+	    reads from the environment (<c><![CDATA[LOGNAME]]></c> or
+	    <c><![CDATA[USER]]></c> on UNIX,
+	    <c><![CDATA[USERNAME]]></c> on Windows).</p>
+          </item>
+
+	  <tag><c>password</c></tag>
+          <item>
+	    <p>Provides a password for password authentication.
+	    If this option is not given, the user is asked for a
+	    password, if the password authentication method is
+	    attempted.</p>
+          </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="diffie_hellman_group_exchange_client_option"/>
+      <desc>
+	<p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
+	See
+	<url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	for the details.  The default value is <c>{1024, 6144, 8192}</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="connect_timeout_client_option"/>
+      <desc>
+	<p>Sets a timeout on the transport layer connect time.
+	For <seealso marker="kernel:gen_tcp"><c>gen_tcp</c></seealso> the time is in milli-seconds and the default 
+	value is <c>infinity</c>.
+	</p>
+	<p>See the parameter <c>Timeout</c> in <seealso marker="#connect/4">connect/4</seealso> for
+	a timeout of the negotiation phase.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="recv_ext_info_client_option"/>
+      <desc>
+	<p>Make the client tell the server that the client accepts extension negotiation, that is,
+	include <c>ext-info-c</c> in the kexinit message sent.  See 
+	<url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>
+	for details and	<seealso marker="SSH_app#supported-ext-info">ssh(6)</seealso>
+	for a list of currently implemented extensions.
+	</p>
+	<p>
+	  Default value is <c>true</c> which is compatible with other implementations not supporting ext-info.
+	</p>
+      </desc>
+    </datatype>
+
+    <!--................................................................-->
+    <datatype_title>Daemon Options (Server Options)</datatype_title>
+
+    <datatype>
+      <name name="daemon_options"/>
+      <name name="daemon_option"/>
+      <desc>
+      <p>Options for <seealso marker="#daemon/1">daemons</seealso>.
+      The individual options are further explained below or by following the hyperlinks.
+      </p>
+      </desc>
+    </datatype>
+
+    
+    <datatype>
+      <name name="subsystem_daemon_option"/>
+      <name name="subsystem_specs"/>
+      <name name="subsystem_spec"/>
+      <desc>
+	<p>Defines a subsystem in the daemon.</p>
+	<p>The <c>subsystem_name</c> is the name that a client requests to start with for example
+	<seealso marker="ssh_connection#subsystem/4">ssh_connection:subsystem/4</seealso>.
+	</p>
+	<p>The <c>channel_callback</c> is the module that implements the
+	<seealso marker="ssh_server_channel">ssh_server_channel</seealso> (replaces ssh_daemon_channel)
+	behaviour in the daemon. See the section 
+	<seealso marker="using_ssh#usersguide_creating_a_subsystem">Creating a Subsystem</seealso>
+	in the User's Guide for more information and an example.
+	</p>
+	<p>If the subsystems option is not present, the value of <c>ssh_sftpd:subsystem_spec([])</c> is used.
+	This enables the sftp subsystem by default.
+	The option can be set to the empty list if you do not want the daemon to run any subsystems.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="shell_daemon_option"/>
+      <name name="'shell_fun/1'"/>
+      <name name="'shell_fun/2'"/>
+      <desc>
+	<p>Defines the read-eval-print loop used in a daemon when a shell is requested by the client.
+	The default is to use the Erlang shell: <c><![CDATA[{shell, start, []}]]></c>
+	</p>
+	<p>See the option <seealso marker="#type-exec_daemon_option"><c>exec</c></seealso>
+	for a description of how the daemon execute exec-requests depending on
+	the shell- and exec-options.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="exec_daemon_option"/>
+      <name name="exec_spec"/>
+      <desc/>
+    </datatype>
+    <datatype>
+      <name name="exec_fun"/>
+      <desc/>
+    </datatype>
+    <datatype>
+      <name name="'exec_fun/1'"/>
+      <name name="'exec_fun/2'"/>
+      <name name="'exec_fun/3'"/>
+      <desc/>
+    </datatype>
+    <datatype>
+      <name name="exec_result"/>
+      <desc>
+	<p>This option changes how the daemon execute exec-requests from clients. The term in the return value
+	is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case but in the
+	error case.</p>
+	<p>Error texts are returned on channel-type 1 which usually is piped to <c>stderr</c> on e.g Linux systems.
+	Texts from a successful execution will in similar manner be piped to <c>stdout</c>. The exit-status code
+	is set to 0 for success and -1 for errors. The exact results presented on the client side depends on the
+	client and the client's operating system.
+	</p>
+	<p>The option cooperates with the daemon-option <seealso marker="#type-shell_daemon_option"><c>shell</c></seealso>
+	in the following way:</p>
+	<taglist>
+	  <tag>1. If the exec-option is present (the shell-option may or may not be present):</tag>
+	  <item>
+	    <p>The exec-option fun is called with the same number of parameters as the arity of the fun,
+	    and the result is returned to the client.
+	    </p>
+	  </item>
+	  
+	  <tag>2. If the exec-option is absent, but a shell-option is present with the default Erlang shell:</tag>
+	  <item>
+	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	  </item>
+	  
+	  <tag>3. If the exec-option is absent, but a shell-option is present that is not the default Erlang shell:</tag>
+	  <item>
+	    <p>The exec-request is not evaluated and an error message is returned to the client.</p>
+	  </item>
+	  
+	  <tag>4. If neither the exec-option nor the shell-option is present:</tag>
+	  <item>
+	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	  </item>
+	</taglist>
+	<p>If a custom CLI is installed (see the option <seealso marker="#type-ssh_cli_daemon_option"><c>ssh_cli</c></seealso>)
+	the rules above are replaced by thoose implied by the custom CLI.
+	</p>
+	<note>
+	  <p>The exec-option has existed for a long time but has not previously been documented. The old
+	  definition and behaviour are retained but obey the rules 1-4 above if conflicting.
+	  The old and undocumented style should not be used in new programs.</p>
+	</note>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ssh_cli_daemon_option"/>
+      <desc>
+	<p>Provides your own CLI implementation in a daemon.</p>
+	<p>It is a channel callback module that implements a shell
+	and command execution. The shell's read-eval-print loop can be customized, using the
+	option <seealso marker="#type-shell_daemon_option"><c>shell</c></seealso>. This means less work than implementing
+	an own CLI channel. If <c>ssh_cli</c> is set to <c>no_cli</c>, the CLI channels
+	like <seealso marker="#type-shell_daemon_option"><c>shell</c></seealso>
+	and <seealso marker="#type-exec_daemon_option"><c>exec</c></seealso>
+	are disabled and only subsystem channels are allowed.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="authentication_daemon_options"/>
+      <name name="prompt_texts"/>
+      <name name="kb_int_tuple"/>
+      <name name="kb_int_fun_3"/>
+      <name name="pwdfun_2"/>
+      <name name="pwdfun_4"/>
+      <desc>
+	<taglist>
+	  <tag><c>auth_method_kb_interactive_data</c></tag>
+	  <item>
+	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when
+	    using <c>keyboard-interactive</c> authentication.</p>
+	    <p>If the fun/3 is used, it is called when the actual authentication occurs and may therefore
+	    return dynamic data like time, remote ip etc.</p>
+	    <p>The parameter <c>Echo</c> guides the client about need to hide the password.</p>
+	    <p>The default value is:
+	    <c>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "password: ", false}></c>
+	    </p>
+          </item>
+
+	  <tag><marker id="option-user_passwords"/><c>user_passwords</c></tag>
+	  <item>
+            <p>Provides passwords for password authentication. The passwords are used when someone tries
+	    to connect to the server and public key user-authentication fails. The option provides
+	    a list of valid usernames and the corresponding passwords.
+	    </p>
+          </item>
+
+          <tag><marker id="option-password"/><c>password</c></tag>
+          <item>
+            <p>Provides a global password that authenticates any user.</p>
+	    <warning>
+	      <p>Intended to facilitate testing.</p>
+	      <p>From a security perspective this option makes the server very vulnerable.</p>
+	    </warning>
+	  </item>
+
+	  <tag><marker id="option-pwdfun"/><c>pwdfun</c> with 
+	  <seealso marker="#type-pwdfun_4"><c>pwdfun_4()</c></seealso>
+	  </tag>
+	  <item>
+	    <p>Provides a function for password validation. This could used for calling an external system or handeling
+	    passwords stored as hash values.
+	    </p>
+	    <p>This fun can also be used to make delays in authentication tries for example by calling
+	    <seealso marker="stdlib:timer#sleep/1">timer:sleep/1</seealso>.</p>
+	    <p>To facilitate for instance counting of failed tries,
+	    the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
+	    is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.
+	    </p>
+	    
+	    <p>The fun should return:
+	    </p>
+	    <list type="bulleted">
+	      <item><c>true</c> if the user and password is valid</item>
+	      <item><c>false</c> if the user or password is invalid</item> 
+	      <item><c>disconnect</c> if a SSH_MSG_DISCONNECT message should be sent immediately. It will
+	      be followed by a close of the underlying tcp connection.</item>
+	      <item><c>{true,  NewState:any()}</c> if the user and password is valid</item>
+	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	    </list>
+
+	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
+	    can be used for this. The return value <c>disconnect</c> is useful for this.</p>
+	  </item>
+
+	  <tag><c>pwdfun</c> with
+	  <seealso marker="#type-pwdfun_2"><c>pwdfun_2()</c></seealso>
+	  </tag>
+	  <item>
+	    <p>Provides a function for password validation. This function is called with user and password
+	    as strings, and returns:</p>
+	    <list type="bulleted">
+	      <item><c>true</c> if the user and password is valid</item>
+	      <item><c>false</c> if the user or password is invalid</item> 
+	    </list>
+	    <p>This variant is kept for compatibility.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="diffie_hellman_group_exchange_daemon_option"/>
+      <name name="explicit_group"/>
+      <name name="explicit_group_file"/>
+      <name name="ssh_moduli_file"/>
+      <desc>
+	<taglist>
+	  <tag><c>dh_gex_groups</c></tag>
+	  <item>
+	    <p>Defines the groups the server may choose among when diffie-hellman-group-exchange is negotiated.
+	    See 
+	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	    for details. The three variants of this option are:
+	    </p>
+	    <taglist>
+	      <tag><c>{Size=integer(),G=integer(),P=integer()}</c></tag>
+	      <item>The groups are given explicitly in this list. There may be several elements with the same <c>Size</c>.
+	      In such a case, the server will choose one randomly in the negotiated Size.
+	      </item>
+	      <tag><c>{file,filename()}</c></tag>
+	      <item>The file must have one or more three-tuples <c>{Size=integer(),G=integer(),P=integer()}</c> 
+	      terminated by a dot. The file is read when the daemon starts.
+	      </item>
+	      <tag><c>{ssh_moduli_file,filename()}</c></tag>
+	      <item>The file must be in
+	      <seealso marker="public_key:public_key#dh_gex_group/4">ssh-keygen moduli file format</seealso>.
+	      The file is read when the daemon starts.
+	      </item>
+	    </taglist>
+	    <p>The default list is fetched from the 
+	      <seealso marker="public_key:public_key#dh_gex_group/4">public_key</seealso> application.
+	    </p>
+	  </item>
+
+	  <tag><c>dh_gex_limits</c></tag>
+	  <item>
+	    <p>Limits what a client can ask for in diffie-hellman-group-exchange.
+	    The limits will be
+	    <c>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</c> where <c>MaxClient</c> and 
+	    <c>MinClient</c> are the values proposed by a connecting client.
+	    </p>
+	    <p>The default value is <c>{0,infinity}</c>.
+	    </p>
+	    <p>If <c>MaxUsed &lt; MinUsed</c> in a key exchange, it will fail with a disconnect.
+	    </p>
+	    <p>See 
+	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	    for the function of the Max and Min values.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="negotiation_timeout_daemon_option"/>
+      <desc>
+	<p>Maximum time in milliseconds for the authentication negotiation.
+	Defaults to 120000 ms (2 minutes). If the client fails to log in within this time,
+	the connection is closed.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="hardening_daemon_options"/>
+      <desc>
+	<taglist>
+	  <tag><c>max_sessions</c></tag>
+	  <item>
+	    <p>The maximum number of simultaneous sessions that are accepted at any time
+	    for this daemon. This includes sessions that are being authorized.
+	    Thus, if set to <c>N</c>, and <c>N</c> clients have connected but not started
+	    the login process, connection attempt <c>N+1</c> is aborted.
+	    If <c>N</c> connections are authenticated and still logged in, no more logins
+	    are accepted until one of the existing ones log out.
+	    </p>
+	    <p>The counter is per listening port. Thus, if two daemons are started, one with
+	    <c>{max_sessions,N}</c> and the other with <c>{max_sessions,M}</c>, in total
+	    <c>N+M</c> connections are accepted for the whole <c>ssh</c> application.
+	    </p>
+	    <p>Notice that if <c>parallel_login</c> is <c>false</c>, only one client
+	    at a time can be in the authentication phase.
+	    </p>
+	    <p>By default, this option is not set. This means that the number is not limited.
+	    </p>
+	  </item>
+
+	  <tag><c>max_channels</c></tag>
+	  <item>
+	    <p>The maximum number of channels with active remote subsystem that are accepted for
+	    each connection to this daemon</p>
+	    <p>By default, this option is not set. This means that the number is not limited.
+	    </p>
+	  </item>
+
+	  <tag><c>parallel_login</c></tag>
+	  <item>
+	    <p>If set to false (the default value), only one login is handled at a time.
+	    If set to true, an unlimited number of login attempts are allowed simultaneously.
+	    </p>
+	    <p>If the <c>max_sessions</c> option is set to <c>N</c> and <c>parallel_login</c>
+	    is set to <c>true</c>, the maximum number of simultaneous login attempts at any time is
+	    limited to <c>N-K</c>, where <c>K</c> is the number of authenticated connections present
+	    at this daemon.
+	    </p>
+	    <warning>
+	      <p>Do not enable <c>parallel_logins</c> without protecting the server by other means,
+	      for example, by the <c>max_sessions</c> option or a firewall configuration. If set to
+	      <c>true</c>, there is no protection against DOS attacks.</p>
+	    </warning>
+	  </item>
+
+	  <tag><c>minimal_remote_max_packet_size</c></tag>
+	  <item>
+	    <p>The least maximum packet size that the daemon will accept in channel open requests from the client.
+	    The default value is 0.
+	    </p>
+	  </item>
+	  
+	</taglist>
+      </desc>
+    </datatype>
+ 
+    <datatype>
+      <name name="callbacks_daemon_options"/>
+      <desc>
+	<taglist>
+	  <tag><c>connectfun</c></tag>
+	  <item>
+	    <p>Provides a fun to implement your own logging when a user authenticates to the server.</p>
+	  </item>
+
+	  <tag><c>failfun</c></tag>
+	  <item>
+	    <p>Provides a fun to implement your own logging when a user fails to authenticate.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+     <datatype>
+      <name name="send_ext_info_daemon_option"/>
+      <desc>
+	<p>Make the server (daemon) tell the client that the server accepts extension negotiation, that is,
+	include <c>ext-info-s</c> in the kexinit message sent. See
+	<url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>
+	for details and	<seealso marker="SSH_app#supported-ext-info">ssh(6)</seealso>
+	for a list of currently implemented extensions.
+	</p>
+	<p>Default value is <c>true</c> which is compatible with other implementations not supporting ext-info.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <!--................................................................-->
+    <datatype_title>Options common to clients and daemons</datatype_title>
+    <datatype>
+      <name name="common_options"/>
+      <name name="common_option"/>
+      <desc><p>The options above can be used both in clients and in daemons (servers). They are further explained below.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="profile_common_option"/>
+      <desc>
+	<p>Used together with <c>ip-address</c> and <c>port</c> to
+	uniquely identify a ssh daemon. This can be useful in a
+	virtualized environment, where there can be more that one
+	server that has the same <c>ip-address</c> and
+	<c>port</c>. If this property is not explicitly set, it is
+	assumed that the the <c>ip-address</c> and <c>port</c>
+	uniquely identifies the SSH daemon.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="max_idle_time_common_option"/>
+      <desc>
+	<p>Sets a time-out on a connection when no channels are active. Defaults to <c>infinity</c>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="rekey_limit_common_option"/>
+      <name name="limit_bytes"/>
+      <name name="limit_time"/>
+      <desc>
+	<p>Sets the limit when rekeying is to be initiated. Both the max time and max amount of data
+	could be configured:
+	</p>
+	<list>
+	  <item><c>{Minutes, Bytes}</c> initiate rekeying when any of the limits are reached.</item>
+	  <item><c>Bytes</c> initiate rekeying when <c>Bytes</c> number of bytes are transferred,
+	  or at latest after one hour.</item>
+	</list>
+	<p>When a rekeying is done, both the timer and the byte counter are restarted.
+	Defaults to one hour and one GByte.</p>
+	<p>If <c>Minutes</c> is set to <c>infinity</c>, no rekeying will ever occur due to that max time has passed.
+	Setting <c>Bytes</c> to <c>infinity</c> will inhibit rekeying after a certain amount of data has been transferred.
+	If the option value is set to <c>{infinity, infinity}</c>, no rekeying will be initiated. Note that rekeying initiated
+	by the peer will still be performed.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="key_cb_common_option"/>
+      <desc>
+	<p>Module implementing the behaviour
+	<seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
+	<seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+	Can be used to
+	customize the handling of public keys. If callback options are provided
+	along with the module name, they are made available to the callback
+	module via the options passed to it under the key 'key_cb_private'.
+	</p>
+	<p>The <c>Opts</c> defaults to <c>[]</c> when only the <c>Module</c> is specified.
+	</p>
+	<p>The default value of this option is <c>{ssh_file, []}</c>. See also the manpage of
+	<seealso marker="ssh:ssh_file">ssh_file</seealso>.
+	</p>
+	<p>A call to the call-back function <c>F</c> will be</p>
+	<code>
+	  Module:F(..., [{key_cb_private,Opts}|UserOptions])
+	</code>
+	<p>where <c>...</c> are arguments to <c>F</c> as in 
+	<seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
+	<seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+	The <c>UserOptions</c> are the options given to 
+	<seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+	<seealso marker="ssh:ssh#shell-1">ssh:shell</seealso> or
+	<seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso>.
+	</p>
+
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pref_public_key_algs_common_option"/>
+      <desc>
+        <p>List of user (client) public key algorithms to try to use.</p>
+	<p>The default value is the <c>public_key</c> entry in the list returned by
+	<seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
+	</p>
+	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	</p>
+        <p>See also the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+        for specifying the path to the user's keys.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="disconnectfun_common_option"/>
+      <desc>
+	<p>Provides a fun to implement your own logging when the peer disconnects.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="unexpectedfun_common_option"/>
+      <desc>
+	<p>Provides a fun to implement your own logging or other action when an unexpected message arrives.
+	If the fun returns <c>report</c> the usual info report is issued but if <c>skip</c> is returned no
+	report is generated.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ssh_msg_debug_fun_common_option"/>
+      <desc>
+	<p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG.
+	The last three parameters are from the message, see 
+	<url href="https://tools.ietf.org/html/rfc4253#section-11.3">RFC 4253, section 11.3</url>.
+	The <seealso marker="#type-connection_ref"><c>connection_ref()</c></seealso> is the reference
+	to the connection on which the message arrived.
+	The return value from the fun is not checked.
+	</p>
+	<p>The default behaviour is ignore the message.
+	To get a printout for each message with <c>AlwaysDisplay = true</c>,
+	use for example <c>{ssh_msg_debug_fun, fun(_,true,M,_)-> io:format("DEBUG: ~p~n", [M]) end}</c></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="id_string_common_option"/>
+      <desc>
+	<p>The string the daemon will present to a connecting peer initially.
+	The default value is "Erlang/VSN" where VSN is the ssh application version number.
+	</p>
+	<p>The value <c>random</c> will cause a random string to be created at each connection attempt.
+	This is to make it a bit more difficult for a malicious peer to find the ssh software brand and version.
+	</p>
+	<p>The value <c>{random, Nmin, Nmax}</c> will make a random string with at least <c>Nmin</c> characters and
+	at most <c>Nmax</c> characters.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="preferred_algorithms_common_option"/>
+      <name name="algs_list"/>
+      <name name="alg_entry"/>
+      <name name="kex_alg"/>
+      <name name="pubkey_alg"/>
+      <name name="cipher_alg"/>
+      <name name="mac_alg"/>
+      <name name="compression_alg"/>
+      <name name="double_algs"/>
+
+      <desc>
+	<p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
+	be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
+	</p>
+	<p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
+	<p>Here is an example of this option:</p>
+	<code>
+	  {preferred_algorithms, 
+	  [{public_key,['ssh-rsa','ssh-dss']},
+	  {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-cbc','3des-cbc']}]},
+	  {mac,['hmac-sha2-256','hmac-sha1']},
+	  {compression,[none,zlib]}
+	  ]
+	  }
+	</code>
+	<p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
+
+	<p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
+
+	<p>If an algorithm name occurs more than once in a list, the behaviour is undefined. The tags in the property lists
+	are also assumed to occur at most one time.
+	</p>
+
+	<warning>
+	  <p>Changing the values can make a connection less secure. Do not change unless you
+	  know exactly what you are doing. If you do not understand the values then you
+	  are not supposed to change them.</p>
+	</warning>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="modify_algorithms_common_option"/>
+      <name name="modify_algs_list"/>
+      <desc>
+	<p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
+	applied after the option <c>preferred_algorithms</c> (if existing) is applied.</p>
+	<p>The algoritm for modifications works like this:</p>
+	<list>
+	  <item>
+	    <p>Input is the <c>modify_algs_list()</c> and a set of algorithms <c>A</c>
+	    obtained from the <c>preferred_algorithms</c> option if existing, or else from the
+	    <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.
+	    </p>
+	  </item>
+	  <item>
+	    <p>The head of the <c>modify_algs_list()</c> modifies <c>A</c> giving the result <c>A'</c>.</p>
+	    <p>The possible modifications are:</p>
+	    <list>
+	      <item>
+		<p>Append or prepend supported but not enabled algorithm(s) to the list of
+		algorithms. If the wanted algorithms already are in <c>A</c> they will first
+		be removed and then appended or prepended,
+		</p>
+	      </item>
+	      <item>
+		<p>Remove (rm) one or more algorithms from <c>A</c>.
+		</p>
+	      </item>
+	    </list>
+	  </item>
+	  <item>
+	    <p>Repeat the modification step with the tail of <c>modify_algs_list()</c> and the resulting
+	    <c>A'</c>.
+	    </p>
+	  </item>
+	</list>
+	<p>If an unsupported algorithm is in the <c>modify_algs_list()</c>, it will be silently ignored</p>
+	<p>If there are more than one modify_algorithms options, the result is undefined.</p>
+	<p>Here is an example of this option:</p>
+	<code>
+	  {modify_algorithms, 
+	  [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
+	  {rm,      [{compression, [none]}]}
+	  ]
+	  }
+	</code>
+	<p>The example specifies that:</p>
+	<list>
+	  <item><p>the old key exchange algorithm 'diffie-hellman-group1-sha1' should be
+	  the main alternative. It will be the main alternative since it is prepened to the list</p>
+	  </item>
+	  <item><p>The compression algorithm none (= no compression) is removed so compression is enforced</p>
+	  </item>
+	</list>
+	<p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="inet_common_option"/>
+      <desc>
+	<p>IP version to use when the host address is specified as <c>any</c>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="auth_methods_common_option"/>
+      <desc>
+	<p>Comma-separated string that determines which authentication methods that the client shall
+	support and in which order they are tried. Defaults to <c>"publickey,keyboard-interactive,password"</c>
+	</p>
+	<p>Note that the client is free to use any order and to exclude methods.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="fd_common_option"/>
+      <desc>
+	<p>Allows an existing file-descriptor to be used (passed on to the transport protocol).</p>
+      </desc>
+    </datatype>
+
+    <!--................................................................-->
+    <datatype_title>Other data types</datatype_title>
+    
+    <datatype>
+      <name name="host"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ip_port"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="mod_args"/>
+      <desc>
+      </desc>
+    </datatype>
+      
+    <datatype>
+      <name name="mod_fun_args"/>
+      <desc>
+      </desc>
+    </datatype>
+      
+    <datatype>
+      <name name="open_socket"/>
+      <desc>
+	<p>The socket is supposed to be result of a <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso>
+	or a <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso>. The socket must be in passive
+	mode (that is, opened with the option <c>{active,false})</c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="daemon_ref"/>
+      <desc>
+	<p>Opaque data type representing a daemon.</p>
+	<p>Returned by the functions <seealso marker="ssh#daemon-1"><c>daemon/1,2,3</c></seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name>connection_ref()</name>
+      <desc>
+	<p>Opaque data type representing a connection between a client and a server (daemon).</p>
+	<p>Returned by the functions
+	<seealso marker="ssh#connect-3"><c>connect/2,3,4</c></seealso> and
+	<seealso marker="ssh_sftp#start_channel-2"><c>ssh_sftp:start_channel/2,3</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="channel_id"/>
+      <desc>
+	<p>Opaque data type representing a channel inside a connection.</p>
+	<p>Returned by the functions
+	<seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name>opaque_client_options</name>
+      <name>opaque_daemon_options</name>
+      <name>opaque_common_options</name>
+      <desc>
+	<marker id="type-opaque_client_options"/>
+	<marker id="type-opaque_daemon_options"/>
+	<marker id="type-opaque_common_options"/>
+	<p>Opaque types that define experimental options that are not to be used in products.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+<!--
+    ================================================================
+    =  Function definitions                                        =
+    ================================================================
+-->
+
+ <funcs>
+
+<!-- CLOSE/1 -->
+   <func>
+     <name name="close" arity="1" since=""/>
+      <fsummary>Closes an SSH connection.</fsummary>
+      <desc><p>Closes an SSH connection.</p></desc>
+    </func>
+    
+<!-- CONNECT/2 etc -->
+   <func>
+     <name since="">connect(Host, Port, Options) -> Result </name>
+     <name since="">connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
+     <name since="OTP 19.0">connect(TcpSocket, Options) -> Result</name>
+     <name since="">connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
+     <fsummary>Connects to an SSH server.</fsummary>
+     <type>
+       <v>Host = <seealso marker="#type-host">host()</seealso></v>
+       <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+       <v>Options = <seealso marker="#type-client_options">client_options()</seealso></v>
+       <v>TcpSocket = <seealso marker="#type-open_socket">open_socket()</seealso></v>
+       <v>NegotiationTimeout = timeout()</v>
+       <v>Result = {ok, <seealso marker="#type-connection_ref">connection_ref()</seealso>} | {error, term()}</v>
+     </type>
+     <desc>
+       <p>Connects to an SSH server at the <c>Host</c> on <c>Port</c>.
+       </p>
+       <p>As an alternative, an already open TCP socket could be passed to the function in <c>TcpSocket</c>.
+       The SSH initiation and negotiation will be initiated on that one with the SSH that should be at the
+       other end.
+       </p>
+       <p>No channel is started. This is done by calling <seealso marker="ssh_connection#session_channel/2">
+       ssh_connection:session_channel/[2, 4]</seealso>.
+       </p>
+       <p>The <c>NegotiationTimeout</c> is in milli-seconds. The default value is <c>infinity</c>.
+       For connection timeout, use the option
+       <seealso marker="#type-connect_timeout_client_option"><c>connect_timeout</c></seealso>.
+       </p>
+     </desc>
+   </func>
+
+<!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
+   <func>
+     <name name="connection_info" arity="2" since=""/>
+     <fsummary>Retrieves information about a connection.</fsummary>
+     <desc>
+       <p>Retrieves information about a connection. The list <c>Keys</c> defines which information that
+       is returned.</p>
+     </desc>
+   </func>
+
+<!-- DEAMON/1,2,3 -->
+   <func>
+     <name since="">daemon(Port | TcpSocket) -> Result</name>
+     <name since="">daemon(Port | TcpSocket, Options) -> Result</name>
+     <name since="">daemon(HostAddress, Port, Options) -> Result</name>
+     <fsummary>Starts a server listening for SSH connections.</fsummary>
+     <type>
+       <v>Port = integer()</v>
+       <v>TcpSocket = <seealso marker="#type-open_socket">open_socket()</seealso></v>
+       <v>Options = <seealso marker="#type-daemon_options">daemon_options()</seealso></v>
+       <v>HostAddress = <seealso marker="#type-host">host()</seealso> | any</v>
+       <v>Result = {ok, <seealso marker="#type-daemon_ref">daemon_ref()</seealso>} | {error, atom()}</v>
+      </type>
+       <desc>
+        <p>Starts a server listening for SSH connections on the given port. If the <c>Port</c> is 0,
+	a random free port is selected. See <seealso marker="#daemon_info/1">daemon_info/1</seealso>
+	about how to find the selected port number.
+	</p>
+	<p>As an alternative, an already open TCP socket could be passed to the function in <c>TcpSocket</c>.
+	The SSH initiation and negotiation will be initiated on that one when an SSH starts at the other end
+	of the TCP socket.
+	</p>
+	<p>For a description of the options, see <seealso marker="#type-daemon_options">Daemon Options</seealso>.
+	</p>
+	<p>Please note that by historical reasons both the <c>HostAddress</c> argument and the
+	<seealso marker="kernel:gen_tcp#type-connect_option">gen_tcp connect_option() <c>{ip,Address}</c></seealso>
+	set the listening address. This is a source of possible inconsistent settings.
+	</p>
+	<p>The rules for handling the two address passing options are:</p>
+	<list>
+	  <item>if <c>HostAddress</c> is an IP-address, that IP-address is the listening address.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is the atom <c>loopback</c>, the listening address
+	  is <c>loopback</c> and an loopback address will be choosen by the underlying layers.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is the atom <c>any</c> and no 'ip'-option is present, the listening address is
+	  <c>any</c> and the socket will listen to all addresses</item>
+
+	  <item>if <c>HostAddress</c> is <c>any</c> and an 'ip'-option is present, the listening address is
+	  set to the value of the 'ip'-option</item>
+	</list>
+       </desc>
+   </func>
+
+<!-- DAEMON_INFO/1 -->   
+   <func>
+     <name name="daemon_info" arity="1" since="OTP 19.0"/>
+     <fsummary>Get info about a daemon</fsummary>
+     <desc>
+       <p>Returns a key-value list with information about the daemon.</p>
+     </desc>
+   </func>
+
+
+<!-- DEFAULT_ALGORITHMS/0 -->
+    <func>
+      <name name="default_algorithms" arity="0" since="OTP 18.0"/>
+      <fsummary>Get a list declaring the supported algorithms</fsummary>
+      <desc>
+	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
+	algorithms themselves.</p>
+	<p>See the <seealso marker="configure_algos#example_default_algorithms">User's Guide</seealso> for
+	an example.</p>
+      </desc>
+    </func>
+
+<!-- SHELL/1,2,3 -->
+    <func>
+      <name since="">shell(Host | TcpSocket) -> Result </name>
+      <name since="">shell(Host | TcpSocket, Options) -> Result </name>
+      <name since="">shell(Host, Port, Options) -> Result </name>
+      <fsummary>Starts an interactive shell on a remote SSH server.</fsummary>
+      <type>
+	<v>Host = <seealso marker="#type-host">host()</seealso></v>
+	<v>TcpSocket = <seealso marker="#type-open_socket">open_socket()</seealso></v>
+	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<v>Options = <seealso marker="#type-client_options">client_options()</seealso></v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+        <p>Connects to an SSH server at <c>Host</c> and <c>Port</c> (defaults to 22) and starts an
+	interactive shell on that remote host.
+	</p>
+	<p>As an alternative, an already open TCP socket could be passed to the function in <c>TcpSocket</c>.
+	The SSH initiation and negotiation will be initiated on that one and finaly a shell will be started
+	on the host at the other end of the TCP socket.
+	</p>
+	<p>For a description of the options, see <seealso marker="#type-client_options">Client Options</seealso>.</p>
+	<p>The function waits for user input, and does not return until the remote shell is ended (that is,
+	exit from the shell).
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="0" since=""/>
+      <name name="start" arity="1" since=""/>
+      <fsummary>Starts the SSH application.</fsummary>
+      <desc>
+        <p>Utility function that starts the applications <c>crypto</c>, <c>public_key</c>,
+	and <c>ssh</c>. Default type is <c>temporary</c>.
+	For more information, see the <seealso marker="kernel:application">application(3)</seealso>
+	manual page in Kernel.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" since=""/>
+      <fsummary>Stops the <c>ssh</c> application.</fsummary>
+      <desc>
+        <p>Stops the <c>ssh</c> application.
+	For more information, see the <seealso marker="kernel:application">application(3)</seealso>
+	manual page in Kernel.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="stop_daemon" arity="1" since=""/>
+      <name name="stop_daemon" arity="2" since=""/>
+      <name name="stop_daemon" arity="3" since="OTP 21.0"/>
+      <fsummary>Stops the listener and all connections started by the listener.</fsummary>
+      <desc>
+	<p>Stops the listener and all connections started by the listener.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop_listener" arity="1" since=""/>
+      <name name="stop_listener" arity="2" since=""/>
+      <name name="stop_listener" arity="3" since="OTP 21.0"/>
+      <fsummary>Stops the listener, but leaves existing connections started by the listener operational.</fsummary>
+      <desc>
+	<p>Stops the listener, but leaves existing connections started by the listener operational.</p>
+      </desc>
+    </func>
+
+  </funcs>
+  
+</erlref>

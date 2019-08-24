@@ -1,0 +1,370 @@
+Test1 DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    TimeTicks, Counter32, snmpModules, mib-2, enterprises, IpAddress,
+    Integer32, Counter64, Opaque
+        FROM SNMPv2-SMI
+    DisplayString, TestAndIncr, TimeStamp, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    sysLocation, sysContact
+	FROM SNMPv2-MIB
+    ;
+
+snmpMIB MODULE-IDENTITY
+    LAST-UPDATED "9511090000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib"
+    ::= { snmpModules 1 }
+
+
+test   OBJECT IDENTIFIER ::= { mib-2 15 }
+testTrap OBJECT IDENTIFIER ::= { test 0 }
+
+bits1 OBJECT-TYPE
+    SYNTAX      BITS { b0(0), b1(1), b2(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 1 }
+
+bits2 OBJECT-TYPE
+    SYNTAX      BITS { b0(0), b1(1), b2(2), b3(3), b4(4), b5(5), b6(6), b7(7),
+        b8(8), b9(9), b10(10), b11(11), b12(12), b13(13), b14(14), b15(15) }	
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 2 }
+
+bits3 OBJECT-TYPE
+    SYNTAX      BITS { b0(0), b1(1), b2(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 3 }
+
+bits4 OBJECT-TYPE
+    SYNTAX      BITS { b0(0), b1(1), b2(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 4 }
+
+testTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TestEntry
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+         "Used to test IMPLIED with one string."
+    ::= { test 5 }
+
+testEntry OBJECT-TYPE
+    SYNTAX     TestEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { IMPLIED testIndex }
+    ::= { testTable 1 }
+
+TestEntry ::= SEQUENCE {
+    testIndex      DisplayString,
+    testDescr      DisplayString,
+    testStatus     RowStatus
+}
+
+testIndex OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { testEntry 1 }
+
+testDescr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { testEntry 2 }
+testStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The status of this conceptual row."
+    ::= { testEntry 3 }
+
+
+testTable2 OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TestEntry2
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+	"Used to test IMPLIED with more than one index."
+    ::= { test 6 }
+
+testEntry2 OBJECT-TYPE
+    SYNTAX     TestEntry2
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { testIndex1, IMPLIED testIndex2 }
+    ::= { testTable2 1 }
+
+TestEntry2 ::= SEQUENCE {
+    testIndex1      Integer32,
+    testIndex2      DisplayString,
+    testDescr2      DisplayString,
+    testStatus2     RowStatus
+}
+
+testIndex1 OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { testEntry2 1 }
+
+testIndex2 OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { testEntry2 2 }
+
+testDescr2 OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { testEntry2 3 }
+
+testStatus2 OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The status of this conceptual row."
+    ::= { testEntry2 4 }
+
+sparseTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF SparseEntry
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+	"Used to test sparse table"
+    ::= { test 7 }
+
+sparseEntry OBJECT-TYPE
+    SYNTAX     SparseEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { sparseIndex }
+    ::= { sparseTable 1 }
+
+SparseEntry ::= SEQUENCE {
+    sparseIndex      Integer32,
+    sparseObj        DisplayString,
+    sparseObj2       DisplayString,
+    sparseDescr      DisplayString,
+    sparseStatus     RowStatus
+}
+
+sparseIndex OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { sparseEntry 1 }
+
+sparseObj OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     obsolete
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { sparseEntry 2 }
+
+sparseObj2 OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS not-accessible
+    STATUS     deprecated
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { sparseEntry 3 }
+
+sparseDescr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { sparseEntry 4 }
+
+sparseStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The status of this conceptual row."
+    ::= { sparseEntry 6 }
+
+sparseStr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    DEFVAL { "slut" }
+    ::= { test 8 }
+
+cntTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF CntEntry
+   MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+	""
+    ::= { test 9 }
+
+cntEntry OBJECT-TYPE
+    SYNTAX     CntEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry (conceptual row) in the sysORTable."
+    INDEX      { cntIndex }
+    ::= { cntTable 1 }
+
+CntEntry ::= SEQUENCE {
+    cntIndex      Integer32,
+    cntCnt        Counter64,
+    cntStatus     RowStatus,
+    cntDescr      DisplayString
+}
+
+cntIndex OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "The auxiliary variable used for identifying instances of
+            the columnar objects in the sysORTable."
+    ::= { cntEntry 1 }
+
+cntCnt OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "Counter64 object - not visible in v1"
+    DEFVAL { 0 }
+    ::= { cntEntry 5 }
+
+cntStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The status of this conceptual row."
+    ::= { cntEntry 7 }
+
+cntDescr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    DEFVAL { "descr" }
+    ::= { cntEntry 8 }
+
+cntStr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    DEFVAL { "slut" }
+    ::= { test 10 }
+
+cnt64 OBJECT-TYPE
+    SYNTAX     Counter64
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "not visible in v1"
+    ::= { test 11 }
+
+cnt64Str OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "Used to stop get-next from cnt64"
+    DEFVAL { "after cnt64" }
+    ::= { test 12 }
+
+opaqueObj OBJECT-TYPE
+    SYNTAX     Opaque
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "A textual description of the capabilities identified by the
+            corresponding instance of sysORID."
+    ::= { test 13 }
+
+multiStr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+            "Used to block agent for testing multi threaded impl"
+    DEFVAL { "no" }
+    ::= { test 14 }
+
+
+cntTrap NOTIFICATION-TYPE
+       OBJECTS { sysContact, cnt64, sysLocation }
+       STATUS  current
+       DESCRIPTION
+               "Test that coutner64 is deleted from v1 trap"
+       ::= { testTrap 1 }
+
+mtTrap NOTIFICATION-TYPE
+    OBJECTS { multiStr }
+    STATUS  current
+    DESCRIPTION
+            ""
+    ::= { testTrap 2 }
+
+END

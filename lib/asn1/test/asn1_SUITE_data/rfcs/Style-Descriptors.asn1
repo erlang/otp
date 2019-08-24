@@ -1,0 +1,190 @@
+-- Module Style-Descriptors (T.415:03/1993)
+
+Style-Descriptors {2 8 1 5 10} DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  Presentation-Style-Descriptor, Presentation-Attributes, Content-Type,
+    Content-Architecture-Class, Layout-Style-Descriptor, Fill-Order,
+    Block-Alignment;
+
+IMPORTS
+  Object-or-Class-Identifier, Style-Identifier, Category-Name,
+    Object-Id-Expression
+    FROM Identifiers-and-Expressions --  see 7.8 
+      
+  Comment-String, Transparency, Colour, Border, Layout-Object-Type,
+    Content-Background-Colour, Content-Foreground-Colour, Sealed
+    FROM Layout-Descriptors --  see 7.9 
+      
+  Colour-Expression, Colour-Table
+    FROM Colour-Attributes --  see 7.14
+      
+  Character-Attributes
+    FROM Character-Presentation-Attributes {2 8 1 6 2
+      } --  see ITU-T Rec. T.416 | ISO/IEC 8613-6
+  Raster-Graphics-Attributes
+    FROM Raster-Gr-Presentation-Attributes {2 8 1 7 2
+      } --  see ITU-T Rec. T.417 | ISO/IEC 8613-7
+  Geometric-Graphics-Attributes
+    FROM Geo-Gr-Presentation-Attributes {2 8 1 8 2}; --  see ITU-T Rec. T.418 | ISO/IEC 8613-8
+
+Presentation-Style-Descriptor ::= SET {
+  style-identifier           Style-Identifier,
+  user-readable-comments     [0] IMPLICIT Comment-String OPTIONAL,
+  user-visible-name          [1] IMPLICIT Comment-String OPTIONAL,
+  application-comments       [25] IMPLICIT OCTET STRING OPTIONAL,
+  transparency               [2] IMPLICIT Transparency OPTIONAL,
+  presentation-attributes    [3] IMPLICIT Presentation-Attributes OPTIONAL,
+  colour                     [4] IMPLICIT Colour OPTIONAL,
+  colour-of-layout-object    [29]  Colour-Expression OPTIONAL,
+  object-colour-table        [30] IMPLICIT Colour-Table OPTIONAL,
+  content-background-colour  [31]  Content-Background-Colour OPTIONAL,
+  content-foreground-colour  [32]  Content-Foreground-Colour OPTIONAL,
+  content-colour-table       [33] IMPLICIT Colour-Table OPTIONAL,
+  border                     [5] IMPLICIT Border OPTIONAL,
+  sealed                     [6] IMPLICIT Sealed OPTIONAL,
+  derived-from               [7] IMPLICIT Style-Identifier OPTIONAL
+}
+
+Presentation-Attributes ::= SET {
+  content-architecture-class
+    CHOICE {a  Content-Architecture-Class,
+            b  Content-Type} OPTIONAL,
+  character-attributes           [0] IMPLICIT Character-Attributes OPTIONAL,
+  raster-graphics-attributes
+    [1] IMPLICIT Raster-Graphics-Attributes OPTIONAL,
+  geometric-graphics-attributes
+    [2] IMPLICIT Geometric-Graphics-Attributes OPTIONAL,
+  --  the following tags are reserved for additional types
+  --  of presentation attributes:
+  --  [3] videotex, for use in conjunction with CCITT Recommendations
+  --  [4] audio
+  --  [5] dynamic-graphics
+  ext-cont-arch-pres-attributes  [6] IMPLICIT SEQUENCE OF EXTERNAL OPTIONAL
+}
+
+Content-Type ::= [APPLICATION 2] IMPLICIT INTEGER {formatted-raster-graphics(1)
+}
+
+--  The integer representation for content architecture class,
+--  Content-Type, is only to be used if the value of the document
+--  profile attribute "document application profile" is an integer.
+--  The value 'formatted-raster-graphics' represents the formatted raster
+--  graphics content architecture as defined in ITU-T Rec. T.417 | ISO/IEC 8613-7.
+Content-Architecture-Class ::= OBJECT IDENTIFIER
+
+Layout-Style-Descriptor ::= SET {
+  style-identifier        Style-Identifier,
+  user-readable-comments  [0] IMPLICIT Comment-String OPTIONAL,
+  user-visible-name       [1] IMPLICIT Comment-String OPTIONAL,
+  application-comments    [25] IMPLICIT OCTET STRING OPTIONAL,
+  layout-directives       [4] IMPLICIT Layout-Directives OPTIONAL,
+  sealed                  [6] IMPLICIT Sealed OPTIONAL,
+  derived-from            [7] IMPLICIT Style-Identifier OPTIONAL
+}
+
+Layout-Directives ::= SET {
+  indivisibility
+    CHOICE {to-layout-object-class  [0] IMPLICIT Object-or-Class-Identifier,
+            to-layout-category      [1] IMPLICIT Category-Name,
+            to-layout-object-type   [2] IMPLICIT Layout-Object-Type,
+            null                    [15] IMPLICIT NULL} OPTIONAL,
+  separation                   [3] IMPLICIT Separation OPTIONAL,
+  offset                       [4] IMPLICIT Offset OPTIONAL,
+  fill-order                   [5] IMPLICIT Fill-Order OPTIONAL,
+  concatenation                [6] IMPLICIT Concatenation OPTIONAL,
+  new-layout-object
+    CHOICE {to-layout-object-class  [7] IMPLICIT Object-or-Class-Identifier,
+            to-layout-category      [8] IMPLICIT Category-Name,
+            to-layout-object-type   [9] IMPLICIT Layout-Object-Type,
+            null                    [16] IMPLICIT NULL} OPTIONAL,
+  same-layout-object           [10] IMPLICIT Same-Layout-Object OPTIONAL,
+  layout-object-class
+    [11] IMPLICIT Object-or-Class-Identifier OPTIONAL,
+  logical-stream-category      [19] IMPLICIT Category-Name OPTIONAL,
+  logical-stream-sub-category  [20] IMPLICIT Category-Name OPTIONAL,
+  layout-category              [12] IMPLICIT Category-Name OPTIONAL,
+  synchronization
+    CHOICE {a  [13] IMPLICIT Object-or-Class-Identifier,
+            b  [17]  Object-Id-Expression,
+            c  [18] IMPLICIT NULL} OPTIONAL,
+  block-alignment              [14] IMPLICIT Block-Alignment OPTIONAL,
+  floatability-range           [24] IMPLICIT Floatability-Range OPTIONAL
+}
+
+Separation ::= SET {
+  leading   [0] IMPLICIT INTEGER OPTIONAL,
+  trailing  [1] IMPLICIT INTEGER OPTIONAL,
+  centre    [2] IMPLICIT INTEGER OPTIONAL
+}
+
+Offset ::= SET {
+  leading     [3] IMPLICIT INTEGER OPTIONAL,
+  trailing    [2] IMPLICIT INTEGER OPTIONAL,
+  left-hand   [1] IMPLICIT INTEGER OPTIONAL,
+  right-hand  [0] IMPLICIT INTEGER OPTIONAL
+}
+
+Fill-Order ::= INTEGER {normal(0), reverse(1)}
+
+Concatenation ::= INTEGER {non-concatenated(0), concatenated(1)}
+
+Same-Layout-Object ::= SET {
+  logical-object
+    CHOICE {a  [0] IMPLICIT Object-or-Class-Identifier,
+            b  [4]  Object-Id-Expression,
+            c  [5] IMPLICIT NULL},
+  layout-object
+    CHOICE {d                        [1] IMPLICIT Object-or-Class-Identifier,
+            to-stream-root-category  [6] IMPLICIT Category-Name,
+            to-stream-sub-category   [7] IMPLICIT Category-Name,
+            to-layout-category       [2] IMPLICIT Category-Name,
+            e                        [3] IMPLICIT Layout-Object-Type} OPTIONAL
+}
+
+Floatability-Range ::= SET {
+  forward-limit
+    [0]  SEQUENCE {logical-object
+                     CHOICE {a  [2] IMPLICIT Object-or-Class-Identifier,
+                             b  [3]  Object-Id-Expression,
+                             c  [4] IMPLICIT NULL},
+                   layout-object
+                     CHOICE {to-layout-object-class
+                               [5] IMPLICIT Object-or-Class-Identifier,
+                             to-stream-root-category
+                               [6] IMPLICIT Category-Name,
+                             to-stream-sub-category
+                               [7] IMPLICIT Category-Name,
+                             to-layout-category
+                               [8] IMPLICIT Category-Name,
+                             to-layout-object-type
+                               [9] IMPLICIT Layout-Object-Type,
+                             d                        [10] IMPLICIT NULL
+                   } OPTIONAL} OPTIONAL,
+  backward-limit
+    [1]  SEQUENCE {logical-object
+                     CHOICE {e  [2] IMPLICIT Object-or-Class-Identifier,
+                             f  [3]  Object-Id-Expression,
+                             g  [4] IMPLICIT NULL},
+                   layout-object
+                     CHOICE {to-layout-object-class
+                               [5] IMPLICIT Object-or-Class-Identifier,
+                             to-stream-root-category
+                               [6] IMPLICIT Category-Name,
+                             to-stream-sub-category
+                               [7] IMPLICIT Category-Name,
+                             to-layout-category
+                               [8] IMPLICIT Category-Name,
+                             to-layout-object-type
+                               [9] IMPLICIT Layout-Object-Type,
+                             h                        [10] IMPLICIT NULL
+                   } OPTIONAL} OPTIONAL
+}
+
+Block-Alignment ::= INTEGER {right-hand(0), left-hand(1), centred(2), null(3)}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

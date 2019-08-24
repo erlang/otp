@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>erl_internal</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1997-01-21</date>
+    <rev>B</rev>
+    <file>erl_internal.xml</file>
+  </header>
+  <module since="">erl_internal</module>
+  <modulesummary>Internal Erlang definitions.</modulesummary>
+  <description>
+    <p>This module defines Erlang BIFs, guard tests, and operators.
+      This module is only of interest to programmers who
+      manipulate Erlang code.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="add_predefined_functions" arity="1" since="OTP 20.0"/>
+      <fsummary>Add code for pre-defined functions.</fsummary>
+      <desc>
+        <p>Adds to <c><anno>Forms</anno></c> the code for the standard
+        pre-defined functions (such as <c>module_info/0</c>) that are
+        to be included in every module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="arith_op" arity="2" since=""/>
+      <fsummary>Test for an arithmetic operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is an arithmetic operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bif" arity="2" since=""/>
+      <fsummary>Test for an Erlang BIF.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c>
+          is an Erlang BIF that is automatically recognized by the compiler,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bool_op" arity="2" since=""/>
+      <fsummary>Test for a Boolean operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a Boolean operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="comp_op" arity="2" since=""/>
+      <fsummary>Test for a comparison operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a comparison operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="guard_bif" arity="2" since=""/>
+      <fsummary>Test for an Erlang BIF allowed in guards.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is
+          an Erlang BIF that is allowed in guards, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="list_op" arity="2" since=""/>
+      <fsummary>Test for a list operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a list operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="op_type" arity="2" since=""/>
+      <fsummary>Return operator type.</fsummary>
+      <desc>
+        <p>Returns the <c><anno>Type</anno></c> of operator that
+          <c><anno>OpName</anno>/<anno>Arity</anno></c> belongs to,
+          or generates a <c>function_clause</c> error if it is not an
+          operator.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_op" arity="2" since=""/>
+      <fsummary>Test for a send operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a send operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="type_test" arity="2" since=""/>
+      <fsummary>Test for a valid type test.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is
+          a valid Erlang type test, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

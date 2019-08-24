@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE root [ <!ELEMENT e (e*) >
+                     <!ATTLIST e  id    ID    #REQUIRED>
+    ]>
+    <root>
+        <e id="1">
+            <e id="two">
+                <e id="3"/>
+                <e id="4">
+                    <e id="the fifth"/>
+                </e>
+                <e id="6"/>
+            </e>
+        </e>
+        <e id="seven"/>
+    </root>

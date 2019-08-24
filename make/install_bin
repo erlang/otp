@@ -1,0 +1,703 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2010. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+# Author: Rickard Green
+#
+
+#
+# NOTE! This script needs to be portable since it is run on all platforms
+# (besides win32). Keep this in mind when updating it.
+#
+
+## set `INST_BIN_DEBUG=true' in environment when debugging the script to
+## avoid removing, and creating stuff etc...
+
+##
+## We do not reset these variables, since values may be passed either via
+## environment, or command line arguments.
+##
+#bindir=
+#exec_prefix=
+#erlang_bindir=
+#DESTDIR=
+#EXTRA_PREFIX=
+#BINDIR_SYMLINKS=
+#LN_S=
+tst=
+
+#
+# When this script communicates with the user it talks of the parameters
+# as they are given to configure if such exist (currently --bindir, and
+# --exec-prefix); otherwise, as the variable names used in the top
+# Makefile (which calls this script).
+#
+
+path_variables="DESTDIR EXTRA_PREFIX exec_prefix bindir erlang_bindir"
+DQ=
+
+dbg=
+test "$INST_BIN_DEBUG" != "true" || dbg=true
+
+while [ $# -gt 1 ]; do
+    case "$1" in
+	--bindir) bindir="$2";;
+	--exec-prefix) exec_prefix="$2";;
+	--erlang-bindir) erlang_bindir="$2";;
+	--destdir) DESTDIR="$2";;
+	--extra-prefix) EXTRA_PREFIX="$2";;
+	--bindir-symlinks) BINDIR_SYMLINKS="$2";;
+	--ln_s) LN_S="$2";;
+	--test-file) tst="$2";;
+	*) break;;
+    esac
+    shift
+    shift
+done
+
+
+test $# -gt 0 || {
+    echo " ERROR: Missing files to install" 1>&2
+    test "$tst" = "" || echo "{error,{arg,missing_files}}." > $tst
+    exit 1;
+}
+test "$bindir" != "" || {
+    echo " ERROR: Missing --bindir" 1>&2
+    test "$tst" = "" || echo "{error,{arg,missing_bindir}}." > $tst
+    exit 1
+}
+test "$exec_prefix" != "" || {
+    echo " ERROR: Missing --exec-prefix" 1>&2
+    test "$tst" = "" || echo "{error,{arg,missing_exec_prefix}}." > $tst
+    exit 1
+}
+test "$erlang_bindir" != "" || {
+    echo " ERROR: Missing erlang_bindir" 1>&2
+    test "$tst" = "" || echo "{error,{arg,missing_erlang_bindir}}." > $tst
+    exit 1
+}
+
+# Make sure all paths are absolute
+for dir_var in $path_variables; do
+    eval "dir_path=\"\$$dir_var\""
+
+    case "$dir_path" in
+	/*) ;;
+	"")
+	    # Empty DESTDIR or EXTRA_PREFIX which is ok
+	    case $dir_var in
+		DESTDIR|EXTRA_PREFIX) ;;
+		*)
+		    echo " ERROR: Internal error: \$$dir_var is empty" 1>&2
+		    test "$tst" = "" || echo "{error,{empty,$dir_var}}." > $tst
+		    exit 1;;
+	    esac
+	    continue;;
+	*)
+	    case $dir_var in
+		bindir) flag="--bindir=";;
+		exec_prefix) flag="--exec-prefix=";;
+		erlang_bindir) flag="erlang_bindir=";;
+		DESTDIR) flag="DESTDIR=";;
+		EXTRA_PREFIX) flag="EXTRA_PREFIX=";;
+		*) flag="";; # Need to update the script...
+	    esac
+	    cat 1>&2 <<EOF
+ ERROR: Found path to a directory which was not absolute. All paths needs to
+        be absolute.
+
+        $flag"$dir_path"
+EOF
+	    test "$tst" = "" || echo "{error,{not_abs,'$dir_var'}}." > $tst
+	    exit 1;;
+    esac
+    case "$dir_path" in
+	*[!A-Za-z0-9/=_.-]*) DQ="\"";;
+	*) ;;
+    esac
+done
+
+# We place temporary check files in the source dir and the target dir. These
+# can later be used to verify that our modifications of the paths are
+# successful.
+
+test "$dbg" = "true" || {
+    bchk_file="tmp-erlang-install-bin.$$"
+    ebchk_file="tmp-erlang-install-erl-bin.$$"
+    bchk="$DESTDIR$EXTRA_PREFIX$bindir/$bchk_file"
+    ebchk="$DESTDIR$EXTRA_PREFIX$erlang_bindir/$ebchk_file"
+    chk_txt="Temporary Erlang/OTP install file."
+    chk_err=no
+
+    # Make sure we haven't got any old ones...
+    rm -f "$bchk" "$ebchk"
+
+    { { echo "$chk_txt" > "$ebchk"; } 2>/dev/null && test -r "$ebchk"; } || {
+	cat 1>&2 <<EOF
+  ERROR: Cannot create files in 'erlang_bindir'.
+
+EOF
+	chk_err=no_create_erlang_bindir
+    }
+
+    { { echo "$chk_txt" > "$bchk"; } 2>/dev/null && test -r "$bchk"; } || {
+	cat 1>&2 <<EOF
+ ERROR: Cannot create files in '--bindir'.
+
+EOF
+	chk_err=no_create_bindir
+    }
+
+
+    { test $chk_err != no ||
+	test ! -f "$DESTDIR$EXTRA_PREFIX$bindir/$ebchk_file"; } || {
+	# Refuse to install in the same directory as the source...
+	cat 1>&2 <<EOF
+ ERROR: '--bindir' and 'erlang_bindir' both points to the same directory. This
+        can be due to symbolic directory links.
+
+EOF
+	chk_err=target_and_source_same_dir
+    }
+
+    test $chk_err = no || {
+	cat 1>&2 <<EOF
+         --bindir="$bindir"
+         erlang_bindir="$erlang_bindir"
+         EXTRA_PREFIX="$EXTRA_PREFIX"
+         DESTDIR="$DESTDIR"
+
+         Note that all absolute directory paths are prefixed by
+         \$DESTDIR\$EXTRA_PREFIX when accessed.
+EOF
+	rm -f "$bchk" "$ebchk"
+	test "$tst" = "" || echo "{error,$chk_err}." > $tst
+	exit 1
+    }
+}
+
+dirty=no
+
+# Make all paths look good (remove all `.' dirs, `//', and trailing `/').
+for dir_var in $path_variables; do
+    eval "dir_path=\"\$$dir_var\""
+    test "$dir_path" != "" || continue
+
+    ndp=
+    save_IFS=$IFS
+    IFS=/
+    for dir in $dir_path; do
+	case "$dir" in
+	    "" | ".") continue;;
+	    "..")
+		case $dir_var in
+		    bindir|erlang_bindir|exec_prefix) dirty=yes;;
+		    *) ;;
+		esac;;
+	    *) ;;
+	esac
+	ndp="$ndp/$dir"
+    done
+    IFS=$save_IFS
+    test "$ndp" != "" || ndp="/"
+    eval "$dir_var=\"$ndp\""
+done
+
+iprfx="$DESTDIR$EXTRA_PREFIX"
+
+# Make sure we didn't mess up
+{   $dbg test -f "$iprfx$bindir/$bchk_file" &&
+    $dbg test -f "$iprfx$erlang_bindir/$ebchk_file"; } || {
+    cat 1>&2 <<EOF
+ ERROR: Internal error: Unsuccessfully trimmed the paths
+
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+EOF
+    $dbg rm -f "$bchk" "$ebchk"
+    test "$tst" = "" || echo "{error,bad_trim}." > $tst
+    exit 1
+}
+
+# Now all paths look good...
+
+
+# $ln_s should be either 'ln -s', 'ln', or 'cp -p'. We don't want to
+# maks hard links, so make sure we got 'ln -s'; otherwise, use 'cp -p'
+
+# This is the fallback if we haven't got 'ln -s'
+ln_s="cp -p"
+type=copy
+paths=absolute
+abspath_reason=no_ln_s
+src_dir="$iprfx$erlang_bindir"
+
+case "X${LN_S}X" in
+    Xln[\ \	]*X|X*[\ \	]ln[\ \	]*X)
+	# Got `ln'; check that we also got `-s' flag
+	case "X${LN_S}X" in
+	    X*[\ \	]-sX|X*[\ \	]-s[\ \	]*X)
+		# Ok; seems like we got `ln -s'
+		ln_s="ln -s"
+		type=link
+		paths="$BINDIR_SYMLINKS"
+		test "$BINDIR_SYMLINKS" = "absolute" && abspath_reason=request
+		# $DESTDIR should *not* be part of src_dir when linking
+		src_dir="$EXTRA_PREFIX$erlang_bindir"
+		;;
+	    *) ;;
+	esac;;
+	*) ;;
+esac
+
+case "$paths" in
+    absolute|relative) ;;
+    *) paths=undetermined;;
+esac
+
+# Determine if we should use absolute or relative paths for links
+test $paths != absolute && {
+    # If $paths is undetermined, use absolute paths unless both $bindir
+    # and $erlang_bindir are prefixed by $exec_prefix (which is the normal
+    # case)
+    test $paths = relative || paths=absolute
+    abspath_reason=not_prefix
+    resolved_bindir="$bindir"
+    resolved_erlang_bindir="$erlang_bindir"
+    resolved_exec_prefix="$exec_prefix"
+    case "$bindir" in
+	"$exec_prefix"*)
+	    case "$erlang_bindir" in
+		"$exec_prefix"*) paths=relative;;
+		*) ;;
+	    esac;;
+	*);;
+    esac
+    # Now paths=absolute|relative
+
+    # If we got dirty paths (contains ..) and are going for relative links,
+    # we need to resolve the paths
+    test $dirty-$paths = yes-relative && {
+	# Need to resolve $bindir and $erlang_bindir paths
+	for dir_var in bindir erlang_bindir exec_prefix; do
+	    eval "dir_path=\"\$$dir_var\""
+
+	    ndp="/"
+	    save_IFS=$IFS
+	    IFS=/
+	    for dir in $dir_path; do
+		case "$dir" in
+		    "") ;;
+		    "..")
+			test "$ndp" != "/" || {
+			    IFS=$save_IFS
+			    paths=absolute
+			    abspath_reason=unreasonable_path
+			    break 2
+			}
+			ndp=`dirname "$ndp" 2>/dev/null` || {
+			    IFS=$save_IFS
+			    paths=absolute
+			    abspath_reason=dirname_failed
+			    break 2
+			};;
+		    *)
+			if test "$ndp" = "/"; then
+			    ndp="/$dir"
+			else
+			    ndp="$ndp/$dir"
+			fi;;
+		    esac
+	    done
+	    IFS=$save_IFS
+	    test "$ndp" != "" || ndp="/"
+	    eval "resolved_$dir_var=\"$ndp\""
+	done
+    }
+
+    # If we still are going for relative and relative symbolic links have
+    # not been explicitly requested check that the resolved paths still
+    # are prefixed by exec_prefix
+    test $paths = relative && test "$BINDIR_SYMLINKS" != "relative" && {
+	paths=absolute
+	abspath_reason=not_prefix
+	case "$resolved_bindir" in
+	    "$resolved_exec_prefix"*)
+		case "$resolved_erlang_bindir" in
+		    "$resolved_exec_prefix"*)
+			paths=relative;;
+		    *) ;;
+		esac;;
+	    *) ;;
+	esac
+    }
+
+    # If we still are going for relative check that resolved paths are
+    # reachable (might not be if the directory structure contains symbolic
+    # directory links).
+    test $paths = relative && {
+	($dbg test -r "$iprfx$resolved_bindir/$bchk_file" &&
+	    $dbg test -r "$iprfx$resolved_erlang_bindir/$ebchk_file" &&
+	    $dbg cd "$iprfx$resolved_bindir" &&
+	    $dbg test -r "./$bchk_file" &&
+	    $dbg cd "$iprfx$resolved_erlang_bindir" &&
+	    $dbg test -r "./$ebchk_file") || {
+	    paths=absolute
+	    abspath_reason=unreachable_absolute
+	}
+    }
+
+
+    # If we still are going for relative, calculate the relative path from
+    # $resolved_bindir to $resolved_erlang_bindir and verify that we
+    # can reach $erlang_bindir from $bindir via calculated relative path
+    test $paths = relative && {
+	relpath=
+	common=
+
+	save_IFS=$IFS
+	IFS=/
+
+	build=false
+	for dir in $resolved_erlang_bindir; do
+	    test "$dir" != "" || continue
+	    test $build = false || { relpath="$relpath/$dir"; continue; }
+	    cand="${common}/$dir"
+	    case "$resolved_bindir" in
+		"$cand"*) common="$cand";;
+		*) relpath="$dir"; build=true;;
+	    esac
+	done
+
+	check=
+	build=false
+	test "$common" != "" || build=true
+
+	for dir in $resolved_bindir; do
+	    test "$dir" != "" || continue
+	    test $build = true || {
+		check="${check}/$dir"
+		test "$check" != "$common" || build=true
+		continue
+	    }
+	    if test "$relpath" = ""; then
+		relpath=".."
+	    else
+		relpath="../$relpath"
+	    fi
+	done
+
+	IFS=$save_IFS
+
+	test "$relpath" != "" || {
+	    cat 1>&2 <<EOF
+ ERROR: Internal error: Computed relative path: .
+
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+        BINDIR_SYMLINKS="$BINDIR_SYMLINKS"
+EOF
+	    $dbg rm -f "$bchk" "$ebchk"
+	    test "$tst" = "" || echo "{error,empty_relpath}." > $tst
+	    exit 1
+	}
+
+	# Verify that it works otherwise go for absolute links
+	if ($dbg cd "$iprfx$bindir" 2>/dev/null && \
+	    $dbg test -r "$relpath/$ebchk_file"); then
+	    src_dir="$relpath"
+	else
+	    abspath_reason=unreachable_relative
+	    paths=absolute
+	fi
+    }
+}
+
+# Don't need the temporary check files anymore
+$dbg rm -f "$bchk" "$ebchk"
+
+# If we reverted to absolute paths we may have to abort or notify the user
+# about this...
+case "$paths-$BINDIR_SYMLINKS" in
+    absolute-absolute)  # User requested absolute and got it
+	case "$abspath_reason" in
+	    no_ln_s)
+		cat <<EOF
+ ERROR: Cannot install absolute symbolic links in the '--bindir' directory,
+        since 'ln -s' does not work. If you want to install using 'cp -p'
+        invoke 'make install' without setting BINDIR_SYMLINKS.
+
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+        BINDIR_SYMLINKS="$BINDIR_SYMLINKS"
+
+        Note that all absolute directory paths are prefixed by
+        \$DESTDIR\$EXTRA_PREFIX when accessed.
+EOF
+		test "$tst" = "" || echo "{error,$abspath_reason}." > $tst
+		exit 1;; # Abort...
+	    *)
+		;;
+	esac;;
+
+    absolute-relative)  # User forced relative symbolic links, but we need
+			# to revert to absolute symbolic links. Print error
+			# message and abort.
+
+	case "$abspath_reason" in
+	    no_ln_s)
+		cat 1>&2 <<EOF
+ ERROR: Cannot install relative symbolic links in the '--bindir' directory,
+        since 'ln -s' does not work. If you want to install using 'cp -p' do
+        not set BINDIR_SYMLINKS, and invoke 'make install' again.
+
+EOF
+		;;
+	    not_prefix)
+		cat 1>&2 <<EOF
+ ERROR: Internal error: Should not have reverted to absolute paths just
+        because '--exec-prefix' was not a prefix of '--bindir' and/or
+        'erlang_bindir' since relative symbolic links were forced.
+
+EOF
+		;;
+	    unreasonable_path)
+		cat 1>&2 <<EOF
+ ERROR: Refusing to install relative symbolic links, since the relative path
+        potentially could go via \$DESTDIR\$EXTRA_PREFIX/. Make your install
+        paths a bit more reasonable (preferably) or, do not invoke
+        'make install' with 'BINDIR_SYMLINKS=relative'.
+
+EOF
+		;;
+	    unreachable_absolute)
+		cat 1>&2 <<EOF
+ ERROR: Could not find '--bindir' and/or 'erlang_bindir' after resolving paths.
+        The directory structure probably consists of symbolic directory links.
+        Refusing to install obviously incorrect relative symbolic links. In
+        order to install absolute symbolic links, invoke 'make install' without
+        'BINDIR_SYMLINKS=relative'.
+
+EOF
+		;;
+	    unreachable_relative)
+		cat 1>&2 <<EOF
+ ERROR: Could not find 'erlang_bindir' from '--bindir' via computed relative
+        path. This probably due to symbolic directory links. Refusing to install
+        obviously incorrect relative symbolic links. In order to install
+        absolute symbolic links, invoke 'make install' without
+        'BINDIR_SYMLINKS=relative'.
+
+        Computed relative path="$relpath"
+EOF
+		;;
+	    dirname_failed)
+		cat 1>&2 <<EOF
+ ERROR: Cannot install relative symbolic links since the 'dirname' command
+        failed while computing the relative path. The 'dirname' command is only
+        needed when '--bindir', 'erlang_bindir', and/or '--exec-prefix' contain
+        relative parts, i.e., '..' parts. If you modify your install paths, it
+        may be possible to install relative symbolic links. In order to install
+        absolute symbolic links, invoke 'make install' without
+        'BINDIR_SYMLINKS=relative'.
+
+EOF
+		;;
+	    *)
+		cat 1>&2 <<EOF
+ ERROR: Refusing to install relative symbolic links. The error description for
+        \"$abspath_reason\" is however missing.
+
+EOF
+		;;
+	esac
+	cat 1>&2 <<EOF
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+        BINDIR_SYMLINKS="$BINDIR_SYMLINKS"
+
+        Note that all absolute directory paths are prefixed by
+        \$DESTDIR\$EXTRA_PREFIX when accessed.
+EOF
+	test "$tst" = "" || echo "{error,$abspath_reason}." > $tst
+	exit 1;; # Abort...
+
+    absolute-*)  # Notify the user that we reverted to absolute symbolic links
+	cat <<EOF
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+EOF
+	case "$abspath_reason" in
+	    no_ln_s)
+		cat <<EOF
+  NOTE: Cannot install symbolic links in the '--bindir' directory, since
+        'ln -s' does not work. Will create copies using 'cp -p' instead.
+
+EOF
+		;;
+	    not_prefix)
+		cat <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory to the
+        'erlang_bindir' directory instead of relative ones. This since at least
+        one of these directories is not prefixed by '--exec-prefix'. It is
+        possible to force relative symbolic links if you want that by invoking
+        the install as 'make BINDIR_SYMLINKS=relative install'.
+
+EOF
+		;;
+
+	    unreasonable_path)
+		cat <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory to the
+        'erlang_bindir' directory instead of relative ones. This since it
+        potentially would pass outside of '\$DESTDIR\$EXTRA_PREFIX/'.
+
+EOF
+		;;
+	    unreachable_absolute)
+		cat <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory to the
+        'erlang_bindir' instead of relative ones. This since at least one of
+        these directory could not be found after resolving paths. This is
+        probably due to symbolic directory links.
+
+EOF
+		;;
+	    unreachable_relative)
+		cat <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory to the
+        'erlang_bindir' directory instead of relative ones. This since the
+        'erlang_bindir' directory could not be found from the '--bindir'
+        directory using the computed relative path. This is probably due
+        to symbolic directory links.
+
+        Computed relative path="$relpath"
+EOF
+		;;
+	    dirname_failed)
+		cat 1>&2 <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory to the
+        'erlang_bindir' directory instead of relative ones. This since the
+        'dirname' command failed while computing the relative path. The
+        'dirname' command is only needed when '--bindir', 'erlang_bindir',
+        and/or '--exec-prefix' contain relative parts, i.e., '..' parts. If
+        you modify your install paths, it may be possible to install relative
+        symbolic links.
+
+EOF
+		;;
+	    *)
+		cat 1>&2 <<EOF
+  NOTE: Installing absolute symbolic links in the '--bindir' directory
+        to the 'erlang_bindir' instead of relative ones. The notification
+        description for "$abspath_reason" is however missing.
+
+EOF
+		;;
+	esac
+
+	cat <<EOF
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+        BINDIR_SYMLINKS="$BINDIR_SYMLINKS"
+
+        Note that all absolute directory paths are prefixed by
+        \$DESTDIR\$EXTRA_PREFIX when accessed.
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+EOF
+	;;
+
+    *) # relative links
+	;;
+esac
+
+# Now paths=absolute|relative and src_dir is correct (relative bindir)
+
+# cd into "$iprfx$bindir" and do it from there...
+echo cd "$DQ$iprfx$bindir$DQ"
+$dbg cd    "$iprfx$bindir" || {
+    test "$tst" = "" || echo "{error,cd_bin_failed}." > $tst
+    exit 1
+}
+
+# Verify that the source files actually exist (done in a separate pass
+# before we modify anything, so we leave it untouched if it should fail).
+# Note that we will not find them under $src_dir if we use absolute symbolic
+# links and $DESTDIR != "". In this case (actually all cases) they can then
+# be found under $iprfx$erlang_bindir
+test_src_dir="$src_dir"
+test "$paths-$type" != "absolute-link" || test_src_dir="$iprfx$erlang_bindir"
+
+for file in "$@"; do
+    test "$file" != "" || continue
+    src_file="$test_src_dir/$file"
+    $dbg test -f "$src_file" || {
+	cat 1>&2 <<EOF
+ ERROR: Missing source file: $src_file
+
+        --bindir="$bindir"
+        erlang_bindir="$erlang_bindir"
+        --exec-prefix="$exec_prefix"
+        EXTRA_PREFIX="$EXTRA_PREFIX"
+        DESTDIR="$DESTDIR"
+        BINDIR_SYMLINKS="$BINDIR_SYMLINKS"
+
+        Note that all absolute directory paths are prefixed by
+        \$DESTDIR\$EXTRA_PREFIX when accessed.
+EOF
+	test "$tst" = "" || echo "{error,{no_srcfile,\"$src_file\"}}." > $tst
+	exit 1
+    }
+done
+
+# Remove after possible old install (done in a separate pass since I think
+# the output looks nicer than if mixed). Note that we cannot test for existance
+# in a portable way, so force remove.
+for file in "$@"; do
+    test "$file" != "" || continue
+    echo rm -f "$file"
+    $dbg rm -f "$file"
+done
+
+# do it
+for file in "$@"; do
+    echo $ln_s "$DQ$src_dir/$file$DQ" "$file"
+    $dbg $ln_s    "$src_dir/$file"    "$file" || {
+	test "$tst" = "" || echo "{error,{$type,\"$file\",failed}}." > $tst
+	exit 1
+    }
+done
+
+test "$tst" = "" || echo "{ok,{$paths,\"$iprfx$bindir\",\"$src_dir\"}}." > $tst
+
+exit 0 # Done

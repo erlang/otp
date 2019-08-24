@@ -1,0 +1,966 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Megaco Release Notes</title>
+    <prepared>Lars Thors&eacute;n, H&aring;kan Mattsson, Micael Karlberg</prepared>
+    <docno></docno>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Megaco system
+  from version to version. The intention of this document is to
+  list all incompatibilities as well as all enhancements and
+  bugfixes for every release of Megaco. Each release of Megaco
+  thus constitutes one section in this document. The title of each
+  section is the version number of Megaco.</p>
+
+
+  <section><title>Megaco 3.18.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates to build system necessary due to move of
+	    configuration of <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+        <item>
+          <p>
+	    Minor adjustments made to build system for parallel
+	    configure.</p>
+          <p>
+	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Typos have been fixed.</p>
+          <p>
+	    Own Id: OTP-14387</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The runtime dependencies in the application resource
+	    file have been updated. </p>
+          <p>
+	    Own Id: OTP-12762</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The default encoding of Erlang files has been changed
+	    from ISO-8859-1 to UTF-8. </p> <p> The encoding of XML
+	    files has also been changed to UTF-8. </p>
+          <p>
+	    Own Id: OTP-10907</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.0.3</title>
+
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>Updated doc files to utf8.</p>
+	<p>Own Id: OTP-10907</p>
+      </item>
+    </list>
+    </section>
+
+  </section>
+
+  <section><title>Megaco 3.17.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>
+	  Introduced functionality for inspection of system and
+	build configuration.</p>
+	<p>
+	Own Id: OTP-11196</p>
+      </item>
+    </list>
+    </section>
+
+  </section>
+
+  <section><title>Megaco 3.17.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17</title>
+
+    <p>Version 3.17 supports code replacement in runtime from/to
+      version 3.16.0.3 and and 3.16.0.2. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Allow whitespaces in installation path. </p>
+          <p>It is now possible to give configure and make an
+	  installation/release path with whitespaces in it. </p>
+          <p>Own Id: OTP-10107</p>
+        </item>
+
+     </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+ <!--
+      <p>-</p>
+ -->
+
+      <list type="bulleted">
+	<item>
+          <p>Buffer overrun error while flex scanner processing
+	  property parm groups. </p>
+          <p>This error occured only for large messages if a
+	  buffer realloc was needed while processing the
+	  property parm groups. </p>
+          <p>Own Id: OTP-10998</p>
+          <p>Aux Id: Seq 12263</p>
+	</item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+	  <p>A number of binary encoding alternatives has been removed.
+	  The binary encoding option <c>driver</c> has been removed
+	  since this (the use of the asn1 linked in driver) is
+	  now default and there is now way to <em>not</em> use it.
+	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.17 -->
+
+
+  <section><title>Megaco 3.16.0.3</title>
+
+    <p>Version 3.16.0.2 supports code replacement in runtime from/to
+      version 3.16.0.1, 3.16, 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+	  <p>Where necessary, a comment stating encoding has been
+	  added to Erlang files. The comment is meant to be removed
+	  in Erlang/OTP R17B when UTF-8 becomes the default encoding. </p>
+	  <p>Own Id: OTP-10630</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+      <p>-</p>
+
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+
+      </list>
+ -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+	  <p>A number of binary encoding alternatives has been removed.
+	  The binary encoding option <c>driver</c> has been removed
+	  since this (the use of the asn1 linked in driver) is
+	  now default and there is now way to <em>not</em> use it.
+	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.16.0.3 -->
+
+
+  <section><title>Megaco 3.16.0.2</title>
+
+    <p>Version 3.16.0.2 supports code replacement in runtime from/to
+      version 3.16.0.1, 3.16, 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Allow whitespaces in installation path. </p>
+          <p>It is now possible to give configure and make an
+	  installation/release path with whitespaces in it. </p>
+          <p>Own Id: OTP-10107</p>
+        </item>
+
+        <item>
+          <p>Fix parallel make for behaviours. </p>
+        </item>
+
+        <item>
+          <p>Removed use of deprecated system flag,
+	  <c>global_haeps_size</c>, in the measurement tool
+	  <c>mstone1</c>. </p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+      <p>-</p>
+
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+
+      </list>
+ -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
+	  the flex driver without reentrant support. </p>
+          <p>Own Id: OTP-9795</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.16.0.2 -->
+
+
+  <section><title>Megaco 3.16.0.1</title>
+
+    <p>Version 3.16.0.1 supports code replacement in runtime from/to
+      version 3.16, 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+	  <p>Fixed some faulty test cases. </p>
+<!--
+          <p>Own Id: OTP-9795</p>
+-->
+        </item>
+
+        <item>
+          <p>Removed use of deprecated system flag,
+	  <c>scheduler_bind_type</c>, in the measurement tool
+	  <c>mstone1</c>. </p>
+          <p>Own Id: OTP-9949</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+      <p>-</p>
+
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+
+      </list>
+ -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
+	  the flex driver without reentrant support. </p>
+          <p>Own Id: OTP-9795</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.16.0.1 -->
+
+
+  <section><title>Megaco 3.16</title>
+
+    <p>Version 3.16 supports code replacement in runtime from/to
+      version 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Minor improvements to the measurement tool <c>mstone1</c>. </p>
+          <p>Own Id: OTP-9604</p>
+        </item>
+
+        <item>
+	  <p>ASN.1 no longer makes use of a driver to accelerate encode/decode,
+	  instead it uses NIFs. The encoding config option is <em>still</em>
+	  the same, i.e. <c>driver</c>. </p>
+          <p>Own Id: OTP-9672</p>
+        </item>
+
+        <item>
+	  <p>The profiling test tool has been rewritten. </p>
+	  <p>H&aring;kan Mattsson</p>
+          <p>Own Id: OTP-9679</p>
+        </item>
+
+        <item>
+	  <p>The flex driver has been updated to support the new driver format
+	  (changed to enable 64-bit aware drivers). </p>
+          <p>Own Id: OTP-9795</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+      <p>-</p>
+
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+
+      </list>
+ -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
+	  the flex driver without reentrant support. </p>
+          <p>Own Id: OTP-9795</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.16 -->
+
+
+  <section><title>Megaco 3.15.1.1</title>
+
+    <p>Version 3.15.1.1 supports code replacement in runtime from/to
+      version 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Correct various XML errors. </p>
+          <p>Own Id: OTP-9550</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+      <p>-</p>
+
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+
+      </list>
+ -->
+
+    </section>
+
+  </section> <!-- 3.15.1.1 -->
+
+
+  <section><title>Megaco 3.15.1</title>
+
+    <p>Version 3.15.1 supports code replacement in runtime from/to
+      version 3.15, 3.14.1.1, 3.14.1 and 3.14.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Updated the
+            <seealso marker="megaco_performance">performance</seealso>
+            chapter. </p>
+          <p>Own Id: OTP-8696</p>
+        </item>
+
+     </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Fixing miscellaneous things detected by dialyzer. </p>
+          <p>Own Id: OTP-9075</p>
+	  <!-- <p>Aux Id: Seq 11579</p> -->
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.15.1 -->
+
+
+  <section><title>Megaco 3.15</title>
+
+    <section><title>Improvements and New Features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Fixing auto-import issues.</p>
+          <p>Own Id: OTP-8842</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Eliminated a possible race condition while creating
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.15 -->
+
+
+  <section>
+    <title>Megaco 3.14.1.1</title>
+
+    <p>Version 3.14.1.1 supports code replacement in runtime from/to
+      version 3.14.1, 3.14, 3.13, 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Updated the
+            <seealso marker="megaco_performance">performance</seealso>
+            chapter. </p>
+          <p>Own Id: OTP-8696</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>A race condition when, during high load, processing
+            both the original and a resent message and delivering
+            this as two separate messages to the user. </p>
+          <p>Note that this solution only protects against multiple
+            reply deliveries! </p>
+          <p>Own Id: OTP-8529</p>
+          <p>Aux Id: Seq 10915</p>
+        </item>
+
+        <item>
+          <p>Fix shared libraries installation. </p>
+          <p>The flex shared lib(s) were incorrectly installed as data
+            files. </p>
+          <p>Peter Lemenkov</p>
+          <p>Own Id: OTP-8627</p>
+        </item>
+
+        <item>
+          <p>Eliminated a possible race condition while creating
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.14.1.1 -->
+
+
+  <section>
+    <title>Megaco 3.14.1</title>
+
+    <p>Version 3.14.1 supports code replacement in runtime from/to
+      version 3.14, 3.13, 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A minor compiler related performance improvement. </p>
+          <p>Own Id: OTP-8561</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A race condition when, during high load, processing
+            both the original and a resent message and delivering
+            this as two separate messages to the user. </p>
+          <p>Note that this solution only protects against multiple
+            reply deliveries! </p>
+          <p>Own Id: OTP-8529</p>
+          <p>Aux Id: Seq 10915</p>
+        </item>
+
+        <item>
+          <p>Fix shared libraries installation. </p>
+          <p>The flex shared lib(s) were incorrectly installed as data
+            files. </p>
+          <p>Peter Lemenkov</p>
+          <p>Own Id: OTP-8627</p>
+        </item>
+
+        <item>
+          <p>Eliminated a possible race condition while creating
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.14.1 -->
+
+
+  <section>
+    <title>Megaco 3.14</title>
+
+    <p>Version 3.14 supports code replacement in runtime from/to
+      version 3.13, 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Various changes to configure and makefile(s) to facilitate cross
+            compilation (and other build system improvements). </p>
+          <p>Own Id: OTP-8323</p>
+        </item>
+
+        <item>
+          <p>Added a help target in the test Makefile to explain
+            the most useful make targets, used when testing the
+            application using the test-server provided with megaco.</p>
+          <p>Own Id: OTP-8362</p>
+        </item>
+
+        <item>
+          <p>Adapted megaco_filter to the new internal format.</p>
+          <p>Own Id: OTP-8403</p>
+        </item>
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Callbacks, when the callback module is unknown (undefined),
+            results in warning messages. </p>
+          <p>A race condition scenario. As part of a cancelation operation,
+            replies with waiting acknowledgements is cancelled. This includes
+            informing the user (via a call to the handle_trans_ack callback
+            function). It is possible that at this point the connection data
+            has been removed, which makes it impossible for megaco to
+            perform this operation, resulting in the warning message. The
+            solution is to also store the callback module with the other
+            reply information, to be used when cleaning up after a
+            cancelation. </p>
+          <p>Own Id: OTP-8328</p>
+	  <p>Aux Id: Seq 11384</p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.14 -->
+
+
+  <section>
+    <title>Megaco 3.13</title>
+
+    <p>Version 3.13 supports code replacement in runtime from/to
+      version 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A minor optimization by using ets:update_element
+            instead of ets:insert for some table updates.</p>
+          <p>Own Id: OTP-8239</p>
+	  <!-- <p>Aux Id: Seq 11332</p> -->
+        </item>
+
+        <item>
+          <p>The documentation is now built with open source tools
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most
+            platforms. One visible change is that the frames are removed.</p>
+          <p>Own Id: OTP-8249</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Replacing obsolete guard tests.</p>
+          <p>Own Id: OTP-8164</p>
+	  <p>Aux Id: Seq 11332</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.13 -->
+
+</chapter>

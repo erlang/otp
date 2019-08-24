@@ -1,0 +1,656 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>EUnit Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the EUnit application.</p>
+
+<section><title>Eunit 2.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The surefire reports from <c>eunit</c> will no longer
+	    have names with embedded double quotes.</p>
+          <p>
+	    Own Id: OTP-14287</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The address to the FSF in the license header has been
+	    updated.</p>
+          <p>
+	    Own Id: OTP-14084</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When asserts were moved out to a separate header file,
+	    the automatic enabling of asserts when testing is enabled
+	    stopped working.</p>
+          <p>
+	    Own Id: OTP-13892</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new <c>debugVal/2</c> that gives control
+	    over the truncation depth.</p>
+          <p>
+	    Own Id: OTP-13612</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Suppress Dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-12862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve success message when 2 tests have passed</p>
+          <p>
+	    Own Id: OTP-12952</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>eunit</c> application is now unicode safe.</p>
+          <p>
+	    Own Id: OTP-11660</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor refactoring.</p>
+          <p>
+	    Own Id: OTP-12051</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix I/O-protocol error handling in eunit. Thanks to Yuki
+	    Ito.</p>
+          <p>
+	    Own Id: OTP-11373</p>
+        </item>
+        <item>
+          <p>
+	    Do not attempt to detect lists of printable characters in
+	    format. Thanks to Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11467</p>
+        </item>
+        <item>
+          <p>
+	    Fix silent make rule (Thanks to Anthony Ramine )</p>
+          <p>
+	    Own Id: OTP-11516</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Wrap eunit macros into begin ... end blocks. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    New option 'no_tty' to silent the default tty report.</p>
+          <p>
+	    Recognize the new stacktrace format introduced in R15,
+	    adding location information. (Thanks to Klas Johansson.)</p>
+          <p>
+	    Improve layout of error messages, printing the stack
+	    trace before the error term.</p>
+          <p>
+	    Heuristically detect and report bad return values from
+	    generators and instantiators. E.g., "ok" will not be
+	    interpreted as a module name, and a warning will be
+	    printed.</p>
+          <p>
+	    New test representation {test,M,F} for completeness along
+	    with {generator,M,F}. Tuples {M,F} are deprecated.</p>
+          <p>
+	    Use UTF-8 as encoding in Surefire output files. (Thanks
+	    to Lukas Larsson.)</p>
+          <p>
+	    Own Id: OTP-10173</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Generate separate surefire XMLs for each test suite</p>
+          <p>
+	    Previously the test cases of all test suites (=modules)
+	    were put in one and the same surefire report XML thereby
+	    breaking the principle of least astonishment and making
+	    post analysis harder. Assume the following layout:</p>
+          <p>
+	    src/x.erl src/y.erl test/x_tests.erl test/y_tests.erl</p>
+          <p>
+	    The results for both x_tests and y_tests were written to
+	    only one report grouped under either module x or y
+	    (seemingly randomly).</p>
+          <p>
+	    Now two reports, one for module x and one for y are
+	    generated. (Thanks to Klas Johansson)</p>
+          <p>
+	    Own Id: OTP-9465</p>
+        </item>
+        <item>
+          <p>
+	    Updated to EUnit version 2.2.0</p>
+          <p>
+	    New macros assertNotMatch(Guard, Expr),
+	    assertNotEqual(Unexpected, Expr), and
+	    assertNotException(Class, Term, Expr). </p>
+          <p>
+	    The debugMsg macro now also prints the pid of the current
+	    process.</p>
+          <p>
+	    When testing all modules in a directory, tests in
+	    Module_tests.erl are no longer executed twice.</p>
+          <p>
+	    The use of regexp internally has been replaced with re.
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9505</p>
+        </item>
+        <item>
+          <p>
+	    Removed some never-matching clauses reported by dialyzer
+	    Updated author e-mails and homepages Removed cvs keywords
+	    from files Removed files that should not be checked in
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9591</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increase depth of error messages in Eunit Surefire
+	    reports</p>
+          <p>
+	    Currently, error messages in Eunit Surefire reports are
+	    shortened just like when written to a terminal. However,
+	    the space limitations that constrain terminal output do
+	    not apply here, so it's more useful to include more of
+	    the error message. The new depth of 100 should be enough
+	    for most cases, while protecting against runaway errors.
+	    (Thanks to Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9220</p>
+        </item>
+        <item>
+          <p>
+	    Don't let eunit_surefire report back to eunit when
+	    stopping</p>
+          <p>
+	    When eunit is terminating, a stop message is sent to all
+	    listeners and eunit then waits for *one* result message
+	    but previously both eunit_tty and eunit_surefire sent a
+	    response on error. Don't send a result message from
+	    eunit_surefire; let eunit_tty take care of all result
+	    reporting, both positive and negative to avoid race
+	    conditions and inconsistencies. (Thanks to Klas
+	    Johansson)</p>
+          <p>
+	    Own Id: OTP-9269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-8190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-8038</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    eunit was broken in R13B.</p>
+          <p>
+	    Own Id: OTP-8018</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Mostly internal changes, in particular to the event
+	    protocol; fixes problems with timeouts that could cause
+	    eunit to hang, and makes it much easier to write new
+	    reporting back-ends.</p>
+	    <p>New "surefire" report backend for Maven and
+	    Bamboo.</p>
+	    <p>The test representation is no longer traversed twice
+	    (the first pass was for enumeration only). This
+	    eliminates some strange restrictions on how generators
+	    can be written, but it also means that reports cannot be
+	    quite as complete as before in the event of skipped
+	    tests.</p>
+          <p>
+	    Own Id: OTP-7964</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+  <section>
+    <title>EUnit 2.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Corrected the documentation build.
+          </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+
+  <section>
+    <title>EUnit 2.0</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            This is the first version of EUnit (for unit testing of Erlang modules) by Richard Carlsson 
+            released in OTP.
+          </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

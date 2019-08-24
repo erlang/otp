@@ -1,0 +1,56 @@
+InfClass DEFINITIONS  ::=
+BEGIN
+
+IMPORTS
+    ERROR
+FROM ErrorClass;
+
+FUNCTION ::= CLASS {
+    &ArgumentType,
+    &ResultType   DEFAULT NULL,
+    &error       ERROR OPTIONAL,
+    &code         INTEGER UNIQUE
+    }
+
+OTHER-FUNCTION ::= CLASS {
+    &code                 INTEGER UNIQUE,
+    &Alphabet             DEFAULT NULL,
+    &ArgumentType,
+    &SupportedArguments   &ArgumentType OPTIONAL,
+    &ResultType           DEFAULT NULL,
+    &result-if-error      &ResultType DEFAULT NULL,
+    &associated-function  OTHER-FUNCTION OPTIONAL,
+    &NumberSet            INTEGER,
+    &ObjectSet            OTHER-FUNCTION
+    }
+
+ObjSet1 FUNCTION ::= { ... }
+
+val1 FUNCTION ::= {
+    &ArgumentType  INTEGER,
+    &ResultType    INTEGER,
+    &code          3
+    }
+
+val2 FUNCTION ::= {
+    &ArgumentType  INTEGER,
+    &ResultType    INTEGER,
+    &code          2
+    }
+
+int1 INTEGER ::= 3
+
+ObjSet2 FUNCTION ::= {
+    val1 | val2 }
+
+
+-- added for OTP-4591
+
+Seq ::= SEQUENCE {
+  arg  FUNCTION.&ArgumentType ({ObjSet2}{@val1}),
+  res  FUNCTION.&ResultType   ({ObjSet2}{@val1}),
+  val1 FUNCTION.&code ({ObjSet2})
+  }
+
+
+END

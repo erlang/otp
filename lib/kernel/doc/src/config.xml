@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>config</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>config</file>
+  <filesummary>Configuration file.</filesummary>
+  <description>
+    <p>A <em>configuration file</em> contains values for configuration
+      parameters for the applications in the system. The <c>erl</c>
+      command-line argument <c>-config Name</c> tells the system to use
+      data in the system configuration file <c>Name.config</c>.</p>
+    <p>Configuration parameter values in the configuration file
+      override the values in the application resource files (see
+      <seealso marker="app"><c>app(4)</c></seealso>).
+      The values in the configuration file can be
+      overridden by command-line flags (see
+      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>).</p>
+    <p>The value of a configuration parameter is retrieved by calling
+      <c>application:get_env/1,2</c>.</p>
+  </description>
+
+  <section>
+    <title>File Syntax</title>
+    <p>The configuration file is to be called <c>Name.config</c>, where
+      <c>Name</c> is any name.</p>
+    <p>File <c>.config</c> contains a single Erlang term and
+      has the following syntax:</p>
+    <code type="none">
+[{Application1, [{Par11, Val11}, ...]},
+ ...
+ {ApplicationN, [{ParN1, ValN1}, ...]}].</code>
+    <taglist>
+      <tag><c>Application = atom()</c></tag>
+      <item><p>Application name.</p></item>
+      <tag><c>Par = atom()</c></tag>
+      <item><p>Name of a configuration parameter.</p></item>
+      <tag><c>Val = term()</c></tag>
+      <item><p>Value of a configuration parameter.</p></item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>sys.config</title>
+    <p>When starting Erlang in embedded mode, it is assumed that
+      exactly one system configuration file is used, named
+      <c>sys.config</c>. This file is to be located in
+      <c>$ROOT/releases/Vsn</c>, where <c>$ROOT</c> is the Erlang/OTP
+      root installation directory and <c>Vsn</c> is the release version.</p>
+    <p>Release handling relies on this assumption. When installing a
+      new release version, the new <c>sys.config</c> is read and used
+      to update the application configurations.</p>
+    <p>This means that specifying another <c>.config</c> file, or more
+      <c>.config</c> files, leads to inconsistent update of application
+      configurations. There is, however, a syntax for
+      <c>sys.config</c> that allows pointing out other
+      <c>.config</c> files:</p>
+    <code type="none">
+[{Application, [{Par, Val}]} | File].</code>
+    <taglist>
+      <tag><c>File = string()</c></tag>
+      <item>Name of another <c>.config</c> file.
+        Extension <c>.config</c> can be omitted. It is
+        recommended to use absolute paths. If a relative path is used,
+        <c>File</c> is searched, first, relative from <c>sys.config</c> directory, then relative
+        to the current working directory of the emulator, for backward compatibility.
+        This allow to use a <c>sys.config</c> pointing out other <c>.config</c> files in a release
+        or in a node started manually using <c>-config ...</c> with same result whatever
+        the current working directory.
+        </item>
+    </taglist>
+    <p>When traversing the contents of <c>sys.config</c> and a filename
+      is encountered, its contents are read and merged with the result
+      so far. When an application configuration tuple
+      <c>{Application, Env}</c> is found, it is merged with the result
+      so far. Merging means that new parameters are added and existing
+      parameter values overwritten.</p>
+    <p><em>Example:</em></p>
+    <code type="none">
+sys.config:
+
+[{myapp,[{par1,val1},{par2,val2}]},
+ "/home/user/myconfig"].
+
+myconfig.config:
+
+[{myapp,[{par2,val3},{par3,val4}]}].</code>
+    <p>This yields the following environment for <c>myapp</c>:</p>
+    <code type="none">
+[{par1,val1},{par2,val3},{par3,val4}]</code>
+    <p>The behavior if a file specified in <c>sys.config</c> does not
+      exist, or is erroneous, is backwards compatible.
+      Starting the runtime system will fail. Installing a new release
+      version will not fail, but an error message is returned and
+      the erroneous file is ignored.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="app"><c>app(4)</c></seealso>,
+      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>,
+      <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso></p>
+  </section>
+</fileref>
+

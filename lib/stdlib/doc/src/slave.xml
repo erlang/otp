@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>slave</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">slave</module>
+  <modulesummary>Functions for starting and controlling slave nodes.
+  </modulesummary>
+  <description>
+    <p>This module provides functions for starting Erlang slave nodes.
+      All slave nodes that are started by a master terminate
+      automatically when the master terminates. All terminal output produced
+      at the slave is sent back to the master node. File I/O is
+      done through the master.</p>
+
+    <p>Slave nodes on other hosts than the current one are started with
+      the <c>ssh</c> program. The user must be allowed to <c>ssh</c> to
+      the remote hosts without being prompted for a password. This can
+      be arranged in a number of ways (for details, see the <c>ssh</c>
+      documentation). A slave node started on the same host
+      as the master inherits certain environment values from the master,
+      such as the current directory and the environment variables. For
+      what can be assumed about the environment when a slave is started
+      on another host, see the documentation for the <c>ssh</c>
+      program.</p>
+
+    <p>An alternative to the <c>ssh</c> program can be specified on
+      the command line to
+      <seealso marker="erts:erl"><c>erl(1)</c></seealso> as follows:</p>
+
+    <pre>
+-rsh Program</pre>
+
+    <p>Note that the command specified with the <c>-rsh</c> flag is
+      treated as a file name which may contain spaces. It is thus not
+      possible to include any command line options. The remote node will
+      be launched as <c>"$RSH" "$REMOTE_HOSTNAME" erl -detached -noinput
+      ...</c>, so the
+      <c>erl</c> command must be found in the path on the remote host.</p>
+
+    <p>The slave node is to use the same file system at the master. At
+      least, Erlang/OTP is to be installed in the same place on both
+      computers and the same version of Erlang is to be used.</p>
+
+    <p>A node running on Windows can only start slave
+      nodes on the host on which it is running.</p>
+
+    <p>The master node must be alive.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">pseudo([Master | ServerList]) -> ok</name>
+      <fsummary>Start a number of pseudo servers.</fsummary>
+      <type>
+        <v>Master = node()</v>
+        <v>ServerList = [atom()]</v>
+      </type>
+      <desc>
+        <p>Calls <c>pseudo(Master, ServerList)</c>. If you want to start
+          a node from the command line and set up a number of pseudo
+          servers, an Erlang runtime system can be started as follows:</p>
+        <pre>
+% erl -name abc -s slave pseudo klacke@super x --</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pseudo" arity="2" since=""/>
+      <fsummary>Start a number of pseudo servers.</fsummary>
+      <desc>
+        <p>Starts a number of pseudo servers. A pseudo server is a
+          server with a registered name that does nothing
+          but pass on all message to the real server that executes at a
+          master node. A pseudo server is an intermediary that only has
+          the same registered name as the real server.</p>
+        <p>For example, if you have started a slave node <c>N</c> and
+          want to execute <c>pxw</c> graphics code on this node, you can
+          start server <c>pxw_server</c> as a pseudo server at
+          the slave node. This is illustrated as follows:</p>
+        <code type="none">
+rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="relay" arity="1" since=""/>
+      <fsummary>Run a pseudo server.</fsummary>
+      <desc>
+        <p>Runs a pseudo server. This function never returns any value
+          and the process that executes the function receives
+          messages. All messages received are simply passed on to
+          <c><anno>Pid</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
+      <name name="start" arity="3" since=""/>
+      <fsummary>Start a slave node on a host.</fsummary>
+      <desc>
+        <p>Starts a slave node on host <c><anno>Host</anno></c>. Host names
+          need not necessarily be specified as fully qualified names; short
+          names can also be used. This is the same condition that
+          applies to names of distributed Erlang nodes.</p>
+        <p>The name of the started node becomes
+          <c><anno>Name</anno>@<anno>Host</anno></c>. If no
+          name is provided, the name becomes the same as the node that
+          executes the call (except the host name part of the node name).</p>
+        <p>The slave node resets its <c>user</c> process so that all
+          terminal I/O that is produced at the slave is automatically
+          relayed to the master. Also, the file process is relayed
+          to the master.</p>
+        <p>Argument <c><anno>Args</anno></c> is used to set <c>erl</c>
+          command-line arguments. If provided, it is passed to the new
+          node and can be used for a variety of purposes; see
+          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+        <p>As an example, suppose that you want to start a slave node at
+          host <c>H</c> with node name <c>Name@H</c> and
+          want the slave node to have the following properties:</p>
+        <list type="bulleted">
+          <item>Directory <c>Dir</c> is to be added to the code path.</item>
+          <item>The Mnesia directory is to be set to <c>M</c>.</item>
+          <item>The Unix <c>DISPLAY</c> environment variable is to be
+            set to the display of the master node.</item>
+        </list>
+        <p>The following code is executed to achieve this:</p>
+        <code type="none">
+E = " -env DISPLAY " ++ net_adm:localhost() ++ ":0 ",
+Arg = "-mnesia_dir " ++ M ++ " -pa " ++ Dir ++ E,
+slave:start(H, Name, Arg).</code>
+        <p>The function returns <c>{ok, <anno>Node</anno>}</c>, where
+          <c><anno>Node</anno></c> is the name of the new node, otherwise
+          <c>{error, <anno>Reason</anno>}</c>, where <c><anno>Reason</anno></c>
+          can be one of:</p>
+        <taglist>
+          <tag><c>timeout</c></tag>
+          <item>
+            <p>The master node failed to get in contact with the slave
+              node. This can occur in a number of circumstances:</p>
+            <list type="bulleted">
+              <item>Erlang/OTP is not installed on the remote host.</item>
+              <item>The file system on the other host has a different
+                structure to the the master.</item>
+              <item>The Erlang nodes have different cookies.</item>
+            </list>
+          </item>
+          <tag><c>no_rsh</c></tag>
+          <item>
+            <p>No remote shell program was found on the computer. Note
+            that <c>ssh</c> is used by default, but this can be overridden
+            with the <c>-rsh</c> flag.</p>
+          </item>
+          <tag><c>{already_running, <anno>Node</anno>}</c></tag>
+          <item>
+            <p>A node with name <c><anno>Name</anno>@<anno>Host</anno></c>
+              already exists.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_link" arity="1" since=""/>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
+      <fsummary>Start and link to a slave node on a host.</fsummary>
+      <desc>
+        <p>Starts a slave node in the same way as <c>start/1,2,3</c>,
+          except that the slave node is linked to the currently
+          executing process. If that process terminates, the slave node
+          also terminates.</p>
+        <p>For a description of arguments and return values, see
+          <seealso marker="#start/1"><c>start/1,2,3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="1" since=""/>
+      <fsummary>Stop (kill) a node.</fsummary>
+      <desc>
+        <p>Stops (kills) a node.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

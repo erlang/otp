@@ -1,0 +1,40 @@
+ChoExternal DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSeq1, XCho, XBool, XBoolImp, XBoolExp, XChoNT, XChoExp FROM External;
+
+
+
+ChoXCho ::= XCho
+
+ChoXBool ::= CHOICE
+{
+   xbool XBool,
+   xboolImp XBoolImp,
+   xboolExp XBoolExp
+}
+
+
+
+NT ::=  CHOICE {
+   os OCTET STRING,
+   bool BOOLEAN}
+Exp ::=  [2] EXPLICIT CHOICE {
+   os OCTET STRING,
+   bool BOOLEAN}
+
+NTNT ::= NT
+ExpNT ::= [4] EXPLICIT NT
+
+NTExp ::= Exp
+ExpExp ::= [8] EXPLICIT Exp
+
+XNTNT ::= XChoNT
+XExpNT ::= [4] EXPLICIT XChoNT
+
+XNTExp ::= XChoExp
+XExpExp ::= [8] EXPLICIT XChoExp
+
+
+END

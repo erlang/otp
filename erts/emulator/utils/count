@@ -1,0 +1,128 @@
+%% -*- erlang -*-
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+-mode(compile).
+
+main(_) ->
+    DisDir = "./dis",
+    ok = filelib:ensure_dir(filename:join(DisDir, "dummy")),
+    io:format("Dissambling to ~s\n", [DisDir]),
+    ok = file:set_cwd(DisDir),
+    Path = code:get_path() -- ["."],
+    Beams0 = [filelib:wildcard(filename:join(Dir, "*.beam")) ||
+		 Dir <- Path],
+    Beams = lists:append(Beams0),
+    Mods0 = [list_to_atom(filename:rootname(filename:basename(F))) ||
+	       F <- Beams],
+    Mods = lists:usort(Mods0),
+    start_sem(),
+    Ps = [begin
+	      {_,Ref} = spawn_monitor(fun() -> count(M) end),
+	      Ref
+	  end || M <- Mods],
+    [put(list_to_atom(I), 0) || I <- erts_debug:instructions()],
+    Res = wait_for_all(Ps, 1),
+    OutFile = "count",
+    {ok,Out} = file:open(OutFile, [write]),
+    [io:format(Out, "~s ~p\n", [I,C]) || {I,C} <- Res],
+    ok = file:close(Out),
+    io:format("\nResult written to ~s\n",
+	      [filename:join(DisDir, OutFile)]),
+    ok.
+
+wait_for_all([], _) ->
+    lists:reverse(lists:keysort(2, get()));
+wait_for_all([_|_]=Ps, I) ->
+    receive
+	{'DOWN',Ref,process,_,Result} ->
+	    io:format("\r~p", [I]),
+	    [increment(Key, Count) || {Key,Count} <- Result],
+	    wait_for_all(Ps -- [Ref], I+1)
+    end.
+
+count(M) ->
+    down(),
+    erts_debug:df(M),
+    {ok,Fd} = file:open(atom_to_list(M) ++ ".dis", [read,raw]),
+    count_is(Fd),
+    ok = file:close(Fd),
+    exit(get()).
+
+count_is(Fd) ->
+    case file:read_line(Fd) of
+	{ok,Line} ->
+	    count_instr(Line),
+	    count_is(Fd);
+	eof ->
+	    ok
+    end.
+
+count_instr([$\s|T]) ->
+    count_instr_1(T, []);
+count_instr([_|T]) ->
+    count_instr(T);
+count_instr([]) ->
+    %% Empty line.
+    ok.
+
+count_instr_1([$\s|_], Acc) ->
+    Instr = list_to_atom(lists:reverse(Acc)),
+    increment(Instr, 1);
+count_instr_1([H|T], Acc) ->
+    count_instr_1(T, [H|Acc]).
+
+increment(Key, Inc) -> 
+    case get(Key) of
+	undefined ->
+	    put(Key, Inc);
+	Count ->
+	    put(Key, Count+Inc)
+    end.
+
+%%%
+%%% Counting sempahore to limit the number of processes that
+%%% can run concurrently.
+%%%
+
+down() ->
+    sem ! {down,self()},
+    receive
+	sem_taken -> ok
+    end.
+
+start_sem() ->	    
+    spawn(fun() ->
+		  register(sem, self()),
+		  process_flag(trap_exit, true),
+		  do_sem(erlang:system_info(schedulers)+1) end).
+
+do_sem(0) ->
+    receive
+	{'EXIT',_,_} ->
+	    do_sem(1)
+    end;
+do_sem(C) ->
+    receive
+	{down,Pid} ->
+	    link(Pid),
+	    Pid ! sem_taken,
+	    do_sem(C-1)
+    end.

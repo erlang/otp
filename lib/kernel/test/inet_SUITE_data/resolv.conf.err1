@@ -1,0 +1,7 @@
+domain du.etx.ericsson.se
+nameserver 150.236.14.16
+nameserver kalle
+nameserver 150.236.16.2
+nameserver 130.100.128.25
+search du.etx.ericsson.se etx.ericsson.se ericsson.se
+lookup yp bind file

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>pool</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">pool</module>
+  <modulesummary>Load distribution facility.</modulesummary>
+  <description>
+    <p>This module can be used to run a set of Erlang nodes as a pool
+      of computational processors. It is organized as a master and a
+      set of slave nodes and includes the following features:</p>
+
+    <list type="bulleted">
+      <item>The slave nodes send regular reports to the master about
+        their current load.</item>
+      <item>Queries can be sent to the master to determine which node
+        will have the least load.</item>
+    </list>
+
+    <p>The BIF <c>statistics(run_queue)</c> is used for estimating
+      future loads. It returns the length of the queue of ready to run
+      processes in the Erlang runtime system.</p>
+
+    <p>The slave nodes are started with the
+      <seealso marker="slave"><c>slave(3)</c></seealso> module. This
+      effects terminal I/O, file I/O, and code loading.</p>
+    <p>If the master node fails, the entire pool exits.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="attach" arity="1" since=""/>
+      <fsummary>Ensure that a pool master is running.</fsummary>
+      <desc>
+        <p>Ensures that a pool master is running and includes
+          <c><anno>Node</anno></c> in the pool master's pool of nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_node" arity="0" since=""/>
+      <fsummary>Return the node with the expected lowest future load.</fsummary>
+      <desc>
+        <p>Returns the node with the expected lowest future load.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_nodes" arity="0" since=""/>
+      <fsummary>Return a list of the current member nodes of the pool.
+      </fsummary>
+      <desc>
+        <p>Returns a list of the current member nodes of the pool.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pspawn" arity="3" since=""/>
+      <fsummary>Spawn a process on the pool node with expected lowest future
+        load.</fsummary>
+      <desc>
+        <p>Spawns a process on the pool node that is expected to have
+          the lowest future load.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pspawn_link" arity="3" since=""/>
+      <fsummary>Spawn and link to a process on the pool node with expected
+        lowest future load.</fsummary>
+      <desc>
+        <p>Spawns and links to a process on the pool node that is expected to
+          have the lowest future load.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
+      <fsummary>>Start a new pool.</fsummary>
+      <desc>
+        <p>Starts a new pool. The file <c>.hosts.erlang</c> is read to
+          find host names where the pool nodes can be started; see
+          section <seealso marker="#files">Files</seealso>. The
+          startup procedure fails if the file is not found.</p>
+        <p>The slave nodes are started with
+          <seealso marker="slave#start/2"><c>slave:start/2,3</c></seealso>,
+          passing along <c><anno>Name</anno></c> and, if provided,
+          <c><anno>Args</anno></c>. <c><anno>Name</anno></c> is used as the
+          first part of the node names, <c><anno>Args</anno></c> is used to
+          specify command-line arguments.</p>
+        <p>Access rights must be set so that all nodes in the pool have
+          the authority to access each other.</p>
+        <p>The function is synchronous and all the nodes, and
+          all the system servers, are running when it returns a value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" since=""/>
+      <fsummary>Stop the pool and kill all the slave nodes.</fsummary>
+      <desc>
+        <p>Stops the pool and kills all the slave nodes.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="files"></marker>
+    <title>Files</title>
+    <p><c>.hosts.erlang</c> is used to pick hosts where nodes can
+      be started. For information about format and location of this file, see
+      <seealso marker="kernel:net_adm#host_file/0">
+      <c>net_adm:host_file/0</c></seealso>.</p>
+    <p><c>$HOME/.erlang.slave.out.HOST</c> is used for all extra I/O
+      that can come from the slave nodes on standard I/O. If the startup
+      procedure does not work, this file can indicate the reason.</p>
+  </section>
+</erlref>
+

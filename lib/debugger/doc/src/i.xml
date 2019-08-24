@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>i</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">i</module>
+  <modulesummary>Debugger/Interpreter Interface.</modulesummary>
+  <description>
+    <p>The <c>i</c> module provides short forms for some of
+      the functions used by the graphical Debugger and some of
+      the functions in module
+      <seealso marker="int"><c>int</c></seealso>, the Erlang interpreter.</p>
+
+    <p>This module also provides facilities for displaying status
+      information about interpreted processes and break points.</p>
+
+    <p>It is possible to attach to interpreted processes by giving
+      the corresponding process identity only. By default, an attachment
+      window is displayed. Processes at other Erlang nodes can be
+      attached manually or automatically.</p>
+
+    <p>By preference, these functions can be included in module
+      <seealso marker="stdlib:shell_default"><c>shell_default</c></seealso>.
+      By default, they are included in that module.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name since="">im() -> pid()</name>
+      <fsummary>Start a graphical monitor.</fsummary>
+      <desc>
+	<p>Starts a new graphical monitor. This is the Monitor window,
+	  the main window of Debugger. All the Debugger and
+	  interpreter functionality is accessed from the Monitor window.
+	  This window displays the status of all processes that 
+	  have been or are executing interpreted modules.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ii(AbsModules) -> ok</name>
+      <name since="">ii(AbsModule) -> {module, Module} | error</name>
+      <name since="">ini(AbsModules) -> ok</name>
+      <name since="">ini(AbsModule) -> {module, Module} | error</name>
+      <fsummary>Interpret a module.</fsummary>
+      <type>
+	<v>AbsModules = [AbsModule]</v>
+	<v>AbsModule = Module | File</v>
+	<v>&nbsp;Module = atom()</v>
+	<v>&nbsp;File = string()</v>
+      </type>
+      <desc>
+	<p>Interprets the specified module(s). <c>ii/1</c> interprets
+	  the module(s) only at the current node, see
+	  <seealso marker="int#i/1">int:i/1</seealso>. <c>ini/1</c>
+	  interprets the module(s) at all known nodes, see
+	  <seealso marker="int#ni/1">int:ni/1</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">iq(AbsModule) -> ok</name>
+      <name since="">inq(AbsModule) -> ok</name>
+      <fsummary>Stop interpreting a module.</fsummary>
+      <type>
+	<v>AbsModule = Module | File</v>
+	<v>&nbsp;Module = atom()</v>
+	<v>&nbsp;File = string()</v>
+      </type>
+      <desc>
+	<p>Stops interpreting the specified module. <c>iq/1</c> stops
+	  interpreting the module only at the current node. <c>inq/1</c>
+	  stops interpreting the module at all known nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">il() -> ok</name>
+      <fsummary>Make a printout of all interpreted modules</fsummary>
+      <desc>
+	<p>Makes a printout of all interpreted modules.
+	  Modules are printed together with the full path name of the 
+	  corresponding source code file.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ip() -> ok</name>
+      <fsummary>Print the current status of all interpreted
+	processes.</fsummary>
+      <desc>
+	<p>Prints the current status of all interpreted processes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ic() -> ok</name>
+      <fsummary>Clear information about processes executing interpreted
+	code.</fsummary>
+      <desc>
+	<p>Clears information about processes executing interpreted code
+	  by removing all information about terminated processes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">iaa(Flags) -> true</name>
+      <name since="">iaa(Flags, Function) -> true</name>
+      <fsummary>Set when and how to attach to a process.</fsummary>
+      <type>
+	<v>Flags = [init | break | exit]</v>
+	<v>Function = {Module,Name,Args}</v>
+	<v>&nbsp;Module = Name = atom()</v>
+	<v>&nbsp;Args = [term()]</v>
+      </type>
+      <desc>
+	<p>Sets when and how to attach to a debugged process
+          automatically, see
+	  <seealso marker="int#auto_attach/0">int:auto_attach/2</seealso>.
+	  <c>Function</c> defaults to the standard function used by
+	  Debugger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ist(Flag) -> true</name>
+      <fsummary>Set how to save call frames.</fsummary>
+      <type>
+	<v>Flag = all | no_tail | false</v>
+      </type>
+      <desc>
+	<p>Sets how to save call frames in the stack, see
+	  <seealso marker="int#stack_trace/0">int:stack_trace/1</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ia(Pid) -> ok | no_proc</name>
+      <fsummary>Attache to a process.</fsummary>
+      <type>
+	<v>Pid = pid()</v>
+      </type>
+      <desc>
+	<p>Attaches to the debugged process <c>Pid</c>. An
+	  Attach Process window is opened for the process.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ia(X,Y,Z) -> ok | no_proc</name>
+      <fsummary>Attache to a process.</fsummary>
+      <type>
+	<v>X = Y = Z = int()</v>
+      </type>
+      <desc>
+	<p>Same as <c>ia(Pid)</c>, where <c>Pid</c> is the result of
+	  calling the shell function <c>pid(X,Y,Z)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ia(Pid, Function) -> ok | no_proc</name>
+      <fsummary>Attache to a process.</fsummary>
+      <type>
+	<v>Pid = pid()</v>
+	<v>Function = {Module,Name}</v>
+	<v>&nbsp;Module = Name = atom()</v>
+      </type>
+      <desc>
+	<p>Attaches to the debugged process <c>Pid</c>. The interpreter
+	  calls <c>spawn(Module, Name, [Pid])</c> (and ignores
+	  the result).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ia(X,Y,Z, Function) -> ok | no_proc</name>
+      <fsummary>Attache to a process.</fsummary>
+      <type>
+	<v>X = Y = Z = int()</v>
+	<v>Function = {Module,Name}</v>
+	<v>&nbsp;Module = Name = atom()</v>
+      </type>
+      <desc>
+	<p>Same as <c>ia(Pid, Function)</c>, where <c>Pid</c> is
+	  the result of calling the shell function <c>pid(X,Y,Z)</c>.
+	  An attached process is expected to call the unofficial
+	  function <c>int:attached(Pid)</c> and to be able to handle
+	  messages from the interpreter. For an example, see
+	  <c>dbg_wx_trace.erl</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ib(Module, Line) -> ok | {error, break_exists}</name>
+      <fsummary>Create a breakpoint.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Creates a breakpoint at <c>Line</c> in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ib(Module, Name, Arity) -> ok | {error, function_not_found}
+      </name>
+      <fsummary>Create breakpoints in the specified function.</fsummary>
+      <type>
+	<v>Module = Name = atom()</v>
+	<v>Arity = int()</v>
+      </type>
+      <desc>
+	<p>Creates breakpoints at the first line of every clause of 
+	  function <c>Module:Name/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ir() -> ok</name>
+      <fsummary>Delete all breakpoints.</fsummary>
+      <desc>
+	<p>Deletes all breakpoints.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ir(Module) -> ok</name>
+      <fsummary>Delete all breakpoints in a module.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+      </type>
+      <desc>
+	<p>Deletes all breakpoints in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ir(Module, Line) -> ok</name>
+      <fsummary>Delete a breakpoint.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Deletes the breakpoint at <c>Line</c> in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ir(Module, Name, Arity) -> ok | {error, function_not_found}
+      </name>
+      <fsummary>Delete breakpoints from the specified function.</fsummary>
+      <type>
+	<v>Module = Name = atom()</v>
+	<v>Arity = int()</v>
+      </type>
+      <desc>
+	<p>Deletes the breakpoints at the first line of every clause of 
+	  function <c>Module:Name/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ibd(Module, Line) -> ok</name>
+      <fsummary>Make a breakpoint inactive.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c> inactive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ibe(Module, Line) -> ok</name>
+      <fsummary>Make a breakpoint active.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c> active.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">iba(Module, Line, Action) -> ok</name>
+      <fsummary>Set the trigger action of a breakpoint.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+	<v>Action = enable | disable | delete</v>
+      </type>
+      <desc>
+	<p>Sets the trigger action of the breakpoint at <c>Line</c> in
+	  <c>Module</c> to <c>Action</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ibc(Module, Line, Function) -> ok</name>
+      <fsummary>Set the conditional test of a breakpoint.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+	<v>Function = {Module,Name}</v>
+	<v>&nbsp;Name = atom()</v>
+      </type>
+      <desc>
+	<p>Sets the conditional test of the breakpoint at <c>Line</c> in
+	  <c>Module</c> to <c>Function</c>.</p>
+
+	<p>The conditional test is performed by calling
+	  <c>Module:Name(Bindings)</c>, where <c>Bindings</c> is
+	  the current variable bindings. The function must return
+	  <c>true</c> (break) or <c>false</c> (do not break).
+	  To retrieve the value of a variable <c>Var</c>, use
+	  <seealso marker="int#get_binding/2">int:get_binding(Var, Bindings)</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ipb() -> ok</name>
+      <fsummary>Print all existing breakpoints.</fsummary>
+      <desc>
+	<p>Prints all existing breakpoints.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">ipb(Module) -> ok</name>
+      <fsummary>Print all existing breakpoints in a module.</fsummary>
+      <type>
+	<v>Module = atom()</v>
+      </type>
+      <desc>
+	<p>Prints all existing breakpoints in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">iv() -> atom()</name>
+      <fsummary>Return the current version number of the interpreter.
+      </fsummary>
+      <desc>
+	<p>Returns the current version number of the interpreter.
+	  Same as the version number of the Debugger application.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">help() -> ok</name>
+      <fsummary>Print help text.</fsummary>
+      <desc>
+	<p>Prints help text.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+  <title>See Also</title>
+    <p><seealso marker="int"><c>int(3)</c></seealso></p>
+  </section>
+</erlref>
+
+

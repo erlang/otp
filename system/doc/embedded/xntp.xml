@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>XNTP (Network Time Protocol)</title>
+    <prepared>ETX/B/SFP Kenneth Lundin</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved>ETX/B/SFP (Kenneth Lundin)</approved>
+    <checked></checked>
+    <date>1996-11-20</date>
+    <rev>A</rev>
+    <file>xntp.sgml</file>
+  </header>
+  <p>This chapter describes the OS specific part of OTP that relates
+    to the Network Time Protocol (XNTP).
+    </p>
+
+  <section>
+    <title>XNTP for Sunos5</title>
+    <p>XNTP maintains a Unix system time-of-day which conforms with
+      the Internet standard time servers. XNTP is a complete
+      implementation of the Network Time Protocol, version 3
+      specification as defined in RFC 1305.
+      </p>
+    <p>XNTP for use in an <em>embedded system running Sunos5</em> is
+      delivered with OTP. The XNTP is delivered as a separate
+      <c>tar</c> file which also includes extensive documentation and
+      installation instructions.
+      </p>
+    <p>The following section of the introductory documentation is
+      included in the distribution:
+      </p>
+    <quote>
+      <p>The Network Time Protocol (NTP) is used to synchronize the
+        time of a computer client or server to another server or
+        reference time source, such as a radio or satellite receiver
+        or modem. It provides client accuracies typically within a
+        millisecond on LANs and up to a few tens of milliseconds on
+        WANs relative to a primary server synchronized to Coordinated
+        Universal Time (UTC) via a Global Positioning Service (GPS)
+        receiver, for example. Typical NTP configurations utilize
+        multiple redundant servers and diverse network paths, in order
+        to achieve high accuracy and reliability. ...</p>
+    </quote>
+    <p>The XNTP software is supplied without charge under the
+      conditions set forth in the Copyright Notice provided within the
+      distribution.
+      </p>
+    <p>(&copy; David L. Mills 1992, 1993, 1994, 1995, 1996)
+      </p>
+  </section>
+</chapter>
+

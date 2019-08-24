@@ -1,0 +1,459 @@
+-- Module ISO-STANDARD-9541-FONT-ATTRIBUTE-SET (ISO:1991)
+--
+-- Copyright © ISO/IEC 1991. This version of
+-- this ASN.1 module is part of ISO|IEC 9541-2:1991;
+-- see the ISO|IEC text itself for full legal notices.
+-- 
+ISO-STANDARD-9541-FONT-ATTRIBUTE-SET {1 0 9541 2 2} DEFINITIONS ::=
+BEGIN
+
+EXPORTS Font-Attribute-Set;
+
+IMPORTS Structured-Name
+          FROM ISO9541-SN {1 0 9541 2 3};
+
+Font-Attribute-Set ::= SEQUENCE {
+  name-prefixes                      [0] IMPLICIT SET OF Name-Prefix OPTIONAL,
+  iso-standard-9541-fontname         [1] IMPLICIT Global-Name OPTIONAL,
+  iso-standard-9541-fontdescription  [2] IMPLICIT Font-Description OPTIONAL,
+  iso-standard-9541-wrmodes          [3] IMPLICIT Writing-Modes OPTIONAL,
+  non-iso-properties                 [5] IMPLICIT Property-List OPTIONAL
+}
+
+Font-Description ::= SET {
+  iso-standard-9541-dataversion      [0] IMPLICIT Data-Version OPTIONAL,
+  iso-standard-9541-Standardversion  [1] IMPLICIT Cardinal OPTIONAL,
+  iso-standard-9541-datasource       [2] IMPLICIT Global-Name OPTIONAL,
+  iso-standard-9541-datacopyright    [3]  Message OPTIONAL,
+  iso-standard-9541-dsnsource        [4] IMPLICIT Global-Name OPTIONAL,
+  iso-standard-9541-dsncopyright     [5]  Message OPTIONAL,
+  iso-standard-9541-relunits         [6] IMPLICIT Cardinal DEFAULT 1,
+  iso-standard-9541-typeface         [7]  Message OPTIONAL,
+  iso-standard-9541-fontfamily       [8]  Match-String OPTIONAL,
+  iso-standard-9541-posture          [9] IMPLICIT Posture-Code OPTIONAL,
+  iso-standard-9541-postureangle     [10] IMPLICIT Angle OPTIONAL,
+  iso-standard-9541-weight           [11] IMPLICIT Weight-Code OPTIONAL,
+  iso-standard-9541-propwidth        [12] IMPLICIT Width-Code OPTIONAL,
+  iso-standard-9541-glyphcomp        [13] IMPLICIT Glyph-Complement OPTIONAL,
+  iso-standard-9541-nomwrmode        [14] IMPLICIT Global-Name OPTIONAL,
+  iso-standard-9541-dsnsize          [15] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-minsize          [16] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-maxsize          [17] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-capheight        [18] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-lcheight         [19] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-dsngroup         [20] IMPLICIT Design-Group OPTIONAL,
+  iso-standard-9541-structure        [21] IMPLICIT Structure-Code OPTIONAL,
+  iso-standard-9541-minfeatsz        [22] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-nomcapstemwidth  [23] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-nomlcstemwidth   [24] IMPLICIT Rel-Rational OPTIONAL,
+  non-iso-properties                 [25] IMPLICIT Property-List OPTIONAL
+}
+
+Name-Prefix ::= SEQUENCE {
+  --see NOTE 3 at the end of 6.1
+  index   [0] IMPLICIT Code,
+  prefix  [1] IMPLICIT Structured-Name
+}
+
+Data-Version ::= SEQUENCE {
+  major      [0] IMPLICIT Cardinal OPTIONAL,
+  minor      [1] IMPLICIT Cardinal OPTIONAL,
+  timestamp  [2] IMPLICIT UTCTime OPTIONAL
+}
+
+Posture-Code ::= INTEGER {
+  not-applicable(0), upright(1), oblique-forward(2), oblique-backward(3),
+  italic-forward(4), italic-backward(5), other(6)}
+
+Weight-Code ::= INTEGER {
+  not-applicable(0), ultra-light(1), extra-light(2), light(3), semi-light(4),
+  medium(5), semi-bold(6), bold(7), extra-bold(8), ultra-bold(9)}
+
+Width-Code ::= INTEGER {
+  not-applicable(0), ultra-condensed(1), extra-condensed(2), condensed(3),
+  semi-condensed(4), medium(5), semi-expanded(6), expanded(7),
+  extra-expanded(8), ultra-expanded(9)}
+
+Glyph-Complement ::= SEQUENCE {
+  -- at least one included glyph list or at least one
+  -- included glyph collection list is mandatory
+  iso-standard-9541-numglyphs     [0] IMPLICIT Cardinal OPTIONAL,
+  iso-standard-9541-incglyphcols  [1] IMPLICIT SET OF Global-Name OPTIONAL,
+  -- at least one is required
+  iso-standard-9541-excglyphcols  [2] IMPLICIT SET OF Global-Name OPTIONAL,
+  -- at least one is required
+  iso-standard-9541-incglyphs     [3] IMPLICIT SET OF Global-Name OPTIONAL,
+  -- at least one is required
+  iso-standard-9541-excglyphs     [4] IMPLICIT SET OF Global-Name OPTIONAL,
+  -- at least one is required
+  non-iso-properties              [5] IMPLICIT Property-List OPTIONAL
+}
+
+Design-Group ::= SEQUENCE {
+  -- see 9541-1 Annex-A for code values
+  group-code           [0] IMPLICIT Code,
+  subgroup-code        [1] IMPLICIT Code,
+  specific-group-code  [2] IMPLICIT Code
+}
+
+Structure-Code ::= INTEGER {not-applicable(0), solid(1), outline(2)}
+
+Writing-Modes ::= SET {
+  iso-standard-9541-wrmode  [0] IMPLICIT SET OF Writing-Mode OPTIONAL,
+  non-iso-properties        [1] IMPLICIT Property-List OPTIONAL
+}
+
+Writing-Mode ::= SEQUENCE {
+  iso-standard-9541-wrmodename  [0] IMPLICIT Global-Name,
+  wrmode-properties             [1] IMPLICIT Modal-Properties
+}
+
+Modal-Properties ::= SET {
+  iso-standard-9541-nomescdir      [0] IMPLICIT Angle OPTIONAL,
+  iso-standard-9541-escclass       [1] IMPLICIT Esc-Class-Code OPTIONAL,
+  iso-standard-9541-avgescx        [2] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-avgescy        [3] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-avglcescx      [4] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-avglcescy      [5] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-avgcapescx     [6] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-avgcapescy     [7] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-tabescx        [8] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-tabescy        [9] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-maxfontext     [10] IMPLICIT Max-Extents OPTIONAL,
+  iso-standard-9541-sectors        [11] IMPLICIT Sectors OPTIONAL,
+  iso-standard-9541-escadjs        [12] IMPLICIT SET OF Adjusts OPTIONAL,
+  iso-standard-9541-minescadjsze   [13] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-maxescadjsze   [14] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-scores         [15] IMPLICIT Scores OPTIONAL,
+  iso-standard-9541-vscripts       [16] IMPLICIT Variant-Scripts OPTIONAL,
+  iso-standard-9541-minlinesp      [17] IMPLICIT Alignment-Spacing OPTIONAL,
+  iso-standard-9541-minanascale    [18] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-maxanascale    [19] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-nomalign       [20] IMPLICIT Global-Name OPTIONAL,
+  iso-standard-9541-alignmodes     [21] IMPLICIT Alignment-Modes OPTIONAL,
+  iso-standard-9541-copyfits       [22] IMPLICIT Copyfits OPTIONAL,
+  iso-standard-9541-dsnwordadd     [23] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-dsnwordampl    [24] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-minwordadd     [25] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-minwordampl    [26] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-maxwordadd     [27] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-maxwordampl    [28] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-dsnletteradd   [29] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-dsnletterampl  [30] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-minletteradd   [31] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-minletterampl  [32] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-maxletteradd   [33] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-maxletterampl  [34] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-glyphmetrics   [35] IMPLICIT Glyph-Metrics OPTIONAL,
+  non-iso-properties               [36] IMPLICIT Property-List OPTIONAL
+}
+
+Esc-Class-Code ::= INTEGER {not-applicable(0), monospace(1), proportional(2)}
+
+Max-Extents ::= SEQUENCE {
+  max-minx  [0] IMPLICIT Rel-Rational,
+  max-miny  [1] IMPLICIT Rel-Rational,
+  max-maxx  [2] IMPLICIT Rel-Rational,
+  max-maxy  [3] IMPLICIT Rel-Rational
+}
+
+Sectors ::= SET {
+  iso-standard-9541-sector  [0] IMPLICIT SEQUENCE OF Sector OPTIONAL,
+  non-iso-properties        [1] IMPLICIT Property-List OPTIONAL
+}
+
+Sector ::= SEQUENCE {
+  sector-left   [0] IMPLICIT Rel-Rational,
+  sector-right  [1] IMPLICIT Rel-Rational
+}
+
+Adjusts ::= SET {
+  iso-standard-9541-adjust  [0] IMPLICIT SET OF Adjust,
+  non-iso-properties        [1] IMPLICIT Property-List OPTIONAL
+}
+
+Adjust ::= SET {
+  iso-standard-9541-escadjname  [0] IMPLICIT Global-Name,
+  adjust-properties             [1] IMPLICIT Adjust-Properties
+}
+
+Adjust-Properties ::= SET {
+  iso-standard-9541-cpea  [0] IMPLICIT CPEA-Properties OPTIONAL,
+  iso-standard-9541-sec   [1] IMPLICIT SEC-Properties OPTIONAL,
+  non-iso-properties      [2] IMPLICIT Property-List OPTIONAL
+}
+
+CPEA-Properties ::= SET {
+  iso-standard-9541-ncpeaforwd   [0] IMPLICIT Cardinal,
+  iso-standard-9541-ncpeabackwd  [1] IMPLICIT Cardinal,
+  iso-standard-9541-cpeax        [2]  SEQUENCE OF Rel-Rational OPTIONAL,
+  -- at least one required
+  iso-standard-9541-cpeay        [3]  SEQUENCE OF Rel-Rational OPTIONAL,
+  non-iso-properties             [4] IMPLICIT Property-List OPTIONAL
+}
+
+SEC-Properties ::= SET {
+  iso-standard-9541-secx
+    [0]  SEQUENCE OF
+           SEQUENCE {-- at least one required
+                     rational      [0] IMPLICIT Rational,
+                     rel-rational  [1] IMPLICIT Rel-Rational} OPTIONAL,
+  iso-standard-9541-secy
+    [1]  SEQUENCE OF
+           SEQUENCE {-- at least one required
+                     rational      [0] IMPLICIT Rational,
+                     rel-rational  [1] IMPLICIT Rel-Rational} OPTIONAL,
+  non-iso-properties      [2] IMPLICIT Property-List OPTIONAL
+}
+
+Scores ::= SET {
+  iso-standard-9541-Score  [0] IMPLICIT SET OF Score OPTIONAL,
+  non-iso-properties       [1] IMPLICIT Property-List OPTIONAL
+}
+
+Score ::= SEQUENCE {
+  iso-standard-9541-scorename  [0] IMPLICIT Global-Name,
+  score-property-list          [1] IMPLICIT Score-Properties
+}
+
+Score-Properties ::= SET {
+  iso-standard-9541-scoreoffsetx  [0] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-scoreoffsety  [1] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-scorethick    [2] IMPLICIT Rel-Rational OPTIONAL,
+  non-iso-properties              [3] IMPLICIT Property-List OPTIONAL
+}
+
+Variant-Scripts ::= SET {
+  iso-standard-9541-vscript  [0] IMPLICIT SET OF Vscript OPTIONAL,
+  non-iso-properties         [1] IMPLICIT Property-List OPTIONAL
+}
+
+Vscript ::= SEQUENCE {
+  iso-standard-9541-vsname  [0] IMPLICIT Global-Name,
+  vscript-property-list     [1] IMPLICIT Vscript-Properties
+}
+
+Vscript-Properties ::= SET {
+  iso-standard-9541-vsoffsetx  [0] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-vsoffsety  [1] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-vsscalex   [2] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-vsscaley   [3] IMPLICIT Rational OPTIONAL,
+  non-iso-properties           [4] IMPLICIT Property-List OPTIONAL
+}
+
+Alignment-Spacing ::= SEQUENCE {
+  minlinesp-left   [0] IMPLICIT Rel-Rational,
+  minlinesp-right  [1] IMPLICIT Rel-Rational
+}
+
+Alignment-Modes ::= SET {
+  iso-standard-9541-align  [0] IMPLICIT SET OF Alignment OPTIONAL,
+  non-iso-properties       [1] IMPLICIT Property-List OPTIONAL
+}
+
+Alignment ::= SEQUENCE {
+  iso-standard-9541-alignname  [0] IMPLICIT Global-Name,
+  alignment-property-list      [1] IMPLICIT Align-Properties
+}
+
+Align-Properties ::= SET {
+  iso-standard-9541-alignoffsetx  [0] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-alignoffsety  [1] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-alignscalex   [2] IMPLICIT Rational OPTIONAL,
+  iso-standard-9541-alignscaley   [3] IMPLICIT Rational OPTIONAL,
+  non-iso-properties              [4] IMPLICIT Property-List OPTIONAL
+}
+
+Copyfits ::= SET {
+  iso-standard-9541-copyfit  [0] IMPLICIT SET OF Copyfit OPTIONAL,
+  non-iso-properties         [1] IMPLICIT Property-List OPTIONAL
+}
+
+Copyfit ::= SEQUENCE {
+  iso-standard-9541-copyfitname  [0] IMPLICIT Global-Name,
+  copyfit-properties             [1] IMPLICIT Copyfit-Properties
+}
+
+Copyfit-Properties ::= SET {
+  iso-standard-9541-copyfitmeasure  [0] IMPLICIT Rational OPTIONAL,
+  non-iso-properties                [1] IMPLICIT Property-List OPTIONAL
+}
+
+Glyph-Metrics ::= SET {
+  iso-standard-9541-gmetric  [0] IMPLICIT SET OF Glyph-Property-List,
+  non-iso-properties         [1] IMPLICIT Property-List OPTIONAL
+}
+
+Glyph-Property-List ::= SEQUENCE {
+  iso-standard-9541-gname  [0] IMPLICIT Global-Name,
+  glyph-properties         [1] IMPLICIT Glyph-Properties
+}
+
+Glyph-Properties ::= SET {
+  iso-standard-9541-px     [0] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-py     [1] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-ex     [2] IMPLICIT Rel-Rational,
+  iso-standard-9541-ey     [3] IMPLICIT Rel-Rational,
+  iso-standard-9541-ext    [4] IMPLICIT Extents,
+  iso-standard-9541-lgs    [5] IMPLICIT Ligatures OPTIONAL,
+  iso-standard-9541-peas   [6] IMPLICIT P-Adjusts OPTIONAL,
+  iso-standard-9541-cpeai  [7] IMPLICIT C-Indicator OPTIONAL,
+  iso-standard-9541-eai    [8] IMPLICIT E-Code OPTIONAL,
+  iso-standard-9541-minex  [9] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-miney  [10] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-maxex  [11] IMPLICIT Rel-Rational OPTIONAL,
+  iso-standard-9541-maxey  [12] IMPLICIT Rel-Rational OPTIONAL,
+  non-iso-properties       [13] IMPLICIT Property-List OPTIONAL
+}
+
+Extents ::= SET {
+  minx  [0] IMPLICIT Rel-Rational OPTIONAL,
+  miny  [1] IMPLICIT Rel-Rational OPTIONAL,
+  maxx  [2] IMPLICIT Rel-Rational OPTIONAL,
+  maxy  [3] IMPLICIT Rel-Rational OPTIONAL
+}
+
+Ligatures ::= SET {
+  iso-standard-9541-lg  [0] IMPLICIT SET OF Ligature OPTIONAL,
+  non-iso-properties    [1] IMPLICIT Property-List OPTIONAL
+}
+
+Ligature ::= SET {
+  iso-standard-9541-lgn   [0] IMPLICIT Global-Name,
+  iso-standard-9541-lgsn  [1]  SEQUENCE OF Global-Name
+}
+
+P-Adjusts ::= SET {
+  iso-standard-9541-pea  [0] IMPLICIT SET OF P-Adjust OPTIONAL,
+  non-iso-properties     [1] IMPLICIT Property-List OPTIONAL
+}
+
+P-Adjust ::= SEQUENCE {
+  iso-standard-9541-pean  [0] IMPLICIT Global-Name,
+  p-adjust-property-list  [1] IMPLICIT P-Adjust-Properties
+}
+
+P-Adjust-Properties ::= SET {
+  iso-standard-9541-peax
+    [0]  SEQUENCE OF
+           SEQUENCE {-- at least one required
+                     global-name   [0] IMPLICIT Global-Name,
+                     rel-rational  [1] IMPLICIT Rel-Rational} OPTIONAL,
+  iso-standard-9541-peay
+    [1]  SEQUENCE OF
+           SEQUENCE {-- at least one required
+                     global-name   [0] IMPLICIT Global-Name,
+                     rel-rational  [1] IMPLICIT Rel-Rational} OPTIONAL,
+  iso-standard-9541-speaforwdx   [2]  SEQUENCE OF Rel-Rational OPTIONAL,
+  iso-standard-9541-speaforwdy   [3]  SEQUENCE OF Rel-Rational OPTIONAL,
+  iso-standard-9541-speabackwdx  [4]  SEQUENCE OF Rel-Rational OPTIONAL,
+  iso-standard-9541-speabackwdy  [5]  SEQUENCE OF Rel-Rational OPTIONAL,
+  non-iso-properties             [6] IMPLICIT Property-List OPTIONAL
+}
+
+C-Indicator ::= SEQUENCE {
+  c-forward   [0] IMPLICIT Cardinal,
+  c-backward  [1] IMPLICIT Cardinal
+}
+
+E-Code ::= INTEGER {
+  not-applicable(0), letter-space(1), word-space(2), no-adjust(3)}
+
+-- The following Data Types are used in the above structures
+-- The following Data Types are used in the above structures
+Property ::= SEQUENCE {
+  property-name   [0]  Global-Name,
+  property-value  [1]  Property-Value
+}
+
+Property-Value ::= CHOICE {
+  value                  [0]  Value,
+  value-list             [1]  Value-List,
+  ordered-value-list     [2]  Ordered-Value-List,
+  property-list          [3]  Property-List,
+  ordered-property-list  [4]  Ordered-Property-List
+}
+
+Value-List ::= SET OF Value
+
+Ordered-Value-List ::= SEQUENCE OF Value
+
+Property-List ::= SET OF Property
+
+Ordered-Property-List ::= SEQUENCE OF Property
+
+Value ::= CHOICE {
+  global-Name       [0]  Global-Name,
+  match-String      [1]  Match-String,
+  message           [2]  Message,
+  octetString       [3]  OCTET STRING,
+  boolean           [4]  BOOLEAN,
+  integer           [5]  Integer,
+  cardinal          [6]  Cardinal,
+  code              [7]  Code,
+  rational          [8]  Rational,
+  rel-Rational      [9]  Rel-Rational,
+  angle             [10]  Angle,
+  proprietary-Data  [11]  Proprietary-Data
+}
+
+Global-Name ::= SEQUENCE {
+  -- see global name note at the end of clause 6.1 
+  prefix-index  [0] IMPLICIT Code OPTIONAL,
+  name-value    [1] IMPLICIT Structured-Name
+}
+
+Match-String ::= CHOICE {
+  numeric    [0]  NumericString,
+  printable  [1]  PrintableString,
+  teletex    [2]  TeletexString,
+  videotex   [3]  VideotexString,
+  visible    [4]  VisibleString,
+  ia5        [5]  IA5String,
+  graphic    [6]  GraphicString,
+  general    [7]  GeneralString
+}
+
+Message ::= CHOICE {
+  numeric    [0]  NumericString,
+  printable  [1]  PrintableString,
+  teletex    [2]  TeletexString,
+  videotex   [3]  VideotexString,
+  visible    [4]  VisibleString,
+  ia5        [5]  IA5String,
+  graphic    [6]  GraphicString,
+  general    [7]  GeneralString
+}
+
+Integer ::= INTEGER {first(-2147483648), last(2147483647)}
+
+Cardinal ::= INTEGER {first(0), last(4294967295)}
+
+Code ::= INTEGER {first(0), last(255)}
+
+Rational ::= SEQUENCE {
+  numerator    [0] IMPLICIT INTEGER,
+  denominator  [1] IMPLICIT INTEGER {first(1), last(2147483647)} OPTIONAL
+}
+
+-- denominator defaults to 1
+Rel-Rational ::= Rational
+
+-- expresses glyph coordinate units
+-- denominator defaults to relunits 
+Angle ::=
+  Rational
+
+-- expresses units of degrees, with a
+-- value range of -360 to +360
+-- denominator defaults to 1
+Proprietary-Data ::= SEQUENCE {
+  prop-data-message  [0]  Message OPTIONAL,
+  prop-data-key      [1] IMPLICIT OCTET STRING OPTIONAL,
+  prop-data          [2] IMPLICIT OCTET STRING
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

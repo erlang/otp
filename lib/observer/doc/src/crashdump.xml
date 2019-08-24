@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>crashdump_viewer</title>
+    <prepared>Siri Hansen</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2003-03-10</date>
+    <rev>PA1</rev>
+    <file>crashdump.xml</file>
+  </header>
+  <module since="">crashdump_viewer</module>
+  <modulesummary>A WxWidgets based tool for browsing Erlang
+  crashdumps.</modulesummary>
+  <description>
+    <p>The Crashdump Viewer is a WxWidgets based tool for browsing Erlang
+      crashdumps.</p>
+
+    <p>For details about how to get started with the Crashdump Viewer, see the
+    <seealso marker="crashdump_ug"><c>User's Guide</c></seealso>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">start() -> ok</name>
+      <name since="OTP 17.0">start(File) -> ok</name>
+      <fsummary>Start the Crashdump Viewer.</fsummary>
+      <type>
+        <v>File = string()</v>
+	<d>The filename of the crashdump.</d>
+      </type>
+      <desc>
+        <p>Starts the Crashdump Viewer GUI and
+        loads the specified crashdump.</p>
+
+	<p>If <c>File</c> is not specified, a file dialog is opened
+	where the crashdump can be selected.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">stop() -> ok</name>
+      <fsummary>Terminate the Crashdump Viewer.</fsummary>
+      <desc>
+        <p>Terminates the Crashdump Viewer and closes
+        all GUI windows.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

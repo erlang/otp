@@ -1,0 +1,2 @@
+
+mixed_opaque_use.erl:31: The call mixed_opaque_rec_adt:get_a(Q::mixed_opaque_queue_adt:my_queue()) does not have an opaque term of type mixed_opaque_rec_adt:rec() as 1st argument

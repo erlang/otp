@@ -1,0 +1,72 @@
+Prim DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+  Bool ::=  BOOLEAN
+  BoolCon ::=  [20] BOOLEAN
+  BoolPri ::=  [PRIVATE 21] BOOLEAN
+  BoolApp ::=  [APPLICATION 22] BOOLEAN
+  BoolExpCon ::=  [30] EXPLICIT BOOLEAN
+  BoolExpPri ::=  [PRIVATE 31] EXPLICIT BOOLEAN
+  BoolExpApp ::=  [APPLICATION 32] EXPLICIT BOOLEAN
+
+  Int ::=  INTEGER
+  IntCon ::=  [40] INTEGER
+  IntPri ::=  [PRIVATE 41] INTEGER
+  IntApp ::=  [APPLICATION 42] INTEGER
+  IntExpCon ::=  [50] EXPLICIT INTEGER
+  IntExpPri ::=  [PRIVATE 51] EXPLICIT INTEGER
+  IntExpApp ::=  [APPLICATION 52] EXPLICIT INTEGER
+
+  IntConstrained ::= INTEGER (0..255)
+
+  IntEnum ::=  INTEGER {first(1),last(31)}
+
+  Enum ::=  ENUMERATED {monday(1),tuesday(2),wednesday(3),thursday(4),
+                        friday(5),saturday(6),sunday(7)}
+  SingleEnumVal ::= ENUMERATED {true}
+  SingleEnumValExt ::= ENUMERATED {true, ...}
+  NegEnumVal ::= ENUMERATED {neg(-1), ..., zero(0)}
+  EnumVal128 ::= ENUMERATED {val(128)}
+
+  ObjId ::= OBJECT IDENTIFIER
+  
+  RelOid ::= RELATIVE-OID
+
+  Null ::= NULL
+
+  -- Test that REAL numbers can co-exist with other data types.
+  App-X-Real ::= REAL (WITH COMPONENTS {
+                        mantissa (-16777215..16777215),
+			base (2),
+			exponent (-125..128) } )
+
+  Seq ::= SEQUENCE {
+    n Null,
+    i1 INTEGER (0..63),
+    e1 SingleEnumVal,
+    i2 INTEGER (0..63),
+    e2 SingleEnumVal,
+    i3 INTEGER (0..63),
+    b Bool,
+    i4 INTEGER (0..63)
+  }    
+
+  ASeq ::= SEQUENCE {
+    e254 BOOLEAN,
+    i254 INTEGER (0..254),
+    e255 BOOLEAN,
+    i255 INTEGER (0..255),
+    e256 BOOLEAN,
+    i256 INTEGER (0..256),
+    e BOOLEAN,
+    magic INTEGER
+  }
+
+  Longitude ::= INTEGER {
+        oneMicrodegreeEast(10),
+        oneMicrodegreeWest(-10),
+        unavailable(1800000001)
+  } (-1799999999..1800000001)
+
+END

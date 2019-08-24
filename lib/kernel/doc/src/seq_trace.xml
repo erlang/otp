@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>seq_trace</title>
+    <prepared>kenneth@erix.ericsson.se</prepared>
+    <docno></docno>
+    <date>1998-04-16</date>
+    <rev>A</rev>
+  </header>
+  <module since="">seq_trace</module>
+  <modulesummary>Sequential tracing of messages.</modulesummary>
+  <description>
+    <p>Sequential tracing makes it possible to trace all messages
+      resulting from one initial message. Sequential tracing is
+      independent of the ordinary tracing in Erlang, which
+      is controlled by the <c>erlang:trace/3</c> BIF. For more information
+      about what sequential tracing is and how it can be used, see section
+      <seealso marker="#whatis">Sequential Tracing</seealso>.</p>
+    <p><c>seq_trace</c> provides functions that control all aspects of
+      sequential tracing. There are functions for activation,
+      deactivation, inspection, and for collection of the trace output.</p>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="token"/>
+      <desc>
+        <p>An opaque term (a tuple) representing a trace token.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+  <funcs>
+    <func>
+      <name name="set_token" arity="1" since=""/>
+      <fsummary>Set the trace token</fsummary>
+      <desc>
+        <p>Sets the trace token for the calling process to <c><anno>Token</anno></c>.
+          If <c><anno>Token</anno> == []</c> then tracing is disabled, otherwise
+          <c><anno>Token</anno></c> should be an Erlang term returned from
+          <c>get_token/0</c> or <c>set_token/1</c>. <c>set_token/1</c>
+          can be used to temporarily exclude message passing from
+          the trace by setting the trace token to empty like this:</p>
+        <code type="none">
+OldToken = seq_trace:set_token([]), % set to empty and save 
+                                    % old value
+% do something that should not be part of the trace
+io:format("Exclude the signalling caused by this~n"),
+seq_trace:set_token(OldToken), % activate the trace token again
+...  </code>
+        <p>Returns the previous value of the trace token.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="set_token" arity="2" since=""/>
+      <fsummary>Set a component of the trace token</fsummary>
+      <type name="component"/>
+      <type name="flag"/>
+      <type name="value"/>
+      <desc>
+        <p>Sets the individual <c><anno>Component</anno></c> of the trace token to
+          <c><anno>Val</anno></c>. Returns the previous value of the component.</p>
+        <taglist>
+          <tag><c>set_token(label, <anno>Label</anno>)</c></tag>
+          <item>
+            <p>The <c>label</c> component is a term which
+              identifies all events belonging to the same sequential
+              trace. If several sequential traces can be active
+              simultaneously, <c>label</c> is used to identify
+              the separate traces. Default is 0.</p>
+            <warning>
+              <p>Labels were restricted to small signed integers (28 bits)
+                prior to OTP 21. The trace token will be silenty dropped if it
+                crosses over to a node that does not support the label.</p>
+            </warning>
+          </item>
+          <tag><c>set_token(serial, SerialValue)</c></tag>
+          <item>
+            <p><c>SerialValue = {<anno>Previous</anno>, <anno>Current</anno>}</c>.
+              The <c>serial</c> component contains counters which
+              enables the traced messages to be sorted, should never be
+              set explicitly by the user as these counters are updated
+              automatically. Default is <c>{0, 0}</c>.</p>
+          </item>
+          <tag><c>set_token(send, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+              enables/disables tracing on message sending. Default is
+              <c>false</c>.</p>
+          </item>
+          <tag><c>set_token('receive', <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+              enables/disables tracing on message reception. Default is
+              <c>false</c>.</p>
+          </item>
+          <tag><c>set_token(print, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+              enables/disables tracing on explicit calls to
+              <c>seq_trace:print/1</c>. Default is <c>false</c>.</p>
+          </item>
+          <tag><c>set_token(timestamp, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+              enables/disables a timestamp to be generated for each
+              traced event. Default is <c>false</c>.</p>
+          </item>
+          <tag><c>set_token(strict_monotonic_timestamp, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+            enables/disables a strict monotonic timestamp to be generated
+	    for each traced event. Default is <c>false</c>. Timestamps will
+	    consist of
+	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer. The time-stamp has the same format and value
+	    as produced by <c>{erlang:monotonic_time(nanosecond),
+	    erlang:unique_integer([monotonic])}</c>.</p>
+          </item>
+          <tag><c>set_token(monotonic_timestamp, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+            enables/disables a strict monotonic timestamp to be generated
+	    for each traced event. Default is <c>false</c>. Timestamps
+	    will use
+	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso>. The time-stamp has the same
+	    format and value as produced by
+	    <c>erlang:monotonic_time(nanosecond)</c>.</p>
+          </item>
+        </taglist>
+	  <p>If multiple timestamp flags are passed, <c>timestamp</c> has
+	  precedence over <c>strict_monotonic_timestamp</c> which
+	  in turn has precedence over <c>monotonic_timestamp</c>. All
+	  timestamp flags are remembered, so if two are passed
+	  and the one with highest precedence later is disabled
+	  the other one will become active.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_token" arity="0" since=""/>
+      <fsummary>Return the value of the trace token</fsummary>
+      <desc>
+        <p>Returns the value of the trace token for the calling process.
+          If <c>[]</c> is returned, it means that tracing is not active.
+          Any other value returned is the value of an active trace
+          token. The value returned can be used as input to
+          the <c>set_token/1</c> function.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_token" arity="1" since=""/>
+      <fsummary>Return the value of a trace token component</fsummary>
+      <type name="component"/>
+      <type name="flag"/>
+      <type name="value"/>
+      <desc>
+        <p>Returns the value of the trace token component
+          <c>Component</c>. See
+          <seealso marker="#set_token/2">set_token/2</seealso> for
+          possible values of <c>Component</c> and <c>Val</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="1" since=""/>
+      <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
+      <desc>
+        <p>Puts the Erlang term <c><anno>TraceInfo</anno></c> into the sequential
+          trace output if the calling process currently is executing
+          within a sequential trace and the <c>print</c> flag of
+          the trace token is set.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="print" arity="2" since=""/>
+      <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
+      <desc>
+        <p>Same as <c>print/1</c> with the additional condition that
+          <c><anno>TraceInfo</anno></c> is output only if <c>Label</c> is equal to
+          the label component of the trace token.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="reset_trace" arity="0" since=""/>
+      <fsummary>Stop all sequential tracing on the local node</fsummary>
+      <desc>
+        <p>Sets the trace token to empty for all processes on the
+          local node. The process internal counters used to create
+          the serial of the trace token is set to 0. The trace token is
+          set to empty for all messages in message queues. Together
+          this will effectively stop all ongoing sequential tracing in
+          the local node.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="set_system_tracer" arity="1" since=""/>
+      <fsummary>Set the system tracer</fsummary>
+      <type name="tracer"/>
+      <desc>
+        <p>Sets the system tracer. The system tracer can be either a
+          process, port or <seealso marker="erts:erl_tracer">tracer module</seealso>
+          denoted by <c><anno>Tracer</anno></c>.
+          Returns the previous value (which can be <c>false</c> if no system
+          tracer is active).</p>
+        <p>Failure: <c>{badarg, Info}}</c> if <c><anno>Pid</anno></c> is not an
+          existing local pid.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_system_tracer" arity="0" since=""/>
+      <fsummary>Return the pid() or port() of the current system tracer.</fsummary>
+      <type name="tracer"/>
+      <desc>
+        <p>Returns the pid, port identifier or tracer module of the current system
+          tracer or <c>false</c> if no system tracer is activated.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Trace Messages Sent to the System Tracer</title>
+    <p>The format of the messages is one of the following, depending on if
+      flag <c>timestamp</c> of the trace token is set to <c>true</c> or
+      <c>false</c>:</p>
+    <code type="none">
+{seq_trace, Label, SeqTraceInfo, TimeStamp}</code>
+    <p>or</p>
+    <code type="none">
+{seq_trace, Label, SeqTraceInfo}</code>
+    <p>Where:</p>
+    <code type="none">
+Label = int()
+TimeStamp = {Seconds, Milliseconds, Microseconds}  
+  Seconds = Milliseconds = Microseconds = int()</code>
+    <p><c>SeqTraceInfo</c> can have the following formats:</p>
+    <taglist>
+      <tag><c>{send, Serial, From, To, Message}</c></tag>
+      <item>
+        <p>Used when a process <c>From</c> with its trace token flag
+          <c>print</c> set to <c>true</c> has sent a message.</p>
+      </item>
+      <tag><c>{'receive', Serial, From, To, Message}</c></tag>
+      <item>
+        <p>Used when a process <c>To</c> receives a message with a
+          trace token that has flag <c>'receive'</c> set to <c>true</c>.</p>
+      </item>
+      <tag><c>{print, Serial, From, _, Info}</c></tag>
+      <item>
+        <p>Used when a process <c>From</c> has called
+          <c>seq_trace:print(Label, TraceInfo)</c> and has a trace
+          token with flag <c>print</c> set to <c>true</c>, and
+          <c>label</c> set to <c>Label</c>.</p>
+      </item>
+    </taglist>
+    <p><c>Serial</c> is a tuple <c>{PreviousSerial, ThisSerial}</c>,
+      where:</p>
+    <list type="bulleted">
+      <item><p>Integer <c>PreviousSerial</c> denotes the serial
+        counter passed in the last received message that carried a trace
+        token. If the process is the first in a new sequential trace,
+        <c>PreviousSerial</c> is set to the value of the process internal
+        "trace clock".</p></item>
+      <item><p>Integer <c>ThisSerial</c> is the serial
+        counter that a process sets on outgoing messages. It is based
+        on the process internal "trace clock", which is incremented by one
+        before it is attached to the trace token in the message.</p></item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="whatis"></marker>
+    <title>Sequential Tracing</title>
+    <p>Sequential tracing is a way to trace a sequence of messages sent
+      between different local or remote processes, where the sequence
+      is initiated by a single message. In short, it works as follows:</p>
+    <p>Each process has a <em>trace token</em>, which can be empty or
+      not empty. When not empty, the trace token can be seen as
+      the tuple <c>{Label, Flags, Serial, From}</c>. The trace token is
+      passed invisibly with each message.</p>
+    <p>To start a sequential trace, the user must explicitly set
+      the trace token in the process that will send the first message
+      in a sequence.</p>
+    <p>The trace token of a process is set each time the process
+      matches a message in a receive statement, according to the trace
+      token carried by the received message, empty or not.</p>
+    <p>On each Erlang node, a process can be set as the <em>system tracer</em>.
+      This process will receive trace messages each time
+      a message with a trace token is sent or received (if the trace
+      token flag <c>send</c> or <c>'receive'</c> is set). The system
+      tracer can then print each trace event, write it to a file, or
+      whatever suitable.</p>
+    <note>
+      <p>The system tracer only receives those trace events that
+        occur locally within the Erlang node. To get the whole picture
+        of a sequential trace, involving processes on many Erlang
+        nodes, the output from the system tracer on each involved node
+        must be merged (offline).</p>
+    </note>
+    <p>The following sections describe sequential tracing and its most
+      fundamental concepts.</p>
+  </section>
+
+  <section>
+    <title>Trace Token</title>
+    <p>Each process has a current trace token. Initially, the token is
+      empty. When the process sends a message to another process, a
+      copy of the current token is sent "invisibly" along with
+      the message.</p>
+    <p>The current token of a process is set in one of the following two
+      ways:</p>
+    <list type="bulleted">
+      <item>
+        <p>Explicitly by the process itself, through a call to
+          <c>seq_trace:set_token/1,2</c></p>
+      </item>
+      <item>
+        <p>When a message is received</p>
+      </item>
+    </list>
+    <p>In both cases, the current token is set. In particular, if
+      the token of a received message is empty, the current token of
+      the process is set to empty.</p>
+    <p>A trace token contains a label and a set of flags. Both
+      the label and the flags are set in both alternatives above.</p>
+  </section>
+
+  <section>
+    <title>Serial</title>
+    <p>The trace token contains a component called
+      <c>serial</c>. It consists of two integers, <c>Previous</c> and
+      <c>Current</c>. The purpose is to uniquely identify each traced
+      event within a trace sequence, as well as to order the messages
+      chronologically and in the different branches, if any.</p>
+    <p>The algorithm for updating <c>Serial</c> can be described as
+      follows:</p>
+    <p>Let each process have two counters, <c>prev_cnt</c> and
+      <c>curr_cnt</c>, both are set to <c>0</c> when a process is created.
+      The counters are updated at the following occasions:</p>
+    <list type="bulleted">
+      <item>
+        <p><em>When the process is about to send a message and the trace token
+          is not empty.</em></p>
+        <p>Let the serial of the trace token be <c>tprev</c> and
+          <c>tcurr</c>.</p>
+        <pre>
+curr_cnt := curr_cnt + 1
+tprev := prev_cnt
+tcurr := curr_cnt</pre>
+        <p>The trace token with <c>tprev</c> and <c>tcurr</c> is then
+          passed along with the message.</p>
+      </item>
+      <item>
+        <p><em>When the process calls</em> <c>seq_trace:print(Label, Info)</c>,
+          <c>Label</c> <em>matches the label part of the trace token and the
+          trace token print flag is <c>true</c>.</em></p>
+        <p>The algorithm is the same as for send above.</p>
+      </item>
+      <item>
+        <p><em>When a message is received and contains a non-empty trace
+          token.</em></p>
+        <p>The process trace token is set to the trace token from
+          the message.</p>
+        <p>Let the serial of the trace token be <c>tprev</c> and
+          <c>tcurr</c>.</p>
+        <code>
+<![CDATA[if (curr_cnt < tcurr )]]>
+   curr_cnt := tcurr
+prev_cnt := tcurr</code>
+      </item>
+    </list>
+    <p><c>curr_cnt</c> of a process is incremented each time
+      the process is involved in a sequential trace. The counter can
+      reach its limit (27 bits) if a process is very long-lived and is
+      involved in much sequential tracing. If the counter overflows, the
+      serial for ordering of the trace events cannot be used. To prevent
+      the counter from overflowing in the middle of
+      a sequential trace, function <c>seq_trace:reset_trace/0</c>
+      can be called to reset <c>prev_cnt</c> and <c>curr_cnt</c> of
+      all processes in the Erlang node. This function also sets all
+      trace tokens in processes and their message queues to empty, and
+      thus stops all ongoing sequential tracing.</p>
+  </section>
+
+  <section>
+    <title>Performance Considerations</title>
+    <p>The performance degradation for a system that is enabled for
+      sequential tracing is negligible as long as no tracing is
+      activated. When tracing is activated, there is an
+      extra cost for each traced message, but all other messages are
+      unaffected.</p>
+  </section>
+
+  <section>
+    <title>Ports</title>
+    <p>Sequential tracing is not performed across ports.</p>
+    <p>If the user for some reason wants to pass the trace token to a
+      port, this must be done manually in the code of the port
+      controlling process. The port controlling processes have to check
+      the appropriate sequential trace settings (as obtained from
+      <c>seq_trace:get_token/1</c>) and include trace information in
+      the message data sent to their respective ports.</p>
+    <p>Similarly, for messages received from a port, a port controller
+      has to retrieve trace-specific information, and set appropriate
+      sequential trace flags through calls to
+      <c>seq_trace:set_token/2</c>.</p>
+  </section>
+
+  <section>
+    <title>Distribution</title>
+    <p>Sequential tracing between nodes is performed transparently.
+      This applies to C-nodes built with <c>Erl_Interface</c> too. A C-node
+      built with <c>Erl_Interface</c> only maintains one trace token, which
+      means that the C-node appears as one process from
+      the sequential tracing point of view.</p>
+  </section>
+
+  <section>
+    <title>Example of Use</title>
+    <p>This example gives a rough idea of how the new
+      primitives can be used and what kind of output it produces.</p>
+    <p>Assume that you have an initiating process with
+      <c><![CDATA[Pid == <0.30.0>]]></c> like this:</p>
+    <code type="none">
+-module(seqex).
+-compile(export_all).
+
+loop(Port) ->
+    receive 
+        {Port,Message} ->
+            seq_trace:set_token(label,17),
+            seq_trace:set_token('receive',true),
+            seq_trace:set_token(print,true),
+            seq_trace:print(17,"**** Trace Started ****"),
+            call_server ! {self(),the_message};
+        {ack,Ack} ->
+            ok
+    end,
+    loop(Port).</code>
+    <p>And a registered process <c>call_server</c> with
+      <c><![CDATA[Pid == <0.31.0>]]></c> like this:</p>
+    <code type="none">
+loop() ->
+    receive
+        {PortController,Message} ->
+            Ack = {received, Message},
+            seq_trace:print(17,"We are here now"),
+            PortController ! {ack,Ack}
+    end,
+    loop().</code>
+    <p>A possible output from the system's <c>sequential_tracer</c> can be
+      like this:</p>
+    <pre>
+17:&lt;0.30.0> Info {0,1} WITH
+"**** Trace Started ****"
+17:&lt;0.31.0> Received {0,2} FROM &lt;0.30.0> WITH
+{&lt;0.30.0>,the_message}
+17:&lt;0.31.0> Info {2,3} WITH
+"We are here now"
+17:&lt;0.30.0> Received {2,4} FROM &lt;0.31.0> WITH
+{ack,{received,the_message}}</pre>
+    <p>The implementation of a system tracer process that produces
+      this printout can look like this:</p>
+    <code type="none">
+tracer() ->
+    receive
+        {seq_trace,Label,TraceInfo} ->
+           print_trace(Label,TraceInfo,false);
+        {seq_trace,Label,TraceInfo,Ts} ->
+           print_trace(Label,TraceInfo,Ts);
+        Other -> ignore
+    end,
+    tracer().        
+
+print_trace(Label,TraceInfo,false) ->
+    io:format("~p:",[Label]),
+    print_trace(TraceInfo);
+print_trace(Label,TraceInfo,Ts) ->
+    io:format("~p ~p:",[Label,Ts]),
+    print_trace(TraceInfo).
+
+print_trace({print,Serial,From,_,Info}) ->
+    io:format("~p Info ~p WITH~n~p~n", [From,Serial,Info]);
+print_trace({'receive',Serial,From,To,Message}) ->
+    io:format("~p Received ~p FROM ~p WITH~n~p~n", 
+              [To,Serial,From,Message]);
+print_trace({send,Serial,From,To,Message}) ->
+    io:format("~p Sent ~p TO ~p WITH~n~p~n", 
+              [From,Serial,To,Message]).</code>
+    <p>The code that creates a process that runs this tracer function
+      and sets that process as the system tracer can look like this:</p>
+    <code type="none">
+start() ->
+    Pid = spawn(?MODULE,tracer,[]),
+    seq_trace:set_system_tracer(Pid), % set Pid as the system tracer 
+    ok.</code>
+    <p>With a function like <c>test/0</c>, the whole example can be
+      started:</p>
+    <code type="none">
+test() ->
+    P = spawn(?MODULE, loop, [port]),
+    register(call_server, spawn(?MODULE, loop, [])),
+    start(),
+    P ! {port,message}.</code>
+  </section>
+</erlref>
+

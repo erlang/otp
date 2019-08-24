@@ -1,0 +1,9 @@
+
+sample_callback_wrong.erl:16: The inferred return type of sample_callback_2/0 (42) has nothing in common with atom(), which is the expected return type for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:17: The inferred return type of sample_callback_3/0 ('fair') has nothing in common with 'fail' | {'ok',1..255}, which is the expected return type for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:18: The inferred return type of sample_callback_4/1 ('fail') has nothing in common with 'ok', which is the expected return type for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:20: The inferred return type of sample_callback_5/1 (string()) has nothing in common with 'fail' | 'ok', which is the expected return type for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:20: The inferred type for the 1st argument of sample_callback_5/1 (atom()) is not a supertype of 1..255, which is expected type for this argument in the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:22: The inferred return type of sample_callback_6/3 ({'okk',number()}) has nothing in common with 'fail' | {'ok',1..255}, which is the expected return type for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:22: The inferred type for the 3rd argument of sample_callback_6/3 (atom()) is not a supertype of string(), which is expected type for this argument in the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:4: Undefined callback function sample_callback_1/0 (behaviour sample_behaviour)

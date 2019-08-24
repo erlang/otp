@@ -1,0 +1,102 @@
+
+asn1ct.erl:1500: The variable Err can never match since previous clauses completely covered the type #type{}
+asn1ct.erl:1596: The variable _ can never match since previous clauses completely covered the type 'ber_bin_v2'
+asn1ct.erl:1673: The pattern 'all' can never match the type 'asn1_module' | 'exclusive_decode' | 'partial_decode'
+asn1ct.erl:672: The pattern <{'false', Result}, _, _> can never match the type <{'true','true'},atom() | binary() | [atom() | [any()] | char()],[any()]>
+asn1ct.erl:909: Guard test is_atom(Ext::[49 | 97 | 98 | 100 | 110 | 115]) can never succeed
+asn1ct_check.erl:1698: The pattern {'error', _} can never match the type [any()]
+asn1ct_check.erl:2733: Matching of pattern {'type', Tag, _, _, _, _} tagged with a record name violates the declared type of 'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}
+asn1ct_check.erl:2738: The pattern <_S, _> can never match since previous clauses completely covered the type <#state{},#'ObjectClassFieldType'{class::#objectclass{fields::maybe_improper_list() | {_,_,_,_}},fieldname::{_,maybe_improper_list()},type::'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}}>
+asn1ct_check.erl:2887: The variable Other can never match since previous clauses completely covered the type any()
+asn1ct_check.erl:3188: The pattern <_S, [], B> can never match the type <#state{},{'SingleValue',_},{'ValueRange',_}>
+asn1ct_check.erl:3190: The pattern <_S, A, []> can never match the type <#state{},{'SingleValue',_},{'ValueRange',_}>
+asn1ct_check.erl:3212: The pattern {[], C3} can never match the type {[any(),...],{'ValueRange',{'MIN','MAX'}}}
+asn1ct_check.erl:3225: The pattern {L1, UbNew} can never match the type 'false'
+asn1ct_check.erl:3228: The pattern {L1, LbNew} can never match the type 'false'
+asn1ct_check.erl:3235: The call asn1ct_check:remove_val_from_list(number(),L::[any(),...]) will never return since it differs in the 1st argument from the success typing arguments: ([any()],any())
+asn1ct_check.erl:3240: The call asn1ct_check:remove_val_from_list(number(),L::[any(),...]) will never return since it differs in the 1st argument from the success typing arguments: ([any()],any())
+asn1ct_check.erl:3242: Function remove_val_from_list/2 has no local return
+asn1ct_check.erl:3243: The call lists:member(Val::[any(),...],List::number()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),[any()])
+asn1ct_check.erl:3283: The pattern [] can never match the type [any(),...]
+asn1ct_check.erl:3362: The pattern <_, [], _VR> can never match the type <#state{},[any(),...],[any(),...]>
+asn1ct_check.erl:3364: The pattern <_, _SV, []> can never match the type <#state{},[any(),...],[any(),...]>
+asn1ct_check.erl:4150: The pattern <_, [_]> can never match the type <_,[]>
+asn1ct_check.erl:4314: The pattern <S, Type, {Rlist, ExtList}> can never match the type <#state{},_,[any()]>
+asn1ct_check.erl:4360: The pattern <S, Type, {Rlist, ExtList}> can never match the type <#state{},_,[any()]>
+asn1ct_check.erl:4719: The call asn1ct_check:error({'type',{'asn1',[1..255,...],[any(),...]}}) will never return since it differs in the 1st argument from the success typing arguments: ({'ObjectSet' | 'class' | 'export' | 'ptype' | 'type' | 'value',_,#state{}})
+asn1ct_check.erl:5120: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
+asn1ct_check.erl:5128: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
+asn1ct_check.erl:540: The pattern <_S, {'poc', _ObjSet, _Params}> can never match since previous clauses completely covered the type <#state{},_>
+asn1ct_check.erl:5517: The pattern <_, []> can never match the type <_,[{'ABSTRACT-SYNTAX',{_,_,_}} | {'TYPE-IDENTIFIER',{_,_,_}},...]>
+asn1ct_constructed_ber.erl:1075: The pattern {{{'ObjectClassFieldType', _, _, _, {'objectfield', PrimFieldName1, PFNList}}, _}, {'componentrelation', _, _}} can never match the type {#type{},_}
+asn1ct_constructed_ber.erl:695: The pattern {'EXTENSIONMARK', _, _} can never match the type #'ComponentType'{}
+asn1ct_constructed_ber.erl:748: The pattern <Erules, TopType, {CompList, _ExtList}> can never match the type <_,maybe_improper_list(),[#'ComponentType'{typespec::{_,_,_,_,_,_}}]>
+asn1ct_constructed_ber_bin_v2.erl:914: The pattern {{{'ObjectClassFieldType', _, _, _, {'objectfield', PrimFieldName1, PFNList}}, _}, {'componentrelation', _, _}} can never match the type {#type{},_}
+asn1ct_gen.erl:740: The pattern [] can never match the type [any(),...]
+asn1ct_gen_ber.erl:974: The pattern <Erules, [{Name, Def} | Rest]> can never match the type <_,[#typedef{name::atom(),typespec::{_,_,_,_,_,_}}]>
+asn1ct_gen_ber_bin_v2.erl:975: The pattern <Erules, [{Name, Def} | Rest]> can never match the type <_,[#typedef{name::atom(),typespec::{_,_,_,_,_,_}}]>
+asn1ct_gen_per.erl:646: The pattern <Erules, [{Name, Def} | Rest]> can never match the type <_,[#typedef{name::atom()}]>
+asn1ct_gen_per_rt2ct.erl:1189: The pattern <Erules, [{Name, Def} | Rest]> can never match the type <_,[#typedef{name::atom()}]>
+asn1ct_gen_per_rt2ct.erl:563: The pattern <C, ['EXT_MARK' | T], _Count> can never match the type <[{'ValueRange',{_,_}},...],[char() | {'asn1_enum',integer()},...],non_neg_integer()>
+asn1ct_gen_per_rt2ct.erl:580: The pattern <_C, 'EXT_MARK', _Count> can never match the type <[{'ValueRange',{_,_}},...],char(),non_neg_integer()>
+asn1ct_gen_per_rt2ct.erl:583: The pattern <_C, {1, EnumName}, Count> can never match the type <[{'ValueRange',{_,_}},...],char(),non_neg_integer()>
+asn1ct_gen_per_rt2ct.erl:587: The pattern <C, {0, EnumName}, Count> can never match the type <[{'ValueRange',{_,_}},...],char(),non_neg_integer()>
+asn1ct_gen_per_rt2ct.erl:656: The pattern <Type, C> can never match since previous clauses completely covered the type <'bitstring' | 'integer',_>
+asn1ct_parser2.erl:2017: Call to missing or unexported function ordsets:list_to_set/1
+asn1ct_parser2.erl:2497: The variable _ can never match since previous clauses completely covered the type 'ok'
+asn1ct_parser2.erl:2628: The pattern {Rlist, ExtList} can never match the type [{_,_,_},...]
+asn1ct_parser2.erl:2660: Call to missing or unexported function ordsets:list_to_set/1
+asn1ct_parser2.erl:2685: Call to missing or unexported function ordsets:list_to_set/1
+asn1ct_parser2.erl:281: The variable Other can never match since previous clauses completely covered the type [any()]
+asn1ct_parser2.erl:529: The variable _ can never match since previous clauses completely covered the type #constraint{}
+asn1ct_parser2.erl:555: The variable _ can never match since previous clauses completely covered the type #constraint{}
+asn1ct_parser2.erl:796: The variable _ can never match since previous clauses completely covered the type {_,_}
+asn1ct_parser2.erl:814: The variable _ can never match since previous clauses completely covered the type {_,_}
+asn1ct_parser2.erl:831: The variable _ can never match since previous clauses completely covered the type {_,_}
+asn1ct_value.erl:247: The pattern <'undefined', Default> can never match the type <maybe_improper_list(),[1..255,...]>
+asn1rt_ber_bin.erl:1125: Cons will produce an improper list since its 2nd argument is binary() | tuple()
+asn1rt_ber_bin.erl:1276: The pattern <{{_Min1, Max1}, {Min2, Max2}}, BitListVal, _DoTag> can never match since previous clauses completely covered the type <{_,_},maybe_improper_list(),_>
+asn1rt_ber_bin.erl:2057: The call asn1rt_ber_bin:check_if_valid_tag2('false',[],[],OptOrMand::any()) will never return since it differs in the 2nd argument from the success typing arguments: ('false' | {'APPLICATION',_} | {'CONTEXT',_} | {'PRIVATE',_} | {'UNIVERSAL',_},nonempty_maybe_improper_list(),[] | {_,_,_},any())
+asn1rt_ber_bin.erl:969: The pattern {Val01, Buffer01, Rb01} can never match the type {'MINUS-INFINITY' | 'PLUS-INFINITY' | 0,binary()}
+asn1rt_ber_bin.erl:998: The pattern {FirstLen, {Exp, Buffer3}, RemBytes2} can never match the type {1..1114111,{integer(),binary(),number()},number()}
+asn1rt_ber_bin_v2.erl:1230: The pattern <{{_Min1, Max1}, {Min2, Max2}}, BitListVal, TagIn> can never match since previous clauses completely covered the type <{_,_},maybe_improper_list(),_>
+asn1rt_ber_bin_v2.erl:328: The variable _ can never match since previous clauses completely covered the type {{0 | 1,non_neg_integer(),'indefinite' | non_neg_integer(),binary()},binary() | []}
+asn1rt_ber_bin_v2.erl:337: The variable _ can never match since previous clauses completely covered the type {{0 | 1,non_neg_integer(),'indefinite' | non_neg_integer(),binary()},binary() | []}
+asn1rt_ber_bin_v2.erl:392: The variable _ can never match since previous clauses completely covered the type {{0 | 1,non_neg_integer(),'indefinite' | non_neg_integer(),binary()},binary() | []}
+asn1rt_ber_bin_v2.erl:963: Function decode_real/3 has no local return
+asn1rt_check.erl:100: The variable _ can never match since previous clauses completely covered the type [any()]
+asn1rt_check.erl:85: The variable _ can never match since previous clauses completely covered the type [any()]
+asn1rt_driver_handler.erl:32: The pattern 'already_done' can never match the type {'error',_}
+asn1rt_per.erl:1065: The pattern {'BMPString', {'octets', Ol}} can never match the type {_,[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
+asn1rt_per.erl:1231: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
+asn1rt_per.erl:1233: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
+asn1rt_per.erl:1235: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
+asn1rt_per.erl:1237: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
+asn1rt_per.erl:989: The pattern <_C, 'true', _Val> can never match the type <_,'false',_>
+asn1rt_per_bin.erl:1361: The pattern <_, 'true', _> can never match the type <_,'false',_>
+asn1rt_per_bin.erl:1436: The pattern {'BMPString', {'octets', Ol}} can never match the type {'BMPString' | 'IA5String' | 'NumericString' | 'PrintableString' | 'UniversalString' | 'VisibleString',[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
+asn1rt_per_bin.erl:161: The call asn1rt_per_bin:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
+asn1rt_per_bin.erl:1812: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
+asn1rt_per_bin.erl:2106: Cons will produce an improper list since its 2nd argument is binary()
+asn1rt_per_bin.erl:2111: Cons will produce an improper list since its 2nd argument is binary()
+asn1rt_per_bin.erl:2111: Cons will produce an improper list since its 2nd argument is integer()
+asn1rt_per_bin.erl:2117: Cons will produce an improper list since its 2nd argument is integer()
+asn1rt_per_bin.erl:2121: Cons will produce an improper list since its 2nd argument is 0
+asn1rt_per_bin.erl:2123: Cons will produce an improper list since its 2nd argument is 0
+asn1rt_per_bin.erl:2127: Cons will produce an improper list since its 2nd argument is 0
+asn1rt_per_bin.erl:2129: Cons will produce an improper list since its 2nd argument is integer()
+asn1rt_per_bin.erl:446: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin.erl:467: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin.erl:474: The pattern <{_N, <<_,Bs/binary>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
+asn1rt_per_bin.erl:487: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin.erl:498: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin_rt2ct.erl:152: The call asn1rt_per_bin_rt2ct:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
+asn1rt_per_bin_rt2ct.erl:1533: The pattern {'BMPString', {'octets', Ol}} can never match the type {_,[[any(),...]]}
+asn1rt_per_bin_rt2ct.erl:1875: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
+asn1rt_per_bin_rt2ct.erl:443: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin_rt2ct.erl:464: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin_rt2ct.erl:471: The pattern <{_N, <<_B,Bs/binary>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
+asn1rt_per_bin_rt2ct.erl:484: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_bin_rt2ct.erl:495: The variable _ can never match since previous clauses completely covered the type integer()
+asn1rt_per_v1.erl:1209: The pattern <_, 'true', _> can never match the type <_,'false',_>
+asn1rt_per_v1.erl:1290: The pattern {'BMPString', {'octets', Ol}} can never match the type {'BMPString' | 'IA5String' | 'NumericString' | 'PrintableString' | 'UniversalString' | 'VisibleString',[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}

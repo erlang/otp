@@ -1,0 +1,1332 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
+  <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
+  <!ENTITY service '<seealso marker="diameter#start_service-2">service</seealso>'>
+  <!ENTITY capabilities '<seealso marker="diameter#capability">capabilities</seealso>'>
+  <!ENTITY events '<seealso marker="diameter#service_event">events</seealso>'>
+  <!ENTITY NA '&#8212;'>
+  <!ENTITY BR '<br/>&nbsp;<br/>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  %also;
+]>
+
+<chapter>
+
+<header>
+<copyright>
+<year>2011</year>
+<year>2017</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+
+<legalnotice>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+</legalnotice>
+
+<title>Standards Compliance</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_soc.xml</file>
+
+</header>
+
+<p>
+The table below summarizes the diameter application's compliance with
+&the_rfc;.
+Since the diameter application isn't a Diameter node on its own,
+compliance is strictly the responsibility of the user in many cases,
+diameter providing the means for the user to be compliant
+rather than being compliant on its own.</p>
+
+<p>
+The Compliance column notes <em>C</em> (Compliant) if the required
+functionality is implemented, <em>PC</em> (Partially Compliant) if
+there are limitations, <em>NC</em> (Not Compliant) if functionality is
+not implemented, or a dash if text is informational or only places
+requirements that must be met by the user's implementation.</p>
+
+<p>
+Capitalized <em>Diameter</em> refers to the protocol, lowercase
+<em>diameter</em> to the Erlang application.</p>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>&the_rfc; - Diameter Base Protocol</title>
+
+<table>
+<row>
+  <cell><em>Section</em></cell>
+  <cell><em>Title</em></cell>
+  <cell><em>Compliance</em></cell>
+  <cell><em>Notes</em></cell>
+</row>
+<row>
+  <cell>1</cell>
+  <cell>Introduction</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.1</cell>
+  <cell>Diameter Protocol</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.1.1</cell>
+  <cell>Description of the Document Set</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.1.2</cell>
+  <cell>Conventions Used in This Document</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.1.3</cell>
+  <cell>Changes from RFC 3588</cell>
+  <cell>&NA;</cell>
+  <cell>It is possible to configure a 3588 dictionary in
+  order to get 3588 semantics, where the differ from 6733.</cell>
+</row>
+<row>
+  <cell>1.2</cell>
+  <cell>Terminology</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.3</cell>
+  <cell>Approach to Extensibility</cell>
+  <cell>&NA;</cell>
+  <cell>The dictionary interface documented in &man_dict; provides
+  extensibility, allowing the user to defined new AVPs, commands, and
+  applications.
+  Ready dictionaries are provided for the &the_rfc; common message, base
+  accounting, and relay applications, as well as for RFC 7683,
+  Diameter Overload Indicator Conveyance.</cell>
+</row>
+<row>
+  <cell>1.3.1</cell>
+  <cell>Defining New AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>1.3.2</cell>
+  <cell>Creating New AVPs</cell>
+  <cell>&NA;</cell>
+  <cell>New AVPs can be defined using the dictionary interface.
+  Both RFC data formats and extensions are supported.</cell>
+</row>
+<row>
+  <cell>1.3.3</cell>
+  <cell>Creating New Commands</cell>
+  <cell>&NA;</cell>
+  <cell>New commands can be defined using the dictionary interface.</cell>
+</row>
+<row>
+  <cell>1.3.4</cell>
+  <cell>Creating New Diameter Applications</cell>
+  <cell>&NA;</cell>
+  <cell>New applications can be defined using the dictionary interface.</cell>
+</row>
+<row>
+  <cell>2</cell>
+  <cell>Protocol Overview</cell>
+  <cell>&NA;</cell>
+  <cell>Session state is the responsibility of the user.&BR;
+  The role of a Diameter node is determined by the user's
+  implementation.</cell>
+</row>
+<row>
+  <cell>2.1</cell>
+  <cell>Transport</cell>
+  <cell>PC</cell>
+  <cell>Ports are configured by the user: diameter places no
+  restrictions.&BR;
+  The transport interface documented in &man_transport;
+  allows the user to implement their own methods.
+  Ready support is provided for TCP, TCP/TLS, and SCTP, but not
+  DTLS/SCTP.&BR;
+  Multiple connections to the same peer is possible.
+  ICMP messages are not interpreted.</cell>
+</row>
+<row>
+  <cell>2.1.1</cell>
+  <cell>SCTP Guidelines</cell>
+  <cell>C</cell>
+  <cell>Unordered sending is configurable in &man_sctp;.
+  There is no special handling of DPR/DPA: since a user that cares
+  about pending answers should wait for them before initiating
+  DPR.&BR;
+  A PPID can be configured with a a gen_sctp sctp_default_send_param
+  option.</cell>
+</row>
+<row>
+  <cell>2.2</cell>
+  <cell>Securing Diameter Messages</cell>
+  <cell>PC</cell>
+  <cell>DTLS is not supported by &man_sctp;. See also
+  2.1.</cell>
+</row>
+<row>
+  <cell>2.3</cell>
+  <cell>Diameter Application Compliance</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>2.4</cell>
+  <cell>Application Identifiers</cell>
+  <cell>C</cell>
+  <cell>The user configures diameter with the identifiers to send at
+  capabilities exchange, along with corresponding dictionaries
+  defining the messages of the applications.</cell>
+</row>
+<row>
+  <cell>2.5</cell>
+  <cell>Connections vs. Sessions</cell>
+  <cell>C</cell>
+  <cell>Connections are realized by configuring transport. Sessions
+  are the responsibility of the user.</cell>
+</row>
+<row>
+  <cell>2.6</cell>
+  <cell>Peer Table</cell>
+  <cell>PC</cell>
+  <cell>Routing is implemented by the user in callbacks documented in
+  &man_app;.
+  A peer table of the documented form is not exposed to the user.</cell>
+</row>
+<row>
+  <cell>2.7</cell>
+  <cell>Routing Table</cell>
+  <cell>PC</cell>
+  <cell>See 2.6.
+  A routing table of the documented form is not exposed to
+  the user.</cell>
+</row>
+<row>
+  <cell>2.8</cell>
+  <cell>Role of Diameter Agents</cell>
+  <cell>C</cell>
+  <cell>Most role-specific behaviour is implemented by the user.
+  How a node advertises itself at capabilities exchange is determined
+  by user configuration.</cell>
+</row>
+<row>
+  <cell>2.8.1</cell>
+  <cell>Relay Agents</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>2.8.2</cell>
+  <cell>Proxy Agents</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>2.8.3</cell>
+  <cell>Redirect Agents</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>2.8.4</cell>
+  <cell>Translation Agents</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>2.9</cell>
+  <cell>Diameter Path Authorization</cell>
+  <cell>&NA;</cell>
+  <cell>Authorization is the responsibility of the user.</cell>
+</row>
+<row>
+  <cell>3</cell>
+  <cell>Diameter Header</cell>
+  <cell>C</cell>
+  <cell>Hop-by-Hop and End-to-End Identifiers are set by diameter when
+  sending outgoing requests.</cell>
+</row>
+<row>
+  <cell>3.1</cell>
+  <cell>Command Codes</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>3.2</cell>
+  <cell>Command Code Format Specification</cell>
+  <cell>C</cell>
+  <cell>Commands are defined as CCF specifications in dictionary
+  files.</cell>
+</row>
+<row>
+  <cell>3.3</cell>
+  <cell>Diameter Command Naming Conventions</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>4</cell>
+  <cell>Diameter AVPs</cell>
+  <cell>C</cell>
+  <cell>Any required padding is added by diameter when encoding
+  outgoing messages.</cell>
+</row>
+<row>
+  <cell>4.1</cell>
+  <cell>AVP Header</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>4.1.1</cell>
+  <cell>Optional Header Elements</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>4.2</cell>
+  <cell>Basic AVP Data Formats</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>4.3</cell>
+  <cell>Derived AVP Data Formats</cell>
+  <cell>C</cell>
+  <cell>Arbitrary derived data formats are supported by the dictionary
+  interface.</cell>
+</row>
+<row>
+  <cell>4.3.1</cell>
+  <cell>Common Derived AVP Data Formats</cell>
+  <cell>C</cell>
+  <cell>Beware that RFC 6733 changed the DiameterURI transport/port
+  defaults specified in RFC3588.
+  Relying on the defaults can result in interoperability
+  problems.</cell>
+</row>
+<row>
+  <cell>4.4</cell>
+  <cell>Grouped AVP Values</cell>
+  <cell>C</cell>
+  <cell>The M-bit on a component AVP of a Grouped AVP that does not
+  set M is ignored: such AVPs are not regarded as erroneous at
+  decode.&BR;
+  Grouped AVPs are defined as CCF specifications in dictionary
+  files.</cell>
+</row>
+<row>
+  <cell>4.4.1</cell>
+  <cell>Example AVP with a Grouped Data Type</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>4.5</cell>
+  <cell>Diameter Base Protocol AVPs</cell>
+  <cell>C</cell>
+  <cell>The base AVPs are defined in the common dictionary provided by
+  diameter.
+  There are common dictionaries for both RFC 3588 and RFC 6733 since
+  the latter made changes to both syntax and semantics.</cell>
+</row>
+<row>
+  <cell>5</cell>
+  <cell>Diameter Peers</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.1</cell>
+  <cell>Peer Connections</cell>
+  <cell>PC</cell>
+  <cell>A peer's DiameterIdentity is not required when initiating a
+  connection: the identify is received at capabilities exchange, at
+  which time the connection can be rejected if the identity is
+  objectionable.&BR;
+  The number of connections established depends on the user's
+  configuration. Multiple connections per peer is possible.</cell>
+</row>
+<row>
+  <cell>5.2</cell>
+  <cell>Diameter Peer Discovery</cell>
+  <cell>NC</cell>
+  <cell>No form of peer discovery is implemented.
+  The user can implement this independently of diameter if
+  required.</cell>
+</row>
+<row>
+  <cell>5.3</cell>
+  <cell>Capabilities Exchange</cell>
+  <cell>C</cell>
+  <cell>All supported applications are sent in CEA.
+  The user can reject an incoming CER or CEA in a configured
+  callback.&BR;
+  Both transport security at connection establishment and
+  negotiated via an Inband-Security AVP are supported.</cell>
+</row>
+<row>
+  <cell>5.3.1</cell>
+  <cell>Capabilities-Exchange-Request</cell>
+  <cell>C</cell>
+  <cell>CER is sent and received by diameter.</cell>
+</row>
+<row>
+  <cell>5.3.2</cell>
+  <cell>Capabilities-Exchange-Answer</cell>
+  <cell>C</cell>
+  <cell>CEA is sent and received by diameter.</cell>
+</row>
+<row>
+  <cell>5.3.3</cell>
+  <cell>Vendor-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.3.4</cell>
+  <cell>Firmware-Revision AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.3.5</cell>
+  <cell>Host-IP-Address AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.3.6</cell>
+  <cell>Supported-Vendor-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.3.7</cell>
+  <cell>Product-Name AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.4</cell>
+  <cell>Disconnecting Peer Connections</cell>
+  <cell>C</cell>
+  <cell>DPA will not be answered with error: a peer that wants to a
+  avoid a race can wait for pending answers before sending
+  DPR.</cell>
+</row>
+<row>
+  <cell>5.4.1</cell>
+  <cell>Disconnect-Peer-Request</cell>
+  <cell>C</cell>
+  <cell>DPR is sent by diameter in response to configuration
+  changes requiring a connection to be broken.
+  The user can also send DPR.</cell>
+</row>
+<row>
+  <cell>5.4.2</cell>
+  <cell>Disconnect-Peer-Answer</cell>
+  <cell>C</cell>
+  <cell>DPR is answered by diameter.</cell>
+</row>
+<row>
+  <cell>5.4.3</cell>
+  <cell>Disconnect-Cause AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.5</cell>
+  <cell>Transport Failure Detection</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.5.1</cell>
+  <cell>Device-Watchdog-Request</cell>
+  <cell>C</cell>
+  <cell>DWR is sent and received by diameter.
+  Callbacks notify the user of transitions into and out of the OKAY
+  state.</cell>
+</row>
+<row>
+  <cell>5.5.2</cell>
+  <cell>Device-Watchdog-Answer</cell>
+  <cell>C</cell>
+  <cell>DWA is sent and received by diameter.</cell>
+</row>
+<row>
+  <cell>5.5.3</cell>
+  <cell>Transport Failure Algorithm</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.5.4</cell>
+  <cell>Failover and Failback Procedures</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.6</cell>
+  <cell>Peer State Machine</cell>
+  <cell>PC</cell>
+  <cell>The election process is modified as described in 5.6.4.</cell>
+</row>
+<row>
+  <cell>5.6.1</cell>
+  <cell>Incoming Connections</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.6.2</cell>
+  <cell>Events</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.6.3</cell>
+  <cell>Actions</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>5.6.4</cell>
+  <cell>The Election Process</cell>
+  <cell>PC</cell>
+  <cell>As documented, the election assumes knowledge of a peer's
+  DiameterIdentity when initiating a connection, which diameter
+  doesn't require. Connections will be accepted if configuration
+  allows multiple connections per peer to be established or there is
+  no existing connection. Note that the election process is only
+  applicable when multiple connections per peer is
+  disallowed.</cell>
+</row>
+<row>
+  <cell>6</cell>
+  <cell>Diameter Message Processing</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.1</cell>
+  <cell>Diameter Request Routing Overview</cell>
+  <cell>&NA;</cell>
+  <cell>Routing is performed by the user.
+  A callback from diameter provides a list of available suitable peer
+  connections.</cell>
+</row>
+<row>
+  <cell>6.1.1</cell>
+  <cell>Originating a Request</cell>
+  <cell>C</cell>
+  <cell>Requests are constructed by the user; diameter sets header
+  fields as defined in the relevant dictionary.</cell>
+</row>
+<row>
+  <cell>6.1.2</cell>
+  <cell>Sending a Request</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.1.3</cell>
+  <cell>Receiving Requests</cell>
+  <cell>C</cell>
+  <cell>Loops are detected by diameter when the return value of a
+  request callback asks that a request be forwarded.
+  Loop detection in other cases is the responsibility of the
+  user.</cell>
+</row>
+<row>
+  <cell>6.1.4</cell>
+  <cell>Processing Local Requests</cell>
+  <cell>C</cell>
+  <cell>The user decides whether or not to process a request locally
+  in the request callback from diameter.</cell>
+</row>
+<row>
+  <cell>6.1.5</cell>
+  <cell>Request Forwarding</cell>
+  <cell>PC</cell>
+  <cell>See 2.6.</cell>
+</row>
+<row>
+  <cell>6.1.6</cell>
+  <cell>Request Routing</cell>
+  <cell>PC</cell>
+  <cell>See 2.7.</cell>
+</row>
+<row>
+  <cell>6.1.7</cell>
+  <cell>Predictive Loop Avoidance</cell>
+  <cell>C</cell>
+  <cell>See 6.1.3.</cell>
+</row>
+<row>
+  <cell>6.1.8</cell>
+  <cell>Redirecting Requests</cell>
+  <cell>PC</cell>
+  <cell>See 2.6.</cell>
+</row>
+<row>
+  <cell>6.1.9</cell>
+  <cell>Relaying and Proxying Requests</cell>
+  <cell>C</cell>
+  <cell>A Route-Record AVP is appended by diameter when the return
+  value of a request callback asks that a request be forwarded.
+  Appending the AVP in other cases is the responsibility of the
+  user.</cell>
+</row>
+<row>
+  <cell>6.2</cell>
+  <cell>Diameter Answer Processing</cell>
+  <cell>C</cell>
+  <cell>Answer message are constructed by the user, except in the case
+  of some protocol errors, in which case the procedures are
+  followed.</cell>
+</row>
+<row>
+  <cell>6.2.1</cell>
+  <cell>Processing Received Answers</cell>
+  <cell>C</cell>
+  <cell>Answers with an unknown Hop-by-Hop Identifier are
+  discarded.</cell>
+</row>
+<row>
+  <cell>6.2.2</cell>
+  <cell>Relaying and Proxying Answers</cell>
+  <cell>&NA;</cell>
+  <cell>Modifying answers is the responsibility of the user in
+  callbacks from diameter.</cell>
+</row>
+<row>
+  <cell>6.3</cell>
+  <cell>Origin-Host AVP</cell>
+  <cell>C</cell>
+  <cell>The order of AVPs in an encoded message is determined by
+  the CCF of the message in question.&BR;
+  AVPs defined in the RFC are defined in dictionaries provided by
+  diameter.
+  Their proper use in application messages is the responsibility of
+  the user.</cell>
+</row>
+<row>
+  <cell>6.4</cell>
+  <cell>Origin-Realm AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.5</cell>
+  <cell>Destination-Host AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.6</cell>
+  <cell>Destination-Realm AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.7</cell>
+  <cell>Routing AVPs</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.7.1</cell>
+  <cell>Route-Record AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.7.2</cell>
+  <cell>Proxy-Info AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.7.3</cell>
+  <cell>Proxy-Host AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.7.4</cell>
+  <cell>Proxy-State AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.8</cell>
+  <cell>Auth-Application-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.9</cell>
+  <cell>Acct-Application-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.10</cell>
+  <cell>Inband-Security-Id AVP</cell>
+  <cell>C</cell>
+  <cell>See 2.1.</cell>
+</row>
+<row>
+  <cell>6.11</cell>
+  <cell>Vendor-Specific-Application-Id AVP</cell>
+  <cell>C</cell>
+  <cell>Note that the CCF of this AVP is not the same as in RFC
+  3588.</cell>
+</row>
+<row>
+  <cell>6.12</cell>
+  <cell>Redirect-Host AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.13</cell>
+  <cell>Redirect-Host-Usage AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>6.14</cell>
+  <cell>Redirect-Max-Cache-Time AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7</cell>
+  <cell>Error Handling</cell>
+  <cell>C</cell>
+  <cell>Answers are formulated by the user in most cases.
+  Answers setting the E-bit can be sent by diameter itself in response
+  to a request that cannot be handled by the user.</cell>
+</row>
+<row>
+  <cell>7.1</cell>
+  <cell>Result-Code AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7.1.1</cell>
+  <cell>Informational</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7.1.2</cell>
+  <cell>Success</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7.1.3</cell>
+  <cell>Protocol Errors</cell>
+  <cell>C</cell>
+  <cell>Result codes 3001, 3002, 3005, and 3007 can be sent in answers
+  formulated by diameter, if configured to do so.</cell>
+</row>
+<row>
+  <cell>7.1.4</cell>
+  <cell>Transient Failures</cell>
+  <cell>C</cell>
+  <cell>Result code 4003 is sent in CEA if there is an existing
+  connection to the peer in question and configuration does not allow
+  more than one.</cell>
+</row>
+<row>
+  <cell>7.1.5</cell>
+  <cell>Permanent Failures</cell>
+  <cell>C</cell>
+  <cell>Message reception detects 5001, 5004,
+  5005, 5008, 5009, 5010, 5011, 5014, 5015, and 5017 errors.
+  It ignores 5013 errors at the admonition of sections 3 and 4.1.&BR;
+  Note that RFC 3588 did not allow 5xxx result codes in
+  answers setting the E-bit, while RFC 6733 does.
+  This is a potential interoperability problem since the Diameter
+  protocol version has not changed.</cell>
+</row>
+<row>
+  <cell>7.2</cell>
+  <cell>Error Bit</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7.3</cell>
+  <cell>Error-Message AVP</cell>
+  <cell>C</cell>
+  <cell>The user can include this AVP as required.</cell>
+</row>
+<row>
+  <cell>7.4</cell>
+  <cell>Error-Reporting-Host AVP</cell>
+  <cell>C</cell>
+  <cell>The user can include this AVP as required.</cell>
+</row>
+<row>
+  <cell>7.5</cell>
+  <cell>Failed-AVP AVP</cell>
+  <cell>C</cell>
+  <cell>The user constructs application-specific messages, but
+  diameter provides failed AVPs in message callbacks. Failed component AVPs
+  are grouped within the relevant Grouped AVPs.</cell>
+</row>
+<row>
+  <cell>7.6</cell>
+  <cell>Experimental-Result AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>7.7</cell>
+  <cell>Experimental-Result-Code AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8</cell>
+  <cell>Diameter User Sessions</cell>
+  <cell>&NA;</cell>
+  <cell>Authorization and accounting AVPs are defined in provided
+  dictionaries. Their proper use is the responsibility of the
+  user.</cell>
+</row>
+<row>
+  <cell>8.1</cell>
+  <cell>Authorization Session State Machine</cell>
+  <cell>&NA;</cell>
+  <cell>Authorization is the responsibility of the user: diameter does
+  not implement this state machine.</cell>
+</row>
+<row>
+  <cell>8.2</cell>
+  <cell>Accounting Session State Machine</cell>
+  <cell>&NA;</cell>
+  <cell>Accounting is the responsibility of the user: diameter does
+  not implement this state machine.</cell>
+</row>
+<row>
+  <cell>8.3</cell>
+  <cell>Server-Initiated Re-Auth</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.3.1</cell>
+  <cell>Re-Auth-Request</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.3.2</cell>
+  <cell>Re-Auth-Answer</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.4</cell>
+  <cell>Session Termination</cell>
+  <cell>&NA;</cell>
+  <cell>Session-related messages and AVPs are defined in provided
+  dictionaries. Their proper use is the user's responsibility.</cell>
+</row>
+<row>
+  <cell>8.4.1</cell>
+  <cell>Session-Termination-Request</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.4.2</cell>
+  <cell>Session-Termination-Answer</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.5</cell>
+  <cell>Aborting a Session</cell>
+  <cell>&NA;</cell>
+  <cell>Session-related messages and AVPs are defined in provided
+  dictionaries. Their proper use is the user's responsibility.</cell>
+</row>
+<row>
+  <cell>8.5.1</cell>
+  <cell>Abort-Session-Request</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.5.2</cell>
+  <cell>Abort-Session-Answer</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.6</cell>
+  <cell>Inferring Session Termination from Origin-State-Id</cell>
+  <cell>&NA;</cell>
+  <cell>Session-related messages and AVPs are defined in provided
+  dictionaries. Their proper use is the user's responsibility.</cell>
+</row>
+<row>
+  <cell>8.7</cell>
+  <cell>Auth-Request-Type AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.8</cell>
+  <cell>Session-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.9</cell>
+  <cell>Authorization-Lifetime AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.10</cell>
+  <cell>Auth-Grace-Period AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.11</cell>
+  <cell>Auth-Session-State AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.12</cell>
+  <cell>Re-Auth-Request-Type AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.13</cell>
+  <cell>Session-Timeout AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.14</cell>
+  <cell>User-Name AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.15</cell>
+  <cell>Termination-Cause AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.16</cell>
+  <cell>Origin-State-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.17</cell>
+  <cell>Session-Binding AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.18</cell>
+  <cell>Session-Server-Failover AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.19</cell>
+  <cell>Multi-Round-Time-Out AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.20</cell>
+  <cell>Class AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>8.21</cell>
+  <cell>Event-Timestamp AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9</cell>
+  <cell>Accounting</cell>
+  <cell>&NA;</cell>
+  <cell>Accounting-related messages and AVPs are defined in provided
+  dictionaries. Their proper use is the user's responsibility.</cell>
+</row>
+<row>
+  <cell>9.1</cell>
+  <cell>Server Directed Model</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.2</cell>
+  <cell>Protocol Messages</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.3</cell>
+  <cell>Accounting Application Extension and Requirements</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.4</cell>
+  <cell>Fault Resilience</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.5</cell>
+  <cell>Accounting Records</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.6</cell>
+  <cell>Correlation of Accounting Records</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.7</cell>
+  <cell>Accounting Command Codes</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.7.1</cell>
+  <cell>Accounting-Request</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.7.2</cell>
+  <cell>Accounting-Answer</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8</cell>
+  <cell>Accounting AVPs</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.1</cell>
+  <cell>Accounting-Record-Type AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.2</cell>
+  <cell>Acct-Interim-Interval AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.3</cell>
+  <cell>Accounting-Record-Number AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.4</cell>
+  <cell>Acct-Session-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.5</cell>
+  <cell>Acct-Multi-Session-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.6</cell>
+  <cell>Accounting-Sub-Session-Id AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>9.8.7</cell>
+  <cell>Accounting-Realtime-Required AVP</cell>
+  <cell>C</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>10</cell>
+  <cell>AVP Occurrence Tables</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>10.1</cell>
+  <cell>Base Protocol Command AVP Table</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>10.2</cell>
+  <cell>Accounting AVP Table</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11</cell>
+  <cell>IANA Considerations</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.1</cell>
+  <cell>AVP Header</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.1.1</cell>
+  <cell>AVP Codes</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.1.2</cell>
+  <cell>AVP Flags</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.2</cell>
+  <cell>Diameter Header</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.2.1</cell>
+  <cell>Command Codes</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.2.2</cell>
+  <cell>Command Flags</cell>
+  <cell></cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3</cell>
+  <cell>AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.1</cell>
+  <cell>Experimental-Result-Code AVP</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.2</cell>
+  <cell>Result-Code AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.3</cell>
+  <cell>Accounting-Record-Type AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.4</cell>
+  <cell>Termination-Cause AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.5</cell>
+  <cell>Redirect-Host-Usage AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.6</cell>
+  <cell>Session-Server-Failover AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.7</cell>
+  <cell>Session-Binding AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.8</cell>
+  <cell>Disconnect-Cause AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.9</cell>
+  <cell>Auth-Request-Type AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.10</cell>
+  <cell>Auth-Session-State AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.11</cell>
+  <cell>Re-Auth-Request-Type AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.12</cell>
+  <cell>Accounting-Realtime-Required AVP Values</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.3.13</cell>
+  <cell>Inband-Security-Id AVP (code 299)</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.4</cell>
+  <cell>_diameters Service Name and Port Number Registration</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.5</cell>
+  <cell>SCTP Payload Protocol Identifiers</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>11.6</cell>
+  <cell>S-NAPTR Parameters</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>12</cell>
+  <cell>Diameter Protocol-Related Configurable Parameters</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>13</cell>
+  <cell>Security Considerations</cell>
+  <cell>PC</cell>
+  <cell>See 2.1.&BR;
+  IPsec is transparent to diameter.</cell>
+</row>
+<row>
+  <cell>13.1</cell>
+  <cell>TLS/TCP and DTLS/SCTP Usage</cell>
+  <cell>PC</cell>
+  <cell>See 2.1.</cell>
+</row>
+<row>
+  <cell>13.2</cell>
+  <cell>Peer-to-Peer Considerations</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>13.3</cell>
+  <cell>AVP Considerations</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>14</cell>
+  <cell>References</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>14.1</cell>
+  <cell>Normative References</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+<row>
+  <cell>14.2</cell>
+  <cell>Informative References</cell>
+  <cell>&NA;</cell>
+  <cell></cell>
+</row>
+
+<tcaption>RFC 6733 Compliance</tcaption>
+</table>
+
+</section>
+
+</chapter>
+
+<!--  LocalWords:  AVP AVPs CCF DiameterIdentity CEA CER Inband IP
+-->
+<!--  LocalWords:  DPA DPR DWR DWA Failover Failback Proxying Auth
+-->
+<!--  LocalWords:  interoperability Multi Timestamp Realtime
+-->

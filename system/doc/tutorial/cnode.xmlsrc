@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>C Nodes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>cnode.xml</file>
+  </header>
+  <p>This section outlines an example of how to solve the example
+    problem in <seealso marker="example">Problem Example</seealso>
+    by using a C node. Notice that a C node is not typically
+    used for solving simple problems like this, a port is
+    sufficient.</p>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>From Erlang's point of view, the C node is treated like a
+      normal Erlang node. Thus, calling the functions <c>foo</c> and
+      <c>bar</c> only involves sending a message to the C node asking
+      for the function to be called, and receiving the result. Sending
+      a message requires a recipient, that is, a process that can be
+      defined using either a pid or a tuple, consisting of a
+      registered name and a node name. In this case, a tuple is the
+      only alternative as no pid is known:</p>
+    <pre>
+{RegName, Node} ! Msg</pre>
+    <p>The node name <c>Node</c> is to be the name of the C node. If
+      short node names are used, the plain name of the node is
+      <c>cN</c>, where <c>N</c> is an integer. If long node names are
+      used, there is no such restriction. An example of a C node name
+      using short node names is thus <c>c1@idril</c>, an example using
+      long node names is <c>cnode@idril.ericsson.se</c>.</p>
+    <p>The registered name, <c>RegName</c>, can be any atom. The name
+      can be ignored by the C code, or, for example, be used to
+      distinguish between different types of messages. An example of
+      Erlang code using short node names follows:
+      </p>
+    <codeinclude file="complex3.erl" tag="" type="erl"></codeinclude>
+    <p>
+      When using long node names, the code is slightly different as
+      shown in the following example:
+    </p>
+    <codeinclude file="complex4.erl" tag="" type="erl"></codeinclude>
+
+  </section>
+
+  <section>
+    <title>C Program</title>
+
+    <section>
+      <title>Setting Up Communication</title>
+      <p>Before calling any other function in Erl_Interface, the
+        memory handling must be initiated:</p>
+      <pre>
+erl_init(NULL, 0);</pre>
+      <p>Now the C node can be initiated. If short node names are
+        used, this is done by calling <c>erl_connect_init()</c>:</p>
+      <pre>
+erl_connect_init(1, "secretcookie", 0);</pre>
+      <p>Here:</p>
+      <list type="bulleted">
+       <item>The first argument is the integer used to construct the node name.
+       <p>In the example, the plain node name is <c>c1</c>.</p></item>
+       <item>The second argument is a string defining the magic cookie.</item>
+       <item>The third argument is an integer that is used to identify
+       a particular instance of a C node.</item>
+     </list>
+      <p>If long node node names are used, initiation is done by
+        calling <c>erl_connect_xinit()</c>:</p>
+      <pre>
+erl_connect_xinit("idril", "cnode", "cnode@idril.ericsson.se",
+                  &amp;addr, "secretcookie", 0);</pre>
+       <p>Here:</p>
+      <list type="bulleted">
+       <item>The first argument is the host name.</item>
+       <item>The second argument is the plain node name.</item>
+       <item>The third argument is the full node name.</item>
+       <item>The fourth argument is a pointer to an <c>in_addr</c>
+       struct with the IP address of the host.</item>
+       <item>The fifth argument is the magic cookie.</item>
+       <item>The sixth argument is the instance number.</item>
+     </list>
+      <p>The C node can act as a server or a client when setting up
+         the Erlang-C communication. If it acts as a client, it
+         connects to an Erlang node by calling <c>erl_connect()</c>,
+         which returns an open file descriptor at success:</p>
+      <pre>
+fd = erl_connect("e1@idril");</pre>
+      <p>If the C node acts as a server, it must first create a socket
+        (call <c>bind()</c> and <c>listen()</c>) listening to a
+        certain port number <c>port</c>. It then publishes its name
+        and port number with <c>epmd</c>, the Erlang port mapper
+        daemon. For details, see the <seealso
+        marker="erts:epmd">epmd</seealso> manual page in ERTS:</p>
+      <pre>
+erl_publish(port);</pre>
+      <p>Now the C node server can accept connections from Erlang nodes:</p>
+      <pre>
+fd = erl_accept(listen, &amp;conn);</pre>
+      <p>The second argument to <c>erl_accept</c> is a struct
+        <c>ErlConnect</c> which contains useful information when a
+        connection has been established, for example, the name of the
+        Erlang node.</p>
+    </section>
+
+    <section>
+      <title>Sending and Receiving Messages</title>
+      <p>The C node can receive a message from Erlang by calling
+        <c>erl_receive msg()</c>. This function reads data from the
+        open file descriptor <c>fd</c> into a buffer and puts the
+        result in an <c>ErlMessage</c> struct <c>emsg</c>.
+        <c>ErlMessage</c> has a field <c>type</c> defining what kind
+        of data is received. In this case, the type of interest is
+        <c>ERL_REG_SEND</c> which indicates that Erlang sent a message
+        to a registered process at the C node. The actual message, an
+        <c>ETERM</c>, is in the <c>msg</c> field.</p>
+      <p>It is also necessary to take care of the types
+        <c>ERL_ERROR</c> (an error occurred) and <c>ERL_TICK</c>
+        (alive check from other node, is to be ignored). Other
+        possible types indicate process events such as link, unlink,
+        and exit:</p>
+      <pre>
+  while (loop) {
+
+    got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
+    if (got == ERL_TICK) {
+      /* ignore */
+    } else if (got == ERL_ERROR) {
+      loop = 0; /* exit while loop */
+    } else {
+      if (emsg.type == ERL_REG_SEND) {</pre>
+      <p>As the message is an <c>ETERM</c> struct, Erl_Interface
+        functions can be used to manipulate it. In this case, the
+        message becomes a 3-tuple, because that is how the Erlang code
+        is written. The second element will be the pid of the caller
+        and the third element will be the tuple <c>{Function,Arg}</c>
+        determining which function to call, and with which argument.
+        The result of calling the function is made into an
+        <c>ETERM</c> struct as well and sent back to Erlang using
+        <c>erl_send()</c>, which takes the open file descriptor, a
+        pid, and a term as arguments:</p>
+      <pre>
+        fromp = erl_element(2, emsg.msg);
+        tuplep = erl_element(3, emsg.msg);
+        fnp = erl_element(1, tuplep);
+        argp = erl_element(2, tuplep);
+
+        if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+          res = foo(ERL_INT_VALUE(argp));
+        } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+          res = bar(ERL_INT_VALUE(argp));
+        }
+
+        resp = erl_format("{cnode, ~i}", res);
+        erl_send(fd, fromp, resp);</pre>
+      <p>Finally, the memory allocated by the <c>ETERM</c> creating
+        functions (including <c>erl_receive_msg()</c> must be
+        freed:</p>
+      <pre>
+        erl_free_term(emsg.from); erl_free_term(emsg.msg);
+        erl_free_term(fromp); erl_free_term(tuplep);
+        erl_free_term(fnp); erl_free_term(argp);
+        erl_free_term(resp);</pre>
+      <p>The following examples show the resulting C programs.
+        First a C node server using short node names:</p>
+      <codeinclude file="cnode_s.c" type="c"/>
+      <p>A C node server using long node names:</p>
+      <codeinclude file="cnode_s2.c" type="c"/>
+      <p>Finally, the code for the C node client:</p>
+      <codeinclude file="cnode_c.c" type="c"/>
+    </section>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p><em>Step 1.</em> Compile the C code. This provides the paths to
+      the Erl_Interface include files and libraries, and to the
+      <c>socket</c> and <c>nsl</c> libraries:</p>
+    <pre>
+>  <input>gcc -o cserver \\ </input>
+<input>-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </input>
+<input>-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </input>
+<input>complex.c cnode_s.c \\ </input>
+<input>-lerl_interface -lei -lsocket -lnsl</input>
+
+unix> <input>gcc -o cserver2 \\ </input>
+<input>-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </input>
+<input>-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </input>
+<input>complex.c cnode_s2.c \\ </input>
+<input>-lerl_interface -lei -lsocket -lnsl</input>
+
+unix> <input>gcc -o cclient \\ </input>
+<input>-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </input>
+<input>-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </input>
+<input>complex.c cnode_c.c \\ </input>
+<input>-lerl_interface -lei -lsocket -lnsl</input></pre>
+     <p>In Erlang/OTP R5B and later versions of OTP, the
+      <c>include</c> and <c>lib</c> directories are situated under
+      <c>OTPROOT/lib/erl_interface-VSN</c>, where <c>OTPROOT</c> is
+      the root directory of the OTP installation
+      (<c>/usr/local/otp</c> in the recent example) and <c>VSN</c> is
+      the version of the Erl_Interface application (3.2.1 in the
+      recent example).</p>
+    <p>In R4B and earlier versions of OTP, <c>include</c> and
+      <c>lib</c> are situated under <c>OTPROOT/usr</c>.</p>
+    <p><em>Step 2.</em> Compile the Erlang code:</p>
+    <pre>
+unix> <input>erl -compile complex3 complex4</input></pre>
+    <p><em>Step 3.</em> Run the C node server example with short node names.</p>
+    <p>Do as follows:</p>
+    <list type="bulleted">
+       <item>Start the C program <c>cserver</c> and Erlang in
+       different windows.</item>
+       <item><c>cserver</c> takes a port number as argument and must
+       be started before trying to call the Erlang functions.</item>
+       <item>The Erlang node is to be given the short name <c>e1</c>
+       and must be set to use the same magic cookie as the C node,
+       <c>secretcookie</c>:</item>
+     </list>
+    <pre>
+unix> <input>cserver 3456</input>
+
+unix> <input>erl -sname e1 -setcookie secretcookie</input>
+Erlang (BEAM) emulator version 4.9.1.2
+ 
+Eshell V4.9.1.2  (abort with ^G)
+(e1@idril)1> <input>complex3:foo(3).</input>
+4
+(e1@idril)2> <input>complex3:bar(5).</input>
+10</pre>
+    <p><em>Step 4.</em> Run the C node client example. Terminate
+      <c>cserver</c>, but not Erlang, and start <c>cclient</c>. The
+      Erlang node must be started before the C node client:</p>
+    <pre>
+unix> <input>cclient</input>
+
+(e1@idril)3> <input>complex3:foo(3).</input>
+4
+(e1@idril)4> <input>complex3:bar(5).</input>
+10</pre>
+    <p><em>Step 5.</em> Run the C node server example with long node names:</p>
+    <pre>
+unix> <input>cserver2 3456</input>
+
+unix> <input>erl -name e1 -setcookie secretcookie</input>
+Erlang (BEAM) emulator version 4.9.1.2
+ 
+Eshell V4.9.1.2  (abort with ^G)
+(e1@idril.du.uab.ericsson.se)1> <input>complex4:foo(3).</input>
+4
+(e1@idril.du.uab.ericsson.se)2> <input>complex4:bar(5).</input>
+10</pre>
+  </section>
+</chapter>
+

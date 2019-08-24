@@ -1,0 +1,36 @@
+module 'nested_tries' ['nested_tries'/0, 'reg'/2]
+  attributes []
+
+'nested_tries'/0 =
+  fun () -> 'ok'
+
+'reg'/2 =
+  fun (_cor1,_cor0) ->
+    let <_X_var__238> = 1
+    in  case %% Line 4
+         <_cor1,_cor0> of
+        <Id,Pid>
+          when call 'erlang':'and'
+            (try 'true'
+             of <_X_var__235> -> _X_var__235
+             catch <_X_var__236,_X_var__237> -> 'false',
+             try
+               let <_cor2> =
+                 try 
+                   call 'erlang':'and'
+                   ('true', 
+                    call 'erlang':'is_integer'(call 'erlang':'element'(3, Pid)))
+                 of <_X_var__232> -> _X_var__232
+                 catch <_X_var__233,_X_var__234> -> 'false'
+               in  let <_cor4> =  call 'erlang':'element'(2, Pid)
+                 in  let <_cor3> = _X_var__238
+                   in  let <_cor5> = call 'erlang':'=='(_cor4, _cor3)
+                     in  call 'erlang':'and'(_cor2, _cor5)
+             of <Try> -> Try
+             catch <T,R> -> 'false') -> 'true'
+        <_cor7,_cor6> when 'true' ->
+          primop 'match_fail'
+            ({( 'function_clause'
+              -| [{'name',{'reg',2}}] ),_cor7,_cor6})
+    end
+end

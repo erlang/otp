@@ -1,0 +1,3 @@
+
+exact.erl:15: Function t2/1 has no local return
+exact.erl:19: The variable _ can never match since previous clauses completely covered the type #{'a':=_, _=>_}

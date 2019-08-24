@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>et_selector</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_selector.xml</file>
+  </header>
+  <module since="">et_selector</module>
+  <modulesummary>Define event transforms and trace patterns</modulesummary>
+  <description>
+    <p></p>
+  </description>
+  
+  <funcs>
+    <func>
+      <name since="">make_pattern(RawPattern) -> TracePattern</name>
+      <fsummary>Makes a trace pattern suitable to feed change_pattern/1</fsummary>
+
+      <type>
+        <v>RawPattern = detail_level()</v>
+        <v>TracePattern = erlang_trace_pattern_match_spec()</v>
+        <v>detail_level() = min | max | integer(X) when X &gt;= 0, X =&lt; 100</v>
+      </type>
+
+      <desc>
+        <p>Makes a trace pattern suitable to feed change_pattern/1</p>
+        <p>Min detail level deactivates tracing of calls to <c>et:trace_me/4,5</c></p>
+        <p>Max detail level activates tracing of all calls to <c>et:trace_me/4,5</c></p>
+        <p>integer(X) detail level activates tracing of all calls to
+        <c>et:trace_me/4,5</c> whose detail level argument is lesser than
+        X.</p>
+        <p>See also <c>erlang:trace_pattern/2</c> for more info about its <c>match_spec()</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">change_pattern(Pattern) -> ok</name>
+
+      <fsummary>Activates/deactivates tracing by changing the current trace pattern</fsummary>
+
+      <type>
+        <v>Pattern = detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec()</v>
+        <v>detail_level() = min | max | integer(X) when  X &gt;= 0, X =&lt; 100</v>
+        <v>empty_match_spec() = [] </v>
+      </type>
+
+      <desc>
+        <p>Activates/deactivates tracing by changing the current trace pattern.</p>
+        <p><c>min</c> detail level deactivates tracing of calls to <c>et:trace_me/4,5</c></p>
+        <p><c>max</c> detail level activates tracing of all calls to <c>et:trace_me/4,5</c></p>
+        <p><c>integer(X)</c> detail level activates tracing of all
+        calls to <c>et:trace_me/4,5</c> whose detail level argument is
+        lesser than <c>X</c>.</p>
+        <p>An empty match spec deactivates tracing of calls to <c>et:trace_me/4,5</c></p>
+        <p>Other match specs activates tracing of calls to
+        <c>et:trace_me/4,5</c> accordingly with
+        <c>erlang:trace_pattern/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
+
+      <fsummary>Transforms trace data and makes an event record out of it</fsummary>
+
+      <type>
+          <v>Mod = module_name() | undefined</v>
+          <v>module_name() = atom()</v>
+          <v>ValidTraceData = erlang_trace_data() | record(event)</v>
+        <v>erlang_trace_data() = {trace, Pid, Label, Info} |  {trace, Pid, Label, Info, Extra} |  {trace_ts, Pid, Label, Info, ReportedTS} |  {trace_ts, Pid, Label, Info, Extra, ReportedTS} |  {seq_trace, Label, Info} |  {seq_trace, Label, Info, ReportedTS} |  {drop, NumberOfDroppedItems}</v>
+      </type>
+
+      <desc>
+        <p>Transforms trace data and makes an event record out of it.</p>
+
+        <p>See <c>erlang:trace/3</c> for more info about the semantics of the
+        trace data.</p>
+
+        <p>An event record consists of the following fields:</p>
+	<taglist>
+          <tag><em>detail_level</em></tag>
+	  <item><p>Noise has a high level as opposed to essentials.</p></item>
+
+
+          <tag><em>trace_ts</em></tag>
+	  <item><p>Time when the trace was generated.  Same as
+	  event_ts if omitted in trace data.</p></item>
+
+          <tag><em>event_ts</em></tag>
+	  <item><p>Time when the event record was created.</p></item>
+
+          <tag><em>from</em></tag>
+	  <item><p>From actor, such as sender of a message.</p></item>
+
+          <tag><em>to</em></tag>
+	  <item><p>To actor, such as receiver of message.</p></item>
+
+          <tag><em>label</em></tag>
+	  <item><p>Label intended to provide a brief event summary.</p></item>
+
+          <tag><em>contents</em></tag>
+	  <item><p>All nitty gritty details of the event.</p></item>
+	</taglist>
+
+        <p>See <c>et:trace_me/4</c>and <c>et:trace_me/5</c> for details.</p>
+
+        <p>Returns:</p>
+	<taglist>
+          <tag><em>{true, Event}</em></tag>
+	  <item><p>where Event is an #event{} record representing the
+	  trace data</p></item>
+
+          <tag><em>true</em></tag>
+	  <item><p>means that the trace data already is an event
+	  record and that it is valid as it is. No transformation is
+	  needed.</p></item>
+
+          <tag><em>false</em></tag>
+	  <item><p>means that the trace data is uninteresting and
+	  should be dropped</p></item>
+	</taglist>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

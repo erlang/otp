@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2016</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>The Seven Myths of Erlang Performance</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2007-11-10</date>
+    <rev></rev>
+    <file>myths.xml</file>
+  </header>
+
+  <marker id="myths"></marker>
+  <p>Some truths seem to live on well beyond their best-before date,
+  perhaps because "information" spreads faster from person-to-person
+  than a single release note that says, for example, that body-recursive
+  calls have become faster.</p>
+
+  <p>This section tries to kill the old truths (or semi-truths) that have
+  become myths.</p>
+
+  <section>
+    <title>Myth: Tail-Recursive Functions are Much Faster
+    Than Recursive Functions</title>
+
+    <p><marker id="tail_recursive"></marker>According to the myth,
+    using a tail-recursive function that builds a list in reverse
+    followed by a call to <c>lists:reverse/1</c> is faster than
+    a body-recursive function that builds the list in correct order;
+    the reason being that body-recursive functions use more memory than
+    tail-recursive functions.</p>
+
+    <p>That was true to some extent before R12B. It was even more true
+    before R7B. Today, not so much. A body-recursive function
+    generally uses the same amount of memory as a tail-recursive
+    function. It is generally not possible to predict whether the
+    tail-recursive or the body-recursive version will be
+    faster. Therefore, use the version that makes your code cleaner
+    (hint: it is usually the body-recursive version).</p>
+
+    <p>For a more thorough discussion about tail and body recursion,
+    see <url href="http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html">Erlang's Tail Recursion is Not a Silver Bullet</url>.</p>
+
+    <note><p>A tail-recursive function that does not need to reverse the
+    list at the end is faster than a body-recursive function,
+    as are tail-recursive functions that do not construct any terms at all
+    (for example, a function that sums all integers in a list).</p></note>
+  </section>
+
+  <section>
+    <title>Myth: Operator "++" is Always Bad</title>
+
+    <p>The <c>++</c> operator has, somewhat undeservedly, got a bad reputation.
+    It probably has something to do with code like the following,
+    which is the most inefficient way there is to reverse a list:</p>
+    
+    <p><em>DO NOT</em></p>
+    <code type="erl">
+naive_reverse([H|T]) ->
+    naive_reverse(T)++[H];
+naive_reverse([]) ->
+    [].</code>
+
+    <p>As the <c>++</c> operator copies its left operand, the result
+    is copied repeatedly, leading to quadratic complexity.</p>
+
+    <p>But using <c>++</c> as follows is not bad:</p>
+
+    <p><em>OK</em></p>
+    <code type="erl">
+naive_but_ok_reverse([H|T], Acc) ->
+    naive_but_ok_reverse(T, [H]++Acc);
+naive_but_ok_reverse([], Acc) ->
+    Acc.</code>
+
+    <p>Each list element is copied only once.
+    The growing result <c>Acc</c> is the right operand
+    for the <c>++</c> operator, and it is <em>not</em> copied.</p>
+
+    <p>Experienced Erlang programmers would write as follows:</p>
+
+    <p><em>DO</em></p>
+    <code type="erl">
+vanilla_reverse([H|T], Acc) ->
+    vanilla_reverse(T, [H|Acc]);
+vanilla_reverse([], Acc) ->
+    Acc.</code>
+
+    <p>This is slightly more efficient because here you do not build a
+    list element only to copy it directly. (Or it would be more efficient
+    if the compiler did not automatically rewrite <c>[H]++Acc</c>
+    to <c>[H|Acc]</c>.)</p>
+  </section>
+
+  <section>
+    <title>Myth: Strings are Slow</title>
+
+    <p>String handling can be slow if done improperly.
+    In Erlang, you need to think a little more about how the strings
+    are used and choose an appropriate representation. If you
+    use regular expressions, use the
+    <seealso marker="stdlib:re">re</seealso> module in STDLIB
+    instead of the obsolete <c>regexp</c> module.</p>
+  </section>
+
+  <section>
+    <title>Myth: Repairing a Dets File is Very Slow</title>
+
+    <p>The repair time is still proportional to the number of records
+    in the file, but Dets repairs used to be much slower in the past.
+    Dets has been massively rewritten and improved.</p>
+  </section>
+
+  <section>
+    <title>Myth: BEAM is a Stack-Based Byte-Code Virtual Machine
+    (and Therefore Slow)</title>
+
+    <p>BEAM is a register-based virtual machine. It has 1024 virtual registers
+    that are used for holding temporary values and for passing arguments when
+    calling functions. Variables that need to survive a function call are saved
+    to the stack.</p>
+
+    <p>BEAM is a threaded-code interpreter. Each instruction is word pointing
+    directly to executable C-code, making instruction dispatching very fast.</p>
+  </section>
+
+  <section>
+    <title>Myth: Use "_" to Speed Up Your Program When a Variable
+    is Not Used</title>
+
+    <p>That was once true, but from R6B the BEAM compiler can see
+    that a variable is not used.</p>
+
+    <p>Similarly, trivial transformations on the source-code level
+    such as converting a <c>case</c> statement to clauses at the
+    top-level of the function seldom makes any difference to the
+    generated code.</p>
+  </section>
+
+  <section>
+    <title>Myth: A NIF Always Speeds Up Your Program</title>
+
+    <p>Rewriting Erlang code to a NIF to make it faster should be
+    seen as a last resort. It is only guaranteed to be dangerous,
+    but not guaranteed to speed up the program.</p>
+
+    <p>Doing too much work in each NIF call will
+    <seealso marker="erts:erl_nif#WARNING">degrade responsiveness
+    of the VM</seealso>. Doing too little work may mean that
+    the gain of the faster processing in the NIF is eaten up by
+    the overhead of calling the NIF and checking the arguments.</p>
+
+    <p>Be sure to read about
+    <seealso marker="erts:erl_nif#lengthy_work">Long-running NIFs</seealso>
+    before writing a NIF.</p>
+  </section>
+</chapter>
+

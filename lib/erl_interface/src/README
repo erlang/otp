@@ -1,0 +1,186 @@
+Erl_interface README July 2, 1997.
+Bjorn Gustavsson
+----------------------------------
+
+About the erl_interface library
+-------------------------------
+
+The pre-release version of erl_interface provided in this package
+is compiled for use of DNS and with symbol information.
+Also, assertions are enabled, meaning that the code will be a
+little bit slower.  In the final release, there will be two
+alternative libraries shipped, with and without assertions.
+
+If an assertion triggers, there will be a printout similar to this
+one:
+
+	Assertion failed: ep != NULL in erl_eterm.c, line 694
+	Abort (core dumped)
+
+The cause of an assertion can be either errors in the application
+program (for instance, passing NULL pointers to any function that
+expects an ETERM pointer) or in erl_interface itself.
+
+If you encounter any assertion failures which think you originate in
+erl_interface, I'll need the following information to track it down:
+
+1a) The printout from the assertion, especially filename and line number.
+
+1b) A dump of the stack, obtained by running a debugger.
+
+ - OR -
+
+2) The source for a small test program which triggers the assertion.
+
+Changes in this version
+-----------------------
+
+There is now *one* representation for an empty list, not two as is used
+to be.  An empty list is represented by the Erl_EmptyList structure.
+There are new macros, ERL_IS_EMPTY_LIST(ep), to test for an empty list,
+and ERL_IS_CONS(ep) to test for a cons cell (more on that below).
+
+None of the type checking macros (ERL_IS_LIST(ep), ERL_IS_TUPLE(ep), etc),
+accept NULL pointers any longer.  Make sure to only pass valid ETERM
+pointers.
+
+erl_cons(head, tail) now requires tail to be a non-NULL pointer.
+To represent the end of a list, use the return value from
+erl_mk_empty_list().
+
+erl_length() now only works for a proper list; i.e. for the
+the term [a|b], erl_length() returns -1.
+
+erl_tl(), erl_hd() is now silent if given a bad list
+(but still returns NULL).
+
+The string data type has been removed, including the macro ERL_IS_STRING().
+The functions erl_mk_string() and erl_mk_estring() still exists, but builds
+lists instead of strings.
+
+There are two new functions to convert I/O lists (= deep lists of
+byte-sized integers and binaries):
+
+	char* erl_iolist_to_string(ETERM* term);
+	ETERM* erl_iolist_to_binary(ETERM* term);
+
+The erl_iolist_to_string() function converts an I/O list to a
+'\0' terminated string.
+
+Known bugs
+----------
+
+The term erl_mk_small_int(-0x10000000) will be incorrectly represented
+if decoded and sent to the Erlang side.
+
+Calling erl_mk_int() on an integer whose value is represented
+in more than 28 bits, will result in an ETERM which is not an integer
+(i.e. ERL_IS_INTEGER() will fail).
+
+Planned future changes
+----------------------
+
+Support for heap allocation of Erlang terms will be dropped.
+It will be assumed that malloc()/free() functions are available.
+
+There will be one header file, erl_interface.h, not one for each
+"module".
+
+The type checking macros for lists
+----------------------------------
+
+In this version of erl_interface, there are three macros for testing
+types of lists:
+
+ERL_IS_LIST(term)
+ERL_IS_CONS(term)
+ERL_IS_EMPTY_LIST(term)
+
+They behave as follows:
+
+ERL_IS_LIST(term) is used like a list/1 guard function in Erlang:
+
+function(List) when list(List) ->
+	....
+
+It is true if its argument is a list, even an empty list.
+
+ERL_IS_EMPTY(term) is true only for an empty list; thus it can be
+used like the following function head:
+
+function([]) ->
+	....
+
+ERL_IS_CONS(term) only if the list is not empty; it is similar to the
+following function head:
+
+function([H|T] ->
+	....
+
+Documentation for new functions
+-------------------------------
+
+/***********************************************************************
+ * I o l i s t   f u n c t i o n s
+ *
+ * The following functions handles I/O lists.
+ *
+ * Informally, an I/O list is a deep list of characters and binaries,
+ * which can be sent to an Erlang port.
+ *
+ * Formally, in BNF, an I/O list is defined as:
+ *
+ * iolist ::= []
+ *        |   Binary
+ *        |   [iohead | iolist]
+ *        ;
+ *
+ * iohead ::= Binary
+ *        |   Byte (integer in the range [0..255])
+ *        |   iolist
+ *        ;
+ *
+ * Note that versions of Erlang/OTP prior to R2 had a slightly more
+ * restricted definition of I/O lists, in that the tail of a an I/O list
+ * was not allowed to be a binary.  The erl_interface functions
+ * for I/O lists follows the more liberal rules described by the BNF
+ * description above.
+ ***********************************************************************/
+
+/*
+ * This function converts an I/O list to a '\0' terminated C string.
+ * The I/O list must not contain any occurrences of the integer 0.
+ *
+ * The string will be in memory allocated by erl_malloc().  It is the
+ * responsibility of the caller to eventually call erl_free() to free
+ * the memory.
+ *
+ * Returns: NULL if the list was not an I/O list or contained
+ * the integer 0, otherwise a pointer to '\0' terminated string.
+ */
+
+char*
+erl_iolist_to_string(term)
+    ETERM* term;		/* Term to convert to a string. */
+
+/*
+ * This function converts an I/O list to a binary term.
+ *
+ * Returns: NULL if the list was not an I/O list, otherwise
+ * an ETERM pointer pointing to a binary term.
+ */
+
+ETERM*
+erl_iolist_to_binary(term)
+    ETERM* term;		/* Term to convert to a binary. */
+
+/*
+ * Returns the length of an I/O list.
+ *
+ * Returns: -1 if the term if the given term is not a I/O list,
+ * or the length otherwise.
+ */
+
+int
+erl_iolist_length(term)
+    ETERM* term;

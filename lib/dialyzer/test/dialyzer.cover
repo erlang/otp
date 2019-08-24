@@ -1,0 +1,3 @@
+%% -*- erlang -*-
+{incl_app,dialyzer,details}.
+%{incl_mods,dialyzer,[erl_types,erl_bif_types]}.

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Using SSL application API</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>using_ssl.xml</file>
+  </header>
+  <p>To see relevant version information for ssl, call
+  <seealso marker="ssl:ssl#versions-0"><c>ssl:versions/0</c></seealso>
+  .</p>
+    
+  <p>To see all supported cipher suites, call  <seealso marker="ssl:ssl#cipher_suites-1"><c>ssl:cipher_suites(all)</c> </seealso>. 
+  The available cipher suites for a connection depend on your certificate. 
+  Specific cipher suites that you want your connection to use can also be 
+  specified. Default is to use the strongest available.</p>
+  
+  <section>
+    <title>Setting up Connections</title>
+    
+    <p>This section shows a small example of how to set up client/server connections
+    using the Erlang shell. The returned value of the <c>sslsocket</c> is abbreviated
+    with <c>[...]</c> as it can be fairly large and is opaque.</p>
+    
+    <section>
+      <title>Minimal Example</title>
+      
+      <note><p> The minimal setup is not the most secure setup of SSL/TLS/DTLS.</p>    
+      </note>
+
+      <p>To set up client/server connections:</p>
+
+      <p><em>Step 1:</em> Start the server side:</p>
+      <code type="erl">1 server> ssl:start().
+ok</code>
+      
+      <p><em>Step 2:</em> Create an TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
+      <code type="erl">2 server> {ok, ListenSocket} =
+ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
+{ok,{sslsocket, [...]}}</code>
+      
+      <p><em>Step 3:</em> Do a transport accept on the TLS listen socket:</p>
+      <code type="erl">3 server> {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket).
+{ok,{sslsocket, [...]}}</code>
+
+      <p><em>Step 4:</em> Start the client side: </p>
+      <code type="erl">1 client> ssl:start().
+ok</code>
+      <p> To run DTLS add the option {protocol, dtls} to third argument.</p>
+      <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,  [], infinity).
+{ok,{sslsocket, [...]}}</code>
+      
+      <p><em>Step 5:</em> Do the TLS handshake:</p>
+      <code type="erl">4 server> {ok, Socket} = ssl:handshake(TLSTransportSocket).
+ok</code>
+      
+      <p><em>Step 6:</em> Send a message over TLS:</p>
+      <code type="erl">5 server> ssl:send(Socket, "foo").
+ok</code>
+      
+      <p><em>Step 7:</em> Flush the shell message queue to see that the message
+      was sent on the server side:</p>
+      <code type="erl">3 client> flush().
+Shell got {ssl,{sslsocket,[...]},"foo"}
+ok</code>
+    </section>
+    
+    <section>
+      <title>Upgrade Example - TLS only </title>
+      
+      <note><p>To upgrade a TCP/IP connection to an SSL connection, the
+      client and server must agree to do so. The agreement
+      can be accomplished by using a protocol, for example, the one used by HTTP
+      specified in RFC 2817.</p></note>
+
+      <p>To upgrade to an SSL connection:</p>
+      
+      <p><em>Step 1:</em> Start the server side:</p>
+      <code type="erl">1 server> ssl:start().
+ok</code>
+      
+      <p><em>Step 2:</em> Create a normal TCP listen socket:</p>
+      <code type="erl">2 server> {ok, ListenSocket} = gen_tcp:listen(9999, [{reuseaddr, true}]).
+{ok, #Port&lt;0.475&gt;}</code>
+      
+      <p><em>Step 3:</em> Accept client connection:</p>
+      <code type="erl">3 server> {ok, Socket} = gen_tcp:accept(ListenSocket).
+{ok, #Port&lt;0.476&gt;}</code>
+      
+      <p><em>Step 4:</em> Start the client side:</p>
+      <code type="erl">1 client> ssl:start().
+ok</code>
+      
+      <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
+      
+      <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c> before trying
+      to upgrade a connection to an SSL connection, otherwise
+      SSL handshake messages can be delivered to the wrong process:</p>
+      <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
+ok</code>
+      
+      <p><em>Step 6:</em> Do the TLS handshake:</p>
+      <code type="erl">5 server> {ok, TLSSocket} = ssl:handshake(Socket, [{cacertfile, "cacerts.pem"},
+{certfile, "cert.pem"}, {keyfile, "key.pem"}]).
+{ok,{sslsocket,[...]}}</code>
+      
+      <p><em>Step 7:</em> Upgrade to an TLS connection. The client and server
+      must agree upon the upgrade. The server must call
+      <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
+      <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
+{certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
+{ok,{sslsocket,[...]}}</code>
+      
+      <p><em>Step 8:</em> Send a message over TLS:</p>
+      <code type="erl">4 client> ssl:send(TLSSocket, "foo").
+ok</code>
+      
+      <p><em>Step 9:</em> Set <c>active true</c> on the TLS socket:</p>
+      <code type="erl">4 server> ssl:setopts(TLSSocket, [{active, true}]).
+ok</code>
+      
+      <p><em>Step 10:</em> Flush the shell message queue to see that the message
+      was sent on the client side:</p>
+      <code type="erl">5 server> flush().
+Shell got {ssl,{sslsocket,[...]},"foo"}
+ok</code>
+    </section>
+  </section>
+
+  <section>
+    <title>Customizing cipher suits</title>
+
+    <p>Fetch default cipher suite list for an TLS/DTLS version. Change default
+    to all to get all possible cipher suites.</p>
+    <code type="erl">1>  Default = ssl:cipher_suites(default, 'tlsv1.2').
+    [#{cipher => aes_256_gcm,key_exchange => ecdhe_ecdsa,
+    mac => aead,prf => sha384}, ....]
+</code>
+
+    <p>In OTP 20 it is desirable to remove all cipher suites
+    that uses rsa kexchange (removed from default in 21) </p>
+    <code type="erl">2> NoRSA =
+    ssl:filter_cipher_suites(Default,
+                            [{key_exchange, fun(rsa) -> false;
+			                       (_) -> true end}]).
+    [...]
+    </code>
+
+    <p> Pick just a few suites </p>
+    <code type="erl"> 3> Suites =
+    ssl:filter_cipher_suites(Default,
+                            [{key_exchange, fun(ecdh_ecdsa) -> true;
+			                       (_) -> false end},
+                             {cipher, fun(aes_128_cbc) ->true;
+			                  (_) ->false end}]).
+    [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
+     mac => sha256,prf => sha256},
+     #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
+     prf => default_prf}]
+    </code>
+    
+    <p> Make some particular suites the most preferred, or least
+    preferred by changing prepend to append.</p>
+    <code type="erl"> 4>ssl:prepend_cipher_suites(Suites, Default).
+  [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
+     mac => sha256,prf => sha256},
+   #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
+     prf => default_prf},
+   #{cipher => aes_256_cbc,key_exchange => ecdhe_ecdsa,
+     mac => sha384,prf => sha384}, ...]
+    </code>
+  </section>      
+
+  <section>
+    <title>Using an Engine Stored Key</title>
+    
+    <p>Erlang ssl application is able to use private keys provided
+    by OpenSSL engines using the following mechanism:</p>
+    
+    <code type="erl">1> ssl:start().
+ok</code>
+
+    <p>Load a crypto engine, should be done once per engine used. For example
+    dynamically load the engine called <c>MyEngine</c>:
+    </p>
+    <code type="erl">2> {ok, EngineRef} =
+crypto:engine_load(&lt;&lt;"dynamic">>,
+                   [{&lt;&lt;"SO_PATH">>, "/tmp/user/engines/MyEngine"},&lt;&lt;"LOAD">>],[]).
+{ok,#Ref&lt;0.2399045421.3028942852.173962>}
+    </code>
+    
+    <p>Create a map with the engine information and the algorithm used by the engine:</p>
+    <code type="erl">3> PrivKey =
+ #{algorithm => rsa,
+   engine => EngineRef,
+   key_id => "id of the private key in Engine"}.
+    </code>
+    <p>Use the map in the ssl key option:</p>
+    <code type="erl">4> {ok, SSLSocket} =
+ssl:connect("localhost", 9999,
+            [{cacertfile, "cacerts.pem"},
+             {certfile, "cert.pem"},
+             {key, PrivKey}], infinity).
+    </code>
+
+    <p>See also <seealso marker="crypto:engine_load#engine_load"> crypto documentation</seealso> </p>
+    
+     </section>      
+  
+ </chapter>

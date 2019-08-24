@@ -1,0 +1,2170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ets</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="">ets</module>
+  <modulesummary>Built-in term storage.</modulesummary>
+  <description>
+    <p>This module is an interface to the Erlang built-in term storage
+      BIFs. These provide the ability to store very large quantities of
+      data in an Erlang runtime system, and to have constant access
+      time to the data. (In the case of <c>ordered_set</c>, see below,
+      access time is proportional to the logarithm of the number of
+      stored objects.)</p>
+
+    <p>Data is organized as a set of dynamic tables, which can store
+      tuples. Each table is created by a process. When the process
+      terminates, the table is automatically destroyed. Every table has
+      access rights set at creation.</p>
+
+    <p>Tables are divided into four different types, <c>set</c>,
+      <c>ordered_set</c>, <c>bag</c>, and <c>duplicate_bag</c>.
+      A <c>set</c> or <c>ordered_set</c> table can only have one object
+      associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
+      have many objects associated with each key.</p>
+
+   <marker id="max_ets_tables"></marker>
+   <note>
+     <p>
+       The number of tables stored at one Erlang node <em>used</em> to
+       be limited. This is no longer the case (except by memory usage).
+       The previous default limit was about 1400 tables and
+       could be increased by setting the environment variable
+       <c>ERL_MAX_ETS_TABLES</c> or the command line option
+       <seealso marker="erts:erl#+e"><c>+e</c></seealso> before starting the
+       Erlang runtime system. This hard limit has been removed, but it is currently
+       useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
+       set to an approximate of the maximum amount of tables used. This since
+       an internal table for named tables is sized using this value. If
+       large amounts of named tables are used and <c>ERL_MAX_ETS_TABLES</c>
+       hasn't been increased, the performance of named table lookup will
+       degrade.
+    </p>
+   </note>
+
+    <p>Notice that there is no automatic garbage collection for tables.
+      Even if there are no references to a table from any process, it
+      is not automatically destroyed unless the owner process
+      terminates. To destroy a table explicitly, use function
+      <seealso marker="#delete/1"><c>delete/1</c></seealso>.
+      The default owner is the process that created the
+      table. To transfer table ownership at process termination, use
+      option <seealso marker="#heir"><c>heir</c></seealso> or call
+      <seealso marker="#give_away/3"><c>give_away/3</c></seealso>.</p>
+
+    <p>Some implementation details:</p>
+
+    <list type="bulleted">
+      <item><p>In the current implementation, every object insert and
+       look-up operation results in a copy of the object.</p></item>
+      <item><p><c>'$end_of_table'</c> is not to be used as a key, as
+       this atom is used to mark the end of the table when using functions
+       <seealso marker="#first/1"><c>first/1</c></seealso> and
+       <seealso marker="#next/2"><c>next/2</c></seealso>.</p></item>
+    </list>
+
+    <p>Notice the subtle difference between
+      <em>matching</em> and <em>comparing equal</em>, which is
+      demonstrated by table types <c>set</c> and <c>ordered_set</c>:</p>
+
+    <list type="bulleted">
+      <item>
+        <p>Two Erlang terms <c>match</c> if they are of
+          the same type and have the same value, so that <c>1</c> matches
+          <c>1</c>, but not <c>1.0</c> (as <c>1.0</c> is a <c>float()</c>
+          and not an <c>integer()</c>).</p>
+      </item>
+      <item>
+        <p>Two Erlang terms <em>compare equal</em>
+          if they either are of the same type and value, or if
+          both are numeric types and extend to the same value, so that
+          <c>1</c> compares equal to both <c>1</c> and <c>1.0</c>.</p>
+      </item>
+      <item>
+        <p>The <c>ordered_set</c> works on the <em>Erlang term order</em> and
+          no defined order exists between an <c>integer()</c> and a
+          <c>float()</c> that extends to the same value. Hence the key
+          <c>1</c> and the key <c>1.0</c> are regarded as equal in an
+          <c>ordered_set</c> table.</p>
+      </item>
+    </list>
+  </description>
+
+  <section>
+    <title>Failure</title>
+    <p>The functions in this module exits with reason
+      <c>badarg</c> if any argument has the wrong format, if the
+      table identifier is invalid, or if the operation is denied because of
+      table access rights (<seealso marker="#protected">protected</seealso>
+      or <seealso marker="#private">private</seealso>).</p>
+  </section>
+
+  <section><marker id="concurrency"></marker>
+    <title>Concurrency</title>
+      <p>This module provides some limited support for concurrent access.
+       All updates to single objects are guaranteed to be both <em>atomic</em>
+       and <em>isolated</em>. This means that an updating operation to
+       a single object either succeeds or fails completely without any
+       effect (atomicity) and that
+       no intermediate results of the update can be seen by other
+       processes (isolation). Some functions that update many objects
+       state that they even guarantee atomicity and isolation for the entire
+       operation. In database terms the isolation level can be seen as
+       "serializable", as if all isolated operations are carried out serially,
+       one after the other in a strict order.</p>
+  </section>
+
+  <section><marker id="traversal"></marker>
+    <title>Table traversal</title>
+    <p>There are different ways to traverse through the objects of a table.</p>
+    <list type="bulleted">
+      <item><p><em>Single-step</em> traversal one key at at time, using
+	<seealso marker="#first/1"><c>first/1</c></seealso>,
+	<seealso marker="#next/2"><c>next/2</c></seealso>,
+	<seealso marker="#last/1"><c>last/1</c></seealso> and
+	<seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+      </item>
+      <item><p>Search with simple <em>match patterns</em>, using
+	<seealso marker="#match/1"><c>match/1/2/3</c></seealso>,
+	<seealso marker="#match_delete/2"><c>match_delete/2</c></seealso> and
+	<seealso marker="#match_object/1"><c>match_object/1/2/3</c></seealso>.</p>
+      </item>
+      <item><p>Search with more powerful <em>match specifications</em>, using
+	<seealso marker="#select/1"><c>select/1/2/3</c></seealso>,
+	<seealso marker="#select_count/2"><c>select_count/2</c></seealso>,
+	<seealso marker="#select_delete/2"><c>select_delete/2</c></seealso>,
+	<seealso marker="#select_replace/2"><c>select_replace/2</c></seealso> and
+	<seealso marker="#select_reverse/1"><c>select_reverse/1/2/3</c></seealso>.</p>
+      </item>
+      <item><p><em>Table conversions</em>, using
+	<seealso marker="#tab2file/2"><c>tab2file/2/3</c></seealso> and
+        <seealso marker="#tab2list/1"><c>tab2list/1</c></seealso>.</p>
+      </item>
+    </list>
+    <p>None of these ways of table traversal will guarantee a consistent table snapshot
+    if the table is also updated during the traversal. Moreover, traversals not
+    done in a <em>safe</em> way, on tables where keys are inserted or deleted
+    during the traversal, may yield the following undesired effects:</p>
+    <list type="bulleted">
+      <item><p>Any key may be missed.</p></item>
+      <item><p>Any key may be found more than once.</p></item>
+      <item><p>The traversal may fail with <c>badarg</c> exception if keys are deleted.</p>
+      </item>
+    </list>
+    <p>A table traversal is <em>safe</em> if either</p>
+    <list type="bulleted">
+      <item><p>the table is of type <c>ordered_set</c>.</p>
+      </item>
+      <item><p>the entire table traversal is done within one ETS function
+        call.</p>
+      </item>
+      <item><p>function <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+        is used to keep the table fixated during the entire traversal.</p>
+      </item>
+    </list>
+    <note>
+      <p>Even though the access of a single object is always guaranteed to be
+      <seealso marker="#concurrency">atomic and isolated</seealso>, each traversal
+      through a table to find the next key is not done with such guarantees. This is often
+      not a problem, but may cause rare subtle "unexpected" effects if a concurrent
+      process inserts objects during a traversal. For example, consider one
+      process doing</p>
+<pre>
+ets:new(t, [ordered_set, named_table]),
+ets:insert(t, {1}),
+ets:insert(t, {2}),
+ets:insert(t, {3}),
+</pre>
+      <p>A concurrent call to <c>ets:first(t)</c>, done by another
+      process, may then in rare cases return <c>2</c> even though
+      <c>2</c> has never existed in the table ordered as the first key. In
+      the same way, a concurrent call to <c>ets:next(t, 1)</c> may return
+      <c>3</c> even though <c>3</c> never existed in the table
+      ordered directly after <c>1</c>.</p>
+      <p>Effects like this are improbable but possible. The probability will
+      further be reduced (if not vanish) if table option
+      <seealso marker="#new_2_write_concurrency"><c>write_concurrency</c></seealso>
+      is not enabled. This can also only be a potential concern for
+      <c>ordered_set</c> where the traversal order is defined.</p>
+    </note>
+    <p>Traversals using <c>match</c> and <c>select</c> functions may not need to
+    scan the entire table depending on how the key is specified. A match
+    pattern with a <em>fully bound key</em> (without any match variables) will
+    optimize the operation to a single key lookup without any table traversal
+    at all. For <c>ordered_set</c> a <em>partially bound key</em> will limit the
+    traversal to only scan a subset of the table based on term order. A
+    partially bound key is either a list or a tuple with a prefix that is fully
+    bound. Example:</p>
+<pre>
+1> <input>T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).</input>
+true
+2> <input>%% Efficient search of all with area code 555</input>
+2> <input>ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).</input>
+[["1234","John Smith"]]
+</pre>
+  </section>
+
+  <section>
+    <marker id="match_spec"></marker>
+    <title>Match Specifications</title>
+    <p>Some of the functions use a <em>match specification</em>,
+      <c>match_spec</c>. For a brief explanation, see
+      <seealso marker="#select/2"><c>select/2</c></seealso>. For a detailed
+      description, see section <seealso marker="erts:match_spec">
+      Match Specifications in Erlang</seealso> in ERTS User's Guide.</p>
+  </section>
+
+  <datatypes>
+    <datatype>
+      <name name="access"/>
+    </datatype>
+    <datatype>
+      <name>continuation()</name>
+      <desc>
+        <p>Opaque continuation used by <seealso marker="#select/1">
+          <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
+          <c>select_reverse/1,3</c></seealso>, <seealso marker="#match/1">
+          <c>match/1,3</c></seealso>, and <seealso marker="#match_object/1">
+          <c>match_object/1,3</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="match_spec"/>
+      <desc><p>A match specification, see above.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="comp_match_spec"/>
+      <desc><p>A compiled match specification.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="match_pattern"/>
+    </datatype>
+    <datatype>
+      <name name="tab"/>
+    </datatype>
+    <datatype>
+      <name name="tid"/>
+      <desc><p>A table identifier, as returned by
+      <seealso marker="#new/2"><c>new/2</c></seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="type"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="all" arity="0" since=""/>
+      <fsummary>Return a list of all ETS tables.</fsummary>
+      <desc>
+        <p>Returns a list of all tables at the node. Named tables are
+          specified by their names, unnamed tables are specified by their
+          table identifiers.</p>
+        <p>There is no guarantee of consistency in the returned list. Tables
+          created or deleted by other processes "during" the <c>ets:all()</c>
+          call either are or are not included in the list. Only tables
+          created/deleted <em>before</em> <c>ets:all()</c> is called are
+          guaranteed to be included/excluded.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="1" since=""/>
+      <fsummary>Delete an entire ETS table.</fsummary>
+      <desc>
+        <p>Deletes the entire table <c><anno>Tab</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <fsummary>Delete all objects with a specified key from an ETS
+        table.</fsummary>
+      <desc>
+        <p>Deletes all objects with key <c><anno>Key</anno></c> from table
+          <c><anno>Tab</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_all_objects" arity="1" since=""/>
+      <fsummary>Delete all objects in an ETS table.</fsummary>
+      <desc>
+        <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
+          The operation is guaranteed to be
+          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_object" arity="2" since=""/>
+      <fsummary>Deletes a specific from an ETS table.</fsummary>
+      <desc>
+        <p>Delete the exact object <c><anno>Object</anno></c> from the
+          ETS table,
+          leaving objects with the same key but other differences
+          (useful for type <c>bag</c>). In a <c>duplicate_bag</c> table, all
+          instances of the object are deleted.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="file2tab" arity="1" since=""/>
+      <fsummary>Read an ETS table from a file.</fsummary>
+      <desc>
+        <p>Reads a file produced by <seealso marker="#tab2file/2">
+          <c>tab2file/2</c></seealso> or 
+          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso> and
+          creates the corresponding table <c><anno>Tab</anno></c>.</p>
+        <p>Equivalent to <c>file2tab(<anno>Filename</anno>, [])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="file2tab" arity="2" since=""/>
+      <fsummary>Read an ETS table from a file.</fsummary>
+      <desc>
+        <p>Reads a file produced by <seealso marker="#tab2file/2">
+          <c>tab2file/2</c></seealso> or <seealso marker="#tab2file/3">
+          <c>tab2file/3</c></seealso> and creates the
+          corresponding table <c><anno>Tab</anno></c>.</p>
+        <p>The only supported option is <c>{verify,boolean()}</c>.
+          If verification is turned on (by specifying <c>{verify,true}</c>),
+          the function uses whatever information is present in the file to
+          assert that the information is not damaged. How this is done depends
+          on which <c>extended_info</c> was written using 
+          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+        <p>If no <c>extended_info</c> is present in the file and
+          <c>{verify,true}</c> is specified, the number of objects
+          written is compared to the size of the original table when the
+          dump was started. This can make verification fail if the table was
+          <c>public</c> and objects were added or removed while the
+          table was dumped to file. To avoid this problem,
+          either do not verify files dumped while updated simultaneously
+          or use option <c>{extended_info, [object_count]}</c> to
+          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>, which
+          extends the information in the file with the number of objects
+          written.</p>
+        <p>If verification is turned on and the file was written with
+          option <c>{extended_info, [md5sum]}</c>, reading the file
+          is slower and consumes radically more CPU time than otherwise.</p>
+        <p><c>{verify,false}</c> is the default.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="first" arity="1" since=""/>
+      <fsummary>Return the first key in an ETS table.</fsummary>
+      <desc>
+        <p>Returns the first key <c><anno>Key</anno></c> in table
+          <c><anno>Tab</anno></c>. For an <c>ordered_set</c> table, the first
+          key in Erlang term order is returned. For other
+          table types, the first key according to the internal
+          order of the table is returned. If the table is empty,
+          <c>'$end_of_table'</c> is returned.</p>
+        <p>To find subsequent keys in the table, use
+          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foldl" arity="3" since=""/>
+      <fsummary>Fold a function over an ETS table.</fsummary>
+      <desc>
+        <p><c><anno>Acc0</anno></c> is returned if the table is empty.
+          This function is similar to
+          <seealso marker="lists#foldl/3"><c>lists:foldl/3</c></seealso>.
+          The table elements are traversed in an unspecified order, except for
+          <c>ordered_set</c> tables, where they are traversed first to last.</p>
+        <p>If <c><anno>Function</anno></c> inserts objects into the table,
+          or another
+          process inserts objects into the table, those objects <em>can</em>
+          (depending on key ordering) be included in the traversal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foldr" arity="3" since=""/>
+      <fsummary>Fold a function over an ETS table.</fsummary>
+      <desc>
+        <p><c><anno>Acc0</anno></c> is returned if the table is empty.
+          This function is similar to
+          <seealso marker="lists#foldr/3"><c>lists:foldr/3</c></seealso>.
+          The table elements are traversed in an unspecified order, except for
+          <c>ordered_set</c> tables, where they are traversed last to first.</p>
+        <p>If <c><anno>Function</anno></c> inserts objects into the table,
+          or another
+          process inserts objects into the table, those objects <em>can</em>
+          (depending on key ordering) be included in the traversal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_dets" arity="2" since=""/>
+      <fsummary>Fill an ETS table with objects from a Dets
+        table.</fsummary>
+      <desc>
+        <p>Fills an already created ETS table with the objects in the
+          already opened Dets table <c><anno>DetsTab</anno></c>.
+          Existing objects in the ETS table are kept unless
+          overwritten.</p>
+        <p>If any of the tables does not exist or the Dets table is
+          not open, a <c>badarg</c> exception is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fun2ms" arity="1" since=""/>
+      <fsummary>Pseudo function that transforms fun syntax to a match
+        specification.</fsummary>
+      <desc>
+        <p>Pseudo function that by a <c>parse_transform</c> translates
+          <c><anno>LiteralFun</anno></c> typed as parameter in the function
+          call to a
+          <seealso marker="#match_spec">match specification</seealso>.
+          With "literal" is meant that the fun must textually be written
+          as the parameter of the function, it cannot be held in a
+          variable that in turn is passed to the function.</p>
+        <p>The parse transform is provided in the <c>ms_transform</c>
+          module and the source <em>must</em> include
+          file <c>ms_transform.hrl</c> in STDLIB for this
+          pseudo function to work. Failing to include the hrl file in
+          the source results in a runtime error, not a compile
+          time error. The include file is easiest included by adding line
+          <c>-include_lib("stdlib/include/ms_transform.hrl").</c> to
+          the source file.</p>
+        <p>The fun is very restricted, it can take only a single
+          parameter (the object to match): a sole variable or a
+          tuple. It must use the <c>is_</c> guard tests.
+          Language constructs that have no representation in a match
+          specification (<c>if</c>, <c>case</c>, <c>receive</c>,
+          and so on) are not allowed.</p>
+        <p>The return value is the resulting match specification.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>ets:fun2ms(fun({M,N}) when N > 3 -> M end).</input>
+[{{'$1','$2'},[{'>','$2',3}],['$1']}]</pre>
+        <p>Variables from the environment can be imported, so that the
+          following works:</p>
+        <pre>
+2> <input>X=3.</input>
+3
+3> <input>ets:fun2ms(fun({M,N}) when N > X -> M end).</input>
+[{{'$1','$2'},[{'>','$2',{const,3}}],['$1']}]</pre>
+        <p>The imported variables are replaced by match specification
+          <c>const</c> expressions, which is consistent with the
+          static scoping for Erlang funs. However, local or global function
+          calls cannot be in the guard or body of the fun. Calls to built-in
+          match specification functions is of course allowed:</p>
+        <pre>
+4> <input>ets:fun2ms(fun({M,N}) when N > X, my_fun(M) -> M end).</input>
+Error: fun containing local Erlang function calls
+('my_fun' called in guard) cannot be translated into match_spec
+{error,transform_error}
+5> <input>ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).</input>
+[{{'$1','$2'},[{'>','$2',{const,3}},{is_atom,'$1'}],['$1']}]</pre>
+        <p>As shown by the example, the function can be called
+          from the shell also. The fun must be literally in the call
+          when used from the shell as well.</p>
+        <warning>
+          <p>If the <c>parse_transform</c> is not applied to a module that
+            calls this pseudo function, the call fails in runtime
+            (with a <c>badarg</c>). The <c>ets</c> module
+            exports a function with this name, but it is never to
+            be called except when using the function in the
+            shell. If the <c>parse_transform</c> is properly applied by
+            including header file <c>ms_transform.hrl</c>, compiled
+            code never calls the function, but the function call is
+            replaced by a literal match specification.</p>
+        </warning>
+        <p>For more information, see <seealso marker="ms_transform#top">
+          <c>ms_transform(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="give_away" arity="3" since=""/>
+      <fsummary>Change owner of a table.</fsummary>
+      <desc>
+        <p>Make process <c><anno>Pid</anno></c> the new owner of table
+          <c><anno>Tab</anno></c>. If successful, message
+          <c>{'ETS-TRANSFER',<anno>Tab</anno>,FromPid,<anno>GiftData</anno>}</c>
+          is sent to the new owner.</p>
+        <p>The process <c><anno>Pid</anno></c> must be alive, local, and not
+          already the owner of the table.
+          The calling process must be the table owner.</p>
+        <p>Notice that this function does not affect option
+          <seealso marker="#heir"><c>heir</c></seealso> of the table. A table
+          owner can, for example, set <c>heir</c> to itself, give the table
+          away, and then get it back if the receiver terminates.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="0" since=""/>
+      <fsummary>Display information about all ETS tables on a terminal.
+      </fsummary>
+      <desc>
+        <p>Displays information about all ETS tables on a terminal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" since=""/>
+      <fsummary>Browse an ETS table on a terminal.</fsummary>
+      <desc>
+        <p>Browses table <c><anno>Tab</anno></c> on a terminal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info" arity="1" since=""/>
+      <fsummary>Return information about an <c>table</c>.</fsummary>
+      <desc>
+        <p>Returns information about table <c><anno>Tab</anno></c> as a list of
+          tuples. If <c><anno>Tab</anno></c> has the correct type
+          for a table identifier, but does not refer to an existing ETS
+          table, <c>undefined</c> is returned. If <c><anno>Tab</anno></c> is
+          not of the correct type, a <c>badarg</c> exception is raised.</p>
+        <taglist>
+          <tag><c>{compressed, boolean()}</c></tag>
+          <item>
+            <p>Indicates if the table is compressed.</p>
+          </item>
+          <tag><c>{heir, pid() | none}</c></tag>
+          <item>
+            <p>The pid of the heir of the table, or <c>none</c> if no heir
+              is set.</p>
+          </item>
+          <tag><c>{id,</c><seealso marker="#type-tid">
+              <c>tid()</c></seealso><c>}</c></tag>
+          <item>
+            <p>The table identifier.</p>
+          </item>
+          <tag><c>{keypos, integer() >= 1}</c></tag>
+          <item>
+            <p>The key position.</p>
+          </item>
+          <tag><c>{memory, integer() >= 0</c></tag>
+          <item>
+            <p>The number of words allocated to the table.</p>
+          </item>
+          <tag><c>{name, atom()}</c></tag>
+          <item>
+            <p>The table name.</p>
+          </item>
+          <tag><c>{named_table, boolean()}</c></tag>
+          <item>
+            <p>Indicates if the table is named.</p>
+          </item>
+          <tag><c>{node, node()}</c></tag>
+          <item>
+            <p>The node where the table is stored. This field is no longer
+              meaningful, as tables cannot be accessed from other nodes.</p>
+          </item>
+          <tag><c>{owner, pid()}</c></tag>
+          <item>
+            <p>The pid of the owner of the table.</p>
+          </item>
+          <tag><c>{protection,</c> <seealso marker="#type-access">
+              <c>access()</c></seealso><c>}</c></tag>
+          <item>
+            <p>The table access rights.</p>
+          </item>
+          <tag><c>{size, integer() >= 0</c></tag>
+          <item>
+            <p>The number of objects inserted in the table.</p>
+          </item>
+          <tag><c>{type,</c> <seealso marker="#type-type">
+              <c>type()</c></seealso><c>}</c></tag>
+          <item>
+            <p>The table type.</p>
+          </item>
+          <tag><c>{read_concurrency, boolean()}</c></tag>
+          <item>
+            <p>Indicates whether the table uses <c>read_concurrency</c> or
+              not.</p>
+          </item>
+          <tag><c>{write_concurrency, boolean()}</c></tag>
+          <item>
+            <p>Indicates whether the table uses <c>write_concurrency</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info" arity="2" since=""/>
+      <fsummary>Return the information associated with the specified item for
+        an ETS table.</fsummary>
+      <desc>
+        <p>Returns the information associated with <c>Item</c> for table
+          <c><anno>Tab</anno></c>, or returns <c>undefined</c> if <c>Tab</c>
+          does not refer an existing ETS table. If
+          <c><anno>Tab</anno></c> is
+          not of the correct type, or if <c><anno>Item</anno></c> is not
+          one of the allowed values, a <c>badarg</c> exception is raised.</p>
+          <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
+            pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
+            the following items are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>Item=fixed, Value=boolean()</c></p>
+            <p>Indicates if the table is fixed by any process.</p>
+          </item>
+          <item>
+            <p><marker id="info_2_safe_fixed_monotonic_time"/></p>
+            <p><c>Item=safe_fixed|safe_fixed_monotonic_time,
+              Value={FixationTime,Info}|false</c></p>
+            <p>If the table is fixed using
+              <seealso marker="#safe_fixtable/2">
+              <c>safe_fixtable/2</c></seealso>,
+              the call returns a tuple where <c>FixationTime</c> is the
+              last time when the table changed from unfixed to fixed.</p>
+            <p>The format and value of <c>FixationTime</c> depends on
+              <c>Item</c>:</p>
+            <taglist>
+              <tag><c>safe_fixed</c></tag>
+              <item>
+                <p><c>FixationTime</c> corresponds to the result returned by
+                  <seealso marker="erts:erlang#timestamp/0">
+                  <c>erlang:timestamp/0</c></seealso> at the time of fixation.
+                  Notice that when the system uses single or multi
+                  <seealso marker="erts:time_correction#Time_Warp_Modes">time
+                  warp modes</seealso> this can produce strange results, as
+                  the use of <c>safe_fixed</c> is not
+                  <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
+                  time warp safe</seealso>. Time warp safe code must use
+                  <c>safe_fixed_monotonic_time</c> instead.</p>
+              </item>
+              <tag><c>safe_fixed_monotonic_time</c></tag>
+              <item>
+                <p><c>FixationTime</c> corresponds to the result returned by
+                  <seealso marker="erts:erlang#monotonic_time/0">
+                  <c>erlang:monotonic_time/0</c></seealso> at the time of
+                  fixation. The use of <c>safe_fixed_monotonic_time</c> is
+                  <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
+                  time warp safe</seealso>.</p>
+              </item>
+            </taglist>
+            <p><c>Info</c> is a possibly empty lists of tuples
+              <c>{Pid,RefCount}</c>, one tuple for every process the
+              table is fixed by now. <c>RefCount</c> is the value
+              of the reference counter and it keeps track of how many times
+              the table has been fixed by the process.</p>
+	    <p>Table fixations are not limited to <seealso marker="#safe_fixtable/2">
+	      <c>safe_fixtable/2</c></seealso>. Temporary fixations may also
+	      be done by for example <seealso marker="#traversal">traversing
+	      functions</seealso> like <c>select</c> and <c>match</c>. Such
+	      table fixations are automatically released before the
+	      corresponding functions returns, but they may be seen by a
+	      concurrent call to
+	      <c>ets:info(T,safe_fixed|safe_fixed_monotonic_time)</c>.</p>
+            <p>If the table is not fixed at all, the call returns <c>false</c>.</p>
+          </item>
+          <item>
+            <p><c>Item=stats, Value=tuple()</c></p>
+            <p>Returns internal statistics about tables on an internal format
+	    used by OTP test suites. Not for production use.</p></item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="init_table" arity="2" since=""/>
+      <fsummary>Replace all objects of an ETS table.</fsummary>
+      <desc>
+        <p>Replaces the existing objects of table <c><anno>Tab</anno></c> with
+          objects created by calling the input function
+          <c><anno>InitFun</anno></c>,
+          see below. This function is provided for compatibility with
+          the <c>dets</c> module, it is not more efficient than filling
+          a table by using
+          <seealso marker="#insert/2"><c>insert/2</c></seealso>.</p>
+        <p>When called with argument <c>read</c>, the function
+          <c><anno>InitFun</anno></c> is assumed to return
+          <c>end_of_input</c> when
+          there is no more input, or <c>{<anno>Objects</anno>, Fun}</c>, where
+          <c><anno>Objects</anno></c> is a list of objects and <c>Fun</c> is a
+          new input function. Any other value <c>Value</c> is returned as an
+          error <c>{error, {init_fun, Value}}</c>. Each input function is
+          called exactly once, and if an error occur, the last
+          function is called with argument <c>close</c>, the reply
+          of which is ignored.</p>
+        <p>If the table type is <c>set</c> and more than one object
+          exists with a given key, one of the objects is
+          chosen. This is not necessarily the last object with the given
+          key in the sequence of objects returned by the input
+          functions. This holds also for duplicated
+          objects stored in tables of type <c>bag</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="insert" arity="2" since=""/>
+      <fsummary>Insert an object into an ETS table.</fsummary>
+      <desc>
+        <p>Inserts the object or all of the objects in list
+          <c><anno>ObjectOrObjects</anno></c> into table
+          <c><anno>Tab</anno></c>.</p>
+        <list type="bulleted">
+          <item>
+            <p>If the table type is <c>set</c> and the key of the inserted
+              objects <em>matches</em> the key of any object in the table,
+              the old object is replaced.</p>
+          </item>
+          <item>
+            <p>If the table type is <c>ordered_set</c> and the key of the
+              inserted object <em>compares equal</em> to the key of any object
+              in the table, the old object is replaced.</p>
+          </item>
+          <item>
+            <p>If the list contains more than one object with
+              <em>matching</em> keys and the table type is <c>set</c>, one is
+              inserted, which one is not defined.
+              The same holds for table type <c>ordered_set</c>
+              if the keys <em>compare equal</em>.</p>
+          </item>
+        </list>
+        <p>The entire operation is guaranteed to be
+          <seealso marker="#concurrency">atomic and isolated</seealso>,
+          even when a list of objects is inserted.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="insert_new" arity="2" since=""/>
+      <fsummary>Insert an object into an ETS table if the key is not
+        already present.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#insert/2"><c>insert/2</c></seealso>
+          except that instead of overwriting objects with the same key
+          (for <c>set</c> or <c>ordered_set</c>) or adding more objects with
+          keys already existing in the table (for <c>bag</c> and
+          <c>duplicate_bag</c>), <c>false</c> is returned.</p>
+        <p>If <c><anno>ObjectOrObjects</anno></c> is a
+          list, the function checks <em>every</em> key before
+          inserting anything. Nothing is inserted unless
+          <em>all</em> keys present in the list are absent from the
+          table. Like <c>insert/2</c>, the entire operation is guaranteed to be
+          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_compiled_ms" arity="1" since=""/>
+      <fsummary>Check if an Erlang term is the result of
+        <c>match_spec_compile</c>.</fsummary>
+      <desc>
+        <p>Checks if a term is a valid
+          compiled <seealso marker="#match_spec">match specification</seealso>.
+          The compiled match specification is an opaque datatype that
+          <em>cannot</em> be sent between Erlang nodes or be stored on
+          disk. Any attempt to create an external representation of a
+          compiled match specification results in an empty binary
+          (<c><![CDATA[<<>>]]></c>).</p>
+        <p><em>Examples:</em></p>
+        <p>The following expression yields <c>true</c>::</p>
+        <code type="none">
+ets:is_compiled_ms(ets:match_spec_compile([{'_',[],[true]}])).</code>
+        <p>The following expressions yield <c>false</c>, as variable
+          <c>Broken</c> contains a compiled match specification that has
+          passed through external representation:</p>
+        <code type="none">
+MS = ets:match_spec_compile([{'_',[],[true]}]),
+Broken = binary_to_term(term_to_binary(MS)),
+ets:is_compiled_ms(Broken).</code>
+        <note>
+          <p>The reason for not having an external representation of
+            compiled match specifications is performance. It can be
+            subject to change in future releases, while this interface
+            remains for backward compatibility.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="last" arity="1" since=""/>
+      <fsummary>Return the last key in an ETS table of type
+        <c>ordered_set</c>.</fsummary>
+      <desc>
+        <p>Returns the last key <c><anno>Key</anno></c> according to Erlang
+          term order in table <c>Tab</c> of type <c>ordered_set</c>. For
+          other table types, the function is synonymous to
+          <seealso marker="#first/1"><c>first/1</c></seealso>.
+          If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+        <p>To find preceding keys in the table, use
+          <seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lookup" arity="2" since=""/>
+      <fsummary>Return all objects with a specified key in an ETS table.
+      </fsummary>
+      <desc>
+        <p>Returns a list of all objects with key <c><anno>Key</anno></c> in
+          table <c><anno>Tab</anno></c>.</p>
+        <list type="bulleted">
+          <item>
+            <p>For tables of type <c>set</c>, <c>bag</c>, or
+              <c>duplicate_bag</c>, an object is returned only if the specified
+              key <em>matches</em> the key of the object in the table.</p>
+          </item>
+          <item>
+            <p>For tables of type <c>ordered_set</c>, an object is returned if
+              the specified key <em>compares equal</em> to the key of an object
+              in the table.</p>
+          </item>
+        </list>
+        <p>The difference is the same as between <c>=:=</c> and <c>==</c>.</p>
+        <p>As an example, one can insert an object with
+          <c>integer()</c> <c>1</c> as a key in an <c>ordered_set</c>
+          and get the object returned as a result of doing a <c>lookup/2</c>
+          with <c>float()</c> <c>1.0</c> as the key to search for.</p>
+        <p>For tables of type <c>set</c> or <c>ordered_set</c>,
+          the function returns either the empty list or a list with one
+          element, as there cannot be more than one object with the same
+          key. For tables of type <c>bag</c> or <c>duplicate_bag</c>, the
+          function returns a list of arbitrary length.</p>
+        <p>Notice that the time order of object insertions is preserved;
+          the first object inserted with the specified key is the first
+          in the resulting list, and so on.</p>
+        <p>Insert and lookup times in tables of type <c>set</c>,
+          <c>bag</c>, and <c>duplicate_bag</c> are constant, regardless
+          of the table size. For the <c>ordered_set</c>
+          datatype, time is proportional to the (binary) logarithm of
+          the number of objects.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="lookup_element" arity="3" since=""/>
+      <fsummary>Return the <c>Pos</c>:th element of all objects with a
+        specified key in an ETS table.</fsummary>
+      <desc>
+        <p>For a table <c><anno>Tab</anno></c> of type <c>set</c> or
+          <c>ordered_set</c>, the function returns the
+          <c><anno>Pos</anno></c>:th
+          element of the object with key <c><anno>Key</anno></c>.</p>
+        <p>For tables of type <c>bag</c> or <c>duplicate_bag</c>,
+          the functions returns a list with the <c><anno>Pos</anno></c>:th
+          element of every object with key <c><anno>Key</anno></c>.</p>
+        <p>If no object with key <c><anno>Key</anno></c> exists, the
+          function exits with reason <c>badarg</c>.</p>
+        <p>The difference between <c>set</c>, <c>bag</c>, and
+          <c>duplicate_bag</c> on one hand, and <c>ordered_set</c> on
+          the other, regarding the fact that <c>ordered_set</c>
+          view keys as equal when they <em>compare equal</em>
+          whereas the other table types regard them equal only when
+          they <em>match</em>, holds for <c>lookup_element/3</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match" arity="1" since=""/>
+      <fsummary>Continues matching objects in an ETS table.</fsummary>
+      <desc>
+        <p>Continues a match started with
+          <seealso marker="#match/3"><c>match/3</c></seealso>. The next
+          chunk of the size specified in the initial <c>match/3</c>
+          call is returned together with a new <c><anno>Continuation</anno></c>,
+          which can be used in subsequent calls to this function.</p>
+        <p>When there are no more objects in the table, <c>'$end_of_table'</c>
+          is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match" arity="2" since=""/>
+      <fsummary>Match the objects in an ETS table against a pattern.
+      </fsummary>
+      <desc>
+        <p>Matches the objects in table <c><anno>Tab</anno></c> against
+          pattern <c><anno>Pattern</anno></c>.</p>
+        <p>A pattern is a term that can contain:</p>
+        <list type="bulleted">
+          <item>Bound parts (Erlang terms)</item>
+          <item><c>'_'</c> that matches any Erlang term</item>
+          <item>Pattern variables <c>'$N'</c>, where <c>N</c>=0,1,...</item>
+        </list>
+        <p>The function returns a list with one element for each
+          matching object, where each element is an ordered list of
+          pattern variable bindings, for example:</p>
+        <pre>
+6> <input>ets:match(T, '$1').</input> % Matches every object in table
+[[{rufsen,dog,7}],[{brunte,horse,5}],[{ludde,dog,5}]]
+7> <input>ets:match(T, {'_',dog,'$1'}).</input>
+[[7],[5]]
+8> <input>ets:match(T, {'_',cow,'$1'}).</input>
+[]</pre>
+        <p>If the key is specified in the pattern, the match is very
+          efficient. If the key is not specified, that is, if it is a
+          variable or an underscore, the entire table must be searched.
+          The search time can be substantial if the table is very large.</p>
+        <p>For tables of type <c>ordered_set</c>, the result is in
+          the same order as in a <c>first</c>/<c>next</c> traversal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match" arity="3" since=""/>
+      <fsummary>Match the objects in an ETS table against a pattern
+        and return part of the answers.</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#match/2"><c>match/2</c></seealso>, 
+          but returns only a limited (<c><anno>Limit</anno></c>) number of
+          matching objects. Term <c><anno>Continuation</anno></c> can then
+          be used in subsequent calls to <seealso marker="#match/1">
+          <c>match/1</c></seealso> to get the next chunk of matching
+          objects. This is a space-efficient way to work on objects in a
+          table, which is faster than traversing the table object
+          by object using
+          <seealso marker="#first/1"><c>first/1</c></seealso> and
+          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+        <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#match/1"><c>match/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_delete" arity="2" since=""/>
+      <fsummary>Delete all objects that match a specified pattern from an
+        ETS table.</fsummary>
+      <desc>
+        <p>Deletes all objects that match pattern <c><anno>Pattern</anno></c>
+          from table <c><anno>Tab</anno></c>. For a description of patterns,
+          see <seealso marker="#match/2"><c>match/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_object" arity="1" since=""/>
+      <fsummary>Continues matching objects in an ETS table.</fsummary>
+      <desc>
+        <p>Continues a match started with
+          <seealso marker="#match_object/3"><c>match_object/3</c></seealso>.
+          The next chunk of the size specified in the initial
+          <c>match_object/3</c> call is returned together with a new
+          <c><anno>Continuation</anno></c>, which can be used in subsequent
+          calls to this function.</p>
+        <p>When there are no more objects in the table, <c>'$end_of_table'</c>
+          is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_object" arity="2" since=""/>
+      <fsummary>Match the objects in an ETS table against a pattern.
+      </fsummary>
+      <desc>
+        <p>Matches the objects in table <c><anno>Tab</anno></c> against
+          pattern <c><anno>Pattern</anno></c>. For a description of patterns,
+          see <seealso marker="#match/2"><c>match/2</c></seealso>.
+          The function returns a list of all objects that
+          match the pattern.</p>
+        <p>If the key is specified in the pattern, the match is very
+          efficient. If the key is not specified, that is, if it is a
+          variable or an underscore, the entire table must be searched.
+          The search time can be substantial if the table is very large.</p>
+        <p>For tables of type <c>ordered_set</c>, the result is in
+          the same order as in a <c>first</c>/<c>next</c> traversal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_object" arity="3" since=""/>
+      <fsummary>Match the objects in an ETS table against a pattern and
+        return part of the answers.</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#match_object/2">
+          <c>match_object/2</c></seealso>, but only returns a
+          limited (<c><anno>Limit</anno></c>) number of matching objects. Term
+          <c><anno>Continuation</anno></c> can then be used in subsequent
+          calls to <seealso marker="#match_object/1">
+          <c>match_object/1</c></seealso> to get the next chunk of matching
+          objects. This is a space-efficient way to work on objects in a
+          table, which is faster than traversing the table object
+          by object using
+          <seealso marker="#first/1"><c>first/1</c></seealso> and
+          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+        <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#match_object/1">
+	  <c>match_object/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_spec_compile" arity="1" since=""/>
+      <fsummary>Compile a match specification into its internal representation.
+      </fsummary>
+      <desc>
+        <p>Transforms a
+          <seealso marker="#match_spec">match specification</seealso> into an
+          internal representation that can be used in subsequent calls to
+          <seealso marker="#match_spec_run/2"><c>match_spec_run/2</c></seealso>.
+          The internal representation is
+          opaque and cannot be converted to external term format and
+          then back again without losing its properties (that is, it cannot
+          be sent to a process on another node and still remain a
+          valid compiled match specification, nor can it be stored on disk).
+          To check the validity of a compiled match specification, use
+          <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.
+        </p>
+        <p>If term <c><anno>MatchSpec</anno></c> cannot be compiled (does not
+          represent a valid match specification), a <c>badarg</c> exception is
+          raised.</p>
+        <note>
+          <p>This function has limited use in normal code. It is used by the
+            <seealso marker="dets"><c>dets</c></seealso> module
+            to perform the <c>dets:select()</c> operations.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="match_spec_run" arity="2" since=""/>
+      <fsummary>Perform matching, using a compiled match specification on a
+        list of terms.</fsummary>
+      <desc>
+        <p>Executes the matching specified in a compiled
+          <seealso marker="#match_spec">match specification</seealso> on a list
+          of terms. Term <c><anno>CompiledMatchSpec</anno></c> is to be
+          the result of a call to <seealso marker="#match_spec_compile/1">
+          <c>match_spec_compile/1</c></seealso> and is hence the internal
+          representation of the match specification one wants to use.</p>
+        <p>The matching is executed on each element in <c><anno>List</anno></c>
+          and the function returns a list containing all results. If an element
+          in <c><anno>List</anno></c> does not match, nothing is returned
+          for that element. The length of the result list is therefore
+          equal or less than the length of parameter <c><anno>List</anno></c>.
+        </p>
+        <p><em>Example:</em></p>
+        <p>The following two calls give the same result (but certainly not the
+          same execution time):</p>
+        <code type="none">
+Table = ets:new...
+MatchSpec = ...
+% The following call...
+ets:match_spec_run(ets:tab2list(Table),
+                   ets:match_spec_compile(MatchSpec)),
+% ...gives the same result as the more common (and more efficient)
+ets:select(Table, MatchSpec),</code>
+        <note>
+          <p>This function has limited use in normal code. It is used by the
+            <seealso marker="dets"><c>dets</c></seealso> module
+            to perform the <c>dets:select()</c> operations and by
+            Mnesia during transactions.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="member" arity="2" since=""/>
+      <fsummary>Tests for occurrence of a key in an ETS table.</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
+          but does not return the objects. Returns <c>true</c> if one or more
+          elements in the table has key <c><anno>Key</anno></c>, otherwise
+          <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="new" arity="2" since=""/>
+      <fsummary>Create a new ETS table.</fsummary>
+      <desc>
+        <p>Creates a new table and returns a table identifier that can
+          be used in subsequent operations. The table identifier can be
+          sent to other processes so that a table can be shared between
+          different processes within a node.</p>
+        <p>Parameter <c><anno>Options</anno></c> is a list of options that
+          specifies table type, access rights, key position, and whether the
+          table is named. Default values are used for omitted options.
+          This means that not specifying any options (<c>[]</c>) is the same
+          as specifying <c>[set, protected, {keypos,1}, {heir,none},
+          {write_concurrency,false}, {read_concurrency,false}]</c>.</p>
+        <taglist>
+          <tag><c>set</c></tag>
+          <item>
+            <p>The table is a <c>set</c> table: one key, one object,
+              no order among objects. This is the default table type.</p>
+          </item>
+          <tag><c>ordered_set</c></tag>
+          <item>
+            <p>The table is a <c>ordered_set</c> table: one key, one
+              object, ordered in Erlang term order, which is the order
+              implied by the &lt; and &gt; operators. Tables of this type
+              have a somewhat different behavior in some situations
+              than tables of other types. Most notably, the
+              <c>ordered_set</c> tables regard keys as equal when they
+              <em>compare equal</em>, not only when they match. This
+              means that to an <c>ordered_set</c> table, <c>integer()</c>
+              <c>1</c> and <c>float()</c> <c>1.0</c> are regarded as equal.
+              This also means that the
+              key used to lookup an element not necessarily
+              <em>matches</em> the key in the returned elements, if
+              <c>float()</c>'s and <c>integer()</c>'s are mixed in
+              keys of a table.</p>
+          </item>
+          <tag><c>bag</c></tag>
+          <item>
+            <p>The table is a <c>bag</c> table, which can have many
+              objects, but only one instance of each object, per key.</p>
+          </item>
+          <tag><c>duplicate_bag</c></tag>
+          <item>
+            <p>The table is a <c>duplicate_bag</c> table, which can have
+              many objects, including multiple copies of the same
+              object, per key.</p>
+          </item>
+          <tag><c>public</c></tag>
+          <item>
+            <p>Any process can read or write to the table.</p>
+            <marker id="protected"></marker>
+          </item>
+          <tag><c>protected</c></tag>
+          <item>
+            <p>The owner process can read and write to the table. Other
+              processes can only read the table. This is the default
+              setting for the access rights.</p>
+            <marker id="private"></marker>
+          </item>
+          <tag><c>private</c></tag>
+          <item>
+            <p>Only the owner process can read or write to the table.</p>
+          </item>
+          <tag><c>named_table</c></tag>
+          <item>
+            <p>If this option is present, the table is registered under its
+              <c><anno>Name</anno></c> which can then be used instead of the
+              table identifier in subsequent operations.</p>
+            <p>The function will also return the <c><anno>Name</anno></c>
+              instead of the table identifier. To get the table identifier of a
+              named table, use
+              <seealso marker="#whereis/1"><c>whereis/1</c></seealso>.</p>
+          </item>
+          <tag><c>{keypos,<anno>Pos</anno>}</c></tag>
+          <item>
+            <p>Specifies which element in the stored tuples to use
+              as key. By default, it is the first element, that is,
+              <c><anno>Pos</anno>=1</c>. However, this is not always
+              appropriate. In
+              particular, we do not want the first element to be the
+              key if we want to store Erlang records in a table.</p>
+            <p>Notice that any tuple stored in the table must have at
+              least <c><anno>Pos</anno></c> number of elements.</p>
+            <marker id="heir"></marker>
+          </item>
+          <tag><c>{heir,<anno>Pid</anno>,<anno>HeirData</anno>} |
+              {heir,none}</c></tag>
+          <item>
+            <p>Set a process as heir. The heir inherits the table if
+              the owner terminates. Message
+              <c>{'ETS-TRANSFER',tid(),FromPid,<anno>HeirData</anno>}</c> is
+              sent to the heir when that occurs. The heir must be a local
+              process. Default heir is <c>none</c>, which destroys the table
+              when the owner terminates.</p>
+            <marker id="new_2_write_concurrency"></marker>
+          </item>
+          <tag><c>{write_concurrency,boolean()}</c></tag>
+          <item>
+            <p>Performance tuning. Defaults to <c>false</c>, in which case an
+              operation that
+              mutates (writes to) the table obtains exclusive access,
+              blocking any concurrent access of the same table until finished.
+              If set to <c>true</c>, the table is optimized to concurrent
+              write access. Different objects of the same table can be mutated
+              (and read) by concurrent processes. This is achieved to some
+              degree at the expense of memory consumption and the performance
+              of sequential access and concurrent reading.</p>
+            <p>Option <c>write_concurrency</c> can be combined with option
+              <seealso marker="#new_2_read_concurrency">
+              <c>read_concurrency</c></seealso>. You typically want to combine
+              these when large concurrent read bursts and large concurrent
+              write bursts are common; for more information, see option
+              <seealso marker="#new_2_read_concurrency">
+              <c>read_concurrency</c></seealso>.</p>
+            <p>Notice that this option does not change any guarantees about
+              <seealso marker="#concurrency">atomicity and isolation</seealso>.
+              Functions that makes such promises over many objects (like
+              <seealso marker="#insert/2"><c>insert/2</c></seealso>)
+              gain less (or nothing) from this option.</p>
+            <p>The memory consumption inflicted by both <c>write_concurrency</c>
+	      and <c>read_concurrency</c> is a constant overhead per table for
+	      <c>set</c>, <c>bag</c> and <c>duplicate_bag</c>. For
+	      <c>ordered_set</c> the memory overhead depends on the number
+	      of inserted objects and the amount of actual detected
+	      concurrency in runtime. The memory overhead can be especially
+	      large when both options are combined.</p>
+	    <note>
+              <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
+	      effect on <c>ordered_set</c>.</p>
+            </note>
+            <marker id="new_2_read_concurrency"></marker>
+          </item>
+          <tag><c>{read_concurrency,boolean()}</c></tag>
+          <item>
+            <p>Performance tuning. Defaults to <c>false</c>. When set to
+              <c>true</c>, the table is optimized for concurrent read
+              operations. When this option is enabled on a runtime system with
+              SMP support, read operations become much cheaper; especially on
+              systems with multiple physical processors. However, switching
+              between read and write operations becomes more expensive.</p>
+            <p>You typically want to enable this option when concurrent read
+              operations are much more frequent than write operations, or when
+              concurrent reads and writes comes in large read and write bursts
+              (that is, many reads not interrupted by writes, and many
+              writes not interrupted by reads).</p>
+            <p>You typically do
+              <em>not</em> want to enable this option when the common access
+              pattern is a few read operations interleaved with a few write
+              operations repeatedly. In this case, you would get a performance
+              degradation by enabling this option.</p>
+            <p>Option <c>read_concurrency</c> can be combined with option
+              <seealso marker="#new_2_write_concurrency">
+              <c>write_concurrency</c></seealso>.
+              You typically want to combine these when large concurrent
+              read bursts and large concurrent write bursts are common.</p>
+            <marker id="new_2_compressed"></marker>
+          </item>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>If this option is present, the table data is stored in a more
+              compact format to consume less memory. However, it will make
+              table operations slower. Especially operations that need to
+              inspect entire objects, such as <c>match</c> and <c>select</c>,
+              get much slower. The key element is not compressed.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next" arity="2" since=""/>
+      <fsummary>Return the next key in an ETS table.</fsummary>
+      <desc>
+        <p>Returns the next key <c><anno>Key2</anno></c>, following key
+          <c><anno>Key1</anno></c> in table <c><anno>Tab</anno></c>. For table
+          type <c>ordered_set</c>, the next key in Erlang term order is
+          returned. For other table types, the next key
+          according to the internal order of the table is returned. If no
+          next key exists, <c>'$end_of_table'</c> is returned.</p>
+        <p>To find the first key in the table, use
+          <seealso marker="#first/1"><c>first/1</c></seealso>.</p>
+        <p>Unless a table of type <c>set</c>, <c>bag</c>, or
+          <c>duplicate_bag</c> is fixated using
+          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
+          a call to <c>next/2</c> will fail if <c><anno>Key1</anno></c> no longer
+	  exists in the table. For table type <c>ordered_set</c>, the function
+	  always returns the next key after <c><anno>Key1</anno></c> in term
+	  order, regardless whether <c><anno>Key1</anno></c> ever existed in the
+	  table.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prev" arity="2" since=""/>
+      <fsummary>Return the previous key in an ETS table of type
+        <c>ordered_set</c>.</fsummary>
+      <desc>
+        <p>Returns the previous key <c><anno>Key2</anno></c>, preceding key
+          <c><anno>Key1</anno></c> according to Erlang term order in table
+          <c><anno>Tab</anno></c> of type <c>ordered_set</c>. For other
+          table types, the function is synonymous to
+          <seealso marker="#next/2"><c>next/2</c></seealso>.
+          If no previous key exists, <c>'$end_of_table'</c> is returned.</p>
+        <p>To find the last key in an <c>ordered_set</c> table, use
+          <seealso marker="#last/1"><c>last/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rename" arity="2" since=""/>
+      <fsummary>Rename a named ETS table.</fsummary>
+      <desc>
+        <p>Renames the named table <c><anno>Tab</anno></c> to the new name
+          <c><anno>Name</anno></c>. Afterwards, the old name cannot be used to
+          access the table. Renaming an unnamed table has no effect.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="repair_continuation" arity="2" since=""/>
+      <fsummary>Repair a continuation from <c>ets:select/1 or ets:select/3</c>
+        that has passed through external representation.</fsummary>
+      <desc>
+        <p>Restores an opaque continuation returned by
+          <seealso marker="#select/3"><c>select/3</c></seealso> or
+          <seealso marker="#select/1"><c>select/1</c></seealso> if the
+          continuation has passed through external term format (been
+          sent between nodes or stored on disk).</p>
+        <p>The reason for this function is that continuation terms
+          contain compiled match specifications and therefore are
+          invalidated if converted to external term format. Given that the
+          original match specification is kept intact, the continuation can
+          be restored, meaning it can once again be used in subsequent
+          <c>select/1</c> calls even though it has been stored on
+          disk or on another node.</p>
+        <p><em>Examples:</em></p>
+        <p>The following sequence of calls fails:</p>
+        <code type="none">
+T=ets:new(x,[]),
+...
+{_,C} = ets:select(T,ets:fun2ms(fun({N,_}=A)
+when (N rem 10) =:= 0 ->
+A
+end),10),
+Broken = binary_to_term(term_to_binary(C)),
+ets:select(Broken).</code>
+        <p>The following sequence works, as the call to
+          <c>repair_continuation/2</c> reestablishes the (deliberately)
+          invalidated continuation <c>Broken</c>.</p>
+        <code type="none">
+T=ets:new(x,[]),
+...
+MS = ets:fun2ms(fun({N,_}=A)
+when (N rem 10) =:= 0 ->
+A
+end),
+{_,C} = ets:select(T,MS,10),
+Broken = binary_to_term(term_to_binary(C)),
+ets:select(ets:repair_continuation(Broken,MS)).</code>
+        <note>
+          <p>This function is rarely needed in application code. It is used
+            by Mnesia to provide distributed <c>select/3</c>
+            and <c>select/1</c> sequences. A normal application would
+            either use Mnesia or keep the continuation from being
+            converted to external format.</p>
+          <p>The reason for not having an external representation of a
+            compiled match specification is performance. It can be subject to
+            change in future releases, while this interface remains
+            for backward compatibility.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="safe_fixtable" arity="2" since=""/>
+      <fsummary>Fix an ETS table for safe traversal.</fsummary>
+      <desc>
+        <p>Fixes a table of type <c>set</c>, <c>bag</c>, or
+        <c>duplicate_bag</c> for <seealso marker="#traversal">
+	safe traversal</seealso> using
+	<seealso marker="#first/1"><c>first/1</c></seealso> &amp;
+	<seealso marker="#next/2"><c>next/2</c></seealso>,
+	<seealso marker="#match/3"><c>match/3</c></seealso> &amp;
+	<seealso marker="#match/1"><c>match/1</c></seealso>,
+	<seealso marker="#match_object/3"><c>match_object/3</c></seealso> &amp;
+	<seealso marker="#match_object/1"><c>match_object/1</c></seealso>, or
+	<seealso marker="#select/3"><c>select/3</c></seealso> &amp;
+	<seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+        <p>A process fixes a table by calling
+          <c>safe_fixtable(<anno>Tab</anno>, true)</c>. The table remains
+          fixed until the process releases it by calling
+          <c>safe_fixtable(<anno>Tab</anno>, false)</c>, or until the process
+          terminates.</p>
+        <p>If many processes fix a table, the table remains fixed
+          until all processes have released it (or terminated).
+          A reference counter is kept on a per process basis, and N
+          consecutive fixes requires N releases to release the table.</p>
+        <p>When a table is fixed, a sequence of
+          <seealso marker="#first/1"><c>first/1</c></seealso> and
+          <seealso marker="#next/2"><c>next/2</c></seealso> calls are
+          guaranteed to succeed even if keys are removed during the
+	  traversal. The keys for objects inserted or deleted during a
+	  traversal may or may not be returned by <c>next/2</c> depending on
+	  the ordering of keys within the table and if the key exists at the time
+	  <c>next/2</c> is called.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+clean_all_with_value(Tab,X) ->
+    safe_fixtable(Tab,true),
+    clean_all_with_value(Tab,X,ets:first(Tab)),
+    safe_fixtable(Tab,false).
+
+clean_all_with_value(Tab,X,'$end_of_table') ->
+    true;
+clean_all_with_value(Tab,X,Key) ->
+    case ets:lookup(Tab,Key) of
+        [{Key,X}] ->
+            ets:delete(Tab,Key);
+        _ ->
+            true
+    end,
+    clean_all_with_value(Tab,X,ets:next(Tab,Key)).</code>
+        <p>Notice that deleted objects are not freed from a
+          fixed table until it has been released. If a process fixes a
+          table but never releases it, the memory used by the deleted
+          objects is never freed. The performance of operations on
+          the table also degrades significantly.</p>
+        <p>To retrieve information about which processes have fixed which
+          tables, use <seealso marker="#info_2_safe_fixed_monotonic_time">
+          <c>info(Tab, safe_fixed_monotonic_time)</c></seealso>. A system with
+          many processes fixing tables can need a monitor that sends alarms
+          when tables have been fixed for too long.</p>
+        <p>Notice that <c>safe_fixtable/2</c> is not necessary for table type
+	<c>ordered_set</c> and for traversals done by a single ETS function call,
+	like <seealso marker="#select/2"><c>select/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select" arity="1" since=""/>
+      <fsummary>Continue matching objects in an ETS table.</fsummary>
+      <desc>
+        <p>Continues a match started with
+          <seealso marker="#select/3"><c>select/3</c></seealso>. The next
+          chunk of the size specified in the initial <c>select/3</c>
+          call is returned together with a new <c><anno>Continuation</anno></c>,
+          which can be used in subsequent calls to this function.</p>
+        <p>When there are no more objects in the table, <c>'$end_of_table'</c>
+          is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select" arity="2" since=""/>
+      <fsummary>Match the objects in an ETS table against a
+        match specification.</fsummary>
+      <desc>
+        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>.
+          This is a more general call than
+          <seealso marker="#match/2"><c>match/2</c></seealso> and
+          <seealso marker="#match_object/2"><c>match_object/2</c></seealso>
+          calls. In its simplest form, the match specification is as
+          follows:</p>
+        <code type="none">
+MatchSpec = [MatchFunction]
+MatchFunction = {MatchHead, [Guard], [Result]}
+MatchHead = "Pattern as in ets:match"
+Guard = {"Guardtest name", ...}
+Result = "Term construct"</code>
+        <p>This means that the match specification is always a list of one or
+          more tuples (of arity 3). The first element of the tuple is to be
+          a pattern as described in
+          <seealso marker="#match/2"><c>match/2</c></seealso>.
+          The second element of the tuple is to
+          be a list of 0 or more guard tests (described below). The
+          third element of the tuple is to be a list containing a
+          description of the value to return. In almost all
+          normal cases, the list contains exactly one term that fully
+          describes the value to return for each object.</p>
+        <p>The return value is constructed using the "match variables"
+          bound in <c>MatchHead</c> or using the special match variables
+          <c>'$_'</c> (the whole matching object) and <c>'$$'</c> (all
+          match variables in a list), so that the following
+          <c>match/2</c> expression:</p>
+        <code type="none">
+ets:match(Tab,{'$1','$2','$3'})</code>
+        <p>is exactly equivalent to:</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</code>
+        <p>And that the following <c>match_object/2</c> call:</p>
+        <code type="none">
+ets:match_object(Tab,{'$1','$2','$1'})</code>
+        <p>is exactly equivalent to</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</code>
+        <p>Composite terms can be constructed in the <c>Result</c> part
+          either by simply writing a list, so that the following code:</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</code>
+        <p>gives the same output as:</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])</code>
+        <p>That is, all the bound variables in the match head as a list. If
+          tuples are to be constructed, one has to write a tuple of
+          arity 1 where the single element in the tuple is the tuple
+          one wants to construct (as an ordinary tuple can be mistaken
+          for a <c>Guard</c>).</p>
+        <p>Therefore the following call:</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</code>
+        <p>gives the same output as:</p>
+        <code type="none">
+ets:select(Tab,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])</code>
+        <p>This syntax is equivalent to the syntax used in the trace
+          patterns (see the
+          <seealso marker="runtime_tools:dbg">
+          <c>dbg(3)</c></seealso>) module in Runtime_Tools.</p>
+        <p>The <c>Guard</c>s are constructed as tuples, where the first
+          element is the test name and the remaining elements
+          are the test parameters. To check for a specific type
+          (say a list) of the element bound to the match variable
+          <c>'$1'</c>, one would write the test as
+          <c>{is_list, '$1'}</c>. If the test fails, the object in the
+          table does not match and the next <c>MatchFunction</c> (if
+          any) is tried. Most guard tests present in Erlang can be
+          used, but only the new versions prefixed <c>is_</c> are
+          allowed (<c>is_float</c>, <c>is_atom</c>, and so on).</p>
+        <p>The <c>Guard</c> section can also contain logic and
+          arithmetic operations, which are written with the same syntax
+          as the guard tests (prefix notation), so that the following
+          guard test written in Erlang:</p>
+        <code type="none"><![CDATA[
+is_integer(X), is_integer(Y), X + Y < 4711]]></code>
+        <p>is expressed as follows (<c>X</c> replaced with <c>'$1'</c> and
+          <c>Y</c> with <c>'$2'</c>):</p>
+        <code type="none"><![CDATA[
+[{is_integer, '$1'}, {is_integer, '$2'}, {'<', {'+', '$1', '$2'}, 4711}]]]></code>
+        <p>For tables of type <c>ordered_set</c>, objects are visited
+          in the same order as in a <c>first</c>/<c>next</c>
+          traversal. This means that the match specification is
+          executed against objects with keys in the <c>first</c>/<c>next</c>
+          order and the corresponding result list is in the order of that
+          execution.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select" arity="3" since=""/>
+      <fsummary>Match the objects in an ETS table against a match
+        specification and return part of the answers.</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#select/2"><c>select/2</c></seealso>,
+          but only returns a limited
+          (<c><anno>Limit</anno></c>) number of matching objects. Term
+          <c><anno>Continuation</anno></c> can then be used in subsequent
+          calls to <seealso marker="#select/1"><c>select/1</c></seealso>
+          to get the next chunk of matching
+          objects. This is a space-efficient way to work on objects in a
+          table, which is still faster than traversing the table object by
+          object using <seealso marker="#first/1"><c>first/1</c></seealso>
+          and <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	  <p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_count" arity="2" since=""/>
+      <fsummary>Match the objects in an ETS table against a match
+        specification and return the number of objects for which the match
+        specification returned <c>true</c>.</fsummary>
+      <desc>
+        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. If the
+          match specification returns <c>true</c> for an object, that object
+          considered a match and is counted. For any other result from
+          the match specification the object is not considered a match and is
+          therefore not counted.</p>
+        <p>This function can be described as a
+          <seealso marker="#match_delete/2"><c>match_delete/2</c></seealso>
+          function that does not delete any elements, but only counts them.</p>
+        <p>The function returns the number of objects matched.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_delete" arity="2" since=""/>
+      <fsummary>Match the objects in an ETS table against a match
+        specification and delete objects where the match specification
+        returns <c>true</c>.</fsummary>
+      <desc>
+        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. If the
+          match specification returns <c>true</c> for an object, that object is
+          removed from the table. For any other result from the match
+          specification the object is retained. This is a more general
+          call than the <seealso marker="#match_delete/2">
+          <c>match_delete/2</c></seealso> call.</p>
+        <p>The function returns the number of objects
+          deleted from the table.</p>
+        <note>
+          <p>The match specification has to return the atom <c>true</c> if
+            the object is to be deleted. No other return value gets the
+            object deleted. So one cannot use the same match specification for
+            looking up elements as for deleting them.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_replace" arity="2" since="OTP 20.0"/>
+      <fsummary>Match and replace objects atomically in an ETS table</fsummary>
+      <desc>
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. For each
+          matched object, the existing object is replaced with
+          the match specification result.</p>
+	<p>The match-and-replace operation for each individual object is guaranteed to be
+	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
+	  <c>select_replace</c> table traversal as a whole, like all other select functions,
+	  does not give such guarantees.</p>
+	<p>The match specifiction must be guaranteed to <em>retain the key</em>
+	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
+	  without updating any objects.</p>
+        <p>For the moment, due to performance and semantic constraints,
+          tables of type <c>bag</c> are not yet supported.</p>
+        <p>The function returns the total number of replaced objects.</p>
+        <p><em>Example</em></p>
+	<p>For all 2-tuples with a list in second position, add atom <c>'marker'</c> first in the list:</p>
+	<pre>
+1> <input>T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).</input>
+true
+2> <input>MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).</input>
+[{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
+3> <input>ets:select_replace(T, MS).</input>
+1
+4> <input>ets:tab2list(T).</input>
+[{key,[marker,1,2,3]}]
+	</pre>
+	<p>A generic single object compare-and-swap operation:</p>
+        <pre>
+[Old] = ets:lookup(T, Key),
+New = update_object(Old),
+Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_reverse" arity="1" since="OTP R14B"/>
+      <fsummary>Continue matching objects in an ETS table.</fsummary>
+      <desc>
+      <p>Continues a match started with <seealso marker="#select_reverse/3">
+        <c>select_reverse/3</c></seealso>. For tables of type
+        <c>ordered_set</c>, the traversal of the table continues
+        to objects with keys earlier in the Erlang term order. The
+        returned list also contains objects with keys in reverse order.
+        For all other table types, the behavior is exactly that of
+        <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+      <p><em>Example:</em></p>
+      <code>
+1> T = ets:new(x,[ordered_set]).
+2> [ ets:insert(T,{N}) || N &lt;- lists:seq(1,10) ].
+...
+3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
+...
+4> R0.
+[{10},{9},{8},{7}]
+5> {R1,C1} = ets:select_reverse(C0).
+...
+6> R1.
+[{6},{5},{4},{3}]
+7> {R2,C2} = ets:select_reverse(C1).
+...
+8> R2.
+[{2},{1}]
+9> '$end_of_table' = ets:select_reverse(C2).
+...</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_reverse" arity="2" since="OTP R14B"/>
+      <fsummary>Match the objects in an ETS table against a
+        match specification.</fsummary>
+      <desc>
+      <p>Works like <seealso marker="#select/2"><c>select/2</c></seealso>,
+        but returns the list in reverse order for table type <c>ordered_set</c>.
+        For all other table types, the return value is identical to that of
+        <c>select/2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_reverse" arity="3" since="OTP R14B"/>
+      <fsummary>Match the objects in an ETS table against a
+        match specification and return part of the answers.</fsummary>
+      <desc>
+      <p>Works like <seealso marker="#select/3"><c>select/3</c></seealso>,
+        but for table type <c>ordered_set</c>
+        traversing is done starting at the last object in
+        Erlang term order and moves to the first. For all other table
+        types, the return value is identical to that of <c>select/3</c>.</p>
+      <p>Notice that this is <em>not</em> equivalent to
+        reversing the result list of a <c>select/3</c> call, as the result list
+        is not only reversed, but also contains the last
+        <c><anno>Limit</anno></c>
+        matching objects in the table, not the first.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="setopts" arity="2" since=""/>
+      <fsummary>Set table options.</fsummary>
+      <desc>
+        <p>Sets table options. The only allowed option to be set after the
+          table has been created is
+          <seealso marker="#heir"><c>heir</c></seealso>.
+          The calling process must be the table owner.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="slot" arity="2" since=""/>
+      <fsummary>Return all objects in a specified slot of an ETS table.
+      </fsummary>
+      <desc>
+        <p>This function is mostly for debugging purposes, Normally
+          <c>first</c>/<c>next</c> or <c>last</c>/<c>prev</c> are to be used
+          instead.</p>
+        <p>Returns all objects in slot <c><anno>I</anno></c> of table
+          <c><anno>Tab</anno></c>. A table can be traversed by repeatedly
+          calling the function,
+          starting with the first slot <c><anno>I</anno>=0</c> and
+          ending when <c>'$end_of_table'</c> is returned.
+          If argument <c><anno>I</anno></c> is out of range,
+          the function fails with reason <c>badarg</c>.</p>
+        <p>Unless a table of type <c>set</c>, <c>bag</c>, or
+          <c>duplicate_bag</c> is protected using
+          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
+          a traversal can fail if
+          concurrent updates are made to the table. For table type
+          <c>ordered_set</c>, the function returns a list containing
+          object <c><anno>I</anno></c> in Erlang term order.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tab2file" arity="2" since=""/>
+      <fsummary>Dump an ETS table to a file.</fsummary>
+      <desc>
+        <p>Dumps table <c><anno>Tab</anno></c> to file
+          <c><anno>Filename</anno></c>.</p>
+        <p>Equivalent to
+          <c>tab2file(<anno>Tab</anno>, <anno>Filename</anno>,[])</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tab2file" arity="3" since=""/>
+      <fsummary>Dump an ETS table to a file.</fsummary>
+      <desc>
+        <p>Dumps table <c><anno>Tab</anno></c> to file
+          <c><anno>Filename</anno></c>.</p>
+        <p>When dumping the table, some information about the table
+          is dumped to a header at the beginning of the dump. This
+          information contains data about the table type,
+          name, protection, size, version, and if it is a named table. It
+          also contains notes about what extended information is added
+          to the file, which can be a count of the objects in the file
+          or a MD5 sum of the header and records in the file.</p>
+        <p>The size field in the header might not correspond to the
+          number of records in the file if the table is public
+          and records are added or removed from the table during
+          dumping. Public tables updated during dump, and that one wants
+          to verify when reading, needs at least one field of extended
+          information for the read verification process to be reliable
+          later.</p>
+        <p>Option <c>extended_info</c> specifies what extra
+          information is written to the table dump:</p>
+        <taglist>
+          <tag><c>object_count</c></tag>
+          <item>
+            <p>The number of objects written to the file is
+              noted in the file footer, so file truncation can be
+              verified even if the file was updated during dump.</p>
+          </item>
+          <tag><c>md5sum</c></tag>
+          <item>
+            <p>The header and objects in the file are checksummed using
+              the built-in MD5 functions. The MD5 sum of all objects is
+              written in the file footer, so that verification while reading
+              detects the slightest bitflip in the file data. Using this
+              costs a fair amount of CPU time.</p>
+          </item>
+        </taglist>
+        <p>Whenever option <c>extended_info</c> is used, it
+          results in a file not readable by versions of ETS before
+          that in STDLIB 1.15.1</p>
+        <p>If option <c>sync</c> is set to <c>true</c>, it ensures that
+          the content of the file is written to the disk before
+          <c>tab2file</c> returns. Defaults to <c>{sync, false}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tab2list" arity="1" since=""/>
+      <fsummary>Return a list of all objects in an ETS table.</fsummary>
+      <desc>
+        <p>Returns a list of all objects in table <c><anno>Tab</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tabfile_info" arity="1" since=""/>
+      <fsummary>Return a list of all objects in an ETS table.</fsummary>
+      <desc>
+        <p>Returns information about the table dumped to file by
+          <seealso marker="#tab2file/2"><c>tab2file/2</c></seealso> or 
+          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+        <p>The following items are returned:</p>
+        <taglist>
+          <tag><c>name</c></tag>
+          <item>
+            <p>The name of the dumped table. If the table was a
+              named table, a table with the same name cannot exist when the
+              table is loaded from file with 
+              <seealso marker="#file2tab/2"><c>file2tab/2</c></seealso>.
+              If the table is
+              not saved as a named table, this field has no significance
+              when loading the table from file.</p>
+          </item>
+          <tag><c>type</c></tag>
+          <item>
+            <p>The ETS type of the dumped table (that is, <c>set</c>,
+              <c>bag</c>, <c>duplicate_bag</c>, or <c>ordered_set</c>). This
+              type is used when loading the table again.</p>
+          </item>
+          <tag><c>protection</c></tag>
+          <item>
+            <p>The protection of the dumped table (that is, <c>private</c>,
+              <c>protected</c>, or <c>public</c>). A table loaded from the
+              file gets the same protection.</p>
+          </item>
+          <tag><c>named_table</c></tag>
+          <item>
+            <p><c>true</c> if the table was a named table when dumped
+              to file, otherwise <c>false</c>. Notice that when a named table
+              is loaded from a file, there cannot exist a table in the
+              system with the same name.</p>
+          </item>
+          <tag><c>keypos</c></tag>
+          <item>
+            <p>The <c>keypos</c> of the table dumped to file, which
+              is used when loading the table again.</p>
+          </item>
+          <tag><c>size</c></tag>
+          <item>
+            <p>The number of objects in the table when the table dump
+              to file started. For a <c>public</c> table, this number
+              does not need to correspond to the number of objects saved to
+              the file, as objects can have been added or deleted by another
+              process during table dump.</p>
+          </item>
+          <tag><c>extended_info</c></tag>
+          <item>
+            <p>The extended information written in the file footer to
+              allow stronger verification during table loading from file, as
+              specified to <seealso marker="#tab2file/3">
+              <c>tab2file/3</c></seealso>. Notice that this
+              function only tells <em>which</em> information is present, not
+              the values in the file footer. The value is a list containing one
+              or more of the atoms <c>object_count</c> and <c>md5sum</c>.</p>
+          </item>
+          <tag><c>version</c></tag>
+          <item>
+            <p>A tuple <c>{<anno>Major</anno>,<anno>Minor</anno>}</c>
+              containing the major and
+              minor version of the file format for ETS table dumps. This
+              version field was added beginning with STDLIB 1.5.1.
+              Files dumped with older versions return <c>{0,0}</c> in this
+              field.</p>
+          </item>
+        </taglist>
+        <p>An error is returned if the file is inaccessible,
+          badly damaged, or not produced with
+          <seealso marker="#tab2file/2"><c>tab2file/2</c></seealso> or
+          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
+      <fsummary>Return a QLC query handle.</fsummary>
+      <desc>
+        <p>Returns a Query List
+          Comprehension (QLC) query handle. The
+          <seealso marker="qlc"><c>qlc</c></seealso> module provides
+          a query language aimed mainly at Mnesia, but ETS
+          tables, Dets tables,
+          and lists are also recognized by QLC as sources of
+          data. Calling <c>table/1,2</c> is the means to make the
+          ETS table <c>Tab</c> usable to QLC.</p>
+        <p>When there are only simple restrictions on the key position,
+          QLC uses <seealso marker="#lookup/2"><c>lookup/2</c></seealso>
+          to look up the keys. When
+          that is not possible, the whole table is traversed.
+          Option <c>traverse</c> determines how this is done:</p>
+        <taglist>
+          <tag><c>first_next</c></tag>
+          <item>
+            <p>The table is traversed one key at a time by calling
+              <seealso marker="#first/1"><c>first/1</c></seealso> and
+              <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          </item>
+          <tag><c>last_prev</c></tag>
+          <item>
+            <p>The table is traversed one key at a time by calling
+              <seealso marker="#last/1"><c>last/1</c></seealso> and
+              <seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+          </item>
+          <tag><c>select</c></tag>
+          <item>
+            <p>The table is traversed by calling
+              <seealso marker="#select/3"><c>select/3</c></seealso> and
+              <seealso marker="#select/1"><c>select/1</c></seealso>.
+              Option <c>n_objects</c> determines the number of objects
+              returned (the third argument of <c>select/3</c>); the
+              default is to return <c>100</c> objects at a time. The
+              <seealso marker="#match_spec">match specification</seealso> (the
+              second argument of <c>select/3</c>) is assembled by QLC: simple
+              filters are translated into equivalent match specifications
+              while more complicated filters must be applied to all
+              objects returned by <c>select/3</c> given a match specification
+              that matches all objects.</p>
+          </item>
+          <tag><c>{select, <anno>MatchSpec</anno>}</c></tag>
+          <item>
+            <p>As for <c>select</c>, the table is traversed by calling
+              <seealso marker="#select/3"><c>select/3</c></seealso> and
+              <seealso marker="#select/1"><c>select/1</c></seealso>.
+              The difference is that the match specification is explicitly
+              specified. This is how to state match specifications that cannot
+              easily be expressed within the syntax provided by QLC.</p>
+          </item>
+        </taglist>
+        <p><em>Examples:</em></p>
+        <p>An explicit match specification is here used to traverse the
+          table:</p>
+        <pre>
+9> <input>true = ets:insert(Tab = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),</input>
+<input>MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X &lt; 5) -> {Y} end),</input>
+<input>QH1 = ets:table(Tab, [{traverse, {select, MS}}]).</input></pre>
+        <p>An example with an implicit match specification:</p>
+        <pre>
+10> <input>QH2 = qlc:q([{Y} || {X,Y} &lt;- ets:table(Tab), (X > 1) or (X &lt; 5)]).</input></pre>
+        <p>The latter example is equivalent to the former, which
+          can be verified using function <c>qlc:info/1</c>:</p>
+        <pre>
+11> <input>qlc:info(QH1) =:= qlc:info(QH2).</input>
+true</pre>
+        <p><c>qlc:info/1</c> returns information about a query handle,
+          and in this case identical information is returned for the
+          two query handles.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2" since="OTP 18.0"/>
+      <fsummary>Return and remove all objects with a specified key from an
+        ETS table.</fsummary>
+      <desc>
+        <p>Returns and removes a list of all objects with key
+          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c>.</p>
+        <p>The specified <c><anno>Key</anno></c> is used to identify the object
+          by either <em>comparing equal</em> the key of an object in an
+          <c>ordered_set</c> table, or <em>matching</em> in other types of
+          tables (for details on the difference, see
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and
+          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+      </desc>
+    </func>
+    <func>
+      <name name="test_ms" arity="2" since=""/>
+      <fsummary>Test a match specification for use in <c>select/2</c>.
+      </fsummary>
+      <desc>
+        <p>This function is a utility to test a
+          <seealso marker="#match_spec">match specification</seealso> used in
+          calls to <seealso marker="#select/2"><c>select/2</c></seealso>.
+          The function both tests <c><anno>MatchSpec</anno></c> for "syntactic"
+          correctness and runs the match specification against object
+          <c><anno>Tuple</anno></c>.</p>
+        <p>If the match specification is syntactically correct, the function
+          either returns <c>{ok,<anno>Result</anno>}</c>, where
+          <c><anno>Result</anno></c> is what would have been the result in a
+          real <c>select/2</c> call, or <c>false</c> if the match specification
+          does not match object <c><anno>Tuple</anno></c>.</p>
+        <p>If the match specification contains errors, tuple
+          <c>{error, <anno>Errors</anno>}</c> is returned,
+          where <c><anno>Errors</anno></c> is a list of natural language
+          descriptions of what was wrong with the match specification.</p>
+        <p>This is a useful debugging and test tool, especially when
+          writing complicated <c>select/2</c> calls.</p>
+        <p>See also: <seealso marker="erts:erlang#match_spec_test/3">
+          erlang:match_spec_test/3</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_dets" arity="2" since=""/>
+      <fsummary>Fill a Dets table with objects from an ETS table.
+      </fsummary>
+      <desc>
+        <p>Fills an already created/opened Dets table with the objects
+          in the already opened ETS table named <c><anno>Tab</anno></c>.
+          The Dets table is emptied before the objects are inserted.</p>
+      </desc>
+    </func>
+
+    <func> 
+      <name name="update_counter" arity="3" clause_i="1" since=""/>
+      <name name="update_counter" arity="4" clause_i="1" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="2" since=""/>
+      <name name="update_counter" arity="4" clause_i="2" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="3" since=""/>
+      <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
+      <fsummary>Update a counter object in an ETS table.</fsummary>
+      <type variable="Tab"/>
+      <type variable="Key"/>
+      <type variable="UpdateOp" name_i="1"/>
+      <type variable="Pos" name_i="1"/>
+      <type variable="Threshold" name_i="1"/>
+      <type variable="SetValue" name_i="1"/>
+      <type variable="Default"/>
+      <desc>
+        <p>This function provides an efficient way to update one or more 
+          counters, without the trouble of having to look up an object, update 
+          the object by incrementing an element, and insert the resulting
+          object into the table again. The operation is guaranteed to be
+          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+        <p>This function destructively update the object with key
+          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c> by adding
+          <c><anno>Incr</anno></c> to the element at position
+          <c><anno>Pos</anno></c>. The new counter value is
+          returned. If no position is specified, the element directly
+          following key (<c><![CDATA[<keypos>+1]]></c>) is updated.</p>
+        <p>If a <c><anno>Threshold</anno></c> is specified, the counter is
+          reset to value <c><anno>SetValue</anno></c> if the following
+          conditions occur:</p>
+        <list type="bulleted">
+          <item><p><c><anno>Incr</anno></c> is not negative (<c>>= 0</c>) and
+            the result would be greater than (<c>></c>)
+            <c><anno>Threshold</anno></c>.</p>
+          </item>
+          <item><p><c><anno>Incr</anno></c> is negative
+            (<c><![CDATA[< 0]]></c>) and the result would be less than
+            (<c><![CDATA[<]]></c>) <c><anno>Threshold</anno></c>.</p>
+          </item>
+        </list>
+        <p>A list of <c><anno>UpdateOp</anno></c> can be supplied to do many
+          update operations within the object.
+          The operations are carried out in the
+          order specified in the list. If the same counter position occurs 
+          more than once in the list, the corresponding counter is thus 
+          updated many times, each time based on the previous result.
+          The return value is a list of the new counter values from each 
+          update operation in the same order as in the operation list. If an 
+          empty list is specified, nothing is updated and an empty list is 
+          returned. If the function fails, no updates are done.</p>
+        <p>The specified <c><anno>Key</anno></c> is used to identify the object
+          by either <em>matching</em> the key of an object in a <c>set</c>
+          table, or <em>compare equal</em> to the key of an object in an
+          <c>ordered_set</c> table (for details on the difference, see 
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and 
+          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+        <p>If a default object <c><anno>Default</anno></c> is specified,
+          it is used
+          as the object to be updated if the key is missing from the table. The
+          value in place of the key is ignored and replaced by the proper key
+          value. The return value is as if the default object had not been used,
+          that is, a single updated element or a list of them.</p>
+        <p>The function fails with reason <c>badarg</c> in the following
+          situations:</p>
+        <list type="bulleted">
+          <item>The table type is not <c>set</c> or
+            <c>ordered_set</c>.</item>
+          <item>No object with the correct key exists and no default object was
+            supplied.</item>
+          <item>The object has the wrong arity.</item>
+          <item>The default object arity is smaller than
+            <c><![CDATA[<keypos>]]></c>.</item>
+          <item>Any field from the default object that is updated is not an
+            integer.</item>
+          <item>The element to update is not an integer.</item>
+          <item>The element to update is also the key.</item>
+          <item>Any of <c><anno>Pos</anno></c>, <c><anno>Incr</anno></c>,
+            <c><anno>Threshold</anno></c>, or <c><anno>SetValue</anno></c>
+            is not an integer.</item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_element" arity="3" clause_i="1" since=""/>
+      <name name="update_element" arity="3" clause_i="2" since=""/>
+      <fsummary>Update the <c>Pos</c>:th element of the object with a
+        specified key in an ETS table.</fsummary>
+      <type variable="Tab"/>
+      <type variable="Key"/>
+      <type variable="Value"/>
+      <type variable="Pos"/>
+      <desc>
+        <p>This function provides an efficient way to update one or more 
+          elements within an object, without the trouble of having to look up, 
+          update, and write back the entire object.</p>
+        <p>This function destructively updates the object with key
+          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c>.
+          The element at position <c><anno>Pos</anno></c> is given
+          the value <c><anno>Value</anno></c>.</p>
+        <p>A list of <c>{<anno>Pos</anno>,<anno>Value</anno>}</c> can be
+          supplied to update many
+          elements within the same object. If the same position occurs more 
+          than once in the list, the last value in the list is written. If
+          the list is empty or the function fails, no updates are done.
+          The function is also atomic in the sense that other processes 
+          can never see any intermediate results.</p>
+        <p>Returns <c>true</c> if an object with key <c><anno>Key</anno></c>
+          is found, otherwise <c>false</c>.</p>
+        <p>The specified <c><anno>Key</anno></c> is used to identify the object
+          by either <em>matching</em> the key of an object in a <c>set</c>
+          table, or <em>compare equal</em> to the key of an object in an
+          <c>ordered_set</c> table (for details on the difference, see
+          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and 
+          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+        <p>The function fails with reason <c>badarg</c> in the following
+          situations:</p>
+        <list type="bulleted">
+          <item>The table type is not <c>set</c> or <c>ordered_set</c>.</item>
+          <item><c><anno>Pos</anno></c> &lt; 1.</item>
+          <item><c><anno>Pos</anno></c> &gt; object arity.</item>
+          <item>The element to update is also the key.</item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="whereis" arity="1" since="OTP 21.0"/>
+      <fsummary>Retrieves the tid() of a named table.</fsummary>
+      <desc>
+        <p>This function returns the
+          <seealso marker="#type-tid"><c>tid()</c></seealso> of the named table
+          identified by <c><anno>TableName</anno></c>, or <c>undefined</c> if
+          no such table exists. The <c>tid()</c> can be used in place of the
+          table name in all operations, which is slightly faster since the name
+          does not have to be resolved on each call.</p>
+        <p>If the table is deleted, the <c>tid()</c> will be invalid even if
+          another named table is created with the same name.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

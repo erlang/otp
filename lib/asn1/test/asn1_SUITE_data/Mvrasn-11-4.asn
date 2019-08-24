@@ -1,0 +1,675 @@
+-- module(Mvrasn-11-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Mobile Service data types".
+--
+-- ASN.1 module: "MAP-MS-DataTypes".
+--
+-- =============================================================================
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014  eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- .... ....... ........ ........................................
+-- PA2  990112  eedkbu   Insertion of all Data types relevant for 
+--                       DSD operation.
+-- .... ....... ........ ........................................
+
+Mvrasn-11-4
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+    -- location registration types
+    UpdateGprsLocationArg,
+    UpdateGprsLocationRes,
+    CancelLocationArg,
+    CancelLocationRes, 
+
+    -- subscriber management types
+    InsertSubscriberDataArg,
+    InsertSubscriberDataRes
+;
+
+IMPORTS
+
+    SS-SubscriptionOption,
+    SS-List,
+    maxNumOfSS
+FROM Mvrasn-14-4
+
+   SS-Code
+FROM Mvrasn-15-4
+
+    ISDN-AddressString, 
+    maxISDN-AddressLength,
+    ISDN-SubaddressString,
+    IMSI,
+    LMSI,
+    Ext-BasicServiceCode,
+    NAEA-PreferredCI,
+    EMLPP-Info
+FROM Mvrasn-18-4
+
+    Ext-TeleserviceCode
+FROM Mvrasn-19-4
+
+    Ext-BearerServiceCode
+FROM Mvrasn-20-4
+
+    ExtensionContainer
+FROM Mvrasn-21-4
+
+;
+
+-- location registration types
+
+CancelLocationArg ::= [3] SEQUENCE {
+    identity                 Indentity,
+    cancellationType         CancellationType         OPTIONAL,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+Indentity ::= CHOICE {
+    imsi                     IMSI,
+    imsi-WithLMSI            IMSI-WithLMSI}
+
+
+CancellationType ::= ENUMERATED {
+    updateProcedure (0),
+    subscriptionWithdraw (1),
+    ...}
+
+
+CancelLocationRes ::= SEQUENCE {
+    extensionContainer        ExtensionContainer      OPTIONAL,
+    ...}
+
+IMSI-WithLMSI ::= SEQUENCE {
+    imsi                     IMSI,
+    lmsi                     LMSI,
+    -- a special value 00000000 indicates that the LMSI is not in use
+    ...}
+
+
+-- gprs location registration types
+
+UpdateGprsLocationArg ::= SEQUENCE {
+    imsi                     IMSI,
+    sgsn-Number              ISDN-AddressString,    
+    sgsn-Address             GSN-Address,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+GSN-Address ::= OCTET STRING (SIZE (4..16))
+    -- Octets are coded according to TS GSM 03.03
+
+UpdateGprsLocationRes ::= SEQUENCE {
+    hlr-Number               ISDN-AddressString,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+-- subscriber management types
+
+InsertSubscriberDataArg ::= SEQUENCE {
+    imsi                [0]  IMSI                     OPTIONAL,
+
+-- =========================================================
+-- EEDKBU:
+--
+-- the line:    
+--
+--  "COMPONENTS OF   SubscriberData,
+--
+-- has been removed due to insufficiencies of the used ASN.1-ERLANG
+-- compiler. Instead of this line the complete definition of 
+-- "Subscriberdata" has been inserted.
+--
+-- This results in the same behaviour of the deocder/encoder but
+-- means only a replication of the ASN.1 definiton here.
+--
+    msisdn              [1]  ISDN-AddressString       OPTIONAL,
+    category            [2]  Category                 OPTIONAL,
+    subscriberStatus    [3]  SubscriberStatus         OPTIONAL,
+    bearerServiceList   [4]  BearerServiceList        OPTIONAL,
+    -- The exception handling for reception of unsupported / not allocated
+    -- bearerServiceCodes is defined in section 6.8.1
+    teleserviceList     [6]  TeleserviceList          OPTIONAL,
+    -- The exception handling for reception of unsupported / not allocated
+    -- teleserviceCodes is defined in section 6.8.1
+    provisionedSS       [7]  Ext-SS-InfoList          OPTIONAL,
+    odb-Data            [8]  ODB-Data                 OPTIONAL,
+    roamingRestrictionDueToUnsupportedFeature  [9] NULL  OPTIONAL,
+    regionalSubscriptionData    [10] ZoneCodeList     OPTIONAL,
+    vbsSubscriptionData [11] VBSDataList              OPTIONAL,
+    vgcsSubscriptionData [12] VGCSDataList            OPTIONAL,
+    vlrCamelSubscriptionInfo [13] VlrCamelSubscriptionInfo  OPTIONAL,
+
+-- =========================================================
+
+    extensionContainer  [14] ExtensionContainer       OPTIONAL,
+    ... ,   
+    naea-PreferredCI    [15] NAEA-PreferredCI         OPTIONAL,
+    -- naea-PreferredCI is included at the discretion of the HLR operator.
+    gprsSubscriptionData [16] GPRSSubscriptionData    OPTIONAL,
+    roamingRestrictedInSgsnDueToUnsupportedFeature [23]  NULL   OPTIONAL, 
+    networkAccessMode   [24] NetworkAccessMode        OPTIONAL
+     }
+    -- If the Network Access Mode parameter is sent, it shall be present 
+    --   only in the first sequence if the seqmentation is used
+
+-- =========================================================
+--
+-- EEDKBU: This data type 'NetworkAccessMode' has been included manually 
+--         as it was not in the ASN.1 definitions in 09.02 6.1.0.
+--         This definition has been taken from the CR xxx.
+--
+
+NetworkAccessMode ::= ENUMERATED {
+    bothMSCAndSGSN  (0),
+    onlyMSC  (1),
+    onlySGSN  (2),
+    ...}
+    -- if unknown values are received in NetworkAccessMode
+    -- they shall be discarded.
+
+--
+-- =========================================================
+
+
+GPRSDataList ::= SEQUENCE SIZE (1..maxNumOfPDP-Contexts) OF
+                PDP-Context
+
+maxNumOfPDP-Contexts  INTEGER ::= 50
+
+PDP-Context ::= SEQUENCE {
+    pdp-ContextId            ContextId,
+    pdp-Type            [16] PDP-Type,
+    pdp-Address         [17] PDP-Address              OPTIONAL,
+    qos-Subscribed      [18] QoS-Subscribed,
+    vplmnAddressAllowed [19] NULL                     OPTIONAL,
+    apn                 [20] APN,
+    extensionContainer  [21] ExtensionContainer       OPTIONAL,
+    ...}
+
+ContextId ::= INTEGER (1..maxNumOfPDP-Contexts)
+
+GPRSSubscriptionData::= SEQUENCE {
+    completeDataListIncluded NULL                     OPTIONAL,
+
+        -- If segmentation is used, completeDataListIncluded may only be 
+        -- present in the first segment.
+    gprsDataList        [1] GPRSDataList,
+    extensionContainer  [2] ExtensionContainer        OPTIONAL,
+    ...}
+
+APN ::= IA5String (SIZE (1..63))
+-- Octets are coded according to TS GSM 09.60
+
+PDP-Type ::= OCTET STRING (SIZE (2))
+-- Octets are coded according to TS GSM 09.60
+
+PDP-Address ::= OCTET STRING (SIZE (4..16))
+-- Octets are coded according to TS GSM 09.60
+
+QoS-Subscribed ::= OCTET STRING (SIZE (3))
+    -- Octets are coded according to TS GSM 04.08.
+
+
+SubscriberData ::= SEQUENCE {
+    msisdn              [1]  ISDN-AddressString       OPTIONAL,
+    category            [2]  Category                 OPTIONAL,
+    subscriberStatus    [3]  SubscriberStatus         OPTIONAL,
+    bearerServiceList   [4]  BearerServiceList        OPTIONAL,
+    -- The exception handling for reception of unsupported / not allocated
+    -- bearerServiceCodes is defined in section 6.8.1
+    teleserviceList     [6]  TeleserviceList          OPTIONAL,
+    -- The exception handling for reception of unsupported / not allocated
+    -- teleserviceCodes is defined in section 6.8.1
+    provisionedSS       [7]  Ext-SS-InfoList          OPTIONAL,
+    odb-Data            [8]  ODB-Data                 OPTIONAL,
+    roamingRestrictionDueToUnsupportedFeature  [9] NULL  OPTIONAL,
+    regionalSubscriptionData    [10] ZoneCodeList     OPTIONAL,
+    vbsSubscriptionData [11] VBSDataList              OPTIONAL,
+    vgcsSubscriptionData [12] VGCSDataList            OPTIONAL,
+    vlrCamelSubscriptionInfo [13] VlrCamelSubscriptionInfo  OPTIONAL
+    }
+
+Category ::= OCTET STRING (SIZE (1))
+    -- The internal structure is defined in CCITT Rec Q.763.
+
+SubscriberStatus ::= ENUMERATED {
+    serviceGranted            (0),
+    operatorDeterminedBarring (1)}
+
+BearerServiceList ::= SEQUENCE SIZE (1..maxNumOfBearerServices) OF
+                  Ext-BearerServiceCode
+
+maxNumOfBearerServices  INTEGER ::= 50
+
+TeleserviceList ::= SEQUENCE SIZE (1..maxNumOfTeleservices) OF
+                Ext-TeleserviceCode
+
+maxNumOfTeleservices  INTEGER ::= 20
+
+ODB-Data ::= SEQUENCE {
+    odb-GeneralData           ODB-GeneralData,
+    odb-HPLMN-Data            ODB-HPLMN-Data          OPTIONAL,
+    extensionContainer        ExtensionContainer      OPTIONAL,
+    ...}
+
+ODB-GeneralData ::= BIT STRING {
+    allOG-CallsBarred         (0),
+    internationalOGCallsBarred  (1),
+    internationalOGCallsNotToHPLMN-CountryBarred  (2),
+    interzonalOGCallsBarred   (6),
+    interzonalOGCallsNotToHPLMN-CountryBarred (7),
+    interzonalOGCallsAndInternationalOGCallsNotToHPLMN-CountryBarred (8),
+    premiumRateInformationOGCallsBarred  (3),
+    premiumRateEntertainementOGCallsBarred  (4),
+    ss-AccessBarred  (5),
+    allECT-Barred  (9),
+    chargeableECT-Barred  (10),
+    internationalECT-Barred  (11),
+    interzonalECT-Barred  (12),
+    doublyChargeableECT-Barred  (13),
+    multipleECT-Barred  (14)} (SIZE (15..32))
+    -- exception handling: reception of unknown bit assignments in the
+    -- ODB-GeneralData type shall be treated like unsupported ODB-GeneralData
+
+ODB-HPLMN-Data ::= BIT STRING {
+    plmn-SpecificBarringType1  (0),
+    plmn-SpecificBarringType2  (1),
+    plmn-SpecificBarringType3  (2),
+    plmn-SpecificBarringType4  (3)} (SIZE (4..32))
+    -- exception handling: reception of unknown bit assignments in the
+    -- ODB-HPLMN-Data type shall be treated like unsupported ODB-HPLMN-Data 
+
+Ext-SS-InfoList ::= SEQUENCE SIZE (1..maxNumOfSS) OF
+                Ext-SS-Info
+
+Ext-SS-Info ::= CHOICE {
+    forwardingInfo      [0]  Ext-ForwInfo,
+    callBarringInfo     [1]  Ext-CallBarInfo,
+    cug-Info            [2]  CUG-Info,
+    ss-Data             [3]  Ext-SS-Data,
+    emlpp-Info          [4]  EMLPP-Info}
+
+
+Ext-ForwInfo ::= SEQUENCE {
+    ss-Code                  SS-Code,
+    forwardingFeatureList    Ext-ForwFeatureList,
+    extensionContainer  [0]  ExtensionContainer       OPTIONAL,
+    ...}
+
+Ext-ForwFeatureList ::= 
+    SEQUENCE SIZE (1..maxNumOfExt-BasicServiceGroups) OF
+                Ext-ForwFeature
+
+Ext-ForwFeature ::= SEQUENCE {
+    basicService             Ext-BasicServiceCode     OPTIONAL,
+    ss-Status           [4]  Ext-SS-Status,
+    forwardedToNumber   [5]  ISDN-AddressString       OPTIONAL,
+    -- When this data type is sent from an HLR which supports CAMEL Phase 2
+    -- to a VLR that supports CAMEL Phase 2 the VLR shall not check the
+    -- format of the number
+    forwardedToSubaddress  [8]  ISDN-SubaddressString  OPTIONAL,
+    forwardingOptions   [6]  Ext-ForwOptions          OPTIONAL,
+    noReplyConditionTime   [7]  Ext-NoRepCondTime     OPTIONAL,
+    extensionContainer  [9]  ExtensionContainer       OPTIONAL,
+    ...}
+
+Ext-SS-Status ::= OCTET STRING (SIZE (1..5))
+
+    -- OCTET 1:
+    --
+    -- bits 8765: 0000 (unused)
+    -- bits 4321: Used to convey the "P bit","R bit","A bit" and "Q bit",
+    --          representing supplementary service state information
+    --          as defined in TS GSM 03.11
+
+    -- bit 4: "Q bit"
+
+    -- bit 3: "P bit"
+
+    -- bit 2: "R bit"
+
+    -- bit 1: "A bit"
+
+    -- OCTETS 2-5: reserved for future use. They shall be discarded if
+    -- received and not understood.
+
+
+Ext-ForwOptions ::= OCTET STRING (SIZE (1..5))
+
+    -- OCTET 1:
+
+    --  bit 8: notification to forwarding party
+    --  0  no notification
+    --  1  notification
+
+    --  bit 7: 0 (unused)
+
+    --  bit 6: notification to calling party
+    --  0  no notification
+    --  1  notification
+
+    --  bit 5: 0 (unused)
+
+    --  bits 43: forwarding reason
+    --  00  ms not reachable
+    --  01  ms busy
+    --  10  no reply
+    --  11  unconditional
+
+    -- bits 21: 00 (unused)
+
+    -- OCTETS 2-5: reserved for future use. They shall be discarded if
+    -- received and not understood.
+
+Ext-NoRepCondTime ::= INTEGER (1..100)
+    -- Only values 5-30 are used.
+    -- Values in the ranges 1-4 and 31-100 are reserved for future use
+    -- If received:
+    --      values 1-4 shall be mapped on to value 5
+    --      values 31-100 shall be mapped on to value 30
+
+Ext-CallBarInfo ::= SEQUENCE {
+    ss-Code                   SS-Code,
+    callBarringFeatureList    Ext-CallBarFeatureList,
+    extensionContainer        ExtensionContainer      OPTIONAL,
+    ...}
+
+Ext-CallBarFeatureList ::= 
+    SEQUENCE SIZE (1..maxNumOfExt-BasicServiceGroups) OF
+                Ext-CallBarringFeature
+
+Ext-CallBarringFeature ::= SEQUENCE {
+    basicService             Ext-BasicServiceCode     OPTIONAL,
+    ss-Status           [4]  Ext-SS-Status,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+CUG-Info ::= SEQUENCE {
+    cug-SubscriptionList     CUG-SubscriptionList,
+    cug-FeatureList          CUG-FeatureList          OPTIONAL,
+    extensionContainer  [0]  ExtensionContainer       OPTIONAL,
+    ...}
+
+CUG-SubscriptionList ::= SEQUENCE SIZE (0..maxNumOfCUG) OF
+                CUG-Subscription
+
+CUG-Subscription ::= SEQUENCE {
+    cug-Index                CUG-Index,
+    cug-Interlock            CUG-Interlock,
+    intraCUG-Options         IntraCUG-Options,
+    basicServiceGroupList    Ext-BasicServiceGroupList  OPTIONAL,
+    extensionContainer  [0]  ExtensionContainer       OPTIONAL,
+    ...}
+
+CUG-Index ::= INTEGER (0..32767)
+    -- The internal structure is defined in ETS 300 138.
+
+CUG-Interlock ::= OCTET STRING (SIZE (4))
+
+IntraCUG-Options ::= ENUMERATED {
+    noCUG-Restrictions  (0),
+    cugIC-CallBarred  (1),
+    cugOG-CallBarred  (2)}
+
+maxNumOfCUG  INTEGER ::= 10
+
+CUG-FeatureList ::= SEQUENCE SIZE (1..maxNumOfExt-BasicServiceGroups) OF
+                CUG-Feature
+
+Ext-BasicServiceGroupList ::= SEQUENCE SIZE 
+                (1..maxNumOfExt-BasicServiceGroups) OF
+                Ext-BasicServiceCode
+
+maxNumOfExt-BasicServiceGroups  INTEGER ::= 32
+
+CUG-Feature ::= SEQUENCE {
+    basicService             Ext-BasicServiceCode     OPTIONAL,
+    preferentialCUG-Indicator  CUG-Index              OPTIONAL,
+    interCUG-Restrictions    InterCUG-Restrictions,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+InterCUG-Restrictions::= OCTET STRING (SIZE (1))
+
+    -- bits 876543: 000000 (unused)
+    -- Exception handling:
+    -- bits 876543 shall be ignored if received and not understood
+
+    -- bits 21
+    --  00  CUG only facilities
+    --  01  CUG with outgoing access
+    --  10  CUG with incoming access
+    --  11  CUG with both outgoing and incoming access
+
+Ext-SS-Data ::= SEQUENCE {
+    ss-Code                  SS-Code,
+    ss-Status           [4]  Ext-SS-Status,
+    ss-SubscriptionOption    SS-SubscriptionOption    OPTIONAL,
+    basicServiceGroupList    Ext-BasicServiceGroupList  OPTIONAL,
+    extensionContainer  [5]  ExtensionContainer       OPTIONAL,
+    ...}
+
+ZoneCodeList ::= SEQUENCE SIZE (1..maxNumOfZoneCodes) OF 
+                ZoneCode
+
+ZoneCode ::= OCTET STRING (SIZE (2))
+    -- internal structure is defined in TS GSM 03.03
+
+maxNumOfZoneCodes  INTEGER ::= 10
+
+InsertSubscriberDataRes ::= SEQUENCE {
+    teleserviceList      [1]  TeleserviceList         OPTIONAL,
+    bearerServiceList    [2]  BearerServiceList       OPTIONAL,
+    ss-List              [3]  SS-List                 OPTIONAL,
+    odb-GeneralData      [4]  ODB-GeneralData         OPTIONAL,
+    regionalSubscriptionResponse  [5]  RegionalSubscriptionResponse OPTIONAL,
+    supportedCamelPhases [6]  SupportedCamelPhases    OPTIONAL,
+    extensionContainer   [7]  ExtensionContainer      OPTIONAL,
+    ...}
+
+RegionalSubscriptionResponse ::= ENUMERATED {
+    networkNode-AreaRestricted  (0),
+    tooManyZoneCodes  (1),
+    zoneCodesConflict  (2),
+    regionalSubscNotSupported  (3)}
+
+DeleteSubscriberDataArg ::= SEQUENCE {
+	imsi			     [0]  IMSI,
+	basicServiceList	 [1]  BasicServiceList	      OPTIONAL,
+	-- The exception handling for reception of unsupported/not allocated
+	-- basicServiceCodes is defined in section 6.8.2
+	ss-List		         [2]  SS-List	              OPTIONAL,
+	roamingRestrictionDueToUnsupportedFeature [4]  NULL	 OPTIONAL,
+	regionalSubscriptionIdentifier	[5]  ZoneCode     OPTIONAL,
+	vbsGroupIndication	 [7]  NULL		              OPTIONAL,
+	vgcsGroupIndication	 [8]  NULL	                  OPTIONAL,
+	camelSubscriptionInfoWithdraw	[9]  NULL	      OPTIONAL,
+	extensionContainer	 [6]  ExtensionContainer      OPTIONAL,
+	...,
+	gprsSubscriptionDataWithdraw	[10] GPRSSubscriptionDataWithdraw	OPTIONAL,
+	roamingRestrictedInSgsnDueToUnsuppportedFeature  [11]  NULL         OPTIONAL}
+
+GPRSSubscriptionDataWithdraw ::= CHOICE {
+	allGPRSData	              NULL,
+	contextIdList	          ContextIdList}
+
+ContextIdList ::= SEQUENCE SIZE (1..maxNumOfPDP-Contexts) OF
+				              ContextId
+
+BasicServiceList ::= SEQUENCE SIZE (1..maxNumOfBasicServices) OF
+				              Ext-BasicServiceCode
+
+maxNumOfBasicServices  INTEGER ::= 70
+
+DeleteSubscriberDataRes ::= SEQUENCE {
+	regionalSubscriptionResponse  [0]  RegionalSubscriptionResponse 	OPTIONAL,
+	extensionContainer	      ExtensionContainer	  OPTIONAL,
+	...}
+
+VlrCamelSubscriptionInfo ::= SEQUENCE {
+    o-CSI               [0]  O-CSI                    OPTIONAL,
+    extensionContainer  [1]  ExtensionContainer       OPTIONAL,
+    ...,
+    ss-CSI              [2]  SS-CSI                   OPTIONAL
+    }
+
+SS-CSI ::= SEQUENCE {
+    ss-CamelData             SS-CamelData,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+SS-CamelData  ::= SEQUENCE {
+    ss-EventList             SS-EventList,
+    gsmSCF-Address           ISDN-AddressString,
+    extensionContainer  [0]  ExtensionContainer       OPTIONAL, 
+    ...
+    }
+
+SS-EventList  ::= SEQUENCE SIZE (1..maxNumOfCamelSSEvents) OF SS-Code
+    -- Actions for the following SS-Code values are defined in CAMEL Phase 2:
+    -- ect      SS-Code ::= '00110001'B
+    -- multiPTY SS-Code ::= '01010001'B
+    -- cd       SS-Code ::= '00100100'B
+    -- all other SS codes shall be ignored
+
+maxNumOfCamelSSEvents INTEGER ::= 10
+
+O-CSI ::= SEQUENCE {
+    o-BcsmCamelTDPDataList   O-BcsmCamelTDPDataList,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...,
+    camelCapabilityHandling  [0]  CamelCapabilityHandling   OPTIONAL
+    }
+
+O-BcsmCamelTDPDataList ::= SEQUENCE SIZE (1..maxNumOfCamelTDPData) OF
+                 O-BcsmCamelTDPData
+
+maxNumOfCamelTDPData  INTEGER ::= 10
+
+O-BcsmCamelTDPData ::= SEQUENCE {
+    o-BcsmTriggerDetectionPoint  O-BcsmTriggerDetectionPoint,
+    serviceKey                ServiceKey,
+    gsmSCF-Address      [0]  ISDN-AddressString,
+    defaultCallHandling [1]  DefaultCallHandling,
+    extensionContainer  [2]  ExtensionContainer OPTIONAL,
+    ...,
+    o-BcsmCamelTDP-Criteria  [3]  O-BcsmCamelTDP-Criteria   OPTIONAL
+    }
+
+ServiceKey ::= INTEGER (0..2147483647)
+
+O-BcsmTriggerDetectionPoint ::= ENUMERATED {
+    collectedInfo  (2),
+    ... }
+-- exception handling:
+-- For O-BcsmCamelTDPData sequences containing this parameter with any
+-- other value than the ones listed the receiver shall ignore the whole 
+-- O-BcsmCamelTDPDatasequence.
+
+O-BcsmCamelTDP-Criteria ::= SEQUENCE {
+    destinationNumberCriteria  [0]  DestinationNumberCriteria   OPTIONAL,
+    basicServiceCriteria  [1]  BasicServiceCriteria   OPTIONAL,
+    callTypeCriteria   [2]  CallTypeCriteria          OPTIONAL,
+    ... }
+
+DestinationNumberCriteria ::= SEQUENCE {
+    matchType            [0]  MatchType,
+    destinationNumberList  [1]  DestinationNumberList   OPTIONAL,
+    destinationNumberLengthList  [2]  DestinationNumberLengthList   OPTIONAL,
+    ... }
+
+DestinationNumberList ::= SEQUENCE SIZE (1..maxNumOfCamelDestinationNumbers) OF
+                ISDN-AddressString
+-- The receiving entity shall not check the format of a number in
+-- the dialled number list
+
+DestinationNumberLengthList ::= SEQUENCE SIZE 
+--                (1..maxNumOfCamelDestinationNumberLengths) OF 
+                (1..maxISDN-AddressLength) OF 
+--                INTEGER(1..maxISDN-AddressLength)
+                INTEGER(1..maxNumOfSS)
+
+BasicServiceCriteria ::= SEQUENCE SIZE(1..maxNumOfCamelBasicServiceCriteria) OF
+                Ext-BasicServiceCode
+
+maxNumOfCamelDestinationNumbers  INTEGER ::= 10
+
+maxNumOfCamelDestinationNumberLengths  INTEGER ::= 3
+
+maxNumOfCamelBasicServiceCriteria  INTEGER ::= 5
+
+CallTypeCriteria       ::= ENUMERATED {
+    forwarded  (0),
+    notForwarded  (1)}
+
+MatchType       ::= ENUMERATED {
+    inhibiting  (0),
+    enabling  (1)}
+
+
+DefaultCallHandling ::= ENUMERATED {
+    continueCall  (0) ,
+    releaseCall  (1) ,
+    ...}
+-- exception handling:
+-- reception of values in range 2-31 shall be treated as "continueCall"
+-- reception of values greater than 31 shall be treated as "releaseCall"
+
+CamelCapabilityHandling ::= INTEGER(1..16) 
+-- value 1 = CAMEL phase 1,
+-- value 2 = CAMEL phase 2:
+-- reception of values greater than 2 shall be treated as CAMEL phase 2
+
+SupportedCamelPhases ::= BIT STRING {
+    phase1  (0),
+    phase2  (1) } (SIZE (1..16))
+
+-- VBS/VGCS types
+
+VBSDataList ::= SEQUENCE SIZE (1..maxNumOfVBSGroupIds) OF 
+                VoiceBroadcastData
+
+VGCSDataList ::= SEQUENCE SIZE (1..maxNumOfVGCSGroupIds) OF 
+                VoiceGroupCallData
+
+maxNumOfVBSGroupIds  INTEGER ::= 50
+
+maxNumOfVGCSGroupIds  INTEGER ::= 50
+
+VoiceGroupCallData  ::= SEQUENCE {
+    groupId                  GroupId,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+VoiceBroadcastData ::= SEQUENCE {
+    groupid                   GroupId,
+    broadcastInitEntitlement  NULL                    OPTIONAL,
+    extensionContainer        ExtensionContainer      OPTIONAL,
+    ...}
+
+GroupId  ::= OCTET STRING (SIZE (3))
+    -- Refers to the Group Identification as specified in GSM TS 03.03 
+    -- and 03.68/ 03.69
+
+END

@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>init</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>init.xml</file>
+  </header>
+  <module since="">init</module>
+  <modulesummary>Coordination of system startup.</modulesummary>
+  <description>
+    <p>This module is preloaded and contains the code for
+      the <c>init</c> system process that coordinates the startup of
+      the system. The first function evaluated at startup is
+      <c>boot(BootArgs)</c>, where <c>BootArgs</c> is a list of
+      command-line arguments supplied to the Erlang runtime system from
+      the local operating system; see
+      <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+
+    <p><c>init</c> reads the boot script, which contains instructions on
+      how to initiate the system. For more information about boot scripts, see
+      <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
+
+    <p><c>init</c> also contains functions to restart, reboot, and stop
+      the system.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name name="boot" arity="1" since=""/>
+      <fsummary>Start the Erlang runtime system.</fsummary>
+      <desc>
+        <p>Starts the Erlang runtime system. This function is called
+          when the emulator is started and coordinates system startup.</p>
+        <p><c><anno>BootArgs</anno></c> are all command-line arguments except
+          the emulator flags, that is, flags and plain arguments; see
+          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+        <p><c>init</c> interprets some of the flags, see section
+          <seealso marker="#flags">Command-Line Flags</seealso> below.
+          The remaining flags ("user flags") and plain arguments are
+          passed to the <c>init</c> loop and can be retrieved by calling
+          <seealso marker="#get_arguments/0"><c>get_arguments/0</c></seealso>
+          and <seealso marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seealso>, respectively.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_argument" arity="1" since=""/>
+      <fsummary>Get the values associated with a command-line user flag.
+      </fsummary>
+      <desc>
+        <p>Returns all values associated with the command-line user flag
+          <c><anno>Flag</anno></c>. If <c><anno>Flag</anno></c> is provided
+          several times, each <c><anno>Values</anno></c> is returned in
+          preserved order. Example:</p>
+        <pre>
+% <input>erl -a b c -a d</input>
+...
+1> <input>init:get_argument(a).</input>
+{ok,[["b","c"],["d"]]}</pre>
+        <p>The following flags are defined
+          automatically and can be retrieved using this function:</p>
+        <taglist>
+          <tag><c>root</c></tag>
+          <item>
+            <p>The installation directory of Erlang/OTP, <c>$ROOT</c>:</p>
+            <pre>
+2> <input>init:get_argument(root).</input>
+{ok,[["/usr/local/otp/releases/otp_beam_solaris8_r10b_patched"]]}</pre>
+          </item>
+          <tag><c>progname</c></tag>
+          <item>
+            <p>The name of the program which started Erlang:</p>
+            <pre>
+3> <input>init:get_argument(progname).</input>
+{ok,[["erl"]]}</pre>
+          </item>
+          <tag><c>home</c></tag>
+          <item>
+            <p>The home directory:</p>
+            <pre>
+4> <input>init:get_argument(home).</input>
+{ok,[["/home/harry"]]}</pre>
+          </item>
+        </taglist>
+        <p>Returns <c>error</c> if no value is associated with <c>Flag</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_arguments" arity="0" since=""/>
+      <fsummary>Get all command-line user flags.</fsummary>
+      <desc>
+        <p>Returns all command-line flags and the system-defined flags, see
+          <seealso marker="#get_argument/1"><c>get_argument/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_plain_arguments" arity="0" since=""/>
+      <fsummary>Get all non-flag command-line arguments.</fsummary>
+      <desc>
+        <p>Returns any plain command-line arguments as a list of strings
+          (possibly empty).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_status" arity="0" since=""/>
+      <fsummary>Get system status information.</fsummary>
+      <type name="internal_status"/>
+      <desc>
+        <p>The current status of the <c>init</c> process can be
+          inspected. During system startup (initialization),
+          <c><anno>InternalStatus</anno></c> is <c>starting</c>, and
+          <c><anno>ProvidedStatus</anno></c> indicates how far the boot
+          script has been interpreted. Each <c>{progress, Info}</c> term
+          interpreted in the boot script affects
+          <c><anno>ProvidedStatus</anno></c>, that is,
+          <c><anno>ProvidedStatus</anno></c> gets the value of <c>Info</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reboot" arity="0" since=""/>
+      <fsummary>Take down and restart an Erlang node smoothly.</fsummary>
+      <desc>
+        <p>All applications are taken down smoothly, all code is
+          unloaded, and all ports are closed before the system
+          terminates. If command-line flag <c>-heart</c> was specified,
+          the <c>heart</c> program tries to reboot the system. For more
+          information, see
+          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+        <p>To limit the shutdown time, the time <c>init</c> is allowed
+          to spend taking down applications, command-line flag
+          <c>-shutdown_time</c> is to be used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="restart" arity="0" since=""/>
+      <fsummary>Restart the running Erlang node.</fsummary>
+      <desc>
+        <p>The system is restarted <em>inside</em> the running Erlang
+          node, which means that the emulator is not restarted. All
+          applications are taken down smoothly, all code is unloaded,
+          and all ports are closed before the system is booted again in
+          the same way as initially started. The same <c>BootArgs</c>
+          are used again.</p>
+        <p>To limit the shutdown time, the time <c>init</c> is allowed
+          to spend taking down applications, command-line flag
+          <c>-shutdown_time</c> is to be used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="script_id" arity="0" since=""/>
+      <fsummary>Get the identity of the used boot script.</fsummary>
+      <desc>
+        <p>Gets the identity of the boot script used to boot the system.
+          <c><anno>Id</anno></c> can be any Erlang term. In the delivered boot
+          scripts, <c><anno>Id</anno></c> is <c>{Name, Vsn}</c>. <c>Name</c>
+          and <c>Vsn</c> are strings.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" since=""/>
+      <fsummary>Take down an Erlang node smoothly.</fsummary>
+      <desc>
+        <p>The same as
+	<seealso marker="#stop/1"><c>stop(0)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="1" since=""/>
+      <fsummary>Take down an Erlang node smoothly.</fsummary>
+      <desc>
+        <p>All applications are taken down smoothly, all code is
+          unloaded, and all ports are closed before the system
+          terminates by calling <c>halt(<anno>Status</anno>)</c>. If
+          command-line flag <c>-heart</c> was specified, the <c>heart</c>
+          program is terminated before the Erlang node terminates.
+          For more information, see
+          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+        <p>To limit the shutdown time, the time <c>init</c> is allowed
+          to spend taking down applications, command-line flag
+          <c>-shutdown_time</c> is to be used.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="flags"></marker>
+    <title>Command-Line Flags</title>
+    <warning>
+      <p>The support for loading of code from archive files is
+        experimental. The only purpose of releasing it before it is ready
+	is to obtain early feedback. The file format, semantics,
+	interfaces, and so on, can  be changed in a future release. The
+        <c>-code_path_choice</c> flag is also experimental.</p>
+    </warning>
+
+    <p>The <c>init</c> module interprets the following command-line flags:</p>
+
+    <taglist>
+      <tag><c>--</c></tag>
+      <item>
+        <p>Everything following <c>--</c> up to the next flag is
+          considered plain arguments and can be retrieved using
+          <seealso marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seealso>.</p>
+      </item>
+      <tag><c>-code_path_choice Choice</c></tag>
+      <item>
+        <p>Can be set to <c>strict</c> or <c>relaxed</c>. It controls how each
+          directory in the code path is to be interpreted:</p>
+        <list type="bulleted">
+          <item>
+            <p>Strictly as it appears in the <c>boot script</c>, or</p>
+          </item>
+          <item>
+            <p><c>init</c> is to be more relaxed and try to find a suitable
+              directory if it can choose from a regular <c>ebin</c> directory
+              and an <c>ebin</c> directory in an archive file.</p>
+          </item>
+        </list>
+        <p>This flag is particular
+          useful when you want to elaborate with code loading from
+          archives without editing the <c>boot script</c>. For more
+          information about interpretation of boot scripts, see
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>.
+          The flag has also a similar effect on how the code server works; see
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+      </item>
+      <tag><c>-epmd_module Module</c></tag>
+      <item>
+        <p>Specifies the module to use for registration and lookup of
+          node names.  Defaults to <c>erl_epmd</c>.</p>
+      </item>
+      <tag><c>-eval Expr</c></tag>
+      <item>
+        <p>Scans, parses, and evaluates an arbitrary expression
+          <c>Expr</c> during system initialization. If any of these
+          steps fail (syntax error, parse error, or exception during
+          evaluation), Erlang stops with an error message. In the following
+          example Erlang is used as a hexadecimal calculator:</p>
+        <pre>
+% <input>erl -noshell -eval 'R = 16#1F+16#A0, io:format("~.16B~n", [R])' \\</input>
+<input>-s erlang halt</input>
+BF</pre>
+        <p>If multiple <c>-eval</c> expressions are specified, they
+          are evaluated sequentially in the order specified.
+          <c>-eval</c> expressions are evaluated sequentially with
+          <c>-s</c> and <c>-run</c> function calls (this also in
+          the order specified). As with <c>-s</c> and <c>-run</c>, an
+          evaluation that does not terminate blocks the system
+          initialization process.</p>
+      </item>
+      <tag><c>-extra</c></tag>
+      <item>
+        <p>Everything following <c>-extra</c> is considered plain
+          arguments and can be retrieved using
+          <seealso marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seealso>.</p>
+      </item>
+      <tag><c>-run Mod [Func [Arg1, Arg2, ...]]</c></tag>
+      <item>
+        <p>Evaluates the specified function call during system
+          initialization. <c>Func</c> defaults to <c>start</c>. If no
+          arguments are provided, the function is assumed to be of arity
+          0. Otherwise it is assumed to be of arity 1, taking the list
+          <c>[Arg1,Arg2,...]</c> as argument. All arguments are passed
+          as strings. If an exception is raised, Erlang stops with an
+          error message.</p>
+        <p>Example:</p>
+        <pre>
+% <input>erl -run foo -run foo bar -run foo bar baz 1 2</input></pre>
+        <p>This starts the Erlang runtime system and evaluates
+          the following functions:</p>
+        <code type="none">
+foo:start()
+foo:bar()
+foo:bar(["baz", "1", "2"]).</code>
+        <p>The functions are executed sequentially in an initialization
+          process, which then terminates normally and passes control to
+          the user. This means that a <c>-run</c> call that does not
+          return blocks further processing; to avoid this, use
+          some variant of <c>spawn</c> in such cases.</p>
+      </item>
+      <tag><c>-s Mod [Func [Arg1, Arg2, ...]]</c></tag>
+      <item>
+        <p>Evaluates the specified function call during system
+          initialization. <c>Func</c> defaults to <c>start</c>. If no
+          arguments are provided, the function is assumed to be of arity
+          0. Otherwise it is assumed to be of arity 1, taking the list
+          <c>[Arg1,Arg2,...]</c> as argument. All arguments are passed
+          as atoms. If an exception is raised, Erlang stops with an
+          error message.</p>
+        <p>Example:</p>
+        <pre>
+% <input>erl -s foo -s foo bar -s foo bar baz 1 2</input></pre>
+        <p>This starts the Erlang runtime system and evaluates
+          the following functions:</p>
+        <code type="none">
+foo:start()
+foo:bar()
+foo:bar([baz, '1', '2']).</code>
+        <p>The functions are executed sequentially in an initialization
+          process, which then terminates normally and passes control to
+          the user. This means that a <c>-s</c> call that does not
+          return blocks further processing; to avoid this, use
+          some variant of <c>spawn</c> in such cases.</p>
+        <p>Because of the limited length of atoms, it is recommended to
+          use <c>-run</c> instead.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Example</title>
+    <pre>
+% <input>erl -- a b -children thomas claire -ages 7 3 -- x y</input>
+...
+
+1> <input>init:get_plain_arguments().</input>
+["a","b","x","y"]
+2> <input>init:get_argument(children).</input>
+{ok,[["thomas","claire"]]}
+3> <input>init:get_argument(ages).</input>
+{ok, [["7","3"]]}
+4> <input>init:get_argument(silly).</input>
+error</pre>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>, 
+      <seealso marker="kernel:heart"><c>heart(3)</c></seealso></p>
+  </section>
+</erlref>
+

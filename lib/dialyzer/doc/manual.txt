@@ -1,0 +1,412 @@
+##----------------------------------------------------------------------------
+## File:      doc/manual.txt
+## Author(s): Tobias Lindahl <tobiasl@it.uu.se>
+##	      Kostis Sagonas <kostis@it.uu.se>
+##----------------------------------------------------------------------------
+
+The DIALYZER, a DIscrepancy AnaLYZer for ERlang programs.
+
+
+-----------------------------------------------
+--
+-- Using Dialyzer from the GUI
+--
+-----------------------------------------------
+
+Choosing the applications or modules
+====================================
+In the "File" window you will find a listing of the current directory.
+Click your way to the directories/modules you want to add or type the
+correct path in the entry.
+
+Mark the directories/modules you want to analyze for discrepancies and
+click "Add". You can either add the .beam and .erl-files directly, or
+you can add directories that contain these kinds of files. Note that
+you are only allowed to add the type of files that can be analyzed in
+the current mode of operation (see below), and that you cannot mix
+.beam and .erl-files.
+
+The analysis modes
+==================
+Dialyzer has several modes of analysis. These are controlled by the
+buttons in the top-middle part of the main window, under "Analysis Options".
+
+The parameters are:
+* File Type:
+    - Byte code:
+	The analysis starts from .beam bytecode files.
+	The files must be compiled with +debug_info.
+    - Source code:
+	The analysis starts from .erl files.
+
+Controlling the discrepancies reported by the Dialyzer
+======================================================
+Under the "Warnings" pull-down menu, there are buttons that control
+which discrepancies are reported to the user in the "Warnings" window.
+By clicking on these buttons, one can enable/disable a whole class of
+warnings.  Information about the classes of warnings can be found on
+the "Warnings" item under the "Help" menu (at the rightmost top corner).
+
+Running the analysis
+====================
+Once you have chosen the modules or directories you want to analyze,
+click the "Run" button to start the analysis. If for some reason you
+want to stop the analysis while it is running, push the "Stop" button.
+
+The information from the analysis will be displayed in the Log and the
+Warnings windows.
+
+
+Include directories and macro definitions
+=========================================
+When analyzing from source you might have to supply Dialyzer with a
+list of include directories and macro definitions (as you can do with
+the erlc flags -I and -D). This can be done either by starting Dialyzer
+with these flags from the command line as in:
+
+    ./dialyzer -I my_includes -DDEBUG -Dvsn=42 -I one_more_dir
+
+or by adding these explicitly using the "Manage Macro Definitions" or
+"Manage Include Directories" sub-menus in the "Options" menu.
+
+
+Saving the information on the Log and Warnings windows
+======================================================
+In the "File" menu there are options to save the contents of the Log
+and the Warnings window. Just choose the options and enter the file to
+save the contents in.
+
+There are also buttons to clear the contents of each window.
+
+
+Inspecting the inferred types of the analyzed functions
+=======================================================
+Dialyzer stores the information of the analyzed functions in a
+Persistent Lookup Table (PLT). After an analysis you can inspect this
+information. In the PLT menu you can choose to either search the PLT
+or inspect the contents of the whole PLT. The information is presented
+in edoc format.
+
+NOTE: Currently, the information which is displayed is NOT the type
+signatures of the functions. The return values are the least upper
+bound of the returned type from the function and the argument types
+are the least upper bound of the types that the function is called
+with. In other words, the argument types is not what the function can
+accept, but rather a description of how the function is used.
+
+We are working on finding the type signatures of the function, and
+this will (hopefully) be included in a future version of Dialyzer.
+
+
+-----------------------------------------------
+--
+-- Using Dialyzer from the command line
+--
+-----------------------------------------------
+
+Dialyzer also has a command line version for automated use. Below is a
+brief description of the list of its options. The same information can
+be obtained by writing
+
+	    "dialyzer --help"
+
+in a shell. Please refer to the GUI description for more details on
+the operation of Dialyzer.
+
+The exit status of the command line version is:
+
+    0 - No problems were encountered during the analysis and no
+        warnings were emitted.
+    1 - Problems were encountered during the analysis.
+    2 - No problems were encountered, but warnings were emitted.
+
+
+
+Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
+		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
+                [-I include_dir]* [--output_plt file] [-Wwarn]*
+                [--src] [--gui] [files_or_dirs] [-r dirs]
+                [--apps applications] [-o outfile]
+		[--build_plt] [--add_to_plt] [--remove_from_plt]
+		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
+                [--no_native] [--fullpath]
+
+Options:
+   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
+       Use Dialyzer from the command line to detect defects in the
+       specified files or directories containing .erl or .beam files,
+       depending on the type of the analysis.
+   -r dirs
+       Same as the previous but the specified directories are searched
+       recursively for subdirectories containing .erl or .beam files in
+       them, depending on the type of analysis.
+   --apps applications
+       Option typically used when building or modifying a plt as in:
+         dialyzer --build_plt --apps erts kernel stdlib mnesia ...
+       to conveniently refer to library applications corresponding to the
+       Erlang/OTP installation. However, the option is general and can also
+       be used during analysis in order to refer to Erlang/OTP applications.
+       In addition, file or directory names can also be included, as in:
+         dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
+   -o outfile (or --output outfile)
+       When using Dialyzer from the command line, send the analysis
+       results to the specified outfile rather than to stdout.
+   --raw
+       When using Dialyzer from the command line, output the raw analysis
+       results (Erlang terms) instead of the formatted result.
+       The raw format is easier to post-process (for instance, to filter
+       warnings or to output HTML pages).
+   --src
+       Override the default, which is to analyze BEAM files, and
+       analyze starting from Erlang source code instead.
+   -Dname (or -Dname=value)
+       When analyzing from source, pass the define to Dialyzer. (**)
+   -I include_dir
+       When analyzing from source, pass the include_dir to Dialyzer. (**)
+   -pa dir
+       Include dir in the path for Erlang (useful when analyzing files
+       that have '-include_lib()' directives).
+   --output_plt file
+       Store the plt at the specified file after building it.
+   --plt plt
+       Use the specified plt as the initial plt (if the plt was built
+       during setup the files will be checked for consistency).
+   --plts plt*
+      Merge the specified plts to create the initial plt -- requires
+      that the plts are disjoint (i.e., do not have any module
+      appearing in more than one plt).
+      The plts are created in the usual way:
+        dialyzer --build_plt --output_plt plt_1 files_to_include
+        ...
+        dialyzer --build_plt --output_plt plt_n files_to_include
+      and then can be used in either of the following ways:
+        dialyzer files_to_analyze --plts plt_1 ... plt_n
+      or:
+        dialyzer --plts plt_1 ... plt_n -- files_to_analyze
+      (Note the -- delimiter in the second case)
+   -Wwarn
+       A family of options which selectively turn on/off warnings
+       (for help on the names of warnings use dialyzer -Whelp).
+   --shell
+       Do not disable the Erlang shell while running the GUI.
+   --version (or -v)
+       Print the Dialyzer version and some more information and exit.
+   --help (or -h)
+       Print this message and exit.
+   --quiet (or -q)
+       Make Dialyzer a bit more quiet.
+   --verbose
+       Make Dialyzer a bit more verbose.
+   --build_plt
+       The analysis starts from an empty plt and creates a new one from the
+       files specified with -c and -r. Only works for beam files.
+       Use --plt or --output_plt to override the default plt location.
+   --add_to_plt
+       The plt is extended to also include the files specified with -c and -r.
+       Use --plt to specify which plt to start from, and --output_plt to
+       specify where to put the plt. Note that the analysis might include
+       files from the plt if they depend on the new files.
+       This option only works with beam files.
+   --remove_from_plt
+       The information from the files specified with -c and -r is removed
+       from the plt. Note that this may cause a re-analysis of the remaining
+       dependent files.
+   --check_plt
+       Check the plt for consistency and rebuild it if it is not up-to-date.
+   --no_check_plt
+       Skip the plt check when running Dialyzer. Useful when working with
+       installed plts that never change.
+   --plt_info
+       Make Dialyzer print information about the plt and then quit. The plt
+       can be specified with --plt(s).
+   --get_warnings
+       Make Dialyzer emit warnings even when manipulating the plt. Warnings
+       are only emitted for files that are actually analyzed.
+   --dump_callgraph file
+       Dump the call graph into the specified file whose format is determined
+       by the file name extension. Supported extensions are: raw, dot, and ps.
+       If something else is used as file name extension, default format '.raw'
+       will be used.
+   --no_native (or -nn)
+       Bypass the native code compilation of some key files that Dialyzer
+       heuristically performs when dialyzing many files; this avoids the
+       compilation time but it may result in (much) longer analysis time.
+  --fullpath
+      Display the full path names of files for which warnings are emitted.
+   --gui
+       Use the GUI.
+
+Note:
+  * denotes that multiple occurrences of these options are possible.
+ ** options -D and -I work both from command-line and in the Dialyzer GUI;
+    the syntax of defines and includes is the same as that used by "erlc".
+
+Warning options:
+  -Wno_return
+     Suppress warnings for functions that will never return a value.
+  -Wno_unused
+     Suppress warnings for unused functions.
+  -Wno_improper_lists
+     Suppress warnings for construction of improper lists.
+  -Wno_tuple_as_fun
+     Suppress warnings for using tuples instead of funs.
+  -Wno_fun_app
+     Suppress warnings for fun applications that will fail.
+  -Wno_match
+     Suppress warnings for patterns that are unused or cannot match.
+  -Wno_opaque
+     Suppress warnings for violations of opacity of data types.
+  -Wunmatched_returns ***
+     Include warnings for function calls which ignore a structured return
+     value or do not match against one of many possible return value(s).
+  -Werror_handling ***
+     Include warnings for functions that only return by means of an exception.
+  -Wrace_conditions ***
+     Include warnings for possible race conditions.
+  -Wbehaviours ***
+     Include warnings about behaviour callbacks which drift from the published
+     recommended interfaces.
+  -Wunderspecs ***
+     Warn about underspecified functions
+     (those whose -spec is strictly more allowing than the success typing).
+
+The following options are also available but their use is not recommended:
+(they are mostly for Dialyzer developers and internal debugging)
+  -Woverspecs ***
+     Warn about overspecified functions
+     (those whose -spec is strictly less allowing than the success typing).
+  -Wspecdiffs ***
+     Warn when the -spec is different than the success typing.
+
+Note:
+   *** Identifies options that turn on warnings rather than turning them off.
+
+
+-----------------------------------------------
+--
+-- Using Dialyzer from Erlang
+--
+-----------------------------------------------
+
+You can also use Dialyzer directly from Erlang. Both the GUI and the
+command line version is available. The options are similar to the ones
+given from the command line, so please refer to the sections above for
+a description of these.
+
+Interface:
+
+dialyzer:gui() -> 'ok'
+
+dialyzer:gui(OptList) -> 'ok'
+
+dialyzer:run(OptList) -> Warnings
+
+Warnings :: [{tag(), id(), msg()}]
+tag()    ::  'warn_return_no_exit' | 'warn_return_only_exit' | 'warn_not_called'
+           | 'warn_non_proper_list' | 'warn_fun_app' | 'warn_matching'
+           | 'warn_failing_call' | 'warn_contract_types'
+           | 'warn_contract_syntax' | 'warn_contract_not_equal'
+           | 'warn_contract_subtype' | 'warn_contract_supertype'
+id()     :: {File :: string(), Line :: integer()}
+msg()    :: Undefined
+
+OptList  :: [Option]
+Option   :: {files,          [Filename :: string()]}
+	  | {files_rec,      [DirName :: string()]}
+	  | {defines,        [{Macro :: atom(), Value :: term()}]}
+	  | {from,           src_code | byte_code} %% Defaults to byte_code
+	  | {init_plt,       FileName :: string()} %% If changed from default
+          | {plts,           [FileName :: string()]} %% If changed from default
+	  | {include_dirs,   [DirName :: string()]}
+	  | {output_file,    FileName :: string()}
+	  | {output_plt,     FileName :: string()}
+	  | {analysis_type,  'succ_typings' | 'plt_add' |
+                             'plt_build' | 'plt_check' | 'plt_remove'}
+	  | {warnings,       [WarnOpts]}
+	  | {get_warnings,   bool()}
+
+WarnOpts :: no_return
+	  | no_unused
+	  | no_improper_lists
+	  | no_fun_app
+	  | no_match
+	  | no_opaque
+	  | no_fail_call
+	  | error_handling
+	  | race_conditions
+	  | behaviours
+	  | unmatched_returns
+	  | overspecs
+	  | underspecs
+	  | specdiffs
+
+dialyzer:format_warning({tag(), id(), msg()}) -> string()
+
+Returns a string representation of the warnings as returned by dialyzer:run/1.
+
+dialyzer:plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}
+
+Returns information about the specified plt.
+
+-----------------------------------------------
+--
+-- More on the Persistent Lookup Table (PLT)
+--
+-----------------------------------------------
+
+The persistent lookup table, or PLT, is used to store the result of an
+analysis. The PLT can then be used as a starting point for later
+analyses. It is recommended to build a PLT with the otp applications
+that you are using, but also to include your own applications that you
+are using frequently.
+
+The PLT is built using the --build_plt option to dialyzer. The
+following command builds the recommended minimal PLT for OTP.
+
+   dialyzer --build_plt --apps erts kernel stdlib mnesia
+
+Dialyzer will look if there is an environment variable called
+$DIALYZER_PLT and place the PLT at this location. If no such variable
+is set, Dialyzer will place the PLT at $HOME/.dialyzer_plt. The
+placement can also be specified using the --plt, or --output_plt
+options.
+
+You can also add information to an existing plt using the --add_to_plt
+option. Suppose you want to also include the compiler in the PLT and
+place it in a new PLT, then give the command
+
+  dialyzer --add_to_plt --apps compiler --output_plt my.plt
+
+Then you would like to add your favorite application my_app to the new
+plt.
+
+  dialyzer --add_to_plt --plt my.plt -r <path>/my_app/ebin
+
+But you realize that it is unnecessary to have compiler in this one.
+
+  dialyzer --remove_from_plt --plt my.plt ---apps compiler
+
+Later, when you have fixed a bug in your application my_app, you want
+to update the plt so that it will be fresh the next time you run
+Dialyzer, run the command
+
+  dialyzer --check_plt --plt my.plt
+
+Dialyzer will then reanalyze the files that have been changed, and the
+files that depend on these files. Note that this consistency check
+will be performed automatically the next time you run Dialyzer with
+this plt. The --check_plt option is merely for doing so without doing
+any other analysis.
+
+-----------------------------------------------
+--
+-- Feedback & bug reports
+--
+-----------------------------------------------
+
+At this point, we very much welcome user feedback (even wish-lists!).
+If you notice something weird, especially if the Dialyzer reports any
+discrepancy that is a false positive, please send an error report
+describing the symptoms and how to reproduce them to:
+
+	tobias.lindahl@it.uu.se, kostis@it.uu.se

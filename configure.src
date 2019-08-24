@@ -1,0 +1,437 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2018. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+#
+# This is a handcrafted wrapper script which runs the actual (autoconf)
+# 'configure' scripts in different parts of OTP.
+#
+# The true (autoconf) configure scripts are run in parallel unless
+# --disable-parallel-configure is passed as argument to this script.
+#
+# The config cache feature is disabled since it mostly causes problems
+# and especially when executing multiple configure scripts in parallel.
+# On windows a static cache for each configure is used since it
+# otherwise takes forever to run configure...
+#
+
+OTP_VERSION=@OTP_VERSION@
+
+unset CDPATH
+
+default_cflags="-g -O2"
+
+mXY_build=
+static_cache=
+
+bootstrap_only=no
+parallel_otp_configure=yes
+help=no
+user_srcdir=
+config_arguments=
+skip_applications=
+while test $# != 0; do
+    case $1 in
+	-srcdir=* | --srcdir=*)
+	    user_srcdir=`expr "$1" : '[^=]*=\(.*\)'`
+	    if test "$ERL_TOP" != ""; then
+		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
+		echo "" 1>&2
+	    fi
+	    ERL_TOP="$user_srcdir"
+	    ;;
+	-srcdir | --srcdir)
+	    shift
+	    test $# != 0 || {
+		echo "ERROR: Missing source dir" 1>&2
+		exit 1
+	    }
+	    user_srcdir="$1"
+	    if test "$ERL_TOP" != ""; then
+		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
+		echo "" 1>&2
+	    fi
+	    ERL_TOP="$user_srcdir"
+	    ;;
+	--enable-bootstrap-only)
+            config_arguments="$config_arguments --enable-bootstrap-only"
+	    bootstrap_only=yes;;
+	--disable-bootstrap-only)
+            config_arguments="$config_arguments --disable-bootstrap-only"
+	    bootstrap_only=no;;
+	--enable-option-checking)
+	    echo "ERROR: Cannot enable option checking" 1>&2
+	    exit 1;;
+	--disable-option-checking)
+	    # Got it...
+	    ;;
+	--disable-parallel-configure)
+	    parallel_otp_configure=no
+	    ;;
+	--config-cache | -C)
+	    echo "WARNING: Ignoring config cache file since it will mess up the configuration" 1>&2
+	    echo "" 1>&2
+	    ;;
+	-cache-file=* | --cache-file=* )
+	    static_cache=`expr "$1" : '[^=]*=\(.*\)'`
+	    if test "$static_cache" != "/dev/null"; then
+		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
+		echo "" 1>&2
+	    else
+		static_cache=
+	    fi
+	    ;;
+        -cache-file | --cache-file)
+	    shift
+	    test $# != 0 || {
+		echo "ERROR: Missing cache file" 1>&2
+		exit 1
+	    }
+	    static_cache=$1
+	    if test "$static_cache" != "/dev/null"; then
+		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
+		echo "" 1>&2
+	    else
+		static_cache=
+	    fi
+	    ;;
+	--enable-m64-build)
+	    mXY_build="-m64"
+	    ;;
+	--enable-m32-build)
+	    mXY_build="-m32"
+	    ;;
+	--disable-m64-build)
+	    if test "$mXY_build" = "-m64"; then
+		mXY_build=
+	    fi;;
+	--disable-m32-build)
+	    if test "$mXY_build" = "-m32"; then
+		mXY_build=
+	    fi;;
+	CFLAGS=* | LDFLAGS=*)
+	    flgs_var=`expr "$1" : '\([^=]*\)=.*'`
+	    flgs_val=`expr "$1" : '[^=]*=\(.*\)'`
+	    eval $flgs_var=\$flgs_val
+	    ;;
+	--help=r* | -help=r*)
+	    help=all;;
+        --help* | -help* | -h)
+	    help=$1;;
+        *)
+	    case $1 in
+		--without-*)
+		    skip_app=`expr "$1" : '--without-\(.*\)'`
+		    if test -d "lib/$skip_app"; then
+			skip_applications="$skip_applications $skip_app"
+		    fi;;
+		*)
+		    ;;
+	    esac
+            case $1 in
+		*\'*)
+                    1=`echo "$1" | sed "s/'/'\\\\\\\\''/g"` ;;
+		*)
+                ;;
+            esac
+            config_arguments="$config_arguments '$1'";;
+    esac
+    shift
+done
+
+if test $parallel_otp_configure = yes; then
+    case `uname -s` in
+	MSYS* | msys* | CYGWIN* | cygwin )
+            ;;
+	*)
+	    trap 'kill -KILL -$$' 1 2 3 6 15
+	    ;;
+    esac
+fi
+
+#
+# Figure ERL_TOP out...
+#
+
+root_dir=
+dir_chk_data="$OTP_VERSION"
+
+if root_dir=`dirname "$0" 2>/dev/null` \
+	&& test "$root_dir" != "" \
+	&& cd "$root_dir" 2>/dev/null; then
+    root_dir=`pwd 2>/dev/null`
+    if test $? -ne 0; then
+	root_dir=
+    else
+	case "$root_dir" in
+	    /*)
+		echo $dir_chk_data > "$root_dir"/config.dir.check.$$ 2>/dev/null
+		;;
+	    *)
+		root_dir=
+	esac
+    fi
+else
+    root_dir=
+fi
+
+if test "$root_dir" = ""; then
+    case X"$ERL_TOP" in
+	X)
+	    echo "ERROR: Cannot figure out the root directory of" 1>&2
+	    echo "       the OTP source. Please set the ERL_TOP" 1>&2
+	    echo "       environment variable." 1>&2
+	    exit 1
+	    ;;
+	X/*)
+	    cd "$ERL_TOP" 2>/dev/null || {
+		echo "ERROR: Cannot change directory to ERL_TOP " 1>&2
+		echo "       '$ERL_TOP'" 1>&2
+		exit 1
+	    }
+	    ;;
+	X*)
+	    echo "ERROR: ERL_TOP '$ERL_TOP' is not an absolute path" 1>&2
+	    exit 1
+	    ;;
+    esac
+else
+    case X"$ERL_TOP" in
+	X)
+	    ERL_TOP="$root_dir"
+	    rm -f "$root_dir"/config.dir.check.$$
+	    ;;
+	X/*)
+	    cd "$ERL_TOP" 2>/dev/null || {
+		rm -f "$root_dir"/config.dir.check.$$
+		echo "ERROR: Cannot change directory into ERL_TOP " 1>&2
+		echo "       '$ERL_TOP'" 1>&2
+		exit 1
+	    }
+	    dir_chk=`cat ./config.dir.check.$$ 2>/dev/null` || dir_chk=error
+	    rm -f "$root_dir"/config.dir.check.$$
+	    test "$dir_chk" = "$dir_chk_data" || {
+		echo "ERROR: ERL_TOP '$ERL_TOP' is not the same" 1>&2
+		echo "       as 'configure' location '$root_dir'" 1>&2
+		exit 1
+	    }
+	    ;;
+	X*)
+	    rm -f "$root_dir"/config.dir.check.$$
+	    echo "ERROR: ERL_TOP '$ERL_TOP' is not an absolute path" 1>&2
+	    exit 1
+	    ;;
+    esac
+fi
+
+export ERL_TOP
+
+rm -f "$ERL_TOP/lib/SKIP-APPLICATIONS"
+
+case "$help" in
+    no)
+        ;;
+    all)
+	(cd "$ERL_TOP/make" && ./configure --help)
+	app_dirs=
+	for app_dir in erts lib/*; do
+	    if test -f "$app_dir/configure"; then
+		echo ""
+		echo "=== $app_dir ==="
+		(cd "$ERL_TOP/$app_dir" && ./configure --help=short)
+	    fi
+	done
+	exit 0;;
+    *)
+	(cd "$ERL_TOP/make" && ./configure "$help")
+	exit 0;;
+esac
+
+if test "$mXY_build" = ""; then
+    if test "$CFLAGS" != ""; then
+	config_arguments="$config_arguments CFLAGS='$CFLAGS'"
+	unset CFLAGS
+    fi
+
+    if test "$LDFLAGS" != ""; then
+	config_arguments="$config_arguments LDFLAGS='$LDFLAGS'"
+	unset LDFLAGS
+    fi
+else
+    if test "$CFLAGS" = ""; then
+	CFLAGS=$default_cflags
+    fi
+    config_arguments="$config_arguments CFLAGS='$mXY_build $CFLAGS'"
+    unset CFLAGS
+    config_arguments="$config_arguments LDFLAGS='$mXY_build $LDFLAGS'"
+    unset LDFLAGS
+    case $mXY_build in
+	-m32)
+            config_arguments="$config_arguments --enable-m32-build"
+	    ;;
+	-m64)
+            config_arguments="$config_arguments --enable-m64-build"
+	    ;;
+    esac
+fi
+
+config_arguments="$config_arguments --disable-option-checking"
+
+if test $bootstrap_only = no; then
+    check_conf_dirs=`echo lib/*`
+else
+    check_conf_dirs="@BOOTSTRAP_LIB_APP_DIRS@"
+fi
+
+# 'erts' *needs* to be last in app_dirs! Any apps
+# after it wont be able to run in parallel with
+# erts...
+
+app_dirs=
+for app_dir in make $check_conf_dirs erts; do
+    if test -f "$app_dir/configure"; then
+       if test "$static_cache" != ""; then
+          cp -f "$static_cache" "$ERL_TOP/$app_dir/local.static.config.cache"
+       fi
+       rm -f $app_dir/configure.result.failed
+       rm -f $app_dir/configure.result.command
+       rm -f $app_dir/configure.result.stdout
+       rm -f $app_dir/configure.result.stderr
+       app_dirs="$app_dirs $app_dir"
+    fi
+done
+
+if test "$static_cache" = ""; then
+   local_cache_file=/dev/null
+else
+   local_cache_file=./local.static.config.cache
+fi
+
+for app_dir in $app_dirs; do
+    cd "$ERL_TOP/$app_dir"
+    cmd_str="./configure $config_arguments --cache-file=$local_cache_file --srcdir=\"$ERL_TOP/$app_dir\""
+    if test $parallel_otp_configure = no; then
+	echo "=== Running configure in $ERL_TOP/$app_dir ==="
+	eval $cmd_str
+	echo ""
+    elif test $app_dir != erts; then
+	echo $cmd_str >./configure.result.command
+	eval $cmd_str 1>./configure.result.stdout 2>./configure.result.stderr || echo "fatal" > "./configure.result.failed" &
+    else
+	# ERTS configure gets to use stdout/stderr; the others are printed when done...
+	echo "=== Running configure in $ERL_TOP/erts ==="
+	echo $cmd_str
+	eval $cmd_str || {
+	    rm -f erts/configure.result.* lib/*/configure.result.*
+	    echo "ERROR: $ERL_TOP/$app_dir/configure failed!" 1>&2
+	    kill -KILL -$$
+	    exit 1
+	}
+    fi
+done
+
+cd "$ERL_TOP"
+
+if test $parallel_otp_configure = yes; then
+    # Wait for all sub-configures to finish...
+    wait
+
+    for app_dir in $app_dirs; do
+	if test -f "$app_dir/configure.result.command"; then
+	    echo ""
+	    echo "=== Running configure in $ERL_TOP/$app_dir ==="
+	    cat "$app_dir/configure.result.command"
+	    rm -f "$app_dir/configure.result.command"
+	fi
+	if test -f "$app_dir/configure.result.stdout"; then
+	    cat "$app_dir/configure.result.stdout"
+	    rm -f "$app_dir/configure.result.stdout"
+	fi
+	if test -f "$app_dir/configure.result.stderr"; then
+	    cat "$app_dir/configure.result.stderr" 1>&2
+	    rm -f "$app_dir/configure.result.stderr"
+	fi
+	if test -f "$app_dir/configure.result.failed"; then
+	    rm -f erts/configure.result.* lib/*/configure.result.*
+	    echo "ERROR: $ERL_TOP/$app_dir/configure failed!" 1>&2
+	    exit 1
+	fi
+    done
+fi
+
+
+echo ""
+
+pattern="lib/*/SKIP"
+files=`echo $pattern`
+if test "$files" != "$pattern" || test "$skip_applications" != ""; then
+  echo '*********************************************************************'
+  echo '**********************  APPLICATIONS DISABLED  **********************'
+  echo '*********************************************************************'
+  echo
+  if test "$files" != "$pattern"; then
+    for skipfile in $files; do
+      app=`dirname $skipfile`; app=`basename $app`
+      printf "%-15s: " $app; cat $skipfile
+    done
+  fi
+  for skipapp in $skip_applications; do
+    printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    echo "$skipapp" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
+  done
+  echo
+  echo '*********************************************************************'
+fi
+pattern="lib/*/CONF_INFO"
+files=`echo $pattern`
+if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
+  echo '*********************************************************************'
+  echo '**********************  APPLICATIONS INFORMATION  *******************'
+  echo '*********************************************************************'
+  echo
+  test "$files" != "$pattern" || files=""
+  test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
+  for infofile in $files; do
+    app=`dirname $infofile`; app=`basename $app`
+    printf "%-15s: " $app; cat $infofile
+  done
+  echo
+  echo '*********************************************************************'
+fi
+if test -f "erts/doc/CONF_INFO"; then
+  echo '*********************************************************************'
+  echo '**********************  DOCUMENTATION INFORMATION  ******************'
+  echo '*********************************************************************'
+  echo
+  printf "%-15s: \n" documentation;
+  havexsltproc="yes"
+  for cmd in `cat erts/doc/CONF_INFO`; do
+	echo "                 $cmd is missing."
+  if test $cmd = "xsltproc"; then
+    havexsltproc="no"
+  fi
+  done
+  if test $havexsltproc = "no"; then
+    echo '                 The documentation cannot be built.'
+  else
+    echo '                 Using fakefop to generate placeholder PDF files.'
+  fi
+  echo
+  echo '*********************************************************************'
+fi

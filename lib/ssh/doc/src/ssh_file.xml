@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+      
+      http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+    
+    <title>ssh_file</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP 21.2">ssh_file</module>
+  <modulesummary>Default callback module for the client's and server's database operations in the ssh application</modulesummary>
+  <description>
+    <p>This module is the default callback handler for the client's and the server's user and host "database" operations.
+    All data, for instance key pairs, are stored in files in the normal file system. This page documents the files, where they
+    are stored and configuration options for this callback module.
+    </p>
+    <p>The intention is to be compatible with the
+    <url href="http://www.openssh.com">OpenSSH</url>
+    storage in files. Therefore it mimics directories and filenames of
+    <url href="http://www.openssh.com">OpenSSH</url>.
+    </p>
+
+    <p>Ssh_file implements the <seealso marker="ssh:ssh_server_key_api">ssh_server_key_api</seealso> and
+    the <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>.
+    This enables the user to make an own interface using for example a database handler.
+    </p>
+    <p>Such another callback module could be used by setting the option
+    <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+    when starting a client or a server (with for example
+    <seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+    <seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso> of
+    <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
+    ).
+    </p>
+
+    <note>
+      <p>The functions are <i>Callbacks</i> for the SSH app. They are not intended to be called from the user's code!
+      </p>
+    </note>
+  </description>
+
+  <section>
+    <title>Files, directories and who uses them</title>
+    <section>
+      <title>Daemons</title>
+      <p>Daemons uses all files stored in the <seealso marker="#SYSDIR">SYSDIR</seealso> directory.
+      </p>
+      <p>Optionaly, in case of <c>publickey</c> authorization, one or more of the remote user's public keys
+      in the <seealso marker="#USERDIR">USERDIR</seealso> directory are used.
+      See the files 
+      <seealso marker="#USERDIR-authorized_keys"><c>USERDIR/authorized_keys</c></seealso> and
+      <seealso marker="#USERDIR-authorized_keys2"><c>USERDIR/authorized_keys2</c></seealso>.
+      </p>
+    </section>
+
+    <section>
+      <title>Clients</title>
+      <p>Clients uses all files stored in the <seealso marker="#USERDIR">USERDIR</seealso> directory.
+      </p>
+    </section>
+
+    <section>
+      <title>Directory contents</title>
+      <taglist>
+	<tag><marker id="LOCALUSER"/>LOCALUSER</tag>
+	<item><p>The user name of the OS process running the Erlang virtual machine (emulator).</p>
+	</item>
+
+	<tag><marker id="SYSDIR"/>SYSDIR</tag>
+	<item><p>This is the directory holding the server's files:</p>
+	<list>
+	  <item><marker id="SYSDIR-ssh_host_dsa_key"/><c>ssh_host_dsa_key</c> - private dss host key (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_rsa_key"/><c>ssh_host_rsa_key</c> - private rsa host key (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ecdsa_key"/><c>ssh_host_ecdsa_key</c> - private ecdsa host key (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed25519_key"/><c>ssh_host_ed25519_key</c> - private eddsa host key for curve 25519 (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed448_key"/><c>ssh_host_ed448_key</c> - private eddsa host key for curve 448 (optional)</item>
+	</list>
+	<p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
+	</p>
+	<p>For security reasons, this directory is normally accessible only to the root user.
+	</p>
+	<p>To change the SYSDIR, see the <seealso marker="#type-system_dir_daemon_option">system_dir</seealso> option.
+	</p>
+	</item>
+
+	<tag><marker id="USERDIR"/>USERDIR</tag>
+	<item><p>This is the directory holding the files:</p>
+	<list>
+	  <item><marker id="USERDIR-authorized_keys"/><c>authorized_keys</c>
+	  and, as second alternative
+	  <marker id="USERDIR-authorized_keys2"/><c>authorized_keys2</c> - 
+	  the user's public keys are stored concatenated in one of those files.
+	  </item>
+	  <item><marker id="USERDIR-known_hosts"/><c>known_hosts</c> - host keys from hosts visited
+	  concatenated. The file is created and used by the client.</item>
+	  <item><marker id="USERDIR-id_dsa"/><c>id_dsa</c> - private dss user key (optional)</item>
+	  <item><marker id="USERDIR-id_rsa"/><c>id_rsa</c> - private rsa user key (optional)</item>
+	  <item><marker id="USERDIR-id_ecdsa"/><c>id_ecdsa</c> - private ecdsa user key (optional)</item>
+	  <item><marker id="USERDIR-id_ed25519"/><c>id_ed25519</c> - private eddsa user key for curve 25519 (optional)</item>
+	  <item><marker id="USERDIR-id_ed448"/><c>id_ed448</c> - private eddsa user key for curve 448 (optional)</item>
+	</list>
+	<p>The default value of USERDIR is <c>/home/</c><seealso marker="#LOCALUSER"><c>LOCALUSER</c></seealso><c>/.ssh</c>.
+	</p>
+	<p>To change the USERDIR, see the <seealso marker="#type-user_dir_common_option">user_dir</seealso> option
+	</p>
+	</item>
+      </taglist>
+    </section>
+  </section>
+
+  <datatypes>
+    <datatype_title>Options for the default ssh_file callback module</datatype_title>
+    <datatype>
+      <name name="user_dir_common_option"/>
+      <desc>
+	<p>Sets the <seealso marker="#USERDIR">user directory</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="user_dir_fun_common_option"/>
+      <name name="user2dir"/>
+      <desc>
+	<p>Sets the <seealso marker="#USERDIR">user directory</seealso> dynamically
+	by evaluating the <c>user2dir</c> function.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="system_dir_daemon_option"/>
+      <desc>
+        <p>Sets the <seealso marker="#SYSDIR">system directory</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pubkey_passphrase_client_options"/>
+      <desc>
+	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
+	supplied with thoose options.
+	</p>
+	<p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name since="OTP 21.2">host_key(Algorithm, DaemonOptions) -> {ok, Key} | {error, Reason}</name>
+      <fsummary></fsummary>
+      <desc>
+	<p><strong>Types and description</strong></p>
+	<p>See the api description in
+	<seealso marker="ssh:ssh_server_key_api#Module:host_key-2">ssh_server_key_api, Module:host_key/2</seealso>.
+	</p>
+	<p><strong>Options</strong></p>
+	<list>
+	  <item><seealso marker="#type-system_dir_daemon_option">system_dir</seealso></item>
+	  <!-- item>dsa_pass_phrase</item -->
+	  <!-- item>rsa_pass_phrase</item -->
+	  <!-- item>ecdsa_pass_phrase</item -->
+	</list>
+	<p><strong>Files</strong></p>
+	<list>
+	  <item><seealso marker="#SYSDIR-ssh_host_rsa_key"><c>SYSDIR/ssh_host_rsa_key</c></seealso></item>
+	  <item><seealso marker="#SYSDIR-ssh_host_dsa_key"><c>SYSDIR/ssh_host_dsa_key</c></seealso></item>
+	  <item><seealso marker="#SYSDIR-ssh_host_ecdsa_key"><c>SYSDIR/ssh_host_ecdsa_key</c></seealso></item>
+          <item><seealso marker="#SYSDIR-ssh_host_ed25519_key"><c>SYSDIR/ssh_host_ed25519_key</c></seealso></item>
+          <item><seealso marker="#SYSDIR-ssh_host_ed448_key"><c>SYSDIR/ssh_host_ed448_key</c>c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.2">is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
+      <fsummary></fsummary>
+      <desc>
+	<p><strong>Types and description</strong></p>
+	<p>See the api description in
+	<seealso marker="ssh:ssh_server_key_api#Module:is_auth_key-3">ssh_server_key_api: Module:is_auth_key/3</seealso>.
+	</p>
+	<p><strong>Options</strong></p>
+	<list>
+	  <item><seealso marker="#type-user_dir_fun_common_option">user_dir_fun</seealso></item>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
+	</list>
+	<p><strong>Files</strong></p>
+	<list>
+	  <item><seealso marker="#USERDIR-authorized_keys"><c>USERDIR/authorized_keys</c></seealso></item>
+	  <item><seealso marker="#USERDIR-authorized_keys2"><c>USERDIR/authorized_keys2</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.2">add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <fsummary></fsummary>
+      <desc>
+	<p><strong>Types and description</strong></p>
+	<p>See the api description in
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">ssh_client_key_api, Module:add_host_key/3</seealso>.
+	</p>
+	<p><strong>Option</strong></p>
+	<list>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
+	</list>
+	<p><strong>File</strong></p>
+	<list>
+	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.2">is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
+      <fsummary></fsummary>
+      <desc>
+	<p><strong>Types and description</strong></p>
+	<p>See the api description in
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-4">ssh_client_key_api, Module:is_host_key/4</seealso>.
+	</p>
+	<p><strong>Option</strong></p>
+	<list>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
+	</list>
+	<p><strong>File</strong></p>
+	<list>
+	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.2">user_key(Algorithm, ConnectOptions) -> {ok, PrivateKey} | {error, Reason}</name>
+      <fsummary></fsummary>
+      <desc>
+	<p><strong>Types and description</strong></p>
+	<p>See the api description in
+	<seealso marker="ssh:ssh_client_key_api#Module:user_key-2">ssh_client_key_api, Module:user_key/2</seealso>.
+	</p>
+	<p><strong>Options</strong></p>
+	<list>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">dsa_pass_phrase</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">rsa_pass_phrase</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">ecdsa_pass_phrase</seealso></item>
+	</list>
+	<p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p>
+	<p><strong>Files</strong></p>
+	<list>
+	  <item><seealso marker="#USERDIR-id_dsa"><c>USERDIR/id_dsa</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_rsa"><c>USERDIR/id_rsa</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_ecdsa"><c>USERDIR/id_ecdsa</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_ed25519"><c>USERDIR/id_ed25519</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_ed448"><c>USERDIR/id_ed448</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>

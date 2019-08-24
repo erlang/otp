@@ -1,0 +1,142 @@
+#!/bin/sh
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+# 
+# Author:
+#         Patrik Winroth 
+#
+
+
+# vxworks_ppc860 vxworks_ppc603 vxworks_ppc603_longcall vxworks_cpu32 vxworks_sparc 
+# vxworks_ppc750 vxworks_simso
+
+case $# in
+1) host=$1 ;;
+*) echo "usage: configure.vxworks host-configuration"; exit 1 ;;
+esac
+
+case $1 in
+vxworks_cpu32) ;;
+vxworks_ppc750) ;;
+vxworks_ppc860) ;;
+vxworks_ppc603) ;;
+vxworks_ppc603_nolongcall) ;;
+vxworks_sparc) ;;
+vxworks_simso) ;;
+vxworks_simlinux) ;;
+vxworks_ppc32) ;;
+*) echo "usage: configure.vxworks TARGET";
+   echo "where TARGET is one of vxworks_cpu32, vxworks_ppc750, vxworks_ppc860, vxworks_ppc603, vxworks_ppc603_nolongcall, vxworks_sparc, vxworks_simso, vxworks_simlinux, vxworks_ppc32"; exit 1;;
+esac
+
+if [ "x$ERL_TOP" = x ]; then
+    echo "You need to set ERL_TOP!"
+    exit 1
+fi
+
+
+target=$host
+
+# Find out the HOST and WIND_BASE environment
+HOST_TYPE=${HOST_TYPE:=sun4-solaris2}
+case $1 in
+vxworks_ppc750) VXTOP=Tornado2.2 ;;
+vxworks_simso)  VXTOP=WindRiver ;;
+vxworks_simlinux)  VXTOP=WindRiver ;;
+vxworks_ppc32)  VXTOP=WindRiver ;;
+*)              VXTOP=wind ;;
+esac
+
+WIND_BASE=${WIND_BASE:=`ypmatch tornado passwd | awk -F: '{print $6}'`/$VXTOP}
+
+# These are created by autoconf.
+MKDIRS="${ERL_TOP}/lib/os_mon/priv/bin/$target
+        ${ERL_TOP}/lib/os_mon/priv/obj/$target
+        ${ERL_TOP}/lib/asn1/priv/lib/$target
+        ${ERL_TOP}/lib/asn1/priv/obj/$target
+        ${ERL_TOP}/lib/erl_interface/obj/$target
+        ${ERL_TOP}/lib/erl_interface/obj.debug/$target
+        ${ERL_TOP}/lib/erl_interface/bin/$target
+        ${ERL_TOP}/lib/runtime_tools/priv/lib/$target
+        ${ERL_TOP}/lib/runtime_tools/priv/obj/$target
+	${ERL_TOP}/erts/obj/$target
+	${ERL_TOP}/erts/obj.debug/$target
+	${ERL_TOP}/bin/$target"
+
+for dir in $MKDIRS; do
+  test ! -d "$dir" && mkdir -p "$dir"
+done
+
+#
+# Create Makefiles for vxWorks.
+#
+my_root=${ERL_TOP}/erts/emulator
+emu_test=$my_root/test
+beam=$my_root/beam
+erts_lib_src=${ERL_TOP}/erts/lib_src
+erts_incl=${ERL_TOP}/erts/include
+erts_incl_intrnl=${ERL_TOP}/erts/include/internal
+etcdir=${ERL_TOP}/erts/etc/common
+erlint_incl_dir=${ERL_TOP}/lib/erl_interface/include
+erlint_dir=${ERL_TOP}/lib/erl_interface/src
+epmd_dir=${ERL_TOP}/erts/epmd/src
+os_mon_dir=${ERL_TOP}/lib/os_mon/c_src
+internal_tools_dir=${ERL_TOP}
+libdir=${ERL_TOP}/lib
+tsdir=$libdir/test_server/src
+zlibdir=${ERL_TOP}/erts/emulator/zlib
+runtime_tools_dir=${ERL_TOP}/lib/runtime_tools/c_src
+tools_dir=${ERL_TOP}/lib/tools/c_src
+
+CONFIG_FILES="${ERL_TOP}/erts/emulator/$host/Makefile
+	    $erts_lib_src/$host/Makefile
+	    $erts_incl/$host/erl_int_sizes_config.h
+	    $erts_incl_intrnl/$host/ethread.mk
+	    $erts_incl_intrnl/$host/ethread_header_config.h
+	    $etcdir/$host/Makefile
+	    $erlint_incl_dir/$host/ei_config.h
+	    $erlint_dir/$host/Makefile
+	    $erlint_dir/$host/eidefs.mk
+	    $epmd_dir/$host/Makefile
+	    $internal_tools_dir/make/$host/otp.mk
+	    $internal_tools_dir/make/$host/otp_ded.mk
+	    $os_mon_dir/$host/Makefile
+	    $zlibdir/$host/Makefile
+	    $runtime_tools_dir/$host/Makefile
+	    $tools_dir/$host/Makefile"
+
+for file in $CONFIG_FILES; do
+    new_name=`echo $file|sed "s%/$host/%/$target/%"`
+    dir=`echo $new_name|sed 's%/[^/][^/]*$%%'`
+    if test "$dir" != "$new_name" && test "$dir" != .; then
+	test ! -d "$dir" && mkdir "$dir"
+    fi
+
+    sole_name=`echo $file|sed "s%.*$target/%%"`
+    in_file=`echo $dir|sed "s%/[^/][^/]*$%/$sole_name.in%"`
+    echo "creating $new_name"
+    sed -f vxworks/sed.$target -f vxworks/sed.general \
+	-e "s,@HOST_TYPE@,$HOST_TYPE,g" \
+	-e "s,@WIND_BASE@,$WIND_BASE,g" \
+	-e "s,@TARGET@,$target,g" \
+        -e "s,@ENV_CFLAGS@,$CFLAGS,g" \
+	$in_file > $new_name
+done
+
+

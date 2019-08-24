@@ -1,0 +1,166 @@
+  PKIX-CommonTypes-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57)}
+
+  DEFINITIONS EXPLICIT TAGS ::=
+  BEGIN
+
+  --  ATTRIBUTE
+  --
+  --  Describe the set of data associated with an attribute of some type
+  --
+  --  &id is an OID identifying the attribute
+  --  &Type is the ASN.1 type structure for the attribute; not all
+  --      attributes have a data structure, so this field is optional
+  --  &minCount contains the minimum number of times the attribute can
+  --      occur in an AttributeSet
+  --  &maxCount contains the maximum number of times the attribute can
+  --      appear in an AttributeSet
+  --      Note: this cannot be automatically enforced as the field
+  --      cannot be defaulted to MAX.
+  --  &equality-match contains information about how matching should be
+  --      done
+  --
+  --  Currently we are using two different prefixes for attributes.
+  --
+  --  at- for certificate attributes
+  --  aa- for CMS attributes
+  --
+
+  ATTRIBUTE ::= CLASS {
+      &id             OBJECT IDENTIFIER UNIQUE,
+      &Type           OPTIONAL,
+      &equality-match MATCHING-RULE OPTIONAL,
+      &minCount       INTEGER DEFAULT 1,
+      &maxCount       INTEGER OPTIONAL
+  } WITH SYNTAX {
+      [TYPE &Type]
+      [EQUALITY MATCHING RULE &equality-match]
+      [COUNTS [MIN &minCount] [MAX &maxCount]]
+      IDENTIFIED BY &id
+  }
+
+  -- Specification of MATCHING-RULE information object class
+  --
+
+  MATCHING-RULE ::= CLASS {
+    &ParentMatchingRules   MATCHING-RULE OPTIONAL,
+    &AssertionType         OPTIONAL,
+    &uniqueMatchIndicator  ATTRIBUTE OPTIONAL,
+    &id                    OBJECT IDENTIFIER UNIQUE
+  }
+  WITH SYNTAX {
+    [PARENT &ParentMatchingRules]
+    [SYNTAX &AssertionType]
+    [UNIQUE-MATCH-INDICATOR &uniqueMatchIndicator]
+    ID &id
+  }
+
+  --  AttributeSet
+  --
+  --  Used when a set of attributes is to occur.
+  --
+  --  type contains the identifier of the attribute
+  --  values contains a set of values where the structure of the ASN.1
+  --      is defined by the attribute
+  --
+  --  The parameter contains the set of objects describing
+  --      those attributes that can occur in this location.
+  --
+
+  AttributeSet{ATTRIBUTE:AttrSet} ::= SEQUENCE {
+      type      ATTRIBUTE.&id({AttrSet}),
+      values    SET SIZE (1..MAX) OF ATTRIBUTE.
+                    &Type({AttrSet}{@type})
+  }
+
+  --  SingleAttribute
+  --
+  --  Used for a single valued attribute
+  --
+  --  The parameter contains the set of objects describing the
+  --      attributes that can occur in this location
+  --
+
+  SingleAttribute{ATTRIBUTE:AttrSet} ::= SEQUENCE {
+      type      ATTRIBUTE.&id({AttrSet}),
+      value     ATTRIBUTE.&Type({AttrSet}{@type})
+  }
+
+  --  EXTENSION
+  --
+  --  This class definition is used to describe the association of
+  --      object identifier and ASN.1 type structure for extensions
+  --
+  --  All extensions are prefixed with ext-
+  --
+  --  &id contains the object identifier for the extension
+  --  &ExtnType specifies the ASN.1 type structure for the extension
+  --  &Critical contains the set of legal values for the critical field.
+  --      This is normally {TRUE|FALSE} but in some instances may be
+  --      restricted to just one of these values.
+  --
+
+  EXTENSION ::= CLASS {
+      &id  OBJECT IDENTIFIER UNIQUE,
+      &ExtnType,
+      &Critical    BOOLEAN DEFAULT {TRUE | FALSE }
+  } WITH SYNTAX {
+      SYNTAX &ExtnType IDENTIFIED BY &id
+      [CRITICALITY &Critical]
+  }
+
+  --  Extensions
+  --
+  --  Used for a sequence of extensions.
+  --
+  --  The parameter contains the set of legal extensions that can
+  --  occur in this sequence.
+  --
+
+  Extensions{EXTENSION:ExtensionSet} ::=
+      SEQUENCE SIZE (1..MAX) OF Extension{{ExtensionSet}}
+
+  --  Extension
+  --
+  --  Used for a single extension
+  --
+  --  The parameter contains the set of legal extensions that can
+  --      occur in this extension.
+  --
+  --  The restriction on the critical field has been commented out
+  --  the authors are not completely sure it is correct.
+  --  The restriction could be done using custom code rather than
+  --  compiler-generated code, however.
+  --
+
+  Extension{EXTENSION:ExtensionSet} ::= SEQUENCE {
+      extnID      EXTENSION.&id({ExtensionSet}),
+      critical    BOOLEAN
+  --                     (EXTENSION.&Critical({ExtensionSet}{@extnID}))
+                       DEFAULT FALSE,
+      extnValue   OCTET STRING (CONTAINING
+                  EXTENSION.&ExtnType({ExtensionSet}{@extnID}))
+                  --  contains the DER encoding of the ASN.1 value
+                  --  corresponding to the extension type identified
+                  --  by extnID
+  }
+
+  --  Security Category
+  --
+  --  Security categories are used both for specifying clearances and
+  --  for labeling objects.  We move this here from RFC 3281 so that
+  --  they will use a common single object class to express this
+  --  information.
+  --
+
+  SECURITY-CATEGORY ::= TYPE-IDENTIFIER
+
+  SecurityCategory{SECURITY-CATEGORY:Supported} ::= SEQUENCE {
+      type      [0]  IMPLICIT SECURITY-CATEGORY.
+              &id({Supported}),
+      value     [1]  EXPLICIT SECURITY-CATEGORY.
+              &Type({Supported}{@type})
+  }
+
+  END

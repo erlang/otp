@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2018</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+      The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+    <title>ssh_server_channel</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP 21.0">ssh_server_channel</module>
+  <modulesummary>-behaviour(ssh_server_channel). (Replaces ssh_daemon_channel)
+  </modulesummary>
+  <description>
+    <note>
+      <p>This module replaces ssh_daemon_channel.</p>
+      <p>The old module is still available for compatibility, but should not be used for new programs.
+      The old module will not be maintained except for some error corrections
+      </p>
+    </note>
+
+    <p>SSH services (clients and servers) are implemented as channels
+    that are multiplexed over an SSH connection and communicates over
+    the <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH
+    Connection Protocol</url>. This module provides a callback API
+    that takes care of generic channel aspects for daemons, such as flow control
+    and close messages. It lets the callback functions take care of
+    the service (application) specific parts. This behavior also ensures
+    that the channel process honors the principal of an OTP-process so
+    that it can be part of a supervisor tree. This is a requirement of
+    channel processes implementing a subsystem that will be added to
+    the <c>ssh</c> applications supervisor tree.
+    </p>
+
+    <note><p>When implementing a client subsystem handler, use
+    <seealso marker="ssh_client_channel">-behaviour(ssh_client_channel)</seealso> instead.
+    </p>
+    </note>
+
+  </description>
+
+  <section>
+    <title>Callback Functions</title>
+    <p>
+      The following functions are to be exported from a
+      <c>ssh_server_channel</c> callback module.
+    </p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="OTP 21.0">Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</name>
+      <fsummary>Makes necessary initializations and returns the
+      initial channel state if the initializations succeed.</fsummary>
+      <type>
+	<v>Args = term()</v>
+	<d>Last argument to <c>start_link/4</c>.</d>
+	<v>State = term()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>Makes necessary initializations and returns the initial channel
+	state if the initializations succeed.
+	</p>
+	<p>The time-out values that can be returned
+	have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
+	If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
+	is called as <c>handle_msg(timeout, State)</c>.
+	</p>
+      </desc>
+    </func>
+   
+    <func>
+      <name since="OTP 21.0">Module:handle_msg(Msg, State) -> {ok, State} |
+      {stop, ChannelId, State}</name>
+
+      <fsummary>Handles other messages than SSH connection protocol,
+      call, or cast messages sent to the channel.</fsummary>
+      <type>
+	<v>Msg = timeout | term()</v>
+	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>State = term() </v>
+      </type>
+      <desc>
+	<p>Handles other messages than SSH Connection Protocol, call, or
+	cast messages sent to the channel. 
+	</p>
+
+	<p>Possible Erlang 'EXIT' messages is to be handled by this
+	function and all channels are to handle the following message.</p>
+	
+	<taglist>
+	  <tag><c>{ssh_channel_up, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>}</c></tag>
+	  <item><p>This is the first message that the channel receives.
+	  This is especially useful if the
+	  server wants to send a message to the client without first
+	  receiving a message from it. If the message is not
+	  useful for your particular scenario, ignore it by
+	  immediately returning <c>{ok, State}</c>.
+	  </p></item>
+	</taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
+      ChannelId, State}</name>
+      <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
+      <type>
+	<v>Msg = <seealso marker="ssh_connection#type-event">ssh_connection:event()</seealso></v>
+	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>State = term()</v>
+      </type>
+      <desc>
+	<p>Handles SSH Connection Protocol messages that may need
+	service-specific attention. For details,
+	see <seealso marker="ssh_connection#type-event">ssh_connection:event()</seealso>.
+	</p>
+	
+	<p>The following message is taken care of by the
+	<c>ssh_server_channel</c> behavior.</p>
+	
+	<taglist>
+	  <tag><c>{closed, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}</c></tag>
+	  <item><p>The channel behavior sends a close message to the
+	  other side, if such a message has not already been sent.
+	  Then it terminates the channel with reason <c>normal</c>.</p></item>
+	</taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 21.0">Module:terminate(Reason, State) -> _</name>
+      <fsummary>Does cleaning up before channel process termination.
+      </fsummary>
+      <type>
+	<v>Reason = term()</v>
+	<v>State = term()</v>
+      </type>
+      <desc>
+	<p>This function is called by a channel process when it is
+	about to terminate. Before this function is called, <seealso
+	marker="ssh_connection#close-2"> ssh_connection:close/2
+	</seealso> is called, if it has not been called earlier.
+	This function does any necessary cleaning
+	up. When it returns, the channel process terminates with
+	reason <c>Reason</c>. The return value is ignored.
+	</p>
+      </desc>
+    </func>
+    
+  </funcs>
+  
+</erlref>

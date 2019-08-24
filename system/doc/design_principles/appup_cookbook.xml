@@ -1,0 +1,682 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Appup Cookbook</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>appup_cookbook.xml</file>
+  </header>
+  <marker id="appup cookbook"></marker>
+  <p>This section includes examples of <c>.appup</c> files for
+    typical cases of upgrades/downgrades done in runtime.</p>
+
+  <section>
+    <title>Changing a Functional Module</title>
+    <p>When a functional module has been changed, for example,
+      if a new function has been added or a bug has been corrected,
+      simple code replacement is sufficient, for example:</p>
+    <code type="none">
+{"2",
+ [{"1", [{load_module, m}]}],
+ [{"1", [{load_module, m}]}]
+}.</code>
+  </section>
+
+  <section>
+    <title>Changing a Residence Module</title>
+    <p>In a system implemented according to the OTP design principles,
+      all processes, except system processes and special processes,
+      reside in one of the behaviours <c>supervisor</c>,
+      <c>gen_server</c>, <c>gen_fsm</c>,
+      <c>gen_statem</c> or <c>gen_event</c>. These
+      belong to the STDLIB application and upgrading/downgrading
+      normally requires an emulator restart.</p>
+    <p>OTP thus provides no support for changing residence modules except
+      in the case of <seealso marker="#spec">special processes</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Changing a Callback Module</title>
+     <p>A callback module is a functional module, and for code
+      extensions simple code replacement is sufficient.</p>
+      <p><em>Example:</em> When adding a function to <c>ch3</c>,
+      as described in the example in
+      <seealso marker="release_handling#appup">Release Handling</seealso>,
+    <c>ch_app.appup</c> looks as follows:</p>
+    <code type="none">
+{"2",
+ [{"1", [{load_module, ch3}]}],
+ [{"1", [{load_module, ch3}]}]
+}.</code>
+    <p>OTP also supports changing the internal state of behaviour
+      processes, see <seealso marker="#int_state">Changing Internal State</seealso>.</p>
+  </section>
+
+  <section>
+    <marker id="int_state"></marker>
+    <title>Changing Internal State</title>
+    <p>In this case, simple code replacement is not sufficient.
+      The process must explicitly transform its state using the callback
+      function <c>code_change</c> before switching to the new version
+      of the callback module. Thus, synchronized code replacement is
+      used.</p>
+    <p><em>Example:</em> Consider <c>gen_server</c> <c>ch3</c> from
+      <seealso marker="gen_server_concepts#ex">gen_server Behaviour</seealso>.
+      The internal state is a term <c>Chs</c>
+      representing the available channels. Assume you want to add a counter
+      <c>N</c>, which keeps track of the number of <c>alloc</c> requests
+      so far. This means that the format must be changed to
+      <c>{Chs,N}</c>.</p>
+    <p>The <c>.appup</c> file can look as follows:</p>
+    <code type="none">
+{"2",
+ [{"1", [{update, ch3, {advanced, []}}]}],
+ [{"1", [{update, ch3, {advanced, []}}]}]
+}.</code>
+    <p>The third element of the <c>update</c> instruction is a tuple
+      <c>{advanced,Extra}</c>, which says that the affected processes
+      are to do a state transformation before loading the new version
+      of the module. This is done by the processes calling the callback
+      function <c>code_change</c> (see the <c>gen_server(3)</c> manual
+      page in STDLIB). The term <c>Extra</c>, in this case
+      <c>[]</c>, is passed as is to the function:</p>
+    <marker id="code_change"></marker>
+    <code type="none">
+-module(ch3).
+...
+-export([code_change/3]).
+...
+code_change({down, _Vsn}, {Chs, N}, _Extra) ->
+    {ok, Chs};
+code_change(_Vsn, Chs, _Extra) ->
+    {ok, {Chs, 0}}.</code>
+    <p>The first argument is <c>{down,Vsn}</c> if there is a downgrade,
+      or <c>Vsn</c> if there is a upgrade. The term <c>Vsn</c> is
+      fetched from the 'original' version of the module, that is,
+      the version you are upgrading from, or downgrading to.</p>
+    <p>The version is defined by the module attribute <c>vsn</c>, if
+      any. There is no such attribute in <c>ch3</c>, so in this case
+      the version is the checksum (a huge integer) of the beam file, an
+      uninteresting value, which is ignored.</p>
+    <p>The other callback functions of <c>ch3</c> must also be modified
+      and perhaps a new interface function must be added, but this is not
+      shown here.</p>
+  </section>
+
+  <section>
+    <title>Module Dependencies</title>
+    <p>Assume that a module is extended by adding an interface function,
+      as in the example in
+      <seealso marker="release_handling#appup">Release Handling</seealso>,
+      where a function <c>available/0</c> is added to <c>ch3</c>.</p>
+    <p>If a call is added to this function, say in module
+      <c>m1</c>, a runtime error could can occur during release upgrade if
+      the new version of <c>m1</c> is loaded first and calls
+      <c>ch3:available/0</c> before the new version of <c>ch3</c> is
+      loaded.</p>
+    <p>Thus, <c>ch3</c> must be loaded before <c>m1</c>, in
+      the upgrade case, and conversely in the downgrade case.
+      <c>m1</c> is said to be <em>dependent on</em> <c>ch3</c>. In a release
+      handling instruction, this is expressed by the
+      <c>DepMods</c> element:</p>
+    <code type="none">
+{load_module, Module, DepMods}
+{update, Module, {advanced, Extra}, DepMods}</code>
+    <p><c>DepMods</c> is a list of modules, on which <c>Module</c> is
+      dependent.</p>
+    <p><em>Example:</em> The module <c>m1</c> in application <c>myapp</c> is
+      dependent on <c>ch3</c> when upgrading from "1" to "2", or
+      downgrading from "2" to "1":</p>
+    <code type="none">
+myapp.appup:
+
+{"2",
+ [{"1", [{load_module, m1, [ch3]}]}],
+ [{"1", [{load_module, m1, [ch3]}]}]
+}.
+
+ch_app.appup:
+
+{"2",
+ [{"1", [{load_module, ch3}]}],
+ [{"1", [{load_module, ch3}]}]
+}.</code>
+    <p>If instead <c>m1</c> and <c>ch3</c> belong to the same application,
+      the <c>.appup</c> file can look as follows:</p>
+    <code type="none">
+{"2",
+ [{"1",
+   [{load_module, ch3},
+    {load_module, m1, [ch3]}]}],
+ [{"1",
+   [{load_module, ch3},
+    {load_module, m1, [ch3]}]}]
+}.</code>
+    <p><c>m1</c> is dependent on <c>ch3</c> also
+      when downgrading. <c>systools</c> knows the difference between
+      up- and downgrading and generates a correct <c>relup</c>,
+      where <c>ch3</c> is loaded before <c>m1</c> when upgrading, but
+      <c>m1</c> is loaded before <c>ch3</c> when downgrading.</p>
+  </section>
+
+  <section>
+    <marker id="spec"></marker>
+    <title>Changing Code for a Special Process</title>
+    <p>In this case, simple code replacement is not sufficient.
+      When a new version of a residence module for a special process
+      is loaded, the process must make a fully qualified call to
+      its loop function to switch to the new code. Thus, synchronized
+      code replacement must be used.</p>
+    <note>
+      <p>The name(s) of the user-defined residence module(s) must be
+        listed in the <c>Modules</c> part of the child specification
+        for the special process. Otherwise the release handler cannot
+        find the process.</p>
+    </note>
+    <p><em>Example:</em> Consider the example <c>ch4</c> in
+      <seealso marker="spec_proc#ex">sys and proc_lib</seealso>.
+      When started by a supervisor, the child specification can look
+      as follows:</p>
+    <code type="none">
+{ch4, {ch4, start_link, []},
+ permanent, brutal_kill, worker, [ch4]}</code>
+    <p>If <c>ch4</c> is part of the application <c>sp_app</c> and a new
+      version of the module is to be loaded when upgrading from
+      version "1" to "2" of this application, <c>sp_app.appup</c> can
+      look as follows:</p>
+    <code type="none">
+{"2",
+ [{"1", [{update, ch4, {advanced, []}}]}],
+ [{"1", [{update, ch4, {advanced, []}}]}]
+}.</code>
+    <p>The <c>update</c> instruction must contain the tuple
+      <c>{advanced,Extra}</c>. The instruction makes the special
+      process call the callback function <c>system_code_change/4</c>, a
+      function the user must implement. The term <c>Extra</c>, in this
+      case <c>[]</c>, is passed as is to <c>system_code_change/4</c>:</p>
+    <code type="none">
+-module(ch4).
+...
+-export([system_code_change/4]).
+...
+
+system_code_change(Chs, _Module, _OldVsn, _Extra) ->
+    {ok, Chs}.</code>
+    <list type="bulleted">
+      <item>The first argument is the internal state <c>State</c>,
+      passed from function
+      <c>sys:handle_system_msg(Request, From, Parent, Module, Deb, State)</c>,
+      and called by the special process when a system message is received.
+      In <c>ch4</c>, the internal state is the set of available channels
+      <c>Chs</c>.</item>
+      <item>The second argument is the name of the module
+      (<c>ch4</c>).</item>
+      <item>The third argument is <c>Vsn</c> or <c>{down,Vsn}</c>, as
+      described for <c>gen_server:code_change/3</c> in
+      <seealso marker="#code_change">Changing Internal State</seealso>.</item>
+    </list>
+    <p>In this case, all arguments but the first are ignored and
+      the function simply returns the internal state again. This is
+      enough if the code only has been extended. If instead the
+      internal state is changed (similar to the example in
+      <seealso marker="#int_state">Changing Internal State</seealso>),
+      this is done in this function and <c>{ok,Chs2}</c> returned.</p>
+  </section>
+
+  <section>
+    <marker id="sup"></marker>
+    <title>Changing a Supervisor</title>
+    <p>The supervisor behaviour supports changing the internal state,
+      that is, changing the restart strategy and maximum restart frequency
+      properties, as well as changing the existing child specifications.</p>
+    <p>Child processes can be added or deleted, but this is not
+      handled automatically. Instructions must be given by in
+      the <c>.appup</c> file.</p>
+
+    <section>
+      <title>Changing Properties</title>
+      <p>Since the supervisor is to change its internal state,
+        synchronized code replacement is required. However,
+        a special <c>update</c> instruction must be used.</p>
+      <p>First, the new version of the callback module must be loaded,
+        both in the case of upgrade and downgrade. Then the new return
+        value of <c>init/1</c> can be checked and the internal state be
+        changed accordingly.</p>
+      <p>The following <c>upgrade</c> instruction is used for
+        supervisors:</p>
+      <code type="none">
+{update, Module, supervisor}</code>
+      <p><em>Example:</em> To change the restart strategy of
+        <c>ch_sup</c> (from
+	<seealso marker="sup_princ#ex">Supervisor Behaviour</seealso>)
+	from <c>one_for_one</c> to <c>one_for_all</c>, change the callback
+	function <c>init/1</c> in <c>ch_sup.erl</c>:</p>
+      <code type="none">
+-module(ch_sup).
+...
+
+init(_Args) ->
+    {ok, {#{strategy => one_for_all, ...}, ...}}.</code>
+      <p>The file <c>ch_app.appup</c>:</p>
+      <code type="none">
+{"2",
+ [{"1", [{update, ch_sup, supervisor}]}],
+ [{"1", [{update, ch_sup, supervisor}]}]
+}.</code>
+    </section>
+
+    <section>
+      <title>Changing Child Specifications</title>
+      <p>The instruction, and thus the <c>.appup</c> file, when
+        changing an existing child specification, is the same as when
+        changing properties as described earlier:</p>
+      <code type="none">
+{"2",
+ [{"1", [{update, ch_sup, supervisor}]}],
+ [{"1", [{update, ch_sup, supervisor}]}]
+}.</code>
+      <p>The changes do not affect existing child processes. For
+        example, changing the start function only specifies how
+        the child process is to be restarted, if needed later on.</p>
+      <p>The id of the child specification cannot be changed.</p>
+      <p>Changing the <c>Modules</c> field of the child
+        specification can affect the release handling process itself,
+        as this field is used to identify which processes are affected
+        when doing a synchronized code replacement.</p>
+    </section>
+    <marker id="sup_add"></marker>
+
+    <section>
+      <title>Adding and Deleting Child Processes</title>
+      <p>As stated earlier, changing child specifications does not affect
+        existing child processes. New child specifications are
+        automatically added, but not deleted. Child processes are
+        not automatically started or terminated, this must be
+        done using <c>apply</c> instructions.</p>
+      <p><em>Example:</em> Assume a new child process <c>m1</c> is to be
+        added to <c>ch_sup</c> when upgrading <c>ch_app</c> from "1" to "2".
+        This means <c>m1</c> is to be deleted when downgrading from
+        "2" to "1":</p>
+      <code type="none">
+{"2",
+ [{"1",
+   [{update, ch_sup, supervisor},
+    {apply, {supervisor, restart_child, [ch_sup, m1]}}
+   ]}],
+ [{"1",
+   [{apply, {supervisor, terminate_child, [ch_sup, m1]}},
+    {apply, {supervisor, delete_child, [ch_sup, m1]}},
+    {update, ch_sup, supervisor}
+   ]}]
+}.</code>
+      <p>The order of the instructions is important.</p>
+      <p>The supervisor must be registered as
+        <c>ch_sup</c> for the script to work. If the supervisor is not
+        registered, it cannot be accessed directly from the script.
+        Instead a help function that finds the pid of the supervisor
+        and calls <c>supervisor:restart_child</c>, and so on, must be
+	written. This function is then to be called from the script
+        using the <c>apply</c> instruction.</p>
+      <p>If the module <c>m1</c> is introduced in version "2" of
+        <c>ch_app</c>, it must also be loaded when upgrading and
+        deleted when downgrading:</p>
+      <code type="none">
+{"2",
+ [{"1",
+   [{add_module, m1},
+    {update, ch_sup, supervisor},
+    {apply, {supervisor, restart_child, [ch_sup, m1]}}
+   ]}],
+ [{"1",
+   [{apply, {supervisor, terminate_child, [ch_sup, m1]}},
+    {apply, {supervisor, delete_child, [ch_sup, m1]}},
+    {update, ch_sup, supervisor},
+    {delete_module, m1}
+   ]}]
+}.</code>
+      <p>As stated earlier, the order of the instructions is important.
+        When upgrading, <c>m1</c> must be loaded, and the supervisor
+        child specification changed, before the new child process can
+        be started. When downgrading, the child process must be
+        terminated before the child specification is changed and the module
+        is deleted.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Adding or Deleting a Module</title>
+    <p><em>Example:</em> A new functional module <c>m</c> is added to
+      <c>ch_app</c>:</p>
+    <code type="none">
+{"2",
+ [{"1", [{add_module, m}]}],
+ [{"1", [{delete_module, m}]}]</code>
+  </section>
+
+  <section>
+    <title>Starting or Terminating a Process</title>
+    <p>In a system structured according to the OTP design principles,
+      any process would be a child process belonging to a supervisor, see
+      <seealso marker="#sup_add">Adding and Deleting Child Processes</seealso>
+      in Changing a Supervisor.</p>
+  </section>
+
+  <section>
+    <title>Adding or Removing an Application</title>
+    <p>When adding or removing an application, no <c>.appup</c> file
+      is needed. When generating <c>relup</c>, the <c>.rel</c> files
+      are compared and the <c>add_application</c> and
+      <c>remove_application</c> instructions are added automatically.</p>
+  </section>
+
+  <section>
+    <title>Restarting an Application</title>
+    <p>Restarting an application is useful when a change is too
+      complicated to be made without restarting the processes, for
+      example, if the supervisor hierarchy has been restructured.</p>
+    <p><em>Example:</em> When adding a child <c>m1</c> to <c>ch_sup</c>, as in
+      <seealso marker="#sup_add">Adding and Deleting Child Processes</seealso>
+      in Changing a Supervisor, an alternative to updating
+      the supervisor is to restart the entire application:</p>
+    <code type="none">
+{"2",
+ [{"1", [{restart_application, ch_app}]}],
+ [{"1", [{restart_application, ch_app}]}]
+}.</code>
+  </section>
+
+  <section>
+    <marker id="app_spec"></marker>
+    <title>Changing an Application Specification</title>
+    <p>When installing a release, the application specifications are
+      automatically updated before evaluating the <c>relup</c> script.
+      Thus, no instructions are needed in the <c>.appup</c> file:</p>
+    <pre>
+{"2",
+ [{"1", []}],
+ [{"1", []}]
+}.</pre>
+  </section>
+
+  <section>
+    <title>Changing Application Configuration</title>
+    <p>Changing an application configuration by updating the <c>env</c>
+      key in the <c>.app</c> file is an instance of changing an
+      application specification, see the previous section.</p>
+    <p>Alternatively, application configuration parameters can be
+      added or updated in <c>sys.config</c>.</p>
+  </section>
+
+  <section>
+    <title>Changing Included Applications</title>
+    <p>The release handling instructions for adding, removing, and
+      restarting applications apply to primary applications only.
+      There are no corresponding instructions for included
+      applications. However, since an included application is really a
+      supervision tree with a topmost supervisor, started as a child
+      process to a supervisor in the including application, a
+      <c>relup</c> file can be manually created.</p>
+    <p><em>Example:</em> Assume there is a release containing an application
+      <c>prim_app</c>, which have a supervisor <c>prim_sup</c> in its
+      supervision tree.</p>
+    <p>In a new version of the release, the application <c>ch_app</c>
+      is to be included in <c>prim_app</c>. That is,
+      its topmost supervisor <c>ch_sup</c> is to be started as a child
+      process to <c>prim_sup</c>.</p>
+    <p>The workflow is as follows:</p>
+    <p><em>Step 1)</em> Edit the code for <c>prim_sup</c>:</p>
+    <code type="none">
+init(...) ->
+    {ok, {...supervisor flags...,
+          [...,
+           {ch_sup, {ch_sup,start_link,[]},
+            permanent,infinity,supervisor,[ch_sup]},
+           ...]}}.</code>
+    <p><em>Step 2)</em> Edit the <c>.app</c> file for <c>prim_app</c>:</p>
+    <code type="none">
+{application, prim_app,
+ [...,
+  {vsn, "2"},
+  ...,
+  {included_applications, [ch_app]},
+  ...
+ ]}.</code>
+    <p><em>Step 3)</em> Create a new <c>.rel</c> file, including
+      <c>ch_app</c>:</p>
+    <code type="none">
+{release,
+ ...,
+ [...,
+  {prim_app, "2"},
+  {ch_app, "1"}]}.</code>
+  <p>The included application can be started in two ways.
+  This is described in the next two sections.</p>
+
+    <section>
+      <title>Application Restart</title>
+      <p><em>Step 4a)</em> One way to start the included application is to
+        restart the entire <c>prim_app</c> application. Normally, the
+	<c>restart_application</c> instruction in the <c>.appup</c> file
+        for <c>prim_app</c> would be used.</p>
+      <p>However, if this is done and a <c>relup</c> file is generated,
+        not only would it contain instructions for restarting (that is,
+        removing and adding) <c>prim_app</c>, it would also contain
+        instructions for starting <c>ch_app</c> (and stopping it, in
+        the case of downgrade). This is because <c>ch_app</c> is included
+	in the new <c>.rel</c> file, but not in the old one.</p>
+      <p>Instead, a correct <c>relup</c> file can be created manually,
+        either from scratch or by editing the generated version.
+        The instructions for starting/stopping <c>ch_app</c> are
+        replaced by instructions for loading/unloading the application:</p>
+      <code type="none">
+{"B",
+ [{"A",
+   [],
+   [{load_object_code,{ch_app,"1",[ch_sup,ch3]}},
+    {load_object_code,{prim_app,"2",[prim_app,prim_sup]}},
+    point_of_no_return,
+    {apply,{application,stop,[prim_app]}},
+    {remove,{prim_app,brutal_purge,brutal_purge}},
+    {remove,{prim_sup,brutal_purge,brutal_purge}},
+    {purge,[prim_app,prim_sup]},
+    {load,{prim_app,brutal_purge,brutal_purge}},
+    {load,{prim_sup,brutal_purge,brutal_purge}},
+    {load,{ch_sup,brutal_purge,brutal_purge}},
+    {load,{ch3,brutal_purge,brutal_purge}},
+    {apply,{application,load,[ch_app]}},
+    {apply,{application,start,[prim_app,permanent]}}]}],
+ [{"A",
+   [],
+   [{load_object_code,{prim_app,"1",[prim_app,prim_sup]}},
+    point_of_no_return,
+    {apply,{application,stop,[prim_app]}},
+    {apply,{application,unload,[ch_app]}},
+    {remove,{ch_sup,brutal_purge,brutal_purge}},
+    {remove,{ch3,brutal_purge,brutal_purge}},
+    {purge,[ch_sup,ch3]},
+    {remove,{prim_app,brutal_purge,brutal_purge}},
+    {remove,{prim_sup,brutal_purge,brutal_purge}},
+    {purge,[prim_app,prim_sup]},
+    {load,{prim_app,brutal_purge,brutal_purge}},
+    {load,{prim_sup,brutal_purge,brutal_purge}},
+    {apply,{application,start,[prim_app,permanent]}}]}]
+}.</code>
+    </section>
+
+    <section>
+      <title>Supervisor Change</title>
+      <p><em>Step 4b)</em> Another way to start the included
+        application (or stop it
+        in the case of downgrade) is by combining instructions for
+        adding and removing child processes to/from <c>prim_sup</c> with
+        instructions for loading/unloading all <c>ch_app</c> code and
+        its application specification.</p>
+      <p>Again, the <c>relup</c> file is created manually. Either from
+        scratch or by editing a generated version. Load all code for
+        <c>ch_app</c> first, and also load the application
+        specification, before <c>prim_sup</c> is updated. When
+        downgrading, <c>prim_sup</c> is to updated first, before
+        the code for <c>ch_app</c> and its application specification
+        are unloaded.</p>
+      <code type="none">
+{"B",
+ [{"A",
+   [],
+   [{load_object_code,{ch_app,"1",[ch_sup,ch3]}},
+    {load_object_code,{prim_app,"2",[prim_sup]}},
+    point_of_no_return,
+    {load,{ch_sup,brutal_purge,brutal_purge}},
+    {load,{ch3,brutal_purge,brutal_purge}},
+    {apply,{application,load,[ch_app]}},
+    {suspend,[prim_sup]},
+    {load,{prim_sup,brutal_purge,brutal_purge}},
+    {code_change,up,[{prim_sup,[]}]},
+    {resume,[prim_sup]},
+    {apply,{supervisor,restart_child,[prim_sup,ch_sup]}}]}],
+ [{"A",
+   [],
+   [{load_object_code,{prim_app,"1",[prim_sup]}},
+    point_of_no_return,
+    {apply,{supervisor,terminate_child,[prim_sup,ch_sup]}},
+    {apply,{supervisor,delete_child,[prim_sup,ch_sup]}},
+    {suspend,[prim_sup]},
+    {load,{prim_sup,brutal_purge,brutal_purge}},
+    {code_change,down,[{prim_sup,[]}]},
+    {resume,[prim_sup]},
+    {remove,{ch_sup,brutal_purge,brutal_purge}},
+    {remove,{ch3,brutal_purge,brutal_purge}},
+    {purge,[ch_sup,ch3]},
+    {apply,{application,unload,[ch_app]}}]}]
+}.</code>
+    </section>
+  </section>
+
+  <section>
+    <title>Changing Non-Erlang Code</title>
+    <p>Changing code for a program written in another programming
+      language than Erlang, for example, a port program, is
+      application-dependent and OTP provides no special support for it.</p>
+    <p><em>Example:</em> When changing code for a port program, assume that
+      the Erlang process controlling the port is a <c>gen_server</c>
+      <c>portc</c> and that the port is opened in the callback function
+      <c>init/1</c>:</p>
+    <code type="none">
+init(...) ->
+    ...,
+    PortPrg = filename:join(code:priv_dir(App), "portc"),
+    Port = open_port({spawn,PortPrg}, [...]),
+    ...,
+    {ok, #state{port=Port, ...}}.</code>
+    <p>If the port program is to be updated, the code for the
+      <c>gen_server</c> can be extended with a <c>code_change</c> function,
+      which closes the old port and opens a new port.
+      (If necessary, the <c>gen_server</c> can
+      first request data that must be saved from the port
+      program and pass this data to the new port):</p>
+    <code type="none">
+code_change(_OldVsn, State, port) ->
+    State#state.port ! close,
+    receive
+        {Port,close} ->
+            true
+    end,
+    PortPrg = filename:join(code:priv_dir(App), "portc"),
+    Port = open_port({spawn,PortPrg}, [...]),
+    {ok, #state{port=Port, ...}}.</code>
+    <p>Update the application version number in the <c>.app</c> file
+      and write an <c>.appup</c> file:</p>
+    <code type="none">
+["2",
+ [{"1", [{update, portc, {advanced,port}}]}],
+ [{"1", [{update, portc, {advanced,port}}]}]
+].</code>
+    <p>Ensure that the <c>priv</c> directory, where the C program is
+      located, is included in the new release package:</p>
+    <pre>
+1> <input>systools:make_tar("my_release", [{dirs,[priv]}]).</input>
+...</pre>
+  </section>
+
+  <section>
+    <title>Emulator Restart and Upgrade</title>
+    <p>Two upgrade instructions restart the emulator:</p>
+    <list type="bulleted">
+      <item><p><c>restart_new_emulator</c></p>
+      <p>Intended when ERTS, Kernel, STDLIB, or
+      SASL is upgraded. It is automatically added when the
+      <c>relup</c> file is generated by <c>systools:make_relup/3,4</c>.
+      It is executed before all other upgrade instructions.
+      For more information about this instruction, see
+      restart_new_emulator (Low-Level) in
+      <seealso marker="release_handling#restart_new_emulator_instr">Release Handling Instructions</seealso>.
+      </p></item>
+      <item><p><c>restart_emulator</c></p>
+      <p>Used when a restart of the emulator is required after all
+      other upgrade instructions are executed.
+      For more information about this instruction, see
+      restart_emulator (Low-Level) in
+      <seealso marker="release_handling#restart_emulator_instr">Release Handling Instructions</seealso>.
+      </p></item>
+    </list>
+    <p>If an emulator restart is necessary and no upgrade instructions
+      are needed, that is, if the restart itself is enough for the
+      upgraded applications to start running the new versions, a
+      simple <c>relup</c> file can be created manually:</p>
+    <code type="none">
+{"B",
+ [{"A",
+   [],
+   [restart_emulator]}],
+ [{"A",
+   [],
+   [restart_emulator]}]
+}.</code>
+    <p>In this case, the release handler framework with automatic
+      packing and unpacking of release packages, automatic path
+      updates, and so on, can be used without having to specify
+      <c>.appup</c> files.</p>
+  </section>
+
+  <section>
+    <title>Emulator Upgrade From Pre OTP R15</title>
+    <p>From OTP R15, an emulator upgrade is performed by restarting
+    the emulator with new versions of the core applications
+    (Kernel, STDLIB, and SASL) before loading code
+    and running upgrade instruction for other applications. For this
+    to work, the release to upgrade from must include OTP R15 or
+    later.</p>
+    <p>For the case where the release to upgrade from includes an
+    earlier emulator version, <c>systools:make_relup</c> creates a
+    backwards compatible relup file. This means that all upgrade
+    instructions are executed before the emulator is
+    restarted. The new application code is therefore loaded into
+    the old emulator. If the new code is compiled with the new
+    emulator, there can be cases where the beam format has changed
+    and beam files cannot be loaded. To overcome this problem, compile
+    the new code with the old emulator.</p>
+  </section>
+</chapter>
+

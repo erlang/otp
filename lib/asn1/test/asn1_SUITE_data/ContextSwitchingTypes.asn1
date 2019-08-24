@@ -1,0 +1,57 @@
+ContextSwitchingTypes DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+-- EXTERNAL type
+
+T ::= EXTERNAL
+
+Seq ::= SEQUENCE {
+  a INTEGER,
+  b T
+}
+
+int INTEGER ::= 12
+
+val1-T T ::= {indirect-reference int, encoding octet-aligned:'123'H}
+
+val2-T T ::= {identification syntax:{1 2 3}, data-value '123'H}
+
+val3-T T ::= {identification context-negotiation:{presentation-context-id 12,
+						transfer-syntax {1 2 3}}, 
+	    data-value '123'H}
+
+val4-T T ::= {identification presentation-context-id:42,
+              data-value-descriptor "FooBar",
+	      data-value '123'H}
+
+-- EMBEDDED PDV type 
+
+EP ::= EMBEDDED PDV
+
+Seq2 ::= SEQUENCE {
+  a BOOLEAN,
+  b EP
+}
+
+val1-EP EP ::= {identification syntaxes:{abstract {1 2 3 4},
+				      transfer {1 2 3 5}},
+		data-value '12345'H}
+
+val2-EP EP ::= {identification syntax:{1 2 3}, data-value '123'H}
+
+-- CHARACTER STRING type and value
+
+CS ::= CHARACTER STRING
+
+Seq3 ::= SEQUENCE {
+  a INTEGER,
+  b CS
+}
+
+val1-CS CS ::= {identification syntaxes:{abstract {1 2 3 4},
+				      transfer {1 2 3 5}},
+		string-value '12345'H}
+
+
+END

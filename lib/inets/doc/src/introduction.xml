@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>Péter Dimitrov</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2018-02-28</date>
+    <rev>A</rev>
+    <file>introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p><c>Inets</c> is a container for Internet clients and servers
+      including the following:</p>
+      <list type="bulleted">
+       <item>An <term id="HTTP"></term> client and server</item>
+     </list>
+     <p>The HTTP client and server are HTTP 1.1 compliant as
+      defined in 
+     <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+      programming language, concepts of OTP, and has a basic
+      understanding of and HTTP protocol.</p>
+  </section>
+</chapter>
+
+

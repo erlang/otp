@@ -1,0 +1,30 @@
+Register Allocation
+===================
+
+These are the rules that HiPE x86 register allocators must abide by.
+
+- Before RA, every Temp (precoloured or pseudo) is semantically
+  equivalent to Reg. Any operand may be Temp.
+
+- Before RA, only FIXED registers may occur in precoloured Temps.
+  Exception 1 is move: src or dst may be an argument register.
+  Exception 2 is call: the dst (if any) must be %eax.
+
+- After RA, an operand (src or dst) may refer to at most one memory cell.
+  Therefore, a pseudo-Temp MAY NOT occur as base or offset in an
+  explicit memory operand after RA.
+
+- After RA, a binary operation (alu, cmp, move) may refer to at most
+  one memory cell. Therefore, AT MOST ONE of src and dst may be a
+  pseudo-Temp after RA. If one of the operands (src or dst) is an
+  explicit memory operand, then the other operand MUST NOT be a
+  pseudo-Temp after RA.
+
+- After RA, the index in a jmp_switch must be a register.
+
+- After RA, the temp in a lea must be a register.
+
+- After RA, the temp in an imul must be a register.
+
+- After RA, a function's formal parameters must reside on the stack.
+  Therefore, the RA MUST NOT map the formals to actual registers.

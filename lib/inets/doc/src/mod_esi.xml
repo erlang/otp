@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>mod_esi</title>
+    <file>mod_esi.sgml</file>
+  </header>
+  <module since="">mod_esi</module>
+  <modulesummary>Erlang Server Interface</modulesummary>
+  <description>
+    <p>This module defines the Erlang Server Interface (ESI) API.
+    It is a more efficient way of writing Erlang scripts
+    for your <c>Inets</c> web server than writing them as common CGI scripts.</p>
+
+    <marker id="deliver"></marker>
+  </description>
+
+ <section>
+    <title>DATA TYPES</title>
+    <p>The following data types are used in the functions for mod_esi:</p>
+
+    <taglist>
+      <tag><c>env() = </c></tag>
+      <item> <p><c>{EnvKey()::atom(), Value::term()}</c></p>
+
+      <p>Currently supported key value pairs</p>
+      <taglist>		
+	
+	<tag><c>{server_software, string()}</c></tag>
+	<item><p>Indicates the inets version.</p></item>
+	
+	<tag><c>{server_name, string()}</c></tag>
+	<item><p>The local hostname. </p></item>
+
+	<tag><c>{gateway_interface, string()}</c></tag>
+	<item><p>Legacy string used in CGI, just ignore.</p> </item>
+	
+	<tag><c>{server_protocol, string()}</c></tag>
+	<item><p> HTTP version, currently "HTTP/1.1"</p></item>
+	
+	<tag><c>{server_port, integer()}</c></tag>
+	<item><p>Servers port number.</p></item>
+	
+	<tag><c>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
+	<item><p>HTTP request method.</p></item>
+		
+	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
+	<item><p>The clients ip address.</p></item>
+
+	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()}</c></tag>
+	<item>
+	  <p>For TLS connections where client certificates are used this will
+	  be an ASN.1 DER-encoded X509-certificate as an Erlang binary.
+	  If client certificates are not used the value will be <c>no_peercert</c>,
+	  and if TLS is not used (HTTP or connection is lost due to network failure)
+	  the value will be <c>undefined</c>.
+	</p></item>
+	
+	<tag><c>{script_name, string()}</c></tag>
+	<item><p>Request URI</p></item>
+
+	<tag><c>{http_LowerCaseHTTPHeaderName, string()}</c></tag>
+	<item><p>example: {http_content_type, "text/html"}</p></item>
+      </taglist>    
+      </item>
+    </taglist>
+ </section>
+
+ <funcs>
+   <func>
+     <name since="">deliver(SessionID, Data) -> ok | {error, Reason}</name>
+     <fsummary>Sends <c>Data</c> back to client.</fsummary>
+     <type>
+        <v>SessionID = term()</v>
+        <v>Data = string() | io_list() | binary()</v>
+        <v>Reason = term()</v>
+     </type>
+     <desc>
+       <marker id="deliver"></marker>
+       <p>This function is <em>only</em> intended to be used from
+       functions called by the Erl Scheme interface to deliver
+       parts of the content to the user.</p>
+       <p>Sends data from an Erl Scheme script back to the client.</p>
+	
+       <note>
+	 <p>If any HTTP header fields are added by the
+	 script, they must be in the first call to <c>deliver/2</c>, 
+	 and the data in the call must be a string. Calls after the headers
+	 are complete can contain binary data to reduce copying
+	 overhead. Do not assume anything about the data type of 
+	 <c>SessionID</c>. <c>SessionID</c> must be the value given 
+	 as input to the ESI callback function that you implemented.</p>
+       </note>
+     </desc>
+   </func>
+ </funcs>
+  
+ <section>
+   <title>ESI Callback Functions</title>
+ </section>
+
+ <funcs>
+   <func>
+     <name since="">Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
+     <fsummary>Creates a dynamic web page and returns it chunk by chunk 
+     to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
+     <type>
+       <v>SessionID = term()</v>
+       <v>Env = env()</v>
+       <v>Input = string() | chunked_data()</v>
+       <v>chunked_data() = {first, Data::binary()} |
+       {continue, Data::binary(), State::term()} |
+       {last, Data::binary(), State::term()} </v>
+       <v>State = term()</v>
+     </type>
+      <desc>
+        <p><c>Module</c> must be found in the code path and export
+        <c>Function</c> with an arity of three. An <c>erlScriptAlias</c> must
+        also be set up in the configuration file for the web server.</p>
+
+	<p><c>mod_esi:deliver/2</c> shall be used to generate the response
+	to the client and <c>SessionID</c> is an identifier that shall by used when
+	calling this function, do not assume anything about
+	the datatype. This function may be called
+	several times to chunk the response data. Notice that the
+	first chunk of data sent to the client must at least contain
+	all HTTP header fields that the response will generate. If the
+	first chunk does not contain the <em>end of HTTP header</em>,
+	that is, <c>"\r\n\r\n",</c> the server assumes that no HTTP
+	header fields will be generated.</p>
+
+	<p><c>Env</c> environment data of the request see description above.</p>
+		
+	<p><c>Input</c> is query data of a GET request or the body of
+	a PUT or POST request. The default behavior (legacy reasons)
+	for delivering the body, is that the whole body is gathered and
+	converted to a string. But if the httpd config parameter
+	<seealso
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	is set, the body will be delivered as binary chunks
+	instead. The maximum size of the chunks is either <seealso
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	or decide by the client if it uses HTTP chunked encoding
+	to send the body. When using the chunking
+	mechanism this callback must return {continue, State::term()}
+	for all calls where <c>Input</c> is <c>{first,
+	Data::binary()}</c> or <c>{continue, Data::binary(),
+	State::term()}</c>. When <c>Input</c> is <c>{last,
+	Data::binary(), State::term()}</c> the return value will be ignored.</p>
+	<note><p>Note that if the body is
+	small all data may be delivered in only one chunk and then the
+	callback will be called with {last, Data::binary(), undefined}
+	without getting called with <c>{first,
+	Data::binary()}</c>.</p></note><p>The input <c>State</c> is
+	the last returned <c>State</c>, in it the callback can include
+	any data that it needs to keep track of when handling the chunks.
+	</p>
+      </desc>
+   </func>
+
+   <func>
+     <name since="">Module:Function(Env, Input)-> Response </name>
+     <fsummary>Creates a dynamic web page and returns it as a list. 
+     This function is deprecated and is only kept for backwards compatibility.</fsummary>
+     <type>
+       <v>Env = env()</v>
+       <v>Input = string() </v>
+       <v>Response = string()</v>
+     </type>
+      <desc>
+        <p>This callback format consumes much memory, as the
+        whole response must be generated before it is sent to the
+        user. This callback format is deprecated. 
+        For new development, use <c>Module:Function/3</c>.</p>
+      </desc>
+   </func>
+ </funcs>
+ 
+</erlref>
+
+

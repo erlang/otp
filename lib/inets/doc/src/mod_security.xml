@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>mod_security</title>
+    <prepared>Mattias Nilsson</prepared>
+    <docno></docno>
+    <date>1997-11-18</date>
+    <rev>1.0</rev>
+    <file>mod_security.sgml</file>
+  </header>
+  <module since="">mod_security</module>
+  <modulesummary>Security Audit and Trailing Functionality</modulesummary>
+  <description>
+    <p>Security Audit and Trailing Functionality</p>
+  </description>
+  <funcs>
+
+      <func>
+      <name since="">block_user(User, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <name since="">block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <fsummary>Blocks a user from access to a directory for a certain amount of time.</fsummary>
+      <type>
+        <v>User = string()</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Seconds = integer() | infinity</v>
+        <v>Reason = no_such_directory</v>
+      </type>
+      <desc>
+        <p><c>block_user/4</c> and <c>block_user/5</c> each blocks the user 
+          <c>User</c> from directory <c>Dir</c> for a specified 
+          amount of time.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="">list_auth_users(Port) -> Users | []</name>
+      <name since="">list_auth_users(Address, Port) -> Users | []</name>
+      <name since="">list_auth_users(Port, Dir) -> Users | []</name>
+      <name since="">list_auth_users(Address, Port, Dir) -> Users | []</name>
+      <fsummary>Lists users that have authenticated within the <c>SecurityAuthTimeout</c> 
+      time for a given address (if specified), port number, and directory 
+      (if specified).</fsummary>
+      <type>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Users = list() = [string()]</v>
+      </type>
+      <desc>
+        <p><c>list_auth_users/1</c>, <c>list_auth_users/2</c>, and 
+          <c>list_auth_users/3</c> each returns a list of users that are 
+          currently authenticated. Authentications are stored for
+          <c>SecurityAuthTimeout</c> seconds, and then discarded.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">list_blocked_users(Port) -> Users | []</name>
+      <name since="">list_blocked_users(Address, Port) -> Users | []</name>
+      <name since="">list_blocked_users(Port, Dir) -> Users | []</name>
+      <name since="">list_blocked_users(Address, Port, Dir) -> Users | []</name>
+      <fsummary>Lists users that are currently blocked from access to a 
+      specified port number, for a given address (if specified).</fsummary>
+      <type>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Users = list() = [string()]</v>
+      </type>
+      <desc>
+        <p><c>list_blocked_users/1</c>, <c>list_blocked_users/2</c>, and 
+          <c>list_blocked_users/3</c> each returns a list of users that are 
+          currently blocked from access.</p>
+      </desc>
+    </func>
+  
+    <func>
+      <name since="">unblock_user(User, Port) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Address, Port) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Removes a blocked user from the block list.</fsummary>
+      <type>
+        <v>User = string()</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>unblock_user/2</c>, <c>unblock_user/3</c>, and 
+          <c>unblock_user/4</c> each removes the user <c>User</c> from 
+          the list of blocked users for <c>Port</c> (and <c>Dir</c>).</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="callback_module"></marker>
+    <title>SecurityCallbackModule</title>
+    <p>The <c>SecurityCallbackModule</c> is a user-written module that can receive 
+      events from the <c>mod_security</c> Erlang web server API module. 
+      This module only exports the functions event/[4,5]
+      which are described here.
+      </p>
+  </section>
+
+  <funcs>
+    <func>
+      <name since="OTP 18.1">Module:event(What, Port, Dir, Data) -> ignored</name>
+      <name since="OTP 18.1">Module:event(What, Address, Port, Dir, Data) -> ignored</name>
+      <fsummary>Called whenever an event occurs in <c>mod_security</c>.</fsummary>
+      <type>
+        <v>What = atom()</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string()</v>
+        <v>Dir   = string()</v>
+        <v>Data = [Info]</v>
+        <v>Info = {Name, Value}</v>
+      </type>
+      <desc>
+        <marker id="callback_module_event"></marker>
+        <p><c>event/4</c> or <c>event/5</c> is called whenever an event 
+          occurs in the <c>mod_security</c> Erlang web server API module.
+	  (<c>event/4</c> is called if <c>Address</c> is undefined, 
+	  otherwise <c>event/5</c>. 
+          Argument <c>What</c> specifies the type of event that has 
+          occurred and is one of the following reasons:
+          </p>
+	  <taglist>
+       <tag><c>auth_fail</c></tag>
+       <item><p>A failed user authentication.</p></item>
+       <tag><c>user_block</c></tag>
+       <item><p>A user is being blocked from access.</p></item>
+       <tag><c>user_unblock</c></tag>
+       <item><p>A user is being removed from the block list.</p></item>
+     </taglist>
+        <note>
+          <p>The event <c>user_unblock</c> is not triggered when 
+            a user is removed from the block list explicitly using the 
+            <c>unblock_user</c> function.</p>
+        </note>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

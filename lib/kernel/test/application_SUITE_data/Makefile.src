@@ -1,0 +1,27 @@
+EFLAGS=+debug_info
+           
+all: app_start_error.@EMULATOR@ trans_abnormal_sup.@EMULATOR@ \
+     trans_normal_sup.@EMULATOR@ transient.@EMULATOR@ \
+     group_leader_sup.@EMULATOR@ group_leader.@EMULATOR@ \
+     deadlock/deadlock.@EMULATOR@
+
+app_start_error.@EMULATOR@: app_start_error.erl
+	erlc $(EFLAGS) app_start_error.erl
+
+trans_abnormal_sup.@EMULATOR@: trans_abnormal_sup.erl
+	erlc $(EFLAGS) trans_abnormal_sup.erl
+
+trans_normal_sup.@EMULATOR@: trans_normal_sup.erl
+	erlc $(EFLAGS) trans_normal_sup.erl
+
+transient.@EMULATOR@: transient.erl
+	erlc $(EFLAGS) transient.erl
+
+group_leader.@EMULATOR@: group_leader.erl
+	erlc $(EFLAGS) group_leader.erl
+
+group_leader_sup.@EMULATOR@: group_leader_sup.erl
+	erlc $(EFLAGS) group_leader_sup.erl
+
+deadlock/deadlock.@EMULATOR@: deadlock/deadlock.erl
+	erlc $(EFLAGS) -o deadlock deadlock/deadlock.erl

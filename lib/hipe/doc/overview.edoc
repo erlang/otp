@@ -1,0 +1,9 @@
+
+	HiPE overview page
+
+@title The HiPE Compiler
+
+@author The HiPE group <hipe@it.uu.se> [http://www.it.uu.se/research/group/hipe/]
+
+@doc This is the online documentation for the HiPE native code compiler.
+The user interface is provided by the module {@link hipe}.

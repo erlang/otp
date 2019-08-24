@@ -1,0 +1,2 @@
+
+contract2.erl:13: The call contract2:test(T::any(),nonempty_maybe_improper_list()) will never return since it differs in the 2nd argument from the success typing arguments: (['true'],[])

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_notification_filter</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_notification_filter.xml</file>
+  </header>
+  <module since="">snmpa_notification_filter</module>
+  <modulesummary>Behaviour module for the SNMP agent notification filters.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the agent notification
+      filters. A <c>snmpa_notification_filter</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p>handle_notification/2</p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+    <p>The purpose of notification filters is to allow for modification
+      and/or suppression of a notification.</p>
+    <p>A misbehaving filter will be removed.</p>
+  </description>
+  <funcs>
+    <func>
+      <name since="">handle_notification(Notif, Data) -> Reply</name>
+      <fsummary>Handle a notification</fsummary>
+      <type>
+        <v>Reply = send | {send, NewNotif} | dont_send</v>
+        <v>Notif =  NewNotif = notification() | trap()</v>
+        <v>Data  = term()</v>
+      </type>
+      <desc>
+        <p>Handle a notification to be sent. The filter can either
+          accept the notification as is, return <c>send</c>, modify
+          the notification, return <c>{send, NewNotif}</c> or
+          suppress the notification, return <c>dont_send</c>.</p>
+        <p><c>Data</c> is supplied at filter registration time,
+          see <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

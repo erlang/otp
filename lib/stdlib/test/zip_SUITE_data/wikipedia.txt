@@ -1,0 +1,30 @@
+The ZIP file format is a popular lossless data compression and
+archival format. A ZIP file contains one or more files that have been
+compressed, to reduce their file size, or stored as-is. A number of
+compression algorithms are permitted in zip files but as of 2008 only
+DEFLATE is widely used and supported. 
+
+The format was originally evolved by Phil Katz for PKZIP from the
+previous ARC compression format by Thom Henderson. However, many
+software utilities other than PKZIP itself are now available to
+create, modify, or open (unzip, decompress) ZIP files, notably WinZip,
+BOMArchiveHelper, KGB Archiver, PicoZip, Info-ZIP, WinRAR, IZArc,
+7-Zip, ALZip, TUGZip, PeaZip, Universal Extractor and Zip
+Genius. Microsoft has included built-in ZIP support (under the name
+"compressed folders") in later versions of its Windows operating
+system. Apple has included built-in ZIP support in Mac OS X 10.3 and
+later via the BOMArchiveHelper utility. 
+
+ZIP files generally use the file extensions ".zip" or ".ZIP" and the
+MIME media type application/zip. Some software uses the ZIP file
+format as a wrapper for a large number of small items in a specific
+structure. Generally when this is done a different file extension is
+used. Examples of this usage are Java JAR files, id Software .pk3/.pk4
+files, package files for StepMania and Winamp/Windows Media Player
+skins, XPInstall, as well as OpenDocument and Office Open XML office
+formats. Both OpenDocument and Office Open XML formats use the JAR
+file format internally, so files can be easily uncompressed and
+compressed using tools for ZIP files. Google Earth makes use of KMZ
+files, which are just KML files in ZIP format. Mozilla Firefox Add-ons
+are zip files with extension "xpi". Nokia's mobile phone themes are
+zipped with extension "nth".

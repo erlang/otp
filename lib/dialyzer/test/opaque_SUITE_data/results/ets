@@ -1,0 +1,4 @@
+
+ets_use.erl:12: Guard test is_integer(T::atom() | ets:tid()) breaks the opacity of its argument
+ets_use.erl:20: The type test is_integer(atom() | ets:tid()) breaks the opacity of the term atom() | ets:tid()
+ets_use.erl:7: Guard test is_integer(T::ets:tid()) breaks the opacity of its argument

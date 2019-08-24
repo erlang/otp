@@ -1,0 +1,290 @@
+SNMPv2-CONF DEFINITIONS ::= BEGIN
+
+-- definitions for conformance groups
+
+OBJECT-GROUP MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  ObjectsPart
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    ObjectsPart ::=
+                  "OBJECTS" "{" Objects "}"
+    Objects ::=
+                  Object
+                | Objects "," Object
+    Object ::=
+                  value(Name ObjectName)
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                  "REFERENCE" Text
+                | empty
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+
+-- more definitions for conformance groups
+
+NOTIFICATION-GROUP MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  NotificationsPart
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    NotificationsPart ::=
+                  "NOTIFICATIONS" "{" Notifications "}"
+    Notifications ::=
+                  Notification
+                | Notifications "," Notification
+    Notification ::=
+                  value(Name NotificationName)
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                  "REFERENCE" Text
+                | empty
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+
+END
+
+
+-- definitions for compliance statements
+
+MODULE-COMPLIANCE MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+                  ModulePart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    Status ::=
+                  "current"
+                | "deprecated"
+                | "obsolete"
+
+    ReferPart ::=
+                "REFERENCE" Text
+              | empty
+
+    ModulePart ::=
+                  Modules
+                | empty
+    Modules ::=
+                  Module
+                | Modules Module
+    Module ::=
+                  -- name of module --
+                  "MODULE" ModuleName
+                  MandatoryPart
+                  CompliancePart
+
+    ModuleName ::=
+                  modulereference ModuleIdentifier
+                -- must not be empty unless contained
+                -- in MIB Module
+                | empty
+    ModuleIdentifier ::=
+                  value(ModuleID OBJECT IDENTIFIER)
+                | empty
+
+    MandatoryPart ::=
+                  "MANDATORY-GROUPS" "{" Groups "}"
+                | empty
+
+    Groups ::=
+                  Group
+                | Groups "," Group
+    Group ::=
+                  value(Group OBJECT IDENTIFIER)
+
+    CompliancePart ::=
+                  Compliances
+                | empty
+
+    Compliances ::=
+                  Compliance
+                | Compliances Compliance
+    Compliance ::=
+                  ComplianceGroup
+                | Object
+
+    ComplianceGroup ::=
+                  "GROUP" value(Name OBJECT IDENTIFIER)
+                  "DESCRIPTION" Text
+
+    Object ::=
+                  "OBJECT" value(Name ObjectName)
+                  SyntaxPart
+                  WriteSyntaxPart
+                  AccessPart
+                  "DESCRIPTION" Text
+
+    -- must be a refinement for object's SYNTAX clause
+    SyntaxPart ::=
+                  "SYNTAX" type(SYNTAX)
+                | empty
+
+    -- must be a refinement for object's SYNTAX clause
+    WriteSyntaxPart ::=
+                  "WRITE-SYNTAX" type(WriteSYNTAX)
+                | empty
+
+    AccessPart ::=
+                  "MIN-ACCESS" Access
+                | empty
+    Access ::=
+                  "not-accessible"
+                | "accessible-for-notify"
+                | "read-only"
+                | "read-write"
+                | "read-create"
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+
+-- definitions for capabilities statements
+
+AGENT-CAPABILITIES MACRO ::=
+BEGIN
+    TYPE NOTATION ::=
+                  "PRODUCT-RELEASE" Text
+                  "STATUS" Status
+                  "DESCRIPTION" Text
+                  ReferPart
+                  ModulePart
+
+    VALUE NOTATION ::=
+                  value(VALUE OBJECT IDENTIFIER)
+
+    Status ::=
+                  "current"
+                | "obsolete"
+
+    ReferPart ::=
+                "REFERENCE" Text
+              | empty
+
+    ModulePart ::=
+                  Modules
+                | empty
+    Modules ::=
+                  Module
+                | Modules Module
+    Module ::=
+                  -- name of module --
+                  "SUPPORTS" ModuleName
+                  "INCLUDES" "{" Groups "}"
+                  VariationPart
+
+    ModuleName ::=
+                  identifier ModuleIdentifier
+    ModuleIdentifier ::=
+                  value(ModuleID OBJECT IDENTIFIER)
+                | empty
+
+    Groups ::=
+                  Group
+                | Groups "," Group
+    Group ::=
+                  value(Name OBJECT IDENTIFIER)
+
+    VariationPart ::=
+                  Variations
+                | empty
+    Variations ::=
+                  Variation
+                | Variations Variation
+
+    Variation ::=
+                  ObjectVariation
+                | NotificationVariation
+
+    NotificationVariation ::=
+                  "VARIATION" value(Name NotificationName)
+                  AccessPart
+                  "DESCRIPTION" Text
+
+    ObjectVariation ::=
+                  "VARIATION" value(Name ObjectName)
+                  SyntaxPart
+                  WriteSyntaxPart
+                  AccessPart
+                  CreationPart
+                  DefValPart
+                  "DESCRIPTION" Text
+
+    -- must be a refinement for object's SYNTAX clause
+    SyntaxPart ::=
+                  "SYNTAX" type(SYNTAX)
+                | empty
+
+    -- must be a refinement for object's SYNTAX clause
+    WriteSyntaxPart ::=
+                  "WRITE-SYNTAX" type(WriteSYNTAX)
+                | empty
+
+    AccessPart ::=
+                  "ACCESS" Access
+                | empty
+
+    Access ::=
+                  "not-implemented"
+                -- only "not-implemented" for notifications
+                | "accessible-for-notify"
+                | "read-only"
+                | "read-write"
+                | "read-create"
+                -- following is for backward-compatibility only
+                | "write-only"
+
+    CreationPart ::=
+                  "CREATION-REQUIRES" "{" Cells "}"
+                | empty
+
+    Cells ::=
+                  Cell
+                | Cells "," Cell
+
+    Cell ::=
+                  value(Cell ObjectName)
+
+    DefValPart ::=
+                  "DEFVAL" "{" value(Defval ObjectSyntax) "}"
+                | empty
+
+    -- uses the NVT ASCII character set
+    Text ::= """" string """"
+END
+
+
+END
+

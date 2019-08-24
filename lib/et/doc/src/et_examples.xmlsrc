@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Advanced examples</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_examples.xml</file>
+  </header>
+
+  <section>
+    <title>A simulated Mnesia transaction</title>
+    <p>The Erlang code for running the simulated <c>Mnesia</c> transaction
+    example in the previous chapter is included in the
+    <c>et/examples/et_demo.erl</c> file:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%sim_trans" type="erl"></codeinclude>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%mgr_actors" type="erl"></codeinclude>
+
+    <p>If you invoke the <c>et_demo:sim_trans()</c> function, a
+    <c>Viewer</c> window will pop up and the sequence trace will be
+    almost the same as if the following <c>Mnesia</c> transaction
+    would have been run:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
+
+    <p>And the viewer window will look like:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1> {ok, Viewer} = et_viewer:start([]).
+{ok,<0.40.0>;}
+2> et_demo:sim_trans().
+{ok,{table_handle,<0.45.0>,24596,trace_ts,
+     #Fun<et_collector.0.62831470>}}]]></code>
+
+    <p></p>
+
+    <image file="sim_trans.png">
+      <icaption>A simulated Mnesia transaction which writes one record</icaption>
+    </image>
+
+  </section>
+
+  <section>
+    <title>Some convenient functions used in the Mnesia transaction
+    example</title>
+
+    <p>The <c>module_as_actor</c> filter converts the <c>Event
+    Records</c> so the module names becomes actors and the invoked
+    functions becomes labels. If the information about who the caller
+    was it will be displayed as an arrow directed from the caller to
+    the callee. The <c>[{message, {caller}}, {return_trace}]</c>
+    options to <c>dbg:tpl/2</c> function will imply the necessary
+    information in the Erlang traces.  Here follows the
+    <c>module_as_actor</c> filter:</p>
+
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%module_as_actor" type="erl"></codeinclude>
+
+    <p>The <c>plain_process_info</c> filter does not alter the
+    <c>Event Records</c>.  It merely ensures that the event not
+    related to processes are skipped:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%plain_process_info" type="erl"></codeinclude>
+
+    <p>The <c>plain_process_info_nolink</c> filter does not alter the
+    <c>Event Records</c>. It do makes use of the
+    <c>plain_process_info</c> , but do also ensure that the process
+    info related to linking and unlinking is skipped:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%plain_process_info_nolink" type="erl"></codeinclude>
+
+    <p>In order to simplify the startup of an <c>et_viewer</c> process
+    with the filters mentioned above, plus some others (that also are
+    found in <c>et/examples/et_demo.erl</c> src/et_collector.erl the
+    <c>et_demo:start/0,1</c> functions can be used:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%start" type="erl"></codeinclude>
+
+    <p>A simple one-liner starts the tool:</p>
+
+    <code type="none"><![CDATA[
+          erl -pa ../examples -s et_demo]]></code>
+
+    <p>The filters are included by the following parameters:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%filters" type="erl"></codeinclude>
+
+  </section>
+
+  <section>
+    <title>Erlang trace of a real Mnesia transaction</title>
+
+    <p>The following piece of code <c>et_demo:trace_mnesia/0</c>
+    activates call tracing of both local and external function calls
+    for all modules in the <c>Mnesia</c> application. The call traces
+    are configured cover all processes (both existing and those that
+    are spawned in the future) and include timestamps for trace
+    data. It do also activate tracing of process related events for
+    <c>Mnesia</c>'s static processes plus the calling process (that is
+    your shell). Please, observe that the <c>whereis/1</c> call in the
+    following code requires that both the traced <c>Mnesia</c>
+    application and the <c>et_viewer</c> is running on the same
+    node:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%trace_mnesia" type="erl"></codeinclude>
+
+    <p>The <c>et_demo:live_trans/0</c> function starts the global
+    <c>Collector</c>, starts a <c>Viewer</c>, starts <c>Mnesia</c>,
+    creates a local table, activates tracing (as described above) and
+    registers the shell process is as 'my_shell' for clarity. Finally
+    a simple <c>Mnesia</c> transaction that writes a single record
+    is run:</p>
+
+    <p></p>
+
+    <codeinclude file="../../examples/et_demo.erl" tag="%live_trans" type="erl"></codeinclude>
+
+    <p>Now we run the <c>et_demo:live_trans/0</c> function:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+erl -pa ../examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1> et_demo:live_trans().
+{atomic,ok}]]></code>
+
+    <p>Please, explore the different filters in order to see how the traced
+      transaction can be seen from different point of views:</p>
+
+    <image file="live_trans.png">
+      <icaption>A real Mnesia transaction which writes one record</icaption>
+    </image>
+
+  </section>
+
+  <section>
+    <title>Erlang trace of Megaco startup</title>
+
+    <p>The <c>Event Tracer (ET)</c> tool was initially written in
+    order to demonstrate how messages where sent over the
+    <c>Megaco</c> protocol. This were back in the old days before the
+    standard bodies of <c>IETF</c> and <c>ITU</c> had approved
+    <c>Megaco</c> (also called <c>H.248</c>) as an international
+    standard.</p>
+
+    <p>In the <c>Megaco</c> application of Erlang/OTP, the code is
+    carefully instrumented with calls to <c>et:trace_me/5</c>. For
+    each call a detail level is given in order to enable dynamic
+    control of the trace level in a simple manner.</p>
+
+    <p>The <c>megaco_filter</c> module implements a customized filter
+    for <c>Megaco</c> messages. It does also make use of
+    <c>trace_global</c> combined with usage of the
+    <c>trace_pattern</c>:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+-module(megaco_filter).
+-export([start/0]).
+
+start() ->
+    Options =
+        [{event_order, event_ts},
+         {scale, 3},
+         {max_actors, infinity},
+         {trace_pattern, {megaco, max}},
+         {trace_global, true},
+         {dict_insert, {filter, megaco_filter}, fun filter/1},
+         {active_filter, megaco_filter},
+         {title, "Megaco tracer - Erlang/OTP"}],
+    et_viewer:start(Options).]]></code>
+
+    <p>First we start an Erlang node with a global <c>Collector</c>
+    and its <c>Viewer</c>.</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+erl -sname observer
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(observer@falco)1> megaco_filter:start().
+{ok,<0.48.0>}]]></code>
+
+    <p>Secondly we start another Erlang node which we connect the
+    observer node, before we start the application that we want to
+    trace. In this case we start a Media Gateway Controller that
+    listens for both TCP and UDP on the text and binary ports for
+    Megaco:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+erl -sname mgc -pa ../../megaco/examples/simple
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(mgc@falco)1> net:ping(observer@falco).
+pong
+(mgc@falco)2> megaco:start().
+ok
+(mgc@falco)3> megaco_simple_mgc:start().
+{ok,[{ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_tcp,dynamic}},
+     {ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_udp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_tcp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_udp,dynamic}}]}]]></code>
+
+    <p>And finally we start an Erlang node for the Media Gateways and
+    connect to the observer node. Each Media Gateway connects to the
+    controller and sends an initial Service Change message. The
+    controller accepts the gateways and sends a reply to each one
+    using the same transport mechanism and message encoding according
+    to the preference of each gateway. That is all combinations of
+    TCP/IP transport, UDP/IP transport, text encoding and ASN.1 BER
+    encoding:</p>
+
+    <p></p>
+
+    <code type="none"><![CDATA[
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(mg@falco)1> net:ping(observer@falco).
+pong
+(mg@falco)2> megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_tb"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ut"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ub"},
+  {error,{start_user,megaco_not_started}}}]
+(mg@falco)3> megaco:start().
+ok
+(mg@falco)4> megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_tb"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ut"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ub"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE,...}}}}]}]}}}]]]></code>
+
+    <p>The <c>Megaco</c> adopted viewer looks like this, when we have clicked
+    on the <em>[gateway_tt]</em> actor name in order to only display the events
+    regarding that actor:</p>
+    
+    <image file="megaco_tracer.png">
+      <icaption>The viewer adopted for Megaco</icaption>
+    </image>
+
+    <p>A pretty printed <c>Megaco</c> message looks like this:</p>
+
+    <image file="megaco_filter.png">
+      <icaption>A textual Megaco message</icaption>
+    </image>
+
+    <p>And the corresponding internal form for the same <c>Megaco</c> message
+    looks like this:</p>
+
+    <image file="megaco_collector.png">
+      <icaption>The internal form of a Megaco message</icaption>
+    </image>
+
+  </section>
+
+</chapter>
+

@@ -1,0 +1,2 @@
+
+whereis_vars22.erl:21: The call erlang:register(OtherAtom::'kostis',Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_vars22.erl on line 8

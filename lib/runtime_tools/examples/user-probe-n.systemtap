@@ -1,0 +1,55 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Scott Lystig Fritchie and Andreas Schultz, 2011-2016. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+/*
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
+ *       Note that other variations of the virtual machine also have
+ *       different names, e.g. the debug build of the SMP-enabled VM
+ *       is "beam.debug.smp".
+ *
+ *       To use a different virtual machine, replace each instance of
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
+ */
+
+
+probe process("beam.smp").mark("user_trace-n0")
+{
+    printf("probe n0: %s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
+           user_string($arg1),
+           $arg2 == NULL ? "" : user_string($arg2),
+           $arg3, $arg4, $arg5, $arg6,
+           $arg7 == NULL ? "" : user_string($arg7),
+           $arg8 == NULL ? "" : user_string($arg8),
+           $arg9 == NULL ? "" : user_string($arg9),
+           $arg9 == NULL ? "" : user_string($arg9));
+}
+
+probe process("beam.smp").mark("user_trace-n1")
+{
+    printf("probe n1: %s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
+           user_string($arg1),
+           $arg2 == NULL ? "" : user_string($arg2),
+           $arg3, $arg4, $arg5, $arg6,
+           $arg7 == NULL ? "" : user_string($arg7),
+           $arg8 == NULL ? "" : user_string($arg8),
+           $arg9 == NULL ? "" : user_string($arg9),
+           $arg9 == NULL ? "" : user_string($arg9));
+}

@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>cprof - The Call Count Profiler</title>
+    <prepared>Raimo Niskanen</prepared>
+    <responsible>nobody</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked>no</checked>
+    <date>2002-09-11</date>
+    <rev>PA1</rev>
+    <file>cprof_chapter.xml</file>
+  </header>
+  <p><c>cprof</c> is a profiling tool that can be used to get a picture of
+    how often different functions in the system are called.
+    </p>
+  <p><c>cprof</c> uses breakpoints similar to local call trace,
+    but containing counters, to collect profiling
+    data. Therfore there is no need for special compilation of any
+    module to be profiled. 
+    </p>
+  <p><c>cprof</c> presents all profiled modules in decreasing total
+    call count order, and for each module presents all profiled
+    functions also in decreasing call count order. A call count limit
+    can be specified to filter out all functions below the limit.
+    </p>
+  <p>Profiling is done in the following steps:</p>
+  <taglist>
+    <tag><c>cprof:start/0..3</c></tag>
+    <item>Starts profiling with zeroed call counters for specified
+     functions by setting call count breakpoints on them. </item>
+    <tag><c>Mod:Fun()</c></tag>
+    <item>Runs the code to be profiled.</item>
+    <tag><c>cprof:pause/0..3</c></tag>
+    <item>Pauses the call counters for specified functions. This minimises
+     the impact of code running in the background or in the shell
+     that disturbs the profiling. Call counters are automatically
+     paused when they  "hit the ceiling" of the host machine word
+     size. For a 32 bit host the maximum counter value is
+     2147483647.</item>
+    <tag><c>cprof:analyse/0..2</c></tag>
+    <item>Collects call counters and computes the result.</item>
+    <tag><c>cprof:restart/0..3</c></tag>
+    <item>Restarts the call counters from zero for specified
+     functions. Can be used to collect a new set of counters without 
+     having to stop and start call count profiling.</item>
+    <tag><c>cprof:stop/0..3</c></tag>
+    <item>Stops profiling by removing call count breakpoints from
+     specified functions.</item>
+  </taglist>
+  <p>Functions can be specified as either all in the system, all in one
+    module, all arities of one function, one function, or all
+    functions in all modules not yet loaded. As for now, BIFs cannot
+    be call count traced.
+    </p>
+  <p>The analysis result can either be for all modules, or for one
+    module. In either case a call count limit can be given to filter
+    out the functions with a call count below the limit. The all
+    modules analysis does <em>not</em> contain the module <c>cprof</c>
+    itself, it can only be analysed by specifying it as a single
+    module to analyse.
+    </p>
+  <p>Call count tracing is very lightweight compared to other forms of
+    tracing since no trace message has to be generated. Some
+    measurements indicates performance degradations in the vicinity of
+    10 percent.
+    </p>
+  <p>The following sections show some examples of profiling with
+    <c>cprof</c>. See also 
+    <seealso marker="cprof">cprof(3)</seealso>.
+    </p>
+
+  <section>
+    <title>Example: Background work</title>
+    <p>From the Erlang shell:</p>
+    <pre>
+1> <input>cprof:start(), cprof:pause(). % Stop counters just after start</input>
+3476
+2> <input>cprof:analyse().</input>
+{30,
+ [{erl_eval,11,
+            [{{erl_eval,expr,3},3},
+             {{erl_eval,'-merge_bindings/2-fun-0-',2},2},
+             {{erl_eval,expand_module_name,2},1},
+             {{erl_eval,merge_bindings,2},1},
+             {{erl_eval,binding,2},1},
+             {{erl_eval,expr_list,5},1},
+             {{erl_eval,expr_list,3},1},
+             {{erl_eval,exprs,4},1}]},
+  {orddict,8,
+           [{{orddict,find,2},6},
+            {{orddict,dict_to_list,1},1},
+            {{orddict,to_list,1},1}]},
+  {packages,7,[{{packages,is_segmented_1,1},6},
+               {{packages,is_segmented,1},1}]},
+  {lists,4,[{{lists,foldl,3},3},{{lists,reverse,1},1}]}]}
+3> <input>cprof:analyse(cprof).</input>
+{cprof,3,[{{cprof,tr,2},2},{{cprof,pause,0},1}]}
+4> <input>cprof:stop().</input>
+3476</pre>
+    <p>The example showed the background work that the shell performs
+      just to interpret the first command line. Most work is done by
+      <c>erl_eval</c> and <c>orddict</c>.
+      </p>
+    <p>What is captured in this example is the part of the work the
+      shell does while interpreting the command line that occurs
+      between the actual calls to <c>cprof:start()</c> and
+      <c>cprof:analyse()</c>.
+      </p>
+  </section>
+
+  <section>
+    <title>Example: One module</title>
+    <p>From the Erlang shell:</p>
+    <pre>
+1> <input>cprof:start(),R=calendar:day_of_the_week(1896,4,27),cprof:pause(),R.</input>
+1
+2> <input>cprof:analyse(calendar).</input>
+{calendar,9,
+          [{{calendar,df,2},1},
+           {{calendar,dm,1},1},
+           {{calendar,dy,1},1},
+           {{calendar,last_day_of_the_month1,2},1},
+           {{calendar,last_day_of_the_month,2},1},
+           {{calendar,is_leap_year1,1},1},
+           {{calendar,is_leap_year,1},1},
+           {{calendar,day_of_the_week,3},1},
+           {{calendar,date_to_gregorian_days,3},1}]}
+3> <input>cprof:stop().</input>
+3271</pre>
+    <p>The example tells us that "Aktiebolaget LM Ericsson &amp; Co"
+      was registered on a Monday (since the return value
+      of the first command is 1), and that the <c>calendar</c> module
+      needed 9 function calls to calculate that.
+      </p>
+    <p>Using <c>cprof:analyse()</c> in this example also shows
+      approximately the same background work as in the first example. 
+      </p>
+  </section>
+
+  <section>
+    <title>Example: In the code</title>
+    <p>Write a module:</p>
+    <pre>
+-module(sort).
+      
+-export([do/1]).
+      
+do(N) ->
+    cprof:stop(),
+    cprof:start(),
+    do(N, []).
+      
+do(0, L) ->
+    R = lists:sort(L),
+    cprof:pause(),
+    R;
+do(N, L) ->
+    do(N-1, [random:uniform(256)-1 | L]).</pre>
+    <p>From the Erlang shell:</p>
+    <pre>
+1> <input>c(sort).</input>
+{ok,sort}
+2> <input>l(random).</input>
+{module,random}
+3> <input>sort:do(1000).</input>
+[0,0,1,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,4,5,5,5,5,6,6,6,6,6,6|...]
+4> <input>cprof:analyse().</input>
+{9050,
+ [{lists_sort,6047,
+              [{{lists_sort,merge3_2,6},923},
+               {{lists_sort,merge3_1,6},879},
+               {{lists_sort,split_2,5},661},
+               {{lists_sort,rmerge3_1,6},580},
+               {{lists_sort,rmerge3_2,6},543},
+               {{lists_sort,merge3_12_3,6},531},
+               {{lists_sort,merge3_21_3,6},383},
+               {{lists_sort,split_2_1,6},338},
+               {{lists_sort,rmerge3_21_3,6},299},
+               {{lists_sort,rmerge3_12_3,6},205},
+               {{lists_sort,rmerge2_2,4},180},
+               {{lists_sort,rmerge2_1,4},171},
+               {{lists_sort,merge2_1,4},127},
+               {{lists_sort,merge2_2,4},121},
+               {{lists_sort,mergel,2},79},
+               {{lists_sort,rmergel,2},27}]},
+  {random,2001,
+          [{{random,uniform,1},1000},
+           {{random,uniform,0},1000},
+           {{random,seed0,0},1}]},
+  {sort,1001,[{{sort,do,2},1001}]},
+  {lists,1,[{{lists,sort,1},1}]}]}
+5> <input>cprof:stop().</input>
+5369</pre>
+    <p>The example shows some details of how <c>lists:sort/1</c>
+      works. It used 6047 function calls in the module
+      <c>lists_sort</c> to complete the work.
+      </p>
+    <p>This time, since the shell was not involved, no other work was
+      done in the system during the profiling. If you retry the same
+      example with a freshly started Erlang emulator, but omit the
+      command <c>l(random)</c>, the analysis will show a lot more
+      function calls done by <c>code_server</c> and others to
+      automatically load the module <c>random</c>.
+      </p>
+  </section>
+</chapter>
+
