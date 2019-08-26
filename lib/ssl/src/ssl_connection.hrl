@@ -92,7 +92,7 @@
 -record(state, {
                 static_env            :: #static_env{},
                 connection_env        :: #connection_env{} | secret_printout(),
-                ssl_options           :: #ssl_options{},
+                ssl_options           :: ssl_options(),
                 socket_options        :: #socket_options{},
 
                 %% Hanshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

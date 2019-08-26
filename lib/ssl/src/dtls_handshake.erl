@@ -47,7 +47,7 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
-		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+		   ssl_options(), integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -60,16 +60,15 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+		   ssl_options(), integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, Cookie, ConnectionStates,
-	     #ssl_options{versions = Versions,
-			  ciphers = UserSuites,
-                          fallback = Fallback
-			 } = SslOpts,
+	     #{versions := Versions,
+               ciphers := UserSuites,
+               fallback := Fallback} = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version =  dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
@@ -97,7 +96,7 @@ hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
 		    compression_method = Compression,
 		    session_id = SessionId, extensions = HelloExt},
-      #ssl_options{versions = SupportedVersions} = SslOpt,
+      #{versions := SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
@@ -108,7 +107,7 @@ hello(#server_hello{server_version = Version, random = Random,
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
 hello(#client_hello{client_version = ClientVersion} = Hello,
-      #ssl_options{versions = Versions} = SslOpts,
+      #{versions := Versions} = SslOpts,
       Info, Renegotiation) ->
     Version = ssl_handshake:select_version(dtls_record, ClientVersion, Versions),
     handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation).
@@ -151,7 +150,7 @@ encode_handshake(Handshake, Version, Seq) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, #ssl_options{}) ->
+-spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, ssl_options()) ->
                                 {[dtls_handshake()], #protocol_buffers{}}.                
 %%
 %% Description:  Given buffered and new data from dtls_record, collects
@@ -170,10 +169,10 @@ handle_client_hello(Version,
                                   compression_methods = Compressions,
                                   random = Random,
                                   extensions = HelloExt},
-		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns,
-                                 eccs = SupportedECCs,
-				 honor_ecc_order = ECCOrder} = SslOpts,
+		    #{versions := Versions,
+                      signature_algs := SupportedHashSigns,
+                      eccs := SupportedECCs,
+                      honor_ecc_order := ECCOrder} = SslOpts,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, 
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
@@ -317,14 +316,14 @@ handle_fragments(Version, FragmentData, Buffers0, Options, Acc) ->
 
 do_handle_fragments(_, [], Buffers, _Options, Acc) ->
     {lists:reverse(Acc), Buffers};
-do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Options, Acc) ->
+do_handle_fragments(Version, [Fragment | Fragments], Buffers0, #{log_level := LogLevel} = Options, Acc) ->
     case reassemble(Version, Fragment, Buffers0) of
 	{more_data, Buffers} when Fragments == [] ->
 	    {lists:reverse(Acc), Buffers};
 	{more_data, Buffers} ->
 	    do_handle_fragments(Version, Fragments, Buffers, Options, Acc);
 	{{Handshake, _} = HsPacket, Buffers} ->
-            ssl_logger:debug(Options#ssl_options.log_level, inbound, 'handshake', Handshake),
+            ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
 	    do_handle_fragments(Version, Fragments, Buffers, Options, [HsPacket | Acc])
     end.
 

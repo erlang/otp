@@ -48,13 +48,13 @@ is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
--spec client_id({ssl:host(), inet:port_number(), #ssl_options{}}, db_handle(), atom(),
+-spec client_id({ssl:host(), inet:port_number(), ssl_options()}, db_handle(), atom(),
 	 undefined | binary()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-client_id({Host, Port, #ssl_options{reuse_session = SessionId}}, Cache, CacheCb, _) when is_binary(SessionId)->
+client_id({Host, Port, #{reuse_session := SessionId}}, Cache, CacheCb, _) when is_binary(SessionId)->
     case CacheCb:lookup(Cache, {{Host, Port}, SessionId}) of
         undefined ->
 	    <<>>;
@@ -99,7 +99,7 @@ server_id(Port, SuggestedId, Options, Cert, Cache, CacheCb) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-select_session({_, _, #ssl_options{reuse_sessions = Reuse}}, _Cache, _CacheCb, _OwnCert) when Reuse =/= true ->
+select_session({_, _, #{reuse_sessions := Reuse}}, _Cache, _CacheCb, _OwnCert) when Reuse =/= true ->
     %% If reuse_sessions == true | save a new session should be created
     no_session;
 select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
@@ -108,7 +108,7 @@ select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
 
 select_session([], _, _) ->
     no_session;
-select_session(Sessions, #ssl_options{ciphers = Ciphers}, OwnCert) ->
+select_session(Sessions, #{ciphers := Ciphers}, OwnCert) ->
     IsNotResumable =
 	fun(Session) ->
 		not (resumable(Session#session.is_resumable) andalso
@@ -120,9 +120,9 @@ select_session(Sessions, #ssl_options{ciphers = Ciphers}, OwnCert) ->
 	[Session | _] -> Session#session.session_id
     end.
 
-is_resumable(_, _, #ssl_options{reuse_sessions = false}, _, _, _, _) ->
+is_resumable(_, _, #{reuse_sessions := false}, _, _, _, _) ->
     {false, undefined};
-is_resumable(SuggestedSessionId, Port, #ssl_options{reuse_session = ReuseFun} = Options, Cache,
+is_resumable(SuggestedSessionId, Port, #{reuse_session := ReuseFun} = Options, Cache,
 	     CacheCb, SecondLifeTime, OwnCert) ->
     case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
 	#session{cipher_suite = CipherSuite,
@@ -149,8 +149,8 @@ resumable(new) ->
 resumable(IsResumable) ->
     IsResumable.
 
-reusable_options(#ssl_options{fail_if_no_peer_cert = true,
-			   verify = verify_peer}, Session) ->
+reusable_options(#{fail_if_no_peer_cert := true,
+                   verify := verify_peer}, Session) ->
     (Session#session.peer_certificate =/= undefined);
 reusable_options(_,_) ->
     true.

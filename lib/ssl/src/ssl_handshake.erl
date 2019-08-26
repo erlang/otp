@@ -336,25 +336,30 @@ next_protocol(SelectedProtocol) ->
 %% Handle handshake messages 
 %%====================================================================
 %%--------------------------------------------------------------------
--spec certify(#certificate{}, db_handle(), certdb_ref(), #ssl_options{}, term(),
+-spec certify(#certificate{}, db_handle(), certdb_ref(), ssl_options(), term(),
 	      client | server, inet:hostname() | inet:ip_address()) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-        Opts, CRLDbHandle, Role, Host) ->    
+        #{server_name_indication := ServerNameIndication,
+         partial_chain := PartialChain,
+         verify_fun := VerifyFun,
+         customize_hostname_check := CustomizeHostnameCheck,
+         crl_check := CrlCheck,
+         depth := Depth} = Opts, CRLDbHandle, Role, Host) ->
 
-    ServerName = server_name(Opts#ssl_options.server_name_indication, Host, Role),
+    ServerName = server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
-                                                  Opts#ssl_options.partial_chain),
-        ValidationFunAndState = validation_fun_and_state(Opts#ssl_options.verify_fun, Role, 
+                                                  PartialChain),
+        ValidationFunAndState = validation_fun_and_state(VerifyFun, Role,
                                                          CertDbHandle, CertDbRef, ServerName,
-                                                         Opts#ssl_options.customize_hostname_check,
-                                                         Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
-        Options = [{max_path_length, Opts#ssl_options.depth},
+                                                         CustomizeHostnameCheck,
+                                                         CrlCheck, CRLDbHandle, CertPath),
+        Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
 	    {ok, {PublicKeyInfo,_}} ->
@@ -945,7 +950,7 @@ prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
 
 select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, #session{ecc = ECCCurve0} = 
 		   Session, Version,
-	       #ssl_options{ciphers = UserSuites, honor_cipher_order = HonorCipherOrder} = SslOpts,
+	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,
 	       Cache, CacheCb, Cert) ->
     {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
 						 SslOpts, Cert,
@@ -1071,27 +1076,29 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
 
 
 add_tls12_extensions(_Version,
-                     SslOpts,
+                     #{alpn_advertised_protocols := AlpnAdvertisedProtocols,
+                      next_protocol_selector := NextProtocolSelector,
+                      server_name_indication := ServerNameIndication} = SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
     SRP = srp_user(SslOpts),
     #{renegotiation_info => renegotiation_info(tls_record, client,
                                                ConnectionStates, Renegotiation),
       srp => SRP,
-      alpn => encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
+      alpn => encode_alpn(AlpnAdvertisedProtocols, Renegotiation),
       next_protocol_negotiation =>
-          encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
+          encode_client_protocol_negotiation(NextProtocolSelector,
                                              Renegotiation),
-      sni => sni(SslOpts#ssl_options.server_name_indication)
+      sni => sni(ServerNameIndication)
      }.
 
 
 add_common_extensions({3,4},
                       HelloExtensions,
                       _CipherSuites,
-                      #ssl_options{eccs = SupportedECCs,
-                                   supported_groups = Groups,
-                                   signature_algs = SignatureSchemes}) ->
+                      #{eccs := SupportedECCs,
+                        supported_groups := Groups,
+                        signature_algs := SignatureSchemes}) ->
     {EcPointFormats, _} =
         client_ecc_extensions(SupportedECCs),
     HelloExtensions#{ec_point_formats => EcPointFormats,
@@ -1101,8 +1108,8 @@ add_common_extensions({3,4},
 add_common_extensions(Version,
                       HelloExtensions,
                       CipherSuites,
-                      #ssl_options{eccs = SupportedECCs,
-                                   signature_algs = SupportedHashSigns}) ->
+                      #{eccs := SupportedECCs,
+                        signature_algs := SupportedHashSigns}) ->
 
     {EcPointFormats, EllipticCurves} =
         case advertises_ec_ciphers(
@@ -1120,8 +1127,8 @@ add_common_extensions(Version,
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #ssl_options{signature_algs_cert = SignatureSchemes,
-                                        versions = SupportedVersions},
+                           #{signature_algs_cert := SignatureSchemes,
+                                        versions := SupportedVersions},
                            KeyShare) ->
     HelloExtensions =
         HelloExtensions0#{client_hello_versions =>
@@ -1223,8 +1230,8 @@ signature_algs_cert(SignatureSchemes) ->
 
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                Exts, Version,
-			       #ssl_options{secure_renegotiate = SecureRenegotation,
-                                            alpn_preferred_protocols = ALPNPreferredProtocols} = Opts,
+			       #{secure_renegotiate := SecureRenegotation,
+                                 alpn_preferred_protocols := ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite,
 					compression_method = Compression} = Session0,
 			       ConnectionStates0, Renegotiation) ->
@@ -1259,8 +1266,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
-			       #ssl_options{secure_renegotiate = SecureRenegotation,
-					    next_protocol_selector = NextProtoSelector},
+			       #{secure_renegotiate := SecureRenegotation,
+                                 next_protocol_selector := NextProtoSelector},
 			       ConnectionStates0, Renegotiation) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1477,7 +1484,7 @@ select_hashsign_algs(undefined, ?rsaEncryption, _) ->
 select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
 
-srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
+srp_user(#{srp_identity := {UserName, _}}) ->
     #srp{username = UserName};
 srp_user(_) ->
     undefined.
@@ -1644,12 +1651,12 @@ handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,
                              Opts, Options, CertDbHandle, CertsDbRef) ->
     handle_incomplete_chain(PeerCert, Chain, Opts, Options, CertDbHandle, CertsDbRef, Reason);
 handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chain0, 
-			     Opts, Options, CertDbHandle, CertsDbRef) ->
+			     #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef) ->
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef, Chain0) of
 	{ok, _, [PeerCert | Chain] = OrdedChain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
             {Trusted, Path} = ssl_certificate:trusted_cert_and_path(OrdedChain,
                                                                     CertDbHandle, CertsDbRef,
-                                                                    Opts#ssl_options.partial_chain),
+                                                                    PartialChain),
             case public_key:pkix_path_validation(Trusted, Path, Options) of
 		{ok, {PublicKeyInfo,_}} ->
 		    {PeerCert, PublicKeyInfo};
@@ -1663,12 +1670,13 @@ handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chai
 handle_path_validation_error(Reason, _, _, _, _,_, _) ->
     path_validation_alert(Reason).
 
-handle_incomplete_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError0) ->
+handle_incomplete_chain(PeerCert, Chain0,
+                        #{partial_chain := PartialChain}, Options, CertDbHandle, CertsDbRef, PathError0) ->
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
         {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
             {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
                                                                     CertDbHandle, CertsDbRef,
-                                                                    Opts#ssl_options.partial_chain),
+                                                                    PartialChain),
             case public_key:pkix_path_validation(Trusted, Path, Options) of
 		{ok, {PublicKeyInfo,_}} ->
 		    {PeerCert, PublicKeyInfo};
@@ -2834,7 +2842,7 @@ handle_next_protocol_on_server(undefined, _Renegotiation, _SslOpts) ->
     undefined;
 
 handle_next_protocol_on_server(#next_protocol_negotiation{extension_data = <<>>},
-			       false, #ssl_options{next_protocols_advertised = Protocols}) ->
+			       false, #{next_protocols_advertised := Protocols}) ->
     Protocols;
 
 handle_next_protocol_on_server(_Hello, _Renegotiation, _SSLOpts) ->

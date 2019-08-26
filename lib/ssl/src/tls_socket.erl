@@ -210,9 +210,9 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = false} = SslOpts) ->
+inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
     ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]);
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = true} = SslOpts) ->
+inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
 get_emulated_opts(TrackerPid) -> 

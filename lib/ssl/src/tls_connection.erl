@@ -98,7 +98,7 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Tracker} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
@@ -112,7 +112,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} 
 	    Error
     end;
 
-start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Tracker} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
@@ -136,10 +136,10 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
 
-init([Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options,  User, CbInfo]) ->
+init([Role, Sender, Host, Port, Socket, {#{erl_dist := ErlDist}, _, _} = Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
     link(Sender),
-    case SslOpts#ssl_options.erl_dist of
+    case ErlDist of
         true ->
             process_flag(priority, max);
         _ ->
@@ -170,7 +170,7 @@ next_record(_, #state{handshake_env =
 next_record(_, #state{protocol_buffers =
                           #protocol_buffers{tls_cipher_texts = [_|_] = CipherTexts},
                       connection_states = ConnectionStates,
-                      ssl_options = #ssl_options{padding_check = Check}} = State) ->
+                      ssl_options = #{padding_check := Check}} = State) ->
     next_record(State, CipherTexts, ConnectionStates, Check);
 next_record(connection, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                                protocol_specific = #{active_n_toggle := true}
@@ -385,12 +385,12 @@ send_handshake(Handshake, State) ->
 queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
 				  connection_env = #connection_env{negotiated_version = Version},
                                   flight_buffer = Flight0,
-                                  ssl_options = SslOpts,
+                                  ssl_options = #{log_level := LogLevel},
 				  connection_states = ConnectionStates0} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Handshake),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinHandshake),
+    ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinHandshake),
 
     State0#state{connection_states = ConnectionStates,
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
@@ -406,11 +406,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 
 queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_version = Version},
                                 flight_buffer = Flight0,
-                                ssl_options = SslOpts,
+                                ssl_options = #{log_level := LogLevel},
                                 connection_states = ConnectionStates0} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinChangeCipher),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinChangeCipher),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -454,12 +454,12 @@ encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
 send_alert(Alert, #state{static_env = #static_env{socket = Socket,
                                                   transport_cb = Transport},
                          connection_env = #connection_env{negotiated_version = Version},
-                         ssl_options = SslOpts,
+                         ssl_options = #{log_level := LogLevel},
                          connection_states = ConnectionStates0} = StateData0) ->
     {BinMsg, ConnectionStates} =
         encode_alert(Alert, Version, ConnectionStates0),
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
 
 %% If an ALERT sent in the connection state, should cause the TLS
@@ -542,7 +542,8 @@ init({call, From}, {start, Timeout},
                                      session_cache_cb = CacheCb},
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
             connection_env = CEnv,
-	    ssl_options = SslOpts,
+	    ssl_options = #{log_level := LogLevel,
+                            versions := Versions} = SslOpts,
 	    session = #session{own_certificate = Cert} = Session0,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
@@ -550,13 +551,13 @@ init({call, From}, {start, Timeout},
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert, KeyShare),
 
-    HelloVersion = tls_record:hello_version(SslOpts#ssl_options.versions),
+    HelloVersion = tls_record:hello_version(Versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Hello),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
+    ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
     State = State0#state{connection_states = ConnectionStates,
                          connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version
@@ -592,14 +593,14 @@ error(_, _, _) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 hello(internal, #client_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #ssl_options{handshake = hello},
+      #state{ssl_options = #{handshake := hello},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #ssl_options{handshake = hello},
+      #state{ssl_options = #{handshake := hello},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
@@ -982,8 +983,9 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #ssl_options{beast_mitigation = BeastMitigation,
-                 erl_dist = IsErlDist} = SSLOptions,
+    #{beast_mitigation := BeastMitigation,
+      erl_dist := IsErlDist,
+      client_renegotiation := ClientRenegotiation} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
@@ -1017,7 +1019,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
                           renegotiation = {false, first},
-                          allow_renegotiate = SSLOptions#ssl_options.client_renegotiation
+                          allow_renegotiate = ClientRenegotiation
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
@@ -1042,8 +1044,8 @@ initialize_tls_sender(#state{static_env = #static_env{
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
                              socket_options = SockOpts, 
-                             ssl_options = #ssl_options{renegotiate_at = RenegotiateAt,
-                                                        log_level = LogLevel},
+                             ssl_options = #{renegotiate_at := RenegotiateAt,
+                                             log_level := LogLevel},
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     Init = #{current_write => ConnectionWriteState,
@@ -1261,7 +1263,7 @@ unprocessed_events(Events) ->
 
 
 assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, 
-                     #ssl_options{max_handshake_size = Max}) when 
+                     #{max_handshake_size := Max}) when
       Length =< Max ->  
     case size(Rest) of
         N when N < Length ->
@@ -1295,18 +1297,17 @@ ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->
            end,
     spawn(Kill).
 
-maybe_generate_client_shares(#ssl_options{
-                            versions = [Version|_],
-                            supported_groups =
-                                #supported_groups{
-                                  supported_groups = [Group|_]}})
+maybe_generate_client_shares(#{versions := [Version|_],
+                               supported_groups :=
+                                   #supported_groups{
+                                      supported_groups = [Group|_]}})
   when Version =:= {3,4} ->
     %% Generate only key_share entry for the most preferred group
     ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
     undefined.
 
-choose_tls_version(#ssl_options{versions = Versions},
+choose_tls_version(#{versions := Versions},
                    #client_hello{
                       extensions = #{client_hello_versions :=
                                          #client_hello_versions{versions = ClientVersions}
@@ -1322,7 +1323,7 @@ choose_tls_version(_, _) ->
     'tls_v1.2'.
 
 
-effective_version(undefined, #ssl_options{versions = [Version|_]}) ->
+effective_version(undefined, #{versions := [Version|_]}) ->
     Version;
 effective_version(Version, _) ->
     Version.

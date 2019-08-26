@@ -502,11 +502,11 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = _Hello,
          #state{connection_states = _ConnectionStates0,
-                ssl_options = #ssl_options{ciphers = ServerCiphers,
-                                           signature_algs = ServerSignAlgs,
-                                           supported_groups = ServerGroups0,
-                                           alpn_preferred_protocols = ALPNPreferredProtocols,
-                                           honor_cipher_order = HonorCipherOrder},
+                ssl_options = #{ciphers := ServerCiphers,
+                                signature_algs := ServerSignAlgs,
+                                supported_groups := ServerGroups0,
+                                alpn_preferred_protocols := ALPNPreferredProtocols,
+                                honor_cipher_order := HonorCipherOrder},
                 session = #session{own_certificate = Cert}} = State0) ->
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
@@ -601,8 +601,10 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
                                                tls_handshake_history = _HHistory} = HsEnv,
                 connection_env = CEnv,
-                ssl_options = #ssl_options{ciphers = ClientCiphers,
-                                           supported_groups = ClientGroups0} = SslOpts,
+                ssl_options = #{ciphers := ClientCiphers,
+                                supported_groups := ClientGroups0,
+                                versions := Versions,
+                                log_level := LogLevel} = SslOpts,
                 session = #session{own_certificate = Cert} = Session0,
                 connection_states = ConnectionStates0
                } = State0) ->
@@ -633,7 +635,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            Cache, CacheCb, Renegotiation, Cert, ClientKeyShare),
 
-        HelloVersion = tls_record:hello_version(SslOpts#ssl_options.versions),
+        HelloVersion = tls_record:hello_version(Versions),
 
         %% Update state
         State1 = update_start_state(State0,
@@ -649,8 +651,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         {BinMsg, ConnectionStates, Handshake} =
             tls_connection:encode_handshake(Hello,  HelloVersion, ConnectionStates0, HHistory),
         tls_socket:send(Transport, Socket, BinMsg),
-        ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Hello),
-        ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
+        ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
+        ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
         State = State2#state{
                   connection_states = ConnectionStates,
@@ -674,7 +676,7 @@ do_negotiated(start_handshake,
                                         ecc = SelectedGroup,
                                         sign_alg = SignatureScheme,
                                         dh_public_value = ClientPublicKey},
-                     ssl_options = #ssl_options{} = SslOpts,
+                     ssl_options = #{} = SslOpts,
                      key_share = KeyShare,
                      handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                      connection_env = #connection_env{private_key = CertPrivateKey},
@@ -832,8 +834,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                          session_id = SessionId,
                          extensions = Extensions} = ServerHello,
            #state{key_share = ClientKeyShare0,
-                  ssl_options = #ssl_options{ciphers = ClientCiphers,
-                                             supported_groups = ClientGroups0}} = State0) ->
+                  ssl_options = #{ciphers := ClientCiphers,
+                                  supported_groups := ClientGroups0}} = State0) ->
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
     ClientKeyShare = get_key_shares(ClientKeyShare0),
@@ -977,7 +979,7 @@ maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) -
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
                                                    own_certificate = OwnCert},
-                                ssl_options = #ssl_options{} = _SslOpts,
+                                ssl_options = #{} = _SslOpts,
                                 key_share = _KeyShare,
                                 handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                                 static_env = #static_env{
@@ -1064,12 +1066,11 @@ send_hello_retry_request(State0, _, _, _) ->
     {ok, {State0, negotiated}}.
 
 
-maybe_send_certificate_request(State, #ssl_options{verify = verify_none}) ->
+maybe_send_certificate_request(State, #{verify := verify_none}) ->
     {State, wait_finished};
-maybe_send_certificate_request(State, #ssl_options{
-                                         verify = verify_peer,
-                                         signature_algs = SignAlgs,
-                                         signature_algs_cert = SignAlgsCert}) ->
+maybe_send_certificate_request(State, #{verify := verify_peer,
+                                        signature_algs := SignAlgs,
+                                        signature_algs_cert := SignAlgsCert}) ->
     CertificateRequest = certificate_request(SignAlgs, SignAlgsCert),
     {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
@@ -1103,15 +1104,13 @@ process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
                     #state{ssl_options =
-                               #ssl_options{
-                                  fail_if_no_peer_cert = false}} = State) ->
+                               #{fail_if_no_peer_cert := false}} = State) ->
     {ok, {State, wait_finished}};
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
                     #state{ssl_options =
-                               #ssl_options{
-                                  fail_if_no_peer_cert = true}} = State0) ->
+                               #{fail_if_no_peer_cert := true}} = State0) ->
 
     %% At this point the client believes that the connection is up and starts using
     %% its traffic secrets. In order to be able send an proper Alert to the client
@@ -1122,8 +1121,8 @@ process_certificate(#certificate_1_3{
     {error, {certificate_required, State}};
 process_certificate(#certificate_1_3{certificate_list = Certs0},
                     #state{ssl_options =
-                               #ssl_options{signature_algs = SignAlgs,
-                                            signature_algs_cert = SignAlgsCert} = SslOptions,
+                               #{signature_algs := SignAlgs,
+                                 signature_algs_cert := SignAlgsCert} = SslOptions,
                            static_env =
                                #static_env{
                                   role = Role,
@@ -1181,19 +1180,26 @@ update_encryption_state(client, State) ->
     State.
 
 
-validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role, Host) ->
-    ServerName = ssl_handshake:server_name(SslOptions#ssl_options.server_name_indication, Host, Role),
+validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
+                           #{server_name_indication := ServerNameIndication,
+                             partial_chain := PartialChain,
+                             verify_fun := VerifyFun,
+                             customize_hostname_check := CustomizeHostnameCheck,
+                             crl_check := CrlCheck,
+                             depth := Depth} = SslOptions,
+                           CRLDbHandle, Role, Host) ->
+    ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
     try
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(Certs, CertDbHandle, CertDbRef,
-                                                  SslOptions#ssl_options.partial_chain),
+                                                  PartialChain),
         ValidationFunAndState =
-            ssl_handshake:validation_fun_and_state(SslOptions#ssl_options.verify_fun, Role,
+            ssl_handshake:validation_fun_and_state(VerifyFun, Role,
                                      CertDbHandle, CertDbRef, ServerName,
-                                     SslOptions#ssl_options.customize_hostname_check,
-                                     SslOptions#ssl_options.crl_check, CRLDbHandle, CertPath),
-        Options = [{max_path_length, SslOptions#ssl_options.depth},
+                                     CustomizeHostnameCheck,
+                                     CrlCheck, CRLDbHandle, CertPath),
+        Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
         %% TODO: Validate if Certificate is using a supported signature algorithm
         %% (signature_algs_cert)!
@@ -1532,9 +1538,7 @@ get_handshake_context_client(L) ->
 %% CertificateRequest message.
 verify_signature_algorithm(#state{
                               static_env = #static_env{role = Role},
-                              ssl_options =
-                                  #ssl_options{
-                                     signature_algs = LocalSignAlgs}} = State0,
+                              ssl_options = #{signature_algs := LocalSignAlgs}} = State0,
                            #certificate_verify_1_3{algorithm = PeerSignAlg}) ->
     case lists:member(PeerSignAlg, LocalSignAlgs) of
         true ->
