@@ -127,15 +127,13 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_port(Socket),
 	{error, Error} ->
 	    {error, Error};
 	Options ->
-            case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
-		ok ->
-		    {ok, {Host,_Port}} = inet:peername(Socket),
-		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
-		    ssh_connection_handler:start_connection(client, Socket, Opts, NegotiationTimeout);
-		{error,SockError} ->
-		    {error,SockError}
-	    end
-    end;
+           case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
+               ok ->
+                   connect_socket(Socket, Options, NegotiationTimeout);
+               {error,SockError} ->
+                   {error,SockError}
+           end
+        end;
 
 connect(Host, Port, Options) when is_integer(Port),
                                   Port>0,
@@ -149,9 +147,9 @@ connect(Host, Port, Options) when is_integer(Port),
       Options :: client_options(),
       NegotiationTimeout :: timeout().
 
-connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
-                                               Port>0,
-                                               is_list(UserOptions) ->
+connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
+                                                           Port>0,
+                                                           is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, _Reason} = Error ->
 	    Error;
@@ -162,8 +160,7 @@ connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
             Host = mangle_connect_address(Host0, SocketOpts),
 	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
 		{ok, Socket} ->
-		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
-		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+                    connect_socket(Socket, Options, NegotiationTimeout);
 		{error, Reason} ->
 		    {error, Reason}
 	    catch
@@ -173,6 +170,22 @@ connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
 		    {error, {options, {socket_options, SocketOpts}}}
 	    end
     end.
+
+
+connect_socket(Socket, Options0, NegotiationTimeout) ->
+    {ok, {Host,Port}} = inet:sockname(Socket),
+    Profile = ?GET_OPT(profile, Options0),
+    {ok, SystemSup} = sshc_sup:start_child(Host, Port, Profile, Options0),
+    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, client, Host, Port, Profile, Options0),
+    ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
+    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()},
+                              {host,Host},
+                              {supervisors, [{system_sup, SystemSup},
+                                             {subsystem_sup, SubSysSup},
+                                             {connection_sup, ConnectionSup}]}
+                             ], Options0),
+    ssh_connection_handler:start_connection(client, Socket, Opts, NegotiationTimeout).
+
 
 %%--------------------------------------------------------------------
 -spec close(ConnectionRef) -> ok | {error,term()} when

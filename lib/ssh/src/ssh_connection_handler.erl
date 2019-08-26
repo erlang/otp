@@ -126,43 +126,29 @@ stop(ConnectionHandler)->
 		       timeout()
 		      ) -> {ok, connection_ref()} | {error, term()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-start_connection(client = Role, Socket, Options0, Timeout) ->
+start_connection(Role, Socket, Options, Timeout) ->
     try
-        Profile = ?GET_OPT(profile, Options0),
-        {ok, {Address,Port}} = inet:sockname(Socket),
-        {ok, SystemSup} = sshc_sup:start_child(Address, Port, Profile, Options0),
-        {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, client, Address, Port, Profile, Options0),
-        ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
-        Options = ?PUT_INTERNAL_OPT({supervisors, [{system_sup, SystemSup},
-                                                   {subsystem_sup, SubSysSup},
-                                                   {connection_sup, ConnectionSup}]},
-                                    Options0),
-        Pid = start_the_connection_child(self(), Role, Socket, Options),
-	handshake(Pid, erlang:monitor(process,Pid), Timeout)
-    catch
-	exit:{noproc, _} ->
-	    {error, ssh_not_started};
-	_:Error ->
-	    {error, Error}
-    end;
-
-start_connection(server = Role, Socket, Options, Timeout) ->
-    try
-	case ?GET_OPT(parallel_login, Options) of
-	    true ->
-		HandshakerPid =
-		    spawn_link(fun() ->
-				       receive
-					   {do_handshake, Pid} ->
-					       handshake(Pid, erlang:monitor(process,Pid), Timeout)
-				       end
-			       end),
-		ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
-		HandshakerPid ! {do_handshake, ChildPid};
-	    false ->
-		ChildPid = start_the_connection_child(self(), Role, Socket, Options),
-		handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
-	end
+        case Role of
+            client ->
+                ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+                handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout);
+            server ->
+                case ?GET_OPT(parallel_login, Options) of
+                    true ->
+                        HandshakerPid =
+                            spawn_link(fun() ->
+                                               receive
+                                                   {do_handshake, Pid} ->
+                                                       handshake(Pid, erlang:monitor(process,Pid), Timeout)
+                                               end
+                                       end),
+                        ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
+                        HandshakerPid ! {do_handshake, ChildPid};
+                    false ->
+                        ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+                        handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
+                end
+        end
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
@@ -1669,8 +1655,9 @@ start_the_connection_child(UserPid, Role, Socket, Options0) ->
     Sups = ?GET_INTERNAL_OPT(supervisors, Options0),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
     Options = ?PUT_INTERNAL_OPT({user_pid,UserPid}, Options0),
-    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Options]),
-    ok = socket_control(Socket, Pid, Options),
+    InitArgs = [Role, Socket, Options],
+    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, InitArgs),
+    ok = socket_control(Socket, Pid, Options), % transfer the Socket ownership in a controlled way.
     Pid.
 
 %%--------------------------------------------------------------------
