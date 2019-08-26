@@ -116,18 +116,18 @@ sshc_subtree(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
-    ?wait_match([{_, _,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
 
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}, 
-		 {_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]},
+                 {_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
 
     ssh:close(Pid1),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
     ?wait_match([], supervisor:which_children(sshc_sup)).
