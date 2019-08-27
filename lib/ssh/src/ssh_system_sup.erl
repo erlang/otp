@@ -32,8 +32,8 @@
 -include("ssh.hrl").
 
 -export([start_link/5, stop_listener/1,
-	 stop_listener/3, stop_system/1,
-	 stop_system/3, system_supervisor/3,
+	 stop_listener/3, stop_system/2,
+	 stop_system/4, system_supervisor/3,
 	 subsystem_supervisor/1, channel_supervisor/1,
 	 connection_supervisor/1,
 	 acceptor_supervisor/1, start_subsystem/6,
@@ -95,11 +95,10 @@ stop_listener(Address, Port, Profile) ->
       system_supervisor(Address, Port, Profile)).
 
 
-stop_system(SysSup) ->
-    catch sshd_sup:stop_child(SysSup),
-    ok.
+stop_system(server, SysSup) -> catch sshd_sup:stop_child(SysSup), ok;
+stop_system(client, SysSup) -> catch sshc_sup:stop_child(SysSup), ok.
 
-stop_system(Address, Port, Profile) ->
+stop_system(server, Address, Port, Profile) ->
     catch sshd_sup:stop_child(Address, Port, Profile),
     ok.
 

@@ -27,10 +27,15 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child/4]).
+-export([start_link/0,
+         start_child/4,
+         stop_child/1
+        ]).
 
 %% Supervisor callback
 -export([init/1]).
+
+-define(SSHC_SUP, ?MODULE).
 
 %%%=========================================================================
 %%%  API
@@ -42,6 +47,11 @@ start_child(Address, Port, Profile, Options) ->
     %% Here we a new connction on a new Host/EFERMERAL Port/Profile
     Spec = child_spec(Address, Port, Profile, Options),
     supervisor:start_child(?MODULE, Spec).
+
+stop_child(ChildId) when is_tuple(ChildId) ->
+    supervisor:terminate_child(?SSHC_SUP, ChildId);
+stop_child(ChildPid) when is_pid(ChildPid)->
+    stop_child(system_name(ChildPid)).
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -66,3 +76,10 @@ child_spec(Address, Port, Profile, Options) ->
 
 id(Address, Port, Profile) ->
     {client, ssh_system_sup, Address, Port, Profile}.
+
+system_name(SysSup) ->
+    case lists:keyfind(SysSup, 2, supervisor:which_children(?SSHC_SUP)) of
+        {Name, SysSup, _, _} -> Name;
+        false -> undefind
+    end.
+

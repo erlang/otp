@@ -388,8 +388,21 @@ alg(ConnectionHandler) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 init_connection_handler(Role, Socket, Opts) ->
     case init([Role, Socket, Opts]) of
-        {ok, StartState, D} ->
+        {ok, StartState, D} when Role == server ->
             process_flag(trap_exit, true),
+            gen_statem:enter_loop(?MODULE,
+                                  [], %%[{debug,[trace,log,statistics,debug]} ], %% []
+                                  StartState,
+                                  D);
+
+        {ok, StartState, D0=#data{connection_state=C}} when Role == client ->
+            process_flag(trap_exit, true),
+            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+            D = D0#data{connection_state = 
+                            C#connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
+                                         sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                                         connection_supervisor = proplists:get_value(connection_sup, Sups)
+                                        }},
             gen_statem:enter_loop(?MODULE,
                                   [], %%[{debug,[trace,log,statistics,debug]} ], %% []
                                   StartState,
@@ -1686,10 +1699,29 @@ start_the_connection_child(UserPid, Role, Socket, Options0) ->
 %%--------------------------------------------------------------------
 %% Stopping
 
-stop_subsystem(#data{connection_state =
+stop_subsystem(#data{ssh_params = 
+                         #ssh{role = Role},
+                     connection_state =
                          #connection{system_supervisor = SysSup,
-                                     sub_system_supervisor = SubSysSup}}) when is_pid(SubSysSup) ->
-    ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
+                                     sub_system_supervisor = SubSysSup}
+                    }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
+    process_flag(trap_exit, false),
+    C = self(),
+    spawn(fun() ->
+                  Mref = erlang:monitor(process, C),
+                  receive
+                      {'DOWN', Mref, process, C, _Info} -> ok
+                  after
+                      10000 -> ok
+                  end,
+                  ssh_system_sup:stop_subsystem(SysSup, SubSysSup),
+                  case Role of
+                      client ->
+                          ssh_system_sup:stop_system(Role, SysSup);
+                      _ ->
+                          ok
+                  end
+          end);
 stop_subsystem(_) ->
     ok.
 
@@ -1781,6 +1813,8 @@ call(FsmPid, Event, Timeout) ->
 	exit:{normal, _R} ->
 	    {error, closed};
 	exit:{{shutdown, _R},_} ->
+	    {error, closed};
+	exit:{shutdown, _R} ->
 	    {error, closed}
     end.
 

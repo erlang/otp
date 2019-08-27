@@ -395,7 +395,7 @@ stop_listener(Address, Port, Profile) ->
 -spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
 
 stop_daemon(SysSup) ->
-    ssh_system_sup:stop_system(SysSup).
+    ssh_system_sup:stop_system(server, SysSup).
 
 
 -spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
@@ -408,11 +408,11 @@ stop_daemon(Address, Port) ->
 
 stop_daemon(any, Port, Profile) ->
     map_ip(fun(IP) ->
-                   ssh_system_sup:stop_system(IP, Port, Profile) 
+                   ssh_system_sup:stop_system(server, IP, Port, Profile) 
            end, [{0,0,0,0},{0,0,0,0,0,0,0,0}]);
 stop_daemon(Address, Port, Profile) ->
     map_ip(fun(IP) ->
-                   ssh_system_sup:stop_system(IP, Port, Profile) 
+                   ssh_system_sup:stop_system(server, IP, Port, Profile) 
            end, {address,Address}).
 
 %%--------------------------------------------------------------------
