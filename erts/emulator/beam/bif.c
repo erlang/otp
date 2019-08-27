@@ -4982,7 +4982,17 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
     ep->trampoline.op = BeamOpCodeAddr(op_apply_bif);
-    ep->trampoline.bif.func = (BeamInstr) bif;
+    ep->trampoline.raw[1] = (BeamInstr)bif;
+}
+
+/*
+ * Writes a BIF call wrapper to the given address.
+ */
+void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
+    BifEntry *entry = &bif_table[export->bif_table_index];
+
+    address[0] = BeamOpCodeAddr(op_apply_bif);
+    address[1] = (BeamInstr)entry->f;
 }
 
 void erts_init_bif(void)
@@ -5073,7 +5083,7 @@ static BIF_RETTYPE dirty_bif_trap(BIF_ALIST)
      * correct by call to dirty_bif_trap()...
      */
 
-    ASSERT(BIF_P->arity == nep->exp.info.mfa.arity);
+    ASSERT(BIF_P->arity == nep->trampoline.info.mfa.arity);
 
     erts_nif_export_restore(BIF_P, nep, THE_NON_VALUE);
 
@@ -5129,6 +5139,7 @@ erts_schedule_bif(Process *proc,
     if (!ERTS_PROC_IS_EXITING(c_p)) {
 	Export *exp;
 	BifFunction dbif, ibif;
+        BeamInstr call_instr;
 	BeamInstr *pc;
 
 	/*
@@ -5163,27 +5174,40 @@ erts_schedule_bif(Process *proc,
 	if (i == NULL) {
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
 	}
+
+        if (BeamIsOpCode(*i, op_i_generic_breakpoint)) {
+            ErtsCodeInfo *ci;
+            GenericBp *bp;
+    
+            ci = erts_code_to_codeinfo(i);
+            bp = ci->u.gen_bp;
+
+            call_instr = bp->orig_instr;
+        } else {
+            call_instr = *i;
+        }
+
 #ifdef HIPE
-	else if (proc->flags & F_HIPE_MODE) {
+	if (proc->flags & F_HIPE_MODE) {
 	    /* Pointer to bif export in i */
 	    exp = (Export *) i;
             pc = cp_val(c_p->stop[0]);
 	    mfa = &exp->info.mfa;
-	}
+	} else /* !! This is part of the if clause below !! */
 #endif
-	else if (BeamIsOpCode(*i, op_call_bif_e)) {
-	    /* Pointer to bif export in i+1 */
-	    exp = (Export *) i[1];
+	if (BeamIsOpCode(call_instr, op_call_light_bif_be)) {
+	    /* Pointer to bif export in i+2 */
+	    exp = (Export *) i[2];
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (BeamIsOpCode(*i, op_call_bif_only_e)) {
-	    /* Pointer to bif export in i+1 */
-	    exp = (Export *) i[1];
+	else if (BeamIsOpCode(call_instr, op_call_light_bif_only_be)) {
+	    /* Pointer to bif export in i+2 */
+	    exp = (Export *) i[2];
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (BeamIsOpCode(*i, op_apply_bif)) {
+	else if (BeamIsOpCode(call_instr, op_apply_bif)) {
             pc = cp_val(c_p->stop[0]);
 	    mfa = erts_code_to_codemfa(i);
 	}

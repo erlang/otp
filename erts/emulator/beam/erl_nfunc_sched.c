@@ -33,22 +33,16 @@
 NifExport *
 erts_new_proc_nif_export(Process *c_p, int argc)
 {
-    size_t size;
-    int i;
     NifExport *nep, *old_nep;
+    size_t size;
 
     size = sizeof(NifExport) + (argc-1)*sizeof(Eterm);
     nep = erts_alloc(ERTS_ALC_T_NIF_TRAP_EXPORT, size);
 
-    for (i = 0; i < ERTS_NUM_CODE_IX; i++)
-	nep->exp.addressv[i] = &nep->exp.trampoline.raw[0];
-
     nep->argc = -1; /* unused marker */
     nep->argv_size = argc;
-    nep->trace = NULL;
     old_nep = ERTS_PROC_SET_NIF_TRAP_EXPORT(c_p, nep);
     if (old_nep) {
-	ASSERT(!nep->trace);
 	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, old_nep);
     }
     return nep;
@@ -63,39 +57,6 @@ erts_destroy_nif_export(Process *p)
 	    erts_nif_export_cleanup_nif_mod(nep);
 	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, nep);
     }
-}
-
-void
-erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
-			   Export* ep, Uint32 flags,
-			   Uint32 flags_meta, BeamInstr* I,
-			   ErtsTracer meta_tracer)
-{
-    NifExportTrace *netp;
-    ASSERT(nep && nep->argc >= 0);
-    ASSERT(!nep->trace);
-    netp = erts_alloc(ERTS_ALC_T_NIF_EXP_TRACE,
-		      sizeof(NifExportTrace));
-    netp->applying = applying;
-    netp->ep = ep;
-    netp->flags = flags;
-    netp->flags_meta = flags_meta;
-    netp->I = I;
-    netp->meta_tracer = NIL;
-    erts_tracer_update(&netp->meta_tracer, meta_tracer);
-    nep->trace = netp;
-}
-
-void
-erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep)
-{
-    NifExportTrace *netp = nep->trace;
-    nep->trace = NULL;
-    erts_bif_trace_epilogue(c_p, result, netp->applying, netp->ep,
-			    netp->flags, netp->flags_meta,
-			    netp->I, netp->meta_tracer);
-    erts_tracer_update(&netp->meta_tracer, NIL);
-    erts_free(ERTS_ALC_T_NIF_EXP_TRACE, netp);
 }
 
 NifExport *
@@ -165,14 +126,14 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
 	    reg[i] = argv[i];
     }
     ASSERT(is_atom(mod) && is_atom(func));
-    nep->exp.info.mfa.module = mod;
-    nep->exp.info.mfa.function = func;
-    nep->exp.info.mfa.arity = (Uint) argc;
-    nep->exp.trampoline.op = (BeamInstr) instr; /* call_nif || apply_bif */
-    nep->exp.trampoline.raw[1] = (BeamInstr) dfunc;
+    nep->trampoline.info.mfa.module = mod;
+    nep->trampoline.info.mfa.function = func;
+    nep->trampoline.info.mfa.arity = (Uint) argc;
+    nep->trampoline.call_op = (BeamInstr) instr; /* call_nif || apply_bif */
+    nep->trampoline.dfunc = (BeamInstr) dfunc;
     nep->func = ifunc;
     used_proc->arity = argc;
     used_proc->freason = TRAP;
-    used_proc->i = (BeamInstr*) nep->exp.addressv[0];
+    used_proc->i = (BeamInstr*)&nep->trampoline.call_op;
     return nep;
 }

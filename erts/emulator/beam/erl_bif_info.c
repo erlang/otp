@@ -158,8 +158,9 @@ static Eterm os_version_tuple;
 static Eterm
 current_function(Process* p, ErtsHeapFactory *hfact, Process* rp,
                  int full_info, Uint reserve_size, int flags);
-static Eterm current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
-                                Uint reserve_size);
+static Eterm
+current_stacktrace(Process* p, ErtsHeapFactory *hfact, Process* rp,
+                   Uint reserve_size, int flags);
 
 Eterm
 erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
@@ -1383,7 +1384,7 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_CURRENT_STACKTRACE:
-	res = current_stacktrace(hfact, rp, reserve_size);
+	res = current_stacktrace(c_p, hfact, rp, reserve_size, flags);
 	break;
 
     case ERTS_PI_IX_INITIAL_CALL:
@@ -2021,21 +2022,44 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
     }
 
     if (c_p == rp && !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) {
-	FunctionInfo fi2;
-        BeamInstr* continuation_ptr;
+        BeamInstr* return_address;
+        FunctionInfo caller_fi;
+        Eterm *ptr;
 
-	/*
-	 * The current function is erlang:process_info/{1,2},
-	 * which is not the answer that the application want.
-         * We will use the continuation pointer stored at the
-         * top of the stack instead.
-	 */
-        continuation_ptr = (BeamInstr *) rp->stop[0];
-        erts_lookup_function_info(&fi2, continuation_ptr, full_info);
-	if (fi2.mfa) {
-	    fi = fi2;
-	    rp->current = fi2.mfa;
-	}
+        /*
+         * The current function is erlang:process_info/{1,2}, and we've
+         * historically returned the *calling* function in that case. We
+         * therefore use the continuation pointer stored at the top of the
+         * stack instead, which is safe since process_info is a "heavy" BIF
+         * that is only called through its export entry.
+         */
+
+        return_address = NULL;
+        ptr = STACK_TOP(rp);
+        ASSERT(is_CP(*ptr));
+
+        while (ptr < STACK_START(rp)) {
+            BeamInstr *cp = cp_val(*ptr);
+
+            if (*cp == BeamOpCodeAddr(op_return_trace)) {
+                ptr += 3;
+            } else if (*cp == BeamOpCodeAddr(op_i_return_time_trace)) {
+                ptr += 2;
+            } else if (*cp == BeamOpCodeAddr(op_i_return_to_trace)) {
+                ptr += 1;
+            } else {
+                return_address = cp;
+                break;
+            }
+        }
+
+        ASSERT(return_address != NULL);
+
+        erts_lookup_function_info(&caller_fi, return_address, full_info);
+        if (caller_fi.mfa) {
+            fi = caller_fi;
+            rp->current = caller_fi.mfa;
+        }
     }
 
     /*
@@ -2056,8 +2080,8 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
 }
 
 static Eterm
-current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
-                   Uint reserve_size)
+current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
+                   Uint reserve_size, int flags)
 {
     Uint sz;
     struct StackTrace* s;
@@ -2074,9 +2098,14 @@ current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
     sz = offsetof(struct StackTrace, trace) + sizeof(BeamInstr *)*depth;
     s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
     s->depth = 0;
-    if (depth > 0 && rp->i) {
-	s->trace[s->depth++] = rp->i;
-	depth--;
+    s->pc = NULL;
+
+    /* We skip current pc when requesting our own stack trace since it will
+     * inevitably point to process_info/1,2 */
+    if ((p != rp || (flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) &&
+        depth > 0 && rp->i) {
+        s->trace[s->depth++] = rp->i;
+        depth--;
     }
     erts_save_stacktrace(rp, s, depth);
 

@@ -129,6 +129,8 @@ export_alloc(struct export_entry* tmpl_e)
 	obj->info.mfa.module = tmpl->info.mfa.module;
 	obj->info.mfa.function = tmpl->info.mfa.function;
 	obj->info.mfa.arity = tmpl->info.mfa.arity;
+        obj->bif_table_index = -1;
+        obj->is_bif_traced = 0;
 
         memset(&obj->trampoline, 0, sizeof(obj->trampoline));
 
@@ -205,6 +207,8 @@ static struct export_entry* init_template(struct export_templ* templ,
     templ->exp.info.mfa.module = m;
     templ->exp.info.mfa.function = f;
     templ->exp.info.mfa.arity = a;
+    templ->exp.bif_table_index = -1;
+    templ->exp.is_bif_traced = 0;
     return &templ->entry;
 }
 

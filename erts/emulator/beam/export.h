@@ -31,7 +31,13 @@
 
 typedef struct export
 {
-    void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
+    /* Pointer to code for function. */
+    void* addressv[ERTS_NUM_CODE_IX];
+
+    /* Index into bif_table[], or -1 if not a BIF. */
+    int bif_table_index;
+    /* Non-zero if this is a BIF that's traced. */
+    int is_bif_traced;
 
     /* This is a small trampoline function that can be used for lazy code
      * loading, global call tracing, and so on. It's only valid when
@@ -41,11 +47,6 @@ typedef struct export
     ErtsCodeInfo info;
     union {
         BeamInstr op;           /* Union discriminant. */
-
-        struct {
-            BeamInstr op;       /* op_apply_bif */
-            BeamInstr func;     /* A direct pointer to the BIF */
-        } bif;
 
         struct {
             BeamInstr op;       /* op_i_generic_breakpoint */
@@ -85,9 +86,7 @@ typedef struct export
         if((EP)->addressv[CX] == (EP)->trampoline.raw) { \
             /* The entry currently points at the trampoline, so the
              * instructions must be valid. */ \
-            ASSERT(((BeamIsOpCode((EP)->trampoline.op, op_apply_bif)) && \
-                    (EP)->trampoline.bif.func != 0) || \
-                   ((BeamIsOpCode((EP)->trampoline.op, op_i_generic_breakpoint)) && \
+            ASSERT(((BeamIsOpCode((EP)->trampoline.op, op_i_generic_breakpoint)) && \
                     (EP)->trampoline.breakpoint.address != 0) || \
                    ((BeamIsOpCode((EP)->trampoline.op, op_trace_jump_W)) && \
                     (EP)->trampoline.trace.address != 0) || \
@@ -120,10 +119,6 @@ extern erts_mtx_t export_staging_lock;
 #define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
 #include "beam_load.h" /* For em_* extern declarations */ 
-
-#define ExportIsBuiltIn(EntryPtr) \
-    (((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->trampoline.raw) && \
-     (BeamIsOpCode((EntryPtr)->trampoline.op, op_apply_bif)))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

@@ -254,8 +254,7 @@ combo(Config) when is_list(Config) ->
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, [], [local]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, MetaMs, [{meta,MetaTracer}]),
-    %% not implemented
-    %2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_count]),
+    2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_count]),
 
     1 = erlang:trace(Self, true, [{tracer,LocalTracer} | Flags]),
     %%
@@ -284,9 +283,7 @@ combo(Config) when is_list(Config) ->
     {value,{match_spec,[]}}    = lists:keysearch(match_spec, 1, TraceInfoBif),
     {value,{meta, MetaTracer}}  = lists:keysearch(meta, 1, TraceInfoBif),
     {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfoBif),
-    %% not implemented
-    {value,{call_count,false}} = lists:keysearch(call_count, 1, TraceInfoBif),
-    %{value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfoBif),
+    {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfoBif),
     {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfoBif),
 
     %%
@@ -429,6 +426,8 @@ called_function(Config) when is_list(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dead_tracer(Config) when is_list(Config) ->
+    TracedMFAs = dead_tracer_mfas(),
+
     Self = self(),
     FirstTracer = tracer(),
     StartTracing = fun() -> turn_on_tracing(Self) end,
@@ -443,14 +442,14 @@ dead_tracer(Config) when is_list(Config) ->
     erlang:yield(),
 
     %% Collect and check that we only get call_time info for the current process.
-    Info1 = collect_all_info(),
+    Info1 = collect_all_info(TracedMFAs),
     [] = other_than_self(Info1),
     io:format("~p\n", [Info1]),
 
     %% Note that we have not turned off tracing for the current process,
     %% but that the tracer has terminated. No more call_time information should be recorded.
     [1,2,3] = seq(1, 3, fun(I) -> I + 1 end),
-    [] = collect_all_info(),
+    [] = collect_all_info(TracedMFAs),
 
     %% When we start a second tracer process, that tracer process must
     %% not inherit the tracing flags and the dead tracer (even though
@@ -459,7 +458,7 @@ dead_tracer(Config) when is_list(Config) ->
     tell_tracer(SecondTracer, StartTracing),
     Seq20 = lists:seq(1, 20),
     Seq20 = seq(1, 20, fun(I) -> I + 1 end),
-    Info2 = collect_all_info(),
+    Info2 = collect_all_info(TracedMFAs),
     io:format("~p\n", [Info2]),
     [] = other_than_self(Info2),
     SecondTracer ! quit,
@@ -495,9 +494,21 @@ turn_on_tracing(Pid) ->
     _ = now(),
     ok.
 
-collect_all_info() ->
-    collect_all_info([{?MODULE,F,A} || {F,A} <- module_info(functions)] ++
-                     erlang:system_info(snifs)).
+%% We want to trace functions local to this module as well as all BIFs, and for
+%% the latter we need to ensure that their modules are loaded.
+dead_tracer_mfas() ->
+    Modules = [M || {M,_F,_A} <- erlang:system_info(snifs)],
+    Whitelist0 = gb_sets:from_list(Modules),
+    Whitelist = case code:ensure_modules_loaded(Modules) of
+                  {error, Reasons} ->
+                      Blacklist = gb_sets:from_list([M || {M, _} <- Reasons]),
+                      gb_sets:subtract(Whitelist0, Blacklist);
+                  ok ->
+                      Whitelist0
+              end,
+    EligibleSNIFs = [MFA || {M,_F,_A}=MFA <- erlang:system_info(snifs),
+                            gb_sets:is_element(M, Whitelist)],
+    [{?MODULE,F,A} || {F,A} <- module_info(functions)] ++ EligibleSNIFs.
 
 collect_all_info([MFA|T]) ->
     CallTime = erlang:trace_info(MFA, call_time),
@@ -567,21 +578,29 @@ seq_r(Start, Stop, Succ, R) ->
     seq_r(Succ(Start), Stop, Succ, [Start | R]).
 
 % Check call time tracing data and print mismatches
-check_trace_info(Mfa, [{Pid, C,_,_}] = Expect, Time) ->
-    case erlang:trace_info(Mfa, call_time) of
-        % Time tests are somewhat problematic. We want to know if Time (EXPECTED_TIME) and S*1000000 + Us (ACTUAL_TIME)
-        % is the same.
-        % If the ratio EXPECTED_TIME/ACTUAL_TIME is ~ 1 or if EXPECTED_TIME - ACTUAL_TIME is near zero, the test is ok.
-        {call_time,[{Pid,C,S,Us}]} when S >= 0, Us >= 0,  abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR; abs(Time - S*1000000 - Us) < ?US_ERROR ->
+check_trace_info(Mfa, [{Pid, ExpectedC,_,_}] = Expect, Time) ->
+    {call_time,[{Pid,C,S,Us}]} = erlang:trace_info(Mfa, call_time),
+    {Mod, Name, Arity} = Mfa,
+    IsBuiltin = erlang:is_builtin(Mod, Name, Arity),
+    if
+        %% Call count on BIFs may exceed number of calls as they often trap to
+        %% themselves.
+        IsBuiltin, C >= ExpectedC, S >= 0, Us >= 0,
+          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
+          abs(Time - S*1000000 - Us) < ?US_ERROR ->
             ok;
-        {call_time,[{Pid,C,S,Us}]} ->
+        not IsBuiltin, C =:= ExpectedC, S >= 0, Us >= 0,
+          abs(1 - Time/(S*1000000 + Us)) < ?R_ERROR;
+          abs(Time - S*1000000 - Us) < ?US_ERROR ->
+            ok;
+        true ->
             Sum = S*1000000 + Us,
-            io:format("Expected ~p -> {call_time, ~p (Time ~p us)}~n - got ~w s. ~w us. = ~w us. - ~w -> delta ~w (ratio ~.2f, should be 1.0)~n",
-                      [Mfa, Expect, Time, S, Us, Sum, Time, Sum - Time, Time/Sum]),
-            time_error;
-        Other ->
-            io:format("Expected ~p -> {call_time, ~p (Time ~p us)}~n - got ~p~n", [ Mfa, Expect, Time, Other]),
-            time_count_error
+            io:format("Expected ~p -> {call_time, ~p (Time ~p us)}~n - got ~w "
+                      "s. ~w us. = ~w us. - ~w -> delta ~w (ratio ~.2f, "
+                      "should be 1.0)~n",
+                      [Mfa, Expect, Time,
+                       S, Us, Sum, Time, Sum - Time, Time/Sum]),
+            time_error
     end;
 check_trace_info(Mfa, Expect, _) ->
     case erlang:trace_info(Mfa, call_time) of
@@ -670,9 +689,12 @@ loop() ->
         quit ->
             ok;
         {Pid, execute, Fun } when is_function(Fun) ->
+            %% Make sure we always run with the same amount of reductions.
+            erlang:yield(),
             Pid ! {self(), answer, erlang:apply(Fun, [])},
             loop();
         {Pid, execute, {M, F, A}} ->
+            erlang:yield(),
             Pid ! {self(), answer, erlang:apply(M, F, A)},
             loop()
     end.

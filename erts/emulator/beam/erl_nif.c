@@ -2944,7 +2944,7 @@ static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
      * parts (located in code).
      */
 
-    ep = ErtsContainerStruct(proc->current, NifExport, exp.info.mfa);
+    ep = ErtsContainerStruct(proc->current, NifExport, trampoline.info.mfa);
     mod = proc->current->module;
     func = proc->current->function;
     fp = (NativeFunPtr) ep->func;
@@ -2988,7 +2988,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     execution_state(env, &proc, NULL);
 
-    ep = ErtsContainerStruct(proc->current, NifExport, exp.info.mfa);
+    ep = ErtsContainerStruct(proc->current, NifExport, trampoline.info.mfa);
     fp = ep->func;
     ASSERT(ep);
     ASSERT(!env->exception_thrown);
@@ -4117,7 +4117,23 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
     return lib;
 };
 
-BIF_RETTYPE load_nif_2(BIF_ALIST_2)
+/* load_nif/2 is implemented as an instruction as it needs to know where it
+ * was called from, and it's a pain to get that information in a BIF.
+ *
+ * This is a small stub that rejects apply(erlang, load_nif, [Path, Args]). */
+BIF_RETTYPE load_nif_2(BIF_ALIST_2) {
+    if (BIF_P->flags & F_HIPE_MODE) {
+        BIF_RET(load_nif_error(BIF_P, "notsup",
+                               "Calling load_nif from HiPE compiled modules "
+                               "not supported"));
+    }
+    
+    BIF_RET(load_nif_error(BIF_P, "bad_lib",
+                           "load_nif/2 must be explicitly called from the NIF "
+                           "module. It cannot be called through apply/3."));
+}
+
+Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 {
     static const char bad_lib[] = "bad_lib";
     static const char upgrade[] = "upgrade";
@@ -4139,13 +4155,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
-    BeamInstr* caller_cp;
-
-    if (BIF_P->flags & F_HIPE_MODE) {
-	ret = load_nif_error(BIF_P, "notsup", "Calling load_nif from HiPE compiled "
-			     "modules not supported");
-	BIF_RET(ret);
-    }
 
     encoding = erts_get_native_filename_encoding();
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
@@ -4153,30 +4162,19 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         /* since lib_name is used in error messages */
         encoding = ERL_FILENAME_UTF8;
     }
-    lib_name = erts_convert_filename_to_encoding(BIF_ARG_1, NULL, 0,
+    lib_name = erts_convert_filename_to_encoding(filename, NULL, 0,
                                                  ERTS_ALC_T_TMP, 1, 0, encoding,
 						 NULL, 0);
     if (!lib_name) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
-	erts_free(ERTS_ALC_T_TMP, lib_name);
-	ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+        return THE_NON_VALUE;
     }
 
     /* Block system (is this the right place to do it?) */
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
 
     /* Find calling module */
-    ASSERT(BIF_P->current != NULL);
-    ASSERT(BIF_P->current->module == am_erlang
-	   && BIF_P->current->function == am_load_nif 
-	   && BIF_P->current->arity == 2);
-    caller_cp = cp_val(BIF_P->stop[0]);
-    caller = find_function_from_pc(caller_cp);
+    caller = find_function_from_pc(I);
     ASSERT(caller != NULL);
     mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));
@@ -4196,7 +4194,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     this_mi = &module_p->curr;
     prev_mi = &module_p->old;
     if (in_area(caller, module_p->old.code_hdr, module_p->old.code_length)) {
-	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
+	ret = load_nif_error(c_p, "old_code", "Calling load_nif from old "
 			     "module '%T' not allowed", mod_atom);
 	goto error;
     } else if (module_p->on_load) {
@@ -4210,52 +4208,52 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
 
     if (this_mi->nif != NULL) {
-        ret = load_nif_error(BIF_P,"reload","NIF library already loaded"
+        ret = load_nif_error(c_p,"reload","NIF library already loaded"
                              " (reload disallowed since OTP 20).");
     }
     else if (init_func == NULL &&
              (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
-	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
+	    ret = load_nif_error(c_p, "load_failed", "%s: '%s'", slogan, errdesc.str);
 	}
 	else {
-	    ret = load_nif_error(BIF_P, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
+	    ret = load_nif_error(c_p, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
 	}
     }
     else if (init_func == NULL &&
 	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
-	ret  = load_nif_error(BIF_P, bad_lib, "Failed to find library init"
+	ret  = load_nif_error(c_p, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
 	
     }
     else if ((taint ? erts_add_taint(mod_atom) : 0,
 	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
+	ret = load_nif_error(c_p, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major > ERL_NIF_MAJOR_VERSION
              || (entry->major == ERL_NIF_MAJOR_VERSION
                  && entry->minor > ERL_NIF_MINOR_VERSION)) {
         char* fmt = "That '%T' NIF library needs %s or newer. Either try to"
             " recompile the NIF lib or use a newer erts runtime.";
-        ret = load_nif_error(BIF_P, bad_lib, fmt, mod_atom, entry->min_erts);
+        ret = load_nif_error(c_p, bad_lib, fmt, mod_atom, entry->min_erts);
     }
     else if (entry->major < ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
 	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
 	
         char* fmt = "That old NIF library (%d.%d) is not compatible with this "
             "erts runtime (%d.%d). Try recompile the NIF lib.";
-        ret = load_nif_error(BIF_P, bad_lib, fmt, entry->major, entry->minor,
+        ret = load_nif_error(c_p, bad_lib, fmt, entry->major, entry->minor,
                              ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
     }   
     else if (AT_LEAST_VERSION(entry, 2, 1)
 	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
+	ret = load_nif_error(c_p, bad_lib, "Library (%s) not compiled for "
 			     "this vm variant (%s).",
 			     entry->vm_variant, ERL_NIF_VM_VARIANT);
     }
     else if (!erts_is_atom_str((char*)entry->name, mod_atom, 1)) {
-	ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
+	ret = load_nif_error(c_p, bad_lib, "Library module name '%s' does not"
 			     " match calling module '%T'", entry->name, mod_atom);
     }
     else {
@@ -4274,7 +4272,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
 		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
-		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
+		ret = load_nif_error(c_p,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
 	    else if (f->flags) {
@@ -4286,16 +4284,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		 * a load error.
 		 */
 		if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
-		    ret = load_nif_error(BIF_P, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
+		    ret = load_nif_error(c_p, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
 					 f->flags, mod_atom, f->name, f->arity);
 	    }
-	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])
-                     < BEAM_NIF_MIN_FUNC_SZ)
-	    {
-		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
-				     " in module (%T:%s/%u too small)",
-				     mod_atom, f->name, f->arity);
-	    }
+
+            ASSERT(erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])
+                     >= BEAM_NATIVE_MIN_FUNC_SZ);
+
 	    /*erts_fprintf(stderr, "Found NIF %T:%s/%u\r\n",
 	      mod_atom, f->name, f->arity);*/
 	}
@@ -4314,23 +4309,23 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
         void* prev_old_data = prev_mi->nif->priv_data;
         if (entry->upgrade == NULL) {
-            ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
+            ret = load_nif_error(c_p, upgrade, "Upgrade not supported by this NIF library.");
             goto error;
         }
-        erts_pre_nif(&env, BIF_P, lib, NULL);
-        veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, BIF_ARG_2);
+        erts_pre_nif(&env, c_p, lib, NULL);
+        veto = entry->upgrade(&env, &lib->priv_data, &prev_mi->nif->priv_data, args);
         erts_post_nif(&env);
         if (veto) {
             prev_mi->nif->priv_data = prev_old_data;
-            ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
+            ret = load_nif_error(c_p, upgrade, "Library upgrade-call unsuccessful (%d).", veto);
         }
     }
     else if (entry->load != NULL) { /********* Initial load ***********/
-        erts_pre_nif(&env, BIF_P, lib, NULL);
-        veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
+        erts_pre_nif(&env, c_p, lib, NULL);
+        veto = entry->load(&env, &lib->priv_data, args);
         erts_post_nif(&env);
         if (veto) {
-            ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful (%d).", veto);
+            ret = load_nif_error(c_p, "load", "Library load-call unsuccessful (%d).", veto);
         }
     }
     if (ret == am_ok) {
@@ -4384,8 +4379,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
 
     erts_thr_progress_unblock();
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_release_code_write_permission();
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
     BIF_RET(ret);

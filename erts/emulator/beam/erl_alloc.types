@@ -332,7 +332,6 @@ type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 
 type	NIF_TRAP_EXPORT	STANDARD	PROCESSES	nif_trap_export_entry
-type	NIF_EXP_TRACE	FIXED_SIZE	PROCESSES	nif_export_trace
 type	EXPORT		LONG_LIVED	CODE		export_entry
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
 type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend

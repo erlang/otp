@@ -198,7 +198,8 @@ caller_and_return_to(Config) ->
                {trace,Tracee,call,{?MODULE,do_the_put,[test]},{?MODULE,do_put,1}},
                {trace,Tracee,call,{erlang,integer_to_list,[1]},{?MODULE,do_the_put,1}},
                {trace,Tracee,return_to,{?MODULE,do_the_put,1}},
-               {trace,Tracee,call,{erlang,put,[test,"1"]},{?MODULE,do_put,1}},
+               {trace,Tracee,call,{erlang,put,[test,"1"]},{?MODULE,do_the_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_the_put,1}},
                {trace,Tracee,return_to,{?MODULE,do_put,1}},
 
                %% These last trace messages are a bit strange...

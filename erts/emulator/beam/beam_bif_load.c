@@ -847,8 +847,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
                     ep->trampoline.not_loaded.deferred = 0;
             } else {
-                if (ep->addressv[code_ix] == ep->trampoline.raw &&
-                    BeamIsOpCode(ep->trampoline.op, op_apply_bif)) {
+                if (ep->bif_table_index != -1) {
                     continue;
                 }
 
@@ -877,7 +876,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (BeamIsOpCode(ep->trampoline.op, op_apply_bif)) {
+	    if (ep->bif_table_index != -1) {
 		continue;
 	    }
 
@@ -1891,10 +1890,7 @@ delete_code(Module* modp)
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
 	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
-		if (BeamIsOpCode(ep->trampoline.op, op_apply_bif)) {
-		    continue;
-		}
-                else if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+                if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
@@ -1906,6 +1902,12 @@ delete_code(Module* modp)
                            !erts_initialized);
                 }
             }
+
+            if (ep->bif_table_index != -1 && ep->is_bif_traced) {
+                /* Code unloading kills both global and local call tracing. */
+                ep->is_bif_traced = 0;
+            }
+
 	    ep->addressv[code_ix] = ep->trampoline.raw;
 	    ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
 	    ep->trampoline.not_loaded.deferred = 0;

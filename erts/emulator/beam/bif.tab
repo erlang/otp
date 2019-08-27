@@ -25,13 +25,14 @@
 #
 # <bif-decl> ::= "bif" <bif> <C-name>* |
 #                "ubif" <bif> <C-name>* |
-#                "gcbif" <bif> <C-name>*
+#                "hbif" <bif> <C-name>*
 # <bif> ::= <module> ":" <name> "/" <arity>
 #
-# ubif:   Use for operators and guard BIFs that never build anything
-#         on the heap (such as tuple_size/1) and operators.
+# ubif:   Use for operators and guard BIFs.
 #
-# gcbif:  Use for guard BIFs that may build on the heap (such as abs/1).
+# hbif:   Use for BIFs that perform garbage collection or need up-to-date
+#         information on where they were called from. These must be called
+#         through the export entry.
 #
 # bif:    Use for all other BIFs.
 #
@@ -60,7 +61,7 @@ bif erlang:display_string/1
 bif erlang:display_nl/0
 ubif erlang:element/2
 bif erlang:erase/0
-bif erlang:erase/1
+hbif erlang:erase/1
 bif erlang:exit/1
 bif erlang:exit/2
 bif erlang:exit_signal/2
@@ -70,7 +71,7 @@ ubif erlang:float/1
 bif erlang:float_to_list/1
 bif erlang:float_to_list/2
 bif erlang:fun_info/2
-bif erts_internal:garbage_collect/1
+hbif erts_internal:garbage_collect/1
 bif erlang:get/0
 bif erlang:get/1
 bif erlang:get_keys/1
@@ -127,10 +128,10 @@ bif erlang:ports/0
 bif erlang:pre_loaded/0
 bif erlang:process_flag/2
 bif erts_internal:process_flag/3
-bif erlang:process_info/1
-bif erlang:process_info/2
+hbif erlang:process_info/1
+hbif erlang:process_info/2
 bif erlang:processes/0
-bif erlang:put/2
+hbif erlang:put/2
 bif erlang:register/2
 bif erlang:registered/0
 ubif erlang:round/1
@@ -174,7 +175,7 @@ bif erts_internal:port_connect/2
 
 bif erts_internal:request_system_task/3
 bif erts_internal:request_system_task/4
-bif erts_internal:check_process_code/1
+hbif erts_internal:check_process_code/1
 
 bif erts_internal:map_to_tuple_keys/1
 bif erts_internal:term_type/1
@@ -466,7 +467,7 @@ bif code:is_module_native/1
 # New Bifs in R9C.
 #
 
-bif erlang:hibernate/3
+hbif erlang:hibernate/3
 bif error_logger:warning_map/0
 
 #

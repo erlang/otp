@@ -141,7 +141,7 @@ typedef struct {
 				 * eventually patch with a pointer into
 				 * the export entry.
 				 */
-    BifFunction bf;		/* Pointer to BIF function if BIF;
+    Export *bif;		/* Pointer to export entry if BIF;
 				 * NULL otherwise.
 				 */
 } ImportEntry;
@@ -849,9 +849,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
             DBG_CHECK_EXPORT(ep, code_ix);
 
 	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
-		if (BeamIsOpCode(ep->trampoline.op, op_apply_bif)) {
-		    continue;
-                } else if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+		if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 
@@ -1479,15 +1477,14 @@ load_import_table(LoaderState* stp)
 	}
 	stp->import[i].arity = arity;
 	stp->import[i].patches = 0;
-	stp->import[i].bf = NULL;
+	stp->import[i].bif = NULL;
 
 	/*
-	 * If the export entry refers to a BIF, get the pointer to
-	 * the BIF function.
+	 * If the export entry refers to a BIF, save a pointer to the BIF entry.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (BeamIsOpCode(e->trampoline.op, op_apply_bif)) {
-		stp->import[i].bf = (BifFunction) e->trampoline.bif.func;
+	    if (e->bif_table_index != -1) {
+		stp->import[i].bif = e;
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
 		}
@@ -1538,33 +1535,6 @@ read_export_table(LoaderState* stp)
 	    LoadError2(stp, "export table entry %u: label %u not resolved", i, n);
 	}
 	stp->export[i].address = address = stp->codev + value;
-
-	/*
-	 * Find out if there is a BIF with the same name.
-	 */
-
-	if (!is_bif(stp->module, func, arity)) {
-	    continue;
-	}
-
-	/*
-	 * This is a stub for a BIF.
-	 *
-	 * It should not be exported, and the information in its
-	 * func_info instruction should be invalidated so that it
-	 * can be filtered out by module_info(functions) and by
-	 * any other functions that walk through all local functions.
-	 */
-
-	if (stp->labels[n].num_patches > 0) {
-	    LoadError3(stp, "there are local calls to the stub for "
-		       "the BIF %T:%T/%d",
-		       stp->module, func, arity);
-	}
-	stp->export[i].address = NULL;
-	address[-1] = 0;
-	address[-2] = NIL;
-	address[-3] = NIL;
     }
     return 1;
 
@@ -1572,25 +1542,16 @@ read_export_table(LoaderState* stp)
     return 0;
 }
 
-
 static int
 is_bif(Eterm mod, Eterm func, unsigned arity)
 {
-    Export* e = erts_active_export_entry(mod, func, arity);
-    if (e == NULL) {
-	return 0;
+    Export *e = erts_active_export_entry(mod, func, arity);
+
+    if (e != NULL) {
+        return e->bif_table_index != -1;
     }
-    if (! BeamIsOpCode(e->trampoline.op, op_apply_bif)) {
-	return 0;
-    }
-    if (mod == am_erlang && func == am_apply && arity == 3) {
-	/*
-	 * erlang:apply/3 is a special case -- it is implemented
-	 * as an instruction and it is OK to redefine it.
-	 */
-	return 0;
-    }
-    return 1;
+
+    return 0;
 }
 
 static int
@@ -2542,10 +2503,14 @@ load_code(LoaderState* stp)
 		if (i >= stp->num_imports) {
 		    LoadError1(stp, "invalid import table index %d", i);
 		}
-		if (stp->import[i].bf == NULL) {
+		if (stp->import[i].bif == NULL) {
 		    LoadError1(stp, "not a BIF: import table index %d", i);
 		}
-		code[ci++] = (BeamInstr) stp->import[i].bf;
+		{
+		    int bif_index = stp->import[i].bif->bif_table_index;
+		    BifEntry *bif_entry = &bif_table[bif_index];
+		    code[ci++] = (BeamInstr) bif_entry->f;
+		}
 		break;
 	    case 'P':		/* Byte offset into tuple or stack */
 	    case 'Q':		/* Like 'P', but packable */
@@ -2853,18 +2818,43 @@ load_code(LoaderState* stp)
 	switch (stp->specific_op) {
 	case op_i_func_info_IaaI:
 	    {
+                int padding_required;
 		Sint offset;
+
 		if (function_number >= stp->num_functions) {
 		    LoadError1(stp, "too many functions in module (header said %u)",
 			       stp->num_functions); 
 		}
 
-		if (stp->may_load_nif) {
+                /* Native function calls may be larger than their stubs, so
+                 * we'll need to make sure any potentially-native function stub
+                 * is padded with enough room.
+                 *
+                 * Note that the padding is applied for the previous function,
+                 * not the current one, so we check whether the old F/A is
+                 * a BIF. */
+                padding_required = last_func_start && (stp->may_load_nif ||
+                    is_bif(stp->module, stp->function, stp->arity));
+
+		/*
+		 * Save context for error messages.
+		 */
+		stp->function = code[ci-2];
+		stp->arity = code[ci-1];
+
+		/*
+		 * Save current offset of into the line instruction array.
+		 */
+		if (stp->func_line) {
+		    stp->func_line[function_number] = stp->current_li;
+		}
+
+		if (padding_required) {
 		    const int finfo_ix = ci - FUNC_INFO_SZ;
-		    if (finfo_ix - last_func_start < BEAM_NIF_MIN_FUNC_SZ && last_func_start) {
+		    if (finfo_ix - last_func_start < BEAM_NATIVE_MIN_FUNC_SZ) {
 			/* Must make room for call_nif op */
-			int pad = BEAM_NIF_MIN_FUNC_SZ - (finfo_ix - last_func_start);
-			ASSERT(pad > 0 && pad < BEAM_NIF_MIN_FUNC_SZ);
+			int pad = BEAM_NATIVE_MIN_FUNC_SZ - (finfo_ix - last_func_start);
+			ASSERT(pad > 0 && pad < BEAM_NATIVE_MIN_FUNC_SZ);
 			CodeNeed(pad);
 			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix],
 				    FUNC_INFO_SZ*sizeof(BeamInstr));
@@ -2874,20 +2864,6 @@ load_code(LoaderState* stp)
 		    }
 		}
 		last_func_start = ci;
-
-		/*
-		 * Save current offset of into the line instruction array.
-		 */
-
-		if (stp->func_line) {
-		    stp->func_line[function_number] = stp->current_li;
-		}
-
-		/*
-		 * Save context for error messages.
-		 */
-		stp->function = code[ci-2];
-		stp->arity = code[ci-1];
 
                 /* When this assert is triggered, it is normally a sign that
                    the size of the ops.tab i_func_info instruction is not
@@ -2918,7 +2894,6 @@ load_code(LoaderState* stp)
 	case op_i_bs_match_string_yfWW:
 	    new_string_patch(stp, ci-1);
 	    break;
-
 	case op_catch_yf:
 	    /* code[ci-3]	&&lb_catch_yf
 	     * code[ci-2]	y-register offset in E
@@ -3190,6 +3165,26 @@ is_killed_by_make_fun(LoaderState* stp, GenOpArg Reg, GenOpArg idx)
         num_free = stp->lambdas[idx.val].num_free;
         return Reg.type == TAG_x && num_free <= Reg.val;
     }
+}
+
+/* Test whether Bif is "heavy" and should always go through its export entry */
+static int
+is_heavy_bif(LoaderState* stp, GenOpArg Bif)
+{
+    Export *bif_export;
+
+    if (Bif.type != TAG_u || Bif.val >= stp->num_imports) {
+        return 0;
+    }
+
+    bif_export = stp->import[Bif.val].bif;
+
+    if (bif_export) {
+        int bif_index = bif_export->bif_table_index;
+        return bif_table[bif_index].kind == BIF_KIND_HEAVY;
+    }
+
+    return 0;
 }
 
 /*
@@ -5219,25 +5214,28 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
      */
 
     for (i = 0; i < stp->num_exps; i++) {
-	Export* ep;
-	BeamInstr* address = stp->export[i].address;
+        Export* ep;
+        BeamInstr* address = stp->export[i].address;
 
-	if (address == NULL) {
-	    /* Skip stub for a BIF */
-	    continue;
-	}
-	ep = erts_export_put(stp->module, stp->export[i].function,
-			     stp->export[i].arity);
-	if (on_load) {
-	    /*
-	     * on_load: Don't make any of the exported functions
-	     * callable yet. Keep any function in the current
-	     * code callable.
-	     */
+        ep = erts_export_put(stp->module,
+                             stp->export[i].function,
+                             stp->export[i].arity);
+
+        /* Fill in BIF stubs with a proper call to said BIF. */
+        if (ep->bif_table_index != -1) {
+            erts_write_bif_wrapper(ep, address);
+        }
+
+        if (on_load) {
+            /*
+             * on_load: Don't make any of the exported functions
+             * callable yet. Keep any function in the current
+             * code callable.
+             */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
-	}
-        else
+        } else {
             ep->addressv[erts_staging_code_ix()] = address;
+        }
     }
 
     /*
@@ -5411,15 +5409,14 @@ transform_engine(LoaderState* st)
 
 		i = instr->a[ap].val;
 		ASSERT(i < st->num_imports);
-		if (i >= st->num_imports || st->import[i].bf == NULL)
+		if (i >= st->num_imports || st->import[i].bif == NULL)
 		    goto restart;
 		if (bif_number != -1 &&
-		    bif_export[bif_number]->trampoline.bif.func != (BeamInstr) st->import[i].bf) {
+		    bif_export[bif_number] != st->import[i].bif) {
 		    goto restart;
 		}
 	    }
 	    break;
-
 #endif
 #if defined(TOP_is_not_bif)
 	case TOP_is_not_bif:
@@ -5449,7 +5446,7 @@ transform_engine(LoaderState* st)
 		 * they are special.
 		 */
 		if (i < st->num_imports) {
-		    if (st->import[i].bf != NULL ||
+		    if (st->import[i].bif != NULL ||
 			(st->import[i].module == am_erlang &&
 			 st->import[i].function == am_apply &&
 			 (st->import[i].arity == 2 || st->import[i].arity == 3))) {

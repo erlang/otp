@@ -111,10 +111,9 @@ do {                                     \
 
 #define CHECK_ALIGNED(Dst) ASSERT((((Uint)&Dst) & (sizeof(Uint)-1)) == 0)
 
-#define GET_BIF_MODULE(p)  ((p)->info.mfa.module)
-#define GET_BIF_FUNCTION(p)  ((p)->info.mfa.function)
-#define GET_BIF_ARITY(p)  ((p)->info.mfa.arity)
-#define GET_BIF_ADDRESS(p) ((BifFunction)((p)->trampoline.bif.func))
+#define GET_EXPORT_MODULE(p)  ((p)->info.mfa.module)
+#define GET_EXPORT_FUNCTION(p)  ((p)->info.mfa.function)
+#define GET_EXPORT_ARITY(p)  ((p)->info.mfa.arity)
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
@@ -296,6 +295,7 @@ do {						\
  */
 static void init_emulator_finish(void) ERTS_NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
+static BeamInstr *printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
@@ -888,15 +888,52 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 }
 
 /*
+ * Enter all BIFs into the export table.
+ *
+ * Note that they will all call the error_handler until their modules have been
+ * loaded, which may prevent the system from booting if BIFs from non-preloaded
+ * modules are apply/3'd while loading code. Ordinary BIF calls will work fine
+ * however since they won't go through export entries.
+ */
+static void install_bifs(void) {
+    int i;
+
+    for (i = 0; i < BIF_SIZE; i++) {
+        BifEntry *entry;
+        Export *ep;
+        int j;
+
+        entry = &bif_table[i];
+
+        ep = erts_export_put(entry->module, entry->name, entry->arity);
+
+        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.mfa.module = entry->module;
+        ep->info.mfa.function = entry->name;
+        ep->info.mfa.arity = entry->arity;
+        ep->bif_table_index = i;
+
+        memset(&ep->trampoline, 0, sizeof(ep->trampoline));
+        ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+
+        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
+            ep->addressv[j] = ep->trampoline.raw;
+        }
+
+        bif_export[i] = ep;
+    }
+}
+
+/*
  * One-time initialization of emulator. Does not need to be
  * in process_main().
  */
 static void
 init_emulator_finish(void)
 {
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
     int i;
 
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
     for (i = 0; i < NUMBER_OF_OPCODES; i++) {
         BeamInstr instr = BeamOpCodeAddr(i);
         if (instr >= (1ull << 32)) {
@@ -917,24 +954,7 @@ init_emulator_finish(void)
     beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
     beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
 
-    /*
-     * Enter all BIFs into the export table.
-     */
-    for (i = 0; i < BIF_SIZE; i++) {
-        Export *ep = erts_export_put(bif_table[i].module,
-                                     bif_table[i].name,
-                                     bif_table[i].arity);
-
-        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
-        ep->info.mfa.module = bif_table[i].module;
-        ep->info.mfa.function = bif_table[i].name;
-        ep->info.mfa.arity = bif_table[i].arity;
-
-        ep->trampoline.op = BeamOpCodeAddr(op_apply_bif);
-        ep->trampoline.bif.func = (BeamInstr) bif_table[i].f;
-
-        bif_export[i] = ep;
-    }
+    install_bifs();
 }
 
 /*
@@ -1234,6 +1254,33 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_badkey,		/* 19 */
 };
 
+/* Returns the return address at E[0] in printable form, skipping tracing in
+ * the same manner as gather_stacktrace.
+ *
+ * This is needed to generate correct stacktraces when throwing errors from
+ * instructions that return like an ordinary function, such as call_nif. */
+static BeamInstr *printable_return_address(Process* p, Eterm *E) {
+    Eterm *ptr = E;
+
+    ASSERT(is_CP(*ptr));
+
+    while (ptr < STACK_START(p)) {
+        BeamInstr *cp = cp_val(*ptr);
+
+        if (cp == beam_exception_trace || cp == beam_return_trace) {
+            ptr += 3;
+        } else if (cp == beam_return_time_trace) {
+            ptr += 2;
+        } else if (cp == beam_return_to_trace) {
+            ptr += 1;
+        } else {
+            return cp;
+        }
+    }
+
+    ERTS_ASSERT(!"No continuation pointer on stack");
+}
+
 /*
  * To fully understand the error handling, one must keep in mind that
  * when an exception is thrown, the search for a handler can jump back
@@ -1527,19 +1574,24 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
 
 
 static void
-gather_stacktrace(Process* p, Eterm *ptr, struct StackTrace* s, int depth)
+gather_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    BeamInstr *prev;
-    BeamInstr i_return_trace;
+    BeamInstr i_return_time_trace;
     BeamInstr i_return_to_trace;
+    BeamInstr i_return_trace;
+    BeamInstr *prev;
+    Eterm *ptr;
 
     if (depth == 0) {
         return;
     }
 
-    prev = s->depth ? s->trace[s->depth-1] : s->pc;
-    i_return_trace = beam_return_trace[0];
+    i_return_time_trace = beam_return_time_trace[0];
     i_return_to_trace = beam_return_to_trace[0];
+    i_return_trace = beam_return_trace[0];
+
+    prev = s->depth ? s->trace[s->depth-1] : s->pc;
+    ptr = p->stop;
 
     /*
      * Traverse the stack backwards and add all unique continuation
@@ -1552,16 +1604,15 @@ gather_stacktrace(Process* p, Eterm *ptr, struct StackTrace* s, int depth)
 
     while (ptr < STACK_START(p) && depth > 0) {
         if (is_CP(*ptr)) {
-            if (*cp_val(*ptr) == i_return_trace) {
-                /* Skip stack frame variables */
-                do ++ptr; while (is_not_CP(*ptr));
-                /* Skip return_trace parameters */
+            BeamInstr *cp = cp_val(*ptr);
+
+            if (*cp == i_return_time_trace) {
                 ptr += 2;
-            } else if (*cp_val(*ptr) == i_return_to_trace) {
-                /* Skip stack frame variables */
-                do ++ptr; while (is_not_CP(*ptr));
+            } else if (*cp == i_return_to_trace) {
+                ptr += 1;
+            } else if (*cp == i_return_trace) {
+                ptr += 3;
             } else {
-                BeamInstr *cp = cp_val(*ptr);
                 if (cp != prev) {
                     /* Record non-duplicates only */
                     prev = cp;
@@ -1614,7 +1665,6 @@ static void
 save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 		ErtsCodeMFA *bif_mfa, Eterm args) {
     struct StackTrace* s;
-    Eterm *stack_start;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
 
@@ -1631,33 +1681,6 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     s->header = make_pos_bignum_header(sz);
     s->freason = c_p->freason;
     s->depth = 0;
-
-    /*
-     * If we crash on an instruction that returns to a return/exception trace
-     * instruction, we must set the stacktrace 'pc' to the actual return
-     * address or we'll lose the top stackframe when gathering the stack
-     * trace.
-     */
-    stack_start = STACK_TOP(c_p);
-    if (stack_start < STACK_START(c_p) && is_CP(*stack_start)) {
-        BeamInstr *cp = cp_val(*stack_start);
-
-        if (cp == pc) {
-            if (pc == beam_exception_trace || pc == beam_return_trace) {
-                ASSERT(&stack_start[3] <= STACK_START(c_p));
-                /* Fake having failed on the first instruction in the function
-                 * pointed to by the tag. */
-                pc = cp_val(stack_start[1]);
-                stack_start += 3;
-            } else if (pc == beam_return_to_trace) {
-                ASSERT(&stack_start[2] <= STACK_START(c_p));
-                pc = cp_val(stack_start[1]);
-                /* Skip both the trace tag and the new 'pc' to avoid
-                 * duplicated entries. */
-                stack_start += 2;
-            }
-        }
-    }
 
     /*
      * If the failure was in a BIF other than 'error/1', 'error/2',
@@ -1721,13 +1744,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     }
 
     /* Save the actual stack trace */
-    gather_stacktrace(c_p, stack_start, s, depth);
+    gather_stacktrace(c_p, s, depth);
 }
 
 void
 erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    gather_stacktrace(p, STACK_TOP(p), s, depth);
+    gather_stacktrace(p, s, depth);
 }
 
 /*
@@ -1986,83 +2009,66 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 			   Eterm *reg, Uint arity,
 			   BeamInstr *I, Uint stack_offset)
 {
+    int apply_only;
+    Uint need;
+
+    need = stack_offset /* bytes */ / sizeof(Eterm);
+    apply_only = stack_offset == 0;
+
     /*
      * I is only set when the apply is a tail call, i.e.,
      * from the instructions i_apply_only, i_apply_last_P,
      * and apply_last_IP.
      */
-    if (I
-	&& BeamIsOpCode(ep->trampoline.op, op_apply_bif)
-        && (ep == bif_export[BIF_error_1]
-	    || ep == bif_export[BIF_error_2]
-	    || ep == bif_export[BIF_exit_1]
-	    || ep == bif_export[BIF_throw_1])) {
-	/*
-	 * We are about to tail apply one of the BIFs
-	 * erlang:error/1, erlang:error/2, erlang:exit/1,
-	 * or erlang:throw/1. Error handling of these BIFs is
-	 * special!
-         *
-	 * We need the topmost continuation pointer to point into the
-	 * calling function when handling the error after the BIF has
-	 * been applied. This in order to get the topmost stackframe
-	 * correct.
-	 *
-	 * Note that these BIFs will unconditionally cause an
-	 * exception to be raised. That is, our modifications of the
-	 * stack will be corrected by the error handling code.
-	 */
-	int apply_only = stack_offset == 0;
-	BeamInstr *cpp;
-        Eterm *E;
+    if (!(I && (ep == bif_export[BIF_error_1] ||
+                ep == bif_export[BIF_error_2] ||
+                ep == bif_export[BIF_exit_1] ||
+                ep == bif_export[BIF_throw_1]))) {
+        return;
+    }
 
-        E = p->stop;
+    /*
+     * We are about to tail apply one of the BIFs erlang:error/1,
+     * erlang:error/2, erlang:exit/1, or erlang:throw/1. Error handling of
+     * these BIFs is special!
+     *
+     * We need the topmost continuation pointer to point into the calling
+     * function when handling the error after the BIF has been applied. This in
+     * order to get the topmost stackframe correct.
+     *
+     * Note that these BIFs will unconditionally cause an exception to be
+     * raised. That is, our modifications of the stack will be corrected by the
+     * error handling code.
+     */
+    if (need == 0) {
+        need = 1; /* i_apply_only */
+    }
 
-        while (is_not_CP(*E)) {
-            E++;
-        }
-        cpp = cp_val(E[0]);
+    if (p->stop - p->htop < need) {
+        erts_garbage_collect(p, (int) need, reg, arity+1);
+    }
 
+    if (apply_only) {
         /*
-	 * If we find an exception/return-to trace continuation
-	 * pointer as the topmost continuation pointer, we do not
-	 * need to do anything since the information will already
-	 * be available for generation of the stacktrace.
+         * Called from the i_apply_only instruction.
+         *
+         * Push the continuation pointer for the current function to the stack.
          */
-
-	if (cpp != beam_exception_trace
-	    && cpp != beam_return_trace
-	    && cpp != beam_return_to_trace) {
-	    Uint need = stack_offset /* bytes */ / sizeof(Eterm);
-	    if (need == 0)
-		need = 1; /* i_apply_only */
-	    if (p->stop - p->htop < need)
-		erts_garbage_collect(p, (int) need, reg, arity+1);
-	    if (apply_only) {
-		/*
-		 * Called from the i_apply_only instruction.
-		 *
-                 * Push the continuation pointer for the current
-                 * function to the stack.
-		 */
-                p->stop -= need;
-                p->stop[0] = make_cp(I);
-	    } else {
-		/*
-		 * Called from an i_apply_last_* instruction.
-		 *
-                 * The calling instruction will deallocate a stack
-                 * frame of size 'stack_offset'.
-		 *
-                 * Push the continuation pointer for the current
-                 * function to the stack, and then add a dummy
-                 * stackframe for the i_apply_last* instruction
-                 * to discard.
-		 */
-                p->stop[0] = make_cp(I);
-                p->stop -= need;
-	    }
-	}
+        p->stop -= need;
+        p->stop[0] = make_cp(I);
+    } else {
+        /*
+         * Called from an i_apply_last_* instruction.
+         *
+         * The calling instruction will deallocate a stack frame of size
+         * 'stack_offset'.
+         *
+         * Push the continuation pointer for the current function to the stack,
+         * and then add a dummy stackframe for the i_apply_last* instruction
+         * to discard.
+         */
+        p->stop[0] = make_cp(I);
+        p->stop -= need;
     }
 }
 
@@ -3117,8 +3123,7 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
         return 0;
     }
 
-    return ep->addressv[erts_active_code_ix()] == ep->trampoline.raw &&
-        BeamIsOpCode(ep->trampoline.op, op_apply_bif);
+    return ep->bif_table_index != -1;
 }
 
 

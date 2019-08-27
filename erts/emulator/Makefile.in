@@ -599,7 +599,6 @@ endif
 
 $(TTF_DIR)/erl_bif_table.c \
 $(TTF_DIR)/erl_bif_table.h \
-$(TTF_DIR)/erl_bif_wrap.c \
 $(TTF_DIR)/erl_bif_list.h \
 $(TTF_DIR)/erl_atom_table.c \
 $(TTF_DIR)/erl_atom_table.h \
@@ -885,7 +884,6 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_bif_persistent.o \
 	$(OBJDIR)/erl_bif_atomics.o    	$(OBJDIR)/erl_bif_counters.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
-	$(OBJDIR)/erl_bif_wrap.o	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
@@ -920,7 +918,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
 	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o \
-	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o
+	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o \
+	$(OBJDIR)/erl_nfunc_sched.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
