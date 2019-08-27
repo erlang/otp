@@ -66,11 +66,25 @@ deallocate(Deallocate) {
     E = ADD_BYTE_OFFSET(E, $Deallocate);
 }
 
+//
+// Micro-benchmarks showed that the deallocate_return instruction
+// became slower when the continuation pointer was moved from
+// the process struct to the stack. The reason seems to be read
+// dependencies, i.e. that the CPU cannot figure out beforehand
+// from which position on the stack the continuation pointer
+// should be fetched.
+//
+// Initializing num_bytes with a constant value seems to restore
+// the lost speed, so we've specialized the instruction for the
+// most common values.
+//
+
 deallocate_return0 := dealloc_ret.n0.execute;
 deallocate_return1 := dealloc_ret.n1.execute;
 deallocate_return2 := dealloc_ret.n2.execute;
 deallocate_return3 := dealloc_ret.n3.execute;
 deallocate_return4 := dealloc_ret.n4.execute;
+deallocate_return := dealloc_ret.var.execute;
 
 dealloc_ret.head() {
     Uint num_bytes;
@@ -96,31 +110,14 @@ dealloc_ret.n4() {
     num_bytes = (4+1) * sizeof(Eterm);
 }
 
+dealloc_ret.var(Deallocate) {
+    num_bytes = $Deallocate;
+}
+
 dealloc_ret.execute() {
     //| -no_next
 
-    /*
-     * Micro-benchmarks showed that the deallocate_return instruction
-     * became slower when the continuation pointer was moved from
-     * the process struct to the stack. The reason seems to be read
-     * dependencies, i.e. that the CPU cannot figure out beforehand
-     * from which position on the stack the continuation pointer
-     * should be fetched.
-     *
-     * Making sure that num_bytes is always initialized with a
-     * constant value seems to restore the lost speed.
-     */
-
     E = ADD_BYTE_OFFSET(E, num_bytes);
-    $RETURN();
-    CHECK_TERM(x(0));
-    DispatchReturn;
-}
-
-deallocate_return(Deallocate) {
-    //| -no_next
-    Uint bytes_to_pop = $Deallocate;
-    E = ADD_BYTE_OFFSET(E, bytes_to_pop);
     $RETURN();
     CHECK_TERM(x(0));
     DispatchReturn;
