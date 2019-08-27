@@ -208,7 +208,7 @@ erts_proc_shadow2real(Process *c_p)
 #define ERTS_I_BEAM_OP_TO_NIF_EXPORT(I)					\
     (ASSERT(BeamIsOpCode(*(I), op_apply_bif) ||                         \
             BeamIsOpCode(*(I), op_call_nif)),                           \
-     ((NifExport *) (((char *) (I)) - offsetof(NifExport, exp.beam[0]))))
+     ((NifExport *) (((char *) (I)) - offsetof(NifExport, exp.trampoline.raw[0]))))
 
 
 #include "erl_message.h"

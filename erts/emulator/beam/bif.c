@@ -4971,15 +4971,18 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
 {
     int i;
+
     sys_memset((void *) ep, 0, sizeof(Export));
+
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->addressv[i] = ep->beam;
+        ep->addressv[i] = ep->trampoline.raw;
     }
+
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
-    ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
-    ep->beam[1] = (BeamInstr) bif;
+    ep->trampoline.op = BeamOpCodeAddr(op_apply_bif);
+    ep->trampoline.bif.func = (BeamInstr) bif;
 }
 
 void erts_init_bif(void)

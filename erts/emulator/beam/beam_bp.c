@@ -263,7 +263,7 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ASSERT(0);
         }
 
-	pc = ep->beam;
+	pc = ep->trampoline.raw;
 	if (ep->addressv[code_ix] == pc) {
 	    if (BeamIsOpCode(*pc, op_apply_bif) ||
                 BeamIsOpCode(*pc, op_call_error_handler)) {
@@ -630,13 +630,22 @@ erts_clear_module_break(Module *modp) {
 }
 
 void
-erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
+erts_clear_export_break(Module* modp, Export *ep)
 {
+    ErtsCodeInfo *ci;
+
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
+
+    ci = &ep->info;
+
+    ASSERT(erts_codeinfo_to_code(ci) == ep->trampoline.raw);
+
+    ASSERT(BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint));
+    ep->trampoline.op = 0;
 
     clear_function_break(ci, ERTS_BPF_ALL);
     erts_commit_staged_bp();
-    *erts_codeinfo_to_code(ci) = (BeamInstr) 0;
+
     consolidate_bp_data(modp, ci, 0);
     ASSERT(ci->u.gen_bp == NULL);
 }
@@ -776,9 +785,9 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     Export* ep = bif_export[bif_index];
     Uint32 flags = 0, flags_meta = 0;
     ErtsTracer meta_tracer = erts_tracer_nil;
-    int applying = (I == ep->beam); /* Yup, the apply code for a bif
-                                      * is actually in the
-                                      * export entry */
+    int applying = (I == ep->trampoline.raw); /* Yup, the apply code for a bif
+                                               * is actually in the
+                                               * export entry */
     BeamInstr* cp = (BeamInstr *) p->stop[0];
     GenericBp* g;
     GenericBpData* bp = NULL;

@@ -111,10 +111,10 @@ do {                                     \
 
 #define CHECK_ALIGNED(Dst) ASSERT((((Uint)&Dst) & (sizeof(Uint)-1)) == 0)
 
-#define GET_BIF_MODULE(p)  (p->info.mfa.module)
-#define GET_BIF_FUNCTION(p)  (p->info.mfa.function)
-#define GET_BIF_ARITY(p)  (p->info.mfa.arity)
-#define GET_BIF_ADDRESS(p) ((BifFunction) (p->beam[1]))
+#define GET_BIF_MODULE(p)  ((p)->info.mfa.module)
+#define GET_BIF_FUNCTION(p)  ((p)->info.mfa.function)
+#define GET_BIF_ARITY(p)  ((p)->info.mfa.arity)
+#define GET_BIF_ADDRESS(p) ((BifFunction)((p)->trampoline.bif.func))
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
@@ -894,43 +894,47 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 static void
 init_emulator_finish(void)
 {
-     int i;
-     Export* ep;
+    int i;
 
 #if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-     for (i = 0; i < NUMBER_OF_OPCODES; i++) {
-         BeamInstr instr = BeamOpCodeAddr(i);
-         if (instr >= (1ull << 32)) {
-             erts_exit(ERTS_ERROR_EXIT,
-                       "This run-time was supposed be compiled with all code below 2Gb,\n"
-                       "but the instruction '%s' is located at %016lx.\n",
-                       opc[i].name, instr);
-         }
-     }
+    for (i = 0; i < NUMBER_OF_OPCODES; i++) {
+        BeamInstr instr = BeamOpCodeAddr(i);
+        if (instr >= (1ull << 32)) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "This run-time was supposed be compiled with all code below 2Gb,\n"
+                      "but the instruction '%s' is located at %016lx.\n",
+                      opc[i].name, instr);
+        }
+    }
 #endif
 
-     beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
-     beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
-     beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
-     beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
-     beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
-     beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
-     beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
-     beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+    beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
+    beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
+    beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
+    beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
+    beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
+    beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
+    beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
+    beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
 
-     /*
-      * Enter all BIFs into the export table.
-      */
-     for (i = 0; i < BIF_SIZE; i++) {
-	 ep = erts_export_put(bif_table[i].module,
-			      bif_table[i].name,
-			      bif_table[i].arity);
-	 bif_export[i] = ep;
-	 ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
-	 ep->beam[1] = (BeamInstr) bif_table[i].f;
-	 /* XXX: set func info for bifs */
-	 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
-     }
+    /*
+     * Enter all BIFs into the export table.
+     */
+    for (i = 0; i < BIF_SIZE; i++) {
+        Export *ep = erts_export_put(bif_table[i].module,
+                                     bif_table[i].name,
+                                     bif_table[i].arity);
+
+        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.mfa.module = bif_table[i].module;
+        ep->info.mfa.function = bif_table[i].name;
+        ep->info.mfa.arity = bif_table[i].arity;
+
+        ep->trampoline.op = BeamOpCodeAddr(op_apply_bif);
+        ep->trampoline.bif.func = (BeamInstr) bif_table[i].f;
+
+        bif_export[i] = ep;
+    }
 }
 
 /*
@@ -1988,7 +1992,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      * and apply_last_IP.
      */
     if (I
-	&& BeamIsOpCode(ep->beam[0], op_apply_bif)
+	&& BeamIsOpCode(ep->trampoline.op, op_apply_bif)
         && (ep == bif_export[BIF_error_1]
 	    || ep == bif_export[BIF_error_2]
 	    || ep == bif_export[BIF_exit_1]
@@ -3110,10 +3114,11 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     e.info.mfa.arity = arity;
 
     if ((ep = export_get(&e)) == NULL) {
-	return 0;
+        return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->beam &&
-	BeamIsOpCode(ep->beam[0], op_apply_bif);
+
+    return ep->addressv[erts_active_code_ix()] == ep->trampoline.raw &&
+        BeamIsOpCode(ep->trampoline.op, op_apply_bif);
 }
 
 

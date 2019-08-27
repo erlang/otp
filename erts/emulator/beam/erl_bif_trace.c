@@ -1047,7 +1047,7 @@ static int function_is_traced(Process *p,
     e.info.mfa.function = mfa[1];
     e.info.mfa.arity = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	pc = ep->beam;
+	pc = ep->trampoline.raw;
 	if (ep->addressv[erts_active_code_ix()] == pc &&
 	    ! BeamIsOpCode(*pc, op_call_error_handler)) {
 
@@ -1446,12 +1446,12 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 #ifdef DEBUG
 		ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
-                ep->beam[0] = BeamOpCodeAddr(op_trace_jump_W);
-		ep->beam[1] = (BeamInstr) ep->addressv[code_ix];
+                ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
+                ep->trampoline.trace.address = (BeamInstr) ep->addressv[code_ix];
 	    }
 	    erts_set_call_trace_bif(ci, match_prog_set, 0);
 	    if (ep->addressv[code_ix] != pc) {
-		ep->beam[0] = BeamOpCodeAddr(op_i_generic_breakpoint);
+                ep->trampoline.op = BeamOpCodeAddr(op_i_generic_breakpoint);
 	    }
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
@@ -1461,8 +1461,8 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * before turning on breakpoint tracing.
 	     */
 	    erts_clear_call_trace_bif(ci, 0);
-	    if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
-		ep->beam[0] = BeamOpCodeAddr(op_trace_jump_W);
+            if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+                ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
 	}
     }
@@ -1736,7 +1736,7 @@ install_exp_breakpoints(BpFunctions* f)
     for (i = 0; i < ne; i++) {
 	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-	ep->addressv[code_ix] = ep->beam;
+	ep->addressv[code_ix] = ep->trampoline.raw;
     }
 }
 
@@ -1751,11 +1751,12 @@ uninstall_exp_breakpoints(BpFunctions* f)
     for (i = 0; i < ne; i++) {
 	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-	if (ep->addressv[code_ix] != ep->beam) {
-	    continue;
-	}
-	ASSERT(BeamIsOpCode(ep->beam[0], op_trace_jump_W));
-	ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
+        if (ep->addressv[code_ix] != ep->trampoline.raw) {
+            continue;
+        }
+
+        ASSERT(BeamIsOpCode(ep->trampoline.op, op_trace_jump_W));
+        ep->addressv[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
     }
 }
 
@@ -1770,13 +1771,14 @@ clean_export_entries(BpFunctions* f)
     for (i = 0; i < ne; i++) {
 	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-	if (ep->addressv[code_ix] == ep->beam) {
-	    continue;
-	}
-	if (BeamIsOpCode(ep->beam[0], op_trace_jump_W)) {
-	    ep->beam[0] = (BeamInstr) 0;
-	    ep->beam[1] = (BeamInstr) 0;
-	}
+        if (ep->addressv[code_ix] == ep->trampoline.raw) {
+            continue;
+        }
+
+        if (BeamIsOpCode(ep->trampoline.op, op_trace_jump_W)) {
+            ep->trampoline.op = (BeamInstr) 0;
+            ep->trampoline.trace.address = (BeamInstr) 0;
+        }
     }
 }
 
@@ -1790,8 +1792,8 @@ setup_bif_trace(void)
 	GenericBp* g = ep->info.u.gen_bp;
 	if (g) {
 	    if (ExportIsBuiltIn(ep)) {
-		ASSERT(ep->beam[1]);
-		ep->beam[1] = (BeamInstr) bif_table[i].traced;
+		ASSERT(ep->trampoline.bif.func != 0);
+		ep->trampoline.bif.func = (BeamInstr) bif_table[i].traced;
 	    }
 	}
     }
@@ -1808,8 +1810,8 @@ reset_bif_trace(void)
 	GenericBp* g = ep->info.u.gen_bp;
 	if (g && g->data[active].flags == 0) {
 	    if (ExportIsBuiltIn(ep)) {
-		ASSERT(ep->beam[1]);
-		ep->beam[1] = (BeamInstr) bif_table[i].f;
+		ASSERT(ep->trampoline.bif.func != 0);
+		ep->trampoline.bif.func = (BeamInstr) bif_table[i].f;
 	    }
 	}
     }

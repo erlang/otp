@@ -41,7 +41,7 @@ erts_new_proc_nif_export(Process *c_p, int argc)
     nep = erts_alloc(ERTS_ALC_T_NIF_TRAP_EXPORT, size);
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++)
-	nep->exp.addressv[i] = &nep->exp.beam[0];
+	nep->exp.addressv[i] = &nep->exp.trampoline.raw[0];
 
     nep->argc = -1; /* unused marker */
     nep->argv_size = argc;
@@ -168,8 +168,8 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
     nep->exp.info.mfa.module = mod;
     nep->exp.info.mfa.function = func;
     nep->exp.info.mfa.arity = (Uint) argc;
-    nep->exp.beam[0] = (BeamInstr) instr; /* call_nif || apply_bif */
-    nep->exp.beam[1] = (BeamInstr) dfunc;
+    nep->exp.trampoline.op = (BeamInstr) instr; /* call_nif || apply_bif */
+    nep->exp.trampoline.raw[1] = (BeamInstr) dfunc;
     nep->func = ifunc;
     used_proc->arity = argc;
     used_proc->freason = TRAP;

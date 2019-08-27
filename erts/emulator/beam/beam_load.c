@@ -845,17 +845,25 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	    if (ep == NULL || ep->info.mfa.module != module) {
 		continue;
 	    }
-	    if (ep->addressv[code_ix] == ep->beam) {
-		if (BeamIsOpCode(ep->beam[0], op_apply_bif)) {
+
+            DBG_CHECK_EXPORT(ep, code_ix);
+
+	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
+		if (BeamIsOpCode(ep->trampoline.op, op_apply_bif)) {
 		    continue;
-		} else if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
+                } else if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
-		    erts_clear_export_break(mod_tab_p, &ep->info);
-		    ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
-		    ep->beam[1] = 0;
+
+                    erts_clear_export_break(mod_tab_p, ep);
+
+                    ep->addressv[code_ix] =
+                        (BeamInstr*)ep->trampoline.breakpoint.address;
+                    ep->trampoline.breakpoint.address = 0;
+
+                    ASSERT(ep->addressv[code_ix] != ep->trampoline.raw);
 		}
-		ASSERT(ep->beam[1] == 0);
+		ASSERT(ep->trampoline.breakpoint.address == 0);
 	    }
 	}
 	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
@@ -1478,8 +1486,8 @@ load_import_table(LoaderState* stp)
 	 * the BIF function.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (BeamIsOpCode(e->beam[0], op_apply_bif)) {
-		stp->import[i].bf = (BifFunction) e->beam[1];
+	    if (BeamIsOpCode(e->trampoline.op, op_apply_bif)) {
+		stp->import[i].bf = (BifFunction) e->trampoline.bif.func;
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
 		}
@@ -1572,7 +1580,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
     if (e == NULL) {
 	return 0;
     }
-    if (! BeamIsOpCode(e->beam[0], op_apply_bif)) {
+    if (! BeamIsOpCode(e->trampoline.op, op_apply_bif)) {
 	return 0;
     }
     if (mod == am_erlang && func == am_apply && arity == 3) {
@@ -5226,7 +5234,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	     * callable yet. Keep any function in the current
 	     * code callable.
 	     */
-	    ep->beam[1] = (BeamInstr) address;
+            ep->trampoline.not_loaded.deferred = (BeamInstr) address;
 	}
         else
             ep->addressv[erts_staging_code_ix()] = address;
@@ -5406,7 +5414,7 @@ transform_engine(LoaderState* st)
 		if (i >= st->num_imports || st->import[i].bf == NULL)
 		    goto restart;
 		if (bif_number != -1 &&
-		    bif_export[bif_number]->beam[1] != (BeamInstr) st->import[i].bf) {
+		    bif_export[bif_number]->trampoline.bif.func != (BeamInstr) st->import[i].bf) {
 		    goto restart;
 		}
 	    }
@@ -6286,12 +6294,12 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 	
 	if (ep->info.mfa.module == mod) {
 	    Eterm tuple;
-	    
-	    if (ep->addressv[code_ix] == ep->beam &&
-		BeamIsOpCode(ep->beam[0], op_call_error_handler)) {
-		/* There is a call to the function, but it does not exist. */ 
-		continue;
-	    }
+
+            if (ep->addressv[code_ix] == ep->trampoline.raw &&
+                BeamIsOpCode(ep->trampoline.op, op_call_error_handler)) {
+                /* There is a call to the function, but it does not exist. */ 
+                continue;
+            }
 
 	    if (hp == hend) {
 		int need = 10 * 5;
