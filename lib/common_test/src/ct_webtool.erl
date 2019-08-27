@@ -1137,18 +1137,15 @@ get_tools2([],Data) ->
 %----------------------------------------
 get_tools3(ToolFile) ->
     case file:consult(ToolFile) of
-	{error,open} ->
-	    {error,nofile};
-	{error,read} ->
-	    {error,format};
 	{ok,[{version,"1.2"},ToolInfo]} when is_list(ToolInfo)->
 	    webdata(ToolInfo);
 	{ok,[{version,_Vsn},_Info]} ->
 	    {error,old_version};
 	{ok,_Other} ->
-	    {error,format}
+	    {error,format};
+        Error ->
+            Error
     end.
-
 
 %----------------------------------------------------------------------
 % webdata(TupleList)-> ToolTuple| nodata
