@@ -741,8 +741,8 @@ $(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
 	$(V_at)echo " PROFILE ${PROFILE_EXECUTABLE}"
 	$(V_at)rm -f $(OBJDIR)/erl*.profraw
 	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erlc-%m.profraw" \
-          ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERLC) -DPGO \
-	  -o $(OBJDIR) test/estone_SUITE.erl > $(OBJDIR)/PROFILE_LOG
+          ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERLC) -no-server \
+          -DPGO -o $(OBJDIR) test/estone_SUITE.erl > $(OBJDIR)/PROFILE_LOG
 	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erl-%m.profraw" \
 	  ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERL) -pa $(OBJDIR) \
 	  -noshell -s estone_SUITE pgo -s init stop >> $(OBJDIR)/PROFILE_LOG

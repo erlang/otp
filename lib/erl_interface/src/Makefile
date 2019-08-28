@@ -33,3 +33,5 @@ endif
 
 clean depend docs release release_docs tests release_tests check xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
+
+lcnt:

@@ -54,6 +54,8 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
             -I$(ERL_TOP)/erts/include/internal \
             -I$(ERL_TOP)/erts/include/internal/$(TARGET)
 
+EI_INCL   = -I$(ERL_TOP)/lib/erl_interface/include
+
 CC        = @CC@
 WFLAGS    = @WFLAGS@
 CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) -I$(EMUDIR) -I. \
@@ -87,6 +89,10 @@ DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
 WINETC	  = ../win32
 
+# Threads flags and libs
+THR_DEFS=@THR_DEFS@
+THR_LIBS=@THR_LIBS@
+
 ifeq ($(TARGET), win32)
 ETC       = $(WINETC)
 else
@@ -107,6 +113,8 @@ ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPE
 endif
 
 ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
+
+EI_LIB = -L$(ERL_TOP)/lib/erl_interface/obj/$(TARGET) -lei $(THR_LIBS)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -426,10 +434,10 @@ $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 endif
 
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c erlc.c
+	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) $(MT_FLAG) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)

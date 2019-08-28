@@ -22,11 +22,9 @@
 -include("erl_compile.hrl").
 -include("file.hrl").
 
--export([compile_cmdline/0]).
+-export([compile_cmdline/0, compile/2]).
 
 -export_type([cmd_line_arg/0]).
-
--define(STDERR, standard_error).		%Macro to avoid misspellings.
 
 %% Mapping from extension to {M,F} to run the correct compiler.
 
@@ -46,60 +44,56 @@ compiler(".asn") ->    {asn1ct,          compile_asn};
 compiler(".py") ->     {asn1ct,          compile_py};
 compiler(_) ->         no.
 
-%% Entry from command line.
-
 -type cmd_line_arg() :: atom() | string().
 
+%% Run a compilation based on the command line arguments and then halt.
+%% Intended for one-off compilation by erlc.
 -spec compile_cmdline() -> no_return().
-
 compile_cmdline() ->
+    cmdline_init(),
     List = init:get_plain_arguments(),
-    case compile(List) of
-	ok -> my_halt(0);
-	error -> my_halt(1);
-	_ -> my_halt(2)
+    compile_cmdline1(List).
+
+%% Run a compilation. Meant to be used by the compilation server.
+-spec compile(list(), file:filename()) -> 'ok' | {'error', binary()}.
+compile(Args, Cwd) ->
+    try compile1(Args, #options{outdir=Cwd,cwd=Cwd}) of
+        ok ->
+            ok
+    catch
+        throw:{error, Output} ->
+            {error, unicode:characters_to_binary(Output)};
+        C:E:Stk ->
+            {crash, {C,E,Stk}}
     end.
 
--spec my_halt(_) -> no_return().
-my_halt(Reason) ->
-    erlang:halt(Reason).
-
-%% Run the the compiler in a separate process, trapping EXITs.
-
-compile(List) ->
-    process_flag(trap_exit, true),
-    Pid = spawn_link(compiler_runner(List)),
-    receive
-	{'EXIT', Pid, {compiler_result, Result}} ->
-	    Result;
-	{'EXIT', Pid, {compiler_error, Error}} ->
-	    io:put_chars(?STDERR, Error),
-	    io:nl(?STDERR),
-	    error;
-	{'EXIT', Pid, Reason} ->
-	    io:format(?STDERR, "Runtime error: ~tp~n", [Reason]),
-	    error
-    end.
-
--spec compiler_runner([cmd_line_arg()]) -> fun(() -> no_return()).
-
-compiler_runner(List) ->
-    fun() ->
-            %% We don't want the current directory in the code path.
-            %% Remove it.
-            Path = [D || D <- code:get_path(), D =/= "."],
-            true = code:set_path(Path),
-            exit({compiler_result, compile1(List)})
-    end.
-
-%% Parses the first part of the option list.
-
-compile1(Args) ->
+%% Run the the compiler in a separate process.
+compile_cmdline1(Args) ->
     {ok, Cwd} = file:get_cwd(),
-    compile1(Args, #options{outdir=Cwd,cwd=Cwd}).
+    {Pid,Ref} = spawn_monitor(fun() -> exit(compile(Args, Cwd)) end),
+    receive
+        {'DOWN', Ref, process, Pid, Result} ->
+            case Result of
+                ok ->
+                    halt(0);
+                {error, Output} ->
+                    io:put_chars(standard_error, Output),
+                    halt(1);
+                {crash, {C,E,Stk}} ->
+                    io:format(standard_error, "Crash: ~p:~tp\n~tp\n",
+                              [C,E,Stk]),
+                    halt(2)
+            end
+    end.
 
-%% Parses all options.
+cmdline_init() ->
+    %% We don't want the current directory in the code path.
+    %% Remove it.
+    Path = [D || D <- code:get_path(), D =/= "."],
+    true = code:set_path(Path),
+    ok.
 
+%% Parse all options.
 compile1(["--"|Files], Opts) ->
     compile2(Files, Opts);
 compile1(["-"++Option|T], Opts) ->
@@ -132,12 +126,8 @@ parse_generic_option("I"++Opt, T0, #options{cwd=Cwd}=Opts) ->
     AbsDir = filename:absname(Dir, Cwd),
     compile1(T, Opts#options{includes=[AbsDir|Opts#options.includes]});
 parse_generic_option("M"++Opt, T0, #options{specific=Spec}=Opts) ->
-    case parse_dep_option(Opt, T0) of
-	error ->
-	    error;
-	{SpecOpts,T} ->
-	    compile1(T, Opts#options{specific=SpecOpts++Spec})
-    end;
+    {SpecOpts,T} = parse_dep_option(Opt, T0),
+    compile1(T, Opts#options{specific=SpecOpts++Spec});
 parse_generic_option("o"++Opt, T0, #options{cwd=Cwd}=Opts) ->
     {Dir,T} = get_option("o", Opt, T0),
     AbsName = filename:absname(Dir, Cwd),
@@ -181,8 +171,7 @@ parse_generic_option("P", T, #options{specific=Spec}=Opts) ->
 parse_generic_option("S", T, #options{specific=Spec}=Opts) ->
     compile1(T, Opts#options{specific=['S'|Spec]});
 parse_generic_option(Option, _T, _Opts) ->
-    io:format(?STDERR, "Unknown option: -~ts\n", [Option]),
-    usage().
+    usage(io_lib:format("Unknown option: -~ts\n", [Option])).
 
 parse_dep_option("", T) ->
     {[makedep,{makedep_output,standard_io}],T};
@@ -204,10 +193,14 @@ parse_dep_option("T"++Opt, T0) ->
     {Target,T} = get_option("MT", Opt, T0),
     {[{makedep_target,Target}],T};
 parse_dep_option(Opt, _T) ->
-    io:format(?STDERR, "Unknown option: -M~ts\n", [Opt]),
-    usage().
+    usage(io_lib:format("Unknown option: -M~ts\n", [Opt])).
+
+-spec usage() -> no_return().
 
 usage() ->
+    usage("").
+
+usage(Error) ->
     H = [{"-b type","type of output file (e.g. beam)"},
 	 {"-d","turn on debugging of erlc itself"},
 	 {"-Dname","define name"},
@@ -238,18 +231,18 @@ usage() ->
 	 {"-S","generate assembly listing (Erlang compiler)"},
 	 {"-P","generate listing of preprocessed code (Erlang compiler)"},
 	 {"+term","pass the Erlang term unchanged to the compiler"}],
-    io:put_chars(?STDERR,
-		 ["Usage: erlc [Options] file.ext ...\n",
-		  "Options:\n",
-		  [io_lib:format("~-14s ~s\n", [K,D]) || {K,D} <- H]]),
-    error.
+    Msg = [Error,
+           "Usage: erlc [Options] file.ext ...\n",
+           "Options:\n",
+           [io_lib:format("~-14s ~s\n", [K,D]) || {K,D} <- H]],
+    throw({error, Msg}).
 
 get_option(_Name, [], [[C|_]=Option|T]) when C =/= $- ->
     {Option,T};
 get_option(_Name, [_|_]=Option, T) ->
     {Option,T};
 get_option(Name, _, _) ->
-    exit({compiler_error,"No value given to -"++Name++" option"}).
+    throw({error, "No value given to -"++Name++" option\n"}).
 
 split_at_equals([$=|T], Acc) ->
     {lists:reverse(Acc),T};
@@ -266,14 +259,10 @@ compile2(Files, #options{cwd=Cwd,includes=Incl,outfile=Outfile}=Opts0) ->
 	{[_|_], 1} ->
 	    compile3(Files, Cwd, Opts);
 	{[_|_], _N} ->
-	    io:put_chars(?STDERR,
-			 "Output file name given, "
-			 "but more than one input file.\n"),
-	    error
+            throw({error, "Output file name given, but more than one input file.\n"})
     end.
 
-%% Compiles the list of files, until done or compilation fails.
-
+%% Compile the list of files, until done or compilation fails.
 compile3([File|Rest], Cwd, Options) ->
     Ext = filename:extension(File),
     Root = filename:rootname(File),
@@ -285,43 +274,37 @@ compile3([File|Rest], Cwd, Options) ->
 	    Outfile ->
 		filename:rootname(Outfile)
 	end,
-    case compile_file(Ext, InFile, OutFile, Options) of
-	ok ->
-	    compile3(Rest, Cwd, Options);
-	Other ->
-	    Other
-    end;
+    compile_file(Ext, InFile, OutFile, Options),
+    compile3(Rest, Cwd, Options);
 compile3([], _Cwd, _Options) -> ok.
 
-%% Invokes the appropriate compiler, depending on the file extension.
-
+%% Invoke the appropriate compiler, depending on the file extension.
 compile_file("", Input, _Output, _Options) ->
-    io:format(?STDERR, "File has no extension: ~ts~n", [Input]),
-    error;
+    throw({error, io_lib:format("File has no extension: ~ts~n", [Input])});
 compile_file(Ext, Input, Output, Options) ->
     case compiler(Ext) of
 	no ->
-	    io:format(?STDERR, "Unknown extension: '~ts'\n", [Ext]),
-	    error;
+	    Error = io_lib:format("Unknown extension: '~ts'\n", [Ext]),
+            throw({error, Error});
 	{M, F} ->
-	    case catch M:F(Input, Output, Options) of
-		ok -> ok;
-		error -> error;
-		{'EXIT',Reason} ->
-		    io:format(?STDERR,
-			      "Compiler function ~w:~w/3 failed:\n~p~n",
-			      [M,F,Reason]),
-		    error;
+	    try M:F(Input, Output, Options) of
+		ok ->
+                    ok;
+		error ->
+                    throw({error, ""});
 		Other ->
-		    io:format(?STDERR,
-			      "Compiler function ~w:~w/3 returned:\n~p~n",
-			      [M,F,Other]),
-		    error
+                    Error = io_lib:format("Compiler function ~w:~w/3 returned:\n~tp~n",
+                                          [M,F,Other]),
+		    throw({error, Error})
+            catch
+		throw:Reason:Stk ->
+		    Error = io_lib:format("Compiler function ~w:~w/3 failed:\n~tp\n~tp\n",
+                                          [M,F,Reason,Stk]),
+		    throw({error, Error})
 	    end
     end.
 
-%% Guesses if a give name refers to a file or a directory.
-
+%% Guess whether a given name refers to a file or a directory.
 file_or_directory(Name) ->
     case file:read_file_info(Name) of
 	{ok, #file_info{type=regular}} ->
@@ -335,18 +318,16 @@ file_or_directory(Name) ->
 	    end
     end.
 
-%% Makes an Erlang term given a string.
-
-make_term(Str) -> 
+%% Make an Erlang term given a string.
+make_term(Str) ->
     case erl_scan:string(Str) of
-	{ok, Tokens, _} ->		  
+	{ok, Tokens, _} ->
 	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
-		{ok, Term} -> Term;
+		{ok, Term} ->
+                    Term;
 		{error, {_,_,Reason}} ->
-		    io:format(?STDERR, "~ts: ~ts~n", [Reason, Str]),
-		    throw(error)
+		    throw({error, io_lib:format("~ts: ~ts~n", [Reason, Str])})
 	    end;
 	{error, {_,_,Reason}, _} ->
-	    io:format(?STDERR, "~ts: ~ts~n", [Reason, Str]),
-	    throw(error)
+	    throw({error, io_lib:format("~ts: ~ts~n", [Reason, Str])})
     end.

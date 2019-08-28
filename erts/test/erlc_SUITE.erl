@@ -32,11 +32,16 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
+    [{group,with_server},{group,without_server}].
+
+groups() ->
+    Tests = tests(),
+    [{with_server,[],Tests},
+     {without_server,[],Tests}].
+
+tests() ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
      good_citizen, deep_cwd, arg_overflow, make_dep_options].
-
-groups() -> 
-    [].
 
 init_per_suite(Config) ->
     Config.
@@ -44,10 +49,17 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(_GroupName, Config) ->
+init_per_group(with_server, Config) ->
+    os:putenv("ERLC_USE_SERVER", "yes"),
+    Config;
+init_per_group(without_server, Config) ->
+    os:putenv("ERLC_USE_SERVER", "no"),
+    Config;
+init_per_group(_, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
+    os:unsetenv("ERLC_USE_SERVER"),
     Config.
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
@@ -199,8 +211,7 @@ deep_cwd(Config) when is_list(Config) ->
 deep_cwd_1(PrivDir) ->
     DeepDir0 = filename:join(PrivDir, lists:duplicate(128, $a)),
     DeepDir = filename:join(DeepDir0, lists:duplicate(128, $b)),
-    ok = file:make_dir(DeepDir0),
-    ok = file:make_dir(DeepDir),
+    ok = filelib:ensure_dir(filename:join(DeepDir,"any_file")),
     ok = file:set_cwd(DeepDir),
     ok = file:write_file("test.erl", "-module(test).\n\n"),
     io:format("~s\n", [os:cmd("erlc test.erl")]),
