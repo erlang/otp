@@ -784,7 +784,13 @@ close(#sslsocket{pid = [TLSPid|_]},
       {Pid, Timeout} = DownGrade) when is_pid(TLSPid),
 				       is_pid(Pid),
 				       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    ssl_connection:close(TLSPid, {close, DownGrade});
+    case ssl_connection:close(TLSPid, {close, DownGrade}) of
+        ok -> %% In normal close {error, closed} is regarded as ok, as it is not interesting which side
+            %% that got to do the actual close. But in the downgrade case only {ok, Port} is a sucess.
+            {error, closed};
+        Other ->
+            Other
+    end;
 close(#sslsocket{pid = [TLSPid|_]}, Timeout) when is_pid(TLSPid),
 					      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     ssl_connection:close(TLSPid, {close, Timeout});
