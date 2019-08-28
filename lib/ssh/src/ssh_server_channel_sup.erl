@@ -25,8 +25,9 @@
 -module(ssh_server_channel_sup).
 
 -behaviour(supervisor).
+-include("ssh.hrl").
 
--export([start_link/1, start_child/5]).
+-export([start_link/1, start_child/8]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -37,15 +38,31 @@
 start_link(Args) ->
     supervisor:start_link(?MODULE, [Args]).
 
-start_child(Sup, Callback, Id, Args, Exec) ->
-    ChildSpec =
-        #{id       => make_ref(),
-          start    => {ssh_server_channel, start_link, [self(), Id, Callback, Args, Exec]},
-          restart  => temporary,
-          type     => worker,
-          modules  => [ssh_server_channel]
-         },
-    supervisor:start_child(Sup, ChildSpec).
+
+start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
+    case max_num_channels_not_exceeded(ChannelSup, Opts) of
+        true ->
+            ChanMod = case Role of
+                          server -> ssh_server_channel;
+                          client -> ssh_client_channel
+                      end,
+            ChildSpec =
+                #{id       => make_ref(),
+                  start    => {ChanMod, start_link, [ConnRef, Id, Callback, Args, Exec]},
+                  restart  => temporary,
+                  type     => worker,
+                  modules  => [ChanMod]
+                 },
+            case supervisor:start_child(ChannelSup, ChildSpec) of
+                {error,{Error,_Info}} ->
+                    throw(Error);
+                Others ->
+                    Others
+            end;
+
+        false ->
+	    throw(max_num_channels_exceeded)
+    end.
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -60,3 +77,9 @@ init(_Args) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
+max_num_channels_not_exceeded(ChannelSup, Opts) ->
+    MaxNumChannels = ?GET_OPT(max_channels, Opts),
+    NumChannels = length([x || {_,_,worker,[ssh_server_channel]} <- 
+				   supervisor:which_children(ChannelSup)]),
+    %% Note that NumChannels is BEFORE starting a new one
+    NumChannels < MaxNumChannels.

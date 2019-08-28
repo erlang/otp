@@ -921,7 +921,7 @@ start_cli(#connection{options = Options,
         no_cli ->
             {error, cli_disabled};
         {CbModule, Args} ->
-            start_channel(CbModule, ChannelId, Args, SubSysSup, Exec, Options)
+            ssh_subsystem_sup:start_channel(server, SubSysSup, self(), CbModule, ChannelId, Args, Exec, Options)
     end.
 
 
@@ -931,37 +931,13 @@ start_subsystem(BinName, #connection{options = Options,
     Name = binary_to_list(BinName),
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
-	    start_channel(Callback, ChannelId, Opts, SubSysSup, Options);
+            ssh_subsystem_sup:start_channel(server, SubSysSup, self(), Callback, ChannelId, Opts, undefined, Options);
 	{Other, _} when Other =/= none ->
 	    {error, legacy_option_not_supported}
     end.
 
 
 %%% Helpers for starting cli/subsystems
-start_channel(Cb, Id, Args, SubSysSup, Opts) ->
-    start_channel(Cb, Id, Args, SubSysSup, undefined, Opts).
-
-start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
-    ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
-    case max_num_channels_not_exceeded(ChannelSup, Opts) of
-        true ->
-            case ssh_server_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec) of
-                {error,{Error,_Info}} ->
-                    throw(Error);
-                Others ->
-                    Others
-            end;
-        false ->
-	    throw(max_num_channels_exceeded)
-    end.
-    
-max_num_channels_not_exceeded(ChannelSup, Opts) ->
-    MaxNumChannels = ?GET_OPT(max_channels, Opts),
-    NumChannels = length([x || {_,_,worker,[ssh_server_channel]} <- 
-				   supervisor:which_children(ChannelSup)]),
-    %% Note that NumChannels is BEFORE starting a new one
-    NumChannels < MaxNumChannels.
-
 check_subsystem("sftp"= SsName, Options) ->
     case ?GET_OPT(subsystems, Options) of
 	no_subsys -> 	% FIXME: Can 'no_subsys' ever be matched?
