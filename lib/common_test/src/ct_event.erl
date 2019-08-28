@@ -221,17 +221,7 @@ handle_event(Event,State=#state{receivers=RecvPids}) ->
 
 %% report to master
 report_event({master,Master},E=#event{name=_Name,node=_Node,data=_Data}) ->
-    ct_master:status(Master,E);
-
-%% report to VTS
-report_event({vts,VTS},#event{name=Name,node=_Node,data=Data}) ->
-    if Name == start_info ;
-       Name == test_stats ;
-       Name == test_done ->
-	    vts:test_info(VTS,Name,Data);
-       true ->
-	    ok
-    end.
+    ct_master:status(Master,E).
 
 
 %%--------------------------------------------------------------------

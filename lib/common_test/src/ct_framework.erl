@@ -1550,8 +1550,7 @@ report(What,Data) ->
 	    end;
 	_ ->
 	    ok
-    end,
-    catch vts:report(What,Data).
+    end.
 
 add_to_stats(Result) ->
     Update = fun({Ok,Failed,Skipped={UserSkipped,AutoSkipped}}) ->
