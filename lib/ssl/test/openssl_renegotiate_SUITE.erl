@@ -104,7 +104,8 @@ init_per_group(GroupName, Config) ->
                  true ->
                     case ssl_test_lib:check_sane_openssl_version(GroupName) of
                          true ->
-                            ssl_test_lib:check_sane_openssl_renegotaite(ssl_test_lib:init_tls_version(GroupName, Config),
+                            ssl_test_lib:check_sane_openssl_renegotaite(ssl_test_lib:init_tls_version(GroupName, 
+                                                                                                      Config),
                                                                         GroupName);
                         false ->
                             {skip, openssl_does_not_support_version}
@@ -123,21 +124,12 @@ end_per_group(GroupName, Config) ->
        false ->
             Config
     end.
-
+init_per_testcase(erlang_client_openssl_server_nowrap_seqnum, Config) ->
+    ct:timetrap({seconds, 10}),
+    ssl_test_lib:openssl_allows_client_renegotaite(Config);
 init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 10}),
-    special_init(TestCase, Config).
-
-special_init(TestCase, Config)
-  when TestCase == erlang_client_openssl_server_renegotiate;
-       TestCase == erlang_client_openssl_server_nowrap_seqnum;
-       TestCase == erlang_server_openssl_client_nowrap_seqnum;
-       TestCase == erlang_client_openssl_server_renegotiate_after_client_data
-        ->
-    {ok, Version} = application:get_env(ssl, protocol_version),
-    ssl_test_lib:check_sane_openssl_renegotaite(Config, Version);
-special_init(_, Config) ->
-     Config.
+    Config.
 
 end_per_testcase(_, Config) ->
     Config.
@@ -287,7 +279,7 @@ erlang_client_openssl_server_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, false).
 %%--------------------------------------------------------------------
 erlang_server_openssl_client_nowrap_seqnum() ->
-    [{doc, "Test that erlang client will renegotiate session when",
+    [{doc, "Test that erlang server will renegotiate session when",
       "max sequence number celing is about to be reached. Although"
       "in the testcase we use the test option renegotiate_at"
       " to lower treashold substantially."}].
