@@ -22,7 +22,7 @@
 %%----------------------------------------------------------------------
 %% Purpose: Ssh channel supervisor.
 %%----------------------------------------------------------------------
--module(ssh_server_channel_sup).
+-module(ssh_channel_sup).
 
 -behaviour(supervisor).
 -include("ssh.hrl").

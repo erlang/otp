@@ -140,7 +140,7 @@ print_system_sup({{ssh_acceptor_sup,_LocalHost,_LocalPort,_Profile}, Pid, superv
 
 
 
-print_channels({{server,ssh_server_channel_sup,_,_},Pid,supervisor,[ssh_server_channel_sup]}) when is_pid(Pid) ->
+print_channels({{server,ssh_channel_sup,_,_},Pid,supervisor,[ssh_channel_sup]}) when is_pid(Pid) ->
     Children =  supervisor:which_children(Pid),
     ChannelPids = [P || {R,P,worker,[ssh_server_channel]} <- Children,
 			is_pid(P),
