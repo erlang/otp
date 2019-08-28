@@ -55,13 +55,10 @@ npn_tests() ->
      erlang_client_openssl_server_npn_only_server].
 
 npn_renegotiate_tests() ->
-   case ssl_test_lib:sane_openssl_alpn_npn_renegotiate() of
-        true ->
-           [erlang_server_openssl_client_npn_renegotiate,
-            erlang_client_openssl_server_npn_renegotiate];
-        false ->
-            []
-    end.
+           [
+            erlang_server_openssl_client_npn_renegotiate,
+            erlang_client_openssl_server_npn_renegotiate
+           ].
 
 init_per_suite(Config0) ->
     case os:find_executable("openssl") of
@@ -119,13 +116,19 @@ init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 10}),
     special_init(TestCase, Config).
 
-special_init(TestCase, Config)
-     when TestCase == erlang_client_npn_openssl_server_npn_renegotiate;
-          TestCase == erlang_server_npn_openssl_client_npn_renegotiate ->
-     {ok, Version} = application:get_env(ssl, protocol_version),
+special_init(erlang_client_openssl_server_npn_renegotiate, Config) ->
+    {ok, Version} = application:get_env(ssl, protocol_version),
     ssl_test_lib:check_sane_openssl_renegotaite(Config, Version);
+special_init(erlang_server_openssl_client_npn_renegotiate, Config) ->
+    {ok, Version} = application:get_env(ssl, protocol_version),
+    case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+        Config ->
+            ssl_test_lib:openssl_allows_client_renegotaite(Config);
+        Skip ->
+            Skip
+    end;
 special_init(_, Config) ->
-     Config.
+    Config.
 
 end_per_testcase(_, Config) ->
     Config.
