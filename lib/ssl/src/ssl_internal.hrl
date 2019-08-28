@@ -202,7 +202,7 @@
 -type gen_fsm_state_return() :: {next_state, state_name(), any()} |
 				{next_state, state_name(), any(), timeout()} |
 				{stop, any(), any()}.
--type ssl_options()          :: #ssl_options{}.
+-type ssl_options()          :: map().
 
 -endif. % -ifdef(ssl_internal).
 

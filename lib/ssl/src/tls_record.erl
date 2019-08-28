@@ -83,7 +83,7 @@ init_connection_states(Role, BeastMitigation) ->
         binary(),
         [tls_version()] | tls_version(),
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
-        #ssl_options{}) ->
+        ssl_options()) ->
                              {Records :: [#ssl_tls{}],
                               Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
                              #alert{}.
@@ -495,7 +495,9 @@ validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
 validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
-validate_tls_record_length(Versions, {_,Size0,_} = Q0, SslOpts, Acc, Type, Version, Length) ->
+validate_tls_record_length(Versions, {_,Size0,_} = Q0,
+                           #{log_level := LogLevel} = SslOpts,
+                           Acc, Type, Version, Length) ->
     if
         Length =< ?MAX_CIPHER_TEXT_LENGTH ->
             if
@@ -503,7 +505,7 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, SslOpts, Acc, Type, Versi
                     %% Complete record
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
-                    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'record', Record),
+                    ssl_logger:debug(LogLevel, inbound, 'record', Record),
                     decode_tls_records(Versions, Q, SslOpts, [Record|Acc], undefined, undefined, undefined);
                 true ->
                     {lists:reverse(Acc),

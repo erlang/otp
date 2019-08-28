@@ -28,16 +28,20 @@
 
 -export([init/2]).
 
-init(SslOpts, Role) ->
+init(#{erl_dist := ErlDist,
+       key := Key,
+       keyfile := KeyFile,
+       password := Password,
+       dh := DH,
+       dhfile := DHFile} = SslOpts, Role) ->
     
-    init_manager_name(SslOpts#ssl_options.erl_dist),
+    init_manager_name(ErlDist),
 
     {ok, #{pem_cache := PemCache} = Config} 
 	= init_certificates(SslOpts, Role),
     PrivateKey =
-	init_private_key(PemCache, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
-			 SslOpts#ssl_options.password, Role),
-    DHParams = init_diffie_hellman(PemCache, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
+	init_private_key(PemCache, Key, KeyFile, Password, Role),
+    DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
     {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
 init_manager_name(false) ->
@@ -47,12 +51,12 @@ init_manager_name(true) ->
     put(ssl_manager, ssl_manager:name(dist)),
     put(ssl_pem_cache, ssl_pem_cache:name(dist)).
 
-init_certificates(#ssl_options{cacerts = CaCerts,
-			       cacertfile = CACertFile,
-			       certfile = CertFile,			   
-			       cert = Cert,
-			       crl_cache = CRLCache
-			      }, Role) ->
+init_certificates(#{cacerts := CaCerts,
+                    cacertfile := CACertFile,
+                    certfile := CertFile,
+                    cert := Cert,
+                    crl_cache := CRLCache
+                   }, Role) ->
     {ok, Config} =
 	try 
 	    Certs = case CaCerts of

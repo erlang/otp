@@ -163,7 +163,7 @@ current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
 
 %%--------------------------------------------------------------------
 -spec get_dtls_records(binary(), {atom(), atom(), ssl_record:ssl_version(), [ssl_record:ssl_version()]}, binary(),
-                       #ssl_options{}) -> {[binary()], binary()} | #alert{}.
+                       ssl_options()) -> {[binary()], binary()} | #alert{}.
 %%
 %% Description: Given old buffer and new data from UDP/SCTP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
@@ -399,13 +399,13 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
 get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
                                                          ?UINT16(Epoch), ?UINT48(SequenceNumber),
                                                          ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
-		     Acc, SslOpts) when ((StateName == hello) orelse
-                                         ((StateName == certify) andalso (DataTag == udp)) orelse
-                                         ((StateName == abbreviated) andalso(DataTag == udp))) 
-                                        andalso
-                                        ((Type == ?HANDSHAKE) orelse
-                                         (Type == ?ALERT)) ->
-    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'record', [RawDTLSRecord]),
+		     Acc, #{log_level := LogLevel} = SslOpts)
+  when ((StateName == hello)
+        orelse ((StateName == certify) andalso (DataTag == udp))
+        orelse ((StateName == abbreviated) andalso (DataTag == udp))) andalso ((Type == ?HANDSHAKE)
+                                                                               orelse
+                                                                                 (Type == ?ALERT)) ->
+    ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
     case is_acceptable_version({MajVer, MinVer}, Versions) of
         true ->
             get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
@@ -418,11 +418,11 @@ get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo, <<?BYTE(Type),?B
 get_dtls_records_aux({_, _, Version, _} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
 		       ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
-		     Acc, SslOpts) when (Type == ?APPLICATION_DATA) orelse
+		     Acc, #{log_level := LogLevel} = SslOpts) when (Type == ?APPLICATION_DATA) orelse
                                         (Type == ?HANDSHAKE) orelse
                                         (Type == ?ALERT) orelse
                                         (Type == ?CHANGE_CIPHER_SPEC) ->
-    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'record', [RawDTLSRecord]),
+    ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
     case {MajVer, MinVer} of
         Version ->
             get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
