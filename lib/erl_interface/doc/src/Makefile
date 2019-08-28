@@ -96,7 +96,7 @@ man: $(MAN1_FILES) $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt:
+debug opt lcnt:
 
 clean clean_docs clean_tex:
 	rm -rf $(HTMLDIR)/*

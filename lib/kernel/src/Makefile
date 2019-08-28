@@ -67,6 +67,7 @@ MODULES = \
 	dist_ac \
 	dist_util \
 	erl_boot_server \
+	erl_compile_server \
 	erl_ddll \
 	erl_distribution \
 	erl_epmd \

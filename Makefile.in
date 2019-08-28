@@ -338,7 +338,8 @@ endif
 else
 # Cross compiling
 
-all: cross_check_erl depend emulator libs start_scripts check_dev_rt_dep
+all: cross_check_erl depend build_erl_interface \
+     emulator libs start_scripts check_dev_rt_dep
 
 endif
 
@@ -376,11 +377,17 @@ endif
 # With all bootstraps we mean all bootstrapping that is done when
 # the system is delivered in open source, the primary
 # bootstrap is not included, it requires a pre built emulator...
-all_bootstraps: emulator \
+all_bootstraps: build_erl_interface emulator \
      bootstrap_setup \
      secondary_bootstrap_build secondary_bootstrap_copy \
      tertiary_bootstrap_build tertiary_bootstrap_copy
 
+.PHONY: build_erl_interface
+
+build_erl_interface:
+	$(make_verbose)cd lib/erl_interface && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) $(TYPE)
 #
 # Use these targets when you want to use the erl and erlc
 # binaries in your PATH instead of those created from the
