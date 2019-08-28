@@ -36,10 +36,23 @@
   <modulesummary>Directed graphs.</modulesummary>
   <description>
     <p>This module provides a version of labeled
-      directed graphs. What makes the graphs provided here
-      non-proper directed graphs is that multiple edges between
-      vertices are allowed. However, the customary definition of
-      directed graphs is used here.</p>
+    directed graphs ("digraphs").</p>
+
+    <p>The digraphs managed by this module are stored in
+    <seealso marker="ets">ETS tables</seealso>.
+    That implies the following:</p>
+
+    <list type="bulleted">
+      <item><p>Only the process that created the digraph is allowed to update it.</p></item>
+      <item><p>Digraphs will not be garbage collected. The ETS tables used for a
+      digraph will only be deleted when <seealso marker="#delete/1"><c>delete/1</c></seealso>
+      is called or the process that created the digraph terminates.</p></item>
+      <item><p>A digraph is a mutable data structure.</p></item>
+    </list>
+      
+    <p>What makes the graphs provided here non-proper directed graphs
+    is that multiple edges between vertices are allowed. However, the
+    customary definition of directed graphs is used here.</p>
 
     <list type="bulleted">
       <item>
