@@ -39,29 +39,30 @@ start_link(Args) ->
     supervisor:start_link(?MODULE, [Args]).
 
 
-start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
-    case max_num_channels_not_exceeded(ChannelSup, Opts) of
+start_child(client, ChannelSup, ConnRef, Callback, Id, Args, Exec, _Opts) when is_pid(ConnRef) ->
+    start_the_child(ssh_client_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
+start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
+     case max_num_channels_not_exceeded(ChannelSup, Opts) of
         true ->
-            ChanMod = case Role of
-                          server -> ssh_server_channel;
-                          client -> ssh_client_channel
-                      end,
-            ChildSpec =
-                #{id       => make_ref(),
-                  start    => {ChanMod, start_link, [ConnRef, Id, Callback, Args, Exec]},
-                  restart  => temporary,
-                  type     => worker,
-                  modules  => [ChanMod]
-                 },
-            case supervisor:start_child(ChannelSup, ChildSpec) of
-                {error,{Error,_Info}} ->
-                    throw(Error);
-                Others ->
-                    Others
-            end;
-
+             start_the_child(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
         false ->
-	    throw(max_num_channels_exceeded)
+             throw(max_num_channels_exceeded)
+    end.
+
+
+start_the_child(ChanMod, ChannelSup, ConnRef, Callback, Id, Args, Exec) ->
+    ChildSpec =
+        #{id       => make_ref(),
+          start    => {ChanMod, start_link, [ConnRef, Id, Callback, Args, Exec]},
+          restart  => temporary,
+          type     => worker,
+          modules  => [ChanMod]
+         },
+    case supervisor:start_child(ChannelSup, ChildSpec) of
+        {error,{Error,_Info}} ->
+            throw(Error);
+        Others ->
+            Others
     end.
 
 %%%=========================================================================

@@ -47,12 +47,12 @@ connection_supervisor(SupPid) ->
     Children = supervisor:which_children(SupPid),
     ssh_connection_sup(Children).
 
-channel_supervisor(SupPid) ->    
+channel_supervisor(SupPid) when is_pid(SupPid) ->    
     Children = supervisor:which_children(SupPid),
     ssh_channel_sup(Children).
 
-start_channel(Role, SubSysSup, ConnRef, Callback, Id, Args, Exec, Opts) ->
-    ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
+start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
+    ChannelSup = channel_supervisor(SupPid),
     ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts).
 
 %%%=========================================================================

@@ -48,6 +48,7 @@
 -export([start_connection/4,
          available_hkey_algorithms/2,
 	 open_channel/6,
+         start_channel/5,
 	 request/6, request/7,
 	 reply_request/3, 
 	 send/5,
@@ -170,6 +171,8 @@ disconnect(Code, DetailedText, Module, Line) ->
 	   [{next_event, internal, {send_disconnect, Code, DetailedText, Module, Line}}]}).
 
 %%--------------------------------------------------------------------
+%%% Open a channel in the connection to the peer, that is, do the ssh
+%%% signalling with the peer.
 -spec open_channel(connection_ref(), 
 		   string(),
 		   iodata(),
@@ -187,6 +190,19 @@ open_channel(ConnectionHandler,
 	  self(), 
 	  ChannelType, InitialWindowSize, MaxPacketSize, ChannelSpecificData,
 	  Timeout}).
+
+%%--------------------------------------------------------------------
+%%% Start a channel handling process in the superviser tree
+start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
+    {ok, {SubSysSup,Role,Opts}} = call(ConnectionHandler, get_misc),
+    try
+        ssh_subsystem_sup:start_channel(Role, SubSysSup,
+                                        ConnectionHandler, CallbackModule, ChannelId,
+                                        Args, Exec, Opts)
+    catch
+        throw:Error ->
+            {error,Error}
+    end.
 
 %%--------------------------------------------------------------------
 -spec request(connection_ref(),
@@ -1240,6 +1256,13 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 	_ ->
 	    {keep_state, D0, [{reply,From,{error,closed}}]}
     end;
+
+handle_event({call,From}, get_misc, StateName,
+             #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
+    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+    SubSysSup = proplists:get_value(subsystem_sup,  Sups),
+    Reply = {ok, {SubSysSup, role(StateName), Opts}},
+    {keep_state, D, [{reply,From,Reply}]};
 
 handle_event({call,From},
 	     {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
