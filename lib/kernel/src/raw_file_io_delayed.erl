@@ -313,6 +313,7 @@ wrap_call(Fd, Command) ->
     try gen_statem:call(Pid, Command, infinity) of
         Result -> Result
     catch
+        exit:{normal, _StackTrace} -> {error, einval};
         exit:{noproc, _StackTrace} -> {error, einval}
     end.
 
