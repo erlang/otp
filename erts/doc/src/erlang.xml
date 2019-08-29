@@ -337,6 +337,16 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
+      <name name="atom_to_binary" arity="1" since="OTP @OTP-15995@"/>
+      <fsummary>Return the binary representation of an atom.</fsummary>
+      <desc>
+	<p>
+	  The same as <seealso marker="#atom_to_binary/2"><c>atom_to_binary</c>
+	  </seealso><c>(<anno>Atom</anno>, utf8)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="atom_to_binary" arity="2" since=""/>
       <fsummary>Return the binary representation of an atom.</fsummary>
       <desc>
@@ -409,14 +419,21 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
+      <name name="binary_to_atom" arity="1" since="OTP @OTP-15995@"/>
+      <fsummary>Convert from text representation to an atom.</fsummary>
+      <desc>
+	<p>
+	  The same as <seealso marker="#binary_to_atom/2"><c>binary_to_atom</c>
+	  </seealso><c>(<anno>Binary</anno>, utf8)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="binary_to_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
         <p>Returns the atom whose text representation is
-          <c><anno>Binary</anno></c>.
-          If <c><anno>Encoding</anno></c> is <c>latin1</c>, no
-          translation of bytes in the binary is done.
-          If <c><anno>Encoding</anno></c>
+          <c><anno>Binary</anno></c>. If <c><anno>Encoding</anno></c>
           is <c>utf8</c> or <c>unicode</c>, the binary must contain
           valid UTF-8 sequences.</p>
         <note>
@@ -434,6 +451,17 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 'Erlang'
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
 'Ѐ'</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="binary_to_existing_atom" arity="1" since="OTP @OTP-15995@"/>
+      <fsummary>Convert from text representation to an atom.</fsummary>
+      <desc>
+	<p>
+	  The same as <seealso marker="#binary_to_existing_atom/2">
+	  <c>binary_to_existing_atom</c></seealso>
+	  <c>(<anno>Binary</anno>, utf8)</c>.</p>
       </desc>
     </func>
 

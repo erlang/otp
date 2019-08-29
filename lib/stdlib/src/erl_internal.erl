@@ -245,11 +245,14 @@ bif(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 bif(abs, 1) -> true;
 bif(apply, 2) -> true;
 bif(apply, 3) -> true;
+bif(atom_to_binary, 1) -> true;
 bif(atom_to_binary, 2) -> true;
 bif(atom_to_list, 1) -> true;
 bif(binary_part, 2) -> true;
 bif(binary_part, 3) -> true;
+bif(binary_to_atom, 1) -> true;
 bif(binary_to_atom, 2) -> true;
+bif(binary_to_existing_atom, 1) -> true;
 bif(binary_to_existing_atom, 2) -> true;
 bif(binary_to_integer, 1) -> true;
 bif(binary_to_integer, 2) -> true;
