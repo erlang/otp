@@ -43,10 +43,10 @@ start_child(client, ChannelSup, ConnRef, Callback, Id, Args, Exec, _Opts) when i
     start_the_child(ssh_client_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
 start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
      case max_num_channels_not_exceeded(ChannelSup, Opts) of
-        true ->
+         true ->
              start_the_child(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
-        false ->
-             throw(max_num_channels_exceeded)
+         false ->
+             {error, max_num_channels_exceeded}
     end.
 
 
@@ -59,10 +59,14 @@ start_the_child(ChanMod, ChannelSup, ConnRef, Callback, Id, Args, Exec) ->
           modules  => [ChanMod]
          },
     case supervisor:start_child(ChannelSup, ChildSpec) of
-        {error,{Error,_Info}} ->
-            throw(Error);
-        Others ->
-            Others
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, _Info} ->
+            {ok,Pid};
+        {error, {Error,_Info}} ->
+            {error, Error};
+        {error, Error} ->
+            {error, Error}
     end.
 
 %%%=========================================================================

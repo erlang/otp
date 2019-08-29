@@ -193,16 +193,15 @@ open_channel(ConnectionHandler,
 
 %%--------------------------------------------------------------------
 %%% Start a channel handling process in the superviser tree
+-spec start_channel(connection_ref(), atom(), channel_id(), list(), term()) ->
+                           {ok, pid()} | {error, term()}.
+
+%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
     {ok, {SubSysSup,Role,Opts}} = call(ConnectionHandler, get_misc),
-    try
-        ssh_subsystem_sup:start_channel(Role, SubSysSup,
-                                        ConnectionHandler, CallbackModule, ChannelId,
-                                        Args, Exec, Opts)
-    catch
-        throw:Error ->
-            {error,Error}
-    end.
+    ssh_subsystem_sup:start_channel(Role, SubSysSup,
+                                    ConnectionHandler, CallbackModule, ChannelId,
+                                    Args, Exec, Opts).
 
 %%--------------------------------------------------------------------
 -spec request(connection_ref(),

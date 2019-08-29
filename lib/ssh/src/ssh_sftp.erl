@@ -172,9 +172,7 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, format_channel_start_error(Reason)};
-		ignore ->
-		    {error, ignore}
+		    {error, format_channel_start_error(Reason)}
 	    end;
 	Error ->
 	    Error
@@ -210,9 +208,7 @@ start_channel(Host, Port, UserOptions) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, format_channel_start_error(Reason)};
-		ignore ->
-		    {error, ignore}
+		    {error, format_channel_start_error(Reason)}
 	    end;
 	Error ->
 	    Error

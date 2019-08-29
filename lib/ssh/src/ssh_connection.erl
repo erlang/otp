@@ -648,18 +648,13 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     #channel{remote_id=RemoteId} = Channel = 
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     Reply =
-        try
-            start_subsystem(SsName, Connection, Channel,
-                            {subsystem, ChannelId, WantReply, binary_to_list(SsName)})
-        of
+        case start_subsystem(SsName, Connection, Channel,
+                             {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
             {ok, Pid} ->
                 erlang:monitor(process, Pid),
                 ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
                 channel_success_msg(RemoteId);
             {error,_Error} ->
-                channel_failure_msg(RemoteId)
-        catch
-            _:_ ->
                 channel_failure_msg(RemoteId)
         end,
     {[{connection_reply,Reply}], Connection};
@@ -932,7 +927,9 @@ start_subsystem(BinName, #connection{options = Options,
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
             ssh_subsystem_sup:start_channel(server, SubSysSup, self(), Callback, ChannelId, Opts, undefined, Options);
-	{Other, _} when Other =/= none ->
+        {none, _} ->
+            {error, bad_subsystem};
+	{_, _} ->
 	    {error, legacy_option_not_supported}
     end.
 
@@ -1276,13 +1273,13 @@ handle_cli_msg(C0, ChId, Reply0) ->
     Ch0 = ssh_client_channel:cache_lookup(Cache, ChId),
     case Ch0#channel.user of
         undefined ->
-            case (catch start_cli(C0, ChId)) of
+            case start_cli(C0, ChId) of
                 {ok, Pid} ->
                     erlang:monitor(process, Pid),
                     Ch = Ch0#channel{user = Pid},
                     ssh_client_channel:cache_update(Cache, Ch),
                     reply_msg(Ch, C0, Reply0);
-                _Other ->
+                {error, _Error} ->
                     Reply = {connection_reply, channel_failure_msg(Ch0#channel.remote_id)},
                     {[Reply], C0}
             end;
