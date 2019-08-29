@@ -3266,7 +3266,11 @@ AS_HELP_STRING([--without-javac], [don't use any Java compiler]))
 dnl
 dnl Then there are a number of apps which needs a java compiler...
 dnl
-need_java="jinterface ic/java_src"
+need_java="jinterface"
+
+if test -d $ERL_TOP/lib/ic; then
+   need_java="$need_java ic/java_src"
+fi
 
 # Remove all SKIP files from previous runs
 for a in $need_java ; do
