@@ -38,13 +38,9 @@
     <p>A NIF library contains native implementation of some functions
       of an Erlang module. The native implemented functions (NIFs) are
       called like any other functions without any difference to the
-      caller. Each NIF must have an implementation in Erlang that
-      is invoked if the function is called before the NIF library
-      is successfully loaded. A typical such stub implementation
-      is to throw an exception. But it can also be used as a fallback
-      implementation if the NIF library is not implemented for some
-      architecture.</p>
-
+      caller. A NIF library is built as a dynamically linked library file
+      and loaded in runtime by calling <seealso marker="erlang#load_nif-2">
+      <c>erlang:load_nif/2</c></seealso>.</p>
     <warning>
       <marker id="WARNING"/>
       <p><em>Use this functionality with extreme care.</em></p>
@@ -75,6 +71,9 @@
         </item>
       </list>
     </warning>
+  </description>
+  <section>
+    <title>Example</title>
 
     <p>A minimal example of a NIF library can look as follows:</p>
 
@@ -101,11 +100,13 @@ ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)</code>
 
 -export([init/0, hello/0]).
 
+-on_load(init/0).
+
 init() ->
       erlang:load_nif("./niftest", 0).
 
 hello() ->
-      "NIF library not loaded".</code>
+      erlang:nif_error("NIF library not loaded").</code>
 
     <p>Compile and test can look as follows (on Linux):</p>
 
@@ -116,28 +117,30 @@ $> erl
 1> c(niftest).
 {ok,niftest}
 2> niftest:hello().
-"NIF library not loaded"
-3> niftest:init().
-ok
-4> niftest:hello().
 "Hello world!"</code>
 
-    <p>A better solution for a real module is to take advantage of the new
-      directive <c>on_load</c> (see section
-      <seealso marker="doc/reference_manual:code_loading#on_load">Running a
-      Function When a Module is Loaded</seealso> in the Erlang Reference
-      Manual) to load the NIF library automatically when the module is
-      loaded.</p>
-
+    <p>
+      In the example above the <seealso marker="doc/reference_manual:code_loading#on_load">
+      <em><c>on_load</c></em></seealso> directive is used get function <c>init</c> called
+      automatically when the module is loaded. Function <c>init</c> in turn
+      calls <seealso marker="erlang#load_nif-2"><c>erlang:load_nif/2</c></seealso>
+      which loads the NIF library and replaces the <c>hello</c> function with its
+      native implementation in C. Once loaded, a NIF library is persistent. It
+      will not be unloaded until the module code version that it belongs to is
+      purged.</p>
+    <p>
+      Each NIF must have an implementation in Erlang to be invoked if the
+      function is called before the NIF library is successfully loaded. A
+      typical such stub implementation is to call <seealso marker="erlang#nif_error-1">
+      <c>erlang:nif_error</c></seealso> which will raise an exception. The
+      Erlang function can also be used as a fallback implementation if the NIF
+      library lacks implementation for some OS or hardware architecture for example.</p>
     <note>
       <p>A NIF does not have to be exported, it can be local to the module.
         However, unused local stub functions will be optimized
         away by the compiler, causing loading of the NIF library to fail.</p>
     </note>
-
-    <p>Once loaded, a NIF library is persistent. It will not be unloaded
-      until the module code version that it belongs to is purged.</p>
-  </description>
+  </section>
 
   <section>
   <title>Functionality</title>
