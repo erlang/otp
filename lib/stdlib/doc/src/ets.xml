@@ -782,29 +782,25 @@ Error: fun containing local Erlang function calls
       <fsummary>Check if an Erlang term is the result of
         <c>match_spec_compile</c>.</fsummary>
       <desc>
-        <p>Checks if a term is a valid
-          compiled <seealso marker="#match_spec">match specification</seealso>.
-          The compiled match specification is an opaque datatype that
-          <em>cannot</em> be sent between Erlang nodes or be stored on
-          disk. Any attempt to create an external representation of a
-          compiled match specification results in an empty binary
-          (<c><![CDATA[<<>>]]></c>).</p>
-        <p><em>Examples:</em></p>
-        <p>The following expression yields <c>true</c>::</p>
-        <code type="none">
-ets:is_compiled_ms(ets:match_spec_compile([{'_',[],[true]}])).</code>
-        <p>The following expressions yield <c>false</c>, as variable
-          <c>Broken</c> contains a compiled match specification that has
-          passed through external representation:</p>
-        <code type="none">
-MS = ets:match_spec_compile([{'_',[],[true]}]),
-Broken = binary_to_term(term_to_binary(MS)),
-ets:is_compiled_ms(Broken).</code>
+        <p>Checks if a term represent a valid compiled
+	  <seealso marker="#match_spec">match specification</seealso>.
+          A compiled match specifications is only valid on the Erlang node where
+	  it was compiled by calling <seealso marker="#match_spec_compile/1">
+	  <c>match_spec_compile/1</c></seealso>.</p>
         <note>
-          <p>The reason for not having an external representation of
-            compiled match specifications is performance. It can be
-            subject to change in future releases, while this interface
-            remains for backward compatibility.</p>
+          <p>
+	    Before STDLIB 3.4 (OTP 20.0) compiled match specifications did
+	    not have an external representation. If passed through
+	    <c>binary_to_term(term_to_binary(CMS))</c> or sent to another node
+	    and back, the result was always an empty binary <c>&lt;&lt;>></c>.</p>
+	  <p>
+	    After STDLIB 3.4 (OTP 20.0) compiled match specifications have an
+	    external representation as a node specific reference to the original
+	    compiled match specification. If passed through
+	    <c>binary_to_term(term_to_binary(CMS))</c> or sent to another node
+	    and back, the result <em>may or may not</em> be a valid compiled match
+	    specification depending on if the original compiled match
+	    specification was still alive.</p>
         </note>
       </desc>
     </func>
@@ -1033,11 +1029,7 @@ ets:is_compiled_ms(Broken).</code>
           <seealso marker="#match_spec">match specification</seealso> into an
           internal representation that can be used in subsequent calls to
           <seealso marker="#match_spec_run/2"><c>match_spec_run/2</c></seealso>.
-          The internal representation is
-          opaque and cannot be converted to external term format and
-          then back again without losing its properties (that is, it cannot
-          be sent to a process on another node and still remain a
-          valid compiled match specification, nor can it be stored on disk).
+          The internal representation is opaque.
           To check the validity of a compiled match specification, use
           <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.
         </p>
@@ -1330,46 +1322,41 @@ ets:select(Table, MatchSpec),</code>
           continuation has passed through external term format (been
           sent between nodes or stored on disk).</p>
         <p>The reason for this function is that continuation terms
-          contain compiled match specifications and therefore are
+          contain compiled match specifications and may therefore be
           invalidated if converted to external term format. Given that the
           original match specification is kept intact, the continuation can
           be restored, meaning it can once again be used in subsequent
           <c>select/1</c> calls even though it has been stored on
           disk or on another node.</p>
         <p><em>Examples:</em></p>
-        <p>The following sequence of calls fails:</p>
+        <p>The following sequence of calls may fail:</p>
         <code type="none">
 T=ets:new(x,[]),
 ...
-{_,C} = ets:select(T,ets:fun2ms(fun({N,_}=A)
-when (N rem 10) =:= 0 ->
-A
-end),10),
-Broken = binary_to_term(term_to_binary(C)),
-ets:select(Broken).</code>
+MS = ets:fun2ms(fun({N,_}=A) when (N rem 10) =:= 0 -> A end),
+{_,C} = ets:select(T, MS, 10),
+MaybeBroken = binary_to_term(term_to_binary(C)),
+ets:select(MaybeBroken).</code>
         <p>The following sequence works, as the call to
-          <c>repair_continuation/2</c> reestablishes the (deliberately)
-          invalidated continuation <c>Broken</c>.</p>
+          <c>repair_continuation/2</c> reestablishes the
+          <c>MaybeBroken</c> continuation.</p>
         <code type="none">
 T=ets:new(x,[]),
 ...
-MS = ets:fun2ms(fun({N,_}=A)
-when (N rem 10) =:= 0 ->
-A
-end),
+MS = ets:fun2ms(fun({N,_}=A) when (N rem 10) =:= 0 -> A end),
 {_,C} = ets:select(T,MS,10),
-Broken = binary_to_term(term_to_binary(C)),
-ets:select(ets:repair_continuation(Broken,MS)).</code>
+MaybeBroken = binary_to_term(term_to_binary(C)),
+ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
         <note>
           <p>This function is rarely needed in application code. It is used
             by Mnesia to provide distributed <c>select/3</c>
             and <c>select/1</c> sequences. A normal application would
             either use Mnesia or keep the continuation from being
             converted to external format.</p>
-          <p>The reason for not having an external representation of a
-            compiled match specification is performance. It can be subject to
-            change in future releases, while this interface remains
-            for backward compatibility.</p>
+          <p>The actual behavior of compiled match specifications when recreated
+	    from external format has changed and may change in future releases,
+	    but this interface remains for backward compatibility.
+	    See <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.</p>
         </note>
       </desc>
     </func>
