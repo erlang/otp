@@ -28,6 +28,7 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -57,6 +58,7 @@ all() ->
      {group, http_limit},
      {group, https_limit},
      {group, http_custom},
+     {group, https_custom},
      {group, https_custom},
      {group, http_basic_auth},
      {group, https_basic_auth},
@@ -139,7 +141,7 @@ groups() ->
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_post] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
@@ -1053,6 +1055,17 @@ mod_esi_chunk_timeout(Config) when is_list(Config) ->
 					 proplists:get_value(port, Config),
 					 proplists:get_value(host, Config),
 					 proplists:get_value(node, Config)).
+%%-------------------------------------------------------------------------
+esi_proagate(Config)  when is_list(Config) -> 
+    register(propagate_test, self()),
+    ok = http_status("GET /cgi-bin/erl/httpd_example:new_status_and_location ",
+                  Config, [{statuscode, 201}]),
+    receive
+        {status, 201} ->
+            ok;
+        Err ->
+            ct:fail(Err)
+    end.        
 
 %%-------------------------------------------------------------------------
 cgi() ->
@@ -2246,8 +2259,17 @@ head_status(_) ->
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
-		mod_trace, mod_esi, mod_cgi, mod_get, mod_head]}].
-
+		mod_trace, mod_esi, ?MODULE, mod_cgi, mod_get, mod_head]}].
+do(ModData) ->
+    case whereis(propagate_test) of
+        undefined ->
+            ok;
+        _ ->
+            {already_sent, Status, _Size} = proplists:get_value(response, ModData#mod.data),
+            propagate_test ! {status, Status}              
+    end,
+    {proceed, ModData#mod.data}.
+                
 not_sup_conf() ->
      [{modules, [mod_get]}].
 
