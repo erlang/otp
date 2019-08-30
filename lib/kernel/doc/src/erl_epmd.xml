@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2018</year><year>2018</year>
+      <year>2018</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
     <p>This module communicates with the EPMD daemon, see <seealso
     marker="erts:epmd">epmd</seealso>. To implement your own epmd module please
     see <seealso marker="erts:alt_disco">ERTS User's Guide: How to Implement an
-    Alternative Service Discovery for Erlang Distribution</seealso></p>
+    Alternative Node Discovery for Erlang Distribution</seealso></p>
   </description>
 
   <funcs>

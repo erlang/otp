@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -2786,7 +2786,7 @@
 	    marker="kernel:erl_epmd"><c>erl_epmd</c></seealso>
 	    reference manual and ERTS User's Guide <seealso
 	    marker="erts:alt_disco">How to Implement an Alternative
-	    Service Discovery for Erlang Distribution</seealso>.</p>
+	    Node Discovery for Erlang Distribution</seealso>.</p>
           <p>
 	    Own Id: OTP-15086 Aux Id: PR-1694 </p>
         </item>
