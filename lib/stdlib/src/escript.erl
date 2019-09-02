@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,11 +281,11 @@ start(EscriptOptions) ->
         end
     catch
         throw:Str ->
-            io:format("escript: ~ts\n", [Str]),
+            put_chars(io_lib:format("escript: ~ts\n", [Str])),
             my_halt(127);
         _:Reason:Stk ->
-            io:format("escript: Internal error: ~tp\n", [Reason]),
-            io:format("~tp\n", [Stk]),
+            put_chars(io_lib:format("escript: Internal error: ~tp\n", [Reason])),
+            put_chars(io_lib:format("~tp\n", [Stk])),
             my_halt(127)
     end.
 
@@ -885,13 +885,22 @@ format_exception(Class, Reason, StackTrace) ->
     erl_error:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
 
 encoding() ->
-    [{encoding, Encoding}] = enc(),
-    Encoding.
+    case io:getopts() of
+        {error, _}=_Err ->
+            latin1;
+        Opts ->
+            case lists:keyfind(encoding, 1, Opts) of
+                false -> latin1;
+                {encoding, Encoding} -> Encoding
+            end
+    end.
 
-enc() ->
-    case lists:keyfind(encoding, 1, io:getopts()) of
-        false -> [{encoding,latin1}]; % should never happen
-        Enc -> [Enc]
+put_chars(String) ->
+    try
+        io:put_chars(String)
+    catch
+        _:_ ->
+            erlang:display(lists:flatten(String))
     end.
 
 a0() ->
