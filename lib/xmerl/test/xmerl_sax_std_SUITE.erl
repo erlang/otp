@@ -2440,11 +2440,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-ext-sa-002
 %% Type: not-wf
 %% Sections: 4.3.1 4.3.2 [77, 78]
-'not-wf-ext-sa-002'(Config) -> {skip, "Fix 1"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/002.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "not-wf").
+'not-wf-ext-sa-002'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/002.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -2452,11 +2452,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-ext-sa-003
 %% Type: not-wf
 %% Sections: 2.6 [17]
-'not-wf-ext-sa-003'(Config) -> {skip, "Fix 1"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/003.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "not-wf").
+'not-wf-ext-sa-003'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/003.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -2644,11 +2644,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-012
 %% Type: valid
 %% Sections: 2.3 [4]
-'valid-sa-012'(Config) ->  {skip, "Fix 1"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/012.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "valid").
+'valid-sa-012'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/012.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4300,11 +4300,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-001
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-001'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/001.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-001'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/001.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4312,11 +4312,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-002
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-002'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/002.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-002'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/002.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4324,11 +4324,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-003
 %% Type: valid
 %% Sections: 3.1 4.1 [43] [68]
-'valid-ext-sa-003'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/003.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-003'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/003.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4336,11 +4336,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-004
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-004'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/004.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-004'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/004.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4348,11 +4348,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-005
 %% Type: valid
 %% Sections: 3.2.1 4.2.2 [48] [75]
-'valid-ext-sa-005'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/005.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-005'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/005.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4360,11 +4360,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-006
 %% Type: valid
 %% Sections: 2.11 3.2.1 3.2.2 4.2.2 [48] [51] [75]
-'valid-ext-sa-006'(_Config) -> {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/006.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-006'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/006.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4372,7 +4372,7 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-007
 %% Type: valid
 %% Sections: 4.2.2 4.4.3 [75]
-'valid-ext-sa-007'(_Config) -> {skip, "NYI"}.
+'valid-ext-sa-007'(_Config) -> {skip, "Different encoding in entity"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/007.xml"]),
 %%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
@@ -4384,7 +4384,7 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-008
 %% Type: valid
 %% Sections: 4.2.2 4.3.3. 4.4.3 [75] [80]
-'valid-ext-sa-008'(_Config) -> {skip, "NYI"}.
+'valid-ext-sa-008'(_Config) -> {skip, "Different encoding in entity"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/008.xml"]),
 %%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
@@ -4396,11 +4396,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-009
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-009'(_Config) ->  {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/009.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-009'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/009.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4408,11 +4408,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-011
 %% Type: valid
 %% Sections: 2.11 4.2.2 [75]
-'valid-ext-sa-011'(_Config) ->  {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/011.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-011'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/011.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4420,11 +4420,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-012
 %% Type: valid
 %% Sections: 4.2.1 4.2.2
-'valid-ext-sa-012'(_Config) ->  {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/012.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-012'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/012.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4432,11 +4432,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-013
 %% Type: valid
 %% Sections: 3.3.3
-'valid-ext-sa-013'(_Config) ->  {skip, "NYI"}.
-%%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-%%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/013.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-%%    check_result(R, "valid").
+'valid-ext-sa-013'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/013.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "valid").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -4444,7 +4444,7 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-014
 %% Type: valid
 %% Sections: 4.1 4.4.3 [68]
-'valid-ext-sa-014'(_Config) -> {skip, "NYI"}.
+'valid-ext-sa-014'(_Config) -> {skip, "Different encoding in entity"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/014.xml"]),
 %%    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
@@ -16291,11 +16291,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P77-ibm77n02.xml
 %% Type: not-wf
 %% Sections: 4.3.1
-'ibm-not-wf-P77-ibm77n02'(Config) ->  {skip, "Fix 3"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n02.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "not-wf").
+'ibm-not-wf-P77-ibm77n02'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n02.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -16332,11 +16332,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P78-ibm78n01.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P78-ibm78n01'(Config) ->  {skip, "Fix 3"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n01.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "not-wf").
+'ibm-not-wf-P78-ibm78n01'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n01.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -16344,11 +16344,11 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P78-ibm78n02.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P78-ibm78n02'(Config) ->  {skip, "Fix 3"}.
-   %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
-   %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n02.xml"]),
-   %%R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
-   %%check_result(R, "not-wf").
+'ibm-not-wf-P78-ibm78n02'(Config) -> 
+    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
+    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n02.xml"]),
+    R = xmerl_sax_parser:file(Path, [{event_fun, fun(_,_,S) -> S end}]),
+    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
 %% Test Cases 
