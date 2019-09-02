@@ -685,7 +685,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                                                                  send_buf = queue:new()
                                                                 }),
                         gen_tcp:controlling_process(Sock, Pid),
-                        ssh_tcpip_forward_srv:use_socket(Pid, Sock),
+                        inet:setopts(Sock, [{active,once}]),
 
                         {channel_open_confirmation_msg(RemoteId, ChId,
                                                        ?DEFAULT_WINDOW_SIZE, 

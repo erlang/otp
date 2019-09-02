@@ -49,6 +49,7 @@
          available_hkey_algorithms/2,
 	 open_channel/6,
          start_channel/5,
+         handle_direct_tcpip/6,
 	 request/6, request/7,
 	 reply_request/3, 
          global_request/5,
@@ -205,6 +206,10 @@ start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
     ssh_subsystem_sup:start_channel(Role, SubSysSup,
                                     ConnectionHandler, CallbackModule, ChannelId,
                                     Args, Exec, Opts).
+
+%%--------------------------------------------------------------------
+handle_direct_tcpip(ConnectionHandler, ListenHost, ListenPort, ConnectToHost, ConnectToPort, Timeout) ->
+    call(ConnectionHandler, {handle_direct_tcpip, ListenHost, ListenPort, ConnectToHost, ConnectToPort, Timeout}).
 
 %%--------------------------------------------------------------------
 -spec request(connection_ref(),
@@ -1582,6 +1587,21 @@ handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{
     gen_tcp:controlling_process(Sock, Pid),
     inet:setopts(Sock, [{active,once}]),
     keep_state_and_data;
+
+handle_event({call,From},
+             {handle_direct_tcpip, ListenHost, ListenPort, ConnectToHost, ConnectToPort, _Timeout},
+             _StateName,
+             #data{connection_state = #connection{sub_system_supervisor=SubSysSup}}) ->
+    case ssh_tcpip_forward_acceptor:supervised_start(ssh_subsystem_sup:tcpip_fwd_supervisor(SubSysSup),
+                                                     {ListenHost, ListenPort},
+                                                     {ConnectToHost, ConnectToPort},
+                                                     "direct-tcpip", ssh_tcpip_forward_client,
+                                                     self()) of
+        {ok,LPort} ->
+            {keep_state_and_data, [{reply,From,{ok,LPort}}]};
+        {error,Error} ->
+            {keep_state_and_data, [{reply,From,{error,Error}}]}
+    end;
 
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of

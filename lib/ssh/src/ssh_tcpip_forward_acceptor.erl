@@ -79,6 +79,9 @@ acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB,
                 case ConnectToAddr of
                     undefined ->
                         <<?STRING(ListenAddrStr), ?UINT32(ListenPort),
+                          ?STRING(RemHostBin), ?UINT32(RemPort)>>;
+                    {ConnectToHost, ConnectToPort} ->
+                        <<?STRING(ConnectToHost), ?UINT32(ConnectToPort),
                           ?STRING(RemHostBin), ?UINT32(RemPort)>>
                 end,
             case ssh_connection:open_channel(ConnPid, ChanType, Data, infinity) of

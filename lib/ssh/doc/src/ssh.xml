@@ -1323,6 +1323,27 @@
 	</p>
       </desc>
     </func>
+    
+    <func>
+      <name name="tcpip_tunnel_to_server" arity="5" since=""/>
+      <name name="tcpip_tunnel_to_server" arity="6" since=""/>
+      <fsummary>TCP/IP tunneling from a client to a server ("direct-tcpip")</fsummary>
+      <desc>
+	<p>Tells the local client to listen to <c>ListenHost:ListenPort</c>.  When someone
+	connects to that address, the connection is forwarded in an encrypted channel to the peer server
+	of <c>ConnectionRef</c>. That server then connects to <c>ConnectToHost:ConnectToPort</c>.
+	</p>
+	<p>The returned <c>TrueListenPort</c> is the port that is listened to. It is the same as
+	<c>ListenPort</c>, except when <c>ListenPort = 0</c>. In that case a free port is selected
+	by the underlying OS.
+	</p>
+	<p>Note that in case of an Erlang/OTP SSH server (daemon) as peer, that server must have been
+	started with the option
+	<seealso marker="#type-tcpip_tunnel_in_daemon_option">tcpip_tunnel_in</seealso>
+	to allow the connection.
+	</p>
+      </desc>
+    </func>
 
   </funcs>
   
