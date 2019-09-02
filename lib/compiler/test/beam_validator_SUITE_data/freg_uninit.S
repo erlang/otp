@@ -21,12 +21,14 @@
   {label,3}.
     {func_info,{atom,t},{atom,sum_2},2}.
   {label,4}.
+    {allocate,0,2}.
     {fconv,{x,0},{fr,0}}.
     {fconv,{x,1},{fr,1}}.
     fclearerror.
     {fcheckerror,{f,0}}.
     {call,2,{f,6}}.
     {bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}}.
+    {deallocate,0}.
     return.
 
 {function, foo, 2, 6}.
