@@ -961,7 +961,7 @@ t_delete_all_objects_do(Opts) ->
     %% Test delete_all_objects is atomic
     T2 = ets_new(t_delete_all_objects, [public | Opts]),
     Self = self(),
-    Inserters = [spawn_link(fun() -> inserter(T2, 100*1000, 1, Self) end) || _ <- [1,2,3,4]],
+    Inserters = [spawn_link(fun() -> inserter(T2, 1, Self) end) || _ <- [1,2,3,4]],
     [receive {Ipid, running} -> ok end || Ipid <- Inserters],
     
     ets:delete_all_objects(T2),
@@ -992,23 +992,26 @@ t_delete_all_objects_do(Opts) ->
 
     ets:delete(T2).
 
-inserter(_, 0, _, _) ->
-    ok;
-inserter(T, N, Next, Papa) ->
-    case Next of
-        10*1000 ->
-            Papa ! {self(), running};
-        _ ->
-            ok
-    end,
+inserter(T, Next, Papa) ->
+    Wait = case Next of
+               10*1000 ->
+                   Papa ! {self(), running},
+                   0;
+               100*1000 -> %% We most often don't reach this far
+                   io:format("Inserter ~p reached ~p objects\n",
+                             [self(), Next]),
+                   infinity;
+               _ ->
+                   0
+           end,
                 
     ets:insert(T, {{Next, self()}}),
     receive
         stop ->
             Papa ! {self(), stopped, Next},
             ok
-    after 0 ->
-            inserter(T, N-1, Next+1, Papa)
+    after Wait ->
+            inserter(T, Next+1, Papa)
     end.
 
 
