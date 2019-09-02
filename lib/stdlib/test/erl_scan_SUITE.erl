@@ -300,6 +300,30 @@ integers() ->
          Ts = [{integer,{1,1},I}],
          test_string(S, Ts)
      end || S <- [[N] || N <- lists:seq($0, $9)] ++ ["2323","000"] ],
+    UnderscoreSamples =
+        [{"123_456", 123456},
+         {"123_456_789", 123456789},
+         {"1_2", 12}],
+    lists:foreach(
+         fun({S, I}) ->
+                 {ok, [{integer, 1, I}], _} = erl_scan_string(S)
+         end, UnderscoreSamples),
+    UnderscoreErrors =
+        ["123_",
+         "123__",
+         "123_456_",
+         "123__456",
+         "_123",
+         "__123"],
+    lists:foreach(
+      fun(S) ->
+              case erl_scan:string(S) of
+                  {ok, [{integer, _, _}], _} ->
+                      error({unexpected_integer, S});
+                  _ ->
+                      ok
+              end
+      end, UnderscoreErrors),
     ok.
 
 base_integers() ->
@@ -329,6 +353,34 @@ base_integers() ->
     {ok,[{integer,{1,1},14},{atom,{1,5},g@}],{1,7}} =
         erl_scan_string("16#eg@", {1,1}, []),
 
+    UnderscoreSamples =
+        [{"16#1234_ABCD_EF56", 16#1234abcdef56},
+         {"2#0011_0101_0011", 2#001101010011},
+         {"1_6#123ABC", 16#123abc},
+         {"1_6#123_ABC", 16#123abc},
+         {"16#abcdef", 16#ABCDEF}],
+    lists:foreach(
+         fun({S, I}) ->
+                 {ok, [{integer, 1, I}], _} = erl_scan_string(S)
+         end, UnderscoreSamples),
+    UnderscoreErrors =
+        ["16_#123ABC",
+         "16#123_",
+         "16#_123",
+         "16#ABC_",
+         "16#_ABC",
+         "2#_0101",
+         "1__6#ABC",
+         "16#AB__CD"],
+    lists:foreach(
+      fun(S) ->
+              case erl_scan:string(S) of
+                  {ok, [{integer, _, _}], _} ->
+                      error({unexpected_integer, S});
+                  _ ->
+                      ok
+              end
+      end, UnderscoreErrors),
     ok.
 
 floats() ->
@@ -350,6 +402,34 @@ floats() ->
              erl_scan:string(S, {1,1}, [])
      end || S <- ["1.14Ea"]],
 
+    UnderscoreSamples =
+        [{"123_456.789", 123456.789},
+         {"123.456_789", 123.456789},
+         {"1.2_345e10", 1.2345e10},
+         {"1.234e1_06", 1.234e106},
+         {"12_34.56_78e1_6", 1234.5678e16},
+         {"12_34.56_78e-1_8", 1234.5678e-18}],
+    lists:foreach(
+         fun({S, I}) ->
+                 {ok, [{float, 1, I}], _} = erl_scan_string(S)
+         end, UnderscoreSamples),
+    UnderscoreErrors =
+        ["123_.456",
+         "123._456",
+         "123.456_",
+         "123._",
+         "1._23e10",
+         "1.23e_10",
+         "1.23e10_"],
+    lists:foreach(
+      fun(S) ->
+              case erl_scan:string(S) of
+                  {ok, [{float, _, _}], _} ->
+                      error({unexpected_float, S});
+                  _ ->
+                      ok
+              end
+      end, UnderscoreErrors),
     ok.
 
 dots() ->
