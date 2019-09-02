@@ -33,6 +33,7 @@
 -export([slot/1]).
 -export([match1/1, match2/1, match_object/1, match_object2/1]).
 -export([dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
+-export([info_binary_stress/1]).
 -export([tab2file/1, tab2file2/1, tabfile_ext1/1,
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
@@ -179,7 +180,7 @@ groups() ->
      {match, [],
       [match1, match2, match_object, match_object2]},
      {misc, [],
-      [misc1, safe_fixtable, info, dups, tab2list]},
+      [misc1, safe_fixtable, info, info_binary_stress, dups, tab2list]},
      {files, [],
       [tab2file, tab2file2, tabfile_ext1,
        tabfile_ext2, tabfile_ext3, tabfile_ext4, badfile]},
@@ -4379,9 +4380,14 @@ safe_fixtable_do(Opts) ->
     end,
     ok.
 
+-define(ets_info(Tab,Item,SlavePid), ets_info(Tab, Item, SlavePid, ?LINE)).
+
 %% Tests ets:info result for required tuples.
 info(Config) when is_list(Config) ->
-    repeat_for_opts_all_table_types(fun info_do/1).
+    repeat_for_opts(fun info_do/1,
+                    [[void, set, bag, duplicate_bag, ordered_set],
+                     [void, private, protected, public],
+                     write_concurrency, read_concurrency, compressed]).
 
 info_do(Opts) ->
     EtsMem = etsmem(),
@@ -4421,6 +4427,15 @@ info_do(Opts) ->
     ThisNode=node(),
     Tab = ets_new(foobar, [{keypos, 2} | Opts]),
 
+    %% Start slave to also do ets:info from a process not owning the table.
+    SlavePid = spawn_link(fun Slave() ->
+                                  receive
+                                      {Master, Item} ->
+                                          Master ! {self(), Item, ets:info(Tab, Item)}
+                                  end,
+                                  Slave()
+                          end),
+
     %% Note: ets:info/1 used to return a tuple, but from R11B onwards it
     %% returns a list.
     Res = ets:info(Tab),
@@ -4435,6 +4450,32 @@ info_do(Opts) ->
     {value, {protection, Protection}} =
 	lists:keysearch(protection, 1, Res),
     {value, {id, Tab}} = lists:keysearch(id, 1, Res),
+
+    %% Test 'binary'
+    [] = ?ets_info(Tab, binary, SlavePid),
+    BinSz = 100,
+    RefcBin = list_to_binary(lists:seq(1,BinSz)),
+    ets:insert(Tab, {RefcBin,key}),
+    [{BinPtr,BinSz,2}] = ?ets_info(Tab,binary, SlavePid),
+    ets:insert(Tab, {RefcBin,key2}),
+    [{BinPtr,BinSz,3}, {BinPtr,BinSz,3}] = ?ets_info(Tab,binary,SlavePid),
+    ets:delete(Tab, key),
+    [{BinPtr,BinSz,2}] = ?ets_info(Tab,binary, SlavePid),
+    case TableType of
+        ordered_set ->
+            ets:delete(Tab, key2);
+        _ ->
+            ets:safe_fixtable(Tab, true),
+            ets:delete(Tab, key2),
+            [{BinPtr,BinSz,2}] = ?ets_info(Tab,binary, SlavePid),
+            ets:safe_fixtable(Tab, false)
+    end,
+    [] = ?ets_info(Tab,binary, SlavePid),
+    RefcBin = id(RefcBin), % keep alive
+
+    unlink(SlavePid),
+    exit(SlavePid,kill),
+
     true = ets:delete(Tab),
     undefined = ets:info(non_existing_table_xxyy),
     undefined = ets:info(non_existing_table_xxyy,type),
@@ -4443,6 +4484,79 @@ info_do(Opts) ->
     undefined = ets:info(non_existing_table_xxyy,safe_fixed_monotonic_time),
     undefined = ets:info(non_existing_table_xxyy,safe_fixed),
     verify_etsmem(EtsMem).
+
+ets_info(Tab, Item, SlavePid, _Line) ->
+    R = ets:info(Tab, Item),
+    %%io:format("~p: ets:info(~p) -> ~p\n", [_Line, Item, R]),
+    SlavePid ! {self(), Item},
+    {SlavePid, Item, R} = receive M -> M end,
+    R.
+
+
+
+info_binary_stress(_Config) ->
+    repeat_for_opts(fun info_binary_stress_do/1,
+                    [[set,bag,duplicate_bag,ordered_set],
+                     compressed]).
+
+info_binary_stress_do(Opts) ->
+    Tab = ets_new(info_binary_stress, [public, {write_concurrency,true} | Opts]),
+
+    KeyRange = 1000,
+    ValueRange = 3,
+    RefcBin = list_to_binary(lists:seq(1,100)),
+    InitF = fun (_) -> #{insert => 0, delete => 0, delete_object => 0}
+            end,
+    ExecF = fun (Counters) ->
+                    Key = rand:uniform(KeyRange),
+                    Value = rand:uniform(ValueRange),
+                    Op = element(rand:uniform(4),{insert,insert,delete,delete_object}),
+                    case Op of
+                        insert ->
+                            ets:insert(Tab, {Key,Value,RefcBin});
+                        delete ->
+                            ets:delete(Tab, Key);
+                        delete_object ->
+                            ets:delete_object(Tab, {Key,Value,RefcBin})
+                    end,
+                    Acc = incr_counter(Op, Counters),
+
+                    receive stop ->
+                                [end_of_work | Acc]
+                    after 0 ->
+                            Acc
+                    end
+            end,
+    FiniF = fun (Acc) -> Acc end,
+    Pids = run_sched_workers(InitF, ExecF, FiniF, infinite),
+    timer:send_after(500, stop),
+
+    Rounds = fun Loop(N, Fix) ->
+                     ets:info(Tab, binary),
+                     ets:safe_fixtable(Tab, Fix),
+                     receive
+                         stop ->
+                             ets:safe_fixtable(Tab, false),
+                             false = ets:info(Tab, fixed),
+                             N
+                     after 0 ->
+                             Loop(N+1, not Fix)
+                     end
+             end (1, true),
+    [P ! stop || P <- Pids],
+    Results = wait_pids(Pids),
+    Size = ets:info(Tab,size),
+    io:format("Ops = ~p\n", [maps_sum(Results)]),
+    io:format("Size = ~p\n", [Size]),
+    io:format("Stats = ~p\n", [ets:info(Tab,stats)]),
+    io:format("Rounds = ~p\n", [Rounds]),
+    Size = length(ets:info(Tab, binary)),
+
+    ets:delete_all_objects(Tab),
+    [] = ets:info(Tab, binary),
+    true = ets:delete(Tab),
+    ok.
+
 
 size_loop(_T, 0, _, _) ->
     ok;
@@ -8014,7 +8128,7 @@ repeat_for_opts_atom2list(all_non_stim_types) -> [set,ordered_set,cat_ord_set,ba
 repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_set];
 repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
-repeat_for_opts_atom2list(compressed) -> [compressed,void].
+repeat_for_opts_atom2list(compressed) -> [void,compressed].
 
 is_redundant_opts_combo(Opts) ->
     (lists:member(stim_cat_ord_set, Opts) orelse

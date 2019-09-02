@@ -878,6 +878,8 @@ erts_bld_port_info(Eterm **hpp,
 		   Uint *szp,
 		   Port *prt,
 		   Eterm item); 
+Eterm erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail);
+
 
 void erts_bif_info_init(void);
 

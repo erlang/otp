@@ -195,6 +195,8 @@ bif erts_internal:dirty_process_handle_signals/1
 
 bif erts_internal:create_dist_channel/4
 
+bif erts_internal:ets_super_user/1
+
 # inet_db support
 bif erlang:port_set_data/2
 bif erlang:port_get_data/1
@@ -742,3 +744,11 @@ bif erts_internal:spawn_system_process/3
 bif erlang:integer_to_list/2
 bif erlang:integer_to_binary/2
 bif persistent_term:get/2
+
+#
+# New in 22.1
+#
+
+bif erts_internal:ets_lookup_binary_info/2
+bif erts_internal:ets_raw_first/1
+bif erts_internal:ets_raw_next/2

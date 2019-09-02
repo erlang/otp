@@ -399,7 +399,9 @@ Export ets_select_continue_exp;
  * Static traps
  */
 static Export ets_delete_continue_exp;
-	
+
+static Export *ets_info_binary_trap = NULL;
+
 static void
 free_dbtable(void *vtb)
 {
@@ -675,7 +677,8 @@ static DbTable* handle_lacking_permission(Process* p, DbTable* tb,
         tb = NULL;
         *freason_p = TRAP;
     }
-    else if (p->common.id != tb->common.owner) {
+    else if (p->common.id != tb->common.owner
+             && !(p->flags & F_ETS_SUPER_USER)) {
         db_unlock(tb, kind);
         tb = NULL;
         *freason_p = BADARG;
@@ -3411,6 +3414,10 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
         }
         BIF_RET(erts_make_integer(res, BIF_P));
     }
+
+    if (BIF_ARG_2 == am_binary)
+        BIF_TRAP1(ets_info_binary_trap, BIF_P, BIF_ARG_1);
+
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ, &freason)) == NULL) {
 	if (freason == BADARG && (is_atom(BIF_ARG_1) || is_ref(BIF_ARG_1)))
 	    BIF_RET(am_undefined);
@@ -3509,6 +3516,81 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     BIF_RET2(ret,i);
 }
 
+BIF_RETTYPE erts_internal_ets_lookup_binary_info_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_erts_internal_ets_lookup_binary_info_2);
+
+    cret = tb->common.meth->db_get_binary_info(BIF_P, tb, BIF_ARG_2, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    switch (cret) {
+    case DB_ERROR_NONE:
+	BIF_RET(ret);
+    case DB_ERROR_SYSRES:
+	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    default:
+	BIF_ERROR(BIF_P, BADARG);
+    }
+}
+
+BIF_RETTYPE erts_internal_ets_raw_first_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_erts_internal_ets_raw_first_1);
+
+    cret = tb->common.meth->db_raw_first(BIF_P, tb, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+BIF_RETTYPE erts_internal_ets_raw_next_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_erts_internal_ets_raw_next_2);
+
+    cret = tb->common.meth->db_raw_next(BIF_P, tb, BIF_ARG_2, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+BIF_RETTYPE
+erts_internal_ets_super_user_1(BIF_ALIST_1)
+{
+    if (BIF_ARG_1 == am_true)
+        BIF_P->flags |= F_ETS_SUPER_USER;
+    else if (BIF_ARG_1 == am_false)
+        BIF_P->flags &= ~F_ETS_SUPER_USER;
+    else
+	BIF_ERROR(BIF_P, BADARG);
+    BIF_RET(am_ok);
+}
 
 /*
 ** External interface (NOT BIF's)
@@ -3628,6 +3710,12 @@ void init_db(ErtsDbSpinCount db_spin_count)
     erts_init_trap_export(&ets_delete_continue_exp,
 			  am_ets, ERTS_MAKE_AM("delete_trap"), 1,
 			  &ets_delete_trap);
+
+    /* ets:info(Tab, binary) trap... */
+
+    ets_info_binary_trap = erts_export_put(am_erts_internal,
+                                           am_ets_info_binary,
+                                           1);
 }
 
 void

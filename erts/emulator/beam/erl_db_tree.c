@@ -459,6 +459,9 @@ db_lookup_dbterm_tree(Process *, DbTable *, Eterm key, Eterm obj,
 static void
 db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 
+static int db_get_binary_info_tree(Process*, DbTable*, Eterm key, Eterm *ret);
+
+
 /*
 ** Static variables
 */
@@ -499,8 +502,10 @@ DbTableMethod db_tree =
     db_print_tree,
     db_foreach_offheap_tree,
     db_lookup_dbterm_tree,
-    db_finalize_dbterm_tree
-
+    db_finalize_dbterm_tree,
+    db_get_binary_info_tree,
+    db_first_tree, /* raw_first same as first */
+    db_next_tree   /* raw_next same as next */
 };
 
 
@@ -3151,6 +3156,14 @@ static TreeDbTerm *find_node(DbTableCommon *tb, TreeDbTerm *root,
     return this;
 }
 
+
+TreeDbTerm *db_find_tree_node_common(DbTableCommon *tb, TreeDbTerm *root,
+                                     Eterm key)
+{
+    return find_node(tb, root, key, NULL);
+}
+
+
 /*
  * Lookup a node and return the address of the node pointer in the tree
  */
@@ -3302,6 +3315,38 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *handle)
     DbTableTree *tb = &tbl->tree;
     db_finalize_dbterm_tree_common(cret, handle, tb);
 }
+
+static int db_get_binary_info_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    *ret = db_binary_info_tree_common(p, find_node(&tbl->common, tbl->tree.root,
+                                                   key, &tbl->tree));
+    return DB_ERROR_NONE;
+}
+
+Eterm db_binary_info_tree_common(Process* p, TreeDbTerm* this)
+{
+    Eterm *hp, *hp_end;
+    Uint hsz;
+    Eterm ret;
+
+    if (this == NULL) {
+	ret = NIL;
+    } else {
+        ErlOffHeap oh;
+        hsz = 0;
+
+        oh.first = this->dbterm.first_oh;
+        erts_bld_bin_list(NULL, &hsz, &oh, NIL);
+
+        hp = HAlloc(p, hsz);
+        hp_end = hp + hsz;
+        oh.first = this->dbterm.first_oh;
+        ret = erts_bld_bin_list(&hp, NULL, &oh, NIL);
+        ASSERT(hp == hp_end); (void)hp_end;
+    }
+    return ret;
+}
+
 
 /*
  * Traverse the tree with a callback function, used by db_match_xxx

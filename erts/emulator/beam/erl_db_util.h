@@ -235,6 +235,13 @@ typedef struct db_table_method
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
 
+    int (*db_get_binary_info)(Process*, DbTable* tb, Eterm key, Eterm* ret);
+
+    /* Raw first/next same as first/next but also return pseudo deleted keys.
+       Only internal use by ets:info(_,binary) */
+    int (*db_raw_first)(Process*, DbTable*, Eterm* ret);
+    int (*db_raw_next)(Process*, DbTable*, Eterm key, Eterm* ret);
+
 } DbTableMethod;
 
 typedef struct db_fixation {
