@@ -800,7 +800,29 @@ static int check_leftovers(byte *source, int size)
     }
     return -1;
 }
-	
+
+
+static Eterm
+mk_utf8_result_bin(Process *p, Eterm bin)
+{
+    /*
+     * Don't let small refc-binaries escape out in the system
+     * when done. That is, convert such to heap binaries.
+     */
+    Uint size = binary_size(bin);
+
+    ASSERT(*binary_val(bin) == HEADER_PROC_BIN);
+    
+    if (size <= ERL_ONHEAP_BIN_LIMIT) {
+	ErlHeapBin* hb = (ErlHeapBin *) HAlloc(p, heap_bin_size(size));
+	hb->thing_word = header_heap_bin(size);
+	hb->size = size;
+        sys_memcpy(hb->data, binary_bytes(bin), size);
+	return make_binary(hb);
+    }
+    
+    return bin;
+}
 	 
 
 static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
@@ -822,15 +844,15 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	} else {
 	   hp = HAlloc(p,4);
 	} 
-	ret = TUPLE3(hp,am_error,bin,rest_term);
+	ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),rest_term);
     } else if (rest_term == NIL && num_leftovers != 0) {
 	Eterm leftover_bin = new_binary(p, leftover, num_leftovers);
 	if (check_leftovers(leftover,num_leftovers) != 0) {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_error,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),leftover_bin);
 	} else {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_incomplete,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_incomplete,mk_utf8_result_bin(p,bin),leftover_bin);
 	}
     } else { /* All OK */	    
 	if (rest_term != NIL) { /* Trap */
@@ -843,8 +865,8 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	    BIF_TRAP3(&characters_to_utf8_trap_exp, p, bin, rest_term, latin1);
 	} else { /* Success */
 	    /*hp = HAlloc(p,5);
-	      ret = TUPLE4(hp,bin,rest_term,make_small(pos),make_small(err));*/
-	    ret = bin;
+	      ret = TUPLE4(hp,mk_utf8_result_bin(p,bin),rest_term,make_small(pos),make_small(err));*/
+	    ret = mk_utf8_result_bin(p,bin);
 	}
     }
     BIF_RET(ret);
