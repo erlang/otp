@@ -27,13 +27,8 @@
 -export([install/1,install/2,run/1,run/2,run/3,run_test/1,
 	 run_testspec/1,step/3,step/4,refresh_logs/1]).
 
-
-%% Exported for VTS
--export([run_make/3,do_run/4,tests/1,tests/2,tests/3]).
-
-
-%% Misc internal functions
--export([variables_file_name/1,script_start1/2,run_test2/1]).
+%% Misc internal API functions
+-export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
 
 -include("ct.hrl").
 -include("ct_event.hrl").
@@ -51,7 +46,6 @@
 
 -record(opts, {label,
 	       profile,
-	       vts,
 	       shell,
 	       cover,
 	       cover_stop,
@@ -212,25 +206,19 @@ finish(Tracing, ExitStatus, Args) ->
     if ExitStatus == interactive_mode ->
 	    interactive_mode;
        true ->
-	    case get_start_opt(vts, true, Args) of
-		true ->
-		    %% VTS mode, don't halt the node
-		    ok;
-		_ ->
-		    %% it's possible to tell CT to finish execution with a call
-		    %% to a different function than the normal halt/1 BIF
-		    %% (meant to be used mainly for reading the CT exit status)
-		    case get_start_opt(halt_with,
-				       fun([HaltMod,HaltFunc]) -> 
-					       {list_to_atom(HaltMod),
-						list_to_atom(HaltFunc)} end,
-				       Args) of
-			undefined ->
-			    halt(ExitStatus);
-			{M,F} ->
-			    apply(M, F, [ExitStatus])
-		    end
-	    end
+            %% it's possible to tell CT to finish execution with a call
+            %% to a different function than the normal halt/1 BIF
+            %% (meant to be used mainly for reading the CT exit status)
+            case get_start_opt(halt_with,
+                               fun([HaltMod,HaltFunc]) -> 
+                                       {list_to_atom(HaltMod),
+                                        list_to_atom(HaltFunc)} end,
+                               Args) of
+                undefined ->
+                    halt(ExitStatus);
+                {M,F} ->
+                    apply(M, F, [ExitStatus])
+            end
     end.
 
 script_start1(Parent, Args) ->
@@ -239,7 +227,6 @@ script_start1(Parent, Args) ->
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
-    Vts = get_start_opt(vts, true, undefined, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     CoverStop = get_start_opt(cover_stop, 
@@ -325,8 +312,8 @@ script_start1(Parent, Args) ->
     Stylesheet = get_start_opt(stylesheet,
 			       fun([SS]) -> ?abs(SS) end, Args),
     %% basic_html - used by ct_logs
-    BasicHtml = case {Vts,proplists:get_value(basic_html, Args)} of
-		    {undefined,undefined} ->
+    BasicHtml = case proplists:get_value(basic_html, Args) of
+		    undefined ->
 			application:set_env(common_test, basic_html, false),
 			undefined;
 		    _ ->
@@ -357,7 +344,7 @@ script_start1(Parent, Args) ->
     application:set_env(common_test, keep_logs, KeepLogs),
 
     Opts = #opts{label = Label, profile = Profile,
-		 vts = Vts, shell = Shell,
+		 shell = Shell,
 		 cover = Cover, cover_stop = CoverStop,
 		 logdir = LogDir, logopts = LogOpts,
 		 basic_html = BasicHtml,
@@ -415,8 +402,7 @@ run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
 	    end
     end.
 
-script_start2(Opts = #opts{vts = undefined,
-			   shell = undefined}, Args) ->
+script_start2(Opts = #opts{shell = undefined}, Args) ->
     case proplists:get_value(spec, Args) of
 	Specs when Specs =/= [], Specs =/= undefined ->
 	    Specs1 = get_start_opt(join_specs, [Specs], Specs, Args),
@@ -702,7 +688,7 @@ script_start3(Opts, Args) ->
 	    {error,incorrect_start_options};
 
 	{undefined,undefined,_} ->
-	    if Opts#opts.vts ; Opts#opts.shell ->
+	    if Opts#opts.shell ->
 		    script_start4(Opts#opts{tests = []}, Args);
 	       true ->
 		    %% no start options, use default "-dir ./"
@@ -711,20 +697,6 @@ script_start3(Opts, Args) ->
 		    script_start4(Opts#opts{tests = tests([Dir])}, Args)
 	    end
     end.
-
-script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
-		    tests = Tests, logdir = LogDir, logopts = LogOpts}, _Args) ->
-    ConfigFiles =
-	lists:foldl(fun({ct_config_plain,CfgFiles}, AllFiles) when
-			      is_list(hd(CfgFiles)) ->
-			    AllFiles ++ CfgFiles;
-		       ({ct_config_plain,CfgFile}, AllFiles) when
-			      is_integer(hd(CfgFile)) ->
-			    AllFiles ++ [CfgFile];
-		       (_, AllFiles) ->
-			    AllFiles
-		    end, [], Config),
-    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), LogOpts, Tests);
 
 script_start4(#opts{label = Label, profile = Profile,
 		    shell = true, config = Config,
@@ -759,27 +731,6 @@ script_start4(#opts{label = Label, profile = Profile,
 	Error ->
 	    Error
     end;
-
-script_start4(#opts{vts = true, cover = Cover}, _) ->
-    case Cover of
-	undefined ->
-	    script_usage();
-	_ ->
-	    %% Add support later (maybe).
-	    io:format("\nCan't run cover in vts mode.\n\n", [])
-    end,
-    {error,no_cover_in_vts_mode};
-
-script_start4(#opts{shell = true, cover = Cover}, _) ->
-    case Cover of
-	undefined ->
-	    script_usage();
-	_ ->
-	    %% Add support later (maybe).
-	    io:format("\nCan't run cover in interactive mode.\n\n", [])
-    end,
-    {error,no_cover_in_interactive_mode};
-
 script_start4(Opts = #opts{tests = Tests}, Args) ->
     do_run(Tests, [], Opts, Args).
 
@@ -850,7 +801,6 @@ script_usage() ->
 	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]\n\n"),
     io:format("Run tests in web based GUI:\n\n"
-	      "\tct_run -vts [-browser Browser]"
 	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t [-dir TestDir1 TestDir2 .. TestDirN] |"
@@ -2673,7 +2623,6 @@ get_name(Dir) ->
 	TopDir ->
 	    TopDir ++ "." ++ Base
     end.
-
 
 run_make(TestDir, Mod, UserInclude) ->
     run_make(suites, TestDir, Mod, UserInclude, [nowarn_export_all]).

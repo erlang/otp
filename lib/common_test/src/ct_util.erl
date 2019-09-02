@@ -156,12 +156,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	{error,{already_started,_}} ->
 	    ok;
 	_ ->
-	    case whereis(vts) of
-		undefined ->
-		    ct_event:add_handler();
-		VtsPid ->
-		    ct_event:add_handler([{vts,VtsPid}])
-	    end
+            ct_event:add_handler()
     end,
 
     %% start ct_config server
