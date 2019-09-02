@@ -62,9 +62,6 @@ MODULES= \
 	ct_repeat \
 	ct_telnet_client \
 	ct_make \
-	vts \
-	ct_webtool \
-	ct_webtool_sup \
 	unix_telnet \
 	ct_config \
 	ct_config_plain \
