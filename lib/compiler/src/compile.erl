@@ -1033,7 +1033,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      false -> SourceName0
                  end,
     R = epp:parse_file(File,
-                       [{includes,[".",Dir|inc_paths(Opts)]},
+                       [{includes,inc_paths(ia, Opts) ++
+                             [".", Dir| inc_paths(i, Opts)] ++ inc_paths(iz, Opts)},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
@@ -1874,8 +1875,8 @@ pre_defs([_|Opts]) ->
     pre_defs(Opts);
 pre_defs([]) -> [].
 
-inc_paths(Opts) ->
-    [ P || {i,P} <- Opts, is_list(P) ].
+inc_paths(Key, Opts) ->
+    [ P || {K,P} <- Opts, K =:= Key, is_list(P) ].
 
 src_listing(Ext, Code, St) ->
     listing(fun (Lf, {_Mod,_Exp,Fs}) -> do_src_listing(Lf, Fs);
