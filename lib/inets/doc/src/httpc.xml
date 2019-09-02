@@ -701,15 +701,17 @@
       <type>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
-	<v>GoodSessions = session()</v>
-	<v>BadSessions = tuple()</v>
-	<v>NonSessions = term()</v>
+	<v>session_info() = {[session()], [term()],  [term()]}</v>
+	<v>session() = term() - Internal representation of a session</v>
       </type>
       <desc>
-        <p>Produces a slightly processed dump of the session 
-	database. It is intended for debugging. 
-	If no profile is specified, the default profile is used.</p>
+        <p> This function is intended for debugging only. It produces
+        a slightly processed dump of the session database. The first
+        list of the session information tuple will contain session
+        information on an internal format. The last two lists of the
+        session information tuple should always be empty if the code
+        is working as intended. If no profile is specified, the default
+        profile is used.</p>
       </desc>
     </func>
 
