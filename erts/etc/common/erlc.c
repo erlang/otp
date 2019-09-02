@@ -233,10 +233,6 @@ int main(int argc, char** argv)
     if (strlen(emulator) >= MAXPATHLEN)
         error("Value of environment variable ERLC_EMULATOR is too large");
 
-#ifndef __WIN32__
-    emulator = find_executable(emulator);
-#endif
-
     /*
      * Add scriptname to env
      */
@@ -256,7 +252,10 @@ int main(int argc, char** argv)
 #ifdef __WIN32__
     set_env("ERLC_CONFIGURATION", get_env("PATH"));
 #else
-    set_env("ERLC_CONFIGURATION", emulator);
+    {
+        char* full_path_emulator = find_executable(emulator);
+        set_env("ERLC_CONFIGURATION", full_path_emulator);
+    }
 #endif
 
     /*
@@ -595,7 +594,7 @@ run_erlang(char* progname, char** argv)
     }
     return status;
 #else
-    execv(progname, argv);
+    execvp(progname, argv);
     error("Error %d executing \'%s\'.", errno, progname);
     return 2;
 #endif
@@ -949,7 +948,7 @@ start_compile_server(char* node_name, char** argv)
     }
 #else
     if (fork() == 0) {
-        execv(eargv[0], eargv);
+        execvp(eargv[0], eargv);
         error("Error %d executing \'%s\'.", errno, progname);
     }
 #endif
