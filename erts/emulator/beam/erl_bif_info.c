@@ -161,8 +161,8 @@ current_function(Process* p, ErtsHeapFactory *hfact, Process* rp,
 static Eterm current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
                                 Uint reserve_size);
 
-static Eterm
-bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
+Eterm
+erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
 {
     struct erl_off_heap_header* ohh;
     Eterm res = tail;
@@ -1870,16 +1870,16 @@ process_info_aux(Process *c_p,
         res = NIL;
         sz = 0;
 
-        (void)bld_bin_list(NULL, &sz, &MSO(rp), NIL);
+        (void)erts_bld_bin_list(NULL, &sz, &MSO(rp), NIL);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
-            (void)bld_bin_list(NULL, &sz, &hfrag->off_heap, NIL);
+            (void)erts_bld_bin_list(NULL, &sz, &hfrag->off_heap, NIL);
         }
 
         hp = erts_produce_heap(hfact, sz, reserve_size);
 
-        res = bld_bin_list(&hp, NULL, &MSO(rp), NIL);
+        res = erts_bld_bin_list(&hp, NULL, &MSO(rp), NIL);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
-            res = bld_bin_list(&hp, NULL, &hfrag->off_heap, res);
+            res = erts_bld_bin_list(&hp, NULL, &hfrag->off_heap, res);
         }
 
         break;

@@ -171,4 +171,8 @@ void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
                                     DbTableTree *stack_container);
 Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 
+TreeDbTerm *db_find_tree_node_common(DbTableCommon*, TreeDbTerm *root,
+                                     Eterm key);
+Eterm db_binary_info_tree_common(Process*, TreeDbTerm*);
+
 #endif /* _DB_TREE_UTIL_H */

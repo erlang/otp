@@ -472,6 +472,11 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
 static void
 db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 
+static int
+db_get_binary_info_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
+static int db_raw_first_hash(Process* p, DbTable *tbl, Eterm *ret);
+static int db_raw_next_hash(Process* p, DbTable *tbl, Eterm key, Eterm *ret);
+
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nitems = NITEMS(tb);
@@ -570,7 +575,10 @@ DbTableMethod db_hash =
     db_print_hash,
     db_foreach_offheap_hash,
     db_lookup_dbterm_hash,
-    db_finalize_dbterm_hash
+    db_finalize_dbterm_hash,
+    db_get_binary_info_hash,
+    db_raw_first_hash,
+    db_raw_next_hash
 };
 
 #ifdef DEBUG
@@ -3366,6 +3374,130 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
        ie binomial distribution (not taking the linear hashing into acount) */
     stats->std_dev_expected = sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));
     stats->kept_items = kept_items;
+}
+
+
+/*
+ * erts_internal:ets_lookup_binary_info/2
+ */
+static int db_get_binary_info_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashValue hval;
+    int ix;
+    HashDbTerm *b, *first, *end;
+    erts_rwmtx_t* lck;
+    Eterm *hp, *hp_end;
+    Uint hsz;
+    Eterm list;
+
+    hval = MAKE_HASH(key);
+    lck = RLOCK_HASH(tb,hval);
+    ix = hash_to_ix(tb, hval);
+    b = BUCKET(tb, ix);
+
+    while(b != 0) {
+        if (has_key(tb, b, key, hval)) {
+            goto found_key;
+	}
+        b = b->next;
+    }
+    RUNLOCK_HASH(lck);
+    *ret = NIL;
+    return DB_ERROR_NONE;
+
+found_key:
+
+    first = b;
+    hsz = 0;
+    do {
+        ErlOffHeap oh;
+        oh.first = b->dbterm.first_oh;
+        erts_bld_bin_list(NULL, &hsz, &oh, NIL);
+        b = b->next;
+    } while (b && has_key(tb, b, key, hval));    
+    end = b;
+
+    hp = HAlloc(p, hsz);
+    hp_end = hp + hsz;
+    list = NIL; 
+    for (b = first; b != end; b = b->next) {
+        ErlOffHeap oh;
+        oh.first = b->dbterm.first_oh;
+        list = erts_bld_bin_list(&hp, NULL, &oh, list);
+    }
+    ASSERT(hp == hp_end); (void)hp_end;
+    
+    RUNLOCK_HASH(lck);
+    *ret = list;
+    return DB_ERROR_NONE;
+}
+
+static int raw_find_next(Process *p, DbTable* tbl, Uint ix,
+                         erts_rwmtx_t* lck, Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashDbTerm *b;
+
+    do {
+        b = BUCKET(tb,ix);
+        if (b) {
+            *ret = db_copy_key(p, tbl, &b->dbterm);
+            RUNLOCK_HASH(lck);
+            return DB_ERROR_NONE;
+        }
+        ix = next_slot(tb, ix, &lck);
+    } while (ix);
+
+    *ret = am_EOT;
+    return DB_ERROR_NONE;
+}
+
+static int db_raw_first_hash(Process *p, DbTable *tbl, Eterm *ret)
+{
+    const Uint ix = 0;
+    return raw_find_next(p, tbl, ix, RLOCK_HASH(&tbl->hash, ix), ret);
+}
+
+static int db_raw_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashValue hval;
+    Uint ix;
+    HashDbTerm* b;
+    erts_rwmtx_t* lck;
+
+    hval = MAKE_HASH(key);
+    lck = RLOCK_HASH(tb,hval);
+    ix = hash_to_ix(tb, hval);
+    b = BUCKET(tb, ix);
+
+    for (;;) {
+	if (b == NULL) {
+	    RUNLOCK_HASH(lck);
+	    return DB_ERROR_BADKEY;
+	}
+	if (has_key(tb, b, key, hval)) {
+	    break;
+	}
+	b = b->next;
+    }
+    /* Key found */
+
+    for (b = b->next; b; b = b->next) {
+        if (!has_key(tb, b, key, hval)) {
+            *ret = db_copy_key(p, tbl, &b->dbterm);
+            RUNLOCK_HASH(lck);
+            return DB_ERROR_NONE;
+        }
+    }
+
+    ix = next_slot(tb, ix, &lck);
+    if (ix)
+        return raw_find_next(p, tbl, ix, lck, ret);
+
+    *ret = am_EOT;
+    return DB_ERROR_NONE;
 }
 
 /* For testing only */

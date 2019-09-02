@@ -174,7 +174,7 @@ info(_) ->
 
 -spec info(Tab, Item) -> Value | undefined when
       Tab :: tab(),
-      Item :: compressed | fixed | heir | id | keypos | memory
+      Item :: binary | compressed | fixed | heir | id | keypos | memory
             | name | named_table | node | owner | protection
             | safe_fixed | safe_fixed_monotonic_time | size | stats | type
 	    | write_concurrency | read_concurrency,

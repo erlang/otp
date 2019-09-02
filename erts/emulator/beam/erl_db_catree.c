@@ -159,6 +159,7 @@ static int
 db_lookup_dbterm_catree(Process *, DbTable *, Eterm key, Eterm obj,
                         DbUpdateHandle*);
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *);
+static int db_get_binary_info_catree(Process*, DbTable*, Eterm key, Eterm *ret);
 
 static void split_catree(DbTableCATree *tb,
                          DbTableCATreeNode* ERTS_RESTRICT base,
@@ -211,8 +212,10 @@ DbTableMethod db_catree =
     db_print_catree,
     db_foreach_offheap_catree,
     db_lookup_dbterm_catree,
-    db_finalize_dbterm_catree
-
+    db_finalize_dbterm_catree,
+    db_get_binary_info_catree,
+    db_first_catree, /* raw_first same as first */
+    db_next_catree   /* raw_next same as next */
 };
 
 /*
@@ -2291,6 +2294,19 @@ static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *handle)
                             handle->u.catree.parent,
                             handle->u.catree.current_level);
     return;
+}
+
+static int db_get_binary_info_catree(Process *p, DbTable *tbl, Eterm key,
+                                     Eterm *ret)
+{
+    DbTableCATree *tb = &tbl->catree;
+    FindBaseNode fbn;
+    DbTableCATreeNode* node = find_wlock_valid_base_node(tb, key, &fbn);
+    TreeDbTerm* this = db_find_tree_node_common(&tbl->common, node->u.base.root,
+                                                key);
+    *ret = db_binary_info_tree_common(p, this);
+    wunlock_base_node(node);
+    return DB_ERROR_NONE;
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
