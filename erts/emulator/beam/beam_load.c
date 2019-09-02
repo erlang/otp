@@ -5238,6 +5238,28 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
         }
     }
 
+#ifdef DEBUG
+    /* Ensure that we've loaded stubs for all BIFs in this module. */
+    for (i = 0; i < BIF_SIZE; i++) {
+        BifEntry *entry = &bif_table[i];
+
+        if (stp->module == entry->module) {
+            Export *ep = erts_export_put(entry->module,
+                                         entry->name,
+                                         entry->arity);
+            BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
+
+            if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
+                erts_exit(ERTS_ABORT_EXIT,
+                          "Module %T doesn't export BIF %T/%i\n",
+                          entry->module,
+                          entry->name,
+                          entry->arity);
+            }
+        }
+    }
+#endif
+
     /*
      * Import functions and patch all callers.
      */
