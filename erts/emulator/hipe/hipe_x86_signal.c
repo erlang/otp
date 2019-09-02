@@ -159,19 +159,9 @@
 
 #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
 /*
- * Unknown libc -- assume musl.  Note: musl deliberately does not provide a musl-specific
- * feature test macro, so we cannot check for it.
- *
- * sigaction is a weak alias for __sigaction, which is a wrapper for __libc_sigaction.
- * There are libc-internal calls to __libc_sigaction which install handlers, so we must
- * override __libc_sigaction rather than __sigaction.
+ * Unknown libc -- assume musl, which does not allow safe signals
  */
-#define NEXT_SIGACTION "__libc_sigaction"
-#define LIBC_SIGACTION __libc_sigaction
-#define OVERRIDE_SIGACTION
-#ifndef _NSIG
-#define _NSIG NSIG
-#endif
+#error "HiPE does not work without a libc that can guarantee that sigaltstack works"
 #endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */
 
 #if defined(NEXT_SIGACTION)

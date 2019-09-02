@@ -2723,9 +2723,25 @@ if test X${enable_hipe} != Xno; then
 	        AC_MSG_ERROR([HiPE needs mprotect() on $ARCH])
             else
 	        enable_hipe=no
-	        AC_MSG_WARN([Disable HiPE due to lack of mprotect()])
+	        AC_MSG_WARN([HiPE disabled due to lack of mprotect()])
             fi
         fi
+        AC_MSG_CHECKING([for safe signal delivery])
+        AC_TRY_COMPILE([#include <signal.h>],
+          [#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+           #define __DARWIN__ 1
+           #endif
+
+           #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
+          /*
+           * Unknown libc -- assume musl, which does not allow safe signals
+           */
+           #error "HiPE does not work without a libc that can guarantee that sigaltstack works"
+           #endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */],
+        [AC_MSG_RESULT([yes])],
+        [enable_hipe=no
+         AC_MSG_RESULT([no, musl probably used. Need glibc to work properly])
+         AC_MSG_WARN([HiPE disabled due to lack of safe signal delivery])])
 fi
 
 dnl check to auto-enable hipe here...
@@ -3250,7 +3266,11 @@ AS_HELP_STRING([--without-javac], [don't use any Java compiler]))
 dnl
 dnl Then there are a number of apps which needs a java compiler...
 dnl
-need_java="jinterface ic/java_src"
+need_java="jinterface"
+
+if test -d $ERL_TOP/lib/ic; then
+   need_java="$need_java ic/java_src"
+fi
 
 # Remove all SKIP files from previous runs
 for a in $need_java ; do
