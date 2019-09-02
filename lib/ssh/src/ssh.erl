@@ -40,7 +40,8 @@
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
 	 shell/1, shell/2, shell/3,
-         tcpip_tunnel_from_server/5, tcpip_tunnel_from_server/6
+         tcpip_tunnel_from_server/5, tcpip_tunnel_from_server/6,
+         tcpip_tunnel_to_server/5, tcpip_tunnel_to_server/6
 	]).
 
 %%% "Deprecated" types export:
@@ -563,6 +564,59 @@ chk_algos_opts(Opts) ->
             end;
         OtherOps ->
             {error, {non_algo_opts_found,OtherOps}}
+    end.
+
+%%--------------------------------------------------------------------
+%% Ask local client to listen to ListenHost:ListenPort.  When someone
+%% connects that address, connect to ConnectToHost:ConnectToPort from
+%% the server.
+%%--------------------------------------------------------------------
+-spec tcpip_tunnel_to_server(ConnectionRef,
+                             ListenHost, ListenPort,
+                             ConnectToHost, ConnectToPort
+                          ) ->
+                                  {ok,TrueListenPort} | {error, term()} when
+      ConnectionRef :: connection_ref(),
+      ListenHost :: host(),
+      ListenPort :: inet:port_number(),
+      ConnectToHost :: host(),
+      ConnectToPort :: inet:port_number(),
+      TrueListenPort :: inet:port_number().
+
+tcpip_tunnel_to_server(ConnectionHandler, ListenHost, ListenPort, ConnectToHost, ConnectToPort) ->
+    tcpip_tunnel_to_server(ConnectionHandler, ListenHost, ListenPort, ConnectToHost, ConnectToPort, infinity).
+
+
+-spec tcpip_tunnel_to_server(ConnectionRef,
+                             ListenHost, ListenPort,
+                             ConnectToHost, ConnectToPort,
+                             Timeout) ->
+                                  {ok,TrueListenPort} | {error, term()} when
+      ConnectionRef :: connection_ref(),
+      ListenHost :: host(),
+      ListenPort :: inet:port_number(),
+      ConnectToHost :: host(),
+      ConnectToPort :: inet:port_number(),
+      Timeout :: timeout(),
+      TrueListenPort :: inet:port_number().
+
+tcpip_tunnel_to_server(ConnectionHandler, ListenHost, ListenPort, ConnectToHost0, ConnectToPort, Timeout) ->
+    SockOpts = [],
+    try
+        list_to_binary(
+          case mangle_connect_address(ConnectToHost0,SockOpts) of
+              IP when is_tuple(IP) -> inet_parse:ntoa(IP);
+              _ when is_list(ConnectToHost0) -> ConnectToHost0
+          end)
+    of
+        ConnectToHost ->
+            ssh_connection_handler:handle_direct_tcpip(ConnectionHandler,
+                                                       mangle_tunnel_address(ListenHost), ListenPort,
+                                                       ConnectToHost, ConnectToPort,
+                                                       Timeout)
+    catch
+        _:_ ->
+            {error, bad_connect_to_address}
     end.
 
 %%--------------------------------------------------------------------
