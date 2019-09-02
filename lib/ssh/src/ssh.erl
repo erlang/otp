@@ -31,6 +31,7 @@
 -export([start/0, start/1, stop/0,
 	 connect/2, connect/3, connect/4,
 	 close/1, connection_info/2,
+         connection_info/1,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1,
@@ -185,21 +186,50 @@ close(ConnectionRef) ->
 
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
-%%--------------------------------------------------------------------
--spec connection_info(ConnectionRef, Keys) ->  ConnectionInfo when
-      ConnectionRef :: connection_ref(),
-      Keys :: [client_version | server_version | user | peer | sockname],
-      ConnectionInfo :: [{client_version, Version}
-                         | {server_version, Version}
-                         | {user,string()}
-                         | {peer, {inet:hostname(), ip_port()}}
-                         | {sockname, ip_port()}
-                        ],
-      Version :: {ProtocolVersion, VersionString::string()},
-      ProtocolVersion :: {Major::pos_integer(), Minor::non_neg_integer()} .
+%%---------------------------------------------------------------------
+-type version() :: {protocol_version(), software_version()}.
+-type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
+-type software_version() :: string().
+-type conn_info_algs() :: [{kex, kex_alg()}
+                           | {hkey, pubkey_alg()}
+                           | {encrypt, cipher_alg()}
+                           | {decrypt, cipher_alg()}
+                           | {send_mac, mac_alg()}
+                           | {recv_mac, mac_alg()}
+                           | {compress, compression_alg()}
+                           | {decompress, compression_alg()}
+                           | {send_ext_info, boolean()}
+                           | {recv_ext_info, boolean()}
+                          ].
+-type conn_info_channels() :: [proplists:proplist()].
 
-connection_info(Connection, Options) ->
-    ssh_connection_handler:connection_info(Connection, Options).
+-type connection_info_tuple() ::
+        {client_version, version()}
+      | {server_version, version()}
+      | {user, string()}
+      | {peer, {inet:hostname(), ip_port()}}
+      | {sockname, ip_port()}
+      | {options, client_options()}
+      | {algorithms, conn_info_algs()}
+      | {channels, conn_info_channels()}.
+        
+-spec connection_info(ConnectionRef) -> InfoTupleList when
+      ConnectionRef :: connection_ref(),
+      InfoTupleList :: [InfoTuple],
+      InfoTuple :: connection_info_tuple().
+
+connection_info(ConnectionRef) ->                                      
+    connection_info(ConnectionRef, []).
+
+-spec connection_info(ConnectionRef, ItemList|Item) ->  InfoTupleList|InfoTuple when
+      ConnectionRef :: connection_ref(),
+      ItemList :: [Item],
+      Item :: client_version | server_version | user | peer | sockname | options | algorithms | sockname,
+      InfoTupleList :: [InfoTuple],
+      InfoTuple :: connection_info_tuple().
+
+connection_info(ConnectionRef, Key) ->
+    ssh_connection_handler:connection_info(ConnectionRef, Key).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(), channel_id(), [atom()]) -> proplists:proplist().

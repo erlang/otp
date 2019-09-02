@@ -1036,6 +1036,22 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="connection_info_tuple"/>
+      <name name="version"/>
+      <name name="protocol_version"/>
+      <name name="software_version"/>
+      <name name="conn_info_algs"/>
+      <name name="conn_info_channels"/>
+      <desc>
+	<p>Return values from the
+	<seealso marker="#connection_info/1">connection_info/1</seealso> and
+	<seealso marker="#connection_info/2">connection_info/2</seealso> functions.
+	</p>
+	<p>In the <c>option</c> info tuple are only the options included that differs from the default values.
+	</p>
+      </desc>
+    </datatype>
 
     <datatype>
       <name>opaque_client_options</name>
@@ -1099,12 +1115,15 @@
 
 <!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
    <func>
+     <name name="connection_info" arity="1" since=""/>
      <name name="connection_info" arity="2" since=""/>
      <fsummary>Retrieves information about a connection.</fsummary>
      <desc>
-       <p>Retrieves information about a connection. The list <c>Keys</c> defines which information that
-       is returned.</p>
-     </desc>
+       <p>Returns information about a connection intended for e.g debugging or logging.
+       </p>
+       <p>When the <c>Key</c> is a single <c>Item</c>, the result is a single <c>InfoTuple</c>
+       </p>
+    </desc>
    </func>
 
 <!-- DEAMON/1,2,3 -->
