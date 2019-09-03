@@ -1167,6 +1167,7 @@ release_update_permission(int release_updater)
             erts_resume(updater_process, ERTS_PROC_LOCK_STATUS);
         }
         erts_proc_unlock(updater_process, ERTS_PROC_LOCK_STATUS);
+        erts_proc_dec_refc(updater_process);
     }
     updater_process = NULL;
 
@@ -1193,6 +1194,7 @@ suspend_updater(Process* c_p)
     ASSERT(updater_process == c_p);
     erts_mtx_unlock(&update_table_permission_mtx);
 #endif
+    erts_proc_inc_refc(c_p);
     erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 }
 
