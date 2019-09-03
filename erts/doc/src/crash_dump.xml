@@ -395,9 +395,9 @@ Slogan: &lt;reason&gt;</pre>
       </item>
       <tag><em>Heap fragment data</em></tag>
       <item>
-        <p>Size of fragmented heap data. This is data either created by
-          messages sent to the process or by the Erlang BIFs. This
-          amount depends on so many things that this field is utterly
+        <p>Size of fragmented heap data, in words. This is data either
+          created by messages sent to the process or by the Erlang BIFs.
+          This amount depends on so many things that this field is usually
           uninteresting.</p>
       </item>
       <tag><em>Link list</em></tag>
@@ -415,11 +415,11 @@ Slogan: &lt;reason&gt;</pre>
       </item>
       <tag><em>Stack+heap</em></tag>
       <item>
-        <p>The size of the stack and heap (they share memory segment).</p>
+        <p>The size of the stack and heap, in words (they share memory segment).</p>
       </item>
       <tag><em>OldHeap</em></tag>
       <item>
-        <p>The size of the "old heap". The Erlang virtual machine uses
+        <p>The size of the "old heap", in words. The Erlang virtual machine uses
           generational garbage collection with two generations. There is
           one heap for new data items and one for the data that has
           survived two garbage collections. The assumption (which is
@@ -432,14 +432,14 @@ Slogan: &lt;reason&gt;</pre>
       </item>
       <tag><em>Heap unused, OldHeap unused</em></tag>
       <item>
-        <p>The amount of unused memory on each heap. This information is
+        <p>The amount of unused memory on each heap, in words. This information is
           usually useless.</p>
       </item>
       <tag><em>Memory</em></tag>
       <item>
-        <p>The total memory used by this process. This includes call stack,
-          heap, and internal structures. Same as
-          <seealso marker="erlang#process_info-2">
+        <p>The total memory used by this process, in bytes.
+          This includes call stack, heap, and internal structures.
+          Same as <seealso marker="erlang#process_info-2">
           <c>erlang:process_info(Pid,memory)</c></seealso>.</p>
       </item>
       <tag><em>Program counter</em></tag>
@@ -531,8 +531,7 @@ Slogan: &lt;reason&gt;</pre>
       </item>
       <tag><em>Words</em></tag>
       <item>
-        <p>The number of words (usually 4 bytes/word) allocated to data
-          in the table.</p>
+        <p>The number of words allocated to data in the table.</p>
       </item>
       <tag><em>Type</em></tag>
       <item>
@@ -672,8 +671,6 @@ Slogan: &lt;reason&gt;</pre>
       </item>
     </taglist>
 
-    <p>The memory use is in bytes.</p>
-
     <p>Then, all loaded modules are listed. The following fields exist:</p>
 
     <taglist>
@@ -687,7 +684,7 @@ Slogan: &lt;reason&gt;</pre>
       </item>
       <tag><em>Old size</em></tag>
       <item>
-        <p>Memory use for the old code, if any.</p>
+        <p>Memory use for the old code, in bytes.</p>
       </item>
       <tag><em>Current attributes</em></tag>
       <item>
