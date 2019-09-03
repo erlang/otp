@@ -4981,7 +4981,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
-    ep->trampoline.op = BeamOpCodeAddr(op_apply_bif);
+    ep->trampoline.op = BeamOpCodeAddr(op_call_bif);
     ep->trampoline.raw[1] = (BeamInstr)bif;
 }
 
@@ -4991,7 +4991,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
     BifEntry *entry = &bif_table[export->bif_table_index];
 
-    address[0] = BeamOpCodeAddr(op_apply_bif);
+    address[0] = BeamOpCodeAddr(op_call_bif);
     address[1] = (BeamInstr)entry->f;
 }
 
@@ -5060,7 +5060,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, BeamOpCodeAddr(op_apply_bif),
+				    mfa, pc, BeamOpCodeAddr(op_call_bif),
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5207,7 +5207,7 @@ erts_schedule_bif(Process *proc,
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (BeamIsOpCode(call_instr, op_apply_bif)) {
+	else if (BeamIsOpCode(call_instr, op_call_bif)) {
             pc = cp_val(c_p->stop[0]);
 	    mfa = erts_code_to_codemfa(i);
 	}

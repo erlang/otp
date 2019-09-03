@@ -1181,7 +1181,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	if (BeamIsOpCode(*I, op_apply_bif)) {
+	if (BeamIsOpCode(*I, op_call_bif)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
 	else {

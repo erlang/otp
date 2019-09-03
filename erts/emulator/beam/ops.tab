@@ -587,7 +587,7 @@ put_list s s d
 %cold
 normal_exit
 continue_exit
-apply_bif
+call_bif
 call_nif
 call_error_handler
 error_action_code

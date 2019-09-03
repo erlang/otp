@@ -39,7 +39,7 @@
 typedef struct {
     struct {
         ErtsCodeInfo info;
-        BeamInstr call_op; /* call_nif || apply_bif */
+        BeamInstr call_op; /* call_bif || call_nif */
         BeamInstr dfunc;
     } trampoline;
 
@@ -173,7 +173,7 @@ erts_proc_shadow2real(Process *c_p)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
 #define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
-    (ASSERT(BeamIsOpCode(*(I), op_apply_bif) ||                         \
+    (ASSERT(BeamIsOpCode(*(I), op_call_bif) ||                          \
             BeamIsOpCode(*(I), op_call_nif)),                           \
      ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
 

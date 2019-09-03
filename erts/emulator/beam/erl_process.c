@@ -6479,7 +6479,7 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
     ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
                       |ERTS_PSFLG_DIRTY_CPU_PROC))
            || (BeamIsOpCode(*p->i, op_call_nif)
-               || BeamIsOpCode(*p->i, op_apply_bif)));
+               || BeamIsOpCode(*p->i, op_call_bif)));
 
     a = state;
 

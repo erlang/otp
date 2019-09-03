@@ -446,7 +446,7 @@ send() {
 }
 
 call_nif := nif_bif.call_nif.epilogue;
-apply_bif := nif_bif.apply_bif.epilogue;
+call_bif := nif_bif.call_bif.epilogue;
 
 nif_bif.head() {
     Eterm nif_bif_result;
@@ -518,7 +518,7 @@ nif_bif.call_nif() {
     DTRACE_NIF_RETURN(c_p, codemfa);
 }
 
-nif_bif.apply_bif() {
+nif_bif.call_bif() {
     /*
      * At this point, I points to the code[0] in the native function wrapper
      * for the BIF:
@@ -526,7 +526,7 @@ nif_bif.apply_bif() {
      * code[-3]: Module
      * code[-2]: Function
      * code[-1]: Arity
-     * code[0]: &&apply_bif
+     * code[0]: &&call_bif
      * code[1]: Function pointer to BIF function
      */
 
