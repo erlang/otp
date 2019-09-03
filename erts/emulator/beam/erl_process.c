@@ -708,10 +708,10 @@ erts_pre_init_process(void)
     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
 	= ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS;
 
-    erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].get_locks
-	= ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS;
-    erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].set_locks
-	= ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_NFUNC_TRAP_WRAPPER].get_locks
+	= ERTS_PSD_NFUNC_TRAP_WRAPPER_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_NFUNC_TRAP_WRAPPER].set_locks
+	= ERTS_PSD_NFUNC_TRAP_WRAPPER_SET_LOCKS;
 
     erts_psd_required_locks[ERTS_PSD_ETS_OWNED_TABLES].get_locks
         = ERTS_PSD_ETS_OWNED_TABLES_GET_LOCKS;
@@ -11976,7 +11976,7 @@ delete_process(Process* p)
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 
-    erts_destroy_nif_export(p);
+    erts_destroy_nfunc(p);
 
     /* Cleanup psd */
 

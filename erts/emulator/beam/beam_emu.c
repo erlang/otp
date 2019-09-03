@@ -1167,7 +1167,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	 * I[2]: Pointer to erl_module_nif
 	 * I[3]: Function pointer to dirty NIF
 	 *
-	 * This layout is determined by the NifExport struct
+	 * This layout is determined by the ErtsNativeFunc struct
 	 */
 
 	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
@@ -1310,14 +1310,14 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 
     ASSERT(c_p->freason != TRAP); /* Should have been handled earlier. */
 
-    if (c_p->freason & EXF_RESTORE_NIF)
-	erts_nif_export_restore_error(c_p, &pc, reg, &bif_mfa);
+    if (c_p->freason & EXF_RESTORE_NFUNC)
+	erts_nfunc_restore_error(c_p, &pc, reg, &bif_mfa);
 
 #ifdef DEBUG
     if (bif_mfa) {
-	/* Verify that bif_mfa does not point into our nif export */
-	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
-	ASSERT(!nep || !ErtsInArea(bif_mfa, (char *)nep, sizeof(NifExport)));
+	/* Verify that bif_mfa does not point into our native function wrapper */
+	ErtsNativeFunc *nep = ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
+	ASSERT(!nep || !ErtsInArea(bif_mfa, (char *)nep, sizeof(ErtsNativeFunc)));
     }
 #endif
 

@@ -309,10 +309,10 @@ void erts_post_nif(ErlNifEnv* env)
 
 
 /*
- * Initialize a NifExport struct. Create it if needed and store it in the
+ * Initialize a ErtsNativeFunc struct. Create it if needed and store it in the
  * proc. The direct_fp function is what will be invoked by op_call_nif, and
  * the indirect_fp function, if not NULL, is what the direct_fp function
- * will call. If the allocated NifExport isn't enough to hold all of argv,
+ * will call. If the allocated ErtsNativeFunc isn't enough to hold all of argv,
  * allocate a larger one. Save 'current' and registers if first time this
  * call is scheduled.
  */
@@ -321,7 +321,7 @@ static ERTS_INLINE ERL_NIF_TERM
 schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 	 Eterm mod, Eterm func_name, int argc, const ERL_NIF_TERM argv[])
 {
-    NifExport *ep;
+    ErtsNativeFunc *ep;
     Process *c_p, *dirty_shadow_proc;
 
     execution_state(env, &c_p, NULL);
@@ -332,7 +332,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
-    ep = erts_nif_export_schedule(c_p, dirty_shadow_proc,
+    ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   cp_val(c_p->stop[0]),
 				  BeamOpCodeAddr(op_call_nif),
@@ -356,7 +356,7 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 {
     int exiting;
     ERL_NIF_TERM *argv = (ERL_NIF_TERM *) reg;
-    NifExport *nep = ERTS_I_BEAM_OP_TO_NIF_EXPORT(I);
+    ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     ErtsCodeMFA *codemfa = erts_code_to_codemfa(I);
     NativeFunPtr dirty_nif = (NativeFunPtr) I[1];
     ErlNifEnv env;
@@ -364,7 +364,7 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 #ifdef DEBUG
     erts_aint32_t state = erts_atomic32_read_nob(&c_p->state);
 
-    ASSERT(nep == ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p));
+    ASSERT(nep == ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p));
 
     ASSERT(!c_p->scheduler_data);
     ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
@@ -2823,7 +2823,7 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
 }
 
 static ERTS_INLINE void
-nif_export_cleanup_nif_mod(NifExport *ep)
+nfunc_cleanup_nif_mod(ErtsNativeFunc *ep)
 {
     if (erts_refc_dectest(&ep->m->rt_dtor_cnt, 0) == 0 && ep->m->mod == NULL)
 	close_lib(ep->m);
@@ -2831,17 +2831,17 @@ nif_export_cleanup_nif_mod(NifExport *ep)
 }
 
 void
-erts_nif_export_cleanup_nif_mod(NifExport *ep)
+erts_nfunc_cleanup_nif_mod(ErtsNativeFunc *ep)
 {
-    nif_export_cleanup_nif_mod(ep);
+    nfunc_cleanup_nif_mod(ep);
 }
 
 static ERTS_INLINE void
-nif_export_restore(Process *c_p, NifExport *ep, Eterm res)
+nfunc_restore(Process *c_p, ErtsNativeFunc *ep, Eterm res)
 {
-    erts_nif_export_restore(c_p, ep, res);
+    erts_nfunc_restore(c_p, ep, res);
     ASSERT(ep->m);
-    nif_export_cleanup_nif_mod(ep);
+    nfunc_cleanup_nif_mod(ep);
 }
 
 
@@ -2858,15 +2858,15 @@ static ERL_NIF_TERM
 dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     Process* proc;
-    NifExport* ep;
+    ErtsNativeFunc* ep;
 
     execution_state(env, &proc, NULL);
 
     ASSERT(argc == 1);
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(proc)));
-    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ep = (ErtsNativeFunc*) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(proc);
     ASSERT(ep);
-    nif_export_restore(proc, ep, argv[0]);
+    nfunc_restore(proc, ep, argv[0]);
     return argv[0];
 }
 
@@ -2878,21 +2878,22 @@ dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM ret;
     Process* proc;
-    NifExport* ep;
+    ErtsNativeFunc* ep;
     Eterm exception;
 
     execution_state(env, &proc, NULL);
 
     ASSERT(argc == 1);
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(proc)));
-    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ep = (ErtsNativeFunc*) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(proc);
     ASSERT(ep);
     exception = argv[0]; /* argv overwritten by restore below... */
-    nif_export_cleanup_nif_mod(ep);
+    nfunc_cleanup_nif_mod(ep);
     ret = enif_raise_exception(env, exception);
 
-    /* Restore orig info for error and clear nif export in handle_error() */
-    proc->freason |= EXF_RESTORE_NIF;
+    /* Restore orig info for error and clear native func wrapper in
+     * handle_error() */
+    proc->freason |= EXF_RESTORE_NFUNC;
     return ret;
 }
 
@@ -2929,7 +2930,7 @@ static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
 			     int argc, const ERL_NIF_TERM argv[])
 {
     Process *proc;
-    NifExport *ep;
+    ErtsNativeFunc *ep;
     Eterm mod, func;
     NativeFunPtr fp;
 
@@ -2939,12 +2940,11 @@ static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
      * Called in order to schedule statically determined
      * dirty NIF calls...
      *
-     * Note that 'current' does not point into a NifExport
-     * structure; only a structure with similar
-     * parts (located in code).
+     * Note that 'current' does not point into a ErtsNativeFunc
+     * structure; only a structure with similar parts (located in code).
      */
 
-    ep = ErtsContainerStruct(proc->current, NifExport, trampoline.info.mfa);
+    ep = ErtsContainerStruct(proc->current, ErtsNativeFunc, trampoline.info.mfa);
     mod = proc->current->module;
     func = proc->current->function;
     fp = (NativeFunPtr) ep->func;
@@ -2983,12 +2983,12 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     Process* proc;
     NativeFunPtr fp;
-    NifExport* ep;
+    ErtsNativeFunc* ep;
     ERL_NIF_TERM result;
 
     execution_state(env, &proc, NULL);
 
-    ep = ErtsContainerStruct(proc->current, NifExport, trampoline.info.mfa);
+    ep = ErtsContainerStruct(proc->current, ErtsNativeFunc, trampoline.info.mfa);
     fp = ep->func;
     ASSERT(ep);
     ASSERT(!env->exception_thrown);
@@ -3001,20 +3001,20 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     result = (*fp)(env, argc, argv);
 
-    ASSERT(ep == ERTS_PROC_GET_NIF_TRAP_EXPORT(proc));
+    ASSERT(ep == ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(proc));
 
     if (is_value(result) || proc->freason != TRAP) {
 	/* Done (not rescheduled)... */
 	ASSERT(ep->func == ERTS_DBG_NIF_NOT_SCHED_MARKER);
 	if (!env->exception_thrown)
-	    nif_export_restore(proc, ep, result);
+	    nfunc_restore(proc, ep, result);
 	else {
-	    nif_export_cleanup_nif_mod(ep);
+	    nfunc_cleanup_nif_mod(ep);
 	    /*
 	     * Restore orig info for error and clear nif
 	     * export in handle_error()
 	     */
-	    proc->freason |= EXF_RESTORE_NIF;
+	    proc->freason |= EXF_RESTORE_NFUNC;
 	}
     }
 

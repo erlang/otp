@@ -30,37 +30,37 @@
 #include "erl_nfunc_sched.h"
 #include "erl_trace.h"
 
-NifExport *
-erts_new_proc_nif_export(Process *c_p, int argc)
+ErtsNativeFunc *
+erts_new_proc_nfunc(Process *c_p, int argc)
 {
-    NifExport *nep, *old_nep;
+    ErtsNativeFunc *nep, *old_nep;
     size_t size;
 
-    size = sizeof(NifExport) + (argc-1)*sizeof(Eterm);
-    nep = erts_alloc(ERTS_ALC_T_NIF_TRAP_EXPORT, size);
+    size = sizeof(ErtsNativeFunc) + (argc-1)*sizeof(Eterm);
+    nep = erts_alloc(ERTS_ALC_T_NFUNC_TRAP_WRAPPER, size);
 
     nep->argc = -1; /* unused marker */
     nep->argv_size = argc;
-    old_nep = ERTS_PROC_SET_NIF_TRAP_EXPORT(c_p, nep);
+    old_nep = ERTS_PROC_SET_NFUNC_TRAP_WRAPPER(c_p, nep);
     if (old_nep) {
-	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, old_nep);
+	erts_free(ERTS_ALC_T_NFUNC_TRAP_WRAPPER, old_nep);
     }
     return nep;
 }
 
 void
-erts_destroy_nif_export(Process *p)
+erts_destroy_nfunc(Process *p)
 {
-    NifExport *nep = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
+    ErtsNativeFunc *nep = ERTS_PROC_SET_NFUNC_TRAP_WRAPPER(p, NULL);
     if (nep) {
 	if (nep->m)
-	    erts_nif_export_cleanup_nif_mod(nep);
-	erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, nep);
+	    erts_nfunc_cleanup_nif_mod(nep);
+	erts_free(ERTS_ALC_T_NFUNC_TRAP_WRAPPER, nep);
     }
 }
 
-NifExport *
-erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
+ErtsNativeFunc *
+erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
 			 ErtsCodeMFA *mfa, BeamInstr *pc,
 			 BeamInstr instr,
 			 void *dfunc, void *ifunc,
@@ -70,7 +70,7 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
     Process *used_proc;
     ErtsSchedulerData *esdp;
     Eterm* reg;
-    NifExport* nep;
+    ErtsNativeFunc* nep;
     int i;
 
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
@@ -93,10 +93,10 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
     reg = esdp->x_reg_array;
 
     if (mfa)
-	nep = erts_get_proc_nif_export(c_p, (int) mfa->arity);
+	nep = erts_get_proc_nfunc(c_p, (int) mfa->arity);
     else {
 	/* If no mfa, this is not the first schedule... */
-	nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
+	nep = ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
 	ASSERT(nep && nep->argc >= 0);
     }
 
@@ -114,9 +114,9 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
 	nep->argc = (int) mfa->arity;
 	nep->m = NULL;
 
-	ASSERT(!erts_check_nif_export_in_area(c_p,
+	ASSERT(!erts_check_nfunc_in_area(c_p,
 					      (char *) nep,
-					      (sizeof(NifExport)
+					      (sizeof(ErtsNativeFunc)
 					       + (sizeof(Eterm)
 						  *(nep->argc-1)))));
     }
