@@ -193,7 +193,7 @@ cancel_apply_after({apply_after, Ref}) ->
 	TimeLeft when is_integer(TimeLeft) ->
 	    {ok, TimeLeft};
 	_ ->
-	    {ok, 0}
+	    {error, {already_expired, Ref}}
     end;
 cancel_apply_after(apply_after_infinity) ->
     ok;

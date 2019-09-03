@@ -360,12 +360,10 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
 	    error(bad_timeout)
     after Timeout - 100 ->
 	    case tmr_stop(Ref) of
-                ok ->
-                    ok;
                 {ok, _} ->
                     ok;
                 CancelRes ->
-                    ?SKIP({cancel_failed, CancelRes})
+                    ?SKIP({cancel_failed, CancelRes}) % Race - not our problem
             end
     end,
 
