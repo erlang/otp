@@ -1713,12 +1713,11 @@ stop_subsystem(#data{ssh_params =
                   after
                       10000 -> ok
                   end,
-                  ssh_system_sup:stop_subsystem(SysSup, SubSysSup),
                   case Role of
                       client ->
                           ssh_system_sup:stop_system(Role, SysSup);
                       _ ->
-                          ok
+                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup)
                   end
           end);
 stop_subsystem(_) ->
