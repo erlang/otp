@@ -254,25 +254,6 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 #endif
 
     erts_thr_q_enqueue(&q->thr_q, a);
-#ifdef USE_LTTNG_VM_TRACEPOINTS
-    if (LTTNG_ENABLED(aio_pool_put)) {
-        lttng_decl_portbuf(port_str);
-        lttng_portid_to_str(a->port, port_str);
-        LTTNG2(aio_pool_put, port_str, -1);
-    }
-#endif
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(aio_pool_add)) {
-        DTRACE_CHARBUF(port_str, 16);
-
-        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                      "%T", a->port);
-        /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
-        len = -1;
-        DTRACE2(aio_pool_add, port_str, len);
-    }
-    gcc_optimizer_hack++;
-#endif
 }
 
 static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
@@ -293,25 +274,6 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    erts_thr_q_get_finalize_dequeue_data(q, &a->q.fin_deq);
 	    if (saved_fin_deq)
 		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
-#ifdef USE_LTTNG_VM_TRACEPOINTS
-            if (LTTNG_ENABLED(aio_pool_get)) {
-                lttng_decl_portbuf(port_str);
-                int length = erts_thr_q_length_dirty(q);
-                lttng_portid_to_str(a->port, port_str);
-                LTTNG2(aio_pool_get, port_str, length);
-            }
-#endif
-#ifdef USE_VM_PROBES
-            if (DTRACE_ENABLED(aio_pool_get)) {
-                DTRACE_CHARBUF(port_str, 16);
-
-                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                              "%T", a->port);
-                /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
-                len = -1;
-                DTRACE2(aio_pool_get, port_str, len);
-            }
-#endif
 	    return a;
 	}
 

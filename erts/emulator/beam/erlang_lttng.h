@@ -292,35 +292,6 @@ TRACEPOINT_EVENT(
     )
 )
 
-/* Async pool */
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    aio_pool_get,
-    TP_ARGS(
-        char*, port,
-        int, length
-    ),
-    TP_FIELDS(
-        ctf_string(port, port)
-        ctf_integer(int, length, length)
-    )
-)
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    aio_pool_put,
-    TP_ARGS(
-        char*, port,
-        int, length
-    ),
-    TP_FIELDS(
-        ctf_string(port, port)
-        ctf_integer(int, length, length)
-    )
-)
-
-
 /* Memory Allocator */
 
 TRACEPOINT_EVENT(

@@ -88,8 +88,6 @@ end_per_testcase(Case, _Config) ->
 %%   org_erlang_otp:carrier_pool_put
 %%   org_erlang_otp:carrier_destroy
 %%   org_erlang_otp:carrier_create
-%%   org_erlang_otp:aio_pool_put
-%%   org_erlang_otp:aio_pool_get
 %%   org_erlang_otp:driver_control
 %%   org_erlang_otp:driver_call
 %%   org_erlang_otp:driver_finish
@@ -429,8 +427,6 @@ txt() ->
       "%%   org_erlang_otp:carrier_pool_put\n"
       "%%   org_erlang_otp:carrier_destroy\n"
       "%%   org_erlang_otp:carrier_create\n"
-      "%%   org_erlang_otp:aio_pool_put\n"
-      "%%   org_erlang_otp:aio_pool_get\n"
       "%%   org_erlang_otp:driver_control\n"
       "%%   org_erlang_otp:driver_call\n"
       "%%   org_erlang_otp:driver_finish\n"
@@ -462,12 +458,6 @@ have_carriers(Alloc) ->
     case erlang:system_info({allocator,Alloc}) of
         false -> false;
         _ -> true
-    end.
-
-have_async_threads() ->
-    Tps = erlang:system_info(thread_pool_size),
-    if Tps =:= 0 -> false;
-       true -> true
     end.
 
 %% lttng

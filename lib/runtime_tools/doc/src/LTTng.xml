@@ -450,23 +450,6 @@ $ make </code>
         <p>Example:</p>
         <code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code>
 
-        <p><em>aio_pool_get</em></p>
-        <list type="bulleted">
-            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>length : integer</c> :: Async queue length. Ex. <c>0</c></item>
-        </list>
-        <p>Example:</p>
-        <code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code>
-
-        <p><em>aio_pool_put</em></p>
-        <list type="bulleted">
-            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>length : integer</c> :: Async queue length. Ex. <c>-1</c></item>
-        </list>
-        <p>Async queue length is not defined for <c>put</c> operations.</p>
-        <p>Example:</p>
-        <code type="none">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code>
-
         <p><em>carrier_create</em></p>
         <list type="bulleted">
             <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
