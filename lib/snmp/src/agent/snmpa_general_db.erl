@@ -534,16 +534,16 @@ dets_backup(close, _Cont, _Name, B) ->
     ok;
 dets_backup(read, Cont1, Name, B) ->
     case dets:bchunk(Name, Cont1) of
+	{error, _} = ERROR ->
+	    ERROR;
+	'$end_of_table' ->
+	    dets:close(B),
+	    end_of_input;
 	{Cont2, Data} ->
 	    F = fun(Arg) ->
 			dets_backup(Arg, Cont2, Name, B)
 		end,
-	    {Data, F};
-	'$end_of_table' ->
-	    dets:close(B),
-	    end_of_input;
-	Error ->
-	    Error
+	    {Data, F}
     end.
 
 
