@@ -27,8 +27,7 @@
 -export([t_lttng_list/1,
          t_carrier_pool/1,
          t_memory_carrier/1,
-         t_async_io_pool/1,
-         t_driver_control_ready_async/1,
+         t_driver_control/1,
          t_driver_start_stop/1,
          t_driver_ready_input_output/1,
          t_driver_timeout/1,
@@ -46,10 +45,9 @@ all() ->
     [t_lttng_list,
      t_memory_carrier,
      t_carrier_pool,
-     t_async_io_pool,
      t_driver_start_stop,
      t_driver_ready_input_output,
-     t_driver_control_ready_async,
+     t_driver_control,
      t_driver_timeout,
      t_driver_caller,
      t_driver_flush,
@@ -149,70 +147,49 @@ t_memory_carrier(Config) ->
             ok
     end.
 
-%% org_erlang_otp:aio_pool_put
-%% org_erlang_otp:aio_pool_get
-t_async_io_pool(Config) ->
-    case have_async_threads() of
-        false ->
-            {skip, "No Async Threads configured on system."};
-        true ->
-            ok = lttng_start_event("org_erlang_otp:aio_pool_*", Config),
-
-            Path1 = proplists:get_value(priv_dir, Config),
-            {ok, [[Path2]]} = init:get_argument(home),
-            {ok, _} = file:list_dir(Path1),
-            {ok, _} = file:list_dir(Path2),
-            {ok, _} = file:list_dir(Path1),
-            {ok, _} = file:list_dir(Path2),
-
-            Res = lttng_stop_and_view(Config),
-            ok = check_tracepoint("org_erlang_otp:aio_pool_put", Res),
-            ok = check_tracepoint("org_erlang_otp:aio_pool_get", Res),
-            ok
-    end.
-
-
 %% org_erlang_otp:driver_start
 %% org_erlang_otp:driver_stop
 t_driver_start_stop(Config) ->
     ok = lttng_start_event("org_erlang_otp:driver_*", Config),
     timer:sleep(500),
-    Path = proplists:get_value(priv_dir, Config),
-    Name = filename:join(Path, "sometext.txt"),
-    Bin  = txt(),
-    ok = file:write_file(Name, Bin),
-    {ok, Bin} = file:read_file(Name),
+    os:cmd("echo hello"),
     timer:sleep(500),
     Res = lttng_stop_and_view(Config),
     ok = check_tracepoint("org_erlang_otp:driver_start", Res),
     ok = check_tracepoint("org_erlang_otp:driver_stop", Res),
-    ok = check_tracepoint("org_erlang_otp:driver_control", Res),
-    ok = check_tracepoint("org_erlang_otp:driver_outputv", Res),
-    ok = check_tracepoint("org_erlang_otp:driver_ready_async", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_output", Res),
     ok.
 
 %% org_erlang_otp:driver_control
 %% org_erlang_otp:driver_outputv
-%% org_erlang_otp:driver_ready_async
-t_driver_control_ready_async(Config) ->
+t_driver_control(Config) ->
     ok = lttng_start_event("org_erlang_otp:driver_control", Config),
     ok = lttng_start_event("org_erlang_otp:driver_outputv", Config),
-    ok = lttng_start_event("org_erlang_otp:driver_ready_async", Config),
-    Path = proplists:get_value(priv_dir, Config),
-    Name = filename:join(Path, "sometext.txt"),
-    Bin  = txt(),
-    ok = file:write_file(Name, Bin),
-    {ok, Bin} = file:read_file(Name),
+
+    timer:sleep(500),
+    Me = self(),
+    Pid = spawn_link(fun() -> tcp_server(Me, active) end),
+    receive {Pid, accept} -> ok end,
+    Bin = txt(),
+    Sz  = byte_size(Bin),
+
+    {ok, Sock} = gen_tcp:connect("localhost", 5679, [binary, {packet, 2}]),
+    ok = gen_tcp:send(Sock, <<Sz:16, Bin/binary>>),
+    ok = gen_tcp:send(Sock, <<Sz:16, Bin/binary>>),
+    ok = gen_tcp:close(Sock),
+    receive {Pid, done} -> ok end,
+
+    timer:sleep(500),
     Res = lttng_stop_and_view(Config),
     ok = check_tracepoint("org_erlang_otp:driver_control", Res),
     ok = check_tracepoint("org_erlang_otp:driver_outputv", Res),
-    ok = check_tracepoint("org_erlang_otp:driver_ready_async", Res),
     ok.
 
 %% org_erlang_otp:driver_ready_input
 %% org_erlang_otp:driver_ready_output
 t_driver_ready_input_output(Config) ->
     ok = lttng_start_event("org_erlang_otp:driver_ready_*", Config),
+
     timer:sleep(500),
     Me = self(),
     Pid = spawn_link(fun() -> tcp_server(Me, active) end),
@@ -290,7 +267,26 @@ t_driver_caller(Config) ->
 t_scheduler_poll(Config) ->
     ok = lttng_start_event("org_erlang_otp:scheduler_poll", Config),
 
+    N = 100,
+
+    Me = self(),
+    Pid = spawn_link(fun() -> tcp_server(Me, {active, N*2}) end),
+    receive {Pid, accept} -> ok end,
+
+    %% We want to create a scenario where the fd is moved into a scheduler
+    %% pollset, this means we have to send many small packages to the
+    %% same socket, but not fast enough for them to all arrive at the
+    %% same time.
+    {ok, Sock} = gen_tcp:connect("localhost", 5679, [binary, {packet, 2}]),
+    [begin gen_tcp:send(Sock,txt()), receive ok -> ok end end || _ <- lists:seq(1,N)],
+
     ok = memory_load(),
+
+    [begin gen_tcp:send(Sock,txt()), receive ok -> ok end end || _ <- lists:seq(1,N)],
+
+    ok = gen_tcp:close(Sock),
+    Pid ! die,
+    receive {Pid, done} -> ok end,
 
     Res = lttng_stop_and_view(Config),
     ok = check_tracepoint("org_erlang_otp:scheduler_poll", Res),
@@ -335,6 +331,23 @@ chk_caller(Port, Callback, ExpectedCaller) ->
             ExpectedCaller = Caller
     end.
 
+memory_load() ->
+    Me = self(),
+    Pids0 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
+    timer:sleep(50),
+    Pids1 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
+    [receive {Pid, done} -> ok end || Pid <- Pids0 ++ Pids1],
+    timer:sleep(500),
+    ok.
+
+memory_loop(Parent, N, Bin) ->
+    memory_loop(Parent, N, Bin, []).
+
+memory_loop(Parent, 0, _Bin, _) ->
+    Parent ! {self(), done};
+memory_loop(Parent, N, Bin0, Ls) ->
+    Bin = binary:copy(<<Bin0/binary, Bin0/binary>>),
+    memory_loop(Parent, N - 1, Bin, [a,b,c|Ls]).
 
 ets_load() ->
     Tid = ets:new(ets_load, [public,set]),
@@ -368,27 +381,6 @@ ets_shuffle(Tid, I, N, Data, Data0) ->
               ets_shuffle(Tid, I - 1, N, Data1, Data0)
     end.
 
-
-
-
-memory_load() ->
-    Me = self(),
-    Pids0 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
-    timer:sleep(50),
-    Pids1 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
-    [receive {Pid, done} -> ok end || Pid <- Pids0 ++ Pids1],
-    timer:sleep(500),
-    ok.
-
-memory_loop(Parent, N, Bin) ->
-    memory_loop(Parent, N, Bin, []).
-
-memory_loop(Parent, 0, _Bin, _) ->
-    Parent ! {self(), done};
-memory_loop(Parent, N, Bin0, Ls) ->
-    Bin = binary:copy(<<Bin0/binary, Bin0/binary>>),
-    memory_loop(Parent, N - 1, Bin, [a,b,c|Ls]).
-
 tcp_server(Pid, Type) ->
     {ok, LSock} = gen_tcp:listen(5679, [binary,
                                         {reuseaddr, true},
@@ -399,14 +391,19 @@ tcp_server(Pid, Type) ->
         passive_no_read ->
             receive die -> ok end;
         active ->
-            inet:setopts(Sock, [{active, once}, {packet,2}]),
+            inet:setopts(Sock, [{active, 2}, {packet,2}]),
             receive Msg1 -> io:format("msg1: ~p~n", [Msg1]) end,
-            inet:setopts(Sock, [{active, once}, {packet,2}]),
             receive Msg2 -> io:format("msg2: ~p~n", [Msg2]) end,
             ok = gen_tcp:close(Sock);
         timeout ->
             Res = gen_tcp:recv(Sock, 2000, 1000),
-            io:format("res ~p~n", [Res])
+            io:format("res ~p~n", [Res]);
+        {active, Number} when is_number(Number) ->
+            inet:setopts(Sock, [{active, Number}, {packet,2}]),
+            [begin
+                 receive _Msg1 -> Pid ! ok, io:format("msg ~p~n", [I]) end
+             end || I <- lists:seq(1,Number)],
+            ok = gen_tcp:close(Sock)
     end,
     Pid ! {self(), done},
     ok.
