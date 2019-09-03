@@ -35,6 +35,8 @@
          t_driver_flush/1,
          t_scheduler_poll/1]).
 
+-export([ets_load/0]).
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -122,7 +124,7 @@ t_carrier_pool(Config) ->
         true ->
             ok = lttng_start_event("org_erlang_otp:carrier_pool*", Config),
 
-            ok = ets_load(),
+            ok = ets_load(Config),
 
             Res = lttng_stop_and_view(Config),
             ok = check_tracepoint("org_erlang_otp:carrier_pool_get", Res),
@@ -139,7 +141,7 @@ t_memory_carrier(Config) ->
         true ->
             ok = lttng_start_event("org_erlang_otp:carrier_*", Config),
 
-            ok = ets_load(),
+            ok = ets_load(Config),
 
             Res = lttng_stop_and_view(Config),
             ok = check_tracepoint("org_erlang_otp:carrier_destroy", Res),
@@ -349,7 +351,19 @@ memory_loop(Parent, N, Bin0, Ls) ->
     Bin = binary:copy(<<Bin0/binary, Bin0/binary>>),
     memory_loop(Parent, N - 1, Bin, [a,b,c|Ls]).
 
+ets_load(Config) ->
+
+    %% Have to do on a fresh node to guarantee that carriers are created
+    {ok,Node} = start_node(Config),
+
+    Res = rpc:call(Node, ?MODULE, ets_load, []),
+
+    stop_node(Node),
+
+    Res.
+
 ets_load() ->
+
     Tid = ets:new(ets_load, [public,set]),
     N = erlang:system_info(schedulers_online),
     Pids = [spawn_link(fun() -> ets_shuffle(Tid) end) || _ <- lists:seq(1,N)],
@@ -494,3 +508,20 @@ cmd(Cmd) ->
     Res = os:cmd(Cmd),
     io:format(">> ~ts~n", [Res]),
     {ok,Res}.
+
+start_node(Config) ->
+    start_node(Config, "").
+
+start_node(Config, Args) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(proplists:get_value(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(second))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
