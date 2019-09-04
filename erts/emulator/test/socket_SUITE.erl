@@ -1776,7 +1776,7 @@ quiet_mode(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% A simple test case that tests that the global debug can be channged.
+%% A simple test case that tests that the global debug can be changed.
 %% At the same time, it will test the info function (since it uses it
 %% for verification).
 
@@ -1794,7 +1794,8 @@ api_m_debug(_Config) when is_list(_Config) ->
 
 %% For some reason this test case triggers a gcc bug, which causes
 %% a segfault, on an ancient Fedora 16 VM. So, check the version of gcc...
-%% Not pretty, but the simplest way to skip (without actually testing for the host).
+%% Not pretty, but the simplest way to skip (without actually testing
+%% for the host).
 has_bugfree_gcc() ->
     has_bugfree_gcc(os:type()).
 
@@ -19470,6 +19471,7 @@ traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
+           fun() -> is_old_fedora16() end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
@@ -19496,7 +19498,8 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() -> is_old_fedora16(),
+                    has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
@@ -19545,7 +19548,18 @@ traffic_ping_pong_large_host_cond() ->
 
 traffic_ping_pong_large_host_cond({unix, sunos}, _) ->
     skip("TC does not work on platform");
+traffic_ping_pong_large_host_cond({unix, linux}, _) ->
+    is_old_fedora16(string:trim(os:cmd("cat /etc/issue")));
 traffic_ping_pong_large_host_cond(_, _) ->
+    ok.
+
+is_old_fedora16() ->
+    is_old_fedora16(string:trim(os:cmd("cat /etc/issue"))).
+
+%% We actually only have one host running this, a slow VM.
+is_old_fedora16("Fedora release 16 " ++ _) ->
+    skip("Very slow VM");
+is_old_fedora16(_) ->
     ok.
 
 
