@@ -1621,20 +1621,46 @@ info(S, F, Proto) ->
     end.
 %% Possible flags: (sorted)
 %% [accepting,bound,busy,connected,connecting,listen,listening,open]
-%%
+%% Actually, we no longer gets listening...
 fmt_status(Flags) ->
     case lists:sort(Flags) of
 	[accepting | _]               -> "ACCEPTING";
-	[bound,busy,connected|_]      -> "CONNECTED*";
-	[bound,connected|_]           -> "CONNECTED";
+	[bound,busy,connected|_]      -> "CONNECTED(BB)";
+	[bound,connected|_]           -> "CONNECTED(B)";
 	[bound,listen,listening | _]  -> "LISTENING";
 	[bound,listen | _]            -> "LISTEN";
 	[bound,connecting | _]        -> "CONNECTING";
 	[bound,open]                  -> "BOUND";
+	[connected,open]              -> "CONNECTED(O)";
 	[open]                        -> "IDLE";
 	[]                            -> "CLOSED";
-	_                             -> "????"
+	Sorted                        -> fmt_status2(Sorted)
     end.
+
+fmt_status2([H]) ->
+    fmt_status3(H);
+fmt_status2([H|T]) ->
+    fmt_status3(H) ++ ":"  ++ fmt_status2(T).
+
+fmt_status3(accepting) ->
+    "A";
+fmt_status3(bound) ->
+    "BD";
+fmt_status3(busy) ->
+    "BY";
+fmt_status3(connected) ->
+    "CD";
+fmt_status3(connecting) ->
+    "CG";
+fmt_status3(listen) ->
+    "LN";
+fmt_status3(listening) ->
+    "LG";
+fmt_status3(open) ->
+    "O";
+fmt_status3(X) when is_atom(X) ->
+    string:uppercase(atom_to_list(X)).
+
 
 fmt_addr({error,enotconn}, _) -> "*:*";
 fmt_addr({error,_}, _)        -> " ";
