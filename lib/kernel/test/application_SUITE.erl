@@ -39,7 +39,7 @@
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
-         config_relative_paths/1]).
+         config_relative_paths/1, handle_many_config_files/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -59,7 +59,7 @@ all() ->
      set_env, set_env_persistent, set_env_errors,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_deadlock, config_relative_paths,
-     persistent_env].
+     persistent_env, handle_many_config_files].
 
 groups() -> 
     [{reported_bugs, [],
@@ -2075,6 +2075,28 @@ persistent_env(Conf) when is_list(Conf) ->
 
     %% Clean up
     ok = application:unload(appinc).
+
+
+%% Test more than one config file defined by one -config parameter:
+handle_many_config_files(Conf) when is_list(Conf) ->
+
+    %% Write a config file
+    Dir = proplists:get_value(priv_dir, Conf),
+    {ok, Fd} = file:open(filename:join(Dir, "sys.config"), [write]),
+    io:format(Fd, "[].~n", []),
+    file:close(Fd),
+    NodeName = node_name(n1, Conf),
+    Config = filename:join(Dir, "sys"),
+
+    %% Node will be started with two -config
+    %% First one has one argument and second one has two arguments.
+    {ok, Node} = start_node(
+        NodeName,
+        Config,
+        " -config " ++ Config ++ " " ++ Config
+    ),
+    {ok, [[Config], [Config, Config]]} = rpc:call(Node, init, get_argument, [config]),
+    stop_node_nice(Node).
 
 %%%-----------------------------------------------------------------
 %%% Tests the 'shutdown_func' kernel config parameter
