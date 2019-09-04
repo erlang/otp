@@ -604,6 +604,8 @@ stop() ->
 
 stop_clear() ->
     {ok, _} = ctp(),
+    {ok, _} = ctpe('receive'),
+    {ok, _} = ctpe('send'),
     stop().
 
 %%% Calling the server.
