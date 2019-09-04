@@ -230,9 +230,11 @@ callback({N, A}, _Env, _Opts) ->
 %% <!ELEMENT throws (type, localdef*)>
 %% <!ELEMENT equiv (expr, see?)>
 %% <!ELEMENT expr (#PCDATA)>
-
-function({N, A}, As, Export, Ts, Env, Opts) ->
-    {Args, Ret, Spec} = signature(Ts, As, Env),
+function({N, A}, []=As, Export, Ts, Env, Opts)->
+    function({N, A}, [As], Export, Ts, Env, Opts);
+function({N, A}, [HAs | _]=As, Export, Ts, Env, Opts) when not is_list(HAs) ->
+    function({N, A}, [As], Export, Ts, Env, Opts);
+function({N, A}, As0, Export, Ts, Env, Opts) ->
     {function, [{name, atom_to_list(N)},
 		{arity, integer_to_list(A)},
       		{exported, case Export of
@@ -240,13 +242,8 @@ function({N, A}, As, Export, Ts, Env, Opts) ->
 			       false -> "no"
 			   end},
 		{label, edoc_refs:to_label(edoc_refs:function(N, A))}],
-     [{args, [{arg, [{argName, [atom_to_list(A)]}] ++ description(D)}
-	      || {A, D} <- Args]}]
-     ++ Spec
-     ++ case Ret of
-	    [] -> [];
-	    _ -> [{returns, description(Ret)}]
-	end
+     lists:append([get_args(lists:nth(Clause, As0), Ts, Clause, Env)
+                   || Clause <- lists:seq(1, length(As0))])
      ++ get_throws(Ts, Env)
      ++ get_equiv(Ts, Env)
      ++ get_doc(Ts)
@@ -255,6 +252,16 @@ function({N, A}, As, Export, Ts, Env, Opts) ->
      ++ sees(Ts, Env)
      ++ todos(Ts, Opts)
     }.
+
+get_args(As, Ts, Clause, Env) ->
+    {Args, Ret, Spec} = signature(Ts, As, Clause, Env),
+    [{args, [{arg, [{argName, [atom_to_list(A)]}] ++ description(D)}
+     || {A, D} <- Args]}]
+    ++ Spec
+    ++ case Ret of
+           [] -> [];
+           _ -> [{returns, description(Ret)}]
+       end.
 
 get_throws(Ts, Env) ->
     case get_tags(throws, Ts) of
@@ -406,10 +413,10 @@ todos(Tags, Opts) ->
 	    []
     end.
 
-signature(Ts, As, Env) ->
+signature(Ts, As, Clause, Env) ->
     case get_tags(spec, Ts) of
 	[T] ->
-	    Spec = T#tag.data,
+            Spec = maybe_nth(Clause, T#tag.data),
 	    R = merge_returns(Spec, Ts),
 	    As0 = edoc_types:arg_names(Spec),
 	    Ds0 = edoc_types:arg_descs(Spec),
@@ -423,6 +430,11 @@ signature(Ts, As, Env) ->
 	    S = sets:new(),
 	    {[{A, ""} || A <- fix_argnames(As, S, 1)], [], []}
     end.
+
+maybe_nth(N, List) when is_list(List) ->
+    lists:nth(N, List);
+maybe_nth(1, Other) ->
+    Other.
 
 params(Ts) ->
     [T#tag.data || T <- get_tags(param, Ts)].

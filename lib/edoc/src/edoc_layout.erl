@@ -357,10 +357,10 @@ label_href(Content, F) ->
 functions(Fs, Opts) ->
     Es = lists:flatmap(fun ({Name, E}) -> function(Name, E, Opts) end, Fs),
     if Es == [] -> [];
-       true ->
-	    [?NL,
-	     {h2, [{a, [{name, ?FUNCTIONS_LABEL}], [?FUNCTIONS_TITLE]}]},
-	     ?NL | Es]
+        true ->
+            [?NL,
+             {h2, [{a, [{name, ?FUNCTIONS_LABEL}], [?FUNCTIONS_TITLE]}]},
+             ?NL | Es]
     end.
 
 function(Name, E=#xmlElement{content = Es}, Opts) ->
@@ -369,22 +369,24 @@ function(Name, E=#xmlElement{content = Es}, Opts) ->
        label_anchor(function_header(Name, E, " *"), E)},
       ?NL]
      ++ [{'div',  [{class, "spec"}],
-	  [?NL,
-	   {p,
-	    case typespec(get_content(typespec, Es), Opts) of
+	    case [typespec(T, Opts) || T <- get_contents(typespec, Es)] of
 		[] ->
-		    signature(get_content(args, Es),
-			      atom(get_attrval(name, E), Opts));
-		Spec -> Spec
-	    end},
-	   ?NL]
-	  ++ case params(get_content(args, Es)) of
+            [?NL,{p,
+            signature(get_content(args, Es),
+			      atom(get_attrval(name, E), Opts))
+            },?NL];
+		Specs ->
+            [?NL]++[{p, Spec} || Spec <- Specs]++[?NL]
+	    end
+	  ++ case [params(A) || A <- get_contents(args, Es)] of
 		 [] -> [];
-		 Ps -> [{p, Ps}, ?NL]
+		 As ->
+             lists:append([[{p, Ps}, ?NL] || Ps <- As])
 	     end
-	  ++ case returns(get_content(returns, Es)) of
+	  ++ case [returns(Ret) || Ret <- get_contents(returns, Es)] of
 		 [] -> [];
-		 Rs -> [{p, Rs}, ?NL]
+		 Rets ->
+             lists:append([[{p, Rs}, ?NL] || Rs <- Rets])
 	     end}]
      ++ throws(Es, Opts)
      ++ equiv_p(Es)
@@ -968,12 +970,8 @@ seq(F, [E | Es], Sep, Tail) ->
 seq(_F, [], _Sep, Tail) ->
     Tail.
 
-get_elem(Name, [#xmlElement{name = Name} = E | Es]) ->
-    [E | get_elem(Name, Es)];
-get_elem(Name, [_ | Es]) ->
-    get_elem(Name, Es);
-get_elem(_, []) ->
-    [].
+get_elem(Name, Es) ->
+    [E || #xmlElement{name=N}=E <- Es, N=:=Name].
 
 get_attr(Name, [#xmlAttribute{name = Name} = A | As]) ->
     [A | get_attr(Name, As)];
@@ -987,6 +985,13 @@ get_attrval(Name, #xmlElement{attributes = As}) ->
 	[#xmlAttribute{value = V}] ->
 	    V;
 	[] -> ""
+    end.
+
+get_contents(Name, Es) ->
+    case get_elem(Name, Es) of
+        [] -> [];
+        Elems ->
+            [Es1 || #xmlElement{content = Es1} <- Elems]
     end.
 
 get_content(Name, Es) ->
