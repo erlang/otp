@@ -20,7 +20,7 @@
 -module(dbg_SUITE).
 
 %% Test functions
--export([all/0, suite/0,
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
          big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 send/1, recv/1,
          ip_port/1, file_port/1, file_port2/1,
@@ -46,6 +46,12 @@ all() ->
      local_trace, saved_patterns, tracer_exit_on_stop,
      erl_tracer, distributed_erl_tracer].
 
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    dbg:stop_clear(),
+    ok.
 
 %% Rudimentary interface test
 big(Config) when is_list(Config) ->
@@ -83,7 +89,7 @@ big(Config) when is_list(Config) ->
 
         ok=file:set_cwd(OldCurDir)
     after
-        dbg:stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -114,7 +120,7 @@ tiny(Config) when is_list(Config) ->
                 failure
         end
     after
-        ok = dbg:stop(),
+        dbg:stop_clear(),
         ok = file:set_cwd(OldCurDir)
     end,
     ok.
@@ -130,7 +136,7 @@ simple(Config) when is_list(Config) ->
         S = self(),
         [{trace,S,call,{dbg,ltp,[]}}] = flush()
     after
-        dbg:stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -146,7 +152,7 @@ message(Config) when is_list(Config) ->
         ok = dbg:ltp(),
         ok = dbg:ln()
     after
-        stop()
+        dbg:stop_clear()
     end,
     S = self(),
     [{trace,S,call,{dbg,ltp,[]},S},
@@ -229,7 +235,7 @@ send(Config) when is_list(Config) ->
         ok
 
     after
-	stop()
+	dbg:stop_clear()
     end.
 
 send_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -340,7 +346,7 @@ recv(Config) when is_list(Config) ->
         ok
 
     after
-	stop()
+	dbg:stop_clear()
     end.
 
 recv_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -404,8 +410,8 @@ distributed(Config) when is_list(Config) ->
         %%
         stop()
     after
-        stop_slave(Node),
-        stop()
+        dbg:stop_clear(),
+        stop_slave(Node)
     end,
     ok.
 
@@ -455,7 +461,7 @@ local_trace(Config) when is_list(Config) ->
           {dbg_SUITE,not_exported,1},
           {error,badarith}}] = flush()
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -480,7 +486,7 @@ port(Config) when is_list(Config) ->
          {trace,Port,getting_linked,S},
          {trace,Port,closed,normal}] = flush()
     after
-        dbg:stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -506,7 +512,7 @@ saved_patterns(Config) when is_list(Config) ->
         S = self(),
         [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -538,7 +544,7 @@ ip_port(Config) when is_list(Config) ->
         [{trace,S,call,{dbg,ltp,[]},S},
          {trace,S,call,{dbg,ln,[]},hej}] = flush()
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -554,7 +560,7 @@ ip_port_busy(Config) when is_list(Config) ->
         io:format("Error reason = ~p~n", [Reason]),
         true = port_close(Port)
     after
-        dbg:stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -584,7 +590,7 @@ file_port(Config) when is_list(Config) ->
          {trace,S,call,{dbg,ln,[]},hej},
          end_of_trace] = flush()
     after
-        stop(),
+        dbg:stop_clear(),
         file:delete(FName)
     end,
     ok.
@@ -617,7 +623,7 @@ file_port2(Config) when is_list(Config) ->
         stop(),
         [] = flush()
     after
-        stop(),
+        dbg:stop_clear(),
         file:delete(FName)
     end,
     ok.
@@ -688,7 +694,7 @@ wrap_port(Config) when is_list(Config) ->
         %%
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -763,7 +769,7 @@ wrap_port_time(Config) when is_list(Config) ->
          end_of_trace] = flush(),
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -789,7 +795,7 @@ with_seq_trace(Config) when is_list(Config) ->
          {seq_trace,0,{send,_,Server,S,{dbg,{ok,Tracer}}}}] =
         flush()
     after
-        stop()
+        dbg:stop_clear()
     end,
     ok.
 
@@ -800,7 +806,7 @@ dead_suspend(Config) when is_list(Config) ->
     try
         survived = run_dead_suspend()
     after
-        stop()
+        dbg:stop_clear()
     end.
 
 run_dead_suspend() ->
