@@ -120,7 +120,7 @@ dealloc_ret.execute() {
     E = ADD_BYTE_OFFSET(E, num_bytes);
     $RETURN();
     CHECK_TERM(x(0));
-    DispatchReturn;
+    $DISPATCH_RETURN();
 }
 
 move_deallocate_return(Src, Deallocate) {
@@ -137,31 +137,19 @@ move_deallocate_return(Src, Deallocate) {
     x(0) = src;
     $RETURN();
     CHECK_TERM(x(0));
-    DispatchReturn;
+    $DISPATCH_RETURN();
 }
 
 // Call instructions
 
-DISPATCH_REL(CallDest) {
-    //| -no_next
-    $SET_I_REL($CallDest);
-    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-    Dispatch();
-}
-
-DISPATCH_ABS(CallDest) {
-    //| -no_next
-    SET_I((BeamInstr *) $CallDest);
-    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-    Dispatch();
-}
-
 i_call(CallDest) {
+    //| -no_next
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_REL($CallDest);
 }
 
 move_call(Src, CallDest) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
@@ -170,11 +158,13 @@ move_call(Src, CallDest) {
 }
 
 i_call_last(CallDest, Deallocate) {
+    //| -no_next
     $deallocate($Deallocate);
     $DISPATCH_REL($CallDest);
 }
 
 move_call_last(Src, CallDest, Deallocate) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     $deallocate($Deallocate);
@@ -183,59 +173,59 @@ move_call_last(Src, CallDest, Deallocate) {
 }
 
 i_call_only(CallDest) {
+    //| -no_next
     $DISPATCH_REL($CallDest);
 }
 
 move_call_only(Src, CallDest) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     x(0) = src;
     $DISPATCH_REL(call_dest);
 }
 
-DISPATCHX(Dest) {
-    //| -no_next
-    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, $Dest);
-    // Dispatchx assumes the Export* is in Arg(0)
-    I = (&$Dest) - 1;
-    Dispatchx();
-}
-
 i_call_ext(Dest) {
+    //| -no_next
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-    $DISPATCHX($Dest);
+    $DISPATCH_EXPORT($Dest);
 }
 
 i_move_call_ext(Src, CallDest) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     x(0) = src;
-    $DISPATCHX(call_dest);
+    $DISPATCH_EXPORT(call_dest);
 }
 
 i_call_ext_only(Dest) {
-    $DISPATCHX($Dest);
+    //| -no_next
+    $DISPATCH_EXPORT($Dest);
 }
 
 i_move_call_ext_only(CallDest, Src) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     x(0) = src;
-    $DISPATCHX(call_dest);
+    $DISPATCH_EXPORT(call_dest);
 }
 
 i_call_ext_last(Dest, Deallocate) {
+    //| -no_next
     $deallocate($Deallocate);
-    $DISPATCHX($Dest);
+    $DISPATCH_EXPORT($Dest);
 }
 
 i_move_call_ext_last(CallDest, Deallocate, Src) {
+    //| -no_next
     Eterm call_dest = $CallDest;
     Eterm src = $Src;
     $deallocate($Deallocate);
     x(0) = src;
-    $DISPATCHX(call_dest);
+    $DISPATCH_EXPORT(call_dest);
 }
 
 APPLY(I, Deallocate, Next) {
@@ -251,6 +241,7 @@ HANDLE_APPLY_ERROR() {
 }
 
 i_apply() {
+    //| -no_next
     BeamInstr *next;
     $APPLY(NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -261,6 +252,7 @@ i_apply() {
 }
 
 i_apply_last(Deallocate) {
+    //| -no_next
     BeamInstr *next;
     $APPLY(I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -271,6 +263,7 @@ i_apply_last(Deallocate) {
 }
 
 i_apply_only() {
+    //| -no_next
     BeamInstr *next;
     $APPLY(I, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -287,6 +280,7 @@ FIXED_APPLY(Arity, I, Deallocate, Next) {
 }
 
 apply(Arity) {
+    //| -no_next
     BeamInstr *next;
     $FIXED_APPLY($Arity, NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -297,6 +291,7 @@ apply(Arity) {
 }
 
 apply_last(Arity, Deallocate) {
+    //| -no_next
     BeamInstr *next;
     $FIXED_APPLY($Arity, I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -316,13 +311,8 @@ HANDLE_APPLY_FUN_ERROR() {
      goto find_func_info;
 }
 
-DISPATCH_FUN(I) {
-    //| -no_next
-    SET_I($I);
-    Dispatchfun();
-}
-
 i_apply_fun() {
+    //| -no_next
     BeamInstr *next;
     $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -333,6 +323,7 @@ i_apply_fun() {
 }
 
 i_apply_fun_last(Deallocate) {
+    //| -no_next
     BeamInstr *next;
     $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -343,6 +334,7 @@ i_apply_fun_last(Deallocate) {
 }
 
 i_apply_fun_only() {
+    //| -no_next
     BeamInstr *next;
     $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -359,6 +351,7 @@ CALL_FUN(Fun, Next) {
 }
 
 i_call_fun(Fun) {
+    //| -no_next
     BeamInstr *next;
     $CALL_FUN($Fun, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -369,6 +362,7 @@ i_call_fun(Fun) {
 }
 
 i_call_fun_last(Fun, Deallocate) {
+    //| -no_next
     BeamInstr *next;
     $CALL_FUN($Fun, next);
     if (ERTS_LIKELY(next != NULL)) {
@@ -381,10 +375,12 @@ i_call_fun_last(Fun, Deallocate) {
 return() {
     //| -no_next
     $RETURN();
+
     DTRACE_RETURN_FROM_PC(c_p);
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
-    DispatchReturn;
+
+    $DISPATCH_RETURN();
 }
 
 get_list(Src, Hd, Tl) {
@@ -677,7 +673,7 @@ move_return(Src) {
     //| -no_next
     x(0) = $Src;
     $RETURN();
-    DispatchReturn;
+    $DISPATCH_RETURN();
 }
 
 move_x1(Src) {

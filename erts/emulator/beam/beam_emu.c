@@ -250,72 +250,6 @@ void** beam_ops;
 #define Q(N) (N*sizeof(Eterm *))
 #define l(N) (freg[N].fd)
 
-/*
- * Check that we haven't used the reductions and jump to function pointed to by
- * the I register.  If we are out of reductions, do a context switch.
- */
-
-#define DispatchMacro()				\
-  do {						\
-     BeamInstr dis_next;                        \
-     dis_next = *I;                             \
-     CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
-     } else {					\
-	goto context_switch;			\
-     }						\
- } while (0)                                    \
-
-#define DispatchMacroFun()			\
-  do {						\
-     BeamInstr dis_next;                        \
-     dis_next = *I;                             \
-     CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
-     } else {					\
-	goto context_switch_fun;		\
-     }						\
- } while (0)
-
-#define DispatchMacrox()                                                \
-  do {                                                                  \
-     if (FCALLS > 0) {                                                  \
-        BeamInstr dis_next;                                             \
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
-        dis_next = *I;                                                  \
-        FCALLS--;                                                       \
-        CHECK_ARGS(I);                                                  \
-        Goto(dis_next);                                                 \
-     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)                      \
-		&& FCALLS > neg_o_reds) {                               \
-        goto save_calls1;                                               \
-     } else {                                                           \
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
-        CHECK_ARGS(I);                                                  \
-	goto context_switch;                                            \
-     }                                                                  \
- } while (0)
-
-#ifdef DEBUG
-/*
- * To simplify breakpoint setting, put the code in one place only and jump to it.
- */
-#  define Dispatch() goto do_dispatch
-#  define Dispatchx() goto do_dispatchx
-#  define Dispatchfun() goto do_dispatchfun
-#else
-/*
- * Inline for speed.
- */
-#  define Dispatch() DispatchMacro()
-#  define Dispatchx() DispatchMacrox()
-#  define Dispatchfun() DispatchMacroFun()
-#endif
-
 #define Arg(N)       I[(N)+1]
 
 #define GetSource(raw, dst)			\
@@ -347,19 +281,6 @@ do {						\
 	break;					\
     }						\
 } while(0)
-
-#define DispatchReturn                          \
-do {                                            \
-    if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(*I);                               \
-    }                                           \
-    else {					\
-        c_p->current = NULL;                    \
-        c_p->arity = 1;                         \
-        goto context_switch3;			\
-    }						\
-} while (0)
 
 #ifdef DEBUG
 /* Better static type testing by the C compiler */
@@ -768,27 +689,9 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #endif
 
 #include "beam_hot.h"
-
-#ifdef DEBUG
     /*
-     * Set a breakpoint here to get control just after a call instruction.
-     * I points to the first instruction in the called function.
-     *
-     * In gdb, use 'call dis(I-5, 1)' to show the name of the function.
-     */
- do_dispatch:
-     DispatchMacro();
-
- do_dispatchx:
-     DispatchMacrox();
-
- do_dispatchfun:
-     DispatchMacroFun();
-
-#endif
-
-    /*
-     * Jumped to from the Dispatch() macro when the reductions are used up.
+     * The labels are jumped to from the $DISPATCH() macros when the reductions
+     * are used up.
      *
      * Since the I register points just beyond the FuncBegin instruction, we
      * can get the module, function, and arity for the function being
@@ -982,19 +885,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
   }
 #endif
     return;			/* Never executed */
-
-  save_calls1:
-    {
-	BeamInstr dis_next;
-
-	save_calls(c_p, (Export *) Arg(0));
-
-	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-
-	dis_next = *I;
-	FCALLS--;
-	Goto(dis_next);
-    }
 }
 
 /*

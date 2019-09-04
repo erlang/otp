@@ -283,7 +283,7 @@ call_bif(Exp) {
         $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
-        Dispatch();
+        $DISPATCH();
     }
 
     /*
@@ -371,7 +371,7 @@ call_bif_only(Exp) {
          */
         SET_I(c_p->i);
         SWAPIN;
-        Dispatch();
+        $DISPATCH();
     }
 
     /*
@@ -416,7 +416,7 @@ send() {
         $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
-        Dispatch();
+        $DISPATCH();
     } else {
         goto find_func_info;
     }
@@ -557,6 +557,7 @@ nif_bif.apply_bif() {
 }
 
 nif_bif.epilogue() {
+    //| -no_next
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     ERTS_HOLE_CHECK(c_p);
     if (ERTS_IS_GC_DESIRED(c_p)) {
@@ -578,7 +579,7 @@ nif_bif.epilogue() {
             c_p->flags &= ~F_HIBERNATE_SCHED;
             goto do_schedule;
         }
-        Dispatch();
+        $DISPATCH();
     }
     {
         BeamInstr *cp = cp_val(*E);

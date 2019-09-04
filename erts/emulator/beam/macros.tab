@@ -136,6 +136,90 @@ AH(NeedStack, NeedHeap, Live) {
     *E = NIL;
 }
 
+
+//
+// Helpers for call instructions
+//
+
+DISPATCH() {
+    BeamInstr dis_next;
+
+    dis_next = *I;
+    CHECK_ARGS(I);
+
+    if (FCALLS > 0 || FCALLS > neg_o_reds) {
+        FCALLS--;
+        Goto(dis_next);
+    } else {
+        goto context_switch;
+    }
+}
+
+DISPATCH_ABS(CallDest) {
+    SET_I((BeamInstr *) $CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+
+    $DISPATCH();
+}
+
+DISPATCH_EXPORT(Export) {
+    BeamInstr dis_next;
+    Export *ep;
+
+    ep = (Export*)($Export);
+
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, ep);
+
+    SET_I(ep->addressv[erts_active_code_ix()]);
+    CHECK_ARGS(I);
+    dis_next = *I;
+
+    if (ERTS_UNLIKELY(FCALLS <= 0)) {
+        if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p) && FCALLS > neg_o_reds) {
+            save_calls(c_p, ep);
+        } else {
+            goto context_switch;
+        }
+    }
+
+    FCALLS--;
+    Goto(dis_next);
+}
+
+DISPATCH_FUN(I) {
+    BeamInstr dis_next;
+
+    SET_I($I);
+
+    dis_next = *I;
+    CHECK_ARGS(I);
+
+    if (FCALLS > 0 || FCALLS > neg_o_reds) {
+        FCALLS--;
+        Goto(dis_next);
+    } else {
+        goto context_switch_fun;
+    }
+}
+
+DISPATCH_REL(CallDest) {
+    $SET_I_REL($CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+
+    $DISPATCH();
+}
+
+DISPATCH_RETURN() {
+    if (FCALLS > 0 || FCALLS > neg_o_reds) {
+        FCALLS--;
+        Goto(*I);
+    } else {
+        c_p->current = NULL;
+        c_p->arity = 1;
+        goto context_switch3;
+    }
+}
+
 // Save the continuation pointer in the reserved slot at the
 // top of the stack as preparation for doing a function call.
 
