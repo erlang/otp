@@ -1804,7 +1804,7 @@ check_conf() ->
     case init:get_argument(config) of
 	{ok, Files} ->
 	    {ok, lists:foldl(
-		   fun([File], Env) ->
+		   fun(File, Env) ->
 			   BFName = filename:basename(File,".config"),
 			   FName = filename:join(filename:dirname(File),
 						 BFName ++ ".config"),
@@ -1836,7 +1836,7 @@ check_conf() ->
 			       {error, {Line, _Mod, Str}} ->
 				   throw({error, {FName, Line, Str}})
 			   end
-		   end, [], Files)};
+		   end, [], lists:append(Files))};
 	_ -> {ok, []}
     end.
 
