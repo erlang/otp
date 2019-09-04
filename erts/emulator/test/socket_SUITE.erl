@@ -19549,9 +19549,17 @@ traffic_ping_pong_large_host_cond() ->
 traffic_ping_pong_large_host_cond({unix, sunos}, _) ->
     skip("TC does not work on platform");
 traffic_ping_pong_large_host_cond({unix, linux}, _) ->
-    is_old_fedora16(string:trim(os:cmd("cat /etc/issue")));
+    traffic_ping_pong_large_host_cond2(string:trim(os:cmd("cat /etc/issue")));
 traffic_ping_pong_large_host_cond(_, _) ->
     ok.
+
+traffic_ping_pong_large_host_cond2("Welcome to SUSE Linux Enterprise Server 10 SP1 (i586)" ++ _) ->
+    skip("TC does not work on platform");
+traffic_ping_pong_large_host_cond2("Fedora release 16 " ++ _) ->
+    skip("Very slow VM");
+traffic_ping_pong_large_host_cond2(_) ->
+    ok.
+
 
 is_old_fedora16() ->
     is_old_fedora16(string:trim(os:cmd("cat /etc/issue"))).
