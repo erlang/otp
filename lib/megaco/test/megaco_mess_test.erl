@@ -11127,8 +11127,15 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_tcp_generator:start_link("MG", MgNode),
@@ -11192,13 +11199,14 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
 -endif.
 
 otp6865e2_mgc_event_sequence(ExtraInfo, text, tcp) ->
-    Mid = {deviceName,"ctrl"},
-    RI = [
-	  {port,             2944},
-	  {encoding_module,  megaco_pretty_text_encoder},
-	  {encoding_config,  []},
-	  {transport_module, megaco_tcp}
-	 ],
+    Mid  = {deviceName, "ctrl"},
+    CTRL = self(),
+    RI   = [
+            {port,             2944},
+            {encoding_module,  megaco_pretty_text_encoder},
+            {encoding_config,  []},
+            {transport_module, megaco_tcp}
+           ],
     ConnectVerify          = 
 	?otp6865e2_mgc_verify_handle_connect_fun(ExtraInfo), 
     ServiceChangeReqVerify = 
@@ -11220,6 +11228,10 @@ otp6865e2_mgc_event_sequence(ExtraInfo, text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify1},
