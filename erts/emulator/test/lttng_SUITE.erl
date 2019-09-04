@@ -32,8 +32,7 @@
          t_driver_ready_input_output/1,
          t_driver_timeout/1,
          t_driver_caller/1,
-         t_driver_flush/1,
-         t_scheduler_poll/1]).
+         t_driver_flush/1]).
 
 -export([ets_load/0]).
 
@@ -43,7 +42,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
-all() -> 
+all() ->
     [t_lttng_list,
      t_memory_carrier,
      t_carrier_pool,
@@ -52,9 +51,7 @@ all() ->
      t_driver_control,
      t_driver_timeout,
      t_driver_caller,
-     t_driver_flush,
-     t_scheduler_poll].
-
+     t_driver_flush].
 
 init_per_suite(Config) ->
     case erlang:system_info(dynamic_trace) of
@@ -103,7 +100,6 @@ end_per_testcase(Case, _Config) ->
 %%   org_erlang_otp:driver_outputv
 %%   org_erlang_otp:driver_init
 %%   org_erlang_otp:driver_start
-%%   org_erlang_otp:scheduler_poll
 
 %%
 %% Testcases
@@ -262,35 +258,6 @@ t_driver_caller(Config) ->
     ok = check_tracepoint("org_erlang_otp:driver_init", Res),
     ok = check_tracepoint("org_erlang_otp:driver_finish", Res),
     ok.
- 
-%% org_erlang_otp:scheduler_poll
-t_scheduler_poll(Config) ->
-    ok = lttng_start_event("org_erlang_otp:scheduler_poll", Config),
-
-    N = 100,
-
-    Me = self(),
-    Pid = spawn_link(fun() -> tcp_server(Me, {active, N*2}) end),
-    receive {Pid, accept} -> ok end,
-
-    %% We want to create a scenario where the fd is moved into a scheduler
-    %% pollset, this means we have to send many small packages to the
-    %% same socket, but not fast enough for them to all arrive at the
-    %% same time.
-    {ok, Sock} = gen_tcp:connect("localhost", 5679, [binary, {packet, 2}]),
-    [begin gen_tcp:send(Sock,txt()), receive ok -> ok end end || _ <- lists:seq(1,N)],
-
-    ok = memory_load(),
-
-    [begin gen_tcp:send(Sock,txt()), receive ok -> ok end end || _ <- lists:seq(1,N)],
-
-    ok = gen_tcp:close(Sock),
-    Pid ! die,
-    receive {Pid, done} -> ok end,
-
-    Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("org_erlang_otp:scheduler_poll", Res),
-    ok.
 
 %% org_erlang_otp:driver_flush
 t_driver_flush(Config) ->
@@ -330,24 +297,6 @@ chk_caller(Port, Callback, ExpectedCaller) ->
         {caller, Port, Callback, Caller} ->
             ExpectedCaller = Caller
     end.
-
-memory_load() ->
-    Me = self(),
-    Pids0 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
-    timer:sleep(50),
-    Pids1 = [spawn_link(fun() -> memory_loop(Me, 20, <<42>>) end) || _ <- lists:seq(1,30)],
-    [receive {Pid, done} -> ok end || Pid <- Pids0 ++ Pids1],
-    timer:sleep(500),
-    ok.
-
-memory_loop(Parent, N, Bin) ->
-    memory_loop(Parent, N, Bin, []).
-
-memory_loop(Parent, 0, _Bin, _) ->
-    Parent ! {self(), done};
-memory_loop(Parent, N, Bin0, Ls) ->
-    Bin = binary:copy(<<Bin0/binary, Bin0/binary>>),
-    memory_loop(Parent, N - 1, Bin, [a,b,c|Ls]).
 
 ets_load(Config) ->
 
@@ -441,8 +390,7 @@ txt() ->
       "%%   org_erlang_otp:driver_output\n"
       "%%   org_erlang_otp:driver_outputv\n"
       "%%   org_erlang_otp:driver_init\n"
-      "%%   org_erlang_otp:driver_start\n"
-      "%%   org_erlang_otp:scheduler_poll">>.
+      "%%   org_erlang_otp:driver_start">>.
 
 load_driver(Dir, Driver) ->
     case erl_ddll:load_driver(Dir, Driver) of

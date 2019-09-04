@@ -44,7 +44,6 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
-#include "lttng-wrapper.h"
 #include "erl_ptab.h"
 #include "erl_bif_unique.h"
 #define ERTS_WANT_TIMER_WHEEL_API
@@ -9521,7 +9520,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    erts_runq_unlock(rq);
 
             ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
-            LTTNG2(scheduler_poll, esdp->no, 1);
 
 	    erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT);
 	    ERTS_MSACC_POP_STATE_M();
