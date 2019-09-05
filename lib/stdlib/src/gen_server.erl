@@ -162,6 +162,8 @@
 -type  start_opt() :: {'timeout', Time :: timeout()}
                     | {'spawn_opt', [proc_lib:spawn_option()]}
                     | {'debug', [sys:debug_option()]}.
+
+-type  enter_loop_opts() :: [] | [enter_loop_opt()].
 -type   enter_loop_opt() :: {'hibernate_after', timeout()}
                           | {'debug', [sys:debug_option()]}.
 
@@ -181,6 +183,7 @@
     start_ret/0,
     start_opts/0,
     start_opt/0,
+    enter_loop_opts/0,
     enter_loop_opt/0,
     server_name/0,
     server_ref/0,
@@ -448,7 +451,7 @@ multi_call(Nodes, Name, Req, Timeout)
 
 -spec enter_loop(
     Mod     :: module(),
-    Options :: enter_loop_opt(),
+    Options :: enter_loop_opts(),
     State   :: term()
 ) ->
     no_return().
@@ -457,7 +460,7 @@ enter_loop(Mod, Options, State) ->
 
 -spec enter_loop(
     Mod                   :: module(),
-    Options               :: enter_loop_opt(),
+    Options               :: enter_loop_opts(),
     State                 :: term(),
     ServerName_or_Timeout :: server_name() | timeout()
 ) ->
@@ -474,7 +477,7 @@ enter_loop(Mod, Options, State, Timeout) ->
 
 -spec enter_loop(
     Mod        :: module(),
-    Options    :: enter_loop_opt(),
+    Options    :: enter_loop_opts(),
     State      :: term(),
     ServerName :: server_name() | pid(),
     timeout()
