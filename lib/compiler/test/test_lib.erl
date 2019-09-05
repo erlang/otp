@@ -21,7 +21,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -compile({no_auto_import,[binary_part/2]}).
--export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
+-export([id/1,recompile/1,recompile_core/1,parallel/0,
+         uniq/0,opt_opts/1,get_data_dir/1,
          is_cloned_mod/1,smoke_disasm/1,p_run/2,
          highest_opcode/1]).
 
@@ -40,6 +41,21 @@ recompile(Mod) when is_atom(Mod) ->
 	    Opts = [bin_opt_info|opt_opts(Mod)],
 	    io:format("Recompiling ~p (~p)\n", [Mod,Opts]),
 	    c:c(Src, [{outdir,filename:dirname(Src)}|Opts])
+    end,
+
+    %% Smoke-test of beam disassembler.
+    smoke_disasm(Mod).
+
+recompile_core(Mod) when is_atom(Mod) ->
+    case whereis(cover_server) of
+        undefined -> ok;
+        _ ->
+            %% Re-compile the test suite if the cover server is running.
+            Beam = code:which(Mod),
+            Src = filename:rootname(Beam, ".beam"),
+            Opts = [bin_opt_info|opt_opts(Mod)],
+            io:format("Recompiling ~p (~p)\n", [Mod,Opts]),
+            c:c(Src, [from_core,{outdir,filename:dirname(Src)}|Opts])
     end,
 
     %% Smoke-test of beam disassembler.
