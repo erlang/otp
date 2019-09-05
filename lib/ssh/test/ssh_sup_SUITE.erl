@@ -116,18 +116,18 @@ sshc_subtree(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
-    ?wait_match([{_, _,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
 
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}, 
-		 {_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]},
+                 {_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
 
     ssh:close(Pid1),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
     ?wait_match([], supervisor:which_children(sshc_sup)).
@@ -217,6 +217,7 @@ killed_acceptor_restarts(Config) ->
     ct:log("~s",[lists:flatten(ssh_info:string())]),
 
     %% Make acceptor restart:
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
     exit(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
@@ -225,6 +226,8 @@ killed_acceptor_restarts(Config) ->
                 acceptor_pid(DaemonPid),
                 AccPid1,
                 500, 30),
+
+    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []),
 
     true = (AccPid1 =/= AccPid2),
 
@@ -339,9 +342,9 @@ chk_empty_con_daemon(Daemon) ->
     ?wait_match([{{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
-		 {{server,ssh_server_channel_sup,_ ,_},
+		 {{server,ssh_channel_sup,_ ,_},
 		  ChannelSup,supervisor,
-		  [ssh_server_channel_sup]}],
+		  [ssh_channel_sup]}],
 		supervisor:which_children(SubSysSup),
 		[ConnectionSup,ChannelSup]),
     ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
@@ -372,9 +375,9 @@ check_sshd_system_tree(Daemon, Config) ->
     ?wait_match([{{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
-		 {{server,ssh_server_channel_sup,_ ,_},
+		 {{server,ssh_channel_sup,_ ,_},
 		  ChannelSup,supervisor,
-		  [ssh_server_channel_sup]}],
+		  [ssh_channel_sup]}],
 		supervisor:which_children(SubSysSup),
 		[ConnectionSup,ChannelSup]),
     

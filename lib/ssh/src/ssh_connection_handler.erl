@@ -48,6 +48,7 @@
 -export([start_connection/4,
          available_hkey_algorithms/2,
 	 open_channel/6,
+         start_channel/5,
 	 request/6, request/7,
 	 reply_request/3, 
 	 send/5,
@@ -126,35 +127,29 @@ stop(ConnectionHandler)->
 		       timeout()
 		      ) -> {ok, connection_ref()} | {error, term()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-start_connection(client = Role, Socket, Options, Timeout) ->
+start_connection(Role, Socket, Options, Timeout) ->
     try
-	{ok, Pid} = sshc_sup:start_child([Role, Socket, Options]),
-	ok = socket_control(Socket, Pid, Options),
-	handshake(Pid, erlang:monitor(process,Pid), Timeout)
-    catch
-	exit:{noproc, _} ->
-	    {error, ssh_not_started};
-	_:Error ->
-	    {error, Error}
-    end;
-
-start_connection(server = Role, Socket, Options, Timeout) ->
-    try
-	case ?GET_OPT(parallel_login, Options) of
-	    true ->
-		HandshakerPid =
-		    spawn_link(fun() ->
-				       receive
-					   {do_handshake, Pid} ->
-					       handshake(Pid, erlang:monitor(process,Pid), Timeout)
-				       end
-			       end),
-		ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
-		HandshakerPid ! {do_handshake, ChildPid};
-	    false ->
-		ChildPid = start_the_connection_child(self(), Role, Socket, Options),
-		handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
-	end
+        case Role of
+            client ->
+                ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+                handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout);
+            server ->
+                case ?GET_OPT(parallel_login, Options) of
+                    true ->
+                        HandshakerPid =
+                            spawn_link(fun() ->
+                                               receive
+                                                   {do_handshake, Pid} ->
+                                                       handshake(Pid, erlang:monitor(process,Pid), Timeout)
+                                               end
+                                       end),
+                        ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
+                        HandshakerPid ! {do_handshake, ChildPid};
+                    false ->
+                        ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+                        handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
+                end
+        end
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
@@ -176,6 +171,8 @@ disconnect(Code, DetailedText, Module, Line) ->
 	   [{next_event, internal, {send_disconnect, Code, DetailedText, Module, Line}}]}).
 
 %%--------------------------------------------------------------------
+%%% Open a channel in the connection to the peer, that is, do the ssh
+%%% signalling with the peer.
 -spec open_channel(connection_ref(), 
 		   string(),
 		   iodata(),
@@ -193,6 +190,18 @@ open_channel(ConnectionHandler,
 	  self(), 
 	  ChannelType, InitialWindowSize, MaxPacketSize, ChannelSpecificData,
 	  Timeout}).
+
+%%--------------------------------------------------------------------
+%%% Start a channel handling process in the superviser tree
+-spec start_channel(connection_ref(), atom(), channel_id(), list(), term()) ->
+                           {ok, pid()} | {error, term()}.
+
+%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
+    {ok, {SubSysSup,Role,Opts}} = call(ConnectionHandler, get_misc),
+    ssh_subsystem_sup:start_channel(Role, SubSysSup,
+                                    ConnectionHandler, CallbackModule, ChannelId,
+                                    Args, Exec, Opts).
 
 %%--------------------------------------------------------------------
 -spec request(connection_ref(),
@@ -378,8 +387,21 @@ alg(ConnectionHandler) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 init_connection_handler(Role, Socket, Opts) ->
     case init([Role, Socket, Opts]) of
-        {ok, StartState, D} ->
+        {ok, StartState, D} when Role == server ->
             process_flag(trap_exit, true),
+            gen_statem:enter_loop(?MODULE,
+                                  [], %%[{debug,[trace,log,statistics,debug]} ], %% []
+                                  StartState,
+                                  D);
+
+        {ok, StartState, D0=#data{connection_state=C}} when Role == client ->
+            process_flag(trap_exit, true),
+            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+            D = D0#data{connection_state = 
+                            C#connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
+                                         sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                                         connection_supervisor = proplists:get_value(connection_sup, Sups)
+                                        }},
             gen_statem:enter_loop(?MODULE,
                                   [], %%[{debug,[trace,log,statistics,debug]} ], %% []
                                   StartState,
@@ -1247,6 +1269,13 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 	    {keep_state, D0, [{reply,From,{error,closed}}]}
     end;
 
+handle_event({call,From}, get_misc, StateName,
+             #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
+    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+    SubSysSup = proplists:get_value(subsystem_sup,  Sups),
+    Reply = {ok, {SubSysSup, role(StateName), Opts}},
+    {keep_state, D, [{reply,From,Reply}]};
+
 handle_event({call,From},
 	     {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
 	     StateName,
@@ -1661,17 +1690,36 @@ start_the_connection_child(UserPid, Role, Socket, Options0) ->
     Sups = ?GET_INTERNAL_OPT(supervisors, Options0),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
     Options = ?PUT_INTERNAL_OPT({user_pid,UserPid}, Options0),
-    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Options]),
-    ok = socket_control(Socket, Pid, Options),
+    InitArgs = [Role, Socket, Options],
+    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, InitArgs),
+    ok = socket_control(Socket, Pid, Options), % transfer the Socket ownership in a controlled way.
     Pid.
 
 %%--------------------------------------------------------------------
 %% Stopping
 
-stop_subsystem(#data{connection_state =
+stop_subsystem(#data{ssh_params = 
+                         #ssh{role = Role},
+                     connection_state =
                          #connection{system_supervisor = SysSup,
-                                     sub_system_supervisor = SubSysSup}}) when is_pid(SubSysSup) ->
-    ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
+                                     sub_system_supervisor = SubSysSup}
+                    }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
+    process_flag(trap_exit, false),
+    C = self(),
+    spawn(fun() ->
+                  Mref = erlang:monitor(process, C),
+                  receive
+                      {'DOWN', Mref, process, C, _Info} -> ok
+                  after
+                      10000 -> ok
+                  end,
+                  case Role of
+                      client ->
+                          ssh_system_sup:stop_system(Role, SysSup);
+                      _ ->
+                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup)
+                  end
+          end);
 stop_subsystem(_) ->
     ok.
 
@@ -1763,6 +1811,8 @@ call(FsmPid, Event, Timeout) ->
 	exit:{normal, _R} ->
 	    {error, closed};
 	exit:{{shutdown, _R},_} ->
+	    {error, closed};
+	exit:{shutdown, _R} ->
 	    {error, closed}
     end.
 

@@ -648,18 +648,13 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     #channel{remote_id=RemoteId} = Channel = 
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     Reply =
-        try
-            start_subsystem(SsName, Connection, Channel,
-                            {subsystem, ChannelId, WantReply, binary_to_list(SsName)})
-        of
+        case start_subsystem(SsName, Connection, Channel,
+                             {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
             {ok, Pid} ->
                 erlang:monitor(process, Pid),
                 ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
                 channel_success_msg(RemoteId);
             {error,_Error} ->
-                channel_failure_msg(RemoteId)
-        catch
-            _:_ ->
                 channel_failure_msg(RemoteId)
         end,
     {[{connection_reply,Reply}], Connection};
@@ -921,7 +916,7 @@ start_cli(#connection{options = Options,
         no_cli ->
             {error, cli_disabled};
         {CbModule, Args} ->
-            start_channel(CbModule, ChannelId, Args, SubSysSup, Exec, Options)
+            ssh_subsystem_sup:start_channel(server, SubSysSup, self(), CbModule, ChannelId, Args, Exec, Options)
     end.
 
 
@@ -931,37 +926,15 @@ start_subsystem(BinName, #connection{options = Options,
     Name = binary_to_list(BinName),
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
-	    start_channel(Callback, ChannelId, Opts, SubSysSup, Options);
-	{Other, _} when Other =/= none ->
+            ssh_subsystem_sup:start_channel(server, SubSysSup, self(), Callback, ChannelId, Opts, undefined, Options);
+        {none, _} ->
+            {error, bad_subsystem};
+	{_, _} ->
 	    {error, legacy_option_not_supported}
     end.
 
 
 %%% Helpers for starting cli/subsystems
-start_channel(Cb, Id, Args, SubSysSup, Opts) ->
-    start_channel(Cb, Id, Args, SubSysSup, undefined, Opts).
-
-start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
-    ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
-    case max_num_channels_not_exceeded(ChannelSup, Opts) of
-        true ->
-            case ssh_server_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec) of
-                {error,{Error,_Info}} ->
-                    throw(Error);
-                Others ->
-                    Others
-            end;
-        false ->
-	    throw(max_num_channels_exceeded)
-    end.
-    
-max_num_channels_not_exceeded(ChannelSup, Opts) ->
-    MaxNumChannels = ?GET_OPT(max_channels, Opts),
-    NumChannels = length([x || {_,_,worker,[ssh_server_channel]} <- 
-				   supervisor:which_children(ChannelSup)]),
-    %% Note that NumChannels is BEFORE starting a new one
-    NumChannels < MaxNumChannels.
-
 check_subsystem("sftp"= SsName, Options) ->
     case ?GET_OPT(subsystems, Options) of
 	no_subsys -> 	% FIXME: Can 'no_subsys' ever be matched?
@@ -1300,13 +1273,13 @@ handle_cli_msg(C0, ChId, Reply0) ->
     Ch0 = ssh_client_channel:cache_lookup(Cache, ChId),
     case Ch0#channel.user of
         undefined ->
-            case (catch start_cli(C0, ChId)) of
+            case start_cli(C0, ChId) of
                 {ok, Pid} ->
                     erlang:monitor(process, Pid),
                     Ch = Ch0#channel{user = Pid},
                     ssh_client_channel:cache_update(Cache, Ch),
                     reply_msg(Ch, C0, Reply0);
-                _Other ->
+                {error, _Error} ->
                     Reply = {connection_reply, channel_failure_msg(Ch0#channel.remote_id)},
                     {[Reply], C0}
             end;

@@ -162,8 +162,8 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     case ssh_xfer:attach(Cm, [], ChanOpts) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_client_channel:start(Cm, ChannelId,
-				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
+            case ssh_connection_handler:start_channel(Cm, ?MODULE, ChannelId,
+                                                      [Cm,ChannelId,SftpOpts], undefined) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -172,9 +172,7 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, format_channel_start_error(Reason)};
-		ignore ->
-		    {error, ignore}
+		    {error, format_channel_start_error(Reason)}
 	    end;
 	Error ->
 	    Error
@@ -200,7 +198,8 @@ start_channel(Host, Port, UserOptions) ->
                             proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_client_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
+            case ssh_connection_handler:start_channel(Cm, ?MODULE, ChannelId,
+                                                      [Cm,ChannelId,SftpOpts], undefined) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -209,9 +208,7 @@ start_channel(Host, Port, UserOptions) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, format_channel_start_error(Reason)};
-		ignore ->
-		    {error, ignore}
+		    {error, format_channel_start_error(Reason)}
 	    end;
 	Error ->
 	    Error
