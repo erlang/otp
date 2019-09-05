@@ -2208,6 +2208,9 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
+        "LibreSSL 2." ++ _ ->
+	    {skip, "Known renegotiation bug in LibreSSL"};
+        
 	_ ->
 	    Config
     end.
