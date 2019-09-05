@@ -543,6 +543,17 @@ ERTS_GLB_INLINE Eterm erts_db_make_match_prog_ref(Process *p, Binary *mp, Eterm 
 ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary(Eterm term);
 ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
 
+/* @brief Ensure off-heap header is word aligned, make a temporary copy if not.
+ *        Needed when inspecting ETS off-heap lists that may contain unaligned
+ *        ProcBins if table is 'compressed'.
+ */
+struct erts_tmp_aligned_offheap
+{
+    ProcBin proc_bin;
+};
+ERTS_GLB_INLINE void erts_align_offheap(union erl_off_heap_ptr*,
+                                        struct erts_tmp_aligned_offheap* tmp);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 /*
@@ -573,6 +584,25 @@ erts_db_get_match_prog_binary(Eterm term)
     if (ERTS_MAGIC_BIN_DESTRUCTOR(bp) != erts_db_match_prog_destructor)
 	return NULL;
     return bp;
+}
+
+ERTS_GLB_INLINE void
+erts_align_offheap(union erl_off_heap_ptr* ohp,
+                   struct erts_tmp_aligned_offheap* tmp)
+{
+    if ((UWord)ohp->voidp % sizeof(UWord) != 0) {
+        /*
+         * ETS store word unaligned ProcBins in its compressed format.
+         * Make a temporary aligned copy.
+         *
+         * Warning, must pass (void*)-variable to memcpy. Otherwise it will
+         * cause Bus error on Sparc due to false compile time assumptions
+         * about word aligned memory (type cast is not enough).
+         */
+        sys_memcpy(tmp, ohp->voidp, sizeof(*tmp));
+        ASSERT(tmp->proc_bin.thing_word == HEADER_PROC_BIN);
+        ohp->pb = &tmp->proc_bin;
+    }
 }
 
 #endif
