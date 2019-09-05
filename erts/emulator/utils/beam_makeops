@@ -1315,7 +1315,7 @@ sub combine_instruction_group {
             my $inc = 0;
 
             unless ($i == $#slots) {
-                $flags = "-no_next";
+                $flags = "-micro_instruction";
                 my $next_offset = $label_to_offset{$next};
                 $inc = ($offset + $size) - $next_offset;
                 $transfer_to_next = "I += $inc;\n" if $inc;
@@ -1553,8 +1553,10 @@ sub code_gen {
     my $dispatch_next;
     my $instr_offset = $group_size + $offset + 1;
 
-    if ($flags =~ /-no_next/) {
+    if ($flags =~ /-micro_instruction/) {
         $dispatch_next = "";
+    } elsif ($flags =~ /-no_next/) {
+        $dispatch_next = "ASSERT(!\"Fell through '$name' (-no_next)\");";
     } elsif ($flags =~ /-no_prefetch/) {
         $dispatch_next = "\nI += $instr_offset;\n" .
             "ASSERT(VALID_INSTR(*I));\n" .
