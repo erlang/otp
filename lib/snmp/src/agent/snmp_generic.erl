@@ -424,8 +424,8 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndGo', RowIndex, Cols) ->
                 _:_E:_S ->
 		    ?vtrace(
 		       "failed construct row (createAndGo): "
-		       " n   Error: ~p"
-		       " n   Stack: ~p",
+		       "~n   Error: ~p"
+		       "~n   Stack: ~p",
 		       [_E, _S]),
 		    {noCreation, Col}           % Bad RowIndex
 	    end;
@@ -444,8 +444,8 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndWait', RowIndex, Cols) ->
                 _:_E:_S ->
 		    ?vtrace(
 		       "failed construct row (createAndWait): "
-		       " n   Error: ~p"
-		       " n   Stack: ~p",
+		       "~n   Error: ~p"
+		       "~n   Stack: ~p",
 		       [_E, _S]),
 		    {noCreation, Col}           % Bad RowIndex
 	    end;
