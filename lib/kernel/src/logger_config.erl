@@ -89,51 +89,50 @@ get_primary_level() ->
 
 get(Tid,What) ->
     case ets:lookup(Tid,table_key(What)) of
-        [{_,_,Config}] ->
-            {ok,Config};
-        [{_,Config}] when What=:=proxy ->
+        [{_,Config}] ->
             {ok,Config};
         [] ->
             {error,{not_found,What}}
     end.
 
 get(Tid,What,Level) ->
-    MS = [{{table_key(What),'$1','$2'},
-           [{'>=','$1',level_to_int(Level)}],
-           ['$2']}],
-    case ets:select(Tid,MS) of
-        [] -> error;
-        [Data] -> {ok,Data}
+    TableKey = table_key(What),
+    case persistent_term:get({?MODULE,TableKey},undefined) of
+        undefined ->
+            %% The handler is not installed at the moment
+            {error,{not_found,What}};
+        ConfLevel ->
+            case less_or_equal_level(Level,ConfLevel) of
+                true ->
+                    get(Tid, What);
+                false ->
+                    error
+            end
     end.
 
 create(Tid,proxy,Config) ->
     ets:insert(Tid,{table_key(proxy),Config});
 create(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
-    case What of
-        primary ->
-            ok = persistent_term:put({?MODULE,?PRIMARY_KEY}, LevelInt);
-        _ ->
-            ok
-    end,
-    ets:insert(Tid,{table_key(What),LevelInt,Config}).
+    ok = persistent_term:put({?MODULE,table_key(What)}, LevelInt),
+    ets:insert(Tid,{table_key(What),Config}).
 
 set(Tid,proxy,Config) ->
     ets:insert(Tid,{table_key(proxy),Config}),
     ok;
 set(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
+    ok = persistent_term:put({?MODULE,table_key(What)}, LevelInt),
     case What of
         primary ->
-            ok = persistent_term:put({?MODULE,?PRIMARY_KEY}, LevelInt),
-            [persistent_term:put(Key, ?PRIMARY_TO_CACHE(LevelInt))
-             || {{?MODULE, Module} = Key,L} <- persistent_term:get(),
-                Module =/= ?PRIMARY_KEY, L > ?LOG_ALL],
+            [persistent_term:put(Key,?PRIMARY_TO_CACHE(LevelInt))
+             || {{?MODULE,Module} = Key,Level} <- persistent_term:get(),
+                ?IS_MODULE(Module), ?IS_CACHED(Level)],
             ok;
         _ ->
             ok
     end,
-    ets:update_element(Tid,table_key(What),[{2,LevelInt},{3,Config}]),
+    ets:insert(Tid,{table_key(What),Config}),
     ok.
 
 set_module_level(_Tid,Modules,Level) ->

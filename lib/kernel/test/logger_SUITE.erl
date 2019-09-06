@@ -276,7 +276,7 @@ change_config(_Config) ->
         logger:get_primary_config(),
     3 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
-    MS = [{{{?HANDLER_KEY,'$1'},'_','_'},[],['$1']}],
+    MS = [{{{?HANDLER_KEY,'$1'},'_'},[],['$1']}],
     HIds1 = lists:sort(ets:select(?LOGGER_TABLE,MS)), % dirty, internal data
     HIds2 = lists:sort(logger:get_handler_ids()),
     HIds1 = HIds2,
@@ -1147,7 +1147,7 @@ kernel_config(Config) ->
 
     ok.
 
-pretty_print(Config) ->
+pretty_print(_Config) ->
     ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),
     ok = logger:set_module_level([module1,module2],debug),
 
