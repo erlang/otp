@@ -12072,6 +12072,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
 
     ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
+    ASSERT(ctxt->dist_state == NIL);
 
     mdp = erts_monitor_to_data(mon);
 
@@ -12116,8 +12117,10 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
                                      reason);
         reds_consumed = reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
         switch (code) {
-        case ERTS_DSIG_SEND_CONTINUE:
         case ERTS_DSIG_SEND_YIELD:
+            reds_consumed = reds; /* force yield */
+            break;
+        case ERTS_DSIG_SEND_CONTINUE:
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
             break;
@@ -12330,6 +12333,8 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
 
     ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ASSERT(ctxt->dist_state == NIL);
+
     dlnk = erts_link_to_other(lnk, &ldp);
     dist = ((ErtsLinkDataExtended *) ldp)->dist;
 
@@ -12367,6 +12372,8 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         reds_consumed = reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
+            reds_consumed = reds; /* force yield */
+            break;
         case ERTS_DSIG_SEND_CONTINUE:
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
@@ -12875,6 +12882,8 @@ restart:
                 erts_kill_dist_connection(ctx->dep, ctx->connection_id);
                 break;
             case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
+                trap_state->pectxt.dist_state = NIL;
+                goto yield;
             case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
                 goto yield;
             }
