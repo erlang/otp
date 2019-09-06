@@ -31,5 +31,5 @@
 
   
 -callback lookup(dist_point(), issuer_name(), crl_cache_ref()) -> not_available | [public_key:der_encoded()].
--callback select(issuer_name(), crl_cache_ref()) ->  [public_key:der_encoded()].
+-callback select(issuer_name() | list(), crl_cache_ref()) ->  [public_key:der_encoded()].
 -callback fresh_crl(dist_point(), public_key:der_encoded()) -> public_key:der_encoded().

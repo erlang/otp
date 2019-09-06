@@ -340,6 +340,7 @@ verify_issuer_and_scope(#'OTPCertificate'{tbsCertificate = TBSCert}= Cert,
     end.
 
 dp_crlissuer_to_issuer(DPCRLIssuer) ->
+     %% Assume the cRLIssuer SEQUENCE is of length exactly 1
      [{directoryName, Issuer}] = pubkey_cert_records:transform(DPCRLIssuer, decode),
      Issuer.
 

@@ -27,27 +27,27 @@
 -export([lookup/3, select/2, fresh_crl/2]).
 
 lookup(#'DistributionPoint'{cRLIssuer = CRLIssuer} = DP, CertIssuer, CRLDbInfo) ->
-    Issuer =
-	case CRLIssuer of
-	    asn1_NOVALUE ->
-		%% If the distribution point extension doesn't
-		%% indicate a CRL issuer, use the certificate issuer.
-		CertIssuer;
-	    _ ->
-		CRLIssuer
-	end,
-    %% Find all CRLs for this issuer, and return those that match the
-    %% given distribution point.
-    AllCRLs = select(Issuer, CRLDbInfo),
-    lists:filter(fun(DER) ->
-			 public_key:pkix_match_dist_point(DER, DP)
-		 end, AllCRLs).
+    case CRLIssuer of
+        asn1_NOVALUE ->
+            %% If the distribution point extension doesn't
+            %% indicate a CRL issuer, use the certificate issuer.
+            select(CertIssuer, CRLDbInfo);
+        _ ->
+            CRLs = select(CRLIssuer, CRLDbInfo),
+            lists:filter(fun(DER) ->
+                                 public_key:pkix_match_dist_point(DER, DP)
+                         end, CRLs)
+    end.
 
 fresh_crl(#'DistributionPoint'{}, CurrentCRL) ->
     CurrentCRL.
 
-select(Issuer, {_DbHandle, [{dir, Dir}]}) ->
-    case find_crls(Issuer, Dir) of
+select({rdnSequence, _} = Issuer, DbHandle) ->
+  select([{directoryName, Issuer}], DbHandle);
+select([], _) ->
+    [];
+select([{directoryName, Issuer} | _], {_DbHandle, [{dir, Dir}]}) ->
+    case find_crls(public_key:pkix_normalize_name(Issuer), Dir) of
         [_|_] = DERs ->
 	    DERs;
         [] ->
@@ -62,7 +62,9 @@ select(Issuer, {_DbHandle, [{dir, Dir}]}) ->
                {module, ?MODULE},
                {line, ?LINE}]),
             []
-    end.
+    end;
+select([_ | Rest], CRLDbInfo) ->
+    select(Rest, CRLDbInfo).
 
 find_crls(Issuer, Dir) ->
     case filelib:is_dir(Dir) of
