@@ -163,6 +163,10 @@ init_per_suite(Config0) when is_list(Config0) ->
     %% until we have a more important reason to fix this. 
     case snmp_test_lib:crypto_start() of
         ok ->
+
+            snmp_test_global_sys_monitor:start(),
+            snmp_test_sys_monitor:start(), % We need one on this node also
+
             Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
             Config2   = snmp_test_lib:fix_data_dir(Config1),
             %% Mib-dirs
@@ -180,6 +184,9 @@ end_per_suite(Config) when is_list(Config) ->
 
     ?DBG("end_per_suite -> entry with"
 	 "~n   Config: ~p", [Config]),
+
+    snmp_test_sys_monitor:stop(),
+    snmp_test_global_sys_monitor:stop(),
 
     Config.
 
@@ -6114,40 +6121,21 @@ mgr_user_stop(Node) ->
 mgr_user_register_agent(Node, TargetName, Conf) 
   when is_list(TargetName) andalso is_list(Conf) ->
     rcall(Node, snmp_manager_user, register_agent, [TargetName, Conf]).
-%% <REMOVED-IN-R16B>
-%% mgr_user_register_agent(Node, Addr, Port) ->
-%%     mgr_user_register_agent(Node, Addr, Port, []).
-%% mgr_user_register_agent(Node, Addr, Port, Conf) ->
-%%     rcall(Node, snmp_manager_user, register_agent, [Addr, Port, Conf]).
-%% </REMOVED-IN-R16B>
 
 %% mgr_user_unregister_agent(Node) ->
 %%     mgr_user_unregister_agent(Node, ?LOCALHOST(), ?AGENT_PORT).
 mgr_user_unregister_agent(Node, TargetName) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, unregister_agent, [TargetName]).
-%% <REMOVED-IN-R16B>
-%% mgr_user_unregister_agent(Node, Addr, Port) ->
-%%     rcall(Node, snmp_manager_user, unregister_agent, [Addr, Port]).
-%% </REMOVED-IN-R16B>
 
 mgr_user_agent_info(Node, TargetName, Item) 
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, agent_info, [TargetName, Item]).
-%% <REMOVED-IN-R16B>
-%% mgr_user_agent_info(Node, Addr, Port, Item) when is_atom(Item) ->
-%%     rcall(Node, snmp_manager_user, agent_info, [Addr, Port, Item]).
-%% </REMOVED-IN-R16B>
 
 %% mgr_user_update_agent_info(Node, Item, Val) when atom(Item) ->
 %%     mgr_user_update_agent_info(Node, ?LOCALHOST(), ?AGENT_PORT, Item, Val).
 mgr_user_update_agent_info(Node, TargetName, Item, Val) 
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, update_agent_info, [TargetName, Item, Val]).
-%% <REMOVED-IN-R16B>
-%% mgr_user_update_agent_info(Node, Addr, Port, Item, Val) when is_atom(Item) ->
-%%     rcall(Node, snmp_manager_user, update_agent_info, 
-%% 	  [Addr, Port, Item, Val]).
-%% </REMOVED-IN-R16B>
 
 %% mgr_user_which_all_agents(Node) ->
 %%     rcall(Node, snmp_manager_user, which_all_agents, []).
@@ -6436,9 +6424,12 @@ start_node(Name, Retry) ->
                error ->
                       ""
               end,
-    A = Args ++ " -pa " ++ Pa,
+    A = Args ++ " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
     try ?START_NODE(Name, A) of
 	{ok, Node} ->
+            global:sync(),
 	    Node;
 	{error, timeout} ->
             e("Failed starting node ~p: timeout", [Name]),
