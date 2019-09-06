@@ -164,20 +164,21 @@ static Eterm current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
 Eterm
 erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
 {
-    struct erl_off_heap_header* ohh;
+    union erl_off_heap_ptr u;
     Eterm res = tail;
     Eterm tuple;
+    struct erts_tmp_aligned_offheap tmp;
 
-    for (ohh = oh->first; ohh; ohh = ohh->next) {
-	if (ohh->thing_word == HEADER_PROC_BIN) {
-	    ProcBin* pb = (ProcBin*) ohh;
-	    Eterm val = erts_bld_uword(hpp, szp, (UWord) pb->val);
-	    Eterm orig_size = erts_bld_uint(hpp, szp, pb->val->orig_size);
+    for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
+        erts_align_offheap(&u, &tmp);
+	if (u.hdr->thing_word == HEADER_PROC_BIN) {
+	    Eterm val = erts_bld_uword(hpp, szp, (UWord) u.pb->val);
+	    Eterm orig_size = erts_bld_uint(hpp, szp, u.pb->val->orig_size);
     
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_refc_read(&pb->val->intern.refc, 1);
+		Uint refc = (Uint) erts_refc_read(&u.pb->val->intern.refc, 1);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;

@@ -1509,10 +1509,12 @@ static void
 insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 {
     union erl_off_heap_ptr u;
+    struct erts_tmp_aligned_offheap tmp;
     struct insert_offheap2_arg a;
     a.type = BIN_REF;
 
     for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
+        erts_align_offheap(&u, &tmp);
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REF_SUBTAG:
             if (ErtsIsDistEntryBinary(u.mref->mb))
