@@ -449,6 +449,16 @@ write_binary_body(B, D, T, Acc) when D =:= 1; T =:= 0->
     {["..."|Acc], B};
 write_binary_body(<<X:8>>, _D, _T, Acc) ->
     {[integer_to_list(X)|Acc], <<>>};
+write_binary_body(<<0:24,Rest0/bitstring>>, D, T, Acc) ->
+    {L0, Rest} = zeroes(Rest0, 3),
+    L = L0 * 8,
+    S = integer_to_list(L),
+    case Rest of
+        <<>> ->
+            {[S,$:,$0|Acc], <<>>};
+        _ ->
+            write_binary_body(Rest, D-L, tsub(T, length(S) + 2), [$,,S,$:,$0|Acc])
+    end;
 write_binary_body(<<X:8,Rest/bitstring>>, D, T, Acc) ->
     S = integer_to_list(X),
     write_binary_body(Rest, D-1, tsub(T, length(S) + 1), [$,,S|Acc]);
@@ -461,6 +471,9 @@ write_binary_body(B, _D, _T, Acc) ->
 tsub(T, _) when T < 0 -> T;
 tsub(T, E) when T >= E -> T - E;
 tsub(_, _) -> 0.
+
+zeroes(<<0,R/bits>>, L) -> zeroes(R, L+1);
+zeroes(Rest, L) -> {L, Rest}.
 
 get_option(Key, TupleList, Default) ->
     case lists:keyfind(Key, 1, TupleList) of
