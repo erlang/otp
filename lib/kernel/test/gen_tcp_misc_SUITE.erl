@@ -3545,28 +3545,33 @@ wait(Mref) ->
 %% OTP-15536
 %% Test that send error works correctly for delay_send
 delay_send_error(_Config) ->
-    {ok, LS} = gen_tcp:listen(0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
-    {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    P = spawn_link(
-          fun() ->
-                  {ok, S} = gen_tcp:accept(LS),
-                  receive die -> gen_tcp:close(S) end
-          end),
-    erlang:monitor(process, P),
-    {ok, S} = gen_tcp:connect("localhost", PortNum,
-                              [{packet, 1}, {active, false}, {delay_send, true}]),
-
+    {ok, L} =
+        gen_tcp:listen(
+          0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
+    {ok,{{0,0,0,0},PortNum}}=inet:sockname(L),
+    {ok, C} =
+        gen_tcp:connect(
+          "localhost", PortNum,
+          [{packet, 1}, {active, false}, {delay_send, true}]),
+    {ok, S} = gen_tcp:accept(L),
     %% Do a couple of sends first to see that it works
-    ok = gen_tcp:send(S, "hello"),
-    ok = gen_tcp:send(S, "hello"),
-    ok = gen_tcp:send(S, "hello"),
-
-    %% Make the receiver close
-    P ! die,
-    receive _Down -> ok end,
-
-    ok = gen_tcp:send(S, "hello"),
-    timer:sleep(500), %% Sleep in order for delay_send to have time to trigger
-
-    %% This used to result in a double free
-    {error, closed} = gen_tcp:send(S, "hello").
+    ok = gen_tcp:send(C, "hello"),
+    ok = gen_tcp:send(C, "hello"),
+    ok = gen_tcp:send(C, "hello"),
+    %% Close the receiver
+    ok = gen_tcp:close(S),
+    %%
+    case gen_tcp:send(C, "hello") of
+        ok ->
+            case gen_tcp:send(C, "hello") of
+                ok ->
+                    timer:sleep(1000), %% Sleep in order for delay_send to have time to trigger
+                    %% This used to result in a double free
+                    {error, closed} = gen_tcp:send(C, "hello");
+                {error, closed} ->
+                    ok
+            end;
+        {error, closed} ->
+            ok
+    end,
+    ok = gen_tcp:close(C).
