@@ -52,7 +52,7 @@
         VM will misbehave.</p>
       <list type="bulleted">
         <item>
-          <p>A native function that crash will crash the whole VM.</p>
+          <p>A native function that crashes will crash the whole VM.</p>
         </item>
         <item>
           <p>An erroneously implemented native function can cause a VM
