@@ -80,22 +80,42 @@ tc_try(Case, TCCondFun, TCFun)
                     tc_end( f("skipping(catched,~w,tc)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    tc_end( f("failed(catched,~w,tc)", [C]) ),
-                    erlang:raise(C, E, S)
+                    %% We always check the system events before we accept a failure
+                    case snmp_test_global_sys_monitor:events() of
+                        [] ->
+                            tc_end( f("failed(catched,~w,tc)", [C]) ),
+                            erlang:raise(C, E, S);
+                        SysEvs ->
+                            tc_print("System Events received: "
+                                     "~n   ~p", [SysEvs], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc)", [C]) ),
+                            SKIP = {skip, "TC failure with system events"},
+                            SKIP
+                    end
             end;
         {skip, _} = SKIP ->
-            tc_end("skipping(tc)"),
+            tc_end("skipping(cond)"),
             SKIP;
         {error, Reason} ->
-            tc_end("failed(tc)"),
+            tc_end("failed(cond)"),
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
             tc_end( f("skipping(catched,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
-            tc_end( f("failed(catched,~w,cond)", [C]) ),
-            erlang:raise(C, E, S)
+            %% We always check the system events before we accept a failure
+            case snmp_test_global_sys_monitor:events() of
+                [] ->
+                    tc_end( f("failed(catched,~w,cond)", [C]) ),
+                    erlang:raise(C, E, S);
+                SysEvs ->
+                    tc_print("System Events received: "
+                             "~n   ~p", [SysEvs], "", ""),
+                    tc_end( f("skipping(catched-sysevs,~w,cond)", [C]) ),
+                    SKIP = {skip, "TC cond failure with system events"},
+                    SKIP
+            end
     end.
 
 
