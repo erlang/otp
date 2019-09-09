@@ -279,10 +279,13 @@ get_print_info(ConnectionHandler) ->
     call(ConnectionHandler, get_print_info, 1000).
 
 %%--------------------------------------------------------------------
--spec connection_info(connection_ref(),
-		      [atom()]
-		     ) -> proplists:proplist().
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+connection_info(ConnectionHandler, []) ->
+    connection_info(ConnectionHandler, conn_info_keys());
+connection_info(ConnectionHandler, Key) when is_atom(Key) ->
+    case connection_info(ConnectionHandler, [Key]) of
+        [{Key,Val}] -> {Key,Val};
+        Other -> Other
+    end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
 
@@ -1993,17 +1996,56 @@ counterpart_versions(NumVsn, StrVsn, #ssh{role = client} = Ssh) ->
     Ssh#ssh{s_vsn = NumVsn , s_version = StrVsn}.
 
 %%%----------------------------------------------------------------
+conn_info_keys() ->
+    [client_version,
+     server_version,
+     peer,
+     user,
+     sockname,
+     options,
+     algorithms,
+     channels
+    ].
+
 conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
 conn_info(server_version, #data{ssh_params=S}) -> {S#ssh.s_vsn, S#ssh.s_version};
 conn_info(peer,           #data{ssh_params=S}) -> S#ssh.peer;
 conn_info(user,                             D) -> D#data.auth_user;
 conn_info(sockname,       #data{ssh_params=S}) -> S#ssh.local;
+conn_info(options,        #data{ssh_params=#ssh{opts=Opts}})    -> lists:sort(
+                                                                     maps:to_list(
+                                                                       ssh_options:keep_set_options(
+                                                                         client,
+                                                                         ssh_options:keep_user_options(client,Opts))));
+conn_info(algorithms,     #data{ssh_params=#ssh{algorithms=A}}) -> conn_info_alg(A);
+conn_info(channels, D) -> try conn_info_chans(ets:tab2list(cache(D)))
+                          catch _:_ -> undefined
+                          end;
 %% dbg options ( = not documented):
-conn_info(socket, D) -> D#data.socket;
+conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) -> 
     ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
 				    [Id | Acc]
 			    end, [], cache(D)).
+
+conn_info_chans(Chs) ->
+    Fs = record_info(fields, channel),
+    [lists:zip(Fs, tl(tuple_to_list(Ch))) || Ch=#channel{} <- Chs].
+
+conn_info_alg(AlgTup) ->
+    [alg|Vs] = tuple_to_list(AlgTup),
+    Fs = record_info(fields, alg),
+    [{K,V} || {K,V} <- lists:zip(Fs,Vs),
+              lists:member(K,[kex,
+                              hkey,
+                              encrypt,
+                              decrypt,
+                              send_mac,
+                              recv_mac,
+                              compress,
+                              decompress,
+                              send_ext_info,
+                              recv_ext_info])].
 
 %%%----------------------------------------------------------------
 chann_info(recv_window, C) ->
