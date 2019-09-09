@@ -51,6 +51,8 @@
                       | {'code_change', Event :: _, State :: _}
                       | {'postpone', Event :: _, State :: _, NextState :: _}
                       | {'consume', Event :: _, State :: _, NextState :: _}
+                      | {'start_timer', Action :: _, State :: _}
+                      | {'insert_timeout', Event :: _, State :: _}
                       | {'enter', State :: _}
                       | {'terminate', Reason :: _, State :: _}
                       | term().
