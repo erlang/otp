@@ -2331,7 +2331,7 @@ reg_print_proc() ->
 rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
-	    ?t:format("=== ~p:~p - ~p",[Module,Line,H]),
+	    ?t:format("=== ~p:~p - ~tp",[Module,Line,H]),
 	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
 	    ?t:format("",[]),
 	    rh_print();

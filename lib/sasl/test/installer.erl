@@ -903,7 +903,7 @@ start_client(TestNode,Client,Sname) ->
     receive
         {nodeup, Node} ->
             wait_started(TestNode,Node)
-    after 30000 ->
+    after 60000 ->
 	    ?print([{start_client,failed,Node},net_adm:ping(Node)]),
             ?fail({"cannot start", Node})
     end.

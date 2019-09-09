@@ -2380,10 +2380,10 @@ scale_start_stop_many_children() ->
            [N2, StartT2 div 1000, StopT2 div 1000]),
 
     %% Scaling should be more or less linear, but allowing a bit more
-    %% to avoid false alarms
+    %% to avoid false alarms (add 1 to avoid div zero)
     ScaleLimit = (N2 div N1) * 10,
-    StartScale = StartT2 div StartT1,
-    StopScale = StopT2 div StopT1,
+    StartScale = StartT2 div (StartT1+1),
+    StopScale = StopT2 div (StopT1+1),
 
     ct:log("Scale limit: ~w~nStart scale: ~w~nStop scale: ~w",
            [ScaleLimit, StartScale, StopScale]),
