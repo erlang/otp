@@ -127,31 +127,72 @@ non_pc_tc_maybe_skip(Config, Condition, File, Line)
     end.
 
 
+%% The type and spec'ing is just to increase readability
+-type os_family()  :: win32 | unix.
+-type os_name()    :: atom().
+-type os_version() :: string() | {non_neg_integer(),
+                                  non_neg_integer(),
+                                  non_neg_integer()}.
+-type os_skip_check() :: fun(() -> boolean()) | 
+                            fun((os_version()) -> boolean()).
+-type skippable() :: any | [os_family() | 
+                            {os_family(), os_name() |
+                                          [os_name() | {os_name(), 
+                                                        os_skip_check()}]}].
+
+-spec os_based_skip(skippable()) -> boolean().
+
 os_based_skip(any) ->
     true;
 os_based_skip(Skippable) when is_list(Skippable) ->
-    {OsFam, OsName} = 
-	case os:type() of
-	    {_Fam, _Name} = FamAndName ->
-		FamAndName;
-	    Fam ->
-		{Fam, undefined}
-	end,
-    case lists:member(OsFam, Skippable) of
-	true ->
-	    true;
-	false ->
-	    case lists:keysearch(OsFam, 1, Skippable) of
-		{value, {OsFam, OsName}} ->
-		    true;
-		{value, {OsFam, OsNames}} when is_list(OsNames) ->
-		    lists:member(OsName, OsNames);
-		_ ->
-		    false
-	    end
-    end;
-os_based_skip(_) ->
+    os_base_skip(Skippable, os:type());
+os_based_skip(_Crap) ->
     false.
+
+os_base_skip(Skippable, {OsFam, OsName}) ->
+    os_base_skip(Skippable, OsFam, OsName);
+os_base_skip(Skippable, OsFam) ->
+    os_base_skip(Skippable, OsFam, undefined).
+
+os_base_skip(Skippable, OsFam, OsName) -> 
+    %% Check if the entire family is to be skipped
+    %% Example: [win32, unix]
+    case lists:member(OsFam, Skippable) of
+        true ->
+            true;
+        false ->
+            %% Example: [{unix, freebsd}] | [{unix, [freebsd, darwin]}]
+            case lists:keysearch(OsFam, 1, Skippable) of
+                {value, {OsFam, OsName}} ->
+                    true;
+                {value, {OsFam, OsNames}} when is_list(OsNames) ->
+                    %% OsNames is a list of: 
+                    %%    [atom()|{atom(), function/0 | function/1}]
+                    case lists:member(OsName, OsNames) of
+                        true ->
+                            true;
+                        false ->
+                            os_based_skip_check(OsName, OsNames)
+                    end;
+                _ ->
+                    false
+            end
+    end.
+
+
+
+%% Performs a check via a provided fun with arity 0 or 1.
+%% The argument is the result of os:version().
+os_based_skip_check(OsName, OsNames) ->
+    case lists:keysearch(OsName, 1, OsNames) of
+        {value, {OsName, Check}} when is_function(Check, 0) ->
+            Check();
+        {value, {OsName, Check}} when is_function(Check, 1) ->
+            Check(os:version());
+        _ ->
+            false
+    end.
+
     
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

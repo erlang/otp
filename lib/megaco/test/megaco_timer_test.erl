@@ -354,18 +354,23 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
     i("starting"),
 
     Timeout = 5000,
-    Ref = tmr_start(Timeout),
+    i("try start (~w msec) timer", [Timeout]),
+    Ref     = tmr_start(Timeout),
+    i("timer started "),
     receive
 	{timeout, Timeout} ->
+            i("unexpected premature timer expire"),
 	    error(bad_timeout)
     after Timeout - 100 ->
+            i("try stop timer"),
 	    case tmr_stop(Ref) of
-                ok ->
-                    ok;
-                {ok, _} ->
+                {ok, Rem} ->
+                    i("timer stopped with ~w msec remaining", [Rem]),
                     ok;
                 CancelRes ->
-                    ?SKIP({cancel_failed, CancelRes})
+                    i("failed stop timer: "
+                      "~n   ~p", [CancelRes]),
+                    ?SKIP({cancel_failed, CancelRes}) % Race - not our problem
             end
     end,
 
