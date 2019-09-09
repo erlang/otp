@@ -130,7 +130,19 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-    Config.
+    Skippable = [{unix, [{darwin, fun(V) when (V > {9, 8, 0}) ->
+                                          %% This version is OK: No Skip
+                                          false;
+                                     (_V) ->
+                                          %% This version is *not* ok: Skip
+                                          true
+                                  end}]}],
+    case ?OS_BASED_SKIP(Skippable) of
+        true ->
+            {skip, "***OLD*** Darwin"};
+        false ->
+            Config
+    end.
 
 end_per_group(_GroupName, Config) ->
     Config.
