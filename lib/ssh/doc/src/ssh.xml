@@ -1054,6 +1054,18 @@
     </datatype>
 
     <datatype>
+      <name name="daemon_info_tuple"/>
+      <desc>
+	<p>Return values from the
+	<seealso marker="#daemon_info/1">daemon_info/1</seealso> and
+	<seealso marker="#daemon_info/2">daemon_info/2</seealso> functions.
+	</p>
+	<p>In the <c>option</c> info tuple are only the options included that differs from the default values.
+	</p>
+      </desc>
+    </datatype> 
+
+    <datatype>
       <name>opaque_client_options</name>
       <name>opaque_daemon_options</name>
       <name>opaque_common_options</name>
