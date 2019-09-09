@@ -3550,7 +3550,8 @@ table_test() ->
     ?line ?expect1([{NewKeyc5, ?destroy}]),
     s([{NewKeyc3, 3}]),
     ?line ?expect3(?v1_2(noSuchName, inconsistentName), 1, [{NewKeyc3, 3}]),
-    otp_1128_test().
+    otp_1128_test(),
+    ok.
 
 %% Req. system group
 simple_standard_test() ->
@@ -5030,7 +5031,8 @@ snmpv2_mib_2(Config) when is_list(Config) ->
 	  "then disable auth traps",[]),
     try_test(snmpv2_mib_test_finish, [], [{community, "bad community"}]),
     
-    ?LOG("snmpv2_mib_2 -> done",[]).
+    ?LOG("snmpv2_mib_2 -> done", []),
+    ok.
     
 
 standard_mibs3_cases() ->
@@ -5126,7 +5128,8 @@ snmpv2_mib_a() ->
     ?line ?expect3(inconsistentValue, 2,
 		   [{[sysLocation, 0], "val3"},
 		    {[snmpSetSerialNo,0], SetSerial}]),
-    ?line ["val2"] = get_req(5, [[sysLocation,0]]).
+    ?line ["val2"] = get_req(5, [[sysLocation,0]]),
+    ok.
     
     
 %%-----------------------------------------------------------------
@@ -5148,6 +5151,7 @@ snmp_community_mib_2(X) -> ?P(snmp_community_mib_2), snmp_community_mib(X).
 snmp_community_mib_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     nyi.
+
 
 %%-----------------------------------------------------------------
 %% o  Test engine boots / time
@@ -5277,7 +5281,8 @@ snmp_mpd_mib_b() ->
 
 snmp_mpd_mib_c(UnknownPDUHs) ->
     ?line [UnknownPDUHs2] = get_req(1, [[snmpUnknownPDUHandlers, 0]]),
-    ?line UnknownPDUHs2 = UnknownPDUHs + 1.
+    ?line UnknownPDUHs2 = UnknownPDUHs + 1,
+    ok.
 
 
 snmp_target_mib(suite) -> [];
@@ -5313,6 +5318,7 @@ snmp_notification_mib_3(X) -> ?P(snmp_notification_mib_3),
 snmp_notification_mib_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     nyi.
+
 
 %%-----------------------------------------------------------------
 %% o  add/delete views and try them
@@ -5661,7 +5667,8 @@ usm_key_change3(OldShaKey, OldDesKey, ShaKey, DesKey) ->
     Vbs3 = [{[usmUserAuthKeyChange, NewRowIndex], ShaKeyChange},
 	    {[usmUserPrivKeyChange, NewRowIndex], DesKeyChange}],
     s(Vbs3),
-    ?line ?expect1(Vbs3).
+    ?line ?expect1(Vbs3),
+    ok.
 
 usm_read() ->
     NewRowIndex = [11,"agentEngine", 7, "newUser"],
@@ -5779,7 +5786,8 @@ loop_mib_1(Config) when is_list(Config) ->
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB"),
     %% snmpa:verbosity(master_agent,log),
     %% snmpa:verbosity(mib_server,silence),
-    ?LOG("loop_mib_1 -> done",[]).
+    ?LOG("loop_mib_1 -> done",[]),
+    ok.
     
 
 loop_mib_2(suite) -> [];
@@ -5808,7 +5816,8 @@ loop_mib_2(Config) when is_list(Config) ->
     ?line unload_master("SNMP-NOTIFICATION-MIB"),
     ?line unload_master("SNMP-FRAMEWORK-MIB"),
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB"),
-    ?LOG("loop_mib_2 -> done",[]).
+    ?LOG("loop_mib_2 -> done",[]),
+    ok.
 
 
 loop_mib_3(suite) -> [];
@@ -5833,7 +5842,8 @@ loop_mib_3(Config) when is_list(Config) ->
     ?line unload_master("SNMP-NOTIFICATION-MIB"),
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB"),
     ?line unload_master("SNMP-USER-BASED-SM-MIB"),
-    ?LOG("loop_mib_3 -> done",[]).
+    ?LOG("loop_mib_3 -> done",[]),
+    ok.
 
 
 %% Req. As many mibs all possible
@@ -6043,7 +6053,8 @@ otp_1128(Config) when is_list(Config) ->
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
     try_test(otp_1128_test),
-    ?line unload_master("OLD-SNMPEA-MIB").
+    ?line unload_master("OLD-SNMPEA-MIB"),
+    ok.
 
 otp_1128_2(X) -> ?P(otp_1128_2), otp_1128(X).
 
@@ -6065,7 +6076,8 @@ otp_1128_test() ->
     g([NewKeyc5]),
     ?line ?expect1([{NewKeyc5, ?active}]),
     s([{NewKeyc5, ?destroy}]),
-    ?line ?expect1([{NewKeyc5, ?destroy}]).
+    ?line ?expect1([{NewKeyc5, ?destroy}]),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6078,7 +6090,8 @@ otp_1129(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("Klas3"),
     try_test(otp_1129_i, [node()]),
-    ?line unload_master("Klas3").
+    ?line unload_master("Klas3"),
+    ok.
 
 otp_1129_2(X) -> ?P(otp_1129_2), otp_1129(X).
 
@@ -6149,7 +6162,8 @@ otp_1131_test() ->
     io:format("Testing bug reported in ticket OTP-1131...~n"),
     s([{[friendsEntry, [2, 3, 1]], s, "kompis3"},
        {[friendsEntry, [3, 3, 1]], i, ?createAndGo}]),
-    ?line ?expect3(?v1_2(noSuchName, noCreation), 2, any).
+    ?line ?expect3(?v1_2(noSuchName, noCreation), 2, any),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6170,7 +6184,8 @@ otp_1162_3(X) -> ?P(otp_1162_3), otp_1162(X).
 
 otp_1162_test() ->
     s([{[sa, [2,0]], 6}]), % wrongValue (i is_set_ok)
-    ?line ?expect3(?v1_2(badValue, wrongValue), 1, any).
+    ?line ?expect3(?v1_2(badValue, wrongValue), 1, any),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6185,7 +6200,8 @@ otp_1222(Config) when is_list(Config) ->
     ?line load_master("Klas4"),
     try_test(otp_1222_test),
     ?line unload_master("Klas3"),
-    ?line unload_master("Klas4").
+    ?line unload_master("Klas4"),
+    ok.
 
 otp_1222_2(X) -> ?P(otp_1222_2), otp_1222(X).
 
@@ -6196,7 +6212,8 @@ otp_1222_test() ->
     s([{[fStatus4,1], 4}, {[fName4,1], 1}]),
     ?line ?expect3(genErr, 0, any),
     s([{[fStatus4,2], 4}, {[fName4,2], 1}]),
-    ?line ?expect3(genErr, 0, any).
+    ?line ?expect3(genErr, 0, any),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6210,7 +6227,8 @@ otp_1298(Config) when is_list(Config) ->
 
     ?line load_master("Klas2"),
     try_test(otp_1298_test),
-    ?line unload_master("Klas2").
+    ?line unload_master("Klas2"),
+    ok.
 
 otp_1298_2(X) -> ?P(otp_1298_2), otp_1298(X).
 
@@ -6219,7 +6237,8 @@ otp_1298_3(X) -> ?P(otp_1298_3), otp_1298(X).
 otp_1298_test() ->
     io:format("Testing bug reported in ticket OTP-1298...~n"),
     s([{[fint,0], -1}]),
-    ?line ?expect1([{[fint,0], -1}]).
+    ?line ?expect1([{[fint,0], -1}]),
+    ok.
     
 
 %%-----------------------------------------------------------------
@@ -6233,7 +6252,8 @@ otp_1331(Config) when is_list(Config) ->
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
     try_test(otp_1331_test),
-    ?line unload_master("OLD-SNMPEA-MIB").
+    ?line unload_master("OLD-SNMPEA-MIB"),
+    ok.
 
 otp_1331_2(X) -> ?P(otp_1331_2), otp_1331(X).
 
@@ -6242,7 +6262,8 @@ otp_1331_3(X) -> ?P(otp_1331_3), otp_1331(X).
 otp_1331_test() ->
     NewKeyc5 = [intCommunityStatus,[127,32,0,0],is("test")],
     s([{NewKeyc5, ?destroy}]),
-    ?line ?expect1([{NewKeyc5, ?destroy}]).
+    ?line ?expect1([{NewKeyc5, ?destroy}]),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6280,7 +6301,8 @@ otp_1342(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("Klas4"),
     try_test(otp_1342_test),
-    ?line unload_master("Klas4").
+    ?line unload_master("Klas4"),
+    ok.
 
 otp_1342_2(X) -> ?P(otp_1342_2), otp_1342(X).
 
@@ -6290,7 +6312,8 @@ otp_1342_test() ->
     s([{[fIndex5, 1], i, 1},
        {[fName5, 1], i, 3},
        {[fStatus5, 1], i, ?createAndGo}]),
-    ?line ?expect3(?v1_2(noSuchName, noCreation), 3, any).
+    ?line ?expect3(?v1_2(noSuchName, noCreation), 3, any),
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -6306,7 +6329,8 @@ otp_1366(Config) when is_list(Config) ->
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
     try_test(otp_1366_test),
-    ?line unload_master("OLD-SNMPEA-MIB").
+    ?line unload_master("OLD-SNMPEA-MIB"),
+    ok.
 
 otp_1366_2(X) -> ?P(otp_1366_2), otp_1366(X).
 
@@ -6404,7 +6428,8 @@ otp_2979_3(X) -> ?P(otp_2979_3), otp_2979(X).
 otp_2979_test() ->
     gn([[sparseDescr], [sparseStatus]]),
     ?line ?expect1([{[sparseStr,0], "slut"},
-		    {[sparseStr,0], "slut"}]).
+		    {[sparseStr,0], "slut"}]),
+    ok.
 
 
 %%-----------------------------------------------------------------
