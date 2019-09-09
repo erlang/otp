@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ merge(_,_) -> erlang:nif_error(undef).
 put(_,_,_) -> erlang:nif_error(undef).
 
 
+%% Shadowed by erl_bif_types: maps:remove/2
 -spec remove(Key,Map1) -> Map2 when
     Key :: term(),
     Map1 :: map(),
