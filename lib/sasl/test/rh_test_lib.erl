@@ -29,7 +29,7 @@ erlsrv(Erlsrv,Action,Name) ->
 erlsrv(Erlsrv,Action,Name,Rest) ->
     Cmd = "\"" ++ Erlsrv ++ "\" " ++ atom_to_list(Action) ++ " " ++
 	Name ++ " " ++ Rest,
-    io:format("erlsrv cmd: ~p~n",[Cmd]),
+    io:format("erlsrv cmd: ~tp~n",[Cmd]),
     Port = open_port({spawn, Cmd}, [stream, {line, 100}, eof, in]),
     Res = recv_prog_output(Port),
     case Res of
