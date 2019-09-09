@@ -624,6 +624,18 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       and set a time-out to use absolute instead of relative time
       (using the <c>Opts</c> field).
     </p>
+    <p>
+      Among these <em>transition actions</em> only to reply to a caller
+      is an immediate action.  The others are collected and handled
+      later during the <em>state transition</em>.
+      <seealso marker="#Inserted Events">Inserted Events</seealso>
+      are stored and inserted all together,
+      and the rest set transition options
+      where the last of a specific type override the previous.
+      See the description of a <em>state transition</em>
+      in the <c>gen_statem(3)</c> manual page for type
+      <seealso marker="stdlib:gen_statem#type-transition_option"><c>transition_option()</c></seealso>.
+    </p>
   </section>
 
 <!-- =================================================================== -->
