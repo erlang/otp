@@ -82,7 +82,7 @@ LM_WINDOWS_ENVIRONMENT
 
 USER_CFLAGS=$CFLAGS
 
-if test  X"$MIXED_CYGWIN_VC" = X"yes" -o X"$MIXED_MSYS_VC" = X"yes"; then
+if test  X"$MIXED_VC" = X"yes" ; then
    CFLAGS="-Owx"
 fi
 
@@ -319,7 +319,7 @@ dnl
 if test "$cross_compiling" = "yes"; then
     echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
-elif test  X"$MIXED_CYGWIN_VC" = X"no" -a X"$MIXED_MSYS_VC" = X"no"; then
+elif test  X"$MIXED_VC" = X"no"; then
     WX_VERSION=`wx-config --version`
     case $WX_VERSION in
          2.8.*)
@@ -408,24 +408,15 @@ else
       fi
     fi
 
-    if test "x$MIXED_MSYS" = "xyes"; then
-        CWXWIN_CONFIG=`win2msys_path.sh $wx_config_name 2>/dev/null`
-    else
-	CWXWIN_CONFIG=`cygpath $wx_config_name 2>/dev/null`
-    fi
+    CWXWIN_CONFIG=`win32_path.sh -u $wx_config_name 2>/dev/null`
     CWXWIN1=`dirname $CWXWIN_CONFIG 2>/dev/null`
     CWXWIN2=`dirname $CWXWIN1 2>/dev/null`
 
     if test -z "$PROGRAMFILES" ; then 
-       PROGRAMFILES=c:/Program Files
+       PROGRAMFILES="c:/Program\ Files"
     fi
 
-    
-    if test "x$MIXED_MSYS" = "xyes"; then
-        CWXWIN_PROG=`win2msys_path.sh "$PROGRAMFILES" 2>/dev/null`
-    else
-	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
-    fi
+    CWXWIN_PROG=`win32_path.sh -u "$PROGRAMFILES" 2>/dev/null`
 
     CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.* $CWXWIN_PROG/wxWidgets-2.*.*"
     CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.* $CWXWIN_PROG/wxMSW-2.*.*"

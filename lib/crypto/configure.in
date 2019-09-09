@@ -84,7 +84,7 @@ elif test "x$with_ssl_zlib" = "xyes" || test "x$with_ssl_zlib" = "x"; then
 		AC_MSG_WARN([Cannot search for zlib; missing cross system root (erl_xcomp_sysroot).])
 		SSL_LINK_WITH_ZLIB=no	
 		STATIC_ZLIB_LIBS=	
-	elif  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
+	elif  test "$host_os" = "win32"; then
 		SSL_LINK_WITH_ZLIB=no	
 		STATIC_ZLIB_LIBS=	
 	else
@@ -216,46 +216,18 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     # of Shining Light OpenSSL, which can be found by poking in
     # the uninstall section in the registry, it's worth a try...
     extra_dir=""
-    if  test "x$MIXED_CYGWIN" = "xyes"; then
-    	AC_CHECK_PROG(REGTOOL, regtool, regtool, false)
-	if test "$ac_cv_prog_REGTOOL" != false; then
-		wrp="/machine/software/microsoft/windows/currentversion/"
-	   	if test "x$ac_cv_sizeof_void_p" = "x8"; then
-		   urp="uninstall/openssl (64-bit)_is1/inno setup: app path"
-		   regtool_subsystem=-w
-		else
-		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
-		   regtool_subsystem=-W
-		fi	
-		rp="$wrp$urp"
-		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
-		   true
-		else
-		   # Fallback to unspecified wordlength
-		   urp="uninstall/openssl_is1/inno setup: app path"
-		   rp="$wrp$urp"
-		fi	
-		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
-			ssl_install_dir=`regtool -q $regtool_subsystem get "$rp"`
-			# Try hard to get rid of spaces...
-			if cygpath -d "$ssl_install_dir" > /dev/null 2>&1; then
-				ssl_install_dir=`cygpath -d "$ssl_install_dir"`
-			fi
-			extra_dir=`cygpath $ssl_install_dir`
-		fi
-	fi
-    elif test "x$MIXED_MSYS" = "xyes"; then
+    if  test "$host_os" = "win32"; then
     	AC_CHECK_PROG(REGTOOL, reg_query.sh, reg_query.sh, false)
 	if test "$ac_cv_prog_REGTOOL" != false; then
 	   	if test "x$ac_cv_sizeof_void_p" = "x8"; then
 		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL (64-bit)_is1"
 		else
 		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL_is1"
-		fi	
+		fi
 		key="Inno Setup: App Path"
 		if "$ac_cv_prog_REGTOOL" "$rp" "$key" > /dev/null; then
 			ssl_install_dir=`"$ac_cv_prog_REGTOOL" "$rp" "$key"`
-			extra_dir=`win2msys_path.sh "$ssl_install_dir"`
+			extra_dir=`win32_path.sh "$ssl_install_dir"`
 		fi
 	fi
     fi
@@ -267,7 +239,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
     
-    if  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
+    if  test "$host_os" = "win32" ; then
     	if test "x$ac_cv_sizeof_void_p" = "x8"; then
 	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win64 /c/OpenSSL-Win64 /opt/local64/pgm/OpenSSL"
 	else
@@ -284,7 +256,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
 		SSL_INCDIR="$dir"
-		if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
+		if test "$host_os" = "win32" ; then
 			if test -f "$dir/lib/VC/libeay32.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
 				SSL_LIBDIR="$dir/lib/VC"
@@ -365,7 +337,7 @@ yes
          		])
          		CPPFLAGS=$old_CPPFLAGS
 			if test "x$ssl_found" = "xyes"; then
-			   	if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
+			   	if test "x$host_os" = "xwin32" ; then
 				   	ssl_linkable=yes
 				elif test "x${SSL_CRYPTO_LIBNAME}" = "xsslcrypto"; then
 				# This should only be triggered seen OSE
@@ -485,7 +457,7 @@ dnl		so it is - be adoptable
     SSL_INCDIR="$with_ssl_incl"
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
-    if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes" && test -d "$with_ssl/lib/VC"; then
+    if test "x$host_os" = "xwin32" && test -d "$with_ssl/lib/VC"; then
 	if test -f "$with_ssl/lib/VC/libeay32.lib"; then
 	    SSL_LIBDIR="$with_ssl/lib/VC"
 	    SSL_CRYPTO_LIBNAME=libeay32

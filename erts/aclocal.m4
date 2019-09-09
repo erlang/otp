@@ -116,8 +116,8 @@ dnl
 dnl LM_WINDOWS_ENVIRONMENT
 dnl
 dnl
-dnl Tries to determine thw windows build environment, i.e. 
-dnl MIXED_CYGWIN_VC or MIXED_MSYS_VC 
+dnl Tries to determine the windows build environment, i.e.
+dnl MIXED_VC or MIXED_MINGW
 dnl
 
 AC_DEFUN(LM_WINDOWS_ENVIRONMENT,
@@ -128,35 +128,31 @@ windows_environment_=checked
 MIXED_CYGWIN=no
 MIXED_MSYS=no
 
+dnl MIXED_VC is Microsoft Visual C++ used as standard compiler
+MIXED_VC=no
+dnl MIXED_MINGW is mingw(32|64) used as standard compiler
+MIXED_MINGW=no
+
 AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="$CFLAGS -O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
-		MIXED_MSYS_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
 	elif test -x /usr/bin/cygpath; then
 		CFLAGS="$CFLAGS -O2"
 		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([Cygwin and VC])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	else		    
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
+	else
 		AC_MSG_RESULT([undeterminable])
 		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
 	fi
 else
 	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_VC=no
-	MIXED_MSYS_VC=no
-fi
-AC_SUBST(MIXED_CYGWIN_VC)
-AC_SUBST(MIXED_MSYS_VC)
-
-MIXED_VC=no
-if test "x$MIXED_MSYS_VC" = "xyes" -o  "x$MIXED_CYGWIN_VC" = "xyes" ; then
-   MIXED_VC=yes
 fi
 
 AC_SUBST(MIXED_VC)
@@ -166,44 +162,51 @@ if test "x$MIXED_MSYS" != "xyes"; then
    if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
 	if test -x /usr/bin/cygpath; then
 		CFLAGS="$CFLAGS -O2"
-		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_MINGW=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
+		MIXED_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MINGW"
 	else
 		AC_MSG_RESULT([undeterminable])
 		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
 	fi
     else
 	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_MINGW=no
     fi
 else
-	MIXED_CYGWIN_MINGW=no
-fi	
-AC_SUBST(MIXED_CYGWIN_MINGW)
+   AC_MSG_CHECKING(for mixed MSYS and native MinGW environment)
+   if test "x$GCC" = x"yes"; then
+    	if test -x /usr/bin/msys-=.0.dll; then
+		CFLAGS="$CFLAGS -O2"
+		AC_MSG_RESULT([yes])
+		MIXED_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MINGW"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with msys, cannot handle this!)
+	fi
+    else
+	AC_MSG_RESULT([no])
+    fi
+fi
+AC_SUBST(MIXED_MINGW)
 
 AC_MSG_CHECKING(if we mix cygwin with any native compiler)
 if test "X$MIXED_CYGWIN" = "Xyes"; then
-	AC_MSG_RESULT([yes])	
+	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
 
-AC_SUBST(MIXED_CYGWIN)
-	
 AC_MSG_CHECKING(if we mix msys with another native compiler)
 if test "X$MIXED_MSYS" = "Xyes" ; then
-	AC_MSG_RESULT([yes])	
+	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
 
-AC_SUBST(MIXED_MSYS)
-
 fi
-])		
-	
+])
+
 dnl ----------------------------------------------------------------------
 dnl
 dnl LM_FIND_EMU_CC

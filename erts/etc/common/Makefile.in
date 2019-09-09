@@ -23,7 +23,6 @@ include $(ERL_TOP)/make/target.mk
 
 ERTS_LIB_TYPEMARKER=.$(TYPE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 ifeq ($(TYPE),debug)

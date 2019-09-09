@@ -152,7 +152,6 @@ ERTS_INCL_INT=../include/internal
 INCLUDES=-I$(ERTS_INCL) -I$(ERTS_INCL)/$(TARGET) -I$(ERTS_INCL_INT) -I$(ERTS_INCL_INT)/$(TARGET)
 INCLUDES += -I../emulator/beam -I../emulator/sys/$(ERLANG_OSTYPE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 ifeq ($(USING_VC),yes)
