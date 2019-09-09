@@ -136,23 +136,24 @@ process_event(State, Node, Event) ->
 %% We only *count* system events
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, long_gc = Ev, Info) ->
-    print_system_event("Long GC", Node, Pid, TS, Info),
+    print_system_event(f("Long GC (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, long_schedule = Ev, Info) ->
-    print_system_event("Long Schedule", Node, Pid, TS, Info),
+    print_system_event(f("Long Schedule (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, large_heap = Ev, Info) ->
-    print_system_event("Large Heap", Node, Pid, TS, Info),
+    print_system_event(f("Large Heap (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, busy_port = Ev, Info) ->
-    print_system_event("Busy port", Node, Pid, TS, Info),
+    print_system_event(f("Busy port (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, busy_dist_port = Ev, Info) ->
-    print_system_event("Busy dist port", Node, Pid, TS, Info),
+    print_system_event(f("Busy dist port (~w)", [length(Evs)]),
+                       Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 
 %% And everything else
