@@ -76,6 +76,11 @@ loop(State) ->
             exit(normal);
 
         {?MODULE, reset_events} ->
+            info_msg("Reset events when"
+                     "~n   Total Number of Events:   ~p"
+                     "~n   Current Number of Events: ~p",
+                     [maps:get(ev_cnt, State),
+                      length(maps:get(evs, State))]),
             loop(State#{evs => []});
 
         {?MODULE, Ref, From, events} ->
