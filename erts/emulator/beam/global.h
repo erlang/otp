@@ -912,6 +912,9 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args);
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
+/* beam_bif_lists.c */
+void erts_init_bif_lists(void);
+
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
