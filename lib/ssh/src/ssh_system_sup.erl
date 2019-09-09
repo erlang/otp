@@ -37,10 +37,15 @@
 	 subsystem_supervisor/1, channel_supervisor/1,
 	 connection_supervisor/1,
 	 acceptor_supervisor/1, start_subsystem/6,
-	 stop_subsystem/2]).
+	 stop_subsystem/2,
+         get_options/4
+        ]).
 
 %% Supervisor callback
 -export([init/1]).
+
+-define(START(Address, Port, Profile, Options),
+        {ssh_acceptor_sup, start_link, [Address, Port, Profile, Options]}).
 
 %%%=========================================================================
 %%% API
@@ -61,7 +66,7 @@ init([server, Address, Port, Profile, Options]) ->
         case ?GET_INTERNAL_OPT(connected_socket,Options,undefined) of
             undefined ->
                 [#{id       => id(ssh_acceptor_sup, Address, Port, Profile),
-                   start    => {ssh_acceptor_sup, start_link, [Address, Port, Profile, Options]},
+                   start    => ?START(Address,Port,Profile,Options),
                    restart  => transient,
                    type     => supervisor
                   }];
@@ -102,6 +107,15 @@ stop_system(server, Address, Port, Profile) ->
     catch sshd_sup:stop_child(Address, Port, Profile),
     ok.
 
+
+get_options(Sup, Address, Port, Profile) ->
+    try
+       {ok, #{start:=?START(Address,Port,Profile,Options)}} =
+           supervisor:get_childspec(Sup, id(ssh_acceptor_sup,Address,Port,Profile)),
+       {ok, Options}
+    catch
+        _:_ -> {error,not_found}
+    end.
 
 system_supervisor(Address, Port, Profile) ->
     Name = make_name(Address, Port, Profile),
