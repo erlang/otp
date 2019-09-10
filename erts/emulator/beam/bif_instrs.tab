@@ -456,7 +456,7 @@ nif_bif.head() {
     ErtsCodeMFA *codemfa;
 }
 
-nif_bif.call_nif() {
+nif_bif.call_nif(Func, NifMod, DirtyFunc) {
     /*
      * call_nif is always first instruction in function:
      *
@@ -466,10 +466,13 @@ nif_bif.call_nif() {
      * I[0]: &&call_nif
      * I[1]: Function pointer to NIF function
      * I[2]: Pointer to erl_module_nif
-     * I[3]: Function pointer to dirty NIF
+     * I[3]: Function pointer to dirty NIF. This is not used in this
+     *       instruction, but dirty schedulers look at it.
      *
      * This layout is determined by the ErtsNativeFunc struct
      */
+
+    (void)$DirtyFunc;
 
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
@@ -488,12 +491,12 @@ nif_bif.call_nif() {
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     {
         typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
-        NifF* fp = vbf = (NifF*) I[1];
+        NifF* fp = vbf = (NifF*) $Func;
         struct enif_environment_t env;
         ASSERT(c_p->scheduler_data);
         live_hf_end = c_p->mbuf;
         ERTS_CHK_MBUF_SZ(c_p);
-        erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
+        erts_pre_nif(&env, c_p, (struct erl_module_nif*)$NifMod, NULL);
 
         ASSERT((c_p->scheduler_data)->current_nif == NULL);
         (c_p->scheduler_data)->current_nif = &env;
@@ -518,7 +521,7 @@ nif_bif.call_nif() {
     DTRACE_NIF_RETURN(c_p, codemfa);
 }
 
-nif_bif.call_bif() {
+nif_bif.call_bif(Func) {
     /*
      * At this point, I points to the code[0] in the native function wrapper
      * for the BIF:
@@ -538,7 +541,7 @@ nif_bif.call_bif() {
 
     codemfa = erts_code_to_codemfa(I);
 
-    ERTS_MSACC_SET_BIF_STATE_CACHED_X(codemfa->module, (BifFunction)I[1]);
+    ERTS_MSACC_SET_BIF_STATE_CACHED_X(codemfa->module, (BifFunction)$Func);
 
     /* In case we apply process_info/1,2 or load_nif/1 */
     c_p->current = codemfa;
@@ -550,7 +553,7 @@ nif_bif.call_bif() {
     SWAPOUT;
     ERTS_DBG_CHK_REDS(c_p, FCALLS - 1);
     c_p->fcalls = FCALLS - 1;
-    vbf = (BifFunction) I[1];
+    vbf = (BifFunction)$Func;
     PROCESS_MAIN_CHK_LOCKS(c_p);
     bif_nif_arity = codemfa->arity;
     ASSERT(bif_nif_arity <= 4);

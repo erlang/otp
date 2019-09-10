@@ -173,8 +173,8 @@ erts_proc_shadow2real(Process *c_p)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
 #define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
-    (ASSERT(BeamIsOpCode(*(I), op_call_bif) ||                          \
-            BeamIsOpCode(*(I), op_call_nif)),                           \
+    (ASSERT(BeamIsOpCode(*(I), op_call_bif_W) ||                          \
+            BeamIsOpCode(*(I), op_call_nif_WWW)),                           \
      ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
 
 

@@ -335,7 +335,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   cp_val(c_p->stop[0]),
-				  BeamOpCodeAddr(op_call_nif),
+				  BeamOpCodeAddr(op_call_nif_WWW),
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -4347,12 +4347,12 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             code_ptr = erts_codeinfo_to_code(ci);
 
 	    if (ci->u.gen_bp == NULL) {
-		code_ptr[0] = BeamOpCodeAddr(op_call_nif);
+		code_ptr[0] = BeamOpCodeAddr(op_call_nif_WWW);
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		GenericBp* g = ci->u.gen_bp;
 		ASSERT(BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
-		g->orig_instr = BeamOpCodeAddr(op_call_nif);
+		g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
 	    }
 	    if (f->flags) {
 		code_ptr[3] = (BeamInstr) f->fptr;

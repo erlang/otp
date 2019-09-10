@@ -332,7 +332,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		   "unknown " HEXF "\n", instr);
 	code_ptr++;
     }
-    if (i == op_call_nif) {
+    if (i == op_call_nif_WWW) {
         /*
          * The rest of the code will not be executed. Don't disassemble any
          * more code in this function.
