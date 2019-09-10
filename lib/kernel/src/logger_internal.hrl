@@ -23,6 +23,7 @@
 -define(PRIMARY_KEY,'$primary_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
+-define(LOGGER_PROCESS_LEVEL,'$logger_level$').
 -define(STANDARD_HANDLER, default).
 -define(DEFAULT_HANDLER_FILTERS,?DEFAULT_HANDLER_FILTERS([otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
@@ -107,3 +108,5 @@
 
 -define(IS_STRING(String),
         (is_list(String) orelse is_binary(String))).
+
+-define(NOT_MODULE, {}).

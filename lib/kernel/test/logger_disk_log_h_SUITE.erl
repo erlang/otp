@@ -86,7 +86,7 @@ end_per_testcase(Case, Config) ->
 groups() ->
     [].
 
-all() -> 
+all() ->
     [start_stop_handler,
      create_log,
      open_existing_log,

@@ -87,6 +87,7 @@ all() ->
      log_all_levels_api,
      macros,
      set_level,
+     set_process_level,
      set_module_level,
      set_application_level,
      cache_module_level,
@@ -395,6 +396,30 @@ set_level(_Config) ->
 set_level(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:set_primary_config(level,notice),
+    ok.
+
+set_process_level(_Config) ->
+    ok = logger:add_handler(h1,?MODULE,#{level=>notice,filter_default=>log}),
+    {error,{invalid_level,bad}} = logger:set_process_level(bad),
+    ok = logger:set_process_level(warning),
+    warning = logger:get_process_level(),
+    logger:notice(?map_rep),
+    ok = check_no_log(),
+    logger:warning(M1=?map_rep,?MY_LOC(0)),
+    ok = check_logged(warning,M1,?MY_LOC(1)),
+    _ = spawn(fun ->
+        logger:notice(M2=?map_rep,?MY_LOC(0)),
+        ok = check_logger(notice,M2,?MY_LOC(1))
+    end),
+    ok = logger:unset_porcess_level(),
+    undefined = logger:get_process_level(),
+    logger:notice(M2=?map_rep,?MY_LOC(0)),
+    ok = check_logged(notice,M2,?MY_LOC(1)),
+    ok.
+
+set_level(cleanup,_Config) ->
+    logger:remove_handler(h1),
+    logger:unset_process_level(),
     ok.
 
 set_module_level(_Config) ->

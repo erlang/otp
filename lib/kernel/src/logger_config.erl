@@ -21,7 +21,7 @@
 
 -export([new/1,delete/2,
          exist/2,
-         allow/2,allow/3,
+         allow/4,
          get/2, get/3,
          create/3, set/3,
          set_module_level/3,unset_module_level/2,
@@ -39,8 +39,21 @@ new(Name) ->
 delete(Tid,Id) ->
     ets:delete(Tid,table_key(Id)).
 
-allow(Tid,Level,Module) ->
+allow(Tid,Level,Module,ProcessLevel) when is_atom(Level) ->
     LevelInt = level_to_int(Level),
+    allow(Tid,LevelInt,Module,ProcessLevel);
+allow(Tid,LevelInt,Module,undefined) when is_integer(LevelInt) ->
+    allow(Tid,LevelInt,Module);
+allow(Tid,LevelInt,Module,ProcessLevel) when is_integer(LevelInt) ->
+    ProcessLevelInt = level_to_int(ProcessLevel),
+
+    case LevelInt =< ProcessLevelInt of
+        true -> true;
+        _ -> allow(Tid,LevelInt,Module)
+    end.
+
+allow(Tid,LevelInt,?NOT_MODULE) -> allow(Tid,LevelInt);
+allow(Tid,LevelInt,Module) ->
     case ets:lookup(Tid,Module) of
         [{Module,{ModLevel,cached}}] when is_integer(ModLevel),
                                           LevelInt =< ModLevel ->
@@ -50,14 +63,14 @@ allow(Tid,Level,Module) ->
             true;
         [] ->
             logger_server:cache_module_level(Module),
-            allow(Tid,Level);
+            allow(Tid,LevelInt);
         _ ->
             false
     end.
 
-allow(Tid,Level) ->
+allow(Tid,LevelInt) ->
     GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
-    level_to_int(Level) =< GlobalLevelInt.
+    LevelInt =< GlobalLevelInt.
 
 exist(Tid,What) ->
     ets:member(Tid,table_key(What)).

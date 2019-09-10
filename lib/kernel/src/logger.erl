@@ -41,6 +41,8 @@
          unset_module_level/1, unset_module_level/0,
          set_application_level/2, unset_application_level/1,
          get_module_level/0, get_module_level/1,
+         get_process_level/0, set_process_level/1,
+         unset_process_level/0,
          set_primary_config/1, set_primary_config/2,
          set_handler_config/2, set_handler_config/3,
          set_proxy_config/1,
@@ -257,7 +259,8 @@ log(Level, FunOrFormat, Args, Metadata) ->
       Level :: level(),
       Module :: module().
 allow(Level,Module) when ?IS_LEVEL(Level), is_atom(Module) ->
-    logger_config:allow(?LOGGER_TABLE,Level,Module).
+    ProcessLevel = get_process_level(),
+    logger_config:allow(?LOGGER_TABLE,Level,Module,ProcessLevel).
 
 
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
@@ -559,6 +562,22 @@ unset_module_level(Modules) ->
 -spec unset_module_level() -> ok.
 unset_module_level() ->
     logger_server:unset_module_level().
+
+-spec get_process_level() -> level() | all | none | undefined.
+get_process_level() ->
+    get(?LOGGER_PROCESS_LEVEL).
+
+-spec set_process_level(Level) -> ok | {error, term()} when
+      Level :: level() | all | none.
+set_process_level(Level) when ?IS_LEVEL_ALL(Level) ->
+    put(?LOGGER_PROCESS_LEVEL, Level);
+
+set_process_level(Level) ->
+    {error,{invalid_level,Level}}.
+
+-spec unset_process_level() -> ok.
+unset_process_level() ->
+    erase(?LOGGER_PROCESS_LEVEL).
 
 -spec set_application_level(Application,Level) -> ok | {error, not_loaded} when
       Application :: atom(),
@@ -1027,14 +1046,16 @@ get_logger_env(App) ->
 %%%-----------------------------------------------------------------
 %%% Internal
 do_log(Level,Msg,#{mfa:={Module,_,_}}=Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level,Module) of
+    ProcessLevel = get_process_level(),
+    case logger_config:allow(?LOGGER_TABLE,Level,Module,ProcessLevel) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
             ok
     end;
 do_log(Level,Msg,Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level) of
+    ProcessLevel = get_process_level(),
+    case logger_config:allow(?LOGGER_TABLE,Level,?NOT_MODULE,ProcessLevel) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
