@@ -724,7 +724,7 @@ encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
 encode_extensions([#pre_shared_key_client_hello{
                       offered_psks = #offered_psks{
                                         identities = Identities0,
-                                        binders = Binders0} = PSKs} | Rest], Acc) ->
+                                        binders = Binders0}} | Rest], Acc) ->
     Identities = encode_psk_identities(Identities0),
     Binders = encode_psk_binders(Binders0),
     Len = byte_size(Identities) + byte_size(Binders),
