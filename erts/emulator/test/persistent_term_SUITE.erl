@@ -23,6 +23,7 @@
 
 -export([all/0,suite/0,init_per_suite/1,end_per_suite/1,
 	 basic/1,purging/1,sharing/1,get_trapping/1,
+         destruction/1,
          info/1,info_trapping/1,killed_while_trapping/1,
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
@@ -38,11 +39,13 @@ suite() ->
 
 all() ->
     [basic,purging,sharing,get_trapping,info,info_trapping,
+     destruction,
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart, put_erase_trapping, killed_while_trapping_put,
      killed_while_trapping_erase].
 
 init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
     %% Put a term in the dict so that we know that the testcases handle
     %% stray terms left by stdlib or other test suites.
     persistent_term:put(init_per_suite, {?MODULE}),
@@ -50,6 +53,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     persistent_term:erase(init_per_suite),
+    erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
 basic(_Config) ->
@@ -152,19 +156,25 @@ purging_tester(Parent, Key) ->
     receive
         {Parent,erased} ->
             {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
-            purging_tester_1(Term);
+            purging_tester_1(Term, 1);
         {Parent,replaced} ->
             {?MODULE,new} = persistent_term:get(Key),
-            purging_tester_1(Term)
+            purging_tester_1(Term, 1)
     end.
 
 %% Wait for the term to be copied into this process.
-purging_tester_1(Term) ->
+purging_tester_1(Term, Timeout) ->
     purging_check_term(Term),
-    receive after 1 -> ok end,
+    receive after Timeout -> ok end,
     case erts_debug:size_shared(Term) of
         0 ->
-            purging_tester_1(Term);
+            case Timeout of
+                1000 ->
+                    flush_later_ops(),
+                    purging_tester_1(Term, 1);
+                _ ->
+                    purging_tester_1(Term, Timeout*10)
+            end;
         Size ->
             %% The term has been copied into this process.
             purging_check_term(Term),
@@ -173,6 +183,83 @@ purging_tester_1(Term) ->
 
 purging_check_term({term,[<<"abc",0:777/unit:8>>]}) ->
     ok.
+
+%% Make sure terms are really deallocated when overwritten or erased.
+destruction(Config) ->
+    ok = erts_test_destructor:init(Config),
+
+    NKeys = 100,
+    Keys = lists:seq(0,NKeys-1),
+    [begin
+         V = erts_test_destructor:send(self(), K),
+         persistent_term:put({?MODULE,K}, V)
+     end
+     || K <- Keys],
+
+    %% Erase or overwrite all keys in "random" order.
+    lists:foldl(fun(_, K) ->
+                        case erlang:phash2(K) band 1 of
+                            0 ->
+                                %%io:format("erase key ~p\n", [K]),
+                                persistent_term:erase({?MODULE,K});
+                            1 ->
+                                %%io:format("replace key ~p\n", [K]),
+                                persistent_term:put({?MODULE,K}, value)
+                        end,
+                        (K + 13) rem NKeys
+                end,
+                17, Keys),
+
+    destruction_1(Keys).
+
+destruction_1(Keys) ->
+    erlang:garbage_collect(),
+
+    %% Receive all destruction messages
+    MsgLst = destruction_recv(length(Keys), [], 2),
+    ok = case lists:sort(MsgLst) of
+             Keys ->
+                 ok;
+             _ ->
+                 io:format("GOT ~p\n", [MsgLst]),
+                 io:format("MISSING ~p\n", [Keys -- MsgLst]),
+                 error
+         end,
+
+    %% Cleanup all remaining
+    [persistent_term:erase({?MODULE,K}) || K <- Keys],
+    ok.
+
+destruction_recv(0, Acc, _) ->
+    Acc;
+destruction_recv(N, Acc, Flush) ->
+    receive M ->
+            destruction_recv(N-1, [M | Acc], Flush)
+    after 1000 ->
+            io:format("TIMEOUT. Missing ~p destruction messages.\n", [N]),
+            case Flush of
+                0 ->
+                    Acc;
+                _ ->
+                    io:format("Try flush last literal area cleanup...\n"),
+                    flush_later_ops(),
+                    destruction_recv(N, Acc, Flush-1)
+            end
+    end.
+
+%% Both persistent_term itself and erts_literal_are_collector use
+%% erts_schedule_thr_prgr_later_cleanup_op() to schedule purge and deallocation
+%% of literals. To avoid waiting forever on sleeping schedulers we flush
+%% all later ops to make these cleanup jobs go through.
+flush_later_ops() ->
+    try
+        erts_debug:set_internal_state(wait, thread_progress)
+    catch
+        error:system_limit ->
+            ok % already ongoing; called by other process
+    end,
+    ok.
+
 
 %% Test that sharing is preserved when storing terms.
 
@@ -517,17 +604,12 @@ colliding_keys() ->
 
     %% Verify that the keys still collide (this will fail if the
     %% internal hash function has been changed).
-    erts_debug:set_internal_state(available_internal_state, true),
-    try
-        case erlang:system_info(wordsize) of
-            8 ->
-                verify_colliding_keys(L);
-            4 ->
-                %% Not guaranteed to collide on a 32-bit system.
-                ok
-        end
-    after
-        erts_debug:set_internal_state(available_internal_state, false)
+    case erlang:system_info(wordsize) of
+        8 ->
+            verify_colliding_keys(L);
+        4 ->
+            %% Not guaranteed to collide on a 32-bit system.
+            ok
     end,
 
     L.
@@ -611,19 +693,25 @@ chk({Info, _Initial} = Chk) ->
     ok = persistent_term:put(Key, {term,Info}),
     Term = persistent_term:get(Key),
     true = persistent_term:erase(Key),
-    chk_not_stuck(Term),
+    chk_not_stuck(Term, 1),
     [persistent_term:erase(K) || {K, _} <- pget(Chk)],
     ok.
 
-chk_not_stuck(Term) ->
+chk_not_stuck(Term, Timeout) ->
     %% Hash tables to be deleted are put onto a queue.
     %% Make sure that the queue isn't stuck by a table with
     %% a non-zero ref count.
 
     case erts_debug:size_shared(Term) of
         0 ->
-            erlang:yield(),
-            chk_not_stuck(Term);
+            receive after Timeout -> ok end,
+            case Timeout of
+                1000 ->
+                    flush_later_ops(),
+                    chk_not_stuck(Term, 1);
+                _ ->
+                    chk_not_stuck(Term, Timeout*10)
+            end;
         _ ->
             ok
     end.
@@ -633,7 +721,6 @@ pget({_, Initial}) ->
 
 
 killed_while_trapping_put(_Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
     repeat(
       fun() ->
               NrOfPutsInChild = 10000,
@@ -647,10 +734,9 @@ killed_while_trapping_put(_Config) ->
               do_erases(NrOfPutsInChild)
       end,
       10),
-    erts_debug:set_internal_state(available_internal_state, false).
+    ok.
 
 killed_while_trapping_erase(_Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
     repeat(
       fun() ->
               NrOfErases = 2500,
@@ -664,15 +750,14 @@ killed_while_trapping_erase(_Config) ->
               do_erases(NrOfErases)
       end,
       10),
-    erts_debug:set_internal_state(available_internal_state, false).
+    ok.
 
 put_erase_trapping(_Config) ->
     NrOfItems = 5000,
-    erts_debug:set_internal_state(available_internal_state, true),
     do_puts(NrOfItems, first),
     do_puts(NrOfItems, second),
     do_erases(NrOfItems),
-    erts_debug:set_internal_state(available_internal_state, false).
+    ok.
 
 do_puts(0, _) -> ok;
 do_puts(NrOfPuts, ValuePrefix) ->

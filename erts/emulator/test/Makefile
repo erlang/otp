@@ -153,6 +153,7 @@ MODULES= \
 	dgawd_handler \
 	random_iolist \
 	erts_test_utils \
+	erts_test_destructor \
 	crypto_reference
 
 NO_OPT= bs_bincomp \
