@@ -156,6 +156,7 @@ all() ->
      rotate_size,
      rotate_size_compressed,
      rotate_size_reopen,
+     rotate_on_start_compressed,
      rotation_opts,
      rotation_opts_restart_handler
     ].
@@ -1469,6 +1470,65 @@ rotate_size_reopen(Config) ->
 rotate_size_reopen(cleanup,_Config) ->
     ok = stop_handler(?MODULE).
 
+%% Test that it is possible to start the handler when there
+%% exists a large file that needs rotating at startup.
+rotate_on_start_compressed() ->
+    [{timetrap,{minutes,5}}].
+rotate_on_start_compressed(Config) ->
+
+    application:ensure_all_started(os_mon),
+
+    case file_SUITE:disc_free(?config(priv_dir, Config)) of
+        N when N >= 5 * (1 bsl 30), is_integer(N) ->
+            ct:pal("Free disk: ~w KByte~n", [N]),
+            Log = get_handler_log_name(rotate_on_start_compressed, Config),
+
+            %% Write a 1 GB file to disk
+            {ok, D} = file:open(Log,[write]),
+            [file:write(D,<<0:(1024*1024*8)>>) || I <- lists:seq(1,1024)],
+            file:close(D),
+
+            NumOfReqs = 500,
+
+            %% Start the handler that will compress and rotate the existing file
+            ok = logger:add_handler(?MODULE,
+                                    logger_std_h,
+                                    #{config => #{sync_mode_qlen => 2,
+                                                  drop_mode_qlen => NumOfReqs+1,
+                                                  flush_qlen => 2*NumOfReqs,
+                                                  burst_limit_enable => false,
+                                                  max_no_bytes=>1048576,
+                                                  max_no_files=>10,
+                                                  compress_on_rotate=>true,
+                                                  type => {file,Log}},
+                                      filter_default=>stop,
+                                      filters=>filter_only_this_domain(?MODULE),
+                                      formatter=>{?MODULE,op}}),
+
+            %% Wait for compression to start
+            timer:sleep(50)
+
+            %% We send a burst here in order to make sure that the
+            %% compression has time to take place. The burst will
+            %% trigger sync mode which means that there will be
+            %% calls made to the file controller process which
+            %% in turn means that when the burst is done the
+            %% compression is done.
+            send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
+            Lines = count_lines(Log),
+            NumOfReqs = Lines,
+            {ok,#file_info{size=1043656}} = file:read_file_info(Log++".0.gz"),
+            ok;
+        true ->
+            {skip,"Disk not large enough"}
+    end.
+rotate_on_start_compressed(cleanup,Config) ->
+    application:stop(os_mon),
+    application:stop(sasl),
+    file:delete(get_handler_log_name(rotate_on_start_compressed, Config)),
+    file:delete(get_handler_log_name(rotate_on_start_compressed, Config)++".0.gz"),
+    ok = stop_handler(?MODULE).
+
 rotation_opts(Config) ->
     {Log,_HConfig,StdHConfig} =
         start_handler(?MODULE, ?FUNCTION_NAME, Config),
@@ -1698,8 +1758,7 @@ start_handler(Name, TTY, _Config) when TTY == standard_io;
     {HConfig,StdHConfig};
 
 start_handler(Name, FuncName, Config) ->
-    Dir = ?config(priv_dir,Config),
-    Log = filename:join(Dir, lists:concat([FuncName,".log"])),
+    Log = get_handler_log_name(FuncName, Config),
     ct:pal("Logging to ~tp", [Log]),
     Type = {file,Log},
     _ = file_delete(Log),
@@ -1712,10 +1771,13 @@ start_handler(Name, FuncName, Config) ->
     {ok,HConfig = #{config := StdHConfig}} = logger:get_handler_config(Name),
     {Log,HConfig,StdHConfig}.
 
+get_handler_log_name(FuncName, Config) ->
+    Dir = ?config(priv_dir,Config),
+    filename:join(Dir, lists:concat([FuncName,".log"])).
+
 filter_only_this_domain(Name) ->
     [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
      {domain,{fun logger_filters:domain/2,{log,super,[Name]}}}].
-    
 
 stop_handler(Name) ->
     R = logger:remove_handler(Name),
@@ -1729,6 +1791,8 @@ count_lines(File) ->
 wait_until_written(File, Sz) ->
     timer:sleep(2000),
     case file:read_file_info(File) of
+        {error,enoent} when Sz == -1 ->
+            wait_until_written(File, Sz);
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
