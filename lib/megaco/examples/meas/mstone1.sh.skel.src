@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2016. All Rights Reserved.
+# Copyright Ericsson AB 2007-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -164,21 +164,15 @@ if [ $TYPE = factor ]; then
 
     MSTONE="-s $MODULE $STARTF $MSG_PACK $FACTOR"
 
-    # SCHEDS="no_smp 01 02 04"
-    # SCHEDS="no_smp 01 02 04 08"
-    # SCHEDS="no_smp 01 02 04 08 16"
-    # SCHEDS="no_smp 01 02 04 08 16 32"
-    # SCHEDS="no_smp 01 02 04 08 16 32 64"
-    SCHEDS="no_smp 01 02 03 04 05 06 07 08"
+    # SCHEDS="01 02 04"
+    # SCHEDS="01 02 04 08"
+    # SCHEDS="01 02 04 08 16"
+    # SCHEDS="01 02 04 08 16 32"
+    # SCHEDS="01 02 04 08 16 32 64"
+    SCHEDS="01 02 03 04 05 06 07 08"
 
     for i in `echo $SCHEDS`; do
         case $i in
-            no_smp)
-                SMP_INFO="No SMP"
-                SMP_OPTS="-smp disable" # THIS IS THE R12B WAY TO DISABLE SMP
-                LOG="mstone1-f$FACTOR-s00.log"
-                ;;
-
             01)
                 SMP_INFO="SMP: 1 scheduler"
                 SMP_OPTS="-smp +S $i"
@@ -222,10 +216,6 @@ elif [ $TYPE = sched ]; then
     # FACTORS="001 010 100"
 
     case $SCHED in
-        no_smp)
-            SMP_OPTS="-smp disable" # THIS IS THE R12B WAY TO DISABLE SMP
-            ;;
-
         *)
             SMP_OPTS="-smp +S $SCHED"
             ;;
