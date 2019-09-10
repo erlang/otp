@@ -39,6 +39,13 @@ Options:
                         default is time_test
  -h <num>               default process heap size
  -a <num>               async thread pool size (default is 0)
+ -t <run time>          The runtime of the test
+                        Format: <value>[unit], where unit can be:
+                           s: seconds
+                           m: minutes (default)
+                           h: hours
+                        If no unit is provided, minutes is assumed.
+                        defaults to 10 minutes
  -f <factor>            normally the test is run with 16 processes 
                         (factor 1), one for each codec config. The test 
                         can however be run with other factors, e.g. 
@@ -78,6 +85,7 @@ STARTF="start"
 FACTOR=""
 MSG_PACK=time_test
 SBT="+sbt tnnps"
+RT=10
 
 while test $# != 0; do
     # echo "DBG: Value = $1"
@@ -96,6 +104,10 @@ while test $# != 0; do
 
         -a)
             ATP="+A $2";
+            shift ; shift ;;
+
+        -t)
+            RT="$2";
             shift ; shift ;;
 
         -d)
@@ -162,7 +174,7 @@ done
 
 if [ $TYPE = factor ]; then
 
-    MSTONE="-s $MODULE $STARTF $MSG_PACK $FACTOR"
+    MSTONE="-s $MODULE $STARTF $MSG_PACK $RT $FACTOR"
 
     # SCHEDS="01 02 04"
     # SCHEDS="01 02 04 08"
@@ -208,7 +220,7 @@ if [ $TYPE = factor ]; then
 
 elif [ $TYPE = sched ]; then
 
-    MSTONE="-s $MODULE $STARTF $MSG_PACK"
+    MSTONE="-s $MODULE $STARTF $MSG_PACK $RT"
 
     # FACTORS="01 02 03 04"
     # FACTORS="01 02 03 04 05 06 07 08 09 10"
