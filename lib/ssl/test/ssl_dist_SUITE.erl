@@ -116,7 +116,6 @@ basic_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
     Node2 = NH2#node_handle.nodename,
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
-
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
 

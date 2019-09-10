@@ -72,7 +72,7 @@ encode_and_decode_client_hello_test(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
-                                        ssl:options_to_map(#ssl_options{})),
+                                        default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
 %%--------------------------------------------------------------------
@@ -81,7 +81,7 @@ encode_and_decode_npn_client_hello_test(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
-                                        ssl:options_to_map(#ssl_options{})),
+                                        default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<>>}} = Extensions.
 %%--------------------------------------------------------------------
@@ -90,7 +90,7 @@ encode_and_decode_server_hello_test(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
-                                        ssl:options_to_map(#ssl_options{})),
+                                        default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
 
@@ -100,7 +100,7 @@ encode_and_decode_npn_server_hello_test(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
-                                        ssl:options_to_map(#ssl_options{})),
+                                        default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions, 
     ct:log("~p ~n", [Extensions]),
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}} = Extensions.
@@ -153,3 +153,7 @@ create_connection_states() ->
       current_read => #{secure_renegotiation => false
                        }
      }.
+
+default_options_map() ->
+    Fun = fun (_Key, {Default, _}) -> Default end,
+    maps:map(Fun, ?RULES).
