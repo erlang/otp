@@ -2024,7 +2024,6 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
     if (c_p == rp && !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) {
         BeamInstr* return_address;
         FunctionInfo caller_fi;
-        Eterm *ptr;
 
         /*
          * The current function is erlang:process_info/{1,2}, and we've
@@ -2033,27 +2032,7 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
          * stack instead, which is safe since process_info is a "heavy" BIF
          * that is only called through its export entry.
          */
-
-        return_address = NULL;
-        ptr = STACK_TOP(rp);
-        ASSERT(is_CP(*ptr));
-
-        while (ptr < STACK_START(rp)) {
-            BeamInstr *cp = cp_val(*ptr);
-
-            if (*cp == BeamOpCodeAddr(op_return_trace)) {
-                ptr += 3;
-            } else if (*cp == BeamOpCodeAddr(op_i_return_time_trace)) {
-                ptr += 2;
-            } else if (*cp == BeamOpCodeAddr(op_i_return_to_trace)) {
-                ptr += 1;
-            } else {
-                return_address = cp;
-                break;
-            }
-        }
-
-        ASSERT(return_address != NULL);
+        return_address = erts_printable_return_address(rp, STACK_TOP(rp));
 
         erts_lookup_function_info(&caller_fi, return_address, full_info);
         if (caller_fi.mfa) {

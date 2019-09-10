@@ -295,7 +295,6 @@ do {						\
  */
 static void init_emulator_finish(void) ERTS_NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
-static BeamInstr *printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
@@ -1259,7 +1258,7 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
  *
  * This is needed to generate correct stacktraces when throwing errors from
  * instructions that return like an ordinary function, such as call_nif. */
-static BeamInstr *printable_return_address(Process* p, Eterm *E) {
+BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
     Eterm *ptr = E;
 
     ASSERT(is_CP(*ptr));
@@ -1576,9 +1575,6 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
 static void
 gather_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    BeamInstr i_return_time_trace;
-    BeamInstr i_return_to_trace;
-    BeamInstr i_return_trace;
     BeamInstr *prev;
     Eterm *ptr;
 
@@ -1586,11 +1582,7 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
         return;
     }
 
-    i_return_time_trace = beam_return_time_trace[0];
-    i_return_to_trace = beam_return_to_trace[0];
-    i_return_trace = beam_return_trace[0];
-
-    prev = s->depth ? s->trace[s->depth-1] : s->pc;
+    prev = s->depth ? s->trace[s->depth - 1] : s->pc;
     ptr = p->stop;
 
     /*
@@ -1606,12 +1598,12 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
         if (is_CP(*ptr)) {
             BeamInstr *cp = cp_val(*ptr);
 
-            if (*cp == i_return_time_trace) {
-                ptr += 2;
-            } else if (*cp == i_return_to_trace) {
-                ptr += 1;
-            } else if (*cp == i_return_trace) {
+            if (cp == beam_exception_trace || cp == beam_return_trace) {
                 ptr += 3;
+            } else if (cp == beam_return_time_trace) {
+                ptr += 2;
+            } else if (cp == beam_return_to_trace) {
+                ptr += 1;
             } else {
                 if (cp != prev) {
                     /* Record non-duplicates only */

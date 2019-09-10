@@ -606,7 +606,7 @@ nif_bif.epilogue() {
         $DISPATCH();
     }
     {
-        BeamInstr *cp = printable_return_address(c_p, E);
+        BeamInstr *cp = erts_printable_return_address(c_p, E);
         ASSERT(VALID_INSTR(*cp));
         I = handle_error(c_p, cp, reg, c_p->current);
     }
