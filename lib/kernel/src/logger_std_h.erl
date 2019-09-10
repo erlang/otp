@@ -298,10 +298,7 @@ terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
 open_log_file(HandlerName,#{type:=file,
                             file:=FileName,
                             modes:=Modes,
-                            file_check:=FileCheck,
-                            max_no_bytes:=Size,
-                            max_no_files:=Count,
-                            compress_on_rotate:=Compress}) ->
+                            file_check:=FileCheck}) ->
     try
         case filelib:ensure_dir(FileName) of
             ok ->
@@ -310,18 +307,16 @@ open_log_file(HandlerName,#{type:=file,
                         {ok,#file_info{inode=INode}} =
                             file:read_file_info(FileName,[raw]),
                         UpdateModes = [append | Modes--[write,append,exclusive]],
-                        State0 = #{handler_name=>HandlerName,
-                                   file_name=>FileName,
-                                   modes=>UpdateModes,
-                                   file_check=>FileCheck,
-                                   fd=>Fd,
-                                   inode=>INode,
-                                   last_check=>timestamp(),
-                                   synced=>false,
-                                   write_res=>ok,
-                                   sync_res=>ok},
-                        State = update_rotation({Size,Count,Compress},State0),
-                        {ok,State};
+                        {ok,#{handler_name=>HandlerName,
+                              file_name=>FileName,
+                              modes=>UpdateModes,
+                              file_check=>FileCheck,
+                              fd=>Fd,
+                              inode=>INode,
+                              last_check=>timestamp(),
+                              synced=>false,
+                              write_res=>ok,
+                              sync_res=>ok}};
                     Error ->
                         Error
                 end;
@@ -386,18 +381,30 @@ file_ctrl_call(Pid, Msg) ->
             {error,Reason}
     after
         ?DEFAULT_CALL_TIMEOUT ->
+            %% If this timeout triggers we will get a stray
+            %% reply message in our mailbox eventually.
+            %% That does not really matter though as it will
+            %% end up in this module's handle_info and be ignored
+            demonitor(MRef, [flush]),
             {error,{no_response,Pid}}
-    end.    
+    end.
 
 file_ctrl_init(HandlerName,
                #{type:=file,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress,
                  file:=FileName} = HConfig,
                Starter) ->
     process_flag(message_queue_data, off_heap),
     case open_log_file(HandlerName,HConfig) of
         {ok,State} ->
             Starter ! {self(),ok},
-            file_ctrl_loop(State);
+            %% Do the initial rotate (if any) after we ack the starting
+            %% process as otherwise startup of the system will be
+            %% delayed/crash
+            RotState = update_rotation({Size,Count,Compress},State),
+            file_ctrl_loop(RotState);
         {error,Reason} ->
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
