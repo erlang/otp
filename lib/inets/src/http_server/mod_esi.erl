@@ -345,12 +345,12 @@ erl_scheme_webpage_whole(Mod, Func, Env, Input, ModData) ->
                            integer_to_list(Length)}| NewHeaders]),
             case ModData#mod.method of
                 "HEAD" ->
-                    {proceed, [{response, {already_sent, 200, 0}} | 
+                    {proceed, [{response, {already_sent, StatusCode, 0}} | 
                                ModData#mod.data]};
                 _ ->
                     httpd_response:send_body(ModData, 
                                              StatusCode, Body),
-                    {proceed, [{response, {already_sent, 200, 
+                    {proceed, [{response, {already_sent, StatusCode, 
                                            Length}} | 
                                ModData#mod.data]}
             end
@@ -415,12 +415,12 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
                                  [{"transfer-encoding", 
                                    "chunked"} | NewHeaders])
             end,
-            handle_body(Pid, ModData, Body, Timeout, length(Body),
+            handle_body(Pid, ModData, Body, Timeout, length(Body), StatusCode,
                         IsDisableChunkedSend);
         timeout ->
             send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
-	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
+	    {proceed,[{response, {already_sent, 504, 0}} | ModData#mod.data]}
     end.
 
 receive_headers(Timeout) ->
@@ -444,24 +444,24 @@ send_headers(ModData, StatusCode, HTTPHeaders) ->
     httpd_response:send_header(ModData, StatusCode, 
 			       ExtraHeaders ++ HTTPHeaders).
 
-handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
-    {proceed, [{response, {already_sent, 200, Size}} | ModData#mod.data]};
+handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, StatusCode, _) ->
+    {proceed, [{response, {already_sent, StatusCode, Size}} | ModData#mod.data]};
 
-handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
+handle_body(Pid, ModData, Body, Timeout, Size, StatusCode, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
 	{esi_data, Data} when is_binary(Data) ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data), StatusCode,
 			IsDisableChunkedSend);
 	{esi_data, Data} ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data), StatusCode,
 			IsDisableChunkedSend);
 	{ok, Data} ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data), StatusCode,
 			IsDisableChunkedSend);
 	{'EXIT', Pid, normal} when is_pid(Pid) ->
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    {proceed, [{response, {already_sent, 200, Size}} | 
+	    {proceed, [{response, {already_sent, StatusCode, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    Error = lists:flatten(io_lib:format("mod_esi process failed with reason ~p", [Reason])),
