@@ -2510,7 +2510,7 @@ cancel_timer(TimeoutType, TimerRef, Timers) ->
 -compile({inline, [cancel_timer/2]}).
 cancel_timer(TimeoutType, Timers) ->
     case Timers of
-        #{TimeoutType := TimerRef} ->
+        #{TimeoutType := {TimerRef, _TimeoutMsg}} ->
             ?cancel_timer(TimeoutType, TimerRef, Timers);
         #{} ->
             Timers
