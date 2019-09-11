@@ -51,7 +51,8 @@
          unique_pid/1,
          iter_max_procs/1,
          magic_ref/1,
-         dist_entry_gc/1]).
+         dist_entry_gc/1,
+         persistent_term/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -63,7 +64,8 @@ all() ->
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, pid_wrap, port_wrap, bad_nc,
-     unique_pid, iter_max_procs, magic_ref].
+     unique_pid, iter_max_procs,
+     magic_ref, persistent_term].
 
 init_per_suite(Config) ->
     Config.
@@ -919,6 +921,44 @@ magic_ref(Config) when is_list(Config) ->
     {MRef2, _Addr2} = binary_to_term(MRefExt),
     true = is_reference(MRef2),
     true = erts_debug:get_internal_state({magic_ref,MRef2}),
+    ok.
+
+persistent_term(Config) when is_list(Config) ->
+    {ok, Node} = start_node(get_nodefirstname()),
+    Self = self(),
+    NcData = make_ref(),
+    RPid = spawn_link(Node,
+                      fun () ->
+                              Self ! {NcData, self(), hd(erlang:ports()), erlang:make_ref()}
+                      end),
+    Data = receive
+               {NcData, RPid, RPort, RRef} ->
+                   {RPid, RPort, RRef}
+           end,
+    unlink(RPid),
+    stop_node(Node),
+    Stuff = lists:foldl(fun (N, Acc) ->
+                                persistent_term:put({?MODULE, N}, Data),
+                                persistent_term:erase({?MODULE, N-1}),
+                                node_container_refc_check(node()),
+                                Data = persistent_term:get({?MODULE, N}),
+                                try
+                                    persistent_term:get({?MODULE, N-1})
+                                catch
+                                    error:badarg ->
+                                        ok
+                                end,
+                                case N rem 4 of
+                                    0 -> [persistent_term:get({?MODULE, N})|Acc];
+                                    _ -> Acc
+                                end
+                        end,
+                        [],
+                        lists:seq(1, 100)),
+    persistent_term:erase({?MODULE, 100}),
+    receive after 2000 -> ok end, %% give literal gc some time to run...
+    node_container_refc_check(node()),
+    id(Stuff),
     ok.
 
 
