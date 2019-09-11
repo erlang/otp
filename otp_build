@@ -62,15 +62,10 @@ usage ()
     echo ""
     echo "Before trying to build on windows, consider the following option"
     echo "    env_win32 [<arch>] - echo environment settings for win32 with visual C++, use with eval"
-    echo "                         The optional <arch> can be x64 for 64bit Windows 7" 
-    echo "                         or x86 for 32bit Windows XP+"
+    echo "                         The optional <arch> can be x64 for 64bit Windows"
+    echo "                         or x86 for 32bit Windows"
     echo "    env_win64 - echo environment settings for win32 with visual C++, use with eval"
-    echo "                Note that env_win32 x64 gives the same result, Windows 7 64bit"
-    echo "    env_mingw32 - echo environment settings for win32 with MinGW, use with eval"
-    echo "                  - experimental!"
-    echo "    env_msys64 - echo environment settings for win32 with visual C++ running "
-    echo "                 msys and mingw, use with eval"
-    echo "                  - experimental!"
+    echo "                Note that env_win32 x64 gives the same result, Windows 64bit"
     echo ""
     echo "Before trying to build for vxworks, consider the following option"
     echo "    env_vxworks <cpu>  - echo environment settings for vxworks, use with eval"
@@ -555,62 +550,9 @@ echo_env_vxworks ()
     echo_envinfo
 }
 
-echo_env_win32 ()
-{
-    #echo_envinfo
-    if [ X"$SHELL" = X"" ]; then
-	echo "You need to export the shell variable first," \
-		"for bourne-like shells, type:" >&2
-	echo 'export SHELL' >&2
-	echo "and for csh-like shells, type:" >&2
-	echo 'setenv SHELL $SHELL' >&2
-	echo " - then try again." >&2
-	exit 1
-    fi
-    echo_env_erltop
-    # Try to cope with paths containing unexpected things like stray 
-    # mixed paths (c:/something/bin) and quotes. Only C and D drive
-    # handled.
-    CCYGPATH=`cygpath c:\\`
-    DCYGPATH=`cygpath d:\\`
-    P2=`echo :$PATH | \
-	sed "s,\",,g;s,:[cC]:,:$CCYGPATH,g;s,:[dD]:,:$DCYGPATH,g;s,^:,,"`
-    P3=""
-    save_ifs=$IFS
-    IFS=:
-    for p in $P2; do
-	if [ -d "$p" ]; then
-	    C1="`(cygpath -d $p 2>/dev/null || cygpath -w $p)`" 2> /dev/null
-	    C2=`cygpath "$C1" 2> /dev/null` 2> /dev/null
-	else
-	    C2=""
-	fi
-	if [ ! -z "$C2" ]; then
-	    if [ -z "$P3" ];then 
-		P3="$C2"
-	    else 
-		P3="$P3:$C2"
-	    fi
-	fi
-    done
-    IFS=$save_ifs
-    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
-
-    
-    echo_setenv OVERRIDE_TARGET win32 ';'
-    echo_setenv CC cc.sh ';'
-    echo_setenv CXX cc.sh ';'
-    echo_setenv AR ar.sh ';'
-    echo_setenv RANLIB true ';'
-    if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
-    fi
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
-    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
-    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
-    echo_envinfo
-}
-
+#
+#  Cygwin build without microsoft visual C++ (dead?)
+#
 echo_env_mingw32 ()
 {
     #echo_envinfo
@@ -687,8 +629,9 @@ echo_env_mingw32 ()
 # N.B. In Erlang, and the build system, win32 means windows, so we keep
 # everything as terget win32, but add the CONFIG_SUBTYPE win64, which can
 # be handled by configure, setting WINDOWS_64BIT in headers and such
-echo_env_win64 ()
+echo_env_cygwin ()
 {
+    X64=$1
     #echo_envinfo
     if [ X"$SHELL" = X"" ]; then
 	echo "You need to export the shell variable first," \
@@ -728,24 +671,33 @@ echo_env_win64 ()
     IFS=$save_ifs
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
 
-    
     echo_setenv OVERRIDE_TARGET win32 ';'
-    echo_setenv CONFIG_SUBTYPE win64 ';'
+    if [ X"$X64" = X"true" ]; then
+        echo_setenv CONFIG_SUBTYPE win64 ';'
+    fi
     echo_setenv CC cc.sh ';'
     echo_setenv CXX cc.sh ';'
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
-    if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
-	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+    if [ X"$X64" = X"true" ]; then
+        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+    else
+        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
     fi
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
     echo_envinfo
 }
 
-echo_env_msys32 ()
+echo_env_msys ()
 {
+    X64=$1
     #echo_envinfo
     if [ X"$SHELL" = X"" ]; then
 	echo "You need to export the shell variable first," \
@@ -785,77 +737,28 @@ echo_env_msys32 ()
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/msys_tools/vc:$ERL_TOP/erts/etc/win32/msys_tools"
 
     echo_setenv OVERRIDE_TARGET win32 ';'
+    if [ X"$X64" = X"true" ]; then
+        echo_setenv CONFIG_SUBTYPE win64 ';'
+    fi
     echo_setenv CC cc.sh ';'
     echo_setenv CXX cc.sh ';'
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
-    if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+    if [ X"$X64" = X"true" ]; then
+        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+    else
+        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
     fi
-
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
     echo_envinfo
 }
-
-
-echo_env_msys64 ()
-{
-    #echo_envinfo
-    if [ X"$SHELL" = X"" ]; then
-	echo "You need to export the shell variable first," \
-		"for bourne-like shells, type:" >&2
-	echo 'export SHELL' >&2
-	echo "and for csh-like shells, type:" >&2
-	echo 'setenv SHELL $SHELL' >&2
-	echo " - then try again." >&2
-	exit 1
-    fi
-    echo_env_erltop
-    # Try to cope with paths containing unexpected things like stray 
-    # mixed paths (c:/something/bin) and quotes. Only C and D drive
-    # handled.
-    P2=`echo :$PATH | \
-	sed "s,\",,g;s,:\([a-zA-Z]\):,:/\L\1,g;s,^:,,"`
-    P3=""
-    save_pwd=`pwd`
-    save_ifs=$IFS
-    IFS=:
-    for p in $P2; do
-	if [ -d "$p" ]; then
-	    C1=`(cd "$p" && cmd //C "for %i in (".") do @echo %~fsi")`
-	    C2=`echo "$C1" | sed 's,^\([a-zA-Z]\):\\\\,/\L\1/,;s,\\\\,/,g'`
-	else
-	    C2=""
-	fi
-	if [ ! -z "$C2" ]; then
-	    if [ -z "$P3" ];then 
-		P3="$C2"
-	    else 
-		P3="$P3:$C2"
-	    fi
-	fi
-    done
-    IFS=$save_ifs
-    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/msys_tools/vc:$ERL_TOP/erts/etc/win32/msys_tools"
-
-    echo_setenv OVERRIDE_TARGET win32 ';'
-    echo_setenv CONFIG_SUBTYPE win64 ';'
-    echo_setenv CC cc.sh ';'
-    echo_setenv CXX cc.sh ';'
-    echo_setenv AR ar.sh ';'
-    echo_setenv RANLIB true ';'
-    if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
-	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
-    fi
-
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
-    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
-    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
-    echo_envinfo
-}
-
 
 lookup_prog_in_path ()
 {
@@ -1257,24 +1160,25 @@ case "$1" in
 		do_debuginfo_win32 "$2";;
 	env_win32)
 	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
-		    if [ -x /usr/bin/msys-?.0.dll ]; then
-			echo_env_msys64
-		    else
-			echo_env_win64
-		    fi
+                    ISX64=true
+		fi
+		if [ -x /usr/bin/msys-?.0.dll ]; then
+		    echo_env_msys $ISX64
 		else
-		    if [ -x /usr/bin/msys-?.0.dll ]; then
-			echo_env_msys32
-		    else
-			echo_env_win32
-		    fi
+		    echo_env_cygwin $ISX64
 		fi;;
 	env_mingw32)
 		echo_env_mingw32;;
 	env_win64)
-		echo_env_win64;;
+	        if [ -x /usr/bin/msys-?.0.dll ]; then
+		    echo_env_msys true
+		else
+		    echo_env_cygwin true
+		fi;;
+	env_msys32)
+		echo_env_msys;;
 	env_msys64)
-		echo_env_msys64;;
+		echo_env_msys true;;
 	env_vxworks)
 		echo_env_vxworks "$2";;
 	env_cross)
