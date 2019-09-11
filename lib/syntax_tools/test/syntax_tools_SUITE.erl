@@ -24,7 +24,7 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-         revert_map_type/1,
+         revert_map_type/1,wrapped_subtrees/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
 	t_comment_scan/1,t_igor/1,t_erl_tidy/1,t_prettypr/1]).
 
@@ -32,6 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
+     wrapped_subtrees,
     t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
     t_comment_scan,t_igor,t_erl_tidy,t_prettypr].
 
@@ -142,6 +143,41 @@ revert_map_type(Config) when is_list(Config) ->
     Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
     Form2 = erl_syntax:revert(Mapped2),
     ?t:timetrap_cancel(Dog).
+
+%% Read with erl_parse, wrap each tree node with erl_syntax and check that
+%% erl_syntax:subtrees can access the wrapped node.
+wrapped_subtrees(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(2)),
+    Wc = filename:join([code:lib_dir(stdlib),"src","*.erl"]),
+    Fs = filelib:wildcard(Wc) ++ test_files(Config),
+    Path = [filename:join(code:lib_dir(stdlib), "include"),
+            filename:join(code:lib_dir(kernel), "include")],
+    io:format("~p files\n", [length(Fs)]),
+    Map = fun (File) -> wrapped_subtrees_file(File, Path) end,
+    case p_run(Map, Fs) of
+        0 -> ok;
+        N -> ?t:fail({N,errors})
+    end,
+    ?t:timetrap_cancel(Dog).
+
+wrapped_subtrees_file(File, Path) ->
+    case epp:parse_file(File, Path, []) of
+        {ok,Fs0} ->
+            lists:foreach(fun wrap_each/1, Fs0)
+    end.
+
+wrap_each(Tree) ->
+    % only `wrap` top-level erl_parse node
+    Tree1 = erl_syntax:set_pos(Tree, erl_syntax:get_pos(Tree)),
+    % assert ability to access subtrees of wrapped node with erl_syntax:subtrees/1
+    case erl_syntax:subtrees(Tree1) of
+        [] -> ok;
+        List ->
+            GrpsF = fun(Group) ->
+                          lists:foreach(fun wrap_each/1, Group)
+                    end,
+            lists:foreach(GrpsF, List)
+    end.
 
 %% api tests
 
