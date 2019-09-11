@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a possible SSH logging crash if there was a problem
+	    in an early stage of session setup.</p>
+          <p>
+	    Own Id: OTP-15962 Aux Id: ERL-990 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.6</title>
 
     <section><title>Improvements and New Features</title>

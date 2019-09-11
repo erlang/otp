@@ -31,6 +31,42 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>process_info(P,binary)</c> would neglect to look
+	    through heap fragments, potentially missing a few
+	    binaries associated with the process.</p>
+          <p>
+	    Own Id: OTP-15978 Aux Id: ERIERL-366 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug triggered if a process is killed during call to
+	    <c>persistent_term:put</c> or
+	    <c>persistent_term:erase</c>.</p>
+          <p>
+	    Own Id: OTP-16041</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fixed rare emulator crash in
+	    <c>instrument:allocations/0-1</c>.</p>
+          <p>
+	    Own Id: OTP-15983</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
