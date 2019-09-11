@@ -788,22 +788,17 @@ $(TARGET)/depend.mk: $(TARGET)/config.h
 	$(gen_verbose)
 	$(V_colon)echo "Generating dependency file depend.mk..."
 	@echo "# Generated dependency rules" > $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' >> $@
-	@echo >> $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) |                   \
+		sed 's&$(TARGET)&\$$\(TARGET\)&g' > $@.$$$$; \
+	sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' < $@.$$$$ >> $@;  \
+	echo >> $@;                                          \
+	rm -f $@.$$$$
 
 # For some reason this has to be after 'opt' target
 -include $(TARGET)/depend.mk
