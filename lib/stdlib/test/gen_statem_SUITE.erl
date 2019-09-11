@@ -826,7 +826,8 @@ state_timeout(_Config) ->
 		      self() ! message_to_self,
 		      {next_state, state1, {Time,From},
 		       %% Verify that internal events goes before external
-		       [{state_timeout,Time,1},
+		       [{timeout,Time,1}, % Exercise different cancel code path
+                        {state_timeout,Time,1},
 			{next_event,internal,1}]}
 	      end,
 	  state1 =>
