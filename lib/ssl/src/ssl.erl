@@ -1609,7 +1609,9 @@ handle_options(Opts0, Role, Host) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, ?SSL_OPTIONS ++
                                [ssl_imp, %% TODO: remove ssl_imp
-                                client_preferred_next_protocols]),  %% next_protocol_selector
+                                client_preferred_next_protocols, %% next_protocol_selector
+                                log_alert,
+                                cb_info]),
 
     {Sock, Emulated} = emulated_options(Protocol, SockOpts),
     ConnetionCb = connection_cb(Opts),
