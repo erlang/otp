@@ -1413,7 +1413,7 @@ enum B2TState { /* order is somewhat significant */
 };
 
 typedef struct {
-    int heap_size;
+    Sint heap_size;
     int terms;
     byte* ep;
     int atom_extra_skip;
@@ -4536,7 +4536,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 static Sint
 decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
 {
-    int heap_size;
+    Sint heap_size;
     int terms;
     int atom_extra_skip;
     Uint n;
