@@ -74,6 +74,7 @@ init_per_suite(Config0) ->
                     try crypto:start() of
                         ok ->
                             ssl_test_lib:clean_start(),
+                            ssl:clear_pem_cache(),
                             ssl_test_lib:make_rsa_cert(Config0)
                     catch _:_  ->
                             {skip, "Crypto did not start"}

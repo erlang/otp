@@ -68,7 +68,8 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl_test_lib:clean_start(),
+            ssl_test_lib:clean_start(),
+            ssl:clear_pem_cache(),
 	    Config = ssl_test_lib:make_rsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->

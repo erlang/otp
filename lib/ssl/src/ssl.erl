@@ -1532,7 +1532,7 @@ process_options({[], [_|_] = Skipped, Counter}, OptionsMap, Env)
 process_options({[], [_|_], _Counter}, _OptionsMap, _Env) ->
     throw({error, faulty_configuration});
 process_options({[{K0,V} = E|T], S, Counter}, OptionsMap0, Env) ->
-    K = maybe_change_key(K0),
+    K = maybe_map_key_internal(K0),
     case check_dependencies(K, OptionsMap0, Env) of
         true ->
             OptionsMap = handle_option(K, V, OptionsMap0, Env),
@@ -1731,15 +1731,21 @@ handle_option_cb_info(Options, Protocol) ->
     CbInfo.
 
 
-maybe_change_key(client_preferred_next_protocols) ->
+maybe_map_key_internal(client_preferred_next_protocols) ->
     next_protocol_selector;
-maybe_change_key(K) ->
+maybe_map_key_internal(K) ->
+    K.
+
+
+maybe_map_key_external(next_protocol_selector) ->
+    client_preferred_next_protocols;
+maybe_map_key_external(K) ->
     K.
 
 
 check_dependencies(K, OptionsMap, Env) ->
     Rules =  maps:get(rules, Env),
-    {_, Deps} = maps:get(K, Rules),
+    Deps = get_dependencies(K, Rules),
     case Deps of
         [] ->
             true;
@@ -1747,6 +1753,14 @@ check_dependencies(K, OptionsMap, Env) ->
             option_already_defined(K,OptionsMap) orelse
                 dependecies_already_defined(L, OptionsMap)
     end.
+
+
+%% Handle options that are not present in the map
+get_dependencies(K, _) when K =:= cb_info orelse K =:= log_alert->
+    [];
+get_dependencies(K, Rules) ->
+    {_, Deps} = maps:get(K, Rules),
+    Deps.
 
 
 option_already_defined(K, Map) ->
@@ -1769,15 +1783,18 @@ expand_options(Opts0, Rules) ->
     SockOpts = lists:foldl(fun(Key, PropList) -> proplists:delete(Key, PropList) end,
                            Opts,
                            AllOpts ++
-                               [ssl_imp,                            %% TODO: remove ssl_imp
-                                client_preferred_next_protocols]),  %% next_protocol_selector
+                               [ssl_imp,                          %% TODO: remove ssl_imp
+                                cb_info,
+                                client_preferred_next_protocols,  %% next_protocol_selector
+                                log_alert]),                      %% obsoleted by log_level
 
     SslOpts = {Opts -- SockOpts, [], length(Opts -- SockOpts)},
     {SslOpts, SockOpts}.
 
 
 add_missing_options({L0, S, _C}, Rules) ->
-    Fun = fun(K, Acc) ->
+    Fun = fun(K0, Acc) ->
+                  K = maybe_map_key_external(K0),
                   case proplists:is_defined(K, Acc) of
                       true ->
                           Acc;

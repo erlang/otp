@@ -102,7 +102,9 @@ gen_api_tests() ->
      invalid_cacertfile,
      invalid_keyfile,
      options_not_proplist,
-     invalid_options
+     invalid_options,
+     cb_info,
+     log_alert
     ].
 
 handshake_paus_tests() ->
@@ -1536,6 +1538,60 @@ default_reject_anonymous(Config) when is_list(Config) ->
                                                 ClientOpts]}]),
 
     ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
+
+%%-------------------------------------------------------------------
+cb_info() ->
+    [{doc,"Test that we can set cb_info."}].
+
+cb_info(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    Protocol = proplists:get_value(protocol, Config, tls),
+    CbInfo =
+        case Protocol of
+            tls ->
+                {cb_info, {gen_tcp, tcp, tcp_closed, tcp_error}};
+            dtls ->
+                {cb_info, {gen_udp, udp, udp_closed, udp_error}}
+        end,
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,  [CbInfo | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [CbInfo | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok).
+
+%%-------------------------------------------------------------------
+log_alert() ->
+    [{doc,"Test that we can set log_alert."}].
+
+log_alert(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,  [{log_alert, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{log_alert, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok).
+
 
 %%-------------------------------------------------------------------
 %% Note that these test only test that the options are valid to set. As application data
