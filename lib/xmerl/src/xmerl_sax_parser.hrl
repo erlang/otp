@@ -88,7 +88,8 @@
 	  current_location,         % Location of the currently parsed XML entity
 	  entity,                   % Parsed XML entity
 	  skip_external_dtd = false,% If true the external DTD is skipped during parsing
-	  input_type                % Source type: file | stream
+	  input_type,               % Source type: file | stream
+      attribute_values = []     % default attribute values
 	 }).
 
 
