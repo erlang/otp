@@ -3328,6 +3328,12 @@ void db_foreach_offheap_hash(DbTable *tbl,
     int i;
     int nactive = NACTIVE(tb);
     
+    if (nactive > tb->nslots) {
+        /* Table is being emptied by delete/1 or delete_all_objects/1 */
+        ASSERT(!(tb->common.status & (DB_PRIVATE|DB_PROTECTED|DB_PUBLIC)));
+        nactive = tb->nslots;
+    }
+
     for (i = 0; i < nactive; i++) {
 	list = BUCKET(tb,i);
 	while(list != 0) {
