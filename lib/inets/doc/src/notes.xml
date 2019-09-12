@@ -66,6 +66,23 @@
 
 </section>
 
+  <section><title>Inets 7.0.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    mod_esi will now always propagate the actual HTTP status
+	    code that it anwsered with, to later mod-modules, and not
+	    in some cases hardcode 200.</p>
+          <p>
+	    Own Id: OTP-16049 Aux Id: ERIERL-395 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Inets 7.0.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -3346,5 +3363,3 @@
   -->
 
 </chapter>
-
-
