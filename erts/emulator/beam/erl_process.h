@@ -1832,6 +1832,7 @@ typedef struct {
     ErtsLink *dist_links;
     ErtsMonitor *dist_monitors;
     Eterm dist_state;
+    int yield;
 } ErtsProcExitContext;
 int erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds);
 int erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds);
