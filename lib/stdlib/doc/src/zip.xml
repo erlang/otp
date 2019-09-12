@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -358,6 +358,8 @@
       <name name="create" arity="2" since=""/>
       <name name="create" arity="3" since=""/>
       <fsummary>Create a zip archive with options.</fsummary>
+      <type name="create_option"/>
+      <type name="extension_spec"/>
       <desc>
         <p>Creates a zip archive containing the files specified in
           <c><anno>FileList</anno></c>.</p>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,12 +191,16 @@
 	       zip_comment_length}).
 
 
--type create_option() :: memory | cooked | verbose | {comment, string()}
-                       | {cwd, file:filename()}
-                       | {compress, extension_spec()}
-                       | {uncompress, extension_spec()}.
+-type create_option() :: memory | cooked | verbose
+                       | {comment, Comment ::string()}
+                       | {cwd, CWD :: file:filename()}
+                       | {compress, What :: extension_spec()}
+                       | {uncompress, What :: extension_spec()}.
 -type extension() :: string().
--type extension_spec() :: all | [extension()] | {add, [extension()]} | {del, [extension()]}.
+-type extension_spec() :: all
+                        | [Extension :: extension()]
+                        | {add, [Extension :: extension()]}
+                        | {del, [Extension :: extension()]}.
 -type filename() :: file:filename().
 
 -type zip_comment() :: #zip_comment{}.
@@ -429,12 +433,7 @@ zip(F, Files) -> zip(F, Files, []).
       FileSpec :: file:name() | {file:name(), binary()}
                 | {file:name(), binary(), file:file_info()},
       Options  :: [Option],
-      Option   :: memory | cooked | verbose | {comment, Comment}
-                | {cwd, CWD} | {compress, What} | {uncompress, What},
-      What     :: all | [Extension] | {add, [Extension]} | {del, [Extension]},
-      Extension :: string(),
-      Comment  :: string(),
-      CWD      :: file:filename(),
+      Option   :: create_option(),
       RetValue :: {ok, FileName :: file:name()}
                 | {ok, {FileName :: file:name(), binary()}}
                 | {error, Reason :: term()}).
