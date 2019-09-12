@@ -420,8 +420,11 @@ gexpr_test(E0, Bools0, St0) ->
     %% Generate "top-level" test and argument calls.
     case E1 of
 	#icall{anno=Anno,module=#c_literal{val=erlang},name=#c_literal{val=N},args=As} ->
+            %% Note that erl_expand_records has renamed type
+            %% tests to the new names; thus, float/1 as a type
+            %% test will now be named is_float/1.
 	    Ar = length(As),
-	    case erl_internal:type_test(N, Ar) orelse
+	    case erl_internal:new_type_test(N, Ar) orelse
                 erl_internal:comp_op(N, Ar) orelse
                 erl_internal:bool_op(N, Ar) of
 		true -> {E1,Eps0,Bools0,St1};
