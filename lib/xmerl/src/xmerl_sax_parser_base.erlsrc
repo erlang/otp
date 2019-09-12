@@ -297,7 +297,7 @@ parse_text_decl(?STRING("<?xml") = Bytes, State) ->
     cf(Bytes, State, fun parse_text_decl/2);
 parse_text_decl(?STRING_REST("<?xml", Rest1), State) ->
     parse_text_decl_1(Rest1, State);
-parse_text_decl(Bytes, State) when is_binary(Bytes) ->
+parse_text_decl(Bytes, State) ->
     {Bytes, State}.
 
 parse_text_decl_1(?STRING_EMPTY, State) ->
@@ -308,12 +308,12 @@ parse_text_decl_1(?STRING("v") = Rest, State) ->
     cf(Rest, State, fun parse_text_decl_1/2);
 parse_text_decl_1(?STRING("e") = Rest, State) ->
     cf(Rest, State, fun parse_text_decl_2/2);
-parse_text_decl_1(?STRING_UNBOUND_REST("?>", _Rest) = _Bytes, State) ->
+parse_text_decl_1(?STRING_REST("?>", _Rest) = _Bytes, State) ->
     ?fatal_error(State, "expecting attribute encoding");
 parse_text_decl_1(?STRING_UNBOUND_REST(C, _) = Rest, State) when ?is_whitespace(C) ->
     {_WS, Rest1, State1} = whitespace(Rest, State, []),
     parse_text_decl_1(Rest1, State1);
-parse_text_decl_1(?STRING_UNBOUND_REST("v", Rest) = _Bytes, State) ->
+parse_text_decl_1(?STRING_REST("v", Rest) = _Bytes, State) ->
     case parse_name(Rest, State, [$v]) of
         {"version", Rest1, State1} ->
             {Rest2, State2} = parse_eq(Rest1, State1),
@@ -322,7 +322,7 @@ parse_text_decl_1(?STRING_UNBOUND_REST("v", Rest) = _Bytes, State) ->
         {_, _, State1} ->
             ?fatal_error(State1, "expecting attribute version")
     end;
-parse_text_decl_1(?STRING_UNBOUND_REST("e", _) = Bytes, State) ->
+parse_text_decl_1(?STRING_REST("e", _) = Bytes, State) ->
     parse_text_decl_2(Bytes, State);
 parse_text_decl_1(?STRING_UNBOUND_REST(_, _), State) ->
     ?fatal_error(State, "expecting attribute encoding or version");
@@ -337,7 +337,7 @@ parse_text_decl_2(?STRING("e") = Rest, State) ->
 parse_text_decl_2(?STRING_UNBOUND_REST(C, _) = Rest, State) when ?is_whitespace(C) ->
     {_WS, Rest1, State1} = whitespace(Rest, State, []),
     parse_text_decl_2(Rest1, State1);
-parse_text_decl_2(?STRING_UNBOUND_REST("e", Rest) = _Bytes, State) ->
+parse_text_decl_2(?STRING_REST("e", Rest) = _Bytes, State) ->
     case parse_name(Rest, State, [$e]) of
         {"encoding", Rest1, State1} ->
             {Rest2, State2} = parse_eq(Rest1, State1),
@@ -354,7 +354,7 @@ parse_text_decl_3(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_text_decl_3/2);
 parse_text_decl_3(?STRING("?") = Rest, State) ->
     cf(Rest, State, fun parse_text_decl_3/2);
-parse_text_decl_3(?STRING_UNBOUND_REST("?>", Rest) = _Bytes, State) ->
+parse_text_decl_3(?STRING_REST("?>", Rest) = _Bytes, State) ->
     {Rest, State};
 parse_text_decl_3(?STRING_UNBOUND_REST(C, _) = Rest, State) when ?is_whitespace(C) ->
     {_WS, Rest1, State1} = whitespace(Rest, State, []),
@@ -985,9 +985,9 @@ parse_attributes(Bytes, State, CurrentTag) ->
 % check that the next character is valid
 parse_attributes_1(?STRING_EMPTY, State, CurrentTag) ->
     cf(?STRING_EMPTY, State, CurrentTag, fun parse_attributes_1/3);
-parse_attributes_1(?STRING_UNBOUND_REST("/", _) = Bytes, State, CurrentTag) ->
+parse_attributes_1(?STRING_REST("/", _) = Bytes, State, CurrentTag) ->
     parse_attributes(Bytes, State, CurrentTag);
-parse_attributes_1(?STRING_UNBOUND_REST(">", _) = Bytes, State, CurrentTag) ->
+parse_attributes_1(?STRING_REST(">", _) = Bytes, State, CurrentTag) ->
     parse_attributes(Bytes, State, CurrentTag);
 parse_attributes_1(?STRING_UNBOUND_REST(C, _) = Bytes, State, CurrentTag) when ?is_whitespace(C) ->
     parse_attributes(Bytes, State, CurrentTag);
@@ -1907,7 +1907,7 @@ parse_system_literal(?STRING_EMPTY, State, Stop, Acc) ->
     cf(?STRING_EMPTY, State, Stop, Acc, fun parse_system_literal/4);
 parse_system_literal(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
-parse_system_literal(?STRING_UNBOUND_REST("#", _), State, _, _) ->
+parse_system_literal(?STRING_REST("#", _), State, _, _) ->
     ?fatal_error(State, "Fragment found in system identifier");
 parse_system_literal(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc) ->
     parse_system_literal(Rest, State, Stop, [C |Acc]);
@@ -2139,7 +2139,8 @@ handle_external_entity({file, FileToOpen}, #xmerl_sax_parser_state{encoding = En
             {Head1, State3} = encode_external_input(Head, Enc1, Enc, State2),
             ConFun = external_continuation_cb(Enc1, Enc),
             {Acc1, ?STRING_EMPTY, EntityState} = 
-                parse_external_entity_1(Head1, State3#xmerl_sax_parser_state{continuation_fun = ConFun}, Acc),
+                parse_external_entity_1(Head1, State3#xmerl_sax_parser_state{continuation_fun = ConFun,
+                                                                             encoding = Enc}, Acc),
             ok = file:close(FD),
         {Acc1, 
          EntityState#xmerl_sax_parser_state.event_state,
@@ -2566,7 +2567,7 @@ parse_doctype_decl_2(?STRING("IGNO") = Bytes, State) ->
     cf(Bytes, State, fun parse_doctype_decl_2/2);
 parse_doctype_decl_2(?STRING("IGNOR") = Bytes, State) ->
     cf(Bytes, State, fun parse_doctype_decl_2/2);
-parse_doctype_decl_2(?STRING_UNBOUND_REST("IGNORE", Rest), State) ->
+parse_doctype_decl_2(?STRING_REST("IGNORE", Rest), State) ->
     case State#xmerl_sax_parser_state.file_type of
         normal ->
             ?fatal_error(State, "Conditional sections may only appear in the external DTD subset.");
@@ -2576,7 +2577,7 @@ parse_doctype_decl_2(?STRING_UNBOUND_REST("IGNORE", Rest), State) ->
 parse_doctype_decl_2(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->
     {_WS, Rest, State1} = whitespace(Bytes, State, []),
     parse_doctype_decl_2(Rest, State1);
-parse_doctype_decl_2(?STRING_UNBOUND_REST("%", Rest), State) ->
+parse_doctype_decl_2(?STRING_REST("%", Rest), State) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
         {internal_parameter, _, RefValue} ->
@@ -2684,11 +2685,11 @@ parse_element_content_1(?STRING_REST("EMPTY", Rest), State, Acc) ->
     parse_element_content_1(Rest, State, "YTPME" ++ Acc);
 parse_element_content_1(?STRING_REST(">", Rest), State, Acc) ->
     {lists:reverse(delete_leading_whitespace(Acc)), Rest, State};
-parse_element_content_1(?STRING_UNBOUND_REST("(", Rest), State, []) ->
+parse_element_content_1(?STRING_REST("(", Rest), State, []) ->
     parse_element_content_2(Rest, State, [$(], {1, [none]});
-parse_element_content_1(?STRING_UNBOUND_REST("(", _), State, _) ->
+parse_element_content_1(?STRING_REST("(", _), State, _) ->
     ?fatal_error(State, "> expected");
-parse_element_content_1(?STRING_UNBOUND_REST("%", Rest), State, Acc) ->
+parse_element_content_1(?STRING_REST("%", Rest), State, Acc) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
         {internal_parameter, _, RefValue} ->
@@ -2741,7 +2742,7 @@ parse_element_content_2(?STRING_REST("#PCDATA", _), State, _, {_, ['|'|_]}) ->
     ?fatal_error(State, "#PCDATA can only come first in element content.");
 parse_element_content_2(?STRING_REST("#PCDATA", Rest), State, Acc, {1, Sep}) ->
     parse_element_content_4(Rest, State, "ATADCP#" ++ Acc, {1, [any|Sep]});
-parse_element_content_2(?STRING_UNBOUND_REST("%", Rest), State, Acc, Depth) ->
+parse_element_content_2(?STRING_REST("%", Rest), State, Acc, Depth) ->
     case State#xmerl_sax_parser_state.file_type of
         normal ->
             % not allowed locally
@@ -2764,7 +2765,7 @@ parse_element_content_2(?STRING_UNBOUND_REST("%", Rest), State, Acc, Depth) ->
                     end
             end
     end;
-parse_element_content_2(?STRING_UNBOUND_REST(")", Rest), State, Acc, {1, _}) ->
+parse_element_content_2(?STRING_REST(")", Rest), State, Acc, {1, _}) ->
     case lists:all(fun(C) when ?is_whitespace(C) -> true;
                       ($()-> true;
                       (_) -> false
@@ -2784,14 +2785,14 @@ parse_element_content_2(?STRING_UNBOUND_REST(")", Rest), State, Acc, {1, _}) ->
                     parse_element_content_1(Rest1, State1, Acc1)
             end
     end;
-parse_element_content_2(?STRING_UNBOUND_REST("(", Rest), State, Acc, {Depth, [H|Sep]}) ->
+parse_element_content_2(?STRING_REST("(", Rest), State, Acc, {Depth, [H|Sep]}) ->
     H1 = if H == none -> any;
             H == any -> ?fatal_error(State, "expecting separator");
             true ->
                 check_separator(Acc, H, State)
          end,
     parse_element_content_2(Rest, State, [$(|Acc], {Depth + 1, [none,H1|Sep]});
-parse_element_content_2(?STRING_UNBOUND_REST(")", Rest), State, Acc, {Depth, [_|Sep]}) ->
+parse_element_content_2(?STRING_REST(")", Rest), State, Acc, {Depth, [_|Sep]}) ->
     case Acc of
         [$,|_] ->
             ?fatal_error(State, "expecting value");
@@ -2804,27 +2805,27 @@ parse_element_content_2(?STRING_UNBOUND_REST(")", Rest), State, Acc, {Depth, [_|
 parse_element_content_2(?STRING_UNBOUND_REST(C, _) = Rest, State, Acc, Depth) when ?is_whitespace(C) ->
     {WS, Rest1, State1} = whitespace(Rest, State, []),
     parse_element_content_2(Rest1, State1, WS ++ Acc, Depth);
-parse_element_content_2(?STRING_UNBOUND_REST("|", Rest), State, Acc, {Depth, [any|T]}) ->
+parse_element_content_2(?STRING_REST("|", Rest), State, Acc, {Depth, [any|T]}) ->
     parse_element_content_2(Rest, State, [$||Acc], {Depth, ['|'|T]});
-parse_element_content_2(?STRING_UNBOUND_REST("|", Rest), State, Acc, {_, ['|'|_]} = Sep) ->
+parse_element_content_2(?STRING_REST("|", Rest), State, Acc, {_, ['|'|_]} = Sep) ->
     case Acc of
         [$||_] ->
             ?fatal_error(State, "expecting value");
         _ ->
             parse_element_content_2(Rest, State, [$||Acc], Sep)
     end;
-parse_element_content_2(?STRING_UNBOUND_REST(",", Rest), State, Acc, {Depth, [any|T]}) ->
+parse_element_content_2(?STRING_REST(",", Rest), State, Acc, {Depth, [any|T]}) ->
     parse_element_content_2(Rest, State, [$,|Acc], {Depth, [','|T]});
-parse_element_content_2(?STRING_UNBOUND_REST(",", Rest), State, Acc, {_, [','|_]} = Sep) ->
+parse_element_content_2(?STRING_REST(",", Rest), State, Acc, {_, [','|_]} = Sep) ->
     case Acc of
         [$,|_] ->
             ?fatal_error(State, "expecting value");
         _ ->
             parse_element_content_2(Rest, State, [$,|Acc], Sep)
     end;
-parse_element_content_2(?STRING_UNBOUND_REST("|", _), State, _Acc, {_, [H|_]}) ->
+parse_element_content_2(?STRING_REST("|", _), State, _Acc, {_, [H|_]}) ->
     ?fatal_error(State, "Expected: " ++ atom_to_list(H));
-parse_element_content_2(?STRING_UNBOUND_REST(",", _), State, _Acc, {_, [H|_]}) ->
+parse_element_content_2(?STRING_REST(",", _), State, _Acc, {_, [H|_]}) ->
     ?fatal_error(State, "Expected: " ++ atom_to_list(H));
 parse_element_content_2(?STRING_UNBOUND_REST(C, Rest), State, Acc, {Depth, [H|T]}) ->
     case is_name_start(C) of
@@ -2846,11 +2847,11 @@ parse_element_content_2(Bytes, State, Acc, _Depth) ->
 % maybe parse the cardinality 
 parse_element_content_3(?STRING_EMPTY, State, Acc) ->
     cf(?STRING_EMPTY, State, Acc, fun parse_element_content_3/3);
-parse_element_content_3(?STRING_UNBOUND_REST("?", Rest), State, Acc) ->
+parse_element_content_3(?STRING_REST("?", Rest), State, Acc) ->
     {[$?|Acc], Rest, State};
-parse_element_content_3(?STRING_UNBOUND_REST("+", Rest), State, Acc) ->
+parse_element_content_3(?STRING_REST("+", Rest), State, Acc) ->
     {[$+|Acc], Rest, State};
-parse_element_content_3(?STRING_UNBOUND_REST("*", Rest), State, Acc) ->
+parse_element_content_3(?STRING_REST("*", Rest), State, Acc) ->
     {[$*|Acc], Rest, State};
 parse_element_content_3(Rest, State, Acc) ->
     {Acc, Rest, State}.
@@ -2860,34 +2861,34 @@ parse_element_content_4(?STRING_EMPTY, State, Acc, Depth) ->
     cf(?STRING_EMPTY, State, Acc, Depth, fun parse_element_content_4/4);
 parse_element_content_4(?STRING(")") = Bytes, State, Acc, Depth) ->
     cf(Bytes, State, Acc, Depth, fun parse_element_content_4/4);
-parse_element_content_4(?STRING_UNBOUND_REST("|", Rest), State, Acc, {Depth, [any|T]}) ->
+parse_element_content_4(?STRING_REST("|", Rest), State, Acc, {Depth, [any|T]}) ->
     parse_element_content_4(Rest, State, [$||Acc], {Depth, ['|'|T]});
-parse_element_content_4(?STRING_UNBOUND_REST("|", Rest), State, Acc, {_, ['|'|_]} = Sep) ->
+parse_element_content_4(?STRING_REST("|", Rest), State, Acc, {_, ['|'|_]} = Sep) ->
     case Acc of
         [$||_] ->
             ?fatal_error(State, "expecting value");
         _ ->
             parse_element_content_4(Rest, State, [$||Acc], Sep)
     end;
-parse_element_content_4(?STRING_UNBOUND_REST("|", Rest), State, Acc, Depth) ->
+parse_element_content_4(?STRING_REST("|", Rest), State, Acc, Depth) ->
     parse_element_content_4(Rest, State, [$||Acc], Depth);
 parse_element_content_4(?STRING_UNBOUND_REST(C, Rest), State, Acc, Depth) when ?is_whitespace(C) ->
     parse_element_content_4(Rest, State, [C|Acc], Depth);
 
-parse_element_content_4(?STRING_UNBOUND_REST(")*", Rest), State, Acc, {1, _}) ->
+parse_element_content_4(?STRING_REST(")*", Rest), State, Acc, {1, _}) ->
     parse_element_content_1(Rest, State, [$*,$)|Acc]);
-parse_element_content_4(?STRING_UNBOUND_REST(")", _), State, _, {1, [','|_]}) ->
+parse_element_content_4(?STRING_REST(")", _), State, _, {1, [','|_]}) ->
     ?fatal_error(State, ")* expected after mixed content");
-parse_element_content_4(?STRING_UNBOUND_REST(")", _), State, _, {1, ['|'|_]}) ->
+parse_element_content_4(?STRING_REST(")", _), State, _, {1, ['|'|_]}) ->
     ?fatal_error(State, ")* expected after mixed content");
-parse_element_content_4(?STRING_UNBOUND_REST(")", Rest), State, Acc, {1, _}) ->
+parse_element_content_4(?STRING_REST(")", Rest), State, Acc, {1, _}) ->
     parse_element_content_1(Rest, State, [$)|Acc]);
 
-parse_element_content_4(?STRING_UNBOUND_REST(")*", Rest), State, Acc, {Depth, [_|T]}) ->
+parse_element_content_4(?STRING_REST(")*", Rest), State, Acc, {Depth, [_|T]}) ->
     parse_element_content_2(Rest, State, [$*,$)|Acc], {Depth - 1, T});
-parse_element_content_4(?STRING_UNBOUND_REST(")", Rest), State, Acc, {Depth, [_|T]}) ->
+parse_element_content_4(?STRING_REST(")", Rest), State, Acc, {Depth, [_|T]}) ->
     parse_element_content_2(Rest, State, [$)|Acc], {Depth - 1, T});
-parse_element_content_4(?STRING_UNBOUND_REST("%", Rest), State, Acc, Depth) ->
+parse_element_content_4(?STRING_REST("%", Rest), State, Acc, Depth) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
         {internal_parameter, _, RefValue} ->
@@ -2939,7 +2940,7 @@ parse_att_list_decl(?STRING_EMPTY, State) ->
 parse_att_list_decl(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->
     {_WS, Rest, State1} = whitespace(Bytes, State, []), 
     parse_att_list_decl_1(Rest, State1);
-parse_att_list_decl(?STRING_UNBOUND_REST("%", Rest), State) ->
+parse_att_list_decl(?STRING_REST("%", Rest), State) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
         {internal_parameter, _, RefValue} ->
@@ -2962,7 +2963,7 @@ parse_att_list_decl(Bytes, State) ->
 
 parse_att_list_decl_1(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_att_list_decl_1/2);
-parse_att_list_decl_1(?STRING_UNBOUND_REST("%", Rest), State) ->
+parse_att_list_decl_1(?STRING_REST("%", Rest), State) ->
     case State#xmerl_sax_parser_state.file_type of
         normal ->
             ?fatal_error(State, "Parsed entities not allowed in Internal subset"); %%WFC: PEs in Internal Subset
@@ -3013,7 +3014,7 @@ parse_att_defs(?STRING_REST(">", Rest), State, _ElementName) ->
 parse_att_defs(?STRING_UNBOUND_REST(C, _) = Rest, State, ElementName) when ?is_whitespace(C) ->
     {_WS, Rest1, State1} = whitespace(Rest, State, []),
     parse_att_defs(Rest1, State1, ElementName);
-parse_att_defs(?STRING_UNBOUND_REST("%", Rest), #xmerl_sax_parser_state{file_type = Type} = State, ElementName) ->
+parse_att_defs(?STRING_REST("%", Rest), #xmerl_sax_parser_state{file_type = Type} = State, ElementName) ->
     case Type of
         normal ->
             ?fatal_error(State, "Parsed entities not allowed in Internal subset"); %%WFC: PEs in Internal Subset
@@ -3145,7 +3146,7 @@ parse_att_type_1(?STRING_EMPTY, State, Acc) ->
     cf(?STRING_EMPTY, State, Acc, fun parse_att_type_1/3);
 parse_att_type_1(?STRING_UNBOUND_REST(C, _) = Bytes, State, Acc)  when ?is_whitespace(C) ->
     {lists:reverse(Acc), Bytes, State};
-parse_att_type_1(?STRING_UNBOUND_REST("%", Rest), State, Acc) ->
+parse_att_type_1(?STRING_REST("%", Rest), State, Acc) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
         {internal_parameter, _, RefValue} ->
@@ -3677,9 +3678,9 @@ parse_include_sect(?STRING_REST("\r", Rest), #xmerl_sax_parser_state{line_no=N} 
     parse_include_sect(Rest, State#xmerl_sax_parser_state{line_no=N+1});
 parse_include_sect(?STRING_UNBOUND_REST(C, Rest), State) when ?is_whitespace(C) ->
     parse_include_sect(Rest, State);
-parse_include_sect(?STRING_UNBOUND_REST("]>", Rest), State) ->
+parse_include_sect(?STRING_REST("]>", Rest), State) ->
     {Rest, State};
-parse_include_sect(?STRING_UNBOUND_REST("[", Rest), State) ->
+parse_include_sect(?STRING_REST("[", Rest), State) ->
     parse_include_sect_1(Rest, State);
 parse_include_sect(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_include_sect/2], 
@@ -3696,7 +3697,7 @@ parse_include_sect_1(?STRING_EMPTY, State) ->
     end;
 parse_include_sect_1(?STRING("]") = Bytes, State) ->
     cf(Bytes, State, fun parse_include_sect_1/2);
-parse_include_sect_1(?STRING_UNBOUND_REST("]>", Rest), State) ->
+parse_include_sect_1(?STRING_REST("]>", Rest), State) ->
     {Rest, State};
 parse_include_sect_1(?STRING_UNBOUND_REST(_, _) = Bytes, State) ->
     {Rest1, State1} = parse_text_decl(Bytes, State),
@@ -3727,7 +3728,7 @@ parse_ignore_sect(?STRING("]") = Bytes, State) ->
 parse_ignore_sect(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->
     {_WS, Rest, State1} = whitespace(Bytes, State, []), 
     parse_ignore_sect(Rest, State1);
-parse_ignore_sect(?STRING_UNBOUND_REST("[", Rest), State) ->
+parse_ignore_sect(?STRING_REST("[", Rest), State) ->
     parse_ignore_sect_1(Rest, State, 1);
 parse_ignore_sect(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_ignore_sect/2], 
@@ -3750,11 +3751,11 @@ parse_ignore_sect_1(?STRING("]") = Bytes, State, Depth) ->
     cf(Bytes, State, Depth, fun parse_ignore_sect_1/3);
 parse_ignore_sect_1(?STRING("]]") = Bytes, State, Depth) ->
     cf(Bytes, State, Depth, fun parse_ignore_sect_1/3);
-parse_ignore_sect_1(?STRING_UNBOUND_REST("]]>", Rest), State, 1) ->
+parse_ignore_sect_1(?STRING_REST("]]>", Rest), State, 1) ->
     {Rest, State};
-parse_ignore_sect_1(?STRING_UNBOUND_REST("]]>", Rest), State, Depth) ->
+parse_ignore_sect_1(?STRING_REST("]]>", Rest), State, Depth) ->
     parse_ignore_sect_1(Rest, State, Depth - 1);
-parse_ignore_sect_1(?STRING_UNBOUND_REST("<![", Rest), State, Depth) ->
+parse_ignore_sect_1(?STRING_REST("<![", Rest), State, Depth) ->
     parse_ignore_sect_1(Rest, State, Depth + 1);
 parse_ignore_sect_1(?STRING_UNBOUND_REST(_, Rest), State, Depth) ->
     parse_ignore_sect_1(Rest, State, Depth);
@@ -4768,15 +4769,25 @@ external_continuation_cb(FileEnc, FileEnc) ->
 external_continuation_cb(FileEnc, BaseEnc) ->
     fun({IoDevice, Rest}) ->
         case file:read(IoDevice, 1024) of
+            eof when Rest == <<>>, BaseEnc =:= list ->
+                {[], {IoDevice, <<>>}};
             eof when Rest == <<>> ->
                 {<<>>, {IoDevice, <<>>}};
+            eof when BaseEnc =:= list->
+                {unicode:characters_to_list(Rest, FileEnc), {IoDevice, <<>>}};
             eof ->
                 {unicode:characters_to_binary(Rest, FileEnc, BaseEnc), {IoDevice, <<>>}};
             {error, Err} ->
                 throw({error, Err});
             {ok, FileBin} ->
                 Comp = <<Rest/binary, FileBin/binary>>,
-                case unicode:characters_to_binary(Comp, FileEnc, BaseEnc) of
+                Trans = case BaseEnc of 
+                            list ->
+                                unicode:characters_to_list(Comp, FileEnc);
+                            _ ->
+                                unicode:characters_to_binary(Comp, FileEnc, BaseEnc)
+                        end,
+                case Trans of
                     {incomplete, Good, Bad} ->
                         {Good, {IoDevice, Bad}};
                     {error, _, _} ->
@@ -4787,6 +4798,17 @@ external_continuation_cb(FileEnc, BaseEnc) ->
         end
     end.
 
+encode_external_input(Head, FileEnc, list, #xmerl_sax_parser_state{continuation_state = {FD, _}} = State) ->
+    {NewHead, NewCon} = 
+        case unicode:characters_to_list(Head, FileEnc) of
+            {incomplete, Good, Bad} ->
+                {Good, {FD, Bad}};
+            {error, _, _} ->
+                throw({error, "bad data"});
+            Good ->
+                {Good, {FD, <<>>}}
+        end,
+    {NewHead, State#xmerl_sax_parser_state{continuation_state = NewCon}};
 encode_external_input(Head, FileEnc, BaseEnc, #xmerl_sax_parser_state{continuation_state = {FD, _}} = State) ->
     {NewHead, NewCon} = 
         case unicode:characters_to_binary(Head, FileEnc, BaseEnc) of
@@ -4884,35 +4906,14 @@ add_context_back({ET, CF}, State) ->
 %%         State = #xmerl_sax_parser_state{}
 %% Output:  {utf8|utf16le|utf16be, Xml, State}
 %% Description: Detects which character set is used in a binary stream.
+%%              Uses eecf/3 as only binary input 
+%%              is expected from external files.
 %%----------------------------------------------------------------------
 detect_charset(State) ->
-    case catch cf(<<>>, State, fun detect_charset/2) of
-        {fatal_error, {State1, "No more bytes"}} ->
-            {<<>>, State1};
-        Other ->
-            Other
-    end.
+    eecf(<<>>, State, fun detect_charset/2).
 
 detect_charset(<<>>, State) ->
-    {<<>>, State};
-detect_charset(<<16#00>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#00, 16#00>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#00, 16#00, 16#FE>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#EF>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#EF, 16#BB>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#FE>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#FF>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#FF, 16#FE>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
-detect_charset(<<16#FF, 16#FE, 16#00>> = Bytes, State) ->
-    cf(Bytes, State, fun detect_charset/2);
+    {<<>>, State#xmerl_sax_parser_state{encoding = utf8}};
 detect_charset(<<16#00, 16#3C, 16#00, 16#3F, _/binary>> = Xml, State) ->
     {Xml, State#xmerl_sax_parser_state{encoding={utf16, big}}};
 detect_charset(<<16#3C, 16#00, 16#3F, 16#00, _/binary>> = Xml, State) ->
@@ -4926,3 +4927,24 @@ detect_charset(Bytes, State) ->
             {RealBytes, State#xmerl_sax_parser_state{encoding=Enc}}
     end.
 
+%%----------------------------------------------------------------------
+%% Function  : eecf(Bytes, State, NextCall) -> Result
+%% Parameters: Bytes = binary()
+%%             State = #xmerl_sax_parser_state{}
+%%             NextCall = fun()
+%% Result    : {Bytes, State}
+%% Description: Function used on external binary files regardless of encoding.
+%%              Used to get the first block of binary from a file.
+%%----------------------------------------------------------------------
+eecf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, 
+                                   continuation_state = CState} = State, NextCall) ->
+    try
+        {NewBytes, NewContState} = CFun(CState),
+        NextCall(<<Rest/binary, NewBytes/binary>>,
+                 State#xmerl_sax_parser_state{continuation_state = NewContState})
+    catch
+        throw:ErrorTerm ->
+            ?fatal_error(State, ErrorTerm);
+        exit:Reason ->
+            ?fatal_error(State, {'EXIT', Reason})
+    end.
