@@ -116,8 +116,11 @@ sshc_subtree(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
-    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
-		supervisor:which_children(sshc_sup)),
+    ?wait_match([{{client,ssh_system_sup, LocalIP, LocalPort, ?DEFAULT_PROFILE},
+                  SysSup, supervisor,[ssh_system_sup]}],
+		supervisor:which_children(sshc_sup),
+                [SysSup, LocalIP, LocalPort]),
+    check_sshc_system_tree(SysSup, Pid1, LocalIP, LocalPort, Config),
 
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
@@ -389,11 +392,54 @@ check_sshd_system_tree(Daemon, Config) ->
     
     ?wait_match([], supervisor:which_children(ChannelSup)),
     
-    ssh_sftp:start_channel(Client),
+    {ok,PidC} = ssh_sftp:start_channel(Client),
 
-    ?wait_match([{_, _,worker,[ssh_server_channel]}],
-		supervisor:which_children(ChannelSup)),
+    ?wait_match([{_, PidS,worker,[ssh_server_channel]}],
+		supervisor:which_children(ChannelSup),
+                [PidS]),
+    true = (PidS =/= PidC),
+
     ssh:close(Client).
+
+
+check_sshc_system_tree(SysSup, Connection, LocalIP, LocalPort, _Config) ->
+    ?wait_match([{_,SubSysSup,supervisor,[ssh_subsystem_sup]}],
+                supervisor:which_children(SysSup),
+                [SubSysSup]),
+    ?wait_match([{{client,ssh_connection_sup, LocalIP, LocalPort},
+		  ConnectionSup, supervisor,
+		  [ssh_connection_sup]},
+		 {{client,ssh_channel_sup, LocalIP, LocalPort},
+		  ChannelSup,supervisor,
+		  [ssh_channel_sup]}],
+		supervisor:which_children(SubSysSup),
+		[ConnectionSup,ChannelSup]),
+    ?wait_match([{_, Connection, worker,[ssh_connection_handler]}],
+		supervisor:which_children(ConnectionSup)),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+
+    {ok,ChPid1} = ssh_sftp:start_channel(Connection),
+    ?wait_match([{_,ChPid1,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup)),
+
+    {ok,ChPid2} = ssh_sftp:start_channel(Connection),
+    ?wait_match([{_,ChPidA,worker,[ssh_client_channel]},
+                 {_,ChPidB,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup),
+               [ChPidA, ChPidB]),
+    lists:sort([ChPidA, ChPidB]) == lists:sort([ChPid1, ChPid2]),
+
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
+    exit(ChPid1, kill),
+    ?wait_match([{_,ChPid2,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup)),
+
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
+    exit(ChPid2, kill),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []).
+
+
 
 acceptor_pid(DaemonPid) ->
     Parent = self(),
