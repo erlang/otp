@@ -12073,6 +12073,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
     ASSERT(ctxt->dist_state == NIL);
+    ASSERT(!ctxt->yield);
 
     mdp = erts_monitor_to_data(mon);
 
@@ -12119,10 +12120,12 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
             reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
             break;
         case ERTS_DSIG_SEND_CONTINUE:
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
             break;
         case ERTS_DSIG_SEND_OK:
             break;
@@ -12334,6 +12337,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
     ASSERT(ctxt->dist_state == NIL);
+    ASSERT(!ctxt->yield);
 
     dlnk = erts_link_to_other(lnk, &ldp);
     dist = ((ErtsLinkDataExtended *) ldp)->dist;
@@ -12373,10 +12377,12 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
             reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
             break;
         case ERTS_DSIG_SEND_CONTINUE:
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
             break;
         case ERTS_DSIG_SEND_OK:
             break;
@@ -12799,6 +12805,7 @@ restart:
         trap_state->pectxt.dist_links = NULL;
         trap_state->pectxt.dist_monitors = NULL;
         trap_state->pectxt.dist_state = NIL;
+        trap_state->pectxt.yield = 0;
 
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
 
@@ -12901,7 +12908,7 @@ restart:
             (void *) &trap_state->pectxt,
             &trap_state->yield_state,
             reds);
-        if (reds <= 0 || is_not_nil(trap_state->pectxt.dist_state))
+        if (reds <= 0 || trap_state->pectxt.yield)
             goto yield;
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_MONITORS;
     }
@@ -12916,7 +12923,7 @@ restart:
             (void *) &trap_state->pectxt,
             &trap_state->yield_state,
             reds);
-        if (reds <= 0 || is_not_nil(trap_state->pectxt.dist_state))
+        if (reds <= 0 || trap_state->pectxt.yield)
             goto yield;
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DONE;
@@ -13001,6 +13008,7 @@ restart:
         sys_memcpy(trap_state, &static_state, sizeof(*trap_state));
         p->u.terminate = trap_state;
     }
+    trap_state->pectxt.yield = 0;
 
     ASSERT(p->scheduler_data);
     ASSERT(p->scheduler_data->current_process == p);
