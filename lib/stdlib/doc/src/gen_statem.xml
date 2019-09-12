@@ -33,28 +33,40 @@
   <description>
     <p>
       <c>gen_statem</c> provides a generic state machine behaviour
-      and replaces its predecessor
+      that for new code replaces its predecessor
       <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>
-      since Erlang/OTP 20.0.
+      since Erlang/OTP 20.0. The <c>gen_fsm</c> behaviour remains
+      in OTP "as is".
     </p>
+    <note>
+      <p>
+	If you are new to <c>gen_statem</c> and want an overview
+	of concepts and operation the section
+	<seealso marker="doc/design_principles:statem">
+	  <c>gen_statem</c>&nbsp;Behaviour
+	</seealso>
+	located in the User's Guide
+	<seealso marker="doc/design_principles:users_guide">
+	  OTP Design Principles
+	</seealso>
+	is recommended to read before this reference manual,
+	possibly after the Description section you are reading here.
+      </p>
+    </note>
     <p>
-      This reference manual describes types generated from the types
-      in the <c>gen_statem</c> source code, so they are correct.
+      This reference manual contains type descriptions generated from
+      types in the <c>gen_statem</c> source code, so they are correct.
       However, the generated descriptions also reflect the type hierarchy,
-      which makes them kind of hard to read.
-    </p>
-    <p>
-      To get an overview of the concepts and operation of <c>gen_statem</c>,
-      do read the
+      which sometimes makes it hard to get a good overview.
+      If so, see the section
       <seealso marker="doc/design_principles:statem">
 	<c>gen_statem</c>&nbsp;Behaviour
       </seealso>
-      in
+      in the
       <seealso marker="doc/design_principles:users_guide">
 	OTP Design Principles
       </seealso>
-      which frequently links back to this reference manual to avoid
-      containing detailed facts that may rot by age.
+      User's Guide.
     </p>
     <note>
       <list type="bulleted">
