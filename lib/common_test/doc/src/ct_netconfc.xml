@@ -435,8 +435,8 @@
     </func>
 
     <func>
-      <name name="create_subscription" arity="2" clause_i="1"/>
-      <name name="create_subscription" arity="3" clause_i="1"/>
+      <name name="create_subscription" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="create_subscription" arity="3" clause_i="1" since="OTP 22.1"/>
       <fsummary>Creates a subscription for event notifications.</fsummary>
       <desc>
         <p>Creates a subscription for event notifications by sending
@@ -483,6 +483,13 @@
         <c>StopTime</c> must only be used with <c>StartTime</c> is not
            enforced, to allow an invalid request to be sent to the
            server.</p>
+
+        <p>Prior to OTP 22.1, this function was documented as having
+        15 variants in 6 arities. These are still exported for
+        backwards compatibility, but no longer documented.
+        The map-based variants documented above provide the same
+        functionality with simpler arguments.</p>
+
       </desc>
     </func>
 
