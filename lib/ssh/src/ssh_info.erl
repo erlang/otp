@@ -79,8 +79,8 @@ print_clients() ->
 	lists:map(fun print_client/1,
 		  supervisor:which_children(sshc_sup))
     catch
-	C:E ->
-	    io_lib:format('***print_clients FAILED: ~p:~p~n',[C,E])
+	C:E:S ->
+	    io_lib:format('***print_clients FAILED: ~p:~p,~n ~p~n',[C,E,S])
     end.
 
 print_client({undefined,Pid,supervisor,[ssh_connection_handler]}) ->
@@ -94,9 +94,9 @@ print_client({undefined,Pid,supervisor,[ssh_connection_handler]}) ->
 	    io_lib:format(?INDENT?INDENT?INDENT"No channels~n",[])
      end];
 
-print_client(Other) ->
-    io_lib:format("    [[Other 1: ~p]]~n",[Other]).
-
+print_client({{client,ssh_system_sup,_,_,_},Pid,supervisor,[ssh_system_sup]}) when is_pid(Pid) ->
+    lists:map(fun print_system_sup/1,
+              supervisor:which_children(Pid)).
 
 %%%================================================================
 print_servers() ->
@@ -104,8 +104,8 @@ print_servers() ->
 	lists:map(fun print_server/1,
 		  supervisor:which_children(sshd_sup))
     catch
-	C:E ->
-	    io_lib:format('***print_servers FAILED: ~p:~p~n',[C,E])
+	C:E:S ->
+	    io_lib:format('***print_servers FAILED: ~p:~p,~n ~p~n',[C,E,S])
     end.
 
 
@@ -140,22 +140,33 @@ print_system_sup({{ssh_acceptor_sup,_LocalHost,_LocalPort,_Profile}, Pid, superv
 
 
 
-print_channels({{server,ssh_channel_sup,_,_},Pid,supervisor,[ssh_channel_sup]}) when is_pid(Pid) ->
+print_channels({{Role,ssh_channel_sup,_,_},Pid,supervisor,[ssh_channel_sup]}) when is_pid(Pid) ->
+    ChanBehaviour =
+        case Role of
+            server -> ssh_server_channel;
+            client -> ssh_client_channel
+        end,
     Children =  supervisor:which_children(Pid),
-    ChannelPids = [P || {R,P,worker,[ssh_server_channel]} <- Children,
+    ChannelPids = [P || {R,P,worker,[Mod]} <- Children,
+                        ChanBehaviour == Mod,
 			is_pid(P),
 			is_reference(R)],
     case ChannelPids of
 	[] -> io_lib:format(?INDENT?INDENT"No channels~n",[]);
 	[Ch1Pid|_] ->
-	    {{ConnManager,_}, _Str} = ssh_server_channel:get_print_info(Ch1Pid),
+	    {{ConnManager,_}, _Str} = ChanBehaviour:get_print_info(Ch1Pid),
 	    {{_,Remote},_} = ssh_connection_handler:get_print_info(ConnManager),
 	    [io_lib:format(?INDENT?INDENT"Remote: ~s ConnectionRef = ~p~n",[fmt_host_port(Remote),ConnManager]),
 	     lists:map(fun print_ch/1, ChannelPids)
 	    ]
     end;
-print_channels({{server,ssh_connection_sup,_,_},Pid,supervisor,[ssh_connection_sup]}) when is_pid(Pid) ->
-    []. % The supervisor of the connections socket owning process
+print_channels({{_Role,ssh_connection_sup,_,_},Pid,supervisor,[ssh_connection_sup]}) when is_pid(Pid) ->
+    []; % The supervisor of the connections socket owning process
+
+print_channels({Ref,Pid,supervisor,[ssh_tcpip_forward_acceptor_sup]}) when is_pid(Pid),
+                                                                           is_reference(Ref) ->
+    []. % The supervisor of the forward_acceptor process
+
 
 print_ch(Pid) ->
     try
