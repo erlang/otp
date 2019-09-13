@@ -94,6 +94,8 @@
 
 -export([allocate/1]).
 
+-export([allocate_file_size/1]).
+
 -export([standard_io/1,mini_server/1]).
 
 -export([old_io_protocol/1]).
@@ -145,7 +147,7 @@ groups() ->
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
        {group, consult}, {group, eval}, {group, script},
-       truncate, sync, datasync, advise, allocate]},
+       truncate, sync, datasync, advise, allocate, allocate_file_size]},
      {open, [],
       [open1, old_modes, new_modes, path_open, close, access,
        read_write, pread_write, append, open_errors,
@@ -2034,6 +2036,28 @@ allocate_and_assert(Fd, Offset, Length) ->
             {error, enotsup} = Result;
         _ ->
             _ = Result
+    end.
+
+%% Tests that asserts that file:allocate/3 changes file size
+allocate_file_size(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Windows does not support file:allocate/3"};
+
+        {unix, linux} ->
+            {skip, "file:allocate/3 on Linux does not change file size"};
+
+        _ ->
+            PrivDir = proplists:get_value(priv_dir, Config),
+            Allocate = filename:join(PrivDir, atom_to_list(?MODULE)++"_allocate_file"),
+
+            {ok, Fd} = ?FILE_MODULE:open(Allocate, [write]),
+            ok = ?FILE_MODULE:allocate(Fd, 0, 1024),
+            {ok, 1024} = ?FILE_MODULE:position(Fd, eof),
+            ok = ?FILE_MODULE:close(Fd),
+
+            [] = flush(),
+            ok
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

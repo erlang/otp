@@ -559,17 +559,53 @@ int efile_allocate(efile_data_t *d, Sint64 offset, Sint64 length) {
     } while(ret < 0 && errno == EINTR);
 #elif defined(F_PREALLOCATE)
     /* Mac-specific */
+    off_t original_position, eof_offset;
     fstore_t fs = {};
 
+    if(offset < 0 || length < 0 || (offset > ERTS_SINT64_MAX - length)) {
+        u->common.posix_errno = EINVAL;
+        return 0;
+    }
+
+    original_position = lseek(u->fd, 0, SEEK_CUR);
+
+    if(original_position < 0) {
+        u->common.posix_errno = errno;
+        return 0;
+    }
+
+    eof_offset = lseek(u->fd, 0, SEEK_END);
+
+    if(eof_offset < 0 || lseek(u->fd, original_position, SEEK_SET) < 0) {
+        u->common.posix_errno = errno;
+        return 0;
+    }
+
+    if(offset + length <= eof_offset) {
+        /* File is already large enough. */
+        return 1;
+    }
+
     fs.fst_flags = F_ALLOCATECONTIG;
-    fs.fst_posmode = F_VOLPOSMODE;
-    fs.fst_offset = offset;
-    fs.fst_length = length;
+    fs.fst_posmode = F_PEOFPOSMODE;
+    fs.fst_offset = 0;
+    fs.fst_length = (offset + length) - eof_offset;
 
     ret = fcntl(u->fd, F_PREALLOCATE, &fs);
     if(ret < 0) {
         fs.fst_flags = F_ALLOCATEALL;
         ret = fcntl(u->fd, F_PREALLOCATE, &fs);
+    }
+
+    if(ret >= 0) {
+        /* We MUST truncate since F_PREALLOCATE works relative to end-of-file,
+         * otherwise we will expand the file on repeated calls to
+         * file:allocate/3 with the same arguments. */
+        ret = ftruncate(u->fd, offset + length);
+        if(ret < 0) {
+            u->common.posix_errno = errno;
+            return 0;
+        }
     }
 #elif !defined(HAVE_POSIX_FALLOCATE)
     u->common.posix_errno = ENOTSUP;
