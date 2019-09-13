@@ -135,6 +135,7 @@ move_deallocate_return(Src, Deallocate) {
     Eterm src = $Src;
     E = ADD_BYTE_OFFSET(E, bytes_to_pop);
     x(0) = src;
+    DTRACE_RETURN_FROM_PC(c_p, I);
     $RETURN();
     CHECK_TERM(x(0));
     $DISPATCH_RETURN();
@@ -374,9 +375,8 @@ i_call_fun_last(Fun, Deallocate) {
 
 return() {
     //| -no_next
+    DTRACE_RETURN_FROM_PC(c_p, I);
     $RETURN();
-
-    DTRACE_RETURN_FROM_PC(c_p);
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
 
@@ -672,6 +672,7 @@ move_window5(S1, S2, S3, S4, S5, D) {
 move_return(Src) {
     //| -no_next
     x(0) = $Src;
+    DTRACE_RETURN_FROM_PC(c_p, I);
     $RETURN();
     $DISPATCH_RETURN();
 }
