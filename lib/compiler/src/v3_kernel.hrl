@@ -64,7 +64,6 @@
 -record(k_protected, {anno=[],arg,ret=[],inner}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
--record(k_guard_match, {anno=[],vars,body,ret=[]}).
 -record(k_match, {anno=[],vars,body,ret=[]}).
 -record(k_alt, {anno=[],first,then}).
 -record(k_select, {anno=[],var,types}).
@@ -74,7 +73,6 @@
 -record(k_guard_clause, {anno=[],guard,body}).
 
 -record(k_break, {anno=[],args=[]}).
--record(k_guard_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).
 
 %%k_get_anno(Thing) -> element(2, Thing).

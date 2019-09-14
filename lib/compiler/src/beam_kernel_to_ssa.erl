@@ -106,8 +106,6 @@ make_failure(Reason, St0) ->
 
 cg(#k_match{body=M,ret=Rs}, St) ->
     do_match_cg(M, Rs, St);
-cg(#k_guard_match{body=M,ret=Rs}, St) ->
-    do_match_cg(M, Rs, St);
 cg(#k_seq{arg=Arg,body=Body}, St0) ->
     {ArgIs,St1} = cg(Arg, St0),
     {BodyIs,St} = cg(Body, St1),
@@ -139,9 +137,7 @@ cg(#k_return{args=[Ret0]}, St) ->
     {[#b_ret{arg=Ret}],St};
 cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
     Args = ssa_args(Bs, St),
-    {[#cg_break{args=Args,phi=Br}],St};
-cg(#k_guard_break{args=Bs}, St) ->
-    cg(#k_break{args=Bs}, St).
+    {[#cg_break{args=Args,phi=Br}],St}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.

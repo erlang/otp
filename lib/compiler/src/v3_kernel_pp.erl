@@ -166,16 +166,6 @@ format_1(#k_match{vars=Vs,body=Bs,ret=Rs}, Ctxt) ->
      "end",
      format_ret(Rs, Ctxt1)
     ];
-format_1(#k_guard_match{vars=Vs,body=Bs,ret=Rs}, Ctxt) ->
-    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
-    ["guard_match ",
-     format_hseq(Vs, ",", ctxt_bump_indent(Ctxt, 6), fun format/2),
-     nl_indent(Ctxt1),
-     format(Bs, Ctxt1),
-     nl_indent(Ctxt),
-     "end",
-     format_ret(Rs, Ctxt1)
-    ];
 format_1(#k_alt{first=O,then=T}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
     ["alt",
@@ -318,11 +308,6 @@ format_1(#k_break{args=As}, Ctxt) ->
     ["<",
      format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      ">"
-    ];
-format_1(#k_guard_break{args=As}, Ctxt) ->
-    [":<",
-     format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
-     ">:"
     ];
 format_1(#k_return{args=As}, Ctxt) ->
     ["<<",

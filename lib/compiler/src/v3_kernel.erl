@@ -1869,12 +1869,7 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
     {#k_return{anno=A,args=As},Au,St};
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
-    case is_in_guard(St) of
-	true ->
-	    {#k_guard_break{anno=A,args=As},Au,St};
-	false ->
-	    {#k_break{anno=A,args=As},Au,St}
-    end;
+    {#k_break{anno=A,args=As},Au,St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -1992,14 +1987,7 @@ uexpr(#k_bif{anno=A,op=Op,args=As}=Bif, {break,Rs}, St0) ->
 uexpr(#k_match{anno=A,vars=Vs,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
-    case is_in_guard(St1) of
-	true ->
-	    {#k_guard_match{anno=A,
-			    vars=Vs,body=B1,ret=Rs},Bu,St1};
-	false ->
-	    {#k_match{anno=A,
-		      vars=Vs,body=B1,ret=Rs},Bu,St1}
-    end;
+    {#k_match{anno=A,vars=Vs,body=B1,ret=Rs},Bu,St1};
 uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
     Rs = break_rets(Br),
     Tu = lit_vars(T),				%Timeout is atomic
