@@ -446,8 +446,7 @@ build_bs_instr(Anno, Type, Fail, Ctx, Size, Unit0, Flags0, Dst, St0) ->
     {[Get|Is],St}.
 
 select_val(#k_val_clause{val=#k_tuple{es=Es},body=B}, V, Vf, St0) ->
-    #k{us=Used} = k_get_anno(B),
-    {Eis,St1} = select_extract_tuple(V, Es, Used, St0),
+    {Eis,St1} = select_extract_tuple(V, Es, St0),
     {Bis,St2} = match_cg(B, Vf, St1),
     {length(Es),Eis ++ Bis,St2};
 select_val(#k_val_clause{val=Val0,body=B}, _V, Vf, St0) ->
@@ -468,17 +467,18 @@ select_val(#k_val_clause{val=Val0,body=B}, _V, Vf, St0) ->
 %%  It is probably worthwhile because it is common to extract only a
 %%  few elements from a huge record.
 
-select_extract_tuple(Src, Vs, Used, St0) ->
+select_extract_tuple(Src, Vs, St0) ->
     Tuple = ssa_arg(Src, St0),
-    F = fun (#k_var{name=V}, {Elem,S0}) ->
-                case member(V, Used) of
+    F = fun (#k_var{anno=Anno,name=V}, {Elem,S0}) ->
+                case member(unused, Anno) of
                     true ->
+                        {[],{Elem+1,S0}};
+                    false ->
                         Args = [Tuple,#b_literal{val=Elem}],
                         {Dst,S} = new_ssa_var(V, S0),
-                        Get = #b_set{op=get_tuple_element,dst=Dst,args=Args},
-                        {[Get],{Elem+1,S}};
-                    false ->
-                        {[],{Elem+1,S0}}
+                        Get = #b_set{op=get_tuple_element,
+                                     dst=Dst,args=Args},
+                        {[Get],{Elem+1,S}}
                 end
         end,
     {Es,{_,St}} = flatmapfoldl(F, {0,St0}, Vs),
@@ -979,7 +979,7 @@ put_cg_map(LineAnno, Op, SrcMap, Dst, List, St0) ->
 cg_binary(Dst, Segs0, FailCtx, Le, St0) ->
     {PutCode0,SzCalc0,St1} = cg_bin_put(Segs0, FailCtx, St0),
     LineAnno = line_anno(Le),
-    Anno = Le#k.a,
+    Anno = Le,
     case PutCode0 of
         [#b_set{op=bs_put,dst=Bool,args=[_,_,Src,#b_literal{val=all}|_]},
          #b_br{bool=Bool},
@@ -1183,23 +1183,20 @@ new_label(#cg{lcount=Next}=St) ->
 %%  current filename and line number.  The annotation should be
 %%  included in any operation that could cause an exception.
 
-line_anno(#k{a=Anno}) ->
-    line_anno_1(Anno).
-
-line_anno_1([Line,{file,Name}]) when is_integer(Line) ->
-    line_anno_2(Name, Line);
-line_anno_1([_|_]=A) ->
+line_anno([Line,{file,Name}]) when is_integer(Line) ->
+    line_anno_1(Name, Line);
+line_anno([_|_]=A) ->
     {Name,Line} = find_loc(A, no_file, 0),
-    line_anno_2(Name, Line);
-line_anno_1([]) ->
+    line_anno_1(Name, Line);
+line_anno([]) ->
     #{}.
 
-line_anno_2(no_file, _) ->
+line_anno_1(no_file, _) ->
     #{};
-line_anno_2(_, 0) ->
+line_anno_1(_, 0) ->
     %% Missing line number or line number 0.
     #{};
-line_anno_2(Name, Line) ->
+line_anno_1(Name, Line) ->
     #{location=>{Name,Line}}.
 
 find_loc([Line|T], File, _) when is_integer(Line) ->
@@ -1317,5 +1314,3 @@ drop_upto_label([#cg_break{phi=Target}|Is], Map) ->
     drop_upto_label(Is, Map#{Target=>Pairs});
 drop_upto_label([_|Is], Map) ->
     drop_upto_label(Is, Map).
-
-k_get_anno(Thing) -> element(2, Thing).

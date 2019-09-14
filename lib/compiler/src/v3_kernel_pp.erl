@@ -57,8 +57,6 @@ format(Node, Ctxt) ->
 	    format_1(Node, Ctxt);
 	[L,{file,_}] when is_integer(L) ->
 	    format_1(Node, Ctxt);
-	#k{a=Anno}=K when Anno =/= [] ->
-	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
 	List ->
 	    format_anno(List, Ctxt, fun (Ctxt1) ->
 					    format_1(Node, Ctxt1)

@@ -24,11 +24,6 @@
 %% this could make including this file difficult.
 %% N.B. the annotation field is ALWAYS the first field!
 
-%% Kernel annotation record.
--record(k, {us,					%Used variables
-	    ns,					%New variables
-	    a}).				%Core annotation
-
 %% Literals
 %% NO CHARACTERS YET.
 %%-record(k_char, {anno=[],val}).

@@ -29,11 +29,7 @@
 %%
 %% 3. Pattern matching (in cases and receives) has been compiled.
 %%
-%% 4. The annotations contain variable usages.  Seeing we have to work
-%% this out anyway for funs we might as well pass it on for free to
-%% later passes.
-%%
-%% 5. All remote-calls are to statically named m:f/a. Meta-calls are
+%% 4. All remote-calls are to statically named m:f/a. Meta-calls are
 %% passed via erlang:apply/3.
 %%
 %% The translation is done in two passes:
@@ -86,7 +82,8 @@
 		keyfind/3,keyreplace/4,
                 last/1,partition/2,reverse/1,
                 splitwith/2]).
--import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
+-import(ordsets, [add_element/2,del_element/2,intersection/2,
+                  subtract/2,union/2,union/1]).
 -import(cerl, [c_tuple/1]).
 
 -include("core_parse.hrl").
@@ -173,7 +170,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
-        {make_fdef(#k{us=[],ns=[],a=Ab}, F, Arity, Kvs, B1),St3}
+        {make_fdef(Ab, F, Arity, Kvs, B1),St3}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
@@ -1866,17 +1863,17 @@ ubody(#iset{anno=A,vars=Vs,arg=E0,body=B0}, Br, St0) ->
     {B1,Bu,St2} = ubody(B0, Br, St1),
     Ns = lit_list_vars(Vs),
     Used = union(Eu, subtract(Bu, Ns)),		%Used external vars
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
+    {#k_seq{anno=A,arg=E1,body=B1},Used,St2};
 ubody(#ivalues{anno=A,args=As}, return, St) ->
     Au = lit_list_vars(As),
-    {#k_return{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
+    {#k_return{anno=A,args=As},Au,St};
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
     case is_in_guard(St) of
 	true ->
-	    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
+	    {#k_guard_break{anno=A,args=As},Au,St};
 	false ->
-	    {#k_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St}
+	    {#k_break{anno=A,args=As},Au,St}
     end;
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
@@ -1932,8 +1929,7 @@ iletrec_funs_gen(Fs, FreeVs, St) ->
 		  Arity0 = length(Vs),
 		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0#kern{ff={N,Arity0}}),
 		  Arity = Arity0 + length(FreeVs),
-                  Fun = make_fdef(#k{us=[],ns=[],a=Fa}, N, Arity,
-                                  Vs++FreeVs, Fb1),
+                  Fun = make_fdef(Fa, N, Arity, Vs++FreeVs, Fb1),
 		  Lst1#kern{funs=[Fun|Lst1#kern.funs]}
 	  end, St, Fs).
 
@@ -1956,56 +1952,52 @@ is_enter_expr(#k_receive_next{}) -> true;
 is_enter_expr(_) -> false.
 
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
-%%  Tag an expression with its used variables.
+%%  Calculate the used variables for an expression.
 %%  Break = return | {break,[RetVar]}.
 
 uexpr(#k_test{anno=A,op=Op,args=As}=Test, {break,Rs}, St) ->
     [] = Rs,					%Sanity check
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
-     Used,St};
+    {Test#k_test{anno=A},Used,St};
 uexpr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, {break,_}=Br, St0) ->
     Ns = lit_list_vars(Vs),
     {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
     {B1,Bu,St2} = uexpr(B0, Br, St1),
     Used = union(Eu, subtract(Bu, Ns)),
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
+    {#k_seq{anno=A,arg=E1,body=B1},Used,St2};
 uexpr(#k_call{anno=A,op=#k_local{name=F,arity=Ar}=Op,args=As0}=Call, Br, St) ->
     Free = get_free(F, Ar, St),
     As1 = As0 ++ Free,				%Add free variables LAST!
     Used = lit_list_vars(As1),
     {case Br of
 	 {break,Rs} ->
-	     Call#k_call{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},
+	     Call#k_call{anno=A,
 			 op=Op#k_local{arity=Ar + length(Free)},
 			 args=As1,ret=Rs};
 	 return ->
-	     #k_enter{anno=#k{us=Used,ns=[],a=A},
+	     #k_enter{anno=A,
 		      op=Op#k_local{arity=Ar + length(Free)},
 		      args=As1}
      end,Used,St};
 uexpr(#k_call{anno=A,op=Op,args=As}=Call, {break,Rs}, St) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {Call#k_call{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},ret=Rs},
-     Used,St};
+    {Call#k_call{anno=A,ret=Rs},Used,St};
 uexpr(#k_call{anno=A,op=Op,args=As}, return, St) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {#k_enter{anno=#k{us=Used,ns=[],a=A},op=Op,args=As},
-     Used,St};
+    {#k_enter{anno=A,op=Op,args=As},Used,St};
 uexpr(#k_bif{anno=A,op=Op,args=As}=Bif, {break,Rs}, St0) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
     {Brs,St1} = bif_returns(Op, Rs, St0),
-    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Brs),a=A},ret=Brs},
-     Used,St1};
+    {Bif#k_bif{anno=A,ret=Brs},Used,St1};
 uexpr(#k_match{anno=A,vars=Vs,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
     case is_in_guard(St1) of
 	true ->
-	    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
+	    {#k_guard_match{anno=A,
 			    vars=Vs,body=B1,ret=Rs},Bu,St1};
 	false ->
-	    {#k_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
+	    {#k_match{anno=A,
 		      vars=Vs,body=B1,ret=Rs},Bu,St1}
     end;
 uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
@@ -2014,13 +2006,12 @@ uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
     {B1,Bu,St1} = umatch(B0, Br, St0),
     {A1,Au,St2} = ubody(A0, Br, St1),
     Used = del_element(V#k_var.name, union(Bu, union(Tu, Au))),
-    {#k_receive{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},
-		var=V,body=B1,timeout=T,action=A1,ret=Rs},
+    {#k_receive{anno=A,var=V,body=B1,timeout=T,action=A1,ret=Rs},
      Used,St2};
 uexpr(#k_receive_accept{anno=A}, _, St) ->
-    {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
+    {#k_receive_accept{anno=A},[],St};
 uexpr(#k_receive_next{anno=A}, _, St) ->
-    {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
+    {#k_receive_next{anno=A},[],St};
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
     case is_in_guard(St0) of
@@ -2029,8 +2020,7 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
 	    #k_atom{val=false} = H0,		%Assertion.
 	    {Avs,St1} = new_vars(length(Rs0), St0),
 	    {A1,Bu,St} = uexpr(A0, {break,Avs}, St1),
-	    {#k_protected{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
-			  arg=A1,ret=Rs0,inner=Avs},Bu,St};
+	    {#k_protected{anno=A,arg=A1,ret=Rs0,inner=Avs},Bu,St};
 	false ->
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
@@ -2038,8 +2028,7 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
 	    {H1,Hu,St4} = ubody(H0, Br, St3),
 	    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 			  subtract(Hu, lit_list_vars(Evs))]),
-	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs0),a=A},
-		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs0},
+	    {#k_try{anno=A,arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs0},
 	     Used,St4}
     end;
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
@@ -2050,8 +2039,7 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
     {H1,Hu,St4} = ubody(H0, return, St3),
     Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 		  subtract(Hu, lit_list_vars(Evs))]),
-    {#k_try_enter{anno=#k{us=Used,ns=[],a=A},
-		  arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1},
+    {#k_try_enter{anno=A,arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1},
      Used,St4};
 uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     {Rb,St1} = new_var(St0),
@@ -2059,7 +2047,7 @@ uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     %% Guarantee ONE return variable.
     {Ns,St3} = new_vars(1 - length(Rs0), St2),
     Rs1 = Rs0 ++ Ns,
-    {#k_catch{anno=#k{us=Bu,ns=lit_list_vars(Rs1),a=A},body=B1,ret=Rs1},Bu,St3};
+    {#k_catch{anno=A,body=B1,ret=Rs1},Bu,St3};
 uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     {B1,Bu,St1} = ubody(B0, return, St0),	%Return out of new function
     Ns = lit_list_vars(Vs),
@@ -2074,8 +2062,8 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 		%% No id annotation. Must invent a fun name.
 		new_fun_name(St1)
 	end,
-    Fun = make_fdef(#k{us=[],ns=[],a=A}, Fname, Arity, Vs++Fvs, B1),
-    {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
+    Fun = make_fdef(A, Fname, Arity, Vs++Fvs, B1),
+    {#k_bif{anno=A,
 	    op=#k_internal{name=make_fun,arity=length(Free)+2},
 	    args=[#k_atom{val=Fname},#k_int{val=Arity}|Fvs],
  	    ret=Rs},
@@ -2085,8 +2073,7 @@ uexpr(Lit, {break,Rs0}, St0) ->
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
     Used = lit_vars(Lit),
     {Rs,St1} = ensure_return_vars(Rs0, St0),
-    {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St1}.
+    {#k_put{anno=get_kanno(Lit),arg=Lit,ret=Rs},Used,St1}.
 
 add_local_function(_, #kern{funs=ignore}=St) ->
     St;
@@ -2109,8 +2096,7 @@ make_fdef(Anno, Name, Arity, Vs, #k_match{}=Body) ->
     #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Body};
 make_fdef(Anno, Name, Arity, Vs, Body) ->
     Ka = get_kanno(Body),
-    Match = #k_match{anno=#k{us=Ka#k.us,ns=[],a=Ka#k.a},
-                     vars=Vs,body=Body,ret=[]},
+    Match = #k_match{anno=Ka,vars=Vs,body=Body,ret=[]},
     #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Match}.
 
 %% get_free(Name, Arity, State) -> [Free].
@@ -2148,34 +2134,32 @@ ensure_return_vars([], St) -> new_vars(1, St);
 ensure_return_vars([_]=Rs, St) -> {Rs,St}.
 
 %% umatch(Match, Break, State) -> {Match,[UsedVar],State}.
-%%  Tag a match expression with its used variables.
+%%  Calculate the used variables for a match expression.
 
 umatch(#k_alt{anno=A,first=F0,then=T0}, Br, St0) ->
     {F1,Fu,St1} = umatch(F0, Br, St0),
     {T1,Tu,St2} = umatch(T0, Br, St1),
     Used = union(Fu, Tu),
-    {#k_alt{anno=#k{us=Used,ns=[],a=A},first=F1,then=T1},
-     Used,St2};
+    {#k_alt{anno=A,first=F1,then=T1},Used,St2};
 umatch(#k_select{anno=A,var=V,types=Ts0}, Br, St0) ->
     {Ts1,Tus,St1} = umatch_list(Ts0, Br, St0),
     Used = case member(no_usage, get_kanno(V)) of
 	       true -> Tus;
 	       false -> add_element(V#k_var.name, Tus)
 	   end,
-    {#k_select{anno=#k{us=Used,ns=[],a=A},var=V,types=Ts1},Used,St1};
+    {#k_select{anno=A,var=V,types=Ts1},Used,St1};
 umatch(#k_type_clause{anno=A,type=T,values=Vs0}, Br, St0) ->
     {Vs1,Vus,St1} = umatch_list(Vs0, Br, St0),
-    {#k_type_clause{anno=#k{us=Vus,ns=[],a=A},type=T,values=Vs1},Vus,St1};
+    {#k_type_clause{anno=A,type=T,values=Vs1},Vus,St1};
 umatch(#k_val_clause{anno=A,val=P0,body=B0}, Br, St0) ->
     {U0,Ps} = pat_vars(P0),
-    P = set_kanno(P0, #k{us=U0,ns=Ps,a=get_kanno(P0)}),
     {B1,Bu,St1} = umatch(B0, Br, St0),
+    P = pat_anno_unused(P0, Bu, Ps),
     Used = union(U0, subtract(Bu, Ps)),
-    {#k_val_clause{anno=#k{us=Used,ns=[],a=A},val=P,body=B1},
-     Used,St1};
+    {#k_val_clause{anno=A,val=P,body=B1},Used,St1};
 umatch(#k_guard{anno=A,clauses=Gs0}, Br, St0) ->
     {Gs1,Gus,St1} = umatch_list(Gs0, Br, St0),
-    {#k_guard{anno=#k{us=Gus,ns=[],a=A},clauses=Gs1},Gus,St1};
+    {#k_guard{anno=A,clauses=Gs1},Gus,St1};
 umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G0]),
     {G1,Gu,St1} = uexpr(G0, {break,[]},
@@ -2183,7 +2167,7 @@ umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G1]),
     {B1,Bu,St2} = umatch(B0, Br, St1#kern{guard_refc=St1#kern.guard_refc-1}),
     Used = union(Gu, Bu),
-    {#k_guard_clause{anno=#k{us=Used,ns=[],a=A},guard=G1,body=B1},Used,St2};
+    {#k_guard_clause{anno=A,guard=G1,body=B1},Used,St2};
 umatch(B0, Br, St0) -> ubody(B0, Br, St0).
 
 umatch_list(Ms0, Br, St) ->
@@ -2191,6 +2175,19 @@ umatch_list(Ms0, Br, St) ->
 		  {M1,Mu,Stb} = umatch(M0, Br, Sta),
 		  {[M1|Ms1],union(Mu, Us),Stb}
 	  end, {[],[],St}, Ms0).
+
+pat_anno_unused(#k_tuple{es=Es0}=P, Used0, Ps) ->
+    %% Not extracting unused tuple elements is an optimization for
+    %% compile time and memory use during compilation. It is probably
+    %% worthwhile because it is common to extract only a few elements
+    %% from a huge record.
+    Used = intersection(Used0, Ps),
+    Es = [case member(V, Used) of
+              true -> Var;
+              false -> set_kanno(Var, [unused|get_kanno(Var)])
+          end || #k_var{name=V}=Var <- Es0],
+    P#k_tuple{es=Es};
+pat_anno_unused(P, _Used, _Ps) -> P.
 
 %% op_vars(Op) -> [VarName].
 
