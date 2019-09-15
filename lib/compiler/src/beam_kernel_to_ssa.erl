@@ -266,7 +266,7 @@ select_cons(#k_val_clause{val=#k_cons{hd=Hd,tl=Tl},body=B},
     {Is,St} = make_cond_branch(is_nonempty_list, [Src], Tf, St2),
     {Is ++ Eis ++ Bis,St}.
 
-select_nil(#k_val_clause{val=#k_nil{},body=B}, V, Tf, Vf, St0) ->
+select_nil(#k_val_clause{val=#k_literal{val=[]},body=B}, V, Tf, Vf, St0) ->
     {Bis,St1} = match_cg(B, Vf, St0),
     Src = ssa_arg(V, St1),
     {Is,St} = make_cond_branch({bif,'=:='}, [Src,#b_literal{val=[]}], Tf, St1),
@@ -404,12 +404,12 @@ select_extract_bin(#k_var{name=Hd}, Size0, Unit, Type, Flags, Vf,
     Size = ssa_arg(Size0, St0),
     build_bs_instr(Anno, Type, Vf, Ctx, Size, Unit, Flags, Dst, St1).
 
-select_extract_int(#k_var{name=Tl}, 0, #k_int{val=0}, _U, _Fs, _Vf,
+select_extract_int(#k_var{name=Tl}, 0, #k_literal{val=0}, _U, _Fs, _Vf,
                    Ctx, St0) ->
     St = set_ssa_var(Tl, Ctx, St0),
     {[],St};
-select_extract_int(#k_var{name=Tl}, Val, #k_int{val=Sz}, U, Fs, Vf,
-                   Ctx, St0) ->
+select_extract_int(#k_var{name=Tl}, Val, #k_literal{val=Sz}, U, Fs, Vf,
+                   Ctx, St0) when is_integer(Sz) ->
     {Dst,St1} = new_ssa_var(Tl, St0),
     Bits = U*Sz,
     Bin = case member(big, Fs) of
@@ -445,13 +445,7 @@ select_val(#k_val_clause{val=#k_tuple{es=Es},body=B}, V, Vf, St0) ->
     {Eis,St1} = select_extract_tuple(V, Es, St0),
     {Bis,St2} = match_cg(B, Vf, St1),
     {length(Es),Eis ++ Bis,St2};
-select_val(#k_val_clause{val=Val0,body=B}, _V, Vf, St0) ->
-    Val = case Val0 of
-              #k_atom{val=Lit} -> Lit;
-              #k_float{val=Lit} -> Lit;
-              #k_int{val=Lit} -> Lit;
-              #k_literal{val=Lit} -> Lit
-          end,
+select_val(#k_val_clause{val=#k_literal{val=Val},body=B}, _V, Vf, St0) ->
     {Bis,St1} = match_cg(B, Vf, St0),
     {Val,Bis,St1}.
 
@@ -530,7 +524,7 @@ guard_clause_cg(#k_guard_clause{guard=G,body=B}, Fail, St0) ->
 guard_cg(#k_protected{arg=Ts,ret=Rs,inner=Inner}, Fail, St) ->
     protected_cg(Ts, Rs, Inner, Fail, St);
 guard_cg(#k_test{op=Test0,args=As}, Fail, St0) ->
-    #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Test}} = Test0,
+    #k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Test}} = Test0,
     test_cg(Test, false, As, Fail, St0);
 guard_cg(#k_seq{arg=Arg,body=Body}, Fail, St0) ->
     {ArgIs,St1} = guard_cg(Arg, Fail, St0),
@@ -646,8 +640,8 @@ call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% Inside a guard. The only allowed function call is to
             %% erlang:error/1,2. We will generate a branch to the
             %% failure branch.
-            #k_remote{mod=#k_atom{val=erlang},
-                      name=#k_atom{val=error}} = Func0, %Assertion.
+            #k_remote{mod=#k_literal{val=erlang},
+                      name=#k_literal{val=error}} = Func0, %Assertion.
             [#k_var{name=DestVar}] = Rs,
             St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
@@ -694,20 +688,18 @@ call_target(Func, As, St) ->
 
 bif_cg(#k_bif{op=#k_internal{name=Name},args=As,ret=Rs}, Le, St) ->
     internal_cg(Name, As, Rs, Le, St);
-bif_cg(#k_bif{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}},
+bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
 
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(make_fun, [Name0,Arity0|As], Rs, _Le, St0) ->
-    #k_atom{val=Name} = Name0,
-    #k_int{val=Arity} = Arity0,
+internal_cg(make_fun, As, Rs, _Le, St0) ->
     [#k_var{name=Dst0}] = Rs,
     {Dst,St} = new_ssa_var(Dst0, St0),
-    Args = ssa_args(As, St),
-    Local = #b_local{name=#b_literal{val=Name},arity=Arity},
+    [Name,#b_literal{val=Arity}|Args] = ssa_args(As, St),
+    Local = #b_local{name=Name,arity=Arity},
     MakeFun = #b_set{op=make_fun,dst=Dst,args=[Local|Args]},
     {[MakeFun],St};
 internal_cg(bs_init_writable=I, As, [#k_var{name=Dst0}], _Le, St0) ->
@@ -808,7 +800,7 @@ cg_recv_mesg(#k_var{name=R}, Rm, Tl, Le, St0) ->
 
 %% cg_recv_wait(Te, Tes, St) -> {[Ainstr],St}.
 
-cg_recv_wait(#k_int{val=0}, Es, St0) ->
+cg_recv_wait(#k_literal{val=0}, Es, St0) ->
     {Tis,St} = cg(Es, St0),
     {[#b_set{op=timeout}|Tis],St};
 cg_recv_wait(Te, Es, St0) ->
@@ -1141,11 +1133,7 @@ ssa_args(As, St) ->
     [ssa_arg(A, St) || A <- As].
 
 ssa_arg(#k_var{name=V}, #cg{vars=Vars}) -> maps:get(V, Vars);
-ssa_arg(#k_literal{val=V}, _) -> #b_literal{val=V};
-ssa_arg(#k_atom{val=V}, _) -> #b_literal{val=V};
-ssa_arg(#k_float{val=V}, _) -> #b_literal{val=V};
-ssa_arg(#k_int{val=V}, _) -> #b_literal{val=V};
-ssa_arg(#k_nil{}, _) -> #b_literal{val=[]}.
+ssa_arg(#k_literal{val=V}, _) -> #b_literal{val=V}.
 
 new_ssa_vars(Vs, St) ->
     mapfoldl(fun(#k_var{name=V}, S) ->
