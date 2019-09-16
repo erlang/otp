@@ -811,9 +811,10 @@ connection(internal, #client_hello{},
     State = reinit_handshake_data(State0),
     next_event(?FUNCTION_NAME, no_record, State);
 
-connection(internal, #new_session_ticket{}, State) ->
+connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     %% TLS 1.3
     %% Drop NewSessionTicket (currently not supported)
+    handle_new_session_ticket(NewSessionTicket, State),
     next_event(?FUNCTION_NAME, no_record, State);
 
 connection(Type, Event, State) ->
@@ -1325,3 +1326,35 @@ effective_version(undefined, #{versions := [Version|_]}) ->
     Version;
 effective_version(Version, _) ->
     Version.
+
+
+handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := false}}) ->
+    ok;
+handle_new_session_ticket(NewSessionTicket, #state{connection_states = ConnectionStates,
+                                                   ssl_options = #{session_tickets := true,
+                                                                   server_name_indication := SNI}}) ->
+    #{security_parameters := SecParams} =
+	ssl_record:current_connection_state(ConnectionStates, read),
+    HKDF = SecParams#security_parameters.prf_algorithm,
+
+    %% TODO
+    RMS = undefined,
+    store_session_ticket(NewSessionTicket, HKDF, SNI, RMS).
+
+
+%% ===== Prototype =====
+store_session_ticket(NewSessionTicket, HKDF, SNI, RMS) ->
+    TicketDb =
+        case ets:whereis(tls13_session_ticket_db) of
+            undefined ->
+                ets:new(tls13_session_ticket_db, [named_table, ordered_set]);
+            Tid ->
+                Tid
+        end,
+    Id = make_ticket_id(NewSessionTicket),
+    ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, RMS, NewSessionTicket}).
+
+
+make_ticket_id(NewSessionTicket) ->
+    {_, B} = tls_handshake_1_3:encode_handshake(NewSessionTicket),
+    crypto:hash(sha256, B).
