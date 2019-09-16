@@ -273,7 +273,7 @@ encode_handshake(#new_session_ticket{
     TicketSize = byte_size(Ticket),
     BinExts = encode_extensions(Exts),
     {?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
-                            ?BYTE(Nonce), ?UINT16(TicketSize), Ticket/binary,
+                            Nonce/binary, ?UINT16(TicketSize), Ticket/binary,
                             BinExts/binary>>};
 encode_handshake(#end_of_early_data{}) ->
     {?END_OF_EARLY_DATA, <<>>};
