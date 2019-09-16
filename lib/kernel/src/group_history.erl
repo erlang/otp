@@ -131,11 +131,15 @@ repair_log(Name) ->
 %% Return whether the shell history is enabled or not
 -spec history_status() -> enabled | disabled.
 history_status() ->
-    case is_user() orelse init_running() orelse application:get_env(kernel, shell_history) of
-        true -> disabled; % don't run for user proc
-        {ok, enabled} -> enabled;
-        undefined -> ?DEFAULT_STATUS;
-        _ -> disabled
+    %% Don't run for user proc or if the emulator's tearing down
+    Skip = is_user() orelse not init_running(),
+    case application:get_env(kernel, shell_history) of
+        {ok, enabled} when not Skip ->
+            enabled;
+        undefined when not Skip ->
+            ?DEFAULT_STATUS;
+        _ ->
+            disabled
     end.
 
 %% Return whether the user process is running this
