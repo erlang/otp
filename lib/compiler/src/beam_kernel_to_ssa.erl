@@ -671,8 +671,8 @@ enter_cg(Func, As0, Le, St0) ->
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
 
-bif_cg(#k_bif{op=#k_internal{name=Name},args=As,ret=Rs}, Le, St) ->
-    internal_cg(Name, As, Rs, Le, St);
+bif_cg(#k_bif{op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
+    internal_cg(Name, As, Rs, St);
 bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
@@ -680,24 +680,7 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}}
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(make_fun, As, Rs, _Le, St0) ->
-    [#k_var{name=Dst0}] = Rs,
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Args = ssa_args(As, St),
-    MakeFun = #b_set{op=make_fun,dst=Dst,args=Args},
-    {[MakeFun],St};
-internal_cg(bs_init_writable=I, As, [#k_var{name=Dst0}], _Le, St0) ->
-    %% This behaves like a function call.
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Args = ssa_args(As, St),
-    Set = #b_set{op=I,dst=Dst,args=Args},
-    {[Set],St};
-internal_cg(build_stacktrace=I, As, [#k_var{name=Dst0}], _Le, St0) ->
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Args = ssa_args(As, St),
-    Set = #b_set{op=I,dst=Dst,args=Args},
-    {[Set],St};
-internal_cg(raise, As, [#k_var{name=Dst0}], _Le, St0) ->
+internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
     Args = ssa_args(As, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
     Resume = #b_set{op=resume,dst=Dst,args=Args},
@@ -708,11 +691,11 @@ internal_cg(raise, As, [#k_var{name=Dst0}], _Le, St0) ->
             Is = [Resume,make_uncond_branch(Catch),#cg_unreachable{}],
             {Is,St}
     end;
-internal_cg(raw_raise=I, As, [#k_var{name=Dst0}], _Le, St0) ->
+internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
     Args = ssa_args(As, St),
-    Set = #b_set{op=I,dst=Dst,args=Args},
+    Set = #b_set{op=Op,dst=Dst,args=Args},
     {[Set],St}.
 
 bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->
