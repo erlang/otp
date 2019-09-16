@@ -384,54 +384,24 @@ expr(#c_receive{anno=A,clauses=Ccs0,timeout=Ce,action=Ca}, Sub, St0) ->
      Pe,St5};
 expr(#c_apply{anno=A,op=Cop,args=Cargs}, Sub, St) ->
     c_apply(A, Cop, Cargs, Sub, St);
-expr(#c_call{anno=A,module=#c_literal{val=erlang},name=#c_literal{val=is_record},
-	     args=[_,Tag,Sz]=Args0}, Sub, St0) ->
-    {Args,Ap,St} = atomic_list(Args0, Sub, St0),
-    Remote = #k_remote{mod=#k_literal{val=erlang},
-                       name=#k_literal{val=is_record},
-                       arity=3},
-    case {Tag,Sz} of
-	{#c_literal{val=Atom},#c_literal{val=Int}}
-          when is_atom(Atom), is_integer(Int) ->
-	    %% Tag and size are literals. Make it a BIF, which will actually
-	    %% be expanded out in a later pass.
-	    {#k_bif{anno=A,op=Remote,args=Args},Ap,St};
-	{_,_} ->
-	    %% (Only in bodies.) Make it into an actual call to the BIF.
-	    {#k_call{anno=A,op=Remote,args=Args},Ap,St}
-    end;
 expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
     Ar = length(Cargs),
-    {Type,St1} = case call_type(M0, F0, Ar) of
-		     error ->
-			 %% Invalid call (e.g. M:42/3). Issue a warning,
-			 %% and let the generated code use the old explict apply.
-			 {old_apply,add_warning(get_line(A), bad_call, A, St0)};
-		     Type0 ->
-			 {Type0,St0}
-		 end,
-
-    case Type of
-	old_apply ->
+    {[M,F|Kargs],Ap,St1} = atomic_list([M0,F0|Cargs], Sub, St0),
+    Remote = #k_remote{mod=M,name=F,arity=Ar},
+    case call_type(M0, F0, Cargs) of
+        bif ->
+            {#k_bif{anno=A,op=Remote,args=Kargs},Ap,St1};
+        call ->
+            {#k_call{anno=A,op=Remote,args=Kargs},Ap,St1};
+        error ->
+            %% Invalid call (e.g. M:42/3). Issue a warning, and let
+            %% the generated code use the old explict apply.
+            St = add_warning(get_line(A), bad_call, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
 			   args=[M0,F0,cerl:make_list(Cargs)]},
-	    expr(Call, Sub, St1);
-	_ ->
-	    {[M1,F1|Kargs],Ap,St} = atomic_list([M0,F0|Cargs], Sub, St1),
-	    Call = case Type of
-		       bif ->
-			   #k_bif{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				  args=Kargs};
-		       call ->
-			   #k_call{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				   args=Kargs};
-		       apply ->
-			   #k_call{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				   args=Kargs}
-		   end,
-	    {Call,Ap,St}
+	    expr(Call, Sub, St)
     end;
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
     Cargs = translate_match_fail(Cargs0, Sub, A, St0),
@@ -592,16 +562,16 @@ map_remove_dup_keys([], Used) -> Used.
 map_key_clean(#k_var{name=V})    -> {var,V};
 map_key_clean(#k_literal{val=V}) -> {lit,V}.
 
-%% call_type(Module, Function, Arity) -> call | bif | apply | error.
+%% call_type(Module, Function, Arity) -> call | bif | error.
 %%  Classify the call.
-call_type(#c_literal{val=M}, #c_literal{val=F}, Ar) when is_atom(M), is_atom(F) ->
-    case is_remote_bif(M, F, Ar) of
+call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
+    case is_remote_bif(M, F, As) of
 	false -> call;
 	true -> bif
     end;
-call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> apply;
-call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> apply;
-call_type(#c_var{}, #c_var{}, _) -> apply;
+call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> call;
+call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> call;
+call_type(#c_var{}, #c_var{}, _) -> call;
 call_type(_, _, _) -> error.
 
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.
@@ -971,12 +941,22 @@ add_var_def(V, St) ->
 %% is_remote_bif(Mod, Name, Arity) -> true | false.
 %%  Test if function is really a BIF.
 
-is_remote_bif(erlang, get, 1) -> true;
-is_remote_bif(erlang, N, A) ->
-    case erl_internal:guard_bif(N, A) of
+is_remote_bif(erlang, get, [_]) -> true;
+is_remote_bif(erlang, is_record, [_,Tag,Sz]) ->
+    case {Tag,Sz} of
+	{#c_literal{val=Atom},#c_literal{val=Int}}
+          when is_atom(Atom), is_integer(Int) ->
+	    %% Tag and size are literals. This is a guard BIF.
+            true;
+        {_,_} ->
+            false
+    end;
+is_remote_bif(erlang, N, As) ->
+    Arity = length(As),
+    case erl_internal:guard_bif(N, Arity) of
 	true -> true;
 	false ->
-	    try erl_internal:op_type(N, A) of
+	    try erl_internal:op_type(N, Arity) of
 		arith -> true;
 		bool -> true;
 		comp -> true;
