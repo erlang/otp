@@ -2016,9 +2016,10 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 		new_fun_name(St1)
 	end,
     Fun = make_fdef(A, Fname, Arity, Vs++Fvs, B1),
+    Local = #k_local{name=Fname,arity=Arity},
     {#k_bif{anno=A,
 	    op=#k_internal{name=make_fun,arity=length(Free)+2},
-	    args=[#k_literal{val=Fname},#k_literal{val=Arity}|Fvs],
+	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
 uexpr(Lit, {break,Rs0}, St0) ->

@@ -634,23 +634,22 @@ fail_context(#cg{catch_label=Catch,bfail=Fail,ultimate_failure=Ult}) ->
 
 call_cg(Func, As, [], Le, St) ->
     call_cg(Func, As, [#k_var{name='@ssa_ignored'}], Le, St);
-call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
+call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
     case fail_context(St0) of
         {guard,Fail} ->
             %% Inside a guard. The only allowed function call is to
             %% erlang:error/1,2. We will generate a branch to the
             %% failure branch.
             #k_remote{mod=#k_literal{val=erlang},
-                      name=#k_literal{val=error}} = Func0, %Assertion.
+                      name=#k_literal{val=error}} = Func, %Assertion.
             [#k_var{name=DestVar}] = Rs,
             St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
         FailCtx ->
             %% Ordinary function call in a function body.
-            Args = ssa_args(As, St0),
+            Args = ssa_args([Func|As], St0),
             {Ret,St1} = new_ssa_var(R, St0),
-            Func = call_target(Func0, Args, St0),
-            Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=[Func|Args]},
+            Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=Args},
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
@@ -662,26 +661,12 @@ call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             {[Call|TestIs],St}
     end.
 
-enter_cg(Func0, As0, Le, St0) ->
+enter_cg(Func, As0, Le, St0) ->
     Anno = line_anno(Le),
-    Func = call_target(Func0, As0, St0),
-    As = ssa_args(As0, St0),
+    As = ssa_args([Func|As0], St0),
     {Ret,St} = new_ssa_var('@ssa_ret', St0),
-    Call = #b_set{anno=Anno,op=call,dst=Ret,args=[Func|As]},
+    Call = #b_set{anno=Anno,op=call,dst=Ret,args=As},
     {[Call,#b_ret{arg=Ret}],St}.
-
-call_target(Func, As, St) ->
-    Arity = length(As),
-    case Func of
-        #k_remote{mod=Mod0,name=Name0} ->
-            Mod = ssa_arg(Mod0, St),
-            Name = ssa_arg(Name0, St),
-            #b_remote{mod=Mod,name=Name,arity=Arity};
-        #k_local{name=Name} when is_atom(Name) ->
-            #b_local{name=#b_literal{val=Name},arity=Arity};
-        #k_var{}=Var ->
-            ssa_arg(Var, St)
-    end.
 
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
@@ -698,9 +683,8 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}}
 internal_cg(make_fun, As, Rs, _Le, St0) ->
     [#k_var{name=Dst0}] = Rs,
     {Dst,St} = new_ssa_var(Dst0, St0),
-    [Name,#b_literal{val=Arity}|Args] = ssa_args(As, St),
-    Local = #b_local{name=Name,arity=Arity},
-    MakeFun = #b_set{op=make_fun,dst=Dst,args=[Local|Args]},
+    Args = ssa_args(As, St),
+    MakeFun = #b_set{op=make_fun,dst=Dst,args=Args},
     {[MakeFun],St};
 internal_cg(bs_init_writable=I, As, [#k_var{name=Dst0}], _Le, St0) ->
     %% This behaves like a function call.
@@ -1132,8 +1116,14 @@ fold_size_calc([], Bits, Acc) ->
 ssa_args(As, St) ->
     [ssa_arg(A, St) || A <- As].
 
-ssa_arg(#k_var{name=V}, #cg{vars=Vars}) -> maps:get(V, Vars);
-ssa_arg(#k_literal{val=V}, _) -> #b_literal{val=V}.
+ssa_arg(#k_var{name=V}, #cg{vars=Vars}) -> map_get(V, Vars);
+ssa_arg(#k_literal{val=V}, _) -> #b_literal{val=V};
+ssa_arg(#k_remote{mod=Mod0,name=Name0,arity=Arity}, St) ->
+    Mod = ssa_arg(Mod0, St),
+    Name = ssa_arg(Name0, St),
+    #b_remote{mod=Mod,name=Name,arity=Arity};
+ssa_arg(#k_local{name=Name,arity=Arity}, _) when is_atom(Name) ->
+    #b_local{name=#b_literal{val=Name},arity=Arity}.
 
 new_ssa_vars(Vs, St) ->
     mapfoldl(fun(#k_var{name=V}, S) ->
