@@ -35,7 +35,7 @@ typedef struct export
     void* addressv[ERTS_NUM_CODE_IX];
 
     /* Index into bif_table[], or -1 if not a BIF. */
-    int bif_table_index;
+    int bif_number;
     /* Non-zero if this is a BIF that's traced. */
     int is_bif_traced;
 

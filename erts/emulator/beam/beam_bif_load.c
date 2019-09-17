@@ -847,7 +847,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
                     ep->trampoline.not_loaded.deferred = 0;
             } else {
-                if (ep->bif_table_index != -1) {
+                if (ep->bif_number != -1) {
                     continue;
                 }
 
@@ -876,7 +876,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->bif_table_index != -1) {
+	    if (ep->bif_number != -1) {
 		continue;
 	    }
 
@@ -1903,7 +1903,7 @@ delete_code(Module* modp)
                 }
             }
 
-            if (ep->bif_table_index != -1 && ep->is_bif_traced) {
+            if (ep->bif_number != -1 && ep->is_bif_traced) {
                 /* Code unloading kills both global and local call tracing. */
                 ep->is_bif_traced = 0;
             }

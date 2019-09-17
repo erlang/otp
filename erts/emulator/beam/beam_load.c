@@ -1483,7 +1483,7 @@ load_import_table(LoaderState* stp)
 	 * If the export entry refers to a BIF, save a pointer to the BIF entry.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (e->bif_table_index != -1) {
+	    if (e->bif_number != -1) {
 		stp->import[i].bif = e;
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
@@ -1548,7 +1548,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
     Export *e = erts_active_export_entry(mod, func, arity);
 
     if (e != NULL) {
-        return e->bif_table_index != -1;
+        return e->bif_number != -1;
     }
 
     return 0;
@@ -2507,7 +2507,7 @@ load_code(LoaderState* stp)
 		    LoadError1(stp, "not a BIF: import table index %d", i);
 		}
 		{
-		    int bif_index = stp->import[i].bif->bif_table_index;
+		    int bif_index = stp->import[i].bif->bif_number;
 		    BifEntry *bif_entry = &bif_table[bif_index];
 		    code[ci++] = (BeamInstr) bif_entry->f;
 		}
@@ -3171,17 +3171,16 @@ is_killed_by_make_fun(LoaderState* stp, GenOpArg Reg, GenOpArg idx)
 static int
 is_heavy_bif(LoaderState* stp, GenOpArg Bif)
 {
-    Export *bif_export;
+    Export *ep;
 
     if (Bif.type != TAG_u || Bif.val >= stp->num_imports) {
         return 0;
     }
 
-    bif_export = stp->import[Bif.val].bif;
+    ep = stp->import[Bif.val].bif;
 
-    if (bif_export) {
-        int bif_index = bif_export->bif_table_index;
-        return bif_table[bif_index].kind == BIF_KIND_HEAVY;
+    if (ep) {
+        return bif_table[ep->bif_number].kind == BIF_KIND_HEAVY;
     }
 
     return 0;
@@ -5222,7 +5221,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
                              stp->export[i].arity);
 
         /* Fill in BIF stubs with a proper call to said BIF. */
-        if (ep->bif_table_index != -1) {
+        if (ep->bif_number != -1) {
             erts_write_bif_wrapper(ep, address);
         }
 
@@ -5435,7 +5434,7 @@ transform_engine(LoaderState* st)
 		    goto restart;
                 if (bif_number != -1) {
                     Export *bif = st->import[i].bif;
-                    if (bif->bif_table_index != bif_number) {
+                    if (bif->bif_number != bif_number) {
                         goto restart;
                     }
                 }

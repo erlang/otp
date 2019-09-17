@@ -4978,7 +4978,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
         ep->addressv[i] = ep->trampoline.raw;
     }
 
-    ep->bif_table_index = -1;
+    ep->bif_number = -1;
 
     ep->info.op = op_i_func_info_IaaI;
     ep->info.mfa.module = m;
@@ -4993,7 +4993,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
  * Writes a BIF call wrapper to the given address.
  */
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
-    BifEntry *entry = &bif_table[export->bif_table_index];
+    BifEntry *entry = &bif_table[export->bif_number];
 
     address[0] = BeamOpCodeAddr(op_call_bif_W);
     address[1] = (BeamInstr)entry->f;

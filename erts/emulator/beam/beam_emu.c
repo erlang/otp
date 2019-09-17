@@ -910,7 +910,7 @@ static void install_bifs(void) {
         ep->info.mfa.module = entry->module;
         ep->info.mfa.function = entry->name;
         ep->info.mfa.arity = entry->arity;
-        ep->bif_table_index = i;
+        ep->bif_number = i;
 
         memset(&ep->trampoline, 0, sizeof(ep->trampoline));
         ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
@@ -2016,10 +2016,10 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      * from the instructions i_apply_only, i_apply_last_P,
      * and apply_last_IP.
      */
-    if (!(I && (ep->bif_table_index == BIF_error_1 ||
-                ep->bif_table_index == BIF_error_2 ||
-                ep->bif_table_index == BIF_exit_1 ||
-                ep->bif_table_index == BIF_throw_1))) {
+    if (!(I && (ep->bif_number == BIF_error_1 ||
+                ep->bif_number == BIF_error_2 ||
+                ep->bif_number == BIF_exit_1 ||
+                ep->bif_number == BIF_throw_1))) {
         return;
     }
 
@@ -3119,7 +3119,7 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
         return 0;
     }
 
-    return ep->bif_table_index != -1;
+    return ep->bif_number != -1;
 }
 
 

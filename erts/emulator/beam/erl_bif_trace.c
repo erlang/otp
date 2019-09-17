@@ -1434,7 +1434,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
         pc = erts_codeinfo_to_code(ci);
         ep = ErtsContainerStruct(ci, Export, info);
 
-        if (ep->bif_table_index != -1) {
+        if (ep->bif_number != -1) {
             ep->is_bif_traced = !!on;
         }
 
