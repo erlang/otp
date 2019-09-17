@@ -142,12 +142,12 @@ cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.
 
-do_match_cg(M, Rs, St0) ->
+do_match_cg(M, Rs, #cg{bfail=Bfail,break=OldBreak}=St0) ->
     {B,St1} = new_label(St0),
-    {Mis,St2} = match_cg(M, St1#cg.bfail, St1#cg{break=B}),
-    {BreakVars,St} = new_ssa_vars(Rs, St2),
-    {Mis ++ [{label,B},#cg_phi{vars=BreakVars}],
-     St#cg{bfail=St0#cg.bfail,break=St1#cg.break}}.
+    {Mis,St2} = match_cg(M, Bfail, St1#cg{break=B}),
+    St3 = St2#cg{break=OldBreak},
+    {BreakVars,St} = new_ssa_vars(Rs, St3),
+    {Mis ++ [{label,B},#cg_phi{vars=BreakVars}],St}.
 
 %% match_cg(Match, Fail, State) -> {[Ainstr],State}.
 %%  Generate code for a match tree.
@@ -574,11 +574,11 @@ test_is_record_cg(Fail, Tuple, TagVal, ArityVal, St0) ->
 %%  return values then these must be set to 'false' on failure,
 %%  control always passes to the next instruction.
 
-protected_cg(Ts, [], _, Fail, St0) ->
+protected_cg(Ts, [], _, Fail, #cg{bfail=OldBfail}=St0) ->
     %% Protect these calls, revert when done.
     {Tis,St1} = guard_cg(Ts, Fail, St0#cg{bfail=Fail}),
-    {Tis,St1#cg{bfail=St0#cg.bfail}};
-protected_cg(Ts, Rs, Inner0, _Fail, St0) ->
+    {Tis,St1#cg{bfail=OldBfail}};
+protected_cg(Ts, Rs, Inner0, _Fail, #cg{bfail=OldBfail,break=OldBreak}=St0) ->
     {Pfail,St1} = new_label(St0),
     {Br,St2} = new_label(St1),
     Prot = duplicate(length(Rs), #b_literal{val=false}),
@@ -588,7 +588,7 @@ protected_cg(Ts, Rs, Inner0, _Fail, St0) ->
     Is = Tis ++ [#cg_break{args=Inner,phi=Br},
                  {label,Pfail},#cg_break{args=Prot,phi=Br},
                  {label,Br},#cg_phi{vars=BreakVars}],
-    {Is,St#cg{break=St0#cg.break,bfail=St0#cg.bfail}}.
+    {Is,St#cg{break=OldBreak,bfail=OldBfail}}.
 
 %% match_fmf(Fun, LastFail, State, [Clause]) -> {Is,State}.
 %%  This is a special flatmapfoldl for match code gen where we
