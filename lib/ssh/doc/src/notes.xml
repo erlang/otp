@@ -30,6 +30,86 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wrong type definition for the daemon option
+	    <c>subsystems</c>.</p>
+          <p>
+	    Own Id: OTP-15820</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a possible SSH logging crash if there was a problem
+	    in an early stage of session setup.</p>
+          <p>
+	    Own Id: OTP-15962 Aux Id: ERL-990 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for the modules ssh_connection,
+	    ssh_sftp and ssh_sftpd are now generated from the
+	    -spec:s.</p>
+          <p>
+	    Own Id: OTP-15395</p>
+        </item>
+        <item>
+          <p>
+	    Internal cleanup including removal of the internal file
+	    <c>ssh_userauth.hrl</c>.</p>
+          <p>
+	    Own Id: OTP-15876 Aux Id: PR-2255, PR-2256 </p>
+        </item>
+        <item>
+          <p>
+	    Removed unused definitions in <c>ssh.hrl</c>.</p>
+          <p>
+	    Own Id: OTP-15929 Aux Id: PR-2297 </p>
+        </item>
+        <item>
+          <p>
+	    Removed unused fields in the internal
+	    <c>#connection{}</c> record.</p>
+          <p>
+	    Own Id: OTP-15984</p>
+        </item>
+        <item>
+          <p>
+	    To get information of a <c>connection_ref()</c> from for
+	    example <c>ssh:connect/3</c>, there was previously one
+	    function available namely <c>ssh:connection_info/2</c>.
+	    This ticket adds <c>ssh:connection_info/1</c> which
+	    returns all information.</p>
+          <p>
+	    For daemons (servers) started with for example
+	    <c>ssh:daemon/2</c> the function <c>ssh:daemon_info/1</c>
+	    returning all information was available. This ticket adds
+	    <c>ssh:daemon_info/2</c> which returns only the
+	    information specified in the second argument.</p>
+          <p>
+	    The info of connections and of daemons now also includes
+	    the item '<c>options</c>'. Only those options that does
+	    not have their default values are returned.</p>
+          <p>
+	    For a connection also the items '<c>algorithms</c>' and
+	    '<c>channels</c>' are added.</p>
+          <p>
+	    Own Id: OTP-16040</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.7</title>
 
     <section><title>Improvements and New Features</title>

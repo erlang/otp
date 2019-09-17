@@ -32,6 +32,84 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Code such as the following would crash the compiler in
+	    OTP 22: <c>[some_atom = fun some_function/1]</c></p>
+          <p>
+	    Own Id: OTP-15833</p>
+        </item>
+        <item>
+	    <p>Compilation could get really slow (in the order of
+	    minutes instead of seconds) when compiling huge
+	    functions. (Thanks to Kostis Sagonas for reporting this
+	    bug.)</p>
+          <p>
+	    Own Id: OTP-15923</p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the validator that could reject valid
+	    code.</p>
+          <p>
+	    Own Id: OTP-15954 Aux Id: ERL-995 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, when two clauses had identical
+	    bodies and guard tests that tested a single boolean
+	    variable, the guard test for the second clause could be
+	    discarded, executing the second clause unconditionally if
+	    the first clause was not executed.</p>
+          <p>
+	    Own Id: OTP-15963</p>
+        </item>
+        <item>
+	    <p>Fixed extremely slow compilation for huge functions
+	    doing predominantly pattern matching.</p>
+          <p>
+	    Own Id: OTP-15966 Aux Id: ERL-1014 </p>
+        </item>
+        <item>
+	    <p>The compiler could generate unsafe code (that would
+	    crash the runtime system) for map pattern matching. The
+	    code could be unsafe if the matched key was not present
+	    in the map at runtime. </p>
+          <p>
+	    Own Id: OTP-15968 Aux Id: ERL-1017 </p>
+        </item>
+        <item>
+	    <p>Correct code using try/after could fail to compile
+	    when using the option '<c>no_type_opt</c>'.</p>
+          <p>
+	    Own Id: OTP-15969 Aux Id: ERL-997 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when compiling code that
+	    called '<c>length/1</c>' on a binary extracted using the
+	    binary syntax.</p>
+          <p>
+	    Own Id: OTP-15970 Aux Id: ERL-1013 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where the compiler could fail with an
+	    internal consistency failure error when compiling receive
+	    statements.</p>
+          <p>
+	    Own Id: OTP-15982 Aux Id: ERL-1022 </p>
+        </item>
+        <item>
+	    <p>Fixed a problem where the compiler would crash when
+	    compiling binary matching in a function head.</p>
+          <p>
+	    Own Id: OTP-15985 Aux Id: ERL-1026 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

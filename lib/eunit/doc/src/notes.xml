@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Handle <c>get_until</c> request with explicit
+	    encoding in the implementation of the I/O protocol. </p>
+          <p>
+	    Own Id: OTP-16000</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

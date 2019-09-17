@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add missing calls to <c>erl_syntax:unwrap/1</c>. The
+	    nodes concerned represent names and values of maps and
+	    map types. </p>
+          <p>
+	    Own Id: OTP-16012 Aux Id: PR-2348 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

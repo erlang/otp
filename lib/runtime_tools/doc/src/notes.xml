@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>dbg:stop_clear/0</c> to also clear trace events
+	    (<c>send</c> and <c>'receive'</c>).</p>
+          <p>
+	    Own Id: OTP-16044</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.13.3</title>
 
     <section><title>Improvements and New Features</title>

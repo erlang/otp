@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The net module has been split into 'net' (kernel) and
+	    prim_net (preloaded).</p>
+          <p>
+	    Own Id: OTP-15765</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.4</title>
 
     <section><title>Improvements and New Features</title>

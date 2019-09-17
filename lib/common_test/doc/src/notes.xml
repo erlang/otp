@@ -33,6 +33,64 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a ct hook is installed in the <c>suite/0</c> function
+	    in a test suite, then the hook's <c>terminate/1</c>
+	    function would be called several times without it's
+	    <c>init/2</c> function being called first. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15863 Aux Id: ERIERL-370 </p>
+        </item>
+        <item>
+          <p>
+	    If <c>init_per_testcase</c> fails, the test itself is
+	    skipped. According to the documentation, it should be
+	    possible to change the result to failed in a hook
+	    function. The only available hook function in this case
+	    is <c>post_init_per_testcase</c>, but changing the return
+	    value there did not affect the test case result. This is
+	    now corrected.</p>
+          <p>
+	    Own Id: OTP-15869 Aux Id: ERIERL-350 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add ct_netconfc support for NETCONF 1.1 (RFC 6241). The
+	    1.1 base capability can be sent in hello, and RFC 6242
+	    chunk framing is applied when both client and server
+	    advertise 1.1 support.</p>
+          <p>
+	    Own Id: OTP-15789</p>
+        </item>
+        <item>
+          <p>
+	    Correct lib_dir paths in common_tests opaque data
+	    structure that is passed to ct_release_test callback
+	    modules in functions upgrade_init/2, upgrade_upgraded/2
+	    and upgrade_downgraded/2. The incorrect paths may cause
+	    confusion when debugging although it will not cause any
+	    incorrect behavior on the part of common_test as it is
+	    currently not used.</p>
+          <p>
+	    Own Id: OTP-15934</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.17.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -39,7 +39,36 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.16</title>
+  <section><title>Mnesia 4.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>mnesia:add_table_copy/3</c> could cause a deadlock if
+	    called when a new node was starting.</p>
+          <p>
+	    Own Id: OTP-15933 Aux Id: ERL-872 </p>
+        </item>
+        <item>
+	    <p>Transactions with sticky locks could with async_asym
+	    transactions be committed in the wrong order, since asym
+	    transaction are spawned on the remote nodes.</p> <p>To
+	    fix this bug the communication protocol between mnesia
+	    nodes had to be updated, thus mnesia will no longer be
+	    able to connect to nodes earlier than mnesia-4.14 ,
+	    OTP-19.0.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15979 Aux Id: ERL-768 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

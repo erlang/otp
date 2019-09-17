@@ -796,7 +796,7 @@
     </func>
 
     <func>
-      <name name="mac" arity="3" since="OTP @OTP-13872@"/>
+      <name name="mac" arity="3" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Short for <seealso marker="#mac-4">mac(Type, undefined, Key, Data)</seealso>.
@@ -805,7 +805,7 @@
     </func>
 
     <func>
-      <name name="mac" arity="4" since="OTP @OTP-13872@"/>
+      <name name="mac" arity="4" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Computes a MAC (Message Authentication Code) of type <c>Type</c> from <c>Data</c>.
@@ -846,7 +846,7 @@
     </func>
 
     <func>
-      <name name="macN" arity="4" since="OTP @OTP-13872@"/>
+      <name name="macN" arity="4" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Short for <seealso marker="#macN-5">macN(Type, undefined, Key, Data, MacLength)</seealso>.
@@ -855,7 +855,7 @@
     </func>
 
     <func>
-      <name name="macN" arity="5" since="OTP @OTP-13872@"/>
+      <name name="macN" arity="5" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Computes a MAC (Message Authentication Code)
@@ -874,7 +874,7 @@
     </func>
 
     <func>
-      <name name="mac_init" arity="2" since="OTP @OTP-13872@"/>
+      <name name="mac_init" arity="2" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Short for <seealso marker="#mac_init-3">mac_init(Type, undefined, Key)</seealso>.
@@ -883,7 +883,7 @@
     </func>
 
     <func>
-      <name name="mac_init" arity="3" since="OTP @OTP-13872@"/>
+      <name name="mac_init" arity="3" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Initializes the context for streaming MAC operations.
@@ -929,7 +929,7 @@
     </func>
 
     <func>
-      <name name="mac_update" arity="2" since="OTP @OTP-13872@"/>
+      <name name="mac_update" arity="2" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Updates the MAC represented by <c>State0</c> using the given <c>Data</c> which
@@ -945,7 +945,7 @@
     </func>
 
     <func>
-      <name name="mac_final" arity="1" since="OTP @OTP-13872@"/>
+      <name name="mac_final" arity="1" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the MAC operation referenced by <c>State</c>. The <c>Mac</c> result will have
@@ -960,7 +960,7 @@
     </func>
 
     <func>
-      <name name="mac_finalN" arity="2" since="OTP @OTP-13872@"/>
+      <name name="mac_finalN" arity="2" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the MAC operation referenced by <c>State</c>.
