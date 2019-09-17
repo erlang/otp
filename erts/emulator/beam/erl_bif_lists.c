@@ -32,45 +32,6 @@
 #include "bif.h"
 #include "erl_binary.h"
 
-static Export plusplus_trap_export;
-static Export append_trap_export;
-
-static Export minusminus_trap_export;
-static Export subtract_trap_export;
-
-static Export member_trap_export;
-
-static Export reverse_trap_export;
-
-static Export keymember_trap_export;
-static Export keysearch_trap_export;
-static Export keyfind_trap_export;
-
-void erts_init_bif_lists(void) {
-    erts_init_trap_export(&plusplus_trap_export, am_erlang, am_PlusPlus, 2,
-                          ebif_plusplus_2);
-    erts_init_trap_export(&append_trap_export, am_erlang, am_append, 2,
-                          append_2);
-
-    erts_init_trap_export(&minusminus_trap_export, am_erlang, am_MinusMinus, 2,
-                          ebif_minusminus_2);
-    erts_init_trap_export(&subtract_trap_export, am_lists, am_subtract, 2,
-                          subtract_2);
-
-    erts_init_trap_export(&reverse_trap_export, am_lists, am_reverse, 2,
-                          lists_reverse_2);
-
-    erts_init_trap_export(&member_trap_export, am_lists, am_member, 2,
-                          lists_member_2);
-
-    erts_init_trap_export(&keymember_trap_export, am_lists, am_keymember, 3,
-                          lists_keymember_3);
-    erts_init_trap_export(&keysearch_trap_export, am_lists, am_keysearch, 3,
-                          lists_keysearch_3);
-    erts_init_trap_export(&keyfind_trap_export, am_lists, am_keyfind, 3,
-                          lists_keyfind_3);
-}
-
 static Eterm keyfind(Export* Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
 
 /* erlang:'++'/2
@@ -346,12 +307,12 @@ static Eterm append(Export *bif_entry, BIF_ALIST_2) {
 Eterm
 ebif_plusplus_2(BIF_ALIST_2)
 {
-    return append(&plusplus_trap_export, BIF_CALL_ARGS);
+    return append(&bif_trap_export[BIF_ebif_plusplus_2], BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE append_2(BIF_ALIST_2)
 {
-    return append(&append_trap_export, BIF_CALL_ARGS);
+    return append(&bif_trap_export[BIF_append_2], BIF_CALL_ARGS);
 }
 
 /* erlang:'--'/2
@@ -1077,11 +1038,11 @@ static Eterm subtract(Export *bif_entry, BIF_ALIST_2) {
 }
 
 BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2) {
-    return subtract(&minusminus_trap_export, BIF_CALL_ARGS);
+    return subtract(&bif_trap_export[BIF_ebif_minusminus_2], BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE subtract_2(BIF_ALIST_2) {
-    return subtract(&subtract_trap_export, BIF_CALL_ARGS);
+    return subtract(&bif_trap_export[BIF_subtract_2], BIF_CALL_ARGS);
 }
 
 
@@ -1106,7 +1067,7 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     while (is_list(list)) {
 	if (--max_iter < 0) {
 	    BUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(&member_trap_export, BIF_P, term, list);
+	    BIF_TRAP2(&bif_trap_export[BIF_lists_member_2], BIF_P, term, list);
 	}
 	item = CAR(list_val(list));
 	if ((item == term) || (non_immed_key && eq(item, term))) {
@@ -1168,7 +1129,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     }
 
     ASSERT(is_list(tail) && cells_left == 0);
-    BIF_TRAP2(&reverse_trap_export, c_p, list, tail);
+    BIF_TRAP2(&bif_trap_export[BIF_lists_reverse_2], c_p, list, tail);
 }
 
 static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
@@ -1217,7 +1178,7 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
         }
 
         BUMP_ALL_REDS(c_p);
-        BIF_TRAP2(&reverse_trap_export, c_p, list, tail);
+        BIF_TRAP2(&bif_trap_export[BIF_lists_reverse_2], c_p, list, tail);
     }
 
     BIF_ERROR(c_p, BADARG);
@@ -1247,7 +1208,7 @@ lists_keymember_3(BIF_ALIST_3)
 {
     Eterm res;
 
-    res = keyfind(&keymember_trap_export, BIF_P,
+    res = keyfind(&bif_trap_export[BIF_lists_keymember_3], BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_value(res) && is_tuple(res)) {
 	return am_true;
@@ -1261,7 +1222,7 @@ lists_keysearch_3(BIF_ALIST_3)
 {
     Eterm res;
     
-    res = keyfind(&keysearch_trap_export, BIF_P,
+    res = keyfind(&bif_trap_export[BIF_lists_keysearch_3], BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_non_value(res) || is_not_tuple(res)) {
 	return res;
@@ -1274,7 +1235,7 @@ lists_keysearch_3(BIF_ALIST_3)
 BIF_RETTYPE
 lists_keyfind_3(BIF_ALIST_3)
 {
-    return keyfind(&keyfind_trap_export, BIF_P,
+    return keyfind(&bif_trap_export[BIF_lists_keyfind_3], BIF_P,
 		   BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
