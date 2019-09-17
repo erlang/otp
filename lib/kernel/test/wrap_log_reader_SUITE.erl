@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -348,7 +348,7 @@ external(Conf) when is_list(Conf) ->
     P0 = pps(),
     wlt ! {open, self(), File},
     rec({error, {not_a_log_file, add_ext(File, 1)}}, ?LINE),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     stop(),
     delete_files(File),
@@ -366,7 +366,7 @@ error(Conf) when is_list(Conf) ->
     rec({error, {index_file_not_found, File}}, ?LINE),
     wlt ! {open, self(), File},
     rec({error, {index_file_not_found, File}}, ?LINE),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     open(sune, File, ?LINE),
     close(sune),
@@ -375,7 +375,7 @@ error(Conf) when is_list(Conf) ->
     ok = file:delete(First),
     wlt ! {open, self(), File},
     rec({error, {not_a_log_file, First}}, ?LINE),
-    true = (P1 == pps()),
+    check_pps(P1),
 
     delete_files(File),
     open(sune, File, ?LINE),
@@ -393,7 +393,7 @@ error(Conf) when is_list(Conf) ->
     wlt ! {chunk, self(), C},
     rec({error, {not_a_log_file, Second}}, ?LINE),
     do_chunk([close], wlt, ?LINE, C),
-    true = (P2 == pps()),
+    check_pps(P2),
 
     delete_files(File),
     open(sune, File, ?LINE),
@@ -413,7 +413,7 @@ error(Conf) when is_list(Conf) ->
     ok = file:write_file(IndexFile, <<17:(3*8)>>),
     wlt ! {open, self(), File, 1},
     rec({error, {index_file_not_found, File}}, ?LINE),
-    true = (P3 == pps()),
+    check_pps(P3),
 
     stop(),
     delete_files(File),
@@ -553,5 +553,55 @@ rec(M, Where) ->
     after 5000 -> ct:fail({error, {Where, time_out}})
     end.
 
+check_pps({Ports0,Procs0} = P0) ->
+    case pps() of
+        P0 ->
+            ok;
+        _ ->
+            timer:sleep(500),
+            case pps() of
+                P0 ->
+                    ok;
+                {Ports1,Procs1} = P1 ->
+		    case {Ports1 -- Ports0, Procs1 -- Procs0} of
+			{[], []} -> ok;
+			{PortsDiff,ProcsDiff} ->
+			    io:format("failure, got ~p~n, expected ~p\n", [P1, P0]),
+			    show("Old port", Ports0 -- Ports1),
+			    show("New port", PortsDiff),
+			    show("Old proc", Procs0 -- Procs1),
+			    show("New proc", ProcsDiff),
+			    ct:fail(failed)
+		    end
+	    end
+    end.
+
+show(_S, []) ->
+    ok;
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
+    show(S, Ports).
+
 pps() ->
-    {erlang:ports(), lists:filter(fun erlang:is_process_alive/1, processes())}.
+    timer:sleep(100),
+    {port_list(), process_list()}.
+
+port_list() ->
+    [{P,safe_second_element(erlang:port_info(P, name))} ||
+        P <- erlang:ports()].
+
+process_list() ->
+    [{P,process_info(P, registered_name),
+      safe_second_element(process_info(P, initial_call))} ||
+        P <- processes(), erlang:is_process_alive(P)].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
+
+safe_second_element({_,Info}) -> Info;
+safe_second_element(Other) -> Other.

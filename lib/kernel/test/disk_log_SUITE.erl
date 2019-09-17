@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1776,6 +1776,7 @@ block_queue2(Conf) when is_list(Conf) ->
                 Parent ! disk_log_stopped_ok
         end,
     spawn(Fun),
+    timer:sleep(500),
     ok = sync_do(Pid, close),
     receive disk_log_stopped_ok -> ok end,
     sync_do(Pid, terminate),
