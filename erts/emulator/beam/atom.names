@@ -404,6 +404,7 @@ atom min_bin_vheap_size
 atom minor
 atom minor_version
 atom Minus='-'
+atom MinusMinus='--'
 atom module
 atom module_info
 atom monitored_by
@@ -494,6 +495,7 @@ atom packet
 atom packet_size
 atom parallelism
 atom Plus='+'
+atom PlusPlus='++'
 atom pause
 atom pending
 atom pending_driver

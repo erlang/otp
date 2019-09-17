@@ -1457,26 +1457,26 @@ all instructions.  It expands to the address of the next instruction.
 Here is an example:
 
     i_call(CallDest) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        //| -no_next
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         $DISPATCH_REL($CallDest);
     }
 
-When calling a function, the return address is first stored in `c_p->cp`
-(using the `SET_CP()` macro defined in `beam_emu.c`), and then control is
+When calling a function, the return address is first stored in `E[0]`
+(using the `$SAVE_CONTINUATION_POINTER()` macro), and then control is
 transferred to the callee.  Here is the generated code:
 
     OpCase(i_call_f):
     {
-      SET_CP(c_p, I+1);
-      ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
-      I += fb(BeamExtraData(I[0])) + 0;;
-      DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-      Dispatch();;
+        ASSERT(VALID_INSTR(*(I+2)));
+        *E = (BeamInstr) (I+2);;
+
+        /* ... dispatch code intentionally left out ... */
     }
 
-We can see that that `$NEXT_INSTRUCTION` has been expanded to `I+1`.
+We can see that that `$NEXT_INSTRUCTION` has been expanded to `I+2`.
 That makes sense since the size of the `i_call_f/1` instruction is
-one word.
+two words.
 
 ##### The IP_ADJUSTMENT pre-bound variable #####
 

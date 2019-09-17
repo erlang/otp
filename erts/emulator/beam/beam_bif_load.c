@@ -835,21 +835,25 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	num_exps = export_list_size(code_ix);
 	for (i = 0; i < num_exps; i++) {
-	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
-		continue;
-	    }
-	    if (ep->beam[1] != 0) {
-		ep->addressv[code_ix] = (void *) ep->beam[1];
-		ep->beam[1] = 0;
-	    } else {
-		if (ep->addressv[code_ix] == ep->beam &&
-		    BeamIsOpCode(ep->beam[0], op_apply_bif)) {
-		    continue;
-		}
-                ep->addressv[code_ix] = ep->beam;
-                ep->beam[0] = BeamOpCodeAddr(op_call_error_handler);
-	    }
+            Export *ep = export_list(i, code_ix);
+
+            if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
+                continue;
+            }
+
+            DBG_CHECK_EXPORT(ep, code_ix);
+
+            if (ep->trampoline.not_loaded.deferred != 0) {
+                    ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
+                    ep->trampoline.not_loaded.deferred = 0;
+            } else {
+                if (ep->bif_table_index != -1) {
+                    continue;
+                }
+
+                ep->addressv[code_ix] = ep->trampoline.raw;
+                ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+            }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
 
@@ -872,10 +876,11 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (BeamIsOpCode(ep->beam[0], op_apply_bif)) {
+	    if (ep->bif_table_index != -1) {
 		continue;
 	    }
-	    ep->beam[1] = 0;
+
+            ep->trampoline.not_loaded.deferred = 0;
 	}
     }
     erts_release_code_write_permission();
@@ -1133,7 +1138,7 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 
     *redsp += 1;
 
-    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+    if (erts_check_nfunc_in_area(rp, mod_start, mod_size))
 	return am_true;
 
     *redsp += (STACK_START(rp) - rp->stop) / 32;
@@ -1884,25 +1889,28 @@ delete_code(Module* modp)
     for (i = 0; i < num_exps; i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
-	    if (ep->addressv[code_ix] == ep->beam) {
-		if (BeamIsOpCode(ep->beam[0], op_apply_bif)) {
-		    continue;
-		}
-		else if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
+	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
+                if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);
-		    erts_clear_export_break(modp, &ep->info);
+		    erts_clear_export_break(modp, ep);
 		}
 		else {
-                    ASSERT(BeamIsOpCode(ep->beam[0], op_call_error_handler) ||
+                    ASSERT(BeamIsOpCode(ep->trampoline.op, op_call_error_handler) ||
                            !erts_initialized);
                 }
             }
-	    ep->addressv[code_ix] = ep->beam;
-	    ep->beam[0] = BeamOpCodeAddr(op_call_error_handler);
-	    ep->beam[1] = 0;
+
+            if (ep->bif_table_index != -1 && ep->is_bif_traced) {
+                /* Code unloading kills both global and local call tracing. */
+                ep->is_bif_traced = 0;
+            }
+
+	    ep->addressv[code_ix] = ep->trampoline.raw;
+	    ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+	    ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

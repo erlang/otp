@@ -122,6 +122,10 @@ void erts_nif_demonitored(ErtsResource* resource);
 extern void erts_add_taint(Eterm mod_atom);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
+
+/* Loads the specified NIF. The caller must have code write permission. */
+Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args);
+
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
@@ -885,6 +889,8 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 
+void erts_write_bif_wrapper(Export *export, BeamInstr *address);
+
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,
 				Eterm,
@@ -905,6 +911,9 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args);
 /* erl_bif_op.c */
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
+
+/* beam_bif_lists.c */
+void erts_init_bif_lists(void);
 
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
@@ -1147,6 +1156,7 @@ void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
 void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
+BeamInstr *erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
 
 /* erl_init.c */
 

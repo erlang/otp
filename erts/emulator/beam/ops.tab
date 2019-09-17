@@ -77,19 +77,32 @@ return
 # To ensure that a "move Src x(0)" instruction can be combined with
 # the following call instruction, we need to make sure that there is
 # no line/1 instruction between the move and the call.
-#
-# A tail-recursive call to an external function (BIF or non-BIF) will
-# never be saved on the stack, so there is no reason to keep the line
-# instruction.
+
+move S X0=x==0 | line Loc | call Ar Func => \
+     line Loc | move S X0 | call Ar Func
 
 move S X0=x==0 | line Loc | call_ext Ar Func => \
      line Loc | move S X0 | call_ext Ar Func
+
+#
+# A tail call will not refer to the current function on error unless it's a
+# BIF, so we can omit the line instruction for non-BIFs.
+#
+
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_bif D => \
+     line Loc | move S X0 | call_ext_last Ar Func D
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_bif => \
+     line Loc | move S X0 | call_ext_only Ar Func
+
 move S X0=x==0 | line Loc | call_ext_last Ar Func D => \
      move S X0 | call_ext_last Ar Func D
 move S X0=x==0 | line Loc | call_ext_only Ar Func => \
      move S X0 | call_ext_only Ar Func
-move S X0=x==0 | line Loc | call Ar Func => \
-     line Loc | move S X0 | call Ar Func
+
+move S X0=x==0 | line Loc | call_last Ar Func D => \
+     move S X0 | call_last Ar Func D
+move S X0=x==0 | line Loc | call_only Ar Func => \
+     move S X0 | call_only Ar Func
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
@@ -574,8 +587,8 @@ put_list s s d
 %cold
 normal_exit
 continue_exit
-apply_bif
-call_nif
+call_bif W
+call_nif W W W
 call_error_handler
 error_action_code
 return_trace
@@ -787,62 +800,22 @@ allocate_init t t? y
 # External function and bif calls.
 #################################################################
 
-#
-# The BIFs erts_internal:check_process_code/1 must be called like a function,
-# to ensure that c_p->i (program counter) is set correctly (an ordinary
-# BIF call doesn't set it).
-#
-
-call_ext u==1 Bif=u$bif:erts_internal:check_process_code/1 => i_call_ext Bif
-call_ext_last u==1 Bif=u$bif:erts_internal:check_process_code/1 D => i_call_ext_last Bif D
-call_ext_only u==1 Bif=u$bif:erts_internal:check_process_code/1 => i_call_ext_only Bif
+# Expands into call_light_bif(_only)/2
+call_light_bif/1
+call_light_bif_only/1
+call_light_bif_last/2
 
 #
-# The BIFs erts_internal:garbage_collect/1 must be called like a function,
-# to allow them to invoke the garbage collector. (The stack pointer must
-# be saved and p->arity must be zeroed, which is not done on ordinary BIF calls.)
-#
-call_ext u==1 Bif=u$bif:erts_internal:garbage_collect/1 => i_call_ext Bif
-call_ext_last u==1 Bif=u$bif:erts_internal:garbage_collect/1 D => i_call_ext_last Bif D
-call_ext_only u==1 Bif=u$bif:erts_internal:garbage_collect/1 => i_call_ext_only Bif
-
-#
-# put/2 and erase/1 must be able to do garbage collection, so we must call
-# them like functions.
+# The load_nif/2 BIF is an instruction.
 #
 
-call_ext u==2 Bif=u$bif:erlang:put/2 => i_call_ext Bif
-call_ext_last u==2 Bif=u$bif:erlang:put/2 D => i_call_ext_last Bif D
-call_ext_only u==2 Bif=u$bif:erlang:put/2 => i_call_ext_only Bif
+call_ext u==2 u$func:erlang:load_nif/2 => i_load_nif
+call_ext_last u==2 u$func:erlang:load_nif/2 D => i_load_nif | deallocate_return D
+call_ext_only u==2 u$func:erlang:load_nif/2 => i_load_nif | return
 
-call_ext u==1 Bif=u$bif:erlang:erase/1 => i_call_ext Bif
-call_ext_last u==1 Bif=u$bif:erlang:erase/1 D => i_call_ext_last Bif D
-call_ext_only u==1 Bif=u$bif:erlang:erase/1 => i_call_ext_only Bif
-
-#
-# The process_info/1,2 BIF should be called like a function, to force
-# the emulator to set c_p->current before calling it (a BIF call doesn't
-# set it).
-#
-# In addition, we force the use of a non-tail-recursive call.  This will ensure
-# that c_p->cp points into the function making the call.
-#
-
-call_ext u==1 Bif=u$bif:erlang:process_info/1 => i_call_ext Bif
-call_ext_last u==1 Bif=u$bif:erlang:process_info/1 D => i_call_ext Bif | deallocate_return D
-call_ext_only Ar=u==1 Bif=u$bif:erlang:process_info/1 => allocate u Ar | i_call_ext Bif | deallocate_return u
-
-call_ext u==2 Bif=u$bif:erlang:process_info/2 => i_call_ext Bif
-call_ext_last u==2 Bif=u$bif:erlang:process_info/2 D => i_call_ext Bif | deallocate_return D
-call_ext_only Ar=u==2 Bif=u$bif:erlang:process_info/2 => allocate u Ar | i_call_ext Bif | deallocate_return u
-
-#
-# load_nif/2 also needs to know calling function like process_info
-#
-call_ext u==2 Bif=u$bif:erlang:load_nif/2 => i_call_ext Bif
-call_ext_last u==2 Bif=u$bif:erlang:load_nif/2 D => i_call_ext Bif | deallocate_return D
-call_ext_only Ar=u==2 Bif=u$bif:erlang:load_nif/2 => allocate u Ar | i_call_ext Bif | deallocate_return u
-
+%cold
+i_load_nif
+%hot
 
 #
 # apply/2 is an instruction, not a BIF.
@@ -859,33 +832,6 @@ call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
 call_ext u==3 u$bif:erlang:apply/3 => i_apply
 call_ext_last u==3 u$bif:erlang:apply/3 D => i_apply_last D
 call_ext_only u==3 u$bif:erlang:apply/3 => i_apply_only
-
-#
-# The exit/1 and throw/1 BIFs never execute the instruction following them;
-# thus there is no need to generate any return instruction.
-#
-
-call_ext_last u==1 Bif=u$bif:erlang:exit/1 D => call_bif Bif
-call_ext_last u==1 Bif=u$bif:erlang:throw/1 D => call_bif Bif
-
-call_ext_only u==1 Bif=u$bif:erlang:exit/1 => call_bif Bif
-call_ext_only u==1 Bif=u$bif:erlang:throw/1 => call_bif Bif
-
-#
-# The error/1 and error/2 BIFs never execute the instruction following them;
-# thus there is no need to generate any return instruction.
-# However, they generate stack backtraces, so if the call instruction
-# is call_ext_only/2 instruction, we explicitly do an allocate/2 to store
-# the continuation pointer on the stack.
-#
-
-call_ext_last u==1 Bif=u$bif:erlang:error/1 D => call_bif Bif
-call_ext_last u==2 Bif=u$bif:erlang:error/2 D => call_bif Bif
-
-call_ext_only Ar=u==1 Bif=u$bif:erlang:error/1 => \
-  allocate u Ar | call_bif Bif
-call_ext_only Ar=u==2 Bif=u$bif:erlang:error/2 => \
-  allocate u Ar | call_bif Bif
 
 #
 # The yield/0 BIF is an instruction
@@ -999,17 +945,24 @@ call_ext_only u==0 u$func:os:perf_counter/0 => \
     i_perf_counter | return
 
 #
-# The general case for BIFs that have no special instructions.
-# A BIF used in the tail must be followed by a return instruction.
+# BIFs like process_info/1,2 require up-to-date information about the current
+# emulator state, which the ordinary call_light_bif instruction doesn't save.
 #
-# To make trapping and stack backtraces work correctly, we make sure that
-# the continuation pointer is always stored on the stack.
 
-call_ext u Bif=u$is_bif => call_bif Bif
+call_ext u Bif=u$is_bif | is_heavy_bif(Bif) => \
+    i_call_ext Bif
+call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) => \
+    i_call_ext Bif | deallocate_return D
+call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) => \
+    allocate u Ar | i_call_ext Bif | deallocate_return u
 
-call_ext_last u Bif=u$is_bif D => deallocate D | call_bif_only Bif
+#
+# The general case for BIFs that have no special requirements.
+#
 
-call_ext_only Ar=u Bif=u$is_bif => call_bif_only Bif
+call_ext u Bif=u$is_bif => call_light_bif Bif
+call_ext_last u Bif=u$is_bif D => call_light_bif_last Bif D
+call_ext_only Ar=u Bif=u$is_bif => call_light_bif_only Bif
 
 #
 # Any remaining calls are calls to Erlang functions, not BIFs.
@@ -1034,14 +987,32 @@ i_apply_fun
 i_apply_fun_last Q
 i_apply_fun_only
 
+#
+# When a BIF is traced, these instructions make a body call through the export
+# entry instead of calling the BIF directly (setting up a temporary stack frame
+# if needed). We therefore retain the stack frame in call_light_bif_last, and
+# add a deallocate_return after call_light_bif_only to remove the temporary
+# stack frame before returning.
+#
+
+call_light_bif Bif=u$is_bif => \
+    call_light_bif Bif Bif
+
+call_light_bif_last Bif=u$is_bif D => \
+    call_light_bif Bif Bif | deallocate_return D
+
+call_light_bif_only Bif=u$is_bif => \
+    call_light_bif_only Bif Bif | deallocate_return u
+
+call_light_bif b e
+call_light_bif_only b e
+
 %cold
+
 i_hibernate
-
 i_perf_counter
-%hot
 
-call_bif e
-call_bif_only e
+%hot
 
 #
 # Calls to non-building and guard BIFs.

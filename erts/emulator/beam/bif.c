@@ -4971,15 +4971,28 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
 {
     int i;
+
     sys_memset((void *) ep, 0, sizeof(Export));
+
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->addressv[i] = ep->beam;
+        ep->addressv[i] = ep->trampoline.raw;
     }
+
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
-    ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
-    ep->beam[1] = (BeamInstr) bif;
+    ep->trampoline.op = BeamOpCodeAddr(op_call_bif_W);
+    ep->trampoline.raw[1] = (BeamInstr)bif;
+}
+
+/*
+ * Writes a BIF call wrapper to the given address.
+ */
+void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
+    BifEntry *entry = &bif_table[export->bif_table_index];
+
+    address[0] = BeamOpCodeAddr(op_call_bif_W);
+    address[1] = (BeamInstr)entry->f;
 }
 
 void erts_init_bif(void)
@@ -5031,7 +5044,7 @@ void erts_init_bif(void)
 }
 
 /*
- * Scheduling of BIFs via NifExport...
+ * Scheduling of BIFs via ErtsNativeFunc...
  */
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -5046,8 +5059,8 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 	 int argc, Eterm *argv)
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
-    (void) erts_nif_export_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, BeamOpCodeAddr(op_apply_bif),
+    (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
+				    mfa, pc, BeamOpCodeAddr(op_call_bif_W),
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5056,23 +5069,23 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 
 static BIF_RETTYPE dirty_bif_result(BIF_ALIST_1)
 {
-    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(BIF_P);
-    erts_nif_export_restore(BIF_P, nep, BIF_ARG_1);
+    ErtsNativeFunc *nep = (ErtsNativeFunc *) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(BIF_P);
+    erts_nfunc_restore(BIF_P, nep, BIF_ARG_1);
     BIF_RET(BIF_ARG_1);
 }
 
 static BIF_RETTYPE dirty_bif_trap(BIF_ALIST)
 {
-    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(BIF_P);
+    ErtsNativeFunc *nep = (ErtsNativeFunc *) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(BIF_P);
 
     /*
      * Arity and argument registers already set
      * correct by call to dirty_bif_trap()...
      */
 
-    ASSERT(BIF_P->arity == nep->exp.info.mfa.arity);
+    ASSERT(BIF_P->arity == nep->trampoline.info.mfa.arity);
 
-    erts_nif_export_restore(BIF_P, nep, THE_NON_VALUE);
+    erts_nfunc_restore(BIF_P, nep, THE_NON_VALUE);
 
     BIF_P->i = (BeamInstr *) nep->func;
     BIF_P->freason = TRAP;
@@ -5087,8 +5100,8 @@ static BIF_RETTYPE dirty_bif_exception(BIF_ALIST_2)
 
     freason = signed_val(BIF_ARG_1);
 
-    /* Restore orig info for error and clear nif export in handle_error() */
-    freason |= EXF_RESTORE_NIF;
+    /* Restore orig info for error and clear nif wrapper in handle_error() */
+    freason |= EXF_RESTORE_NFUNC;
 
     BIF_P->fvalue = BIF_ARG_2;
 
@@ -5126,6 +5139,7 @@ erts_schedule_bif(Process *proc,
     if (!ERTS_PROC_IS_EXITING(c_p)) {
 	Export *exp;
 	BifFunction dbif, ibif;
+        BeamInstr call_instr;
 	BeamInstr *pc;
 
 	/*
@@ -5160,27 +5174,40 @@ erts_schedule_bif(Process *proc,
 	if (i == NULL) {
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
 	}
+
+        if (BeamIsOpCode(*i, op_i_generic_breakpoint)) {
+            ErtsCodeInfo *ci;
+            GenericBp *bp;
+    
+            ci = erts_code_to_codeinfo(i);
+            bp = ci->u.gen_bp;
+
+            call_instr = bp->orig_instr;
+        } else {
+            call_instr = *i;
+        }
+
 #ifdef HIPE
-	else if (proc->flags & F_HIPE_MODE) {
+	if (proc->flags & F_HIPE_MODE) {
 	    /* Pointer to bif export in i */
 	    exp = (Export *) i;
             pc = cp_val(c_p->stop[0]);
 	    mfa = &exp->info.mfa;
-	}
+	} else /* !! This is part of the if clause below !! */
 #endif
-	else if (BeamIsOpCode(*i, op_call_bif_e)) {
-	    /* Pointer to bif export in i+1 */
-	    exp = (Export *) i[1];
+	if (BeamIsOpCode(call_instr, op_call_light_bif_be)) {
+	    /* Pointer to bif export in i+2 */
+	    exp = (Export *) i[2];
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (BeamIsOpCode(*i, op_call_bif_only_e)) {
-	    /* Pointer to bif export in i+1 */
-	    exp = (Export *) i[1];
+	else if (BeamIsOpCode(call_instr, op_call_light_bif_only_be)) {
+	    /* Pointer to bif export in i+2 */
+	    exp = (Export *) i[2];
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (BeamIsOpCode(*i, op_apply_bif)) {
+	else if (BeamIsOpCode(call_instr, op_call_bif_W)) {
             pc = cp_val(c_p->stop[0]);
 	    mfa = erts_code_to_codemfa(i);
 	}
@@ -5209,7 +5236,7 @@ erts_schedule_bif(Process *proc,
 static BIF_RETTYPE
 call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
 {
-    NifExport *nep = ERTS_I_BEAM_OP_TO_NIF_EXPORT(I);
+    ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     ErtsBifFunc bif = (ErtsBifFunc) nep->func;
     BIF_RETTYPE ret;
 
@@ -5222,12 +5249,12 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
     ret = (*bif)(c_p, reg, I);
 
     if (is_value(ret))
-	erts_nif_export_restore(c_p, nep, ret);
+	erts_nfunc_restore(c_p, nep, ret);
     else if (c_p->freason != TRAP)
-	c_p->freason |= EXF_RESTORE_NIF; /* restore in handle_error() */
+	c_p->freason |= EXF_RESTORE_NFUNC; /* restore in handle_error() */
     else if (nep->func == ERTS_SCHED_BIF_TRAP_MARKER) {
 	/* BIF did an ordinary trap... */
-	erts_nif_export_restore(c_p, nep, ret);
+	erts_nfunc_restore(c_p, nep, ret);
     }
     /* else:
      *   BIF rescheduled itself using erts_schedule_bif().
@@ -5244,7 +5271,7 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     int exiting;
     Process *dirty_shadow_proc;
     ErtsBifFunc bf;
-    NifExport *nep;
+    ErtsNativeFunc *nep;
 #ifdef DEBUG
     Eterm *c_p_htop;
     erts_aint32_t state;
@@ -5257,8 +5284,8 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 
 #endif
 
-    nep = ERTS_I_BEAM_OP_TO_NIF_EXPORT(I);
-    ASSERT(nep == ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p));
+    nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
+    ASSERT(nep == ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p));
 
     nep->func = ERTS_SCHED_BIF_TRAP_MARKER;
 

@@ -189,6 +189,27 @@
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
 	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]). 
 
+%% Operators
+
+-export(['=='/2, '=:='/2,
+         '/='/2, '=/='/2,
+         '=<'/2, '>='/2,
+         '<'/2, '>'/2]).
+
+-export(['-'/1, '+'/1,
+         '-'/2, '+'/2,
+         '/'/2, '*'/2,
+         'div'/2, 'rem'/2,
+         'bsl'/2, 'bsr'/2,
+         'bor'/2, 'band'/2,
+         'bxor'/2, 'bnot'/1]).
+
+-export(['and'/2, 'or'/2,
+         'xor'/2, 'not'/1]).
+
+-export(['--'/2, '++'/2]).
+
+-export(['!'/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Simple native code BIFs
@@ -3932,3 +3953,98 @@ gc_info(Ref, N, {OrigColls,OrigRecl}) ->
 	{Ref, {_,Colls, Recl}} -> 
 	    gc_info(Ref, N-1, {Colls+OrigColls,Recl+OrigRecl})
     end.
+
+%% Operators
+
+-spec erlang:'=='(term(), term()) -> boolean().
+'=='(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'=:='(term(), term()) -> boolean().
+'=:='(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'/='(term(), term()) -> boolean().
+'/='(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'=/='(term(), term()) -> boolean().
+'=/='(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'=<'(term(), term()) -> boolean().
+'=<'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'>='(term(), term()) -> boolean().
+'>='(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'<'(term(), term()) -> boolean().
+'<'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'>'(term(), term()) -> boolean().
+'>'(_A, _B) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:'-'(number()) -> number().
+'-'(_A) ->
+    erlang:nif_error(undefined).
+-spec erlang:'+'(number()) -> number().
+'+'(_A) ->
+    erlang:nif_error(undefined).
+-spec erlang:'-'(number(), number()) -> number().
+'-'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'+'(number(), number()) -> number().
+'+'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'/'(number(), number()) -> float().
+'/'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'*'(number(), number()) -> number().
+'*'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'div'(integer(), integer()) -> integer().
+'div'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'rem'(integer(), integer()) -> integer().
+'rem'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'bsl'(integer(), integer()) -> integer().
+'bsl'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'bsr'(integer(), integer()) -> integer().
+'bsr'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'bor'(integer(), integer()) -> integer().
+'bor'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'band'(integer(), integer()) -> integer().
+'band'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'bxor'(integer(), integer()) -> integer().
+'bxor'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'bnot'(integer()) -> integer().
+'bnot'(_A) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:'--'(list(), list()) -> list().
+'--'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'++'(list(), term()) -> term().
+'++'(_A, _B) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:'and'(boolean(), boolean()) -> boolean().
+'and'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'or'(boolean(), boolean()) -> boolean().
+'or'(_A, _B) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:'xor'(boolean(), boolean()) -> boolean().
+'xor'(_A, _B) ->
+    erlang:nif_error(undefined).
+-spec erlang:'not'(boolean()) -> boolean().
+'not'(_A) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:'!'(dst(), term()) -> term().
+'!'(_Dst, _Msg) ->
+    erlang:nif_error(undefined).

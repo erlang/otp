@@ -354,6 +354,7 @@ erl_init(int ncpu,
     erts_init_bif_chksum();
     erts_init_bif_binary();
     erts_init_bif_guard();
+    erts_init_bif_lists();
     erts_init_bif_persistent_term();
     erts_init_bif_re();
     erts_init_unicode(); /* after RE to get access to PCRE unicode */

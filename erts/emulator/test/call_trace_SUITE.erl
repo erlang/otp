@@ -832,21 +832,27 @@ deep_exception() ->
         R1 -> ct:fail({returned,abbr(R1)})
     catch error:badarg -> ok
     end,
-    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
+    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}}, Traps)
                  when is_list(L1), is_list(L2), S == Self ->
-                   next;
+                   %% Each trapping call to reverse/2 must have a corresponding
+                   %% exception_from
+                   {next, Traps + 1};
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}}, Traps) 
+                 when S == Self, Traps > 1 ->
+                   {next, Traps - 1};
+               ({trace,S,exception_from,
+                 {lists,reverse,2},{error,badarg}}, 1) 
                  when S == Self ->
                    expected;
-               ('_') ->
+               ('_', _Traps) ->
                    {trace,Self,exception_from,
                     {lists,reverse,2},{error,badarg}};
-               (_) ->
+               (_, _Traps) ->
                    {unexpected,
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
-           end),
+           end, 0),
     deep_exception(?LINE, deep_5, [1,2], 7, 
                    [{trace,Self,call,{erlang,error,[undef]}},
                     {trace,Self,exception_from,{erlang,error,1},
@@ -896,21 +902,27 @@ deep_exception() ->
         R2 -> ct:fail({returned,abbr(R2)})
     catch error:badarg -> ok
     end,
-    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
+    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}}, Traps)
                  when is_list(L1), is_list(L2), S == Self ->
-                   next;
+                   %% Each trapping call to reverse/2 must have a corresponding
+                   %% exception_from
+                   {next, Traps + 1};
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}}, Traps) 
+                 when S == Self, Traps > 1 ->
+                   {next, Traps - 1};
+               ({trace,S,exception_from,
+                 {lists,reverse,2},{error,badarg}}, 1) 
                  when S == Self ->
                    expected;
-               ('_') ->
+               ('_', _Traps) ->
                    {trace,Self,exception_from,
                     {lists,reverse,2},{error,badarg}};
-               (_) ->
+               (_, _Traps) ->
                    {unexpected,
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
-           end),
+           end, 0),
     deep_exception(?LINE, apply, [?MODULE,deep_5,[1,2]], 7, 
                    [{trace,Self,call,{erlang,error,[undef]}},
                     {trace,Self,exception_from,{erlang,error,1},
@@ -975,21 +987,27 @@ deep_exception() ->
         R3 -> ct:fail({returned,abbr(R3)})
     catch error:badarg -> ok
     end,
-    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
+    expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}}, Traps)
                  when is_list(L1), is_list(L2), S == Self ->
-                   next;
+                   %% Each trapping call to reverse/2 must have a corresponding
+                   %% exception_from
+                   {next, Traps + 1};
                ({trace,S,exception_from,
-                 {lists,reverse,2},{error,badarg}}) 
+                 {lists,reverse,2},{error,badarg}}, Traps) 
+                 when S == Self, Traps > 1 ->
+                   {next, Traps - 1};
+               ({trace,S,exception_from,
+                 {lists,reverse,2},{error,badarg}}, 1)
                  when S == Self ->
                    expected;
-               ('_') ->
+               ('_', _Traps) ->
                    {trace,Self,exception_from,
                     {lists,reverse,2},{error,badarg}};
-               (_) ->
+               (_, _Traps) ->
                    {unexpected,
                     {trace,Self,exception_from,
                      {lists,reverse,2},{error,badarg}}}
-           end),
+           end, 0),
     deep_exception(?LINE, apply, 
                    [fun () -> ?MODULE:deep_5(1,2) end, []], 7, 
                    [{trace,Self,call,{erlang,error,[undef]}},
@@ -1246,6 +1264,24 @@ expect(Message) ->
             end
     after 5000 ->
               io:format("Expected ~p; got nothing", [abbr(Message)]),
+              ct:fail(no_trace_message)
+    end.
+
+expect(Validator, State0) when is_function(Validator) ->
+    receive
+        M ->
+            case Validator(M, State0) of
+                expected ->
+                    ok = io:format("Expected and got ~p", [abbr(M)]);
+                {next, State} ->
+                    ok = io:format("Expected and got ~p", [abbr(M)]),
+                    expect(Validator, State);
+                {unexpected,Message} ->
+                    io:format("Expected ~p; got ~p", [abbr(Message),abbr(M)]),
+                    ct:fail({unexpected,abbr([M|flush()])})
+            end
+    after 5000 ->
+              io:format("Expected ~p; got nothing", [abbr(Validator('_'))]),
               ct:fail(no_trace_message)
     end.
 

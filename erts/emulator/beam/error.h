@@ -66,13 +66,13 @@
 #define EXF_OFFSET	EXTAG_BITS
 #define EXF_BITS	7
 
-#define EXF_PANIC	(1<<(0+EXF_OFFSET))	/* ignore catches */
-#define EXF_THROWN	(1<<(1+EXF_OFFSET))	/* nonlocal return */
-#define EXF_LOG		(1<<(2+EXF_OFFSET))	/* write to logger on termination */
-#define EXF_NATIVE	(1<<(3+EXF_OFFSET))	/* occurred in native code */
-#define EXF_SAVETRACE	(1<<(4+EXF_OFFSET))	/* save stack trace in internal form */
-#define EXF_ARGLIST	(1<<(5+EXF_OFFSET))	/* has arglist for top of trace */
-#define EXF_RESTORE_NIF	(1<<(6+EXF_OFFSET))	/* restore original bif/nif */
+#define EXF_PANIC         (1<<(0+EXF_OFFSET)) /* ignore catches */
+#define EXF_THROWN        (1<<(1+EXF_OFFSET)) /* nonlocal return */
+#define EXF_LOG           (1<<(2+EXF_OFFSET)) /* write to logger on termination */
+#define EXF_NATIVE        (1<<(3+EXF_OFFSET)) /* occurred in native code */
+#define EXF_SAVETRACE     (1<<(4+EXF_OFFSET)) /* save stack trace in internal form */
+#define EXF_ARGLIST       (1<<(5+EXF_OFFSET)) /* has arglist for top of trace */
+#define EXF_RESTORE_NFUNC (1<<(6+EXF_OFFSET)) /* restore original bif/nif */
 
 #define EXC_FLAGBITS	(((1<<(EXF_BITS+EXF_OFFSET))-1) \
 			 & ~((1<<(EXF_OFFSET))-1))

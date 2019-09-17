@@ -35,7 +35,6 @@ use File::Basename;
 # Output:
 #    <-src>/erl_am.c
 #    <-src>/erl_bif_table.c
-#    <-src>/erl_bif_wrap.c
 #    <-src>/erl_dirty_bif_wrap.c
 #    <-src>/erl_guard_bifs.c
 #    <-src>/hipe_nbif_impl.c
@@ -92,7 +91,7 @@ while (<>) {
     my($type, @args) = split;
     if ($type eq 'atom') {
 	save_atoms(@args);
-    } elsif ($type eq 'bif' or $type eq 'ubif' or $type eq 'gcbif') {
+    } elsif ($type eq 'bif' or $type eq 'ubif' or $type eq 'hbif') {
 	if (@args > 2) {
 	    error("$type only allows two arguments");
 	}
@@ -124,14 +123,22 @@ while (<>) {
 	    error("invalid sched_type: $sched_type");
 	}
 
-	my $wrapper;
-	if ($type eq 'bif') {
-	    $wrapper = "wrap_$alias";
-	} else {
-	    $wrapper = $alias;
-	}
+        my $kind;
+        if ($type eq 'bif') {
+            $kind = 'BIF_KIND_REGULAR';
+        }
+        elsif ($type eq 'hbif') {
+            $kind = 'BIF_KIND_HEAVY';
+        }
+        elsif ($type eq 'ubif') {
+            $kind = 'BIF_KIND_GUARD';
+        }
+        else {
+            error("invalid bif_type: $type");
+        }
+
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
-		    $alias3,$wrapper,$alias]);
+		    $alias3,$alias,$kind]);
 	push(@bif_info, [$type, $sched_type, $alias3, $alias]);
     } elsif ($type eq 'dirty-cpu' or $type eq 'dirty-io'
 	     or $type eq 'dirty-cpu-test' or $type eq 'dirty-io-test') {
@@ -196,7 +203,7 @@ open_file("$include/erl_bif_list.h");
 my $i;
 for ($i = 0; $i < @bif; $i++) {
     # module atom, function atom, arity, C function, table index
-    print "BIF_LIST($bif[$i]->[0],$bif[$i]->[1],$bif[$i]->[2],$bif[$i]->[3],$bif[$i]->[5],$i)\n";
+    print "BIF_LIST($bif[$i]->[0],$bif[$i]->[1],$bif[$i]->[2],$bif[$i]->[3],$bif[$i]->[4],$i)\n";
 }
 
 #
@@ -208,15 +215,24 @@ my $bif_size = @bif;
 print <<EOF;
 #ifndef __ERL_BIF_TABLE_H__
 #define __ERL_BIF_TABLE_H__
+
+#include "sys.h"
+
 typedef void *BifFunction;
+
+typedef enum {
+    BIF_KIND_REGULAR,
+    BIF_KIND_HEAVY,
+    BIF_KIND_GUARD
+} BifKind;
 
 typedef struct bif_entry {
     Eterm module;
     Eterm name;
     int arity;
     BifFunction f;
-    BifFunction traced;
     BifFunction impl;
+    BifKind kind;
 } BifEntry;
 
 typedef struct erts_gc_bif {
@@ -232,7 +248,6 @@ typedef struct erts_u_bif {
 
 extern BifEntry bif_table[];
 extern Export* bif_export[];
-extern const ErtsGcBif erts_gc_bifs[];
 extern const ErtsUBif erts_u_bifs[];
 
 #define BIF_SIZE $bif_size
@@ -250,7 +265,6 @@ for ($i = 0; $i < @bif; $i++) {
     my $args = join(', ', 'Process*', 'Eterm*', 'UWord*');
     my $name = $bif_info[$i]->[3];
     print "Eterm $name($args);\n";
-    print "Eterm wrap_$name($args);\n";
     print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
 	if $bif_info[$i]->[0] eq 'gcbif';
     print "Eterm $bif_info[$i]->[2]($args);\n"
@@ -283,25 +297,6 @@ for ($i = 0; $i < @bif; $i++) {
 print "};\n\n";
 
 #
-# Generate the bif wrappers file.
-#
-
-open_file("$src/erl_bif_wrap.c");
-my $i;
-includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
-	 "erl_bif_table.h", "erl_atom_table.h");
-for ($i = 0; $i < @bif; $i++) {
-    next if $bif[$i]->[3] eq $bif[$i]->[4]; # Skip unwrapped bifs
-    my $arity = $bif[$i]->[2];
-    my $func = $bif_info[$i]->[3];
-    print "Eterm\n";
-    print "wrap_$func(Process* p, Eterm* args, UWord* I)\n";
-    print "{\n";
-    print "    return erts_bif_trace($i, p, args, I);\n";
-    print "}\n\n";
-}
-
-#
 # Generate erl_gc_bifs.c.
 #
 
@@ -309,18 +304,11 @@ open_file("$src/erl_guard_bifs.c");
 my $i;
 includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h");
-print "const ErtsGcBif erts_gc_bifs[] = {\n";
-for ($i = 0; $i < @bif; $i++) {
-    next unless $bif_info[$i]->[0] eq 'gcbif';
-    print "  {$bif[$i]->[3], erts_gc_$bif[$i]->[3], BIF_$bif[$i]->[5]},\n";
-}
-print "  {NULL, NULL, -1}\n";
-print "};\n";
 
 print "const ErtsUBif erts_u_bifs[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
     next unless $bif_info[$i]->[0] eq 'ubif';
-    print "  {$bif[$i]->[3], BIF_$bif[$i]->[5]},\n";
+    print "  {$bif[$i]->[3], BIF_$bif[$i]->[4]},\n";
 }
 print "  {NULL, -1}\n";
 print "};\n";
@@ -368,7 +356,7 @@ EOF
     my $i;
     for ($i = 0; $i < @bif; $i++) {
 	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[5](Process *c_p, Eterm *regs);
+Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs);
 EOF
    }
 
@@ -388,9 +376,9 @@ EOF
     for ($i = 0; $i < @bif; $i++) {
 
 	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[5](Process *c_p, Eterm *regs)
+Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs)
 {
-    return $bif[$i]->[3](c_p, regs, (UWord *) bif_export\[BIF_$bif[$i]->[5]\]);
+    return $bif[$i]->[3](c_p, regs, (UWord *) bif_export\[BIF_$bif[$i]->[4]\]);
 }
 
 EOF

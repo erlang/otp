@@ -36,7 +36,7 @@
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
-         branch_to_try_handler/1]).
+         branch_to_try_handler/1,call_without_stack/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -67,7 +67,7 @@ groups() ->
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,infer_on_ne,
-       branch_to_try_handler]}].
+       branch_to_try_handler,call_without_stack]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -150,19 +150,34 @@ stack(Config) when is_list(Config) ->
 
 call_last(Config) when is_list(Config) ->
     Errors = do_val(call_last, Config),
-    [{{t,a,1},{{call_last,1,{f,8},2},9,{allocated,1}}},
+    [{{t,a,1},
+      {{call_last,1,{f,8},2},9,{allocated,1}}},
      {{t,b,1},
-      {{call_ext_last,2,{extfunc,lists,seq,2},2},
-       10,
-       {allocated,1}}}] = Errors,
+      {{call_ext_last,2,{extfunc,lists,seq,2},2},10,{allocated,1}}},
+     {{t,baz,2},
+      {{call_ext_only,2,{extfunc,erlang,put,2}},5,{allocated,0}}},
+     {{t,biz,2},
+      {{call_only,2,{f,10}},5,{allocated,0}}}] = Errors,
+    ok.
+
+call_without_stack(Config) when is_list(Config) ->
+    Errors = do_val(call_without_stack, Config),
+    [{{t,local,2},
+        {{call,2,{f,2}},4,{allocated,none}}},
+     {{t,remote,2},
+        {{call_ext,2,{extfunc,lists,seq,2}},4,{allocated,none}}}] = Errors,
     ok.
 
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
-    [{{t,handle_call,2},
+    [{{t,undecided,2},
       {{call_ext,2,{extfunc,debug,filter,2}},
        22,
-       {uninitialized_reg,{y,_}}}}] = Errors,
+       {allocated,undecided}}},
+     {{t,uninitialized,2},
+      {{call_ext,2,{extfunc,io,format,2}},
+       17,
+       {uninitialized_reg,{y,1}}}}] = Errors,
     ok.
 
 uninit(Config) when is_list(Config) ->
@@ -265,7 +280,7 @@ freg_uninit(Config) when is_list(Config) ->
        {uninitialized_reg,{fr,1}}}},
      {{t,sum_2,2},
       {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
-       9,
+       10,
        {uninitialized_reg,{fr,0}}}}] = Errors,
     ok.
 

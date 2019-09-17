@@ -580,8 +580,6 @@ is_unreachable_after(I) -> is_exit_instruction(I).
 
 -spec is_exit_instruction(instruction()) -> boolean().
 
-is_exit_instruction({call_ext,_,{extfunc,M,F,A}}) ->
-    erl_bifs:is_exit_bif(M, F, A);
 is_exit_instruction(if_end) -> true;
 is_exit_instruction({case_end,_}) -> true;
 is_exit_instruction({try_case_end,_}) -> true;

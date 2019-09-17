@@ -707,20 +707,30 @@ legacy_bs_is([], _Last, _IsYreg, Count, Copies, Acc) ->
 
 exception_trampolines(#st{ssa=Blocks0}=St) ->
     RPO = reverse(beam_ssa:rpo(Blocks0)),
-    Blocks = et_1(RPO, #{}, Blocks0),
+    Blocks = et_1(RPO, #{}, #{}, Blocks0),
     St#st{ssa=Blocks}.
 
-et_1([L | Ls], Trampolines, Blocks) ->
+et_1([L | Ls], Trampolines, Exceptions, Blocks) ->
     #{ L := #b_blk{is=Is,last=Last0}=Block0 } = Blocks,
     case {Is, Last0} of
-        {[#b_set{op=exception_trampoline}], #b_br{succ=Succ}} ->
-            et_1(Ls, Trampolines#{ L => Succ }, maps:remove(L, Blocks));
+        {[#b_set{op=exception_trampoline,args=[Arg]}], #b_br{succ=Succ}} ->
+            et_1(Ls,
+                 Trampolines#{ L => Succ },
+                 Exceptions#{ L => Arg },
+                 maps:remove(L, Blocks));
         {_, #b_br{succ=Same,fail=Same}} when Same =:= ?EXCEPTION_BLOCK ->
             %% The exception block is just a marker saying that we should raise
             %% an exception (= {f,0}) instead of jumping to a particular fail
             %% block. Since it's not a reachable block we can't allow
             %% unconditional jumps to it except through a trampoline.
             error({illegal_jump_to_exception_block, L});
+        {_, #b_br{succ=Same,fail=Same}}
+          when map_get(Same, Trampolines) =:= ?EXCEPTION_BLOCK ->
+            %% This block always fails at runtime (and we are not in a
+            %% try/catch); rewrite the terminator to a return.
+            Last = #b_ret{arg=map_get(Same, Exceptions)},
+            Block = Block0#b_blk{last=Last},
+            et_1(Ls, Trampolines, Exceptions, Blocks#{ L := Block });
         {_, #b_br{succ=Succ0,fail=Fail0}} ->
             Succ = maps:get(Succ0, Trampolines, Succ0),
             Fail = maps:get(Fail0, Trampolines, Fail0),
@@ -728,14 +738,14 @@ et_1([L | Ls], Trampolines, Blocks) ->
                 Succ =/= Succ0; Fail =/= Fail0 ->
                     Last = Last0#b_br{succ=Succ,fail=Fail},
                     Block = Block0#b_blk{last=Last},
-                    et_1(Ls, Trampolines, Blocks#{ L := Block });
+                    et_1(Ls, Trampolines, Exceptions, Blocks#{ L := Block });
                 Succ =:= Succ0, Fail =:= Fail0 ->
-                    et_1(Ls, Trampolines, Blocks)
+                    et_1(Ls, Trampolines, Exceptions, Blocks)
             end;
         {_, _} ->
-             et_1(Ls, Trampolines, Blocks)
+             et_1(Ls, Trampolines, Exceptions, Blocks)
     end;
-et_1([], _Trampolines, Blocks) ->
+et_1([], _Trampolines, _Exceptions, Blocks) ->
     Blocks.
 
 %% sanitize(St0) -> St.
@@ -1331,14 +1341,9 @@ need_frame_1([#b_set{op=call,args=[Func|_]}|Is], Context) ->
         #b_remote{mod=#b_literal{val=Mod},
                   name=#b_literal{val=Name},
                   arity=Arity} when is_atom(Mod), is_atom(Name) ->
-            case erl_bifs:is_exit_bif(Mod, Name, Arity) of
-                true ->
-                    false;
-                false ->
-                    Context =:= body orelse
-                        Is =/= [] orelse
-                        is_trap_bif(Mod, Name, Arity)
-                end;
+            Context =:= body orelse
+                Is =/= [] orelse
+                is_trap_bif(Mod, Name, Arity);
         #b_remote{} ->
             %% This is an apply(), which always needs a frame.
             true;

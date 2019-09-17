@@ -2588,7 +2588,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     /*
      * If a NIF or BIF has saved arguments, they need to be added
      */
-    if (erts_setup_nif_export_rootset(p, &roots[n].v, &roots[n].sz))
+    if (erts_setup_nfunc_rootset(p, &roots[n].v, &roots[n].sz))
 	n++;
 
     ASSERT(n <= rootset->size);
@@ -3236,7 +3236,7 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	offset_heap_ptr(objv, nobj, offs, area, area_size);
     }
     offset_off_heap(p, offs, area, area_size);
-    if (erts_setup_nif_export_rootset(p, &v, &sz))
+    if (erts_setup_nfunc_rootset(p, &v, &sz))
 	offset_heap_ptr(v, sz, offs, area, area_size);
 }
 
