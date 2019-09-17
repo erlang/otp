@@ -27,6 +27,75 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of zero size fragments in TLS could cause an
+	    infinite loop. This has now been corrected.</p>
+          <p>
+	    Own Id: OTP-15328 Aux Id: ERIERL-379 </p>
+        </item>
+        <item>
+          <p>
+	    DTLS record check needs to consider that a resent hello
+	    message can have a different version than the negotiated.</p>
+          <p>
+	    Own Id: OTP-15807 Aux Id: ERL-920 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Basic support for TLS 1.3 Client for experimental use.
+	    For more information see the Standards Compliance chapter
+	    of the User's Guide.</p>
+          <p>
+	    Own Id: OTP-15431</p>
+        </item>
+        <item>
+          <p>
+	    Correct solution for retaining tcp flow control OTP-15802
+	    (ERL-934) as to not break ssl:recv as reported in
+	    (ERL-938)</p>
+          <p>
+	    Own Id: OTP-15823 Aux Id: ERL-934, ERL-938 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance dialyzer specs to reflect implementation better
+	    and avoid dialyzer warnings for the user that wants to
+	    use TLS with unix domain sockets.</p>
+          <p>
+	    Own Id: OTP-15851 Aux Id: PR-2235 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for ECDSA signature algorithms in TLS 1.3.</p>
+          <p>
+	    Own Id: OTP-15854</p>
+        </item>
+        <item>
+          <p>
+	    Correct error handling of TLS downgrade, possible return
+	    values form ssl:close/2 when downgrading is {ok, Port} or
+	    {error, Reason}, it could happen that only ok was
+	    returned instead of {error, closed} when downgrade failed
+	    due to that the peer closed the TCP connection.</p>
+          <p>
+	    Own Id: OTP-16027</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3.5</title>
 
     <section><title>Improvements and New Features</title>

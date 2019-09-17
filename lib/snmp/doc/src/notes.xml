@@ -34,7 +34,62 @@
   </header>
 
 
-  <section><title>SNMP 5.3</title>
+  <section><title>SNMP 5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix various minor issues related to Dialyzer. Mostly
+	    these are dialyzer warnings, but there was also some
+	    minor bugs detected by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-15932</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a dets usage problem detected by dialyzer.</p>
+          <p>
+	    Own Id: OTP-10400 Aux Id: kunagi-253 [164] </p>
+        </item>
+        <item>
+          <p>
+	    The function snmp:print_version_info() prints various
+	    version info. For each module a number of items are
+	    printed, such as app vsn and md5 digest. And an attempt
+	    was also made to print "compile time". This used to be
+	    available in the module_info for each module, but has now
+	    been removed.</p>
+          <p>
+	    Own Id: OTP-15330</p>
+        </item>
+        <item>
+          <p>
+	    The use of the deprecated random module has been replaced
+	    the with rand module.</p>
+          <p>
+	    Own Id: OTP-15331</p>
+        </item>
+        <item>
+          <p>
+	    Removed use of the deprecated function
+	    erlang:get_stacktrace(). Instead make use of the 'catch
+	    Class:Error:Stacktrace' feature.</p>
+          <p>
+	    Own Id: OTP-15332</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

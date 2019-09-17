@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Allow native compilation when using Dialyzer from
+	    Erlang. The options <c>native</c> (defaults to
+	    <c>false</c>) and <c>native_cache</c> have been added.
+	    </p>
+          <p>
+	    Own Id: OTP-15880 Aux Id: PR-2283 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

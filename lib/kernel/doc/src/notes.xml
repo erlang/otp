@@ -31,6 +31,101 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The type specification for <c>gen_sctp:connect/4,5</c>
+	    has been corrected.</p>
+          <p>
+	    Own Id: OTP-15344 Aux Id: ERL-947 </p>
+        </item>
+        <item>
+          <p>
+	    Extra <c>-mode</c> flags given to <c>erl</c> are ignored
+	    with a warning.</p>
+          <p>
+	    Own Id: OTP-15852</p>
+        </item>
+        <item>
+          <p>
+	    Fix type spec for <c>seq_trace:set_token/2</c>.</p>
+          <p>
+	    Own Id: OTP-15858 Aux Id: ERL-700 </p>
+        </item>
+        <item>
+          <p>
+	    <c>logger:compare_levels/2</c> would fail with a
+	    <c>badarg</c> exception if given the values <c>all</c> or
+	    <c>none</c> as any of the parameters. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15942 Aux Id: PR-2301 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the log file in <c>logger_std_h</c> would
+	    not be closed when the inode of the file changed. This
+	    would in turn cause a file descriptor leak when tools
+	    like logrotate are used.</p>
+          <p>
+	    Own Id: OTP-15997 Aux Id: PR-2331 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a race condition in the debugging function
+	    <c>net_kernel:nodes_info/0</c>.</p>
+          <p>
+	    Own Id: OTP-16022</p>
+        </item>
+        <item>
+          <p>
+	    Fix race condition when closing a file opened in
+	    <c>compressed</c> or <c>delayed_write</c> mode.</p>
+          <p>
+	    Own Id: OTP-16023</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The possibility to send ancillary data, in particular the
+	    TOS field, has been added to <c>gen_udp:send/4,5</c>.</p>
+          <p>
+	    Own Id: OTP-15747 Aux Id: ERIERL-294 </p>
+        </item>
+        <item>
+          <p>
+	    If the log file was given with relative path, the
+	    standard logger handler (<c>logger_std_h</c>) would store
+	    the file name with relative path. If the current
+	    directory of the node was later changed, a new file would
+	    be created relative the new current directory,
+	    potentially failing with an <c>enoent</c> if the new
+	    directory did not exist. This is now corrected and
+	    <c>logger_std_h</c> always stores the log file name as an
+	    absolute path, calculated from the current directory at
+	    the time of the handler startup.</p>
+          <p>
+	    Own Id: OTP-15850</p>
+        </item>
+        <item>
+          <p>
+	    Support local sockets with inet:i/0.</p>
+          <p>
+	    Own Id: OTP-15935 Aux Id: PR-2299 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

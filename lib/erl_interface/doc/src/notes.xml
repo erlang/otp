@@ -31,6 +31,41 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bugs in <c>ei_print_term</c> for binaries and bit
+	    strings causing incorrect output.</p>
+          <p>
+	    Own Id: OTP-15917</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_decode_fun</c> for very old fun
+	    encoding format. Bug exist since OTP 22.0.</p>
+          <p>
+	    Own Id: OTP-15996</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>ei_print_term()</c> now supports printing of maps
+	    and funs.</p>
+          <p>
+	    Own Id: OTP-15814</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

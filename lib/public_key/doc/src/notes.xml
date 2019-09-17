@@ -35,6 +35,33 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Support Password based encryption with AES</p>
+          <p>
+	    Own Id: OTP-15870 Aux Id: ERL-952 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change dialyzer spec to avoid confusion</p>
+          <p>
+	    Own Id: OTP-15843 Aux Id: ERL-915 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

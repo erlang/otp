@@ -1272,7 +1272,7 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="timeout_cancel_action" since="OTP @OTP-15510@"/>
+      <name name="timeout_cancel_action" since="OTP 22.1"/>
       <desc>
 	<p>
 	  This is a shorter and clearer form of
@@ -1284,7 +1284,7 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="timeout_update_action" since="OTP @OTP-15510@"/>
+      <name name="timeout_update_action" since="OTP 22.1"/>
       <desc>
 	<p>
 	  Updates a time-out with a new <c>EventContent</c>.

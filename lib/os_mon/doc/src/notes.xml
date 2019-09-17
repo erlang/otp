@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disk_sup</c> to ignore squashfs on Linux when
+	    determining if a mounted filesystem is full or not.</p>
+          <p>
+	    Own Id: OTP-15778</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>cpu_sup:util()</c> always returned 100%
+	    on systems not using gnu libc, for example Alpine OS.</p>
+          <p>
+	    Own Id: OTP-15974 Aux Id: ERL-1012 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

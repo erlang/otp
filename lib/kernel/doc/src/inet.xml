@@ -118,7 +118,7 @@ fe80::204:acff:fe17:bf38
       <name name="port_number"/>
     </datatype>
     <datatype>
-      <name name="family_address" since="OTP @OTP-15747@"/>
+      <name name="family_address" since="OTP 22.1"/>
       <desc>
 	<p>
 	  A general address format on the form <c>{Family, Destination}</c>
@@ -130,7 +130,7 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
-      <name name="inet_address" since="OTP @OTP-15747@"/>
+      <name name="inet_address" since="OTP 22.1"/>
       <desc>
 	<warning>
 	  <p>
@@ -142,7 +142,7 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
-      <name name="inet6_address" since="OTP @OTP-15747@"/>
+      <name name="inet6_address" since="OTP 22.1"/>
       <desc>
 	<warning>
 	  <p>

@@ -31,6 +31,148 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>re:run()</c> now yields when validating utf8 in a
+	    large subject.</p>
+          <p>
+	    Own Id: OTP-15836 Aux Id: ERL-876 </p>
+        </item>
+        <item>
+          <p>
+	    Upgraded the ERTS internal PCRE library from version 8.42
+	    to version 8.43. See <url
+	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
+	    for information about changes made to PCRE. This library
+	    implements major parts of the <seealso
+	    marker="stdlib:re"><c>re</c></seealso> regular
+	    expressions module.</p>
+          <p>
+	    Own Id: OTP-15889</p>
+        </item>
+        <item>
+          <p>
+	    The bug with ID ERL-717 has been fixed. The functions
+	    <c>io:columns()</c> and <c>io:rows()</c> only worked
+	    correctly inside interactive erlang shells before this
+	    fix. These functions returned <c>{error,enotsup}</c>
+	    before this fix even if stdout and stdin were connected
+	    to a terminal when they were invoked from an escript or a
+	    program started with e.g., <c>erl -noshell</c>.</p>
+          <p>
+	    Own Id: OTP-15959 Aux Id: ERL-717 </p>
+        </item>
+        <item>
+	    <p>Fixed handling of ".." and "@" in wildcards. ".."
+	    would only work when preceded by a literal pattern such
+	    as in "a/..", not when preceded by wildcard characters
+	    such as in "*/..". The combination "@/.." was also
+	    broken, and in addition "@" in a pattern could degrade
+	    performance of the wildcard matching.</p>
+          <p>
+	    Own Id: OTP-15987 Aux Id: ERL-1029 </p>
+        </item>
+        <item>
+	    <p> Make sure <c>ets:fun2ms()</c> can handle <c>++/2</c>
+	    in the head of functions when called from the shell. </p>
+          <p>
+	    Own Id: OTP-15992 Aux Id: PR-2322 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Debugging of time-outs in <c>gen_statem</c> has been
+	    improved. Starting a time-out is now logged in
+	    <c>sys:log</c> and <c>sys:trace</c>. Running time-outs
+	    are visible in server crash logs, and with
+	    <c>sys:get_status</c>. Due to this system events
+	    <c>{start_timer, Action, State}</c> and
+	    <c>{insert_timout, Event, State}</c> have been added,
+	    which may surprise tools that rely on the format of these
+	    events. </p> <p>New features: The <c>EventContent</c> of
+	    a running time-out can be updated with <c>{TimeoutType,
+	    update, NewEventContent}</c>. Running time-outs can be
+	    cancelled with <c>{TimeoutType, cancel}</c> which is more
+	    readable than using <c>Time = infinity</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15510</p>
+        </item>
+        <item>
+          <p>
+	    <c>re:run()</c> now avoids validating utf8 in the subject
+	    more than once in the same call. This validation could
+	    previously be performed multiple times when the
+	    <c>global</c> option was passed.</p>
+          <p>
+	    Own Id: OTP-15831 Aux Id: ERL-876 </p>
+        </item>
+        <item>
+          <p>
+	    ETS <c>ordered_set</c> tables with
+	    <c>write_concurrency</c> enabled has got a performance
+	    issue fixed. There were no limits for the values of
+	    internal statistics counters before this fix. This could
+	    result in that the data structure sometimes reacted
+	    slowly to a change in how many parallel processes were
+	    using it.</p>
+          <p>
+	    Own Id: OTP-15906</p>
+        </item>
+        <item>
+	    <p>The <c>ordsets:union/1</c> is now faster when passed a
+	    long list of ordsets.</p>
+          <p>
+	    Own Id: OTP-15927</p>
+        </item>
+        <item>
+          <p>
+	    <c>unicode:characters_to_binary()</c> could return very
+	    small binaries as reference counted off heap binaries.
+	    This could cause an unnecessary large memory usage and an
+	    unnecessary load on the binary allocator. Small binaries
+	    are now always returned as heap binaries.</p>
+          <p>
+	    Own Id: OTP-16002 Aux Id: ERIERL-366 </p>
+        </item>
+        <item>
+	    <p> Display a more meaningful error message when a bad
+	    I/O server is used in a script written in Erlang
+	    (<c>escript</c>). </p>
+          <p>
+	    Own Id: OTP-16006 Aux Id: ERL-992 </p>
+        </item>
+        <item>
+          <p>
+	    New feature <c>ets:info(_, binary)</c> to get information
+	    about all reference counted binaries kept by a table.
+	    This is the same kind of debug information that
+	    <c>process_info(_, binary)</c> returns for a process.</p>
+          <p>
+	    Own Id: OTP-16035 Aux Id: ERIERL-366 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected ETS documentation about the behavior of
+	    compiled match specifications when serialized through
+	    external format.</p>
+          <p>
+	    Own Id: OTP-16038 Aux Id: PR-2366 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

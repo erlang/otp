@@ -32,6 +32,34 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug after a user followed link on a pid from an
+	    expanded term window.</p>
+          <p>
+	    Own Id: OTP-15980 Aux Id: PR-2201 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved dark mode colors on Linux.</p>
+          <p>
+	    Own Id: OTP-15916 Aux Id: ERL-921 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

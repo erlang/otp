@@ -33,7 +33,30 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.9</title>
+  <section><title>Inets 7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpd - Accept singel LF as line terminator</p>
+          <p>
+	    Own Id: OTP-15893 Aux Id: PR-2206 </p>
+        </item>
+        <item>
+          <p>
+	    mod_esi will now always propagate the actual HTTP status
+	    code that it answered with, to later mod-modules, and not
+	    in some cases hardcode 200.</p>
+          <p>
+	    Own Id: OTP-16049 Aux Id: ERIERL-395 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

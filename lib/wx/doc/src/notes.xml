@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a driver bug that could crashes when allocating
+	    memory.</p>
+          <p>
+	    Own Id: OTP-15883 Aux Id: PR-2261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.8.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,64 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The implementation of <c>crypto_one_time/4</c> is
+	    adjusted to match the type specification. The spec and
+	    the black-box behaviour of the function are unchanged.</p>
+          <p>
+	    Some details: Both the spec and the implementation were
+	    correct seen separately. But with both of them combined
+	    simultaneously with <c>crypto_one_time/5</c> which was
+	    called by the implementation of <c>crypto_one_time/4</c>,
+	    an (obvious) error was detected by a Dialyzer with more
+	    thorough checking than usual.</p>
+          <p>
+	    Own Id: OTP-15884 Aux Id: ERL-974 </p>
+        </item>
+        <item>
+          <p>
+	    When using crypto with FIPS mode enabled, the digests
+	    were not correctly handled.</p>
+          <p>
+	    Own Id: OTP-15911</p>
+        </item>
+        <item>
+          <p>
+	    A memory leak in error handling code in
+	    <c>ng_crypto_init_nif</c> is fixed.</p>
+          <p>
+	    Own Id: OTP-15924</p>
+        </item>
+        <item>
+          <p>
+	    Fixed the broken static build of the crypto nifs</p>
+          <p>
+	    Own Id: OTP-15928 Aux Id: PR-2296 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Message Authentication Codes (MAC) CMAC, HMAC and
+	    Poly1305 are unified into common functions in the New
+	    Crypto API. See the manual for CRYPTO.</p>
+          <p>
+	    Own Id: OTP-13872</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
