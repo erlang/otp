@@ -5433,10 +5433,12 @@ transform_engine(LoaderState* st)
 		ASSERT(i < st->num_imports);
 		if (i >= st->num_imports || st->import[i].bif == NULL)
 		    goto restart;
-		if (bif_number != -1 &&
-		    bif_export[bif_number] != st->import[i].bif) {
-		    goto restart;
-		}
+                if (bif_number != -1) {
+                    Export *bif = st->import[i].bif;
+                    if (bif->bif_table_index != bif_number) {
+                        goto restart;
+                    }
+                }
 	    }
 	    break;
 #endif

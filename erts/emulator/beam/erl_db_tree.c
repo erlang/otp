@@ -1175,7 +1175,7 @@ int db_select_continue_tree_common(Process *p,
 	 sc.accum,
 	 tptr[7],
 	 make_small(sc.got));
-    RET_TO_BIF(bif_trap1(bif_export[BIF_ets_select_1], p, continuation), 
+    RET_TO_BIF(bif_trap1(&bif_trap_export[BIF_ets_select_1], p, continuation), 
 	       DB_ERROR_NONE);
 
 #undef RET_TO_BIF
@@ -1320,7 +1320,7 @@ int db_select_tree_common(Process *p, DbTable *tb,
 	 make_small(sc.got));
 
     /* Don't free mpi.mp, so don't use macro */
-    *ret = bif_trap1(bif_export[BIF_ets_select_1], p, continuation); 
+    *ret = bif_trap1(&bif_trap_export[BIF_ets_select_1], p, continuation); 
     return DB_ERROR_NONE;
 
 #undef RET_TO_BIF
@@ -1728,7 +1728,7 @@ int db_select_chunk_tree_common(Process *p, DbTable *tb,
 	 make_small(reverse),
 	 make_small(sc.got));
     /* Don't let RET_TO_BIF macro free mpi.mp*/
-    *ret = bif_trap1(bif_export[BIF_ets_select_1], p, continuation);
+    *ret = bif_trap1(&bif_trap_export[BIF_ets_select_1], p, continuation);
     return DB_ERROR_NONE;
 
 #undef RET_TO_BIF

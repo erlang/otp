@@ -247,7 +247,7 @@ typedef struct erts_u_bif {
 } ErtsUBif;
 
 extern BifEntry bif_table[];
-extern Export* bif_export[];
+extern Export bif_trap_export[];
 extern const ErtsUBif erts_u_bifs[];
 
 #define BIF_SIZE $bif_size
@@ -287,7 +287,7 @@ my $i;
 includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h", "erl_atom_table.h");
 
-print "\nExport* bif_export[BIF_SIZE];\n";
+print "\nExport bif_trap_export[BIF_SIZE];\n";
 
 print "BifEntry bif_table[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
@@ -378,7 +378,7 @@ EOF
 	print <<EOF;
 Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs)
 {
-    return $bif[$i]->[3](c_p, regs, (UWord *) bif_export\[BIF_$bif[$i]->[4]\]);
+    return $bif[$i]->[3](c_p, regs, (UWord *)&bif_trap_export\[BIF_$bif[$i]->[4]\]);
 }
 
 EOF

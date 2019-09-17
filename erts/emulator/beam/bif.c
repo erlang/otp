@@ -2160,7 +2160,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD:
 	if (suspend) {
-	    ERTS_BIF_PREP_YIELD3(retval, bif_export[BIF_send_3], p, to, msg, opts);
+	    ERTS_BIF_PREP_YIELD3(retval, &bif_trap_export[BIF_send_3], p, to, msg, opts);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	}
@@ -2277,7 +2277,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_PREP_RET(retval, msg);
 	break;
     case SEND_YIELD:
-	ERTS_BIF_PREP_YIELD2(retval, bif_export[BIF_send_2], p, to, msg);
+	ERTS_BIF_PREP_YIELD2(retval, &bif_trap_export[BIF_send_2], p, to, msg);
 	break;
     case SEND_YIELD_RETURN:
     yield_return:
@@ -2584,7 +2584,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     } else {
         ERTS_BIF_ERROR_TRAPPED1(BIF_P,
                                 BADARG,
-                                bif_export[BIF_iolist_size_1],
+                                &bif_trap_export[BIF_iolist_size_1],
                                 input_list);
     }
 
@@ -2604,7 +2604,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     ESTACK_SAVE(s, &context->stack);
     erts_set_gc_state(BIF_P, 0);
     BUMP_ALL_REDS(BIF_P);
-    BIF_TRAP1(bif_export[BIF_iolist_size_1], BIF_P, state_mref);
+    BIF_TRAP1(&bif_trap_export[BIF_iolist_size_1], BIF_P, state_mref);
 }
 
 /**********************************************************************/
@@ -3942,7 +3942,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
 	    erts_halt(pos_int_code);
-	    ERTS_BIF_YIELD2(bif_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
+	    ERTS_BIF_YIELD2(&bif_trap_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
 	}
 	else {
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -4527,7 +4527,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
                 BIF_RET(am_enabled);
             case ERTS_SCHDLR_SSPND_YIELD_RESTART:
                 ERTS_VBUMP_ALL_REDS(BIF_P);
-                BIF_TRAP2(bif_export[BIF_system_flag_2],
+                BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
                           BIF_P, BIF_ARG_1, BIF_ARG_2);
             case ERTS_SCHDLR_SSPND_YIELD_DONE:
                 ERTS_BIF_YIELD_RETURN_X(BIF_P, am_enabled,
@@ -4552,7 +4552,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(bif_export[BIF_system_flag_2],
+	    BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4716,7 +4716,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(bif_export[BIF_system_flag_2],
+	    BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4871,7 +4871,7 @@ BIF_RETTYPE phash2_1(BIF_ALIST_1)
     if (trap_state == THE_NON_VALUE) {
         BIF_RET(make_small(hash & ((1L << 27) - 1)));
     } else {
-        BIF_TRAP1(bif_export[BIF_phash2_1], BIF_P, trap_state);
+        BIF_TRAP1(&bif_trap_export[BIF_phash2_1], BIF_P, trap_state);
     }
 }
 
@@ -4894,7 +4894,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     }
     hash = trapping_make_hash2(BIF_ARG_1, &trap_state, BIF_P);
     if (trap_state != THE_NON_VALUE) {
-        BIF_TRAP2(bif_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
+        BIF_TRAP2(&bif_trap_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
     }
     if (range) {
 	final_hash = hash % range; /* [0..range-1] */
@@ -4978,9 +4978,13 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
         ep->addressv[i] = ep->trampoline.raw;
     }
 
+    ep->bif_table_index = -1;
+
+    ep->info.op = op_i_func_info_IaaI;
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
+
     ep->trampoline.op = BeamOpCodeAddr(op_call_bif_W);
     ep->trampoline.raw[1] = (BeamInstr)bif;
 }

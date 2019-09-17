@@ -289,7 +289,7 @@ BIF_ERROR_ARITY_1(Fail, BIF, Op1) {
     }
     reg[0] = $Op1;
     SWAPOUT;
-    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    I = handle_error(c_p, I, reg, &bif_trap_export[$BIF].info.mfa);
     goto post_error_handling;
 }
 
@@ -301,6 +301,6 @@ BIF_ERROR_ARITY_2(Fail, BIF, Op1, Op2) {
     reg[0] = $Op1;
     reg[1] = $Op2;
     SWAPOUT;
-    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    I = handle_error(c_p, I, reg, &bif_trap_export[$BIF].info.mfa);
     goto post_error_handling;
 }

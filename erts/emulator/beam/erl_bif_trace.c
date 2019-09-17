@@ -130,7 +130,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     ErtsTracer meta_tracer = erts_tracer_nil;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD3(bif_export[BIF_erts_internal_trace_pattern_3], p, MFA, Pattern, flaglist);
+	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_pattern_3], p, MFA, Pattern, flaglist);
     }
     finish_bp.current = -1;
 
@@ -540,7 +540,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(bif_export[BIF_erts_internal_trace_3],
+	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_3],
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -790,7 +790,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     Eterm res;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD2(bif_export[BIF_trace_info_2], p, What, Key);
+	ERTS_BIF_YIELD2(&bif_trap_export[BIF_trace_info_2], p, What, Key);
     }
 
     if (What == am_on_load) {

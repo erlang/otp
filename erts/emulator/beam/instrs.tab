@@ -236,7 +236,7 @@ APPLY(I, Deallocate, Next) {
 }
 
 HANDLE_APPLY_ERROR() {
-    I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
+    I = handle_error(c_p, I, reg, &bif_trap_export[BIF_apply_3].info.mfa);
     goto post_error_handling;
 }
 

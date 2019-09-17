@@ -1250,9 +1250,9 @@ exited:
 
 yield:
     if (pi2)
-        ERTS_BIF_PREP_YIELD2(ret, bif_export[BIF_process_info_2], c_p, pid, opt);
+        ERTS_BIF_PREP_YIELD2(ret, &bif_trap_export[BIF_process_info_2], c_p, pid, opt);
     else
-        ERTS_BIF_PREP_YIELD1(ret, bif_export[BIF_process_info_1], c_p, pid);
+        ERTS_BIF_PREP_YIELD1(ret, &bif_trap_export[BIF_process_info_1], c_p, pid);
     goto done;
 
 send_signal: {
@@ -4596,7 +4596,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    if (!flag && BIF_ARG_2 != am_false) {
 		erts_atomic_set_nob(&hipe_test_reschedule_flag, 1);
 		erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-		ERTS_BIF_YIELD2(bif_export[BIF_erts_debug_set_internal_state_2],
+		ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_debug_set_internal_state_2],
 				BIF_P, BIF_ARG_1, BIF_ARG_2);
 	    }
 	    erts_atomic_set_nob(&hipe_test_reschedule_flag, !flag);
