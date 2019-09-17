@@ -1336,15 +1336,13 @@ handle_new_session_ticket(NewSessionTicket, #state{connection_states = Connectio
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
-
-    %% TODO
-    RMS = undefined,
+    RMS = SecParams#security_parameters.resumption_master_secret,
     store_session_ticket(NewSessionTicket, HKDF, SNI, RMS).
 
 
 %% ===== Prototype =====
 store_session_ticket(NewSessionTicket, HKDF, SNI, RMS) ->
-    TicketDb =
+    _TicketDb =
         case ets:whereis(tls13_session_ticket_db) of
             undefined ->
                 ets:new(tls13_session_ticket_db, [named_table, ordered_set]);

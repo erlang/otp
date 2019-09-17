@@ -1303,12 +1303,13 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup,
     ReadFinishedKey = tls_v1:finished_key(ClientHSTrafficSecret, HKDFAlgo),
     WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
-    update_pending_connection_states(State0, HandshakeSecret,
+    update_pending_connection_states(State0, HandshakeSecret, undefined,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
 
 calculate_traffic_secrets(#state{
+                             ssl_options = #{session_tickets := SessionTickets},
                              static_env = #static_env{role = Role},
                              connection_states = ConnectionStates,
                              handshake_env =
@@ -1336,8 +1337,10 @@ calculate_traffic_secrets(#state{
     #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientAppTrafficSecret0),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
-
-    update_pending_connection_states(State0, MasterSecret,
+    ResumptionMasterSecret =
+        maybe_calculate_resumption_master_secret(HKDFAlgo, MasterSecret,
+                                                 lists:reverse(Messages), SessionTickets),
+    update_pending_connection_states(State0, MasterSecret, ResumptionMasterSecret,
                                      ReadKey, ReadIV, undefined,
                                      WriteKey, WriteIV, undefined).
 
@@ -1372,17 +1375,25 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     public_key:compute_key(Point, MyKey).
 
 
+maybe_calculate_resumption_master_secret(_, _, _, false) ->
+    undefined;
+maybe_calculate_resumption_master_secret(HKDF, MasterSecret, Messages, SessionTickets)
+  when SessionTickets =:= true orelse
+       SessionTickets =:= auto ->
+    tls_v1:resumption_master_secret(HKDF, MasterSecret, Messages).
+
+
 update_pending_connection_states(#state{
                                     static_env = #static_env{role = server},
                                     connection_states =
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
-                                 HandshakeSecret,
+                                 HandshakeSecret, ResumptionMasterSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
-    PendingRead = update_connection_state(PendingRead0, HandshakeSecret,
+    PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
                                           ReadKey, ReadIV, ReadFinishedKey),
-    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret,
+    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
                                            WriteKey, WriteIV, WriteFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}};
@@ -1391,22 +1402,23 @@ update_pending_connection_states(#state{
                                     connection_states =
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
-                                 HandshakeSecret,
+                                 HandshakeSecret, ResumptionMasterSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
-    PendingRead = update_connection_state(PendingRead0, HandshakeSecret,
+    PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
                                           WriteKey, WriteIV, WriteFinishedKey),
-    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret,
+    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
                                            ReadKey, ReadIV, ReadFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}}.
 
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
-                        HandshakeSecret, Key, IV, FinishedKey) ->
+                        HandshakeSecret, ResumptionMasterSecret, Key, IV, FinishedKey) ->
     %% Store secret
     SecurityParameters = SecurityParameters0#security_parameters{
-                           master_secret = HandshakeSecret},
+                           master_secret = HandshakeSecret,
+                           resumption_master_secret = ResumptionMasterSecret},
     ConnectionState#{security_parameters => SecurityParameters,
                      cipher_state => cipher_init(Key, IV, FinishedKey)}.
 
