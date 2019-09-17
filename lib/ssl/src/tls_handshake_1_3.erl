@@ -631,7 +631,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-                                           SessionId, Renegotiation, Cert, ClientKeyShare),
+                                           SessionId, Renegotiation, Cert, ClientKeyShare,
+                                           false, undefined),  %% No PSK after HRR!
 
         HelloVersion = tls_record:hello_version(Versions),
 

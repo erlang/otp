@@ -543,14 +543,20 @@ init({call, From}, {start, Timeout},
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
-                            versions := Versions} = SslOpts,
+                            versions := Versions,
+                            use_ticket := UseTicket,
+                            session_tickets := SessionTickets} = SslOpts,
 	    session = NewSession,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession), 
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-				       Session#session.session_id, Renegotiation, Session#session.own_certificate, KeyShare),
+                                       Session#session.session_id,
+                                       Renegotiation,
+                                       Session#session.own_certificate,
+                                       KeyShare,
+                                       SessionTickets, UseTicket),
 
     HelloVersion = tls_record:hello_version(Versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
@@ -764,7 +770,9 @@ connection(internal, #hello_request{},
         {ok, Write} ->
             Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0),
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-                                               Session#session.session_id, Renegotiation, Cert, undefined),
+                                               Session#session.session_id,
+                                               Renegotiation, Cert, undefined,
+                                               false, undefined),
             {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write},
                                                                   session = Session}),
             next_event(hello, no_record, State, Actions)
@@ -781,7 +789,8 @@ connection(internal, #hello_request{},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-				       <<>>, Renegotiation, Cert, undefined),
+                                       <<>>, Renegotiation, Cert, undefined,
+                                       false, undefined),
 
     {State, Actions} = send_handshake(Hello, State0),
     next_event(hello, no_record, State, Actions);
