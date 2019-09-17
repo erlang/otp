@@ -194,26 +194,12 @@ body(Ce, Sub, St0) ->
 %% guard(Cexpr, Sub, State) -> {Kexpr,State}.
 %%  We handle guards almost as bodies. The only special thing we
 %%  must do is to make the final Kexpr a #k_test{}.
-%%  Also, we wrap the entire guard in a try/catch which is
-%%  not strictly needed, but makes sure that every 'bif' instruction
-%%  will get a proper failure label.
 
 guard(G0, Sub, St0) ->
-    {G1,St1} = wrap_guard(G0, St0),
-    {Ge0,Pre,St2} = expr(G1, Sub, St1),
-    {Ge1,St3} = gexpr_test(Ge0, St2),
-    {Ge,St} = {Ge1,St3},
+    {Ge0,Pre,St1} = expr(G0, Sub, St0),
+    {Ge,St} = gexpr_test(Ge0, St1),
     {pre_seq(Pre, Ge),St}.
 
-%% Wrap the entire guard in a try/catch if needed.
-
-wrap_guard(#c_try{}=Try, St) -> {Try,St};
-wrap_guard(Core, St0) ->
-    {VarName,St} = new_var_name(St0),
-    Var = #c_var{name=VarName},
-    Try = #c_try{arg=Core,vars=[Var],body=Var,evars=[],handler=#c_literal{val=false}},
-    {Try,St}.
-    
 %% gexpr_test(Kexpr, State) -> {Kexpr,State}.
 %%  Builds the final boolean test from the last Kexpr in a guard test.
 %%  Must enter try blocks and isets and find the last Kexpr in them.
