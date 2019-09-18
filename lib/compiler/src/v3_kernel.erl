@@ -1933,14 +1933,21 @@ uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=A},[],St};
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
-    case is_in_guard(St0) of
-	true ->
+    case {is_in_guard(St0),Rs0} of
+	{true,[]} ->
 	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
 	    #k_literal{val=false} = H0,                  %Assertion.
-	    {Avs,St1} = new_vars(length(Rs0), St0),
-	    {A1,Bu,St} = uexpr(A0, {break,Avs}, St1),
-	    {#k_protected{anno=A,arg=A1,ret=Rs0,inner=Avs},Bu,St};
-	false ->
+	    {A1,Bu,St} = uexpr(A0, {break,[]}, St0),
+	    {#k_protected{arg=A1},Bu,St};
+	{true,[_|_]} ->
+            [Ret] = Rs0,
+	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
+	    #k_literal{val=false} = H0,                  %Assertion.
+	    {Av,St1} = new_var(St0),
+	    {A1,Bu,St} = uexpr(A0, {break,[Av]}, St1),
+	    {#k_protected_value{arg=A1,ret=Ret,body_ret=Av},Bu,St};
+	{false,_} ->
+            %% The general try/catch outside of guards.
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
 	    {B1,Bu,St3} = ubody(B0, Br, St2),

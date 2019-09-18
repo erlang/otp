@@ -24,7 +24,7 @@
 %% The main interface.
 -export([module/2]).
 
--import(lists, [append/1,duplicate/2,flatmap/2,foldl/3,
+-import(lists, [append/1,flatmap/2,foldl/3,
                 keysort/2,mapfoldl/3,map/2,member/2,
                 reverse/1,reverse/2,sort/1]).
 
@@ -521,8 +521,10 @@ guard_clause_cg(#k_guard_clause{guard=G,body=B}, Fail, St0) ->
 %%  the correct exit point.  Primops and tests all go to the next
 %%  instruction on success or jump to a failure label.
 
-guard_cg(#k_protected{arg=Ts,ret=Rs,inner=Inner}, Fail, St) ->
-    protected_cg(Ts, Rs, Inner, Fail, St);
+guard_cg(#k_protected{arg=Ts}, Fail, St) ->
+    protected_cg(Ts, Fail, St);
+guard_cg(#k_protected_value{arg=Ts,ret=Rs,body_ret=InnerRs}, _Fail, St) ->
+    protected_value_cg(Ts, Rs, InnerRs, St);
 guard_cg(#k_test{op=Test0,args=As}, Fail, St0) ->
     #k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Test}} = Test0,
     test_cg(Test, false, As, Fail, St0);
@@ -567,28 +569,33 @@ test_is_record_cg(Fail, Tuple, TagVal, ArityVal, St0) ->
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2,
     {Is,St}.
 
-%% protected_cg([Kexpr], [Ret], Fail, St) -> {[Ainstr],St}.
-%%  Do a protected.  Protecteds without return values are just done
-%%  for effect, the return value is not checked, success passes on to
-%%  the next instruction and failure jumps to Fail.  If there are
-%%  return values then these must be set to 'false' on failure,
-%%  control always passes to the next instruction.
+%% protected_cg([Kexpr], Fail, St) -> {[Ainstr],St}.
+%%  Do a protected without return value for effect. The return value
+%%  is not checked; success passes on to the next instruction and
+%%  failure jumps to Fail.
 
-protected_cg(Ts, [], _, Fail, #cg{bfail=OldBfail}=St0) ->
-    %% Protect these calls, revert when done.
+protected_cg(Ts, Fail, #cg{bfail=OldBfail}=St0) ->
     {Tis,St1} = guard_cg(Ts, Fail, St0#cg{bfail=Fail}),
-    {Tis,St1#cg{bfail=OldBfail}};
-protected_cg(Ts, Rs, Inner0, _Fail, #cg{bfail=OldBfail,break=OldBreak}=St0) ->
+    {Tis,St1#cg{bfail=OldBfail}}.
+
+%% protected_valued_cg([Kexpr], Ret, InnerRet, Fail, St) -> {[Ainstr],St}.
+%%  Evaluate and return a value. If evaluation fails, the returned
+%%  value will be set to `false`. Control always passes to the next
+%%  instruction.
+
+protected_value_cg(Ts, #k_var{name=Ret0}, InnerRet0,
+                   #cg{bfail=OldBfail,break=OldBreak}=St0) ->
     {Pfail,St1} = new_label(St0),
     {Br,St2} = new_label(St1),
-    Prot = duplicate(length(Rs), #b_literal{val=false}),
+    Prot = [#b_literal{val=false}],
     {Tis,St3} = guard_cg(Ts, Pfail, St2#cg{break=Pfail,bfail=Pfail}),
-    Inner = ssa_args(Inner0, St3),
-    {BreakVars,St} = new_ssa_vars(Rs, St3),
-    Is = Tis ++ [#cg_break{args=Inner,phi=Br},
+    St4 = St3#cg{break=OldBreak,bfail=OldBfail},
+    InnerRet = ssa_arg(InnerRet0, St4),
+    {Ret,St} = new_ssa_var(Ret0, St4),
+    Is = Tis ++ [#cg_break{args=[InnerRet],phi=Br},
                  {label,Pfail},#cg_break{args=Prot,phi=Br},
-                 {label,Br},#cg_phi{vars=BreakVars}],
-    {Is,St#cg{break=OldBreak,bfail=OldBfail}}.
+                 {label,Br},#cg_phi{vars=[Ret]}],
+    {Is,St}.
 
 %% match_fmf(Fun, LastFail, State, [Clause]) -> {Is,State}.
 %%  This is a special flatmapfoldl for match code gen where we
