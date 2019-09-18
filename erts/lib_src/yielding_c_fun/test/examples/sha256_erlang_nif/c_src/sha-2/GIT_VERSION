@@ -1,0 +1,265 @@
+origin	https://github.com/amosnier/sha-2.git (fetch)
+origin	https://github.com/amosnier/sha-2.git (push)
+commit ff76937294694ec347819d81a1f580187fb34246
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 23:24:58 2018 +0200
+
+    Update README.md
+
+commit ad933ac6959f8507c349b2c60f02b9336f5ade10
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 23:24:18 2018 +0200
+
+    Update README.md
+
+commit 92e7db3c188a2c7a971564b2fdac2d38c7b329e3
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 23:22:45 2018 +0200
+
+    Update README.md
+
+commit 6d500e221aa29f9a3701833f1f31ccabba9c58f7
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 23:22:00 2018 +0200
+
+    Update README.md
+    
+    Added section about reference implementation.
+
+commit 924fba5c17abac8e6b90eef99b509f2cf759d223
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 22:02:09 2018 +0200
+
+    Replaced some for loops by memset
+
+commit 9583456b329abe8bfbaaedd0aca76fc3eb31e0b8
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 19:16:41 2018 +0200
+
+    Implemented workaround for ld issue with large BSS
+    
+    The large arrays are now allocated on heap instead of in BSS. This
+    actually feels like a pretty stupid linker limitation, and the
+    workaround leads to code that is less readable. But it only impacts
+    the test program.
+    
+    The issue was reported with GCC 7.3.0 and compiling for 64-bit arch on
+    MSYS2's MinGW compiler. GCC 7.3.0 for 64-bit on Linux (my own machine
+    and Travis) seems perfectly OK with a large BSS segment (around 3 GB
+    is what the test program uses for test data).
+    
+    Reported issue:
+    
+    $ make
+    cc -Wall -Wextra -Wpedantic   -c -o test.o test.c
+    cc -Wall -Wextra -Wpedantic   -c -o sha-256.o sha-256.c
+    cc   test.o sha-256.o   -o test
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/crt2.o: in function `__tmainCRTStartup':
+    C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/crtexe.c:251:(.text+0x1cd): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp_Sleep' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libkernel32.a(dkhchs01360.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/crtexe.c:278:(.text+0x255): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp_SetUnhandledExceptionFilter' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libkernel32.a(dkhchs01346.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/crtexe.c:286:(.text+0x283): relocation truncated to fit: R_X86_64_PC32 against symbol `__mingw_winmain_hInstance' defined in COMMON section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/crt2.o
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/crtexe.c:312:(.text+0x2f3): relocation truncated to fit: R_X86_64_PC32 against symbol `__mingw_winmain_lpCmdLine' defined in COMMON section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/crt2.o
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/crtexe.c:238:(.text+0x475): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp_GetStartupInfoA' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libkernel32.a(dkhchs00721.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libmingw32.a(lib64_libmingw32_a-gccmain.o): in function `__main':
+    C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/gccmain.c:74:(.text+0xb2): relocation truncated to fit: R_X86_64_PC32 against `.bss'
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/gccmain.c:76:(.text+0xc2): relocation truncated to fit: R_X86_64_PC32 against `.bss'
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libmingw32.a(lib64_libmingw32_a-charmax.o): in function `my_lconv_init':
+    C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/charmax.c:19:(.text+0x3): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp___lconv_init' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libmsvcrt.a(dkxcbs00090.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libmingw32.a(lib64_libmingw32_a-gs_support.o): in function `__security_init_cookie':
+    C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/gs_support.c:62:(.text+0x47): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp_GetSystemTimeAsFileTime' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libkernel32.a(dkhchs00746.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/gs_support.c:70:(.text+0x52): relocation truncated to fit: R_X86_64_PC32 against symbol `__imp_GetCurrentProcessId' defined in .idata$5 section in C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/lib/../lib/libkernel32.a(dkhchs00536.o)
+    C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/7.3.0/../../../../x86_64-w64-mingw32/bin/ld.exe: C:/repo/mingw-w64-crt-git/src/mingw-w64/mingw-w64-crt/crt/gs_support.c:71:(.text+0x5b): additional relocation overflows omitted from the output
+    collect2.exe: error: ld returned 1 exit status
+    make: *** [<builtin>: test] Error 1```
+
+commit 23b53726f3c5c283112110468ff1c9b4981260e9
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Sat Jul 28 16:53:38 2018 +0200
+
+    Added explicit cast to correct printf() related bug
+
+commit f03474231fc0e86c66cbe2a74a9d9f6589dd96f9
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 23:41:17 2017 +0100
+
+    Activated testing of long messages
+
+commit a222d72880c8b9b2b22155d34adfc72e49e511c5
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 23:11:41 2017 +0100
+
+    Minor README change
+
+commit 98a0bf165c558dde77211ff09cc6b0e1c30badc7
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 23:08:48 2017 +0100
+
+    Minor README change
+
+commit 688b14926c42b61dbfb61f3046594afb058dad31
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 23:07:54 2017 +0100
+
+    Added Travis comment
+
+commit d6b49c65bdaa54120d20401e15368cb462f8a122
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 23:00:29 2017 +0100
+
+    Fixed minor warnings
+
+commit a6c25e2cdf96eeb522199c67e895f0791e297fc9
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 22:53:19 2017 +0100
+
+    Included test in make
+
+commit 538cfe97fa7ad217875196b4e5ce8ddfc1d88f7a
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 22:34:57 2017 +0100
+
+    Travis icon again
+
+commit 903e46163b6d6258b3d5e5b5de60f134749e2f10
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 22:33:50 2017 +0100
+
+    Work on Travis icon
+
+commit d87b78db4bfa08ddceecb3837943b7886d2f4f88
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 22:31:02 2017 +0100
+
+    Added Travis link
+
+commit 19d1e8a568af53c9788ed6fc2ecc9fcb34b17037
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 22:24:03 2017 +0100
+
+    Started adding Travis
+
+commit 8f83e8dedf169858efd366fe2237ec31e8f3c3ec
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:54:31 2017 +0100
+
+    Minor README change
+
+commit 369c47af630d6f3dc6cf817e402ef070a588d5a9
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:52:36 2017 +0100
+
+    Minor README change
+
+commit b177afbe06965bec656f0cf437f449f747f6575e
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:45:25 2017 +0100
+
+    Improved formatting
+
+commit 8fd2b04fed6b5bcaad04e66cb2a3158b61b5ce1e
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:44:04 2017 +0100
+
+    Improved formatting
+
+commit 96988951cc63d2305ce7612ebad5456bfca444c9
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:40:56 2017 +0100
+
+    Improved formatting
+
+commit 37500f461fbc5e0553ec4ea2f5ec449126ac63c0
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:37:39 2017 +0100
+
+    Formatting improvement
+
+commit 6f35ae7007f0f9b54e5798d6a63ffbd1f9f9d59c
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 21:34:20 2017 +0100
+
+    Added extensive testing
+
+commit cba84edcb52079236c0c32c591a74ec89155fc62
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Fri Dec 15 19:37:47 2017 +0100
+
+    Made changes according to review comments from StackExchange CODE REVIEW
+
+commit d7214be72713f020f2dffbac01a13442921cabce
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Thu Dec 14 22:45:59 2017 +0100
+
+    Added comment about code review
+
+commit da12ae4e94725e87052da5c0191103de0d817ed5
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Thu Dec 14 20:11:09 2017 +0100
+
+    Tests at compile time instead of runtime
+
+commit b21a7b552969cbf8a2c702f617e15750fe1b2b2b
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 12:03:01 2017 +0100
+
+    Added comment
+
+commit 85e93b4a79b7ed9f20077021b489c3a1cbd6a251
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 12:01:19 2017 +0100
+
+    Typo
+
+commit ccc3d23b29eeb4c1ace83ae93f415d7a3d57ed45
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 12:00:03 2017 +0100
+
+    Added comment.
+
+commit 047f309134372f826027ac383667c18ce7a2062f
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:29:58 2017 +0100
+
+    Added comment about testing
+
+commit 5833df68d9de2f1cb1cc3db57608eba25559a9bf
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:27:39 2017 +0100
+
+    Removed temporary code
+
+commit f3f5e1b4532a40e37fc9b880f348a525c4a4165a
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:23:44 2017 +0100
+
+    Added some notes
+
+commit 097f4b536db64d29fbc5f54d052ba795db68f00f
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:18:17 2017 +0100
+
+    Typo
+
+commit 73684be1627a05d4dbd585d2cc926e6b91275dc4
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:14:32 2017 +0100
+
+    Corrected typo
+
+commit 489f5e66b63ed90ed3de197237e608e101253efb
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 11:12:47 2017 +0100
+
+    Completed the implementation, including testing, and fixed bugs
+
+commit d676207600a94c5d94ef6f6188cc1c907f06b42a
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Wed Dec 13 00:52:28 2017 +0100
+
+    Started a SHA-256 implementation. Buggy so far.
+
+commit 3433d4ef5ccb136f0b889610cac3f752776ea525
+Author: Alain Mosnier <alain@wanamoon.net>
+Date:   Tue Dec 12 20:48:09 2017 +0100
+
+    Initial commit

@@ -577,6 +577,16 @@ else
   WERRORFLAGS=""
 fi
 
+AC_MSG_CHECKING([C99 support])
+
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[
+#if __STDC_VERSION__ < 199901L
+  #error "Not C99"
+#endif])],
+  [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no])
+     CFLAGS="-std=gnu99 $CFLAGS"])
+
 AC_MSG_CHECKING([CFLAGS for -O switch])
 case "$CFLAGS" in
      *-O*) AC_MSG_RESULT([yes]) ;;

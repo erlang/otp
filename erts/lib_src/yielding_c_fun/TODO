@@ -1,0 +1,4 @@
+* Refactor and beautify the code so it does not look like spaghetti
+* Handle "automatic" array size initialization
+* Handle struct initialization (e.g., struct t my_struct = {.field = hej});
+* Print warning or error message when calling yieldable function from a position that YCF can't handle
