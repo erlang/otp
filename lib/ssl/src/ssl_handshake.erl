@@ -72,7 +72,7 @@
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
--export([client_hello_extensions/6,
+-export([client_hello_extensions/8,
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
@@ -724,12 +724,16 @@ encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
 encode_extensions([#pre_shared_key_client_hello{
                       offered_psks = #offered_psks{
                                         identities = Identities0,
-                                        binders = Binders0} = PSKs} | Rest], Acc) ->
+                                        binders = Binders0} = _PSKs} | Rest], Acc) ->
     Identities = encode_psk_identities(Identities0),
     Binders = encode_psk_binders(Binders0),
     Len = byte_size(Identities) + byte_size(Binders),
-    encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
-                              ?UINT16(Len), Identities/binary, Binders/binary, Acc/binary>>);
+    %% The "pre_shared_key" extension MUST be the last extension in the
+    %% ClientHello (this facilitates implementation as described below).
+    %% Servers MUST check that it is the last extension and otherwise fail
+    %% the handshake with an "illegal_parameter" alert.
+    encode_extensions(Rest, <<Acc/binary,?UINT16(?PRE_SHARED_KEY_EXT),
+                              ?UINT16(Len), Identities/binary, Binders/binary>>);
 encode_extensions([#pre_shared_key_server_hello{selected_identity = Identity} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
                               ?UINT16(2), ?UINT16(Identity), Acc/binary>>).
@@ -1069,10 +1073,11 @@ premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
 %%====================================================================
 %% Extensions handling
 %%====================================================================
-client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation, KeyShare) ->
+client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation, KeyShare,
+                        SessionTickets, UseTicket) ->
     HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
     HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
-    maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts, KeyShare).
+    maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts, KeyShare, SessionTickets, UseTicket).
 
 
 add_tls12_extensions(_Version,
@@ -1129,14 +1134,17 @@ maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
                            #{signature_algs_cert := SignatureSchemes,
                                         versions := SupportedVersions},
-                           KeyShare) ->
-    HelloExtensions =
+                           KeyShare,
+                           SessionsTicket,
+                           UseTicket) ->
+    HelloExtensions1 =
         HelloExtensions0#{client_hello_versions =>
                               #client_hello_versions{versions = SupportedVersions},
                           signature_algs_cert =>
                               signature_algs_cert(SignatureSchemes)},
-    maybe_add_key_share(HelloExtensions, KeyShare);
-maybe_add_tls13_extensions(_, HelloExtensions, _, _) ->
+    HelloExtensions = maybe_add_key_share(HelloExtensions1, KeyShare),
+    maybe_add_pre_shared_key(HelloExtensions, SessionsTicket, UseTicket);
+maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _) ->
     HelloExtensions.
 
 
@@ -1181,6 +1189,27 @@ maybe_add_key_share(HelloExtensions, KeyShare) ->
     HelloExtensions#{key_share => #key_share_client_hello{
                                      client_shares = ClientShares}}.
 
+
+maybe_add_pre_shared_key(HelloExtensions, false, _) ->
+    HelloExtensions;
+maybe_add_pre_shared_key(HelloExtensions, _, undefined) ->
+    erlang:display({debug20}),
+    HelloExtensions;
+maybe_add_pre_shared_key(HelloExtensions, SessionsTicket, _UseTicket)
+  when SessionsTicket =:= true orelse
+       SessionsTicket =:= auto ->
+    %% A client MUST provide a "psk_key_exchange_modes" extension if it
+    %% offers a "pre_shared_key" extension.
+    HelloExtensions#{pre_shared_key => #pre_shared_key_client_hello{
+                                          offered_psks =
+                                              #offered_psks{
+                                                identities = [],
+                                                binders = []}},
+                     psk_key_exchange_modes =>
+                         #psk_key_exchange_modes{
+                            ke_modes = [psk_ke, psk_dhe_ke]}}.
+
+
 add_server_share(server_hello, Extensions, KeyShare) ->
     #key_share_server_hello{server_share = ServerShare0} = KeyShare,
     %% Keep only public keys
@@ -1215,6 +1244,7 @@ kse_remove_private_key(#key_share_entry{
     #key_share_entry{
        group = Group,
        key_exchange = PublicKey}.
+
 
 signature_algs_ext(undefined) ->
     undefined;
