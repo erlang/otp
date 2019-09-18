@@ -24,8 +24,7 @@
 
 -export(
     [all/0, suite/0,
-     init_per_suite/1, end_per_suite/1,
-     init_per_testcase/2, end_per_testcase/2]).
+     init_per_suite/1, end_per_suite/1]).
 
 -export(
     [toggle_lock_counting/1, error_on_invalid_category/1, preserve_locks/1,
@@ -63,13 +62,6 @@ end_per_suite(Config) ->
     erts_debug:lcnt_clear(),
     ok.
 
-init_per_testcase(_Case, Config) ->
-    disable_lock_counting(),
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
-
 disable_lock_counting() ->
     ok = erts_debug:lcnt_control(copy_save, false),
     ok = erts_debug:lcnt_control(mask, []),
@@ -96,7 +88,10 @@ wait_for_empty_lock_list(Tries) when Tries > 0 ->
             wait_for_empty_lock_list(Tries - 1)
     end;
 wait_for_empty_lock_list(0) ->
-    ct:fail("Lock list failed to clear after disabling lock counting.").
+    [{duration, _}, {locks, Locks0}] = erts_debug:lcnt_collect(),
+    Locks = remove_untoggleable_locks(Locks0),
+    ct:fail("Lock list failed to clear after disabling lock counting.~n\t~p",
+            [Locks]).
 
 %% Queue up a lot of thread progress cleanup ops in a vain attempt to
 %% flush the lock list.
@@ -109,6 +104,8 @@ try_flush_cleanup_ops() ->
 %%
 
 toggle_lock_counting(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     Categories =
         [allocator, db, debug, distribution, generic, io, process, scheduler],
     lists:foreach(
@@ -131,6 +128,8 @@ get_lock_info_for(Category) when is_atom(Category) ->
     get_lock_info_for([Category]).
 
 preserve_locks(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     erts_debug:lcnt_control(mask, [process]),
 
     erts_debug:lcnt_control(copy_save, true),
@@ -155,10 +154,14 @@ preserve_locks(Config) when is_list(Config) ->
     end.
 
 error_on_invalid_category(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     {error, badarg, q_invalid} = erts_debug:lcnt_control(mask, [q_invalid]),
     ok.
 
 registered_processes(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     %% There ought to be at least one registered process (init/code_server)
     erts_debug:lcnt_control(mask, [process]),
     [_, {locks, ProcLocks}] = erts_debug:lcnt_collect(),
@@ -170,6 +173,8 @@ registered_processes(Config) when is_list(Config) ->
     ok.
 
 registered_db_tables(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     %% There ought to be at least one registered table (code)
     erts_debug:lcnt_control(mask, [db]),
     [_, {locks, DbLocks}] = erts_debug:lcnt_collect(),
@@ -187,7 +192,7 @@ remove_untoggleable_locks([]) ->
     [];
 remove_untoggleable_locks([{resource_monitors, _, _, _} | T]) ->
     remove_untoggleable_locks(T);
-remove_untoggleable_locks([{'socket[gcnt]', _, _, _} | T]) ->
+remove_untoggleable_locks([{'esock[gcnt]', _, _, _} | T]) ->
     %% Global lock used by socket NIF
     remove_untoggleable_locks(T);
 remove_untoggleable_locks([H | T]) ->
