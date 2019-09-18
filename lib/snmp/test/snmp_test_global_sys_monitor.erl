@@ -41,7 +41,7 @@ stop() ->
 %% This does not reset the global counter but the "collector"
 %% See events for more info.
 reset_events() ->
-    cast(reset_events).
+    call(reset_events).
 
 events() ->
     call(events).
@@ -75,12 +75,14 @@ loop(State) ->
                         [maps:get(ev_cnt, State)]),
             exit(normal);
 
-        {?MODULE, reset_events} ->
+        {?MODULE, Ref, From, reset_events} ->
+            TotEvCnt = maps:get(ev_cnt, State),
+            EvCnt    = length(maps:get(evs, State)),
             info_msg("Reset events when"
                      "~n   Total Number of Events:   ~p"
                      "~n   Current Number of Events: ~p",
-                     [maps:get(ev_cnt, State),
-                      length(maps:get(evs, State))]),
+                     [TotEvCnt, EvCnt]),
+            From ! {?MODULE, Ref, {ok, {TotEvCnt, EvCnt}}},
             loop(State#{evs => []});
 
         {?MODULE, Ref, From, events} ->
