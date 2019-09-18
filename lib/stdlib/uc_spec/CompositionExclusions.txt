@@ -1,6 +1,6 @@
-# CompositionExclusions-11.0.0.txt
-# Date: 2017-12-06, 00:00:00 GMT [KW, LI]
-# © 2017 Unicode®, Inc.
+# CompositionExclusions-12.1.0.txt
+# Date: 2019-03-08, 23:59:00 GMT [KW, LI]
+# © 2019 Unicode®, Inc.
 # For terms of use, see http://www.unicode.org/terms_of_use.html
 #
 # Unicode Character Database
