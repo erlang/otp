@@ -60,7 +60,7 @@
 -record(k_protected, {anno=[],arg,ret=[],inner}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
--record(k_match, {anno=[],vars,body,ret=[]}).
+-record(k_match, {anno=[],body,ret=[]}).
 -record(k_alt, {anno=[],first,then}).
 -record(k_select, {anno=[],var,types}).
 -record(k_type_clause, {anno=[],type,values}).

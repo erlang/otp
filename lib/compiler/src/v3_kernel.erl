@@ -350,7 +350,7 @@ expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),		%This is a body!
     {Kvs,Pv,St2} = match_vars(Ka, St1),		%Must have variables here!
     {Km,St3} = kmatch(Kvs, Ccs, Sub, St2),
-    Match = flatten_seq(build_match(Kvs, Km)),
+    Match = flatten_seq(build_match(Km)),
     {last(Match),Pa ++ Pv ++ droplast(Match),St3};
 expr(#c_receive{anno=A,clauses=Ccs0,timeout=Ce,action=Ca}, Sub, St0) ->
     {Ke,Pe,St1} = atomic(Ce, Sub, St0),		%Force this to be atomic!
@@ -1701,13 +1701,13 @@ build_alt_1st_no_fail(First, fail) -> First;
 build_alt_1st_no_fail(First, Then) ->
     copy_anno(#k_alt{first=First,then=Then}, First).
 
-%% build_match([MatchVar], MatchExpr) -> Kexpr.
+%% build_match(MatchExpr) -> Kexpr.
 %%  Build a match expr if there is a match.
 
-build_match(Us, #k_alt{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(Us, #k_select{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(Us, #k_guard{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(_, Km) -> Km.
+build_match(#k_alt{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(#k_select{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(#k_guard{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(Km) -> Km.
 
 %% clause_arg(Clause) -> FirstArg.
 %% clause_con(Clause) -> Constructor.
@@ -1915,10 +1915,10 @@ uexpr(#k_bif{anno=A,op=Op,args=As}=Bif, {break,Rs}, St0) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
     {Brs,St1} = bif_returns(Op, Rs, St0),
     {Bif#k_bif{anno=A,ret=Brs},Used,St1};
-uexpr(#k_match{anno=A,vars=Vs,body=B0}, Br, St0) ->
+uexpr(#k_match{anno=A,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
-    {#k_match{anno=A,vars=Vs,body=B1,ret=Rs},Bu,St1};
+    {#k_match{anno=A,body=B1,ret=Rs},Bu,St1};
 uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
     Rs = break_rets(Br),
     Tu = lit_vars(T),				%Timeout is atomic
@@ -2016,7 +2016,7 @@ make_fdef(Anno, Name, Arity, Vs, #k_match{}=Body) ->
     #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Body};
 make_fdef(Anno, Name, Arity, Vs, Body) ->
     Ka = get_kanno(Body),
-    Match = #k_match{anno=Ka,vars=Vs,body=Body,ret=[]},
+    Match = #k_match{anno=Ka,body=Body,ret=[]},
     #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Match}.
 
 %% get_free(Name, Arity, State) -> [Free].

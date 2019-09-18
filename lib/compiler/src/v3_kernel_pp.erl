@@ -155,10 +155,9 @@ format_1(#k_seq{arg=A,body=B}, Ctxt) ->
      nl_indent(Ctxt)
      | format(B, Ctxt)
     ];
-format_1(#k_match{vars=Vs,body=Bs,ret=Rs}, Ctxt) ->
+format_1(#k_match{body=Bs,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
-    ["match ",
-     format_hseq(Vs, ",", ctxt_bump_indent(Ctxt, 6), fun format/2),
+    ["match",
      nl_indent(Ctxt1),
      format(Bs, Ctxt1),
      nl_indent(Ctxt),
