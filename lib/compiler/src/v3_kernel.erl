@@ -84,7 +84,6 @@
                 splitwith/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
--import(cerl, [c_tuple/1]).
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
@@ -389,14 +388,8 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 			   args=[M0,F0,cerl:make_list(Cargs)]},
 	    expr(Call, Sub, St)
     end;
-expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
-    Cargs = translate_match_fail(Cargs0, Sub, A, St0),
-    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
-    Ar = length(Cargs),
-    Call = #k_call{anno=A,op=#k_remote{mod=#k_literal{val=erlang},
-				       name=#k_literal{val=error},
-				       arity=Ar},args=Kargs},
-    {Call,Ap,St};
+expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St) ->
+    translate_match_fail(Cargs0, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=N},args=Cargs}, Sub, St0) ->
     {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
@@ -419,29 +412,23 @@ expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
 expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
 
 %% Translate a function_clause exception to a case_clause exception if
-%% it has been moved into another function. (A function_clause exception
-%% will not work correctly if it is moved into another function, or
-%% even if it is invoked not from the top level in the correct function.)
-translate_match_fail(Args, Sub, Anno, St) ->
-    case Args of
-	[#c_tuple{es=[#c_literal{val=function_clause}|As]}] ->
-	    translate_match_fail_1(Anno, As, Sub, St);
-	[#c_literal{val=Tuple}] when is_tuple(Tuple) ->
-	    %% The inliner may have created a literal out of
-	    %% the original #c_tuple{}.
-	    case tuple_to_list(Tuple) of
-		[function_clause|As0] ->
-		    As = [#c_literal{val=E} || E <- As0],
-		    translate_match_fail_1(Anno, As, Sub, St);
-		_ ->
-		    Args
-	    end;
-	_ ->
-	    %% Not a function_clause exception.
-	    Args
-    end.
+%% it has been moved into another function.
+translate_match_fail([Arg], Sub, Anno, St0) ->
+    Cargs = case {cerl:data_type(Arg),cerl:data_es(Arg)} of
+                {tuple,[#c_literal{val=function_clause}|As]} ->
+                    translate_fc_args(Anno, As, Sub, St0);
+                {_,_} ->
+                    [Arg]
+            end,
+    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
+    Ar = length(Cargs),
+    Call = #k_call{anno=Anno,
+                   op=#k_remote{mod=#k_literal{val=erlang},
+                                name=#k_literal{val=error},
+                                arity=Ar},args=Kargs},
+    {Call,Ap,St}.
 
-translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
+translate_fc_args(Anno, As, Sub, #kern{ff=FF}) ->
     AnnoFunc = case keyfind(function_name, 1, Anno) of
 		   false ->
 		       none;			%Force rewrite.
@@ -459,11 +446,11 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
 	    %% Wrong function or no function_name annotation.
 	    %%
 	    %% The inliner has copied the match_fail(function_clause)
-	    %% primop from another function (or from another instance of
-	    %% the current function). match_fail(function_clause) will
-	    %% only work at the top level of the function it was originally
-	    %% defined in, so we will need to rewrite it to a case_clause.
-	    [c_tuple([#c_literal{val=case_clause},c_tuple(As)])]
+	    %% primop from another function (or from another instance
+	    %% of the current function). Keeping the function_clause
+            %% exception reason would be confusing.
+	    [cerl:c_tuple([#c_literal{val=case_clause},
+                           cerl:c_tuple(As)])]
     end.
 
 translate_fc(Args) ->
