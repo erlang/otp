@@ -77,7 +77,7 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [droplast/1,flatten/1,foldl/3,foldr/3,
+-import(lists, [all/2,droplast/1,flatten/1,foldl/3,foldr/3,
                 map/2,mapfoldl/3,member/2,
 		keyfind/3,keyreplace/4,
                 last/1,partition/2,reverse/1,
@@ -511,25 +511,28 @@ map_group_pairs(A, Var, Pairs0, Esp, St0) ->
     end.
 
 map_remove_dup_keys(Es) ->
-    dict:to_list(map_remove_dup_keys(Es, dict:new())).
+    map_remove_dup_keys(Es, #{}).
 
-map_remove_dup_keys([{assoc,K0,V}|Es0],Used0) ->
+map_remove_dup_keys([{assoc,K0,V}|Es0], Used0) ->
     K = map_key_clean(K0),
-    Op = case dict:find(K, Used0) of
-	     {ok,{exact,_,_}} -> exact;
-	     _                -> assoc
-	 end,
-    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    Op = case Used0 of
+             #{K:={exact,_,_}} -> exact;
+             #{} -> assoc
+         end,
+    Used1 = Used0#{K=>{Op,K0,V}},
     map_remove_dup_keys(Es0, Used1);
-map_remove_dup_keys([{exact,K0,V}|Es0],Used0) ->
+map_remove_dup_keys([{exact,K0,V}|Es0], Used0) ->
     K = map_key_clean(K0),
-    Op = case dict:find(K, Used0) of
-	     {ok,{assoc,_,_}} -> assoc;
-	     _                -> exact
-	 end,
-    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    Op = case Used0 of
+             #{K:={assoc,_,_}} -> assoc;
+             #{} -> exact
+         end,
+    Used1 = Used0#{K=>{Op,K0,V}},
     map_remove_dup_keys(Es0, Used1);
-map_remove_dup_keys([], Used) -> Used.
+map_remove_dup_keys([], Used) ->
+    %% We must sort the map entries to ensure consistent
+    %% order from compilation to compilation.
+    sort(maps:to_list(Used)).
 
 %% Clean a map key from annotations.
 map_key_clean(#k_var{name=V})    -> {var,V};
@@ -1390,62 +1393,68 @@ match_value(Us0, T, Cs0, Def, St0) ->
     %%ok = io:format("match_value ~p ~p~n", [T, Css]),
     mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St1, UCss).
 
-%% partition_intersection
-%%  Partitions a map into two maps with the most common keys to the first map.
+%% partition_intersection(Type, Us, [Clause], State) -> {Us,Cs,State}.
+%%  Partitions a map into two maps with the most common keys to the
+%%  first map.
+%%
 %%      case <M> of
-%%          <#{a}>
 %%          <#{a,b}>
 %%          <#{a,c}>
-%%          <#{c}>
+%%          <#{a}>
 %%      end
+%%
 %%  becomes
+%%
 %%      case <M,M> of
-%%          <#{a}, #{ }>
 %%          <#{a}, #{b}>
-%%          <#{ }, #{c}>
 %%          <#{a}, #{c}>
+%%          <#{a}, #{ }>
 %%      end
-%% The intention is to group as many keys together as possible and thus
-%% reduce the number of lookups to that key.
-partition_intersection(k_map, [U|_]=Us0, [_,_|_]=Cs0,St0) ->
+%%
+%%  The intention is to group as many keys together as possible and
+%%  thus reduce the number of lookups to that key.
+
+partition_intersection(k_map, [U|_]=Us, [_,_|_]=Cs0, St0) ->
     Ps = [clause_val(C) || C <- Cs0],
-    case find_key_partition(Ps) of
-        no_partition ->
-            {Us0,Cs0,St0};
+    case find_key_intersection(Ps) of
+        none ->
+            {Us,Cs0,St0};
         Ks ->
-            {Cs1,St1} = mapfoldl(fun(#iclause{pats=[Arg|Args]}=C, Sti) ->
-                                         {{Arg1,Arg2},St} = partition_key_intersection(Arg, Ks, Sti),
-                                         {C#iclause{pats=[Arg1,Arg2|Args]}, St}
-                                 end, St0, Cs0),
-            {[U|Us0],Cs1,St1}
+            Cs1 = map(fun(#iclause{pats=[Arg|Args]}=C) ->
+                              {Arg1,Arg2} = partition_keys(Arg, Ks),
+                              C#iclause{pats=[Arg1,Arg2|Args]}
+                      end, Cs0),
+            {[U|Us],Cs1,St0}
     end;
 partition_intersection(_, Us, Cs, St) ->
     {Us,Cs,St}.
 
-partition_key_intersection(#k_map{es=Pairs}=Map,Ks,St0) ->
-    F = fun(#k_map_pair{key=Key}) -> member(map_key_clean(Key), Ks) end,
+partition_keys(#k_map{es=Pairs}=Map, Ks) ->
+    F = fun(#k_map_pair{key=Key}) ->
+                cerl_sets:is_element(map_key_clean(Key), Ks)
+        end,
     {Ps1,Ps2} = partition(F, Pairs),
-    {{Map#k_map{es=Ps1},Map#k_map{es=Ps2}},St0};
-partition_key_intersection(#ialias{pat=Map}=Alias,Ks,St0) ->
-    %% only alias one of them
-    {{Map1,Map2},St1} = partition_key_intersection(Map, Ks, St0),
-    {{Map1,Alias#ialias{pat=Map2}},St1}.
+    {Map#k_map{es=Ps1},Map#k_map{es=Ps2}};
+partition_keys(#ialias{pat=Map}=Alias, Ks) ->
+    %% Only alias one of them.
+    {Map1,Map2} = partition_keys(Map, Ks),
+    {Map1,Alias#ialias{pat=Map2}}.
 
-% Only check for the complete intersection of keys and not commonality
-find_key_partition(Ps) ->
-    Sets = [sets:from_list(Ks)||Ks <- Ps],
-    Is   = sets:intersection(Sets),
-    case sets:to_list(Is) of
-        [] -> no_partition;
-        KeyIntersection ->
-            %% Check if the intersection are all keys in all clauses.
-            %% Don't split if they are since this will only
-            %% infer extra is_map instructions with no gain.
-            All = foldl(fun (Kset, Bool) ->
-                                Bool andalso sets:is_subset(Kset, Is)
-                        end, true, Sets),
-            if All  -> no_partition;
-               true -> KeyIntersection
+find_key_intersection(Ps) ->
+    Sets = [cerl_sets:from_list(Ks) || Ks <- Ps],
+    Intersection = cerl_sets:intersection(Sets),
+    case cerl_sets:size(Intersection) of
+        0 ->
+            none;
+        _ ->
+            All = all(fun (Kset) -> Kset =:= Intersection end, Sets),
+            case All of
+                true ->
+                    %% All clauses test the same keys. Partitioning
+                    %% the keys could only make the code worse.
+                    none;
+                false ->
+                    Intersection
             end
     end.
 
