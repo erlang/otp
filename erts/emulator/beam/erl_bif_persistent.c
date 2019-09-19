@@ -284,7 +284,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     long iterations_until_trap;
     long max_iterations;
 #define PUT_TRAP_CODE                                                   \
-    BIF_TRAP2(bif_export[BIF_persistent_term_put_2], BIF_P, state_mref, BIF_ARG_2)
+    BIF_TRAP2(&bif_trap_export[BIF_persistent_term_put_2], BIF_P, state_mref, BIF_ARG_2)
 #define TRAPPING_COPY_TABLE_PUT(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
     TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_TRAP_CODE)
 
@@ -329,7 +329,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 
 
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_export[BIF_persistent_term_put_2],
+	ERTS_BIF_YIELD2(&bif_trap_export[BIF_persistent_term_put_2],
                         BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
     ctx->hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
@@ -507,7 +507,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
             ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
 #endif
 #define ERASE_TRAP_CODE                                                 \
-        BIF_TRAP1(bif_export[BIF_persistent_term_erase_1], BIF_P, state_mref);
+        BIF_TRAP1(&bif_trap_export[BIF_persistent_term_erase_1], BIF_P, state_mref);
 #define TRAPPING_COPY_TABLE_ERASE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME) \
         TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME, ERASE_TRAP_CODE)
     if (is_internal_magic_ref(BIF_ARG_1) &&
@@ -542,7 +542,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
         ctx->tmp_table = NULL;
     }
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_persistent_term_erase_1],
+	ERTS_BIF_YIELD1(&bif_trap_export[BIF_persistent_term_erase_1],
                         BIF_P, BIF_ARG_1);
     }
 
@@ -614,7 +614,7 @@ BIF_RETTYPE erts_internal_erase_persistent_terms_0(BIF_ALIST_0)
     HashTable* new_table;
 
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD0(bif_export[BIF_erts_internal_erase_persistent_terms_0],
+	ERTS_BIF_YIELD0(&bif_trap_export[BIF_erts_internal_erase_persistent_terms_0],
                         BIF_P);
     }
     old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);

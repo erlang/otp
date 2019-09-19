@@ -166,7 +166,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
+	ERTS_BIF_YIELD3(&bif_trap_export[BIF_code_make_stub_module_3],
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -301,7 +301,7 @@ finish_loading_1(BIF_ALIST_1)
     int do_commit = 0;
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(&bif_trap_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
     }
 
     /*
@@ -659,7 +659,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(&bif_trap_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
 
     {
@@ -785,7 +785,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
+	ERTS_BIF_YIELD2(&bif_trap_export[BIF_finish_after_on_load_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
@@ -847,7 +847,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
                     ep->trampoline.not_loaded.deferred = 0;
             } else {
-                if (ep->bif_table_index != -1) {
+                if (ep->bif_number != -1) {
                     continue;
                 }
 
@@ -876,7 +876,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->bif_table_index != -1) {
+	    if (ep->bif_number != -1) {
 		continue;
 	    }
 
@@ -1677,7 +1677,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, BADARG);
 
 	if (!erts_try_seize_code_write_permission(BIF_P)) {
-	    ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_purge_module_2],
+	    ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_internal_purge_module_2],
 			    BIF_P, BIF_ARG_1, BIF_ARG_2);
 	}
 
@@ -1903,7 +1903,7 @@ delete_code(Module* modp)
                 }
             }
 
-            if (ep->bif_table_index != -1 && ep->is_bif_traced) {
+            if (ep->bif_number != -1 && ep->is_bif_traced) {
                 /* Code unloading kills both global and local call tracing. */
                 ep->is_bif_traced = 0;
             }

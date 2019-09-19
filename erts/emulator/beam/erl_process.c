@@ -13469,7 +13469,7 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
  *
  * A BIF that calls this should make sure to schedule out to never come back:
  *    erts_halt(code);
- *    ERTS_BIF_YIELD1(bif_export[BIF_erlang_halt_1], BIF_P, NIL);
+ *    ERTS_BIF_YIELD1(&bif_trap_export[BIF_erlang_halt_1], BIF_P, NIL);
  */
 void erts_halt(int code)
 {

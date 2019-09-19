@@ -211,7 +211,7 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    ERTS_BIF_PREP_RET(res, am_false);
 	else {
 	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, prt);
-	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_erts_internal_port_command_3],
+	    ERTS_BIF_PREP_YIELD3(res, &bif_trap_export[BIF_erts_internal_port_command_3],
 				 BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 	}
 	break;

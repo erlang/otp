@@ -107,7 +107,7 @@ i_hibernate() {
         goto do_schedule;
     } else {
         HEAVY_SWAPIN;
-        I = handle_error(c_p, I, reg, &bif_export[BIF_hibernate_3]->info.mfa);
+        I = handle_error(c_p, I, reg, &bif_trap_export[BIF_hibernate_3].info.mfa);
         goto post_error_handling;
     }
     //| -no_next

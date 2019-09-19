@@ -447,10 +447,10 @@ shift.execute(Fail, Dst) {
         reg[1] = Op2;
         SWAPOUT;
         if (IsOpCode(I[0], i_bsl_ssjd)) {
-            I = handle_error(c_p, I, reg, &bif_export[BIF_bsl_2]->info.mfa);
+            I = handle_error(c_p, I, reg, &bif_trap_export[BIF_bsl_2].info.mfa);
         } else {
             ASSERT(IsOpCode(I[0], i_bsr_ssjd));
-            I = handle_error(c_p, I, reg, &bif_export[BIF_bsr_2]->info.mfa);
+            I = handle_error(c_p, I, reg, &bif_trap_export[BIF_bsr_2].info.mfa);
         }
         goto post_error_handling;
     }
