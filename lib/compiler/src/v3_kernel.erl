@@ -1452,16 +1452,17 @@ find_key_partition(Ps) ->
 %% group_value([Clause]) -> [[Clause]].
 %%  Group clauses according to value.  Here we know that
 %%  1. Some types are singled valued
-%%  2. The clauses in bin_segs cannot be reordered only grouped
+%%  2. The clauses in maps and bin_segs cannot be reordered,
+%%     only grouped
 %%  3. Other types are disjoint and can be reordered
 
-group_value(k_cons, Us, Cs)    -> [{Us,Cs}];               %These are single valued
+group_value(k_cons, Us, Cs)    -> [{Us,Cs}];  %These are single valued
 group_value(k_nil, Us, Cs)     -> [{Us,Cs}];
 group_value(k_binary, Us, Cs)  -> [{Us,Cs}];
 group_value(k_bin_end, Us, Cs) -> [{Us,Cs}];
-group_value(k_bin_seg, Us, Cs) -> group_bin_seg(Us,Cs);
+group_value(k_bin_seg, Us, Cs) -> group_keeping_order(Us, Cs);
 group_value(k_bin_int, Us, Cs) -> [{Us,Cs}];
-group_value(k_map, Us, Cs)     -> group_map(Us,Cs);
+group_value(k_map, Us, Cs)     -> group_keeping_order(Us, Cs);
 group_value(_, Us, Cs) ->
     Map = group_values(Cs, #{}),
     %% We must sort the grouped values to ensure consistent
@@ -1480,17 +1481,11 @@ group_values([C|Cs], Acc) ->
     end;
 group_values([], Acc) -> Acc.
 
-group_bin_seg(Us, [C1|Cs]) ->
-    V1 = clause_val(C1),
-    {More,Rest} = splitwith(fun (C) -> clause_val(C) == V1 end, Cs),
-    [{Us,[C1|More]}|group_bin_seg(Us,Rest)];
-group_bin_seg(_, []) -> [].
-
-group_map(Us, [C1|Cs]) ->
+group_keeping_order(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
-    [{Us,[C1|More]}|group_map(Us,Rest)];
-group_map(_, []) -> [].
+    [{Us,[C1|More]}|group_keeping_order(Us, Rest)];
+group_keeping_order(_, []) -> [].
 
 %% Profiling shows that this quadratic implementation account for a big amount
 %% of the execution time if there are many values.
