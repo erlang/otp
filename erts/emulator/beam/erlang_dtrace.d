@@ -176,7 +176,7 @@ provider erlang {
      * Fired whenever a user function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      * @param depth the stack depth
      */
     probe function__return(char *p, char *mfa, int depth);
@@ -193,7 +193,7 @@ provider erlang {
      * Fired whenever a Built In Function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      */
     probe bif__return(char *p, char *mfa);
 
@@ -209,7 +209,7 @@ provider erlang {
      * Fired whenever a Native Function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      */
     probe nif__return(char *p, char *mfa);
 

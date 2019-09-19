@@ -437,10 +437,10 @@ init_emulator(void)
         }                                                                                      \
     } while(0)
 
-#define DTRACE_RETURN_FROM_PC(p)                                                        \
+#define DTRACE_RETURN_FROM_PC(p, i)                                                        \
     do {                                                                                \
         ErtsCodeMFA* cmfa;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc(cp_val((p)->stop[0])))) { \
+        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc(i))) { \
             DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
@@ -450,7 +450,7 @@ init_emulator(void)
 #define DTRACE_GLOBAL_CALL(p, mfa)       do {} while (0)
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
 #define DTRACE_RETURN(p, mfa)            do {} while (0)
-#define DTRACE_RETURN_FROM_PC(p)             do {} while (0)
+#define DTRACE_RETURN_FROM_PC(p, i)      do {} while (0)
 #define DTRACE_BIF_ENTRY(p, mfa)         do {} while (0)
 #define DTRACE_BIF_RETURN(p, mfa)        do {} while (0)
 #define DTRACE_NIF_ENTRY(p, mfa)         do {} while (0)
