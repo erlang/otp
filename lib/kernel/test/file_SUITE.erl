@@ -2041,13 +2041,7 @@ allocate_and_assert(Fd, Offset, Length) ->
 %% Tests that asserts that file:allocate/3 changes file size
 allocate_file_size(Config) when is_list(Config) ->
     case os:type() of
-        {win32, _} ->
-            {skip, "Windows does not support file:allocate/3"};
-
-        {unix, linux} ->
-            {skip, "file:allocate/3 on Linux does not change file size"};
-
-        _ ->
+        {unix, darwin} ->
             PrivDir = proplists:get_value(priv_dir, Config),
             Allocate = filename:join(PrivDir, atom_to_list(?MODULE)++"_allocate_file"),
 
@@ -2057,7 +2051,13 @@ allocate_file_size(Config) when is_list(Config) ->
             ok = ?FILE_MODULE:close(Fd),
 
             [] = flush(),
-            ok
+            ok;
+        {unix, linux} ->
+            {skip, "file:allocate/3 on Linux does not change file size"};
+        {win32, _} ->
+            {skip, "Windows does not support file:allocate/3"};
+        _ ->
+            {skip, "Support for allocate/3 is spotty in our test platform at the moment."}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
