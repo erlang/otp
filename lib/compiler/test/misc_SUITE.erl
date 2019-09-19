@@ -181,6 +181,7 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> beam_kernel_to_ssa:module(BadKernel, []) end),
 
     %% beam_ssa_lint
+    %% beam_ssa_bool
     %% beam_ssa_recv
     %% beam_ssa_share
     %% beam_ssa_pre_codegen
@@ -188,6 +189,7 @@ silly_coverage(Config) when is_list(Config) ->
     BadSSA = {b_module,#{},a,b,c,
               [{b_function,#{func_info=>{mod,foo,0}},args,bad_blocks,0}]},
     expect_error(fun() -> beam_ssa_lint:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_bool:module(BadSSA, []) end),
     expect_error(fun() -> beam_ssa_recv:module(BadSSA, []) end),
     expect_error(fun() -> beam_ssa_share:module(BadSSA, []) end),
     expect_error(fun() -> beam_ssa_pre_codegen:module(BadSSA, []) end),

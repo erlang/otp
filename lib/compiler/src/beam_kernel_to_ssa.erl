@@ -533,9 +533,9 @@ guard_clause_cg(#k_guard_clause{guard=G,body=B}, Fail, St0) ->
 
 guard_cg(#k_protected{arg=Ts,ret=Rs,inner=Inner}, Fail, St) ->
     protected_cg(Ts, Rs, Inner, Fail, St);
-guard_cg(#k_test{op=Test0,args=As,inverted=Inverted}, Fail, St0) ->
+guard_cg(#k_test{op=Test0,args=As}, Fail, St0) ->
     #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Test}} = Test0,
-    test_cg(Test, Inverted, As, Fail, St0);
+    test_cg(Test, false, As, Fail, St0);
 guard_cg(#k_seq{arg=Arg,body=Body}, Fail, St0) ->
     {ArgIs,St1} = guard_cg(Arg, Fail, St0),
     {BodyIs,St} = guard_cg(Body, Fail, St1),
@@ -552,7 +552,8 @@ test_cg(Test, Inverted, As0, Fail, St0) ->
     case {Test,ssa_args(As0, St0)} of
         {is_record,[Tuple,#b_literal{val=Atom}=Tag,#b_literal{val=Int}=Arity]}
           when is_atom(Atom), is_integer(Int) ->
-            test_is_record_cg(Inverted, Fail, Tuple, Tag, Arity, St0);
+            false = Inverted,                   %Assertion.
+            test_is_record_cg(Fail, Tuple, Tag, Arity, St0);
         {_,As} ->
             {Bool,St1} = new_ssa_var('@ssa_bool', St0),
             {Succ,St} = new_label(St1),
@@ -564,7 +565,7 @@ test_cg(Test, Inverted, As0, Fail, St0) ->
             {[Bif,Br,{label,Succ}],St}
     end.
 
-test_is_record_cg(false, Fail, Tuple, TagVal, ArityVal, St0) ->
+test_is_record_cg(Fail, Tuple, TagVal, ArityVal, St0) ->
     {Arity,St1} = new_ssa_var('@ssa_arity', St0),
     {Tag,St2} = new_ssa_var('@ssa_tag', St1),
     {Is0,St3} = make_cond_branch({bif,is_tuple}, [Tuple], Fail, St2),
@@ -574,19 +575,6 @@ test_is_record_cg(false, Fail, Tuple, TagVal, ArityVal, St0) ->
                     args=[Tuple,#b_literal{val=0}]},
     {Is2,St} = make_cond_branch({bif,'=:='}, [Tag,TagVal], Fail, St4),
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2,
-    {Is,St};
-test_is_record_cg(true, Fail, Tuple, TagVal, ArityVal, St0) ->
-    {Succ,St1} = new_label(St0),
-    {Arity,St2} = new_ssa_var('@ssa_arity', St1),
-    {Tag,St3} = new_ssa_var('@ssa_tag', St2),
-    {Is0,St4} = make_cond_branch({bif,is_tuple}, [Tuple], Succ, St3),
-    GetArity = #b_set{op={bif,tuple_size},dst=Arity,args=[Tuple]},
-    {Is1,St5} = make_cond_branch({bif,'=:='}, [Arity,ArityVal], Succ, St4),
-    GetTag = #b_set{op=get_tuple_element,dst=Tag,
-                    args=[Tuple,#b_literal{val=0}]},
-    {Is2,St} = make_cond_branch({bif,'=:='}, [Tag,TagVal], Succ, St5),
-    Is3 = [make_uncond_branch(Fail),{label,Succ}],
-    Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2 ++ Is3,
     {Is,St}.
 
 %% protected_cg([Kexpr], [Ret], Fail, St) -> {[Ainstr],St}.

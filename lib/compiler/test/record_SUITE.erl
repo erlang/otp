@@ -608,8 +608,9 @@ coverage(Config) when is_list(Config) ->
 -record(gb_nil, {}).
 -record(gb_foo, {hello=1}).
 -record(gb_bar, {hello=2,there=3}).
+-record(gb_rh, {mod,mid}).
 
-%% Taken from compilation_SUITE.
+%% Taken from compilation_SUITE and other places.
 grab_bag(_Config) ->
     T1 = fun() ->
 		 X = #foo{},
@@ -652,6 +653,23 @@ grab_bag(_Config) ->
 		 F2()
 	 end,
     T4(),
+
+    %% Used to crash beam_ssa_bool during its development.
+    T5 = fun(RH) ->
+                 if
+                     is_record(RH, gb_rh) andalso
+                     is_atom(RH#gb_rh.mod) andalso
+                     RH#gb_rh.mid /= 42 -> ok;
+                     true -> error
+                 end
+         end,
+    ok = T5(#gb_rh{}),
+    ok = T5(#gb_rh{mod=atom,mid=0}),
+    error = T5(#gb_rh{mod=100,mid=0}),
+    error = T5(#gb_rh{mod=atom,mid=42}),
+    error = T5(#gb_nil{}),
+    error = T5(#gb_bar{}),
+    error = T5(atom),
 
     ok.
 

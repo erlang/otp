@@ -58,7 +58,7 @@
 -record(k_seq, {anno=[],arg,body}).
 -record(k_put, {anno=[],arg,ret=[]}).
 -record(k_bif, {anno=[],op,args,ret=[]}).
--record(k_test, {anno=[],op,args,inverted=false}).
+-record(k_test, {anno=[],op,args}).
 -record(k_call, {anno=[],op,args,ret=[]}).
 -record(k_enter, {anno=[],op,args}).
 -record(k_receive, {anno=[],var,body,timeout,action,ret=[]}).
