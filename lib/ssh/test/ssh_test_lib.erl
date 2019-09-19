@@ -293,12 +293,12 @@ rcv_lingering(Timeout) ->
 receive_exec_result(Msg) ->
     ct:log("Expect data! ~p", [Msg]),
     receive
-	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:log("StdErr: ~p~n", [Data]),
-	    receive_exec_result(Msg);
 	Msg ->
 	    ct:log("1: Collected data ~p", [Msg]),
 	    expected;
+	{ssh_cm,_,{data,_,1, Data}} ->
+	    ct:log("StdErr: ~p~n", [Data]),
+	    receive_exec_result(Msg);
 	Other ->
 	    ct:log("Other ~p", [Other]),
 	    {unexpected_msg, Other}
@@ -306,6 +306,11 @@ receive_exec_result(Msg) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
+receive_exec_result_or_fail(Msg) ->
+    case receive_exec_result(Msg) of
+        expected -> expected;
+        Other -> ct:fail(Other)
+    end.
 
 receive_exec_end(ConnectionRef, ChannelId) ->
     Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},

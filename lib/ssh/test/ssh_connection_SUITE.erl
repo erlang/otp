@@ -57,6 +57,8 @@ all() ->
      start_shell_exec_direct_fun3,
      start_shell_exec_direct_fun1_error,
      start_shell_exec_direct_fun1_error_type,
+     start_exec_direct_fun1_read_write,
+     start_exec_direct_fun1_read_write_advanced,
      start_shell_sock_exec_fun,
      start_shell_sock_daemon_exec,
      connect_sock_not_tcp,
@@ -665,6 +667,127 @@ start_shell_exec_direct_fun1_error_type(Config) ->
                             "testing", <<"Error in \"testing\": Bad exec-plugin return: very_bad\n">>, 1,
                             Config).
 
+start_exec_direct_fun1_read_write(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {exec, {direct,fun read_write_loop/1}}]),
+
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, true},
+                                          {user_dir, UserDir}]),
+
+    {ok, Ch} = ssh_connection:session_channel(C, infinity),
+
+    success = ssh_connection:exec(C, Ch, "> ", infinity),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
+    ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
+    ok = ssh_connection:send(C, Ch, "quit.\n", 5000),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{1,inputs}">>}}),
+    receive
+        {ssh_cm,C,{exit_status,Ch,0}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        {ssh_cm,C,{eof,Ch}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        {ssh_cm,C,{closed,Ch}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        X -> ct:fail("remaining messages"),
+             ct:log("remaining message: ~p",[X])
+    after 0 -> go_on
+    end,
+    ssh:stop_daemon(Pid).
+
+
+start_exec_direct_fun1_read_write_advanced(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {exec, {direct,fun read_write_loop/1}}]),
+
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, true},
+                                          {user_dir, UserDir}]),
+
+    {ok, Ch} = ssh_connection:session_channel(C, infinity),
+
+    success = ssh_connection:exec(C, Ch, "> ", infinity),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
+    ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
+    ok = ssh_connection:send(C, Ch, "'Hi ", 5000),
+    ok = ssh_connection:send(C, Ch, "there", 5000),
+    ok = ssh_connection:send(C, Ch, "'", 5000),
+    ok = ssh_connection:send(C, Ch, ".\n", 5000),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,'Hi there'}\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"3> ">>}}),
+    ok = ssh_connection:send(C, Ch, "bad_input.\n", 5000),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,1,<<"**Error** {bad_input,3}">>}}),
+    receive
+        {ssh_cm,C,{exit_status,Ch,_}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        {ssh_cm,C,{eof,Ch}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        {ssh_cm,C,{closed,Ch}} -> ok
+    after 5000 -> go_on
+    end,
+    receive
+        X -> ct:fail("remaining messages"),
+             ct:log("remaining message: ~p",[X])
+    after 0 -> go_on
+    end,
+    ssh:stop_daemon(Pid).
+
+
+
+    
+%% A tiny read-write loop ended by a 'quit.\n'
+read_write_loop(Prompt) ->
+    io:format("Tiny read/write test~n", []),
+    read_write_loop1(Prompt, 1).
+
+read_write_loop1(Prompt, N) ->
+    case io:read(lists:concat([N,Prompt])) of
+        {ok, quit} ->
+            {ok, {N-1, inputs}};
+        {ok, bad_input} ->
+            {error, {bad_input,N}};
+        {ok,Inp} ->
+            io:format("~p~n",[simple_eval(Inp)]),
+            read_write_loop1(Prompt, N+1)
+    end.
+    
+simple_eval(Inp) -> {simple_eval,Inp}.
 
 
 do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
