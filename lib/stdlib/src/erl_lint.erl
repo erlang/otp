@@ -3371,9 +3371,11 @@ handle_comprehension(E, Qs, Vt0, St0) ->
     Vt3 = vtmerge(vtsubtract(Vt2, Uvt), Uvt),
     %% Don't export local variables.
     Vt4 = vtold(Vt3, Vt0),
-    %% Forget about old variables which were not used.
-    Vt5 = vt_no_unused(Vt4),
-    {Vt5,St}.
+    %% Forget about old variables which were not used as well as unsafe
+    %% variables, preventing them from being marked as used and bound by
+    %% icrt_export/4.
+    Vt = vt_no_unsafe(vt_no_unused(Vt4)),
+    {Vt, St}.
 
 %% lc_quals(Qualifiers, ImportVarTable, State) ->
 %%      {VarTable,ShadowedVarTable,State}
