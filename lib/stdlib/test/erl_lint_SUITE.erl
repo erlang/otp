@@ -1018,7 +1018,27 @@ unsafe_vars(Config) when is_list(Config) ->
            {errors,[{24,erl_lint,{unsafe_var,'A',{'catch',4}}},
                     {24,erl_lint,{unsafe_var,'B',{'case',2}}},
                     {24,erl_lint,{unsafe_var,'D',{'case',2}}}],
-            []}}
+            []}},
+          {unsafe_comprehension,
+           <<"foo() ->
+                 case node() of
+                     P when is_tuple(P) ->
+                         P;
+                     _ ->
+                         ok
+                 end,
+                 Y = try
+                         ok
+                     catch _C:_R ->
+                             [1 || _ <- []]
+                     end,
+                 case Y of
+                     P ->
+                         P
+                 end.
+           ">>,
+           [],
+           {errors,[{14,erl_lint,{unsafe_var,'P',{'case',2}}}],[]}}
          ],
     [] = run(Config, Ts),
     ok.
