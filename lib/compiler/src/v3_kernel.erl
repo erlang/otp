@@ -81,7 +81,7 @@
                 map/2,mapfoldl/3,member/2,
 		keyfind/3,keyreplace/4,
                 last/1,partition/2,reverse/1,
-                splitwith/2]).
+                sort/1,splitwith/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -1463,10 +1463,22 @@ group_value(k_bin_seg, Us, Cs) -> group_bin_seg(Us,Cs);
 group_value(k_bin_int, Us, Cs) -> [{Us,Cs}];
 group_value(k_map, Us, Cs)     -> group_map(Us,Cs);
 group_value(_, Us, Cs) ->
-    %% group_value(Cs).
-    Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
-	       dict:new(), Cs),
-    dict:fold(fun (_, Vcs, Css) -> [{Us,Vcs}|Css] end, [], Cd).
+    Map = group_values(Cs, #{}),
+    %% We must sort the grouped values to ensure consistent
+    %% order from compilation to compilation.
+    sort(maps:fold(fun (_, Vcs, Css) ->
+                           [{Us,reverse(Vcs)}|Css]
+                   end, [], Map)).
+
+group_values([C|Cs], Acc) ->
+    Val = clause_val(C),
+    case Acc of
+        #{Val:=Gcs} ->
+            group_values(Cs, Acc#{Val:=[C|Gcs]});
+        #{} ->
+            group_values(Cs, Acc#{Val=>[C]})
+    end;
+group_values([], Acc) -> Acc.
 
 group_bin_seg(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
