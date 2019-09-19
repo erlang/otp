@@ -90,6 +90,11 @@
 #define __DARWIN__ 1
 #endif
 
+/* BSD (at least FreeBSD and macOS) use PF_LOCAL for protocol family */
+#if defined(PF_LOCAL) && !defined(AF_LOCAL)
+#define AF_LOCAL PF_LOCAL
+#endif
+
 
 #ifdef __WIN32__
 #define STRNCASECMP               strncasecmp
