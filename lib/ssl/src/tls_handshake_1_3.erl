@@ -48,7 +48,8 @@
          do_wait_finished/2,
          do_wait_sh/2,
          do_wait_ee/2,
-         do_wait_cert_cr/2]).
+         do_wait_cert_cr/2,
+         maybe_add_binders/3]).
 
 
 %% crypto:hash(sha256, "HelloRetryRequest").
@@ -632,7 +633,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
-                                           false, undefined),  %% No PSK after HRR!
+                                           undefined),  %% TODO PSK after HRR!
 
         HelloVersion = tls_record:hello_version(Versions),
 
@@ -1912,3 +1913,44 @@ maybe() ->
                  throw({Ref,Reason})
          end,
     {Ref,Ok}.
+
+
+%% If the handshake includes a HelloRetryRequest, the initial
+%% ClientHello and HelloRetryRequest are included in the transcript
+%% along with the new ClientHello.  For instance, if the client sends
+%% ClientHello1, its binder will be computed over:
+%%
+%%    Transcript-Hash(Truncate(ClientHello1))
+%%
+%% Where Truncate() removes the binders list from the ClientHello.
+%%
+%% If the server responds with a HelloRetryRequest and the client then
+%% sends ClientHello2, its binder will be computed over:
+%%
+%%    Transcript-Hash(ClientHello1,
+%%                    HelloRetryRequest,
+%%                    Truncate(ClientHello2))
+%%
+%% The full ClientHello1/ClientHello2 is included in all other handshake
+%% hash computations.  Note that in the first flight,
+%% Truncate(ClientHello1) is hashed directly, but in the second flight,
+%% ClientHello1 is hashed and then reinjected as a "message_hash"
+%% message, as described in Section 4.4.1.
+
+%% TODO HelloRetryRequest
+maybe_add_binders(Hello, undefined, _) ->
+    Hello;
+maybe_add_binders(Hello, TicketData, Version) when Version =:= {3,4} ->
+    %% opaque PskBinderEntry<32..255>;
+    %%
+    %% struct {
+    %%     PskIdentity identities<7..2^16-1>;
+    %%     PskBinderEntry binders<33..2^16-1>;
+    %% } OfferedPsks;
+    {_RMS, _Nonce, HKDF} = TicketData,
+    HashSize = ssl_cipher:hash_size(HKDF),
+    {_Truncated, _} = split_binary(Hello, size(Hello) - (HashSize + 3)),
+    %% TODO
+    Hello;
+maybe_add_binders(Hello, _, Version) when Version =< {3,3} ->
+    Hello.

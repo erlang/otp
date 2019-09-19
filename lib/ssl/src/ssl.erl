@@ -2070,7 +2070,7 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
     Value;
 validate_option(use_ticket, Value) when is_binary(Value) andalso
                                         byte_size(Value) =:= 32 ->
-    true;
+    Value;
 validate_option(session_tickets, Value) when Value =:= true orelse
                                              Value =:= false orelse
                                              Value =:= auto ->
