@@ -45,9 +45,10 @@ i_generic_breakpoint() {
 }
 
 i_return_time_trace() {
-    BeamInstr *pc = (BeamInstr *) (UWord) E[0];
+    ErtsCodeInfo *cinfo = (!is_CP(E[0]) ? NULL
+                           : erts_code_to_codeinfo((BeamInstr*)E[0]));
     SWAPOUT;
-    erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
+    erts_trace_time_return(c_p, cinfo);
     SWAPIN;
     c_p->cp = NULL;
     SET_I((BeamInstr *) cp_val(E[1]));
