@@ -163,7 +163,7 @@ std_simple_exec(Host, Port, Config, Opts) ->
     ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
     case ExecResult of
 	success ->
-	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42">>}},
 	    case receive_exec_result(Expected) of
 		expected ->
 		    ok;

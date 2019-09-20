@@ -547,7 +547,7 @@ exec(Config) when is_list(Config) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "1+1.", infinity),
-    Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"2\n">>}},
+    Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"2">>}},
     case ssh_test_lib:receive_exec_result(Data0) of
 	expected ->
 	    ok;
@@ -561,7 +561,7 @@ exec(Config) when is_list(Config) ->
     {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId1,
 				  "2+2.", infinity),
-    Data1 = {ssh_cm, ConnectionRef, {data, ChannelId1, 0, <<"4\n">>}},
+    Data1 = {ssh_cm, ConnectionRef, {data, ChannelId1, 0, <<"4">>}},
     case ssh_test_lib:receive_exec_result(Data1) of
 	expected ->
 	    ok;
@@ -595,7 +595,7 @@ exec_with_io_out(Config) when is_list(Config) ->
           ) of
 	expected ->
             case ssh_test_lib:receive_exec_result(
-                   {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok\n">>}}
+                   {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}}
                   ) of
                 expected ->
                     ok;
@@ -626,7 +626,7 @@ exec_with_io_in(Config) when is_list(Config) ->
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm, C, {data,Ch,0,<<"% ">>}}),
     ok = ssh_connection:send(C, Ch, "hej.\n", 10000),
 
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm, C, {data,Ch,0,<<"{ok,hej}\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm, C, {data,Ch,0,<<"{ok,hej}">>}}),
     ssh_test_lib:receive_exec_end(C, Ch),
     ssh:close(C),
     ssh:stop_daemon(Pid).
@@ -654,7 +654,7 @@ exec_compressed(Config) when is_list(Config) ->
 	    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
 	    success = ssh_connection:exec(ConnectionRef, ChannelId,
 					  "1+1.", infinity),
-	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
+	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2">>}},
 	    case ssh_test_lib:receive_exec_result(Data) of
 		expected ->
 		    ok;
