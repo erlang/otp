@@ -81,7 +81,7 @@
                 map/2,mapfoldl/3,member/2,
 		keyfind/3,keyreplace/4,
                 last/1,partition/2,reverse/1,
-                sort/1,splitwith/2]).
+                sort/1,sort/2,splitwith/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -134,7 +134,7 @@ module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
     St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
-		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
+                body=Kfs ++ St#kern.funs},sort(St#kern.ws)}.
 
 attributes([{#c_literal{val=Name},#c_literal{val=Val}}|As]) ->
     case include_attribute(Name) of
@@ -293,10 +293,10 @@ expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
 	     undefined ->
 		 Func;
 	     _ ->
-		 case lists:keyfind(id, 1, A) of
+                 case keyfind(id, 1, A) of
 		     {id,{_,_,Name}} -> Name;
 		     _ ->
-			 case lists:keyfind(letrec_name, 1, A) of
+                         case keyfind(letrec_name, 1, A) of
 			     {letrec_name,Name} -> Name;
 			     _ -> unknown_fun
 			 end
@@ -711,7 +711,7 @@ flatten_alias(Pat) -> {[],Pat}.
 
 pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
     %% pattern the pair keys and values as normal
-    {Kes,{Osub1,St1}} = lists:mapfoldl(fun
+    {Kes,{Osub1,St1}} = mapfoldl(fun
 	    (#c_map_pair{anno=A,key=Ck,val=Cv},{Osubi0,Sti0}) ->
 		{Kk,[],Sti1} = expr(Ck, Isub, Sti0),
 		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi0, Sti1),
@@ -719,7 +719,7 @@ pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
 	end, {Osub0, St0}, Ces0),
     %% It is later assumed that these keys are term sorted
     %% so we need to sort them here
-    Kes1 = lists:sort(fun
+    Kes1 = sort(fun
 	    (#k_map_pair{key=KkA},#k_map_pair{key=KkB}) ->
 		A = map_key_clean(KkA),
 		B = map_key_clean(KkB),
@@ -1766,7 +1766,7 @@ arg_val(Arg, C) ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end;
 	#k_map{op=exact,es=Es} ->
-	    lists:sort(fun(A,B) ->
+            sort(fun(A,B) ->
 			%% on the form K :: {'lit' | 'var', term()}
 			%% lit < var as intended
 			erts_internal:cmp_term(A,B) < 0
@@ -1981,7 +1981,7 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     Fvs = make_vars(Free),
     Arity = length(Vs) + length(Free),
     {Fname,St} =
-	case lists:keyfind(id, 1, A) of 
+        case keyfind(id, 1, A) of 
 	    {id,{_,_,Fname0}} ->
 		{Fname0,St1};
 	    false ->
@@ -2200,7 +2200,7 @@ is_in_guard(#kern{guard_refc=Refc}) ->
 format_error({nomatch_shadow,Line}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
-    lists:flatten(M);
+    flatten(M);
 format_error(nomatch_shadow) ->
     "this clause cannot match because a previous clause always matches";
 format_error(bad_call) ->
