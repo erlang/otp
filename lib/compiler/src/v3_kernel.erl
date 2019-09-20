@@ -183,7 +183,6 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 body(#c_values{anno=A,es=Ces}, Sub, St0) ->
     %% Do this here even if only in bodies.
     {Kes,Pe,St1} = atomic_list(Ces, Sub, St0),
-    %%{Kes,Pe,St1} = expr_list(Ces, Sub, St0),
     {#ivalues{anno=A,args=Kes},Pe,St1};
 body(#ireceive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=A},[],St};
@@ -603,12 +602,6 @@ force_atomic(Ke, St0) ->
 	    {V,[#iset{vars=[V],arg=Ke}],St1}
     end.
 
-% force_atomic_list(Kes, St) ->
-%     foldr(fun (Ka, {As,Asp,St0}) ->
-% 		  {A,Ap,St1} = force_atomic(Ka, St0),
-% 		  {[A|As],Ap ++ Asp,St1}
-% 	  end, {[],[],St}, Kes).
-
 atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
 	   Sub, St0) ->
     {E,Ap1,St1} = atomic(E0, Sub, St0),
@@ -908,11 +901,6 @@ make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
 add_var_def(V, St) ->
     St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
-
-%%add_vars_def(Vs, St) ->
-%%    Ds = foldl(fun (#k_var{name=V}, Ds) -> add_element(V, Ds) end,
-%%	       St#kern.ds, Vs),
-%%    St#kern{ds=Ds}.
 
 %% is_remote_bif(Mod, Name, Arity) -> true | false.
 %%  Test if function is really a BIF.
@@ -1495,15 +1483,6 @@ group_keeping_order(Us, [C1|Cs]) ->
     {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
     [{Us,[C1|More]}|group_keeping_order(Us, Rest)];
 group_keeping_order(_, []) -> [].
-
-%% Profiling shows that this quadratic implementation account for a big amount
-%% of the execution time if there are many values.
-% group_value([C|Cs]) ->
-%     V = clause_val(C),
-%     Same = [ Cv || Cv <- Cs, clause_val(Cv) == V ], %Same value
-%     Rest = [ Cv || Cv <- Cs, clause_val(Cv) /= V ], % and all the rest
-%     [[C|Same]|group_value(Rest)];
-% group_value([]) -> [].
 
 %% match_clause([Var], [Clause], Default, State) -> {Clause,State}.
 %%  At this point all the clauses have the same "value".  Build one
