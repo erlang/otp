@@ -1532,16 +1532,13 @@ get_match(#k_binary{}, St0) ->
     {[V]=Mes,St1} = new_vars(1, St0),
     {#k_binary{segs=V},Mes,St1};
 get_match(#k_bin_seg{size=#k_literal{val=all},next={k_bin_end,[]}}=Seg, St0) ->
-    {[S,N0],St1} = new_vars(2, St0),
-    N = set_kanno(N0, [no_usage]),
+    {[S,N],St1} = new_vars(2, St0),
     {Seg#k_bin_seg{seg=S,next=N},[S],St1};
 get_match(#k_bin_seg{}=Seg, St0) ->
-    {[S,N0],St1} = new_vars(2, St0),
-    N = set_kanno(N0, [no_usage]),
+    {[S,N],St1} = new_vars(2, St0),
     {Seg#k_bin_seg{seg=S,next=N},[S,N],St1};
 get_match(#k_bin_int{}=BinInt, St0) ->
-    {N0,St1} = new_var(St0),
-    N = set_kanno(N0, [no_usage]),
+    {N,St1} = new_var(St0),
     {BinInt#k_bin_int{next=N},[N],St1};
 get_match(#k_tuple{es=Es}, St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
@@ -2073,10 +2070,7 @@ umatch(#k_alt{anno=A,first=F0,then=T0}, Br, St0) ->
     {#k_alt{anno=A,first=F1,then=T1},Used,St2};
 umatch(#k_select{anno=A,var=V,types=Ts0}, Br, St0) ->
     {Ts1,Tus,St1} = umatch_list(Ts0, Br, St0),
-    Used = case member(no_usage, get_kanno(V)) of
-	       true -> Tus;
-	       false -> add_element(V#k_var.name, Tus)
-	   end,
+    Used = add_element(V#k_var.name, Tus),
     {#k_select{anno=A,var=V,types=Ts1},Used,St1};
 umatch(#k_type_clause{anno=A,type=T,values=Vs0}, Br, St0) ->
     {Vs1,Vus,St1} = umatch_list(Vs0, Br, St0),
@@ -2150,8 +2144,8 @@ lit_list_vars(Ps) ->
 
 %% pat_vars(Pattern) -> {[UsedVarName],[NewVarName]}.
 %%  Return variables in a pattern.  All variables are new variables
-%%  except those in the size field of binary segments.
-%%  and map_pair keys
+%%  except those in the size field of binary segments and the key
+%%  field in map_pairs.
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
@@ -2160,13 +2154,14 @@ pat_vars(#k_cons{hd=H,tl=T}) ->
     pat_list_vars([H,T]);
 pat_vars(#k_binary{segs=V}) ->
     pat_vars(V);
-pat_vars(#k_bin_seg{size=Size,seg=S}) ->
-    {U1,New} = pat_list_vars([S]),
+pat_vars(#k_bin_seg{size=Size,seg=S,next=N}) ->
+    {U1,New} = pat_list_vars([S,N]),
     {[],U2} = pat_vars(Size),
     {union(U1, U2),New};
-pat_vars(#k_bin_int{size=Size}) ->
+pat_vars(#k_bin_int{size=Size,next=N}) ->
+    {[],New} = pat_vars(N),
     {[],U} = pat_vars(Size),
-    {U,[]};
+    {U,New};
 pat_vars(#k_bin_end{}) -> {[],[]};
 pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
