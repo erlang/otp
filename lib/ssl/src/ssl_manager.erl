@@ -53,7 +53,6 @@
 	  session_lifetime        :: integer(),
 	  certificate_db          :: db_handle(),
 	  session_validation_timer :: reference(),
-	  last_delay_timer  = {undefined, undefined},%% Keep for testing purposes	 
 	  session_cache_client_max   :: integer(),
 	  session_cache_server_max   :: integer(),
 	  session_server_invalidator :: undefined | pid(),
@@ -375,12 +374,6 @@ handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 			  session_client_invalidator = CPid,
 			  session_server_invalidator = SPid}};
 
-
-handle_info({delayed_clean_session, Key, Cache}, #state{session_cache_cb = CacheCb
-						       } = State) ->
-    CacheCb:delete(Cache, Key),
-    {noreply, State};
-
 handle_info({clean_cert_db, Ref, File},
 	    #state{certificate_db = [CertDb, {RefDb, FileMapDb} | _]} = State) ->
     
@@ -470,14 +463,6 @@ session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
 
-delay_time() ->
-    case application:get_env(ssl, session_delay_cleanup_time) of
-	{ok, Time} when is_integer(Time) ->
-	    Time;
-	_ ->
-	   ?CLEAN_SESSION_DB
-    end.
-
 max_session_cache_size(CacheType) ->
     case application:get_env(ssl, CacheType) of
 	{ok, Size} when is_integer(Size) ->
@@ -486,35 +471,14 @@ max_session_cache_size(CacheType) ->
 	   ?DEFAULT_MAX_SESSION_CACHE
     end.
 
-invalidate_session(Cache, CacheCb, Key, Session, State) ->
+invalidate_session(Cache, CacheCb, Key, _Session, State) ->
     case CacheCb:lookup(Cache, Key) of
 	undefined -> %% Session is already invalidated
 	    {noreply, State};
-	#session{is_resumable = new} ->
+	#session{} ->
 	    CacheCb:delete(Cache, Key),
-	    {noreply, State};
-	_ ->
-	    delayed_invalidate_session(CacheCb, Cache, Key, Session, State)
+	    {noreply, State}
     end.
-
-delayed_invalidate_session(CacheCb, Cache, Key, Session, 
-			   #state{last_delay_timer = LastTimer} = State) ->
-    %% When a registered session is invalidated we need to
-    %% wait a while before deleting it as there might be
-    %% pending connections that rightfully needs to look up
-    %% the session data but new connections should not get to
-    %% use this session.
-    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
-    TRef =
-	erlang:send_after(delay_time(), self(), 
-			  {delayed_clean_session, Key, Cache}),
-    {noreply, State#state{last_delay_timer = 
-			      last_delay_timer(Key, TRef, LastTimer)}}.
-
-last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
-    {LastServer, TRef};
-last_delay_timer({_,_}, TRef, {_, LastClient}) ->
-    {TRef, LastClient}.
 
 %% If we cannot generate a not allready in use session ID in
 %% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
