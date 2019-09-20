@@ -659,12 +659,12 @@ start_shell_exec_direct_fun3(Config) ->
 
 start_shell_exec_direct_fun1_error(Config) ->
     do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo_error_return/1},
-                            "testing", <<"Error in \"testing\": {bad}\n">>, 1,
+                            "testing", <<"**Error** {bad}">>, 1,
                             Config).
 
 start_shell_exec_direct_fun1_error_type(Config) ->
     do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo_error_return_type/1},
-                            "testing", <<"Error in \"testing\": Bad exec-plugin return: very_bad\n">>, 1,
+                            "testing", <<"**Error** Bad exec fun in server. Invalid return value: very_bad">>, 1,
                             Config).
 
 start_exec_direct_fun1_read_write(Config) ->
