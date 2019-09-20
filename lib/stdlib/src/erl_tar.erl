@@ -165,7 +165,7 @@ check_extract(Name, #read_opts{files=Files}) ->
 %%%================================================================
 %% The following table functions produce a list of information about
 %% the files contained in the archive.
--type filename() :: string().
+-type name_in_archive() :: string().
 -type typeflag() :: regular | link | symlink |
                     char | block | directory |
                     fifo | reserved | unknown.
@@ -173,7 +173,7 @@ check_extract(Name, #read_opts{files=Files}) ->
 -type uid() :: non_neg_integer().
 -type gid() :: non_neg_integer().
 
--type tar_entry() :: {filename(),
+-type tar_entry() :: {name_in_archive(),
                       typeflag(),
                       non_neg_integer(),
                       tar_time(),
@@ -301,7 +301,7 @@ month(12) -> "Dec".
 
 %%%================================================================
 %% The open function with friends is to keep the file and binary api of this module
--type open_handle() :: file:filename()
+-type open_handle() :: file:filename_all()
                      | {binary, binary()}
                      | {file, term()}.
 -spec open(open_handle(), [write | compressed | cooked]) ->
@@ -396,13 +396,13 @@ pad_file(#reader{pos=Pos}=Reader) ->
 %% Creation/modification of tar archives
 
 %% Creates a tar file Name containing the given files.
--spec create(file:filename(), filelist()) -> ok | {error, {string(), term()}}.
+-spec create(file:filename_all(), filelist()) -> ok | {error, {string(), term()}}.
 create(Name, FileList) when is_list(Name); is_binary(Name) ->
     create(Name, FileList, []).
 
 %% Creates a tar archive Name containing the given files.
 %% Accepted options: verbose, compressed, cooked
--spec create(file:filename(), filelist(), [create_opt()]) ->
+-spec create(file:filename_all(), filelist(), [create_opt()]) ->
                     ok | {error, term()} | {error, {string(), term()}}.
 create(Name, FileList, Options) when is_list(Name); is_binary(Name) ->
     Mode = lists:filter(fun(X) -> (X=:=compressed) or (X=:=cooked)
@@ -434,9 +434,8 @@ do_create(TarFile, [Name|Rest], Opts) ->
     end.
 
 %% Adds a file to a tape archive.
--type add_type() :: string()
-                  | {string(), string()}
-                  | {string(), binary()}.
+-type add_type() :: name_in_archive()
+                  | {name_in_archive(), string()|binary()}.
 -spec add(reader(), add_type(), [add_opt()]) -> ok | {error, term()}.
 add(Reader, {NameInArchive, Name}, Opts)
   when is_list(NameInArchive), is_list(Name) ->
@@ -448,7 +447,7 @@ add(Reader, Name, Opts) when is_list(Name) ->
     do_add(Reader, Name, Name, Opts).
 
 
--spec add(reader(), string() | binary(), string(), [add_opt()]) ->
+-spec add(reader(), file:filename_all(), name_in_archive(), [add_opt()]) ->
                  ok | {error, term()}.
 add(Reader, NameOrBin, NameInArchive, Options)
   when is_list(NameOrBin); is_binary(NameOrBin),

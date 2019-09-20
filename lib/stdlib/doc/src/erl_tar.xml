@@ -125,24 +125,25 @@
     </list>
   </section>
 
+  <datatypes>
+    <datatype>
+      <name name="name_in_archive"/>
+    </datatype>
+    <datatype>
+      <name name="open_handle"/>
+    </datatype>
+    <datatype>
+      <name name="reader"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name since="">add(TarDescriptor, Filename, Options) -> RetValue</name>
+      <name name="add" arity="3" since=""/>
+      <name name="add" arity="4" since=""/>
       <fsummary>Add a file to an open tar file.</fsummary>
-      <type>
-        <v>TarDescriptor = term()</v>
-        <v>FilenameOrBin = filename()|binary()</v>
-        <v>NameInArchive = filename()</v>
-        <v>Filename = filename()|{NameInArchive,FilenameOrBin}</v>
-        <v>Options = [Option]</v>
-        <v>Option = dereference|verbose|{chunks,ChunkSize}</v>
-           <v>|{atime,non_neg_integer()}|{mtime,non_neg_integer()}</v>
-           <v>|{ctime,non_neg_integer()}|{uid,non_neg_integer()}</v>
-           <v>|{gid,non_neg_integer()}</v>
-        <v>ChunkSize = positive_integer()</v>
-        <v>RetValue = ok|{error,{Filename,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="add_type"/>
+      <type name="add_opt"/>
       <desc>
         <p>Adds a file to a tar file that has been opened for writing by
           <seealso marker="#open/2"><c>open/1</c></seealso>.</p>
@@ -211,33 +212,8 @@
     </func>
 
     <func>
-      <name since="">add(TarDescriptor, FilenameOrBin, NameInArchive, Options) ->
-        RetValue </name>
-      <fsummary>Add a file to an open tar file.</fsummary>
-      <type>
-        <v>TarDescriptor = term()</v>
-        <v>FilenameOrBin = filename()|binary()</v>
-        <v>Filename = filename()</v>
-        <v>NameInArchive = filename()</v>
-        <v>Options = [Option]</v>
-        <v>Option = dereference|verbose</v>
-        <v>RetValue = ok|{error,{Filename,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Adds a file to a tar file that has been opened for writing by
-          <seealso marker="#open/2"><c>open/2</c></seealso>. This function
-          accepts the same options as
-          <seealso marker="#add/3"><c>add/3</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">close(TarDescriptor)</name>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close an open tar file.</fsummary>
-      <type>
-        <v>TarDescriptor = term()</v>
-      </type>
       <desc>
         <p>Closes a tar file
           opened by <seealso marker="#open/2"><c>open/2</c></seealso>.</p>
@@ -245,17 +221,9 @@
     </func>
 
     <func>
-      <name since="">create(Name, FileList) ->RetValue </name>
+      <name name="create" arity="2" since=""/>
       <fsummary>Create a tar archive.</fsummary>
-      <type>
-        <v>Name = filename()</v>
-        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
-        <v>FilenameOrBin = filename()|binary()</v>
-        <v>Filename = filename()</v>
-        <v>NameInArchive = filename()</v>
-        <v>RetValue = ok|{error,{Name,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="filelist"/>
       <desc>
         <p>Creates a tar file and archives the files whose names are specified
           in <c>FileList</c> into it. The files can either be read from disk
@@ -264,19 +232,10 @@
     </func>
 
     <func>
-      <name since="">create(Name, FileList, OptionList)</name>
+      <name name="create" arity="3" since=""/>
       <fsummary>Create a tar archive with options.</fsummary>
-      <type>
-        <v>Name = filename()</v>
-        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
-        <v>FilenameOrBin = filename()|binary()</v>
-        <v>Filename = filename()</v>
-        <v>NameInArchive = filename()</v>
-        <v>OptionList = [Option]</v>
-        <v>Option = compressed|cooked|dereference|verbose</v>
-        <v>RetValue = ok|{error,{Name,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="filelist"/>
+      <type name="create_opt"/>
       <desc>
         <p>Creates a tar file and archives the files whose names are specified
           in <c>FileList</c> into it. The files can either be read from disk
@@ -315,14 +274,8 @@
     </func>
 
     <func>
-      <name since="">extract(Name) -> RetValue</name>
+      <name name="extract" arity="1" since=""/>
       <fsummary>Extract all files from a tar file.</fsummary>
-      <type>
-        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
-        <v>Fd = file_descriptor()</v>
-        <v>RetValue = ok|{error,{Name,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Extracts all files from a tar archive.</p>
         <p>If argument <c>Name</c> is specified as <c>{binary,Binary}</c>,
@@ -339,20 +292,9 @@
     </func>
 
     <func>
-      <name since="">extract(Name, OptionList)</name>
+      <name name="extract" arity="2" since=""/>
       <fsummary>Extract files from a tar file.</fsummary>
-      <type>
-        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
-        <v>Fd = file_descriptor()</v>
-        <v>OptionList = [Option]</v>
-        <v>Option = {cwd,Cwd}|{files,FileList}|keep_old_files|verbose|memory</v>
-        <v>Cwd = [dirname()]</v>
-        <v>FileList = [filename()]</v>
-        <v>RetValue = ok|MemoryRetValue|{error,{Name,Reason}}</v>
-        <v>MemoryRetValue = {ok, [{NameInArchive,binary()}]}</v>
-        <v>NameInArchive = filename()</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="extract_opt"/>
       <desc>
         <p>Extracts files from a tar archive.</p>
         <p>If argument <c>Name</c> is specified as <c>{binary,Binary}</c>,
@@ -411,11 +353,8 @@
     </func>
 
     <func>
-      <name since="">format_error(Reason) -> string()</name>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Convert error term to a readable string.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Converts an error reason term to a human-readable error message
           string.</p>
@@ -423,24 +362,11 @@
     </func>
 
     <func>
-      <name since="OTP 17.4">init(UserPrivate, AccessMode, Fun) ->
-        {ok,TarDescriptor} | {error,Reason}</name>
+      <name name="init" arity="3" since="OTP 17.4"/>
       <fsummary>Create a <c>TarDescriptor</c> used in subsequent tar operations
         when defining own low-level storage access functions.</fsummary>
-      <type>
-        <v>UserPrivate = term()</v>
-        <v>AccessMode = [write] | [read]</v>
-        <v>Fun when AccessMode is [write] =
-          fun(write, {UserPrivate,DataToWrite})->...;
-          (position,{UserPrivate,Position})->...;
-          (close, UserPrivate)->... end</v>
-        <v>Fun when AccessMode is [read] =
-          fun(read2, {UserPrivate,Size})->...;
-          (position,{UserPrivate,Position})->...;
-          (close,   UserPrivate)->... end</v>
-        <v>TarDescriptor = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="handle"/>
+      <type name="file_op"/>
       <desc>
         <p>The <c>Fun</c> is the definition of what to do when the different
           storage operations functions are to be called from the higher tar
@@ -518,16 +444,8 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name since="">open(Name, OpenModeList) -> RetValue</name>
+      <name name="open" arity="2" since=""/>
       <fsummary>Open a tar file for writing.</fsummary>
-      <type>
-        <v>Name = filename()</v>
-        <v>OpenModeList = [OpenMode]</v>
-        <v>Mode = write|compressed|cooked</v>
-        <v>RetValue = {ok,TarDescriptor}|{error,{Name,Reason}}</v>
-        <v>TarDescriptor = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Creates a tar file for writing (any existing file with the same
           name is truncated).</p>
@@ -565,36 +483,23 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name since="">table(Name) -> RetValue</name>
-      <fsummary>Retrieve the name of all files in a tar file.</fsummary>
-      <type>
-        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
-        <v>RetValue = {ok,[string()]}|{error,{Name,Reason}}</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Retrieves the names of all files in the tar file <c>Name</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">table(Name, Options)</name>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Retrieve name and information of all files in a tar file.
       </fsummary>
-      <type>
-        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
-      </type>
+      <type name="tar_entry"/>
+      <type name="typeflag"/>
+      <type name="mode"/>
+      <type name="uid"/>
+      <type name="gid"/>
       <desc>
         <p>Retrieves the names of all files in the tar file <c>Name</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="">t(Name)</name>
+      <name name="t" arity="1" since=""/>
       <fsummary>Print the name of each file in a tar file.</fsummary>
-      <type>
-        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
-      </type>
       <desc>
         <p>Prints the names of all files in the tar file <c>Name</c> to the
           Erlang shell (similar to "<c>tar&nbsp;t</c>").</p>
@@ -602,12 +507,9 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name since="">tt(Name)</name>
+      <name name="tt" arity="1" since=""/>
       <fsummary>Print name and information for each file in a tar file.
       </fsummary>
-      <type>
-        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
-      </type>
       <desc>
         <p>Prints names and information about all files in the tar file
           <c>Name</c> to the Erlang shell (similar to "<c>tar&nbsp;tv</c>").</p>
