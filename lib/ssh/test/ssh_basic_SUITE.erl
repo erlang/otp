@@ -47,8 +47,11 @@ all() ->
      daemon_already_started
     ].
 
+%%%-define(PARALLEL, ).
+-define(PARALLEL, parallel).
+
 groups() ->
-    [{all_tests, [parallel], [{group, ssh_renegotiate_SUITE},
+    [{all_tests, [?PARALLEL], [{group, ssh_renegotiate_SUITE},
                               {group, ssh_basic_SUITE}
                              ]},
      {ssh_basic_SUITE, [], [app_test,
@@ -79,7 +82,7 @@ groups() ->
                             shell_exit_status
                            ]},
 
-     {ssh_renegotiate_SUITE, [parallel], [rekey0,
+     {ssh_renegotiate_SUITE, [?PARALLEL], [rekey0,
                                           rekey1,
                                           rekey2,
                                           rekey3,
@@ -101,7 +104,7 @@ groups() ->
      {ed25519_key, [], [{group, basic}]},
      {ed448_key,   [], [{group, basic}]},
      {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
-     {host_user_key_differs, [parallel], [exec_key_differs1,
+     {host_user_key_differs, [?PARALLEL], [exec_key_differs1,
                                           exec_key_differs2,
                                           exec_key_differs3,
                                           exec_key_differs_fail]},
@@ -110,9 +113,9 @@ groups() ->
      {ecdsa_sha2_nistp256_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp384_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp521_pass_key, [], [pass_phrase]},
-     {key_cb, [parallel], [key_callback, key_callback_options]},
+     {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]},
-     {login_bad_pwd_no_retry, [parallel], [login_bad_pwd_no_retry1,
+     {login_bad_pwd_no_retry, [?PARALLEL], [login_bad_pwd_no_retry1,
                                            login_bad_pwd_no_retry2,
                                            login_bad_pwd_no_retry3,
                                            login_bad_pwd_no_retry4,
@@ -124,7 +127,7 @@ groups() ->
                   close, 
                   known_hosts
                  ]},
-     {p_basic, [parallel], [send, peername_sockname,
+     {p_basic, [?PARALLEL], [send, peername_sockname,
                             exec, exec_compressed, 
                             cli,
                             idle_time_client, idle_time_server, openssh_zlib_basic_test, 
