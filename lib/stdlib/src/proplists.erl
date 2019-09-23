@@ -639,24 +639,24 @@ normalize(L, []) ->
       Rest :: [term()].
 
 split(List, Keys) ->
-    {Store, Rest} = split(List, dict:from_list([{K, []} || K <- Keys]), []),
-    {[lists:reverse(dict:fetch(K, Store)) || K <- Keys],
+    {Store, Rest} = split(List, maps:from_list([{K, []} || K <- Keys]), []),
+    {[lists:reverse(map_get(K, Store)) || K <- Keys],
      lists:reverse(Rest)}.
 
 split([P | Ps], Store, Rest) ->
     if is_atom(P) ->
-	    case dict:is_key(P, Store) of
+	    case is_map_key(P, Store) of
 		true ->
-		    split(Ps, dict_prepend(P, P, Store), Rest);
+		    split(Ps, maps_prepend(P, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
        tuple_size(P) >= 1 ->
 	    %% Note that Key does not have to be an atom in this case.
 	    Key = element(1, P),
-	    case dict:is_key(Key, Store) of
+	    case is_map_key(Key, Store) of
 		true ->
-		    split(Ps, dict_prepend(Key, P, Store), Rest);
+		    split(Ps, maps_prepend(Key, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
@@ -666,5 +666,5 @@ split([P | Ps], Store, Rest) ->
 split([], Store, Rest) ->
     {Store, Rest}.
 
-dict_prepend(Key, Val, Dict) ->
-    dict:store(Key, [Val | dict:fetch(Key, Dict)], Dict).
+maps_prepend(Key, Val, Dict) ->
+    Dict#{Key := [Val | map_get(Key, Dict)]}.
