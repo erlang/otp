@@ -1910,11 +1910,19 @@ pattern_map_pair({map_field_exact,L,K,V}, St0) ->
 		 val=Cv},EpsK++EpsV,St2}.
 
 pat_alias_map_pairs(Ps) ->
-    D = foldl(fun(#c_map_pair{key=K0}=Pair, D0) ->
-		      K = cerl:set_ann(K0, []),
-		      dict:append(K, Pair, D0)
-	      end, dict:new(), Ps),
-    pat_alias_map_pairs_1(dict:to_list(D)).
+    D0 = foldl(fun(#c_map_pair{key=K0}=Pair, A) ->
+                       K = cerl:set_ann(K0, []),
+                       case A of
+                           #{K:=Aliases} ->
+                               A#{K:=[Pair|Aliases]};
+                           #{} ->
+                               A#{K=>[Pair]}
+                       end
+               end, #{}, Ps),
+    %% We must sort to ensure that the order remains consistent
+    %% between compilations.
+    D = sort(maps:to_list(D0)),
+    pat_alias_map_pairs_1(D).
 
 pat_alias_map_pairs_1([{_,[#c_map_pair{val=V0}=Pair|Vs]}|T]) ->
     V = foldl(fun(#c_map_pair{val=V}, Pat) ->
