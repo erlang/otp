@@ -225,15 +225,9 @@ session_cleanup(Config) when is_list(Config) ->
 
     %% Make sure session has expired and been cleaned up
     check_timer(SessionTimer),
-    ct:sleep(?DELAY *2),  %% Delay time + some extra time
-
-    {ServerDelayTimer, ClientDelayTimer} = get_delay_timers(),
-
-    check_timer(ServerDelayTimer),
-    check_timer(ClientDelayTimer),
-
+    
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
-
+    
     undefined = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(ServerCache, {Port, Id}),
 
@@ -523,24 +517,6 @@ check_timer(Timer) ->
 	Int ->
 	    ct:sleep(Int),
 	    check_timer(Timer)
-    end.
-
-get_delay_timers() ->
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    case element(8, State) of
-	{undefined, undefined} ->
-	    ct:sleep(?SLEEP),
-	    get_delay_timers();
-	{undefined, _} ->
-	    ct:sleep(?SLEEP),
-	    get_delay_timers();
-	{_, undefined} ->
-	    ct:sleep(?SLEEP),
-	    get_delay_timers();
-	DelayTimers ->
-	    DelayTimers
     end.
     
 wait_for_server() ->

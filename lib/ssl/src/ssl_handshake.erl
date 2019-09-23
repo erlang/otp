@@ -952,9 +952,9 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, 
 		   Session, Version,
 	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,
 	       Cache, CacheCb, Cert) ->
-    {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
-						 SslOpts, Cert,
-						 Cache, CacheCb),
+    {SessionId, Resumed} = ssl_session:server_select_session(Version, Port, SuggestedSessionId,
+                                                             SslOpts, Cert,
+                                                             Cache, CacheCb),
     case Resumed of
         undefined ->
 	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
