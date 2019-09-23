@@ -1572,7 +1572,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
+    case length(Vs) =:= cerl_sets:size(cerl_sets:from_list(Vs)) of
 	true -> ok;
 	false -> error(keys_not_unique)
     end.
