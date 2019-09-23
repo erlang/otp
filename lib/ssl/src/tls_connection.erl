@@ -544,12 +544,13 @@ init({call, From}, {start, Timeout},
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
                             versions := Versions} = SslOpts,
-	    session = #session{own_certificate = Cert} = Session0,
+	    session = NewSession,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
+    Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession), 
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-				       Cache, CacheCb, Renegotiation, Cert, KeyShare),
+				       Session#session.session_id, Renegotiation, Session#session.own_certificate, KeyShare),
 
     HelloVersion = tls_record:hello_version(Versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
@@ -561,8 +562,7 @@ init({call, From}, {start, Timeout},
 
     State = State0#state{connection_states = ConnectionStates,
                          connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version
-                         session =
-                             Session0#session{session_id = Hello#client_hello.session_id},
+                         session = Session,
                          handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
                          start_or_recv_from = From,
                          key_share = KeyShare},
@@ -762,11 +762,12 @@ connection(internal, #hello_request{},
 		  connection_states = ConnectionStates} = State0) ->
     try tls_sender:peer_renegotiate(Pid) of
         {ok, Write} ->
+            Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0),
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-                                               Cache, CacheCb, Renegotiation, Cert, undefined),
-            {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write}}),
-            next_event(hello, no_record, State#state{session = Session0#session{session_id
-                                                                      = Hello#client_hello.session_id}}, Actions)
+                                               Session#session.session_id, Renegotiation, Cert, undefined),
+            {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write},
+                                                                  session = Session}),
+            next_event(hello, no_record, State, Actions)
         catch 
             _:_ ->
                 {stop, {shutdown, sender_blocked}, State0}
@@ -774,19 +775,16 @@ connection(internal, #hello_request{},
 connection(internal, #hello_request{},
 	   #state{static_env = #static_env{role = client,
                                            host = Host,
-                                           port = Port,
-                                           session_cache = Cache,
-                                           session_cache_cb = CacheCb},
+                                           port = Port},
                   handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
-		  session = #session{own_certificate = Cert} = Session0,
+		  session = #session{own_certificate = Cert},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-				       Cache, CacheCb, Renegotiation, Cert, undefined),
+				       <<>>, Renegotiation, Cert, undefined),
 
     {State, Actions} = send_handshake(Hello, State0),
-    next_event(hello, no_record, State#state{session = Session0#session{session_id
-                                                                        = Hello#client_hello.session_id}}, Actions);
+    next_event(hello, no_record, State, Actions);
 connection(internal, #client_hello{} = Hello, 
 	   #state{static_env = #static_env{role = server},
                   handshake_env = #handshake_env{allow_renegotiate = true}= HsEnv,
