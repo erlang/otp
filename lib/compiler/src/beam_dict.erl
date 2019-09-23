@@ -273,7 +273,12 @@ literal_table(#asm{literals=Tab,next_literal=NumLiterals}) ->
     {NumLiterals,L}.
 
 my_term_to_binary(Term) ->
-    term_to_binary(Term, [{minor_version,1}]).
+    %% Use the latest possible minor version. Minor version 2 can be
+    %% be decoded by OTP 16, which is as far back as we have compatibility
+    %% options for the compiler. (When this comment was written, some time
+    %% after the release of OTP 22, the default minor version was 1.)
+
+    term_to_binary(Term, [{minor_version,2}]).
 
 %% Return the line table.
 -spec line_table(bdict()) ->
