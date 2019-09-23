@@ -410,8 +410,8 @@ substitute_aliases_1([], P) ->
 %% associated with some key <code>K1</code> such that <code>{K1,
 %% K2}</code> occurs in <code>Negations</code>, then if the entry was
 %% <code>{K1, true}</code> it will be replaced with <code>{K2,
-%% false}</code>, otherwise it will be replaced with <code>{K2,
-%% true}</code>, thus changing the name of the option and simultaneously
+%% false}</code>, otherwise it will be replaced with <code>K2</code>,
+%% thus changing the name of the option and simultaneously
 %% negating the value given by <code>get_bool(ListIn)</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Negations</code>, only
 %% the first occurrence is used.
@@ -419,8 +419,7 @@ substitute_aliases_1([], P) ->
 %% <p>Example: <code>substitute_negations([{no_foo, foo}], L)</code>
 %% will replace any atom <code>no_foo</code> or tuple <code>{no_foo,
 %% true}</code> in <code>L</code> with <code>{foo, false}</code>, and
-%% any other tuple <code>{no_foo, ...}</code> with <code>{foo,
-%% true}</code>.</p>
+%% any other tuple <code>{no_foo, ...}</code> with <code>foo</code.</p>
 %%
 %% @see get_bool/2
 %% @see substitute_aliases/2

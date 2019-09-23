@@ -56,6 +56,7 @@ MODULES= \
 	math_SUITE \
 	ms_transform_SUITE \
 	proc_lib_SUITE \
+	proplists_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
 	rand_SUITE \
