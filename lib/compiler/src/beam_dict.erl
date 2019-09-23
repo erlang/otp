@@ -36,7 +36,7 @@
 -type import_tab() :: gb_trees:tree(mfa(), index()).
 -type fname_tab()  :: #{Name :: term() => index()}.
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
--type literal_tab() :: dict:dict(Literal :: term(), index()).
+-type literal_tab() :: #{Literal :: term() => index()}.
 
 -type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
 -type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
@@ -50,7 +50,7 @@
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = {0,[]}           :: lambda_tab(),
          wrappers = #{}             :: wrapper(),
-	 literals = dict:new()	    :: literal_tab(),
+	 literals = #{}	            :: literal_tab(),
 	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
 	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
@@ -170,11 +170,11 @@ lambda(Lbl, NumFree, #asm{wrappers=Wrappers0,
 -spec literal(term(), bdict()) -> {non_neg_integer(), bdict()}.
 
 literal(Lit, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
-    case dict:find(Lit, Tab0) of
-	{ok,Index} ->
+    case Tab0 of
+        #{Lit:=Index} ->
 	    {Index,Dict};
-	error ->
-	    Tab = dict:store(Lit, NextIndex, Tab0),
+        #{} ->
+	    Tab = Tab0#{Lit=>NextIndex},
 	    {NextIndex,Dict#asm{literals=Tab,next_literal=NextIndex+1}}
     end.
 
@@ -265,7 +265,7 @@ lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
 -spec literal_table(bdict()) -> {non_neg_integer(), [[binary(),...]]}.
 
 literal_table(#asm{literals=Tab,next_literal=NumLiterals}) ->
-    L0 = dict:fold(fun(Lit, Num, Acc) ->
+    L0 = maps:fold(fun(Lit, Num, Acc) ->
 			   [{Num,my_term_to_binary(Lit)}|Acc]
 		   end, [], Tab),
     L1 = lists:sort(L0),
