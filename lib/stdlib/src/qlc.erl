@@ -785,7 +785,7 @@ merge_binding_structs(Bs1, Bs2) ->
 
 aux_name1(Name, N, AllNames) ->
     SN = name_suffix(Name, N),
-    case sets:is_element(SN, AllNames) of
+    case gb_sets:is_member(SN, AllNames) of
         true -> aux_name1(Name, N + 1, AllNames);
         false -> {SN, N}
     end.
@@ -1357,7 +1357,7 @@ flatten_abstr(E, VN, _Vars, Body) ->
     {VN, Body, E}.
 
 abstract_vars(Abstract) ->
-    sets:from_list(ordsets:to_list(vars(Abstract))).
+    gb_sets:from_list(ordsets:to_list(vars(Abstract))).
 
 collect([]=L) ->
     L;
