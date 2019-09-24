@@ -399,12 +399,19 @@
       <name name="exec_result"/>
       <desc>
 	<p>This option changes how the daemon execute exec-requests from clients. The term in the return value
-	is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case but in the
-	error case.</p>
+	is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case.
+	</p>
 	<p>Error texts are returned on channel-type 1 which usually is piped to <c>stderr</c> on e.g Linux systems.
-	Texts from a successful execution will in similar manner be piped to <c>stdout</c>. The exit-status code
+	Texts from a successful execution  are returned on channel-type 0 and
+	will in similar manner be piped to <c>stdout</c>. The exit-status code
 	is set to 0 for success and -1 for errors. The exact results presented on the client side depends on the
 	client and the client's operating system.
+	</p>
+	<p>In case of the <c>{direct, exec_fun()}</c> variant or no exec-option at all,
+	all reads from <c>standard_input</c> will be from the received data-events of type 0.
+	Those are sent by the client. Similarily all writes to <c>standard_output</c>
+	will be sent as data-events to the client. An OS shell client like the command 'ssh' will usally use
+	stdin and stdout for the user interface.
 	</p>
 	<p>The option cooperates with the daemon-option <seealso marker="#type-shell_daemon_option"><c>shell</c></seealso>
 	in the following way:</p>
