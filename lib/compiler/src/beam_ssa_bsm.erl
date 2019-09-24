@@ -59,8 +59,8 @@
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
 
--import(lists, [member/2, reverse/1, splitwith/2, map/2, foldl/3, mapfoldl/3,
-                nth/2, max/1, unzip/1]).
+-import(lists, [member/2, reverse/1, reverse/2, splitwith/2, map/2, foldl/3,
+                mapfoldl/3, nth/2, max/1, unzip/1]).
 
 -spec format_error(term()) -> nonempty_string().
 
@@ -582,10 +582,14 @@ aca_enable_reuse([#b_set{op=bs_start_match,args=[Src]}=I0 | Rest],
             {I, Last, Blocks1, State} =
                 aca_reuse_context(I0, EntryBlock, Blocks0, State0),
 
-            Is = reverse([I|Acc]) ++ Rest,
+            Is = reverse([I | Acc], Rest),
             Blocks = maps:put(0, EntryBlock#b_blk{is=Is,last=Last}, Blocks1),
 
-            {Blocks, State};
+            %% Copying (and thus renaming) the successors of a block may cause
+            %% them to become unreachable under their original label, breaking
+            %% the phi nodes on the original path that refer to them, so we
+            %% remove unreachable blocks to make sure they aren't referenced.
+            {beam_ssa:trim_unreachable(Blocks), State};
         false ->
             {Blocks0, State0}
     end;
