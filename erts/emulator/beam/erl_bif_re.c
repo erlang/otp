@@ -90,6 +90,16 @@ stack_guard_upwards(void)
     return erts_check_above_limit(&c, limit - ERTS_PCRE_STACK_MARGIN);
 }
 
+static ERTS_NOINLINE
+int stack_grows_downwards(char *prev_c)
+{
+    char c;
+    if (&c < prev_c)
+        return 1;
+    else
+        return 0;
+}
+
 void erts_init_bif_re(void)
 {
     char c;
@@ -97,7 +107,7 @@ void erts_init_bif_re(void)
     erts_pcre_free = &erts_erts_pcre_free;
     erts_pcre_stack_malloc = &erts_erts_pcre_stack_malloc;
     erts_pcre_stack_free = &erts_erts_pcre_stack_free;
-    if ((char *) erts_ptr_id(&c) > ERTS_STACK_LIMIT)
+    if (stack_grows_downwards(&c))
         erts_pcre_stack_guard = stack_guard_downwards;
     else
         erts_pcre_stack_guard = stack_guard_upwards;
