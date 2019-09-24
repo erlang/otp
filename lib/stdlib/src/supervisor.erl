@@ -122,7 +122,7 @@
 		strategy               :: strategy() | 'undefined',
 		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
-                                        | {'sets', sets:set(pid())}
+                                        | {'mapsets', #{pid() => []}}
                                         | 'undefined',
 		intensity              :: non_neg_integer() | 'undefined',
 		period                 :: pos_integer() | 'undefined',
@@ -1439,36 +1439,41 @@ format_status(_, [_PDict, State]) ->
      {supervisor, [{"Callback", State#state.module}]}].
 
 %%%-----------------------------------------------------------------
-%%% Dynamics database access
-dyn_size(#state{dynamics = {Mod,Db}}) ->
-    Mod:size(Db).
+%%% Dynamics database access.
+%%%
+%%% Store all dynamic children in a map with the pid as the key. If
+%%% the children are permanent, store the start arguments as the value,
+%%% otherwise store [] as the value.
+%%%
 
-dyn_erase(Pid,#state{dynamics={sets,Db}}=State) ->
-    State#state{dynamics={sets,sets:del_element(Pid,Db)}};
-dyn_erase(Pid,#state{dynamics={maps,Db}}=State) ->
+dyn_size(#state{dynamics = {_Kind,Db}}) ->
+    map_size(Db).
+
+dyn_erase(Pid,#state{dynamics={_Kind,Db}}=State) ->
     State#state{dynamics={maps,maps:remove(Pid,Db)}}.
 
-dyn_store(Pid,_,#state{dynamics={sets,Db}}=State) ->
-    State#state{dynamics={sets,sets:add_element(Pid,Db)}};
-dyn_store(Pid,Args,#state{dynamics={maps,Db}}=State) ->
-    State#state{dynamics={maps,Db#{Pid => Args}}}.
+dyn_store(Pid,Args,#state{dynamics={Kind,Db}}=State) ->
+    case Kind of
+        mapsets ->
+            %% Children are temporary. The start arguments
+            %% will not be needed again. Store [].
+            State#state{dynamics={mapsets,Db#{Pid => []}}};
+        maps ->
+            %% Children are permanent and may be restarted.
+            %% Store the start arguments.
+            State#state{dynamics={maps,Db#{Pid => Args}}}
+    end.
 
-dyn_fold(Fun,Init,#state{dynamics={sets,Db}}) ->
-    sets:fold(Fun,Init,Db);
-dyn_fold(Fun,Init,#state{dynamics={maps,Db}}) ->
+dyn_fold(Fun,Init,#state{dynamics={_Kind,Db}}) ->
     maps:fold(fun(Pid,_,Acc) -> Fun(Pid,Acc) end, Init, Db).
 
-dyn_map(Fun, #state{dynamics={sets,Db}}) ->
-    lists:map(Fun, sets:to_list(Db));
-dyn_map(Fun, #state{dynamics={maps,Db}}) ->
+dyn_map(Fun, #state{dynamics={_Kind,Db}}) ->
     lists:map(Fun, maps:keys(Db)).
 
-dyn_exists(Pid, #state{dynamics={sets, Db}}) ->
-    sets:is_element(Pid, Db);
-dyn_exists(Pid, #state{dynamics={maps, Db}}) ->
-    maps:is_key(Pid, Db).
+dyn_exists(Pid, #state{dynamics={_Kind, Db}}) ->
+    is_map_key(Pid, Db).
 
-dyn_args(_Pid, #state{dynamics={sets, _Db}}) ->
+dyn_args(_Pid, #state{dynamics={mapsets, _Db}}) ->
     {ok,undefined};
 dyn_args(Pid, #state{dynamics={maps, Db}}) ->
     maps:find(Pid, Db).
@@ -1477,6 +1482,6 @@ dyn_init(State) ->
     dyn_init(get_dynamic_child(State),State).
 
 dyn_init(Child,State) when ?is_temporary(Child) ->
-    State#state{dynamics={sets,sets:new()}};
+    State#state{dynamics={mapsets,maps:new()}};
 dyn_init(_Child,State) ->
     State#state{dynamics={maps,maps:new()}}.
