@@ -319,6 +319,17 @@ subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
         [] -> none;
         [_|_]=Set -> #t_atom{elements=Set}
     end;
+subtract(#t_integer{elements={Min, Max}}, #t_integer{elements={N,N}}) ->
+    if
+        Min =:= N, Max =:= N ->
+            none;
+        Min =/= N, Max =/= N ->
+            #t_integer{elements={Min, Max}};
+        Min =:= N ->
+            #t_integer{elements={Min + 1, Max}};
+        Max =:= N ->
+            #t_integer{elements={Min, Max - 1}}
+    end;
 subtract(number, float) -> #t_integer{};
 subtract(number, #t_integer{elements=any}) -> float;
 subtract(list, cons) -> nil;
