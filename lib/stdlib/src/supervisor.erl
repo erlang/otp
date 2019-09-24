@@ -924,21 +924,21 @@ monitor_child(Pid) ->
 terminate_dynamic_children(State) ->
     Child = get_dynamic_child(State),
     {Pids, EStack0} = monitor_dynamic_children(Child,State),
-    Sz = sets:size(Pids),
+    Sz = maps:size(Pids),
     EStack = case Child#child.shutdown of
                  brutal_kill ->
-                     sets:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+                     maps:fold(fun(P, _, _) -> exit(P, kill) end, ok, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  infinity ->
-                     sets:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:fold(fun(P, _, _) -> exit(P, shutdown) end, ok, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  Time ->
-                     sets:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:fold(fun(P, _, _) -> exit(P, shutdown) end, ok, Pids),
                      TRef = erlang:start_timer(Time, self(), kill),
                      wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
              end,
     %% Unroll stacked errors and report them
-    dict:fold(fun(Reason, Ls, _) ->
+    maps:fold(fun(Reason, Ls, _) ->
                       ?report_error(shutdown_error, Reason,
                                    Child#child{pid=Ls}, State#state.name)
               end, ok, EStack).
@@ -947,15 +947,15 @@ monitor_dynamic_children(Child,State) ->
     dyn_fold(fun(P,{Pids, EStack}) when is_pid(P) ->
                      case monitor_child(P) of
                          ok ->
-                             {sets:add_element(P, Pids), EStack};
+                             {maps:put(P, P, Pids), EStack};
                          {error, normal} when not (?is_permanent(Child)) ->
                              {Pids, EStack};
                          {error, Reason} ->
-                             {Pids, dict:append(Reason, P, EStack)}
+                             {Pids, maps_prepend(Reason, P, EStack)}
                      end;
                 (?restarting(_), {Pids, EStack}) ->
                      {Pids, EStack}
-             end, {sets:new(), dict:new()}, State).
+             end, {maps:new(), maps:new()}, State).
 
 wait_dynamic_children(_Child, _Pids, 0, undefined, EStack) ->
     EStack;
@@ -973,34 +973,42 @@ wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
                       TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, killed} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
-                                  TRef, dict:append(Reason, Pid, EStack))
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
+                                  TRef, maps_prepend(Reason, Pid, EStack))
     end;
 wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, shutdown} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, {shutdown, _}} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, normal} when not (?is_permanent(Child)) ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
-                                  TRef, dict:append(Reason, Pid, EStack));
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
+                                  TRef, maps_prepend(Reason, Pid, EStack));
 
         {timeout, TRef, kill} ->
-            sets:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+            maps:fold(fun(P, _, _) -> exit(P, kill) end, ok, Pids),
             wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
+    end.
+
+maps_prepend(Key, Value, Map) ->
+    case maps:find(Key, Map) of
+        {ok, Values} ->
+            maps:put(Key, [Value|Values], Map);
+        error ->
+            maps:put(Key, [Value], Map)
     end.
 
 %%-----------------------------------------------------------------
