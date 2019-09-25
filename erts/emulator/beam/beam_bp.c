@@ -703,11 +703,11 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
-	Eterm w;
+	BeamInstr w;
         Eterm* E;
 	ErtsCodeInfo* prev_info = erts_trace_time_call(c_p, info, bp->time);
         E = c_p->stop;
-        w = (BeamInstr) E[0];
+        w = *(BeamInstr*) E[0];
 	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
 	       BeamIsOpCode(w, op_return_trace) ||
                BeamIsOpCode(w, op_i_return_to_trace)) ) {
