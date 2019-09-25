@@ -346,7 +346,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           <c>K1</c> such that <c>{K1, K2}</c> occurs in
           <c><anno>Negations</anno></c>: if the entry was
           <c>{K1, true}</c>, it is replaced with <c>{K2, false}</c>, otherwise
-          with <c>{K2, true}</c>, thus changing the name of the option and
+          with <c>K2</c>, thus changing the name of the option and
           simultaneously negating the value specified by
           <seealso marker="#get_bool/2">
           <c>get_bool(Key, <anno>ListIn</anno>)</c></seealso>.
@@ -355,7 +355,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
         <p>For example, <c>substitute_negations([{no_foo, foo}], L)</c>
           replaces any atom <c>no_foo</c> or tuple
           <c>{no_foo, true}</c> in <c>L</c> with <c>{foo, false}</c>,
-          and any other tuple <c>{no_foo, ...}</c> with <c>{foo, true}</c>.</p>
+          and any other tuple <c>{no_foo, ...}</c> with <c>foo</c>.</p>
         <p>See also
           <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
           <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
