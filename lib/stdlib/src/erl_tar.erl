@@ -79,17 +79,18 @@ format_error(Term) ->
     lists:flatten(io_lib:format("~tp", [Term])).
 
 %% Initializes a new reader given a custom file handle and I/O wrappers
--spec init(handle(), write | read, file_op()) -> {ok, reader()} | {error, badarg}.
-init(Handle, AccessMode, Fun) when is_function(Fun, 2) ->
-    Reader = #reader{handle=Handle,access=AccessMode,func=Fun},
+-spec init(UserData :: user_data(), write | read, file_op()) ->
+                  {ok, tar_descriptor()} | {error, badarg}.
+init(UserData, AccessMode, Fun) when is_function(Fun, 2) ->
+    Reader = #reader{handle=UserData,access=AccessMode,func=Fun},
     {ok, Pos, Reader2} = do_position(Reader, {cur, 0}),
     {ok, Reader2#reader{pos=Pos}};
-init(_Handle, _AccessMode, _Fun) ->
+init(_UserData, _AccessMode, _Fun) ->
     {error, badarg}.
 
 %%%================================================================
 %% Extracts all files from the tar file Name.
--spec extract(open_handle()) -> ok | {error, term()}.
+-spec extract(Open :: open_type()) -> ok | {error, term()}.
 extract(Name) ->
     extract(Name, []).
 
@@ -102,10 +103,10 @@ extract(Name) ->
 %%  - {files, ListOfFilesToExtract}: Only extract ListOfFilesToExtract
 %%  - verbose: Prints verbose information about the extraction,
 %%  - {cwd, AbsoluteDir}: Sets the current working directory for the extraction
--spec extract(open_handle(), [extract_opt()]) ->
-                     ok
-                         | {ok, [{string(), binary()}]}
-                         | {error, term()}.
+-spec extract(Open :: open_type(), [extract_opt()]) ->
+                     {ok, [{string(), binary()}]} |
+                     {error, term()} |
+                     ok.
 extract({binary, Bin}, Opts) when is_list(Opts) ->
     do_extract({binary, Bin}, Opts);
 extract({file, Fd}, Opts) when is_list(Opts) ->
@@ -165,7 +166,6 @@ check_extract(Name, #read_opts{files=Files}) ->
 %%%================================================================
 %% The following table functions produce a list of information about
 %% the files contained in the archive.
--type name_in_archive() :: string().
 -type typeflag() :: regular | link | symlink |
                     char | block | directory |
                     fifo | reserved | unknown.
@@ -173,23 +173,23 @@ check_extract(Name, #read_opts{files=Files}) ->
 -type uid() :: non_neg_integer().
 -type gid() :: non_neg_integer().
 
--type tar_entry() :: {name_in_archive(),
-                      typeflag(),
-                      non_neg_integer(),
-                      tar_time(),
-                      mode(),
-                      uid(),
-                      gid()}.
+-type tar_entry() :: {Name :: name_in_archive(),
+                      Type :: typeflag(),
+                      Size :: non_neg_integer(),
+                      MTime :: tar_time(),
+                      Mode :: mode(),
+                      Uid :: uid(),
+                      Gid :: gid()}.
 
 %% Returns a list of names of the files in the tar file Name.
--spec table(open_handle()) -> {ok, [string()]} | {error, term()}.
+-spec table(Open :: open_type()) -> {ok, [name_in_archive()]} | {error, term()}.
 table(Name) ->
     table(Name, []).
 
 %% Returns a list of names of the files in the tar file Name.
 %% Options accepted: compressed, verbose, cooked.
--spec table(open_handle(), [compressed | verbose | cooked]) ->
-                   {ok, [string() | tar_entry()]} | {error, term()}.
+-spec table(Open :: open_type(), [compressed | verbose | cooked]) ->
+                   {ok, [name_in_archive() | tar_entry()]} | {error, term()}.
 table(Name, Opts) when is_list(Opts) ->
     foldl_read(Name, fun table1/4, [], table_opts(Opts)).
 
@@ -239,7 +239,7 @@ t(Name) when is_list(Name); is_binary(Name) ->
     end.
 
 %% Prints verbose information about each file in the archive
--spec tt(open_handle()) -> ok | {error, term()}.
+-spec tt(open_type()) -> ok | {error, term()}.
 tt(Name) ->
     case table(Name, [verbose]) of
         {ok, List} ->
@@ -301,11 +301,11 @@ month(12) -> "Dec".
 
 %%%================================================================
 %% The open function with friends is to keep the file and binary api of this module
--type open_handle() :: file:filename_all()
+-type open_type() :: file:filename_all()
                      | {binary, binary()}
-                     | {file, term()}.
--spec open(open_handle(), [write | compressed | cooked]) ->
-                  {ok, reader()} | {error, term()}.
+                     | {file, file:io_device()}.
+-spec open(Open :: open_type(), [write | compressed | cooked]) ->
+                  {ok, tar_descriptor()} | {error, term()}.
 open({binary, Bin}, Mode) when is_binary(Bin) ->
     do_open({binary, Bin}, Mode);
 open({file, Fd}, Mode) ->
@@ -375,7 +375,7 @@ file_op(close, Fd) ->
     file:close(Fd).
 
 %% Closes a tar archive.
--spec close(reader()) -> ok | {error, term()}.
+-spec close(TarDescriptor :: tar_descriptor()) -> ok | {error, term()}.
 close(#reader{access=read}=Reader) ->
     ok = do_close(Reader);
 close(#reader{access=write}=Reader) ->
@@ -435,8 +435,11 @@ do_create(TarFile, [Name|Rest], Opts) ->
 
 %% Adds a file to a tape archive.
 -type add_type() :: name_in_archive()
-                  | {name_in_archive(), string()|binary()}.
--spec add(reader(), add_type(), [add_opt()]) -> ok | {error, term()}.
+                  | {name_in_archive(), file:filename_all()}.
+-spec add(TarDescriptor, AddType, Options) -> ok | {error, term()} when
+    TarDescriptor :: tar_descriptor(),
+    AddType :: add_type(),
+    Options :: [add_opt()].
 add(Reader, {NameInArchive, Name}, Opts)
   when is_list(NameInArchive), is_list(Name) ->
     do_add(Reader, Name, NameInArchive, Opts);
@@ -446,9 +449,12 @@ add(Reader, {NameInArchive, Bin}, Opts)
 add(Reader, Name, Opts) when is_list(Name) ->
     do_add(Reader, Name, Name, Opts).
 
-
--spec add(reader(), file:filename_all(), name_in_archive(), [add_opt()]) ->
-                 ok | {error, term()}.
+-spec add(TarDescriptor, Filename, NameInArchive, Options) ->
+        ok | {error, term()} when
+    TarDescriptor :: tar_descriptor(),
+    Filename :: file:filename_all(),
+    NameInArchive :: name_in_archive(),
+    Options :: [add_opt()].
 add(Reader, NameOrBin, NameInArchive, Options)
   when is_list(NameOrBin); is_binary(NameOrBin),
        is_list(NameInArchive), is_list(Options) ->
@@ -1139,8 +1145,8 @@ validate_sparse_entries([#sparse_entry{}=Entry|Rest], RealSize, I, LastOffset) -
     validate_sparse_entries(Rest, RealSize, I+1, Offset+NumBytes).
 
 
--spec parse_sparse_map(header_gnu(), reader_type()) ->
-                              {[sparse_entry()], reader_type()}.
+-spec parse_sparse_map(header_gnu(), descriptor_type()) ->
+                              {[sparse_entry()], descriptor_type()}.
 parse_sparse_map(#header_gnu{sparse=Sparse}, Reader)
   when Sparse#sparse_array.is_extended ->
     parse_sparse_map(Sparse, Reader, []);
@@ -1898,7 +1904,7 @@ read_sparse_hole(#sparse_file_reader{pos=Pos}=Reader, Offset, Len) ->
                 num_bytes=NumBytes,
                 pos=Pos+N2}}.
 
--spec do_close(reader()) -> ok | {error, term()}.
+-spec do_close(tar_descriptor()) -> ok | {error, term()}.
 do_close(#reader{handle=Handle,func=Fun}) when is_function(Fun,2) ->
     Fun(close,Handle).
 

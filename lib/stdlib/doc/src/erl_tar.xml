@@ -130,10 +130,10 @@
       <name name="name_in_archive"/>
     </datatype>
     <datatype>
-      <name name="open_handle"/>
+      <name name="open_type"/>
     </datatype>
     <datatype>
-      <name name="reader"/>
+      <name name="tar_descriptor"/>
     </datatype>
   </datatypes>
 
@@ -365,7 +365,7 @@
       <name name="init" arity="3" since="OTP 17.4"/>
       <fsummary>Create a <c>TarDescriptor</c> used in subsequent tar operations
         when defining own low-level storage access functions.</fsummary>
-      <type name="handle"/>
+      <type name="user_data"/>
       <type name="file_op"/>
       <desc>
         <p>The <c>Fun</c> is the definition of what to do when the different
@@ -374,33 +374,33 @@
           <c>close/1</c>).</p>
         <p>The <c>Fun</c> is called when the tar function wants to do a
           low-level operation, like writing a block to a file. The <c>Fun</c>
-          is called as <c>Fun(Op, {UserPrivate,Parameters...})</c>, where
-          <c>Op</c> is the operation name, <c>UserPrivate</c> is the term
+          is called as <c>Fun(Op, {UserData,Parameters...})</c>, where
+          <c>Op</c> is the operation name, <c>UserData</c> is the term
           passed as the first argument to <c>init/1</c> and
           <c>Parameters...</c> are the data added by the tar function to be
           passed down to the storage handling function.</p>
-        <p>Parameter <c>UserPrivate</c> is typically the result of opening a
+        <p>Parameter <c>UserData</c> is typically the result of opening a
           low-level structure like a file descriptor or an SFTP channel id.
           The different <c>Fun</c> clauses operate on that very term.</p>
         <p>The following are the fun clauses parameter lists:</p>
         <taglist>
-          <tag><c>(write, {UserPrivate,DataToWrite})</c></tag>
+          <tag><c>(write, {UserData,DataToWrite})</c></tag>
           <item>
-            <p>Writes term <c>DataToWrite</c> using <c>UserPrivate</c>.</p>
+            <p>Writes term <c>DataToWrite</c> using <c>UserData</c>.</p>
           </item>
-          <tag><c>(close, UserPrivate)</c></tag>
+          <tag><c>(close, UserData)</c></tag>
           <item>
             <p>Closes the access.</p>
           </item>
-          <tag><c>(read2, {UserPrivate,Size})</c></tag>
+          <tag><c>(read2, {UserData,Size})</c></tag>
           <item>
-            <p>Reads using <c>UserPrivate</c> but only <c>Size</c> bytes.
+            <p>Reads using <c>UserData</c> but only <c>Size</c> bytes.
             Notice that there is only an arity-2 read function, not an arity-1
             function.</p>
           </item>
-          <tag><c>(position,{UserPrivate,Position})</c></tag>
+          <tag><c>(position,{UserData,Position})</c></tag>
           <item>
-            <p>Sets the position of <c>UserPrivate</c> as defined for files in
+            <p>Sets the position of <c>UserData</c> as defined for files in
               <seealso marker="kernel:file#position-2">
               <c>file:position/2</c></seealso></p>
           </item>
@@ -427,7 +427,7 @@ erl_tar:add(TarDesc, SomeValueIwantToAdd, FileNameInTarFile),
 erl_tar:close(TarDesc)</code>
         <p>When the <c>erl_tar</c> core wants to, for example, write a piece
           of <c>Data</c>, it would call
-          <c>ExampleFun(write, {UserPrivate,Data})</c>.</p>
+          <c>ExampleFun(write, {UserData,Data})</c>.</p>
         <note>
           <p>This example with the <c>file</c> module operations is
             not necessary to use directly, as that is what function
@@ -488,6 +488,7 @@ erl_tar:close(TarDesc)</code>
       <fsummary>Retrieve name and information of all files in a tar file.
       </fsummary>
       <type name="tar_entry"/>
+      <type name="tar_time"/>
       <type name="typeflag"/>
       <type name="mode"/>
       <type name="uid"/>
