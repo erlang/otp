@@ -24,19 +24,10 @@
 %% this could make including this file difficult.
 %% N.B. the annotation field is ALWAYS the first field!
 
-%% Kernel annotation record.
--record(k, {us,					%Used variables
-	    ns,					%New variables
-	    a}).				%Core annotation
-
 %% Literals
 %% NO CHARACTERS YET.
 %%-record(k_char, {anno=[],val}).
--record(k_literal, {anno=[],val}).		%Only used for complex literals.
--record(k_int, {anno=[],val}).
--record(k_float, {anno=[],val}).
--record(k_atom, {anno=[],val}).
--record(k_nil, {anno=[]}).
+-record(k_literal, {anno=[],val}).
 
 -record(k_tuple, {anno=[],es}).
 -record(k_map, {anno=[],var=#k_literal{val=#{}},op,es}).
@@ -66,20 +57,19 @@
 -record(k_receive_next, {anno=[]}).
 -record(k_try, {anno=[],arg,vars,body,evars,handler,ret=[]}).
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
--record(k_protected, {anno=[],arg,ret=[],inner}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
--record(k_guard_match, {anno=[],vars,body,ret=[]}).
--record(k_match, {anno=[],vars,body,ret=[]}).
+-record(k_match, {anno=[],body,ret=[]}).
 -record(k_alt, {anno=[],first,then}).
 -record(k_select, {anno=[],var,types}).
 -record(k_type_clause, {anno=[],type,values}).
 -record(k_val_clause, {anno=[],val,body}).
 -record(k_guard, {anno=[],clauses}).
 -record(k_guard_clause, {anno=[],guard,body}).
+-record(k_protected, {anno=[],arg}).
+-record(k_protected_value, {anno=[],arg,ret,body_ret}).
 
 -record(k_break, {anno=[],args=[]}).
--record(k_guard_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).
 
 %%k_get_anno(Thing) -> element(2, Thing).

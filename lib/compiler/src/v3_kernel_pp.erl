@@ -57,8 +57,6 @@ format(Node, Ctxt) ->
 	    format_1(Node, Ctxt);
 	[L,{file,_}] when is_integer(L) ->
 	    format_1(Node, Ctxt);
-	#k{a=Anno}=K when Anno =/= [] ->
-	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
 	List ->
 	    format_anno(List, Ctxt, fun (Ctxt1) ->
 					    format_1(Node, Ctxt1)
@@ -83,11 +81,7 @@ format_anno(Anno, Ctxt0, ObjFun) ->
 
 %% format_1(Kexpr, Context) -> string().
 
-format_1(#k_atom{val=A}, _Ctxt) -> core_atom(A);
 %%format_1(#k_char{val=C}, _Ctxt) -> io_lib:write_char(C);
-format_1(#k_float{val=F}, _Ctxt) -> float_to_list(F);
-format_1(#k_int{val=I}, _Ctxt) -> integer_to_list(I);
-format_1(#k_nil{}, _Ctxt) -> "[]";
 format_1(#k_var{name=V}, _Ctxt) ->
     if is_atom(V) ->
 	    case atom_to_list(V) of
@@ -135,10 +129,13 @@ format_1(#k_bin_seg{next=Next}=S, Ctxt) ->
     [format_bin_seg_1(S, Ctxt),
      format_bin_seg(Next, ctxt_bump_indent(Ctxt, 2))];
 format_1(#k_bin_int{size=Sz,unit=U,flags=Fs,val=Val,next=Next}, Ctxt) ->
-    S = #k_bin_seg{size=Sz,unit=U,type=integer,flags=Fs,seg=#k_int{val=Val},next=Next},
+    S = #k_bin_seg{size=Sz,unit=U,type=integer,flags=Fs,
+                  seg=#k_literal{val=Val},next=Next},
     [format_bin_seg_1(S, Ctxt),
      format_bin_seg(Next, ctxt_bump_indent(Ctxt, 2))];
 format_1(#k_bin_end{}, _Ctxt) -> "#<>#";
+format_1(#k_literal{val=A}, _Ctxt) when is_atom(A) ->
+    core_atom(A);
 format_1(#k_literal{val=Term}, _Ctxt) ->
     io_lib:format("~p", [Term]);
 format_1(#k_local{name=N,arity=A}, Ctxt) ->
@@ -158,20 +155,9 @@ format_1(#k_seq{arg=A,body=B}, Ctxt) ->
      nl_indent(Ctxt)
      | format(B, Ctxt)
     ];
-format_1(#k_match{vars=Vs,body=Bs,ret=Rs}, Ctxt) ->
+format_1(#k_match{body=Bs,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
-    ["match ",
-     format_hseq(Vs, ",", ctxt_bump_indent(Ctxt, 6), fun format/2),
-     nl_indent(Ctxt1),
-     format(Bs, Ctxt1),
-     nl_indent(Ctxt),
-     "end",
-     format_ret(Rs, Ctxt1)
-    ];
-format_1(#k_guard_match{vars=Vs,body=Bs,ret=Rs}, Ctxt) ->
-    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
-    ["guard_match ",
-     format_hseq(Vs, ",", ctxt_bump_indent(Ctxt, 6), fun format/2),
+    ["match",
      nl_indent(Ctxt1),
      format(Bs, Ctxt1),
      nl_indent(Ctxt),
@@ -280,14 +266,22 @@ format_1(#k_try_enter{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
      nl_indent(Ctxt),
      "end"
     ];
-format_1(#k_protected{arg=A,ret=Rs}, Ctxt) ->
+format_1(#k_protected{arg=A}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
     ["protected",
      nl_indent(Ctxt1),
      format(A, Ctxt1),
      nl_indent(Ctxt),
+     "end"
+    ];
+format_1(#k_protected_value{arg=A,ret=Ret}, Ctxt) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
+    ["protected_value",
+     nl_indent(Ctxt1),
+     format(A, Ctxt1),
+     nl_indent(Ctxt),
      "end",
-     format_ret(Rs, ctxt_bump_indent(Ctxt, 1))
+     format_ret([Ret], ctxt_bump_indent(Ctxt, 1))
     ];
 format_1(#k_catch{body=B,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
@@ -321,11 +315,6 @@ format_1(#k_break{args=As}, Ctxt) ->
      format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      ">"
     ];
-format_1(#k_guard_break{args=As}, Ctxt) ->
-    [":<",
-     format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
-     ">:"
-    ];
 format_1(#k_return{args=As}, Ctxt) ->
     ["<<",
      format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
@@ -342,7 +331,7 @@ format_1(#k_fdef{func=F,arity=A,vars=Vs,body=B}, Ctxt) ->
     ];
 format_1(#k_mdef{name=N,exports=Es,attributes=As,body=B}, Ctxt) ->
     ["module ",
-     format(#k_atom{val=N}, ctxt_bump_indent(Ctxt, 7)),
+     format(#k_literal{val=N}, ctxt_bump_indent(Ctxt, 7)),
      nl_indent(Ctxt),
      "export [",
      format_vseq(Es,
@@ -432,17 +421,17 @@ format_fa_pair({F,A}, _Ctxt) -> [core_atom(F),$/,integer_to_list(A)].
 %% format_attribute({Name,Val}, Context) -> Txt.
 
 format_attribute({Name,Val}, Ctxt) when is_list(Val) ->
-    Txt = format(#k_atom{val=Name}, Ctxt),
+    Txt = format(#k_literal{val=Name}, Ctxt),
     Ctxt1 = ctxt_bump_indent(Ctxt, width(Txt,Ctxt)+4),
     [Txt," = ",
      $[,format_vseq(Val, "", ",", Ctxt1,
 		    fun (A, _C) -> io_lib:write(A) end),$]
     ];
 format_attribute({Name,Val}, Ctxt) ->
-    Txt = format(#k_atom{val=Name}, Ctxt),
+    Txt = format(#k_literal{val=Name}, Ctxt),
     [Txt," = ",io_lib:write(Val)].
 
-format_list_tail(#k_nil{anno=[]}, _Ctxt) -> "]";
+format_list_tail(#k_literal{anno=[],val=[]}, _Ctxt) -> "]";
 format_list_tail(#k_cons{anno=[],hd=H,tl=T}, Ctxt) ->
     Txt = [$,|format(H, Ctxt)],
     Ctxt1 = ctxt_bump_indent(Ctxt, width(Txt, Ctxt)),

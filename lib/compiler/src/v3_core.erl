@@ -419,6 +419,15 @@ gexpr_test(E0, Bools0, St0) ->
     {E1,Eps0,St1} = expr(E0, St0),
     %% Generate "top-level" test and argument calls.
     case E1 of
+        #icall{anno=Anno,module=#c_literal{val=erlang},
+               name=#c_literal{val=is_function},
+               args=[_,_]} ->
+            %% is_function/2 is not a safe type test. We must force
+            %% it to be protected.
+            Lanno = Anno#a.anno,
+            {New,St2} = new_var(Lanno, St1),
+            {icall_eq_true(New),
+             Eps0 ++ [#iset{anno=Anno,var=New,arg=E1}],Bools0,St2};
 	#icall{anno=Anno,module=#c_literal{val=erlang},name=#c_literal{val=N},args=As} ->
             %% Note that erl_expand_records has renamed type
             %% tests to the new names; thus, float/1 as a type

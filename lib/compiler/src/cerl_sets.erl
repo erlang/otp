@@ -130,8 +130,10 @@ union1(S1, []) -> S1.
       Set2 :: set(Element),
       Set3 :: set(Element).
 
+intersection(S1, S2) when map_size(S1) >= map_size(S2) ->
+    filter(fun (E) -> is_element(E, S1) end, S2);
 intersection(S1, S2) ->
-    filter(fun (E) -> is_element(E, S1) end, S2).
+    intersection(S2, S1).
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
