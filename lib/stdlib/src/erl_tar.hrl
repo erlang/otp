@@ -48,8 +48,10 @@
                    {uid, non_neg_integer()} |
                    {gid, non_neg_integer()}.
 
+-type name_in_archive() :: string().
+
 -type extract_opt() :: {cwd, string()} |
-                       {files, [string()]} |
+                       {files, [name_in_archive()]} |
                        compressed |
                        cooked |
                        memory |
@@ -62,21 +64,20 @@
                       verbose.
 
 -type filelist() :: [file:filename() |
-                     {string(), binary()} |
-                     {string(), file:filename()}].
+                     {name_in_archive(), file:filename_all()}].
 
 -type tar_time() :: non_neg_integer().
 
 %% The tar header, once fully parsed.
 -record(tar_header, {
-          name = "" :: string(),                %% name of header file entry
+          name = "" :: name_in_archive(),       %% name of header file entry
           mode = 8#100644 :: non_neg_integer(), %% permission and mode bits
           uid = 0 :: non_neg_integer(),         %% user id of owner
           gid = 0 :: non_neg_integer(),         %% group id of owner
           size = 0 :: non_neg_integer(),        %% length in bytes
           mtime :: tar_time(),                  %% modified time
           typeflag :: char(),                   %% type of header entry
-          linkname = "" :: string(),            %% target name of link
+          linkname = "" :: name_in_archive(),   %% target name of link
           uname = "" :: string(),               %% user name of owner
           gname = "" :: string(),               %% group name of owner
           devmajor = 0 :: non_neg_integer(),    %% major number of character or block device
@@ -157,16 +158,18 @@
 %% The overall tar reader, it holds the low-level file handle,
 %% its access, position, and the I/O primitives wrapper.
 -record(reader, {
-          handle :: file:io_device() | term(),
+          handle :: user_data(),
           access :: read | write | ram,
           pos = 0 :: non_neg_integer(),
           func :: file_op()
          }).
--type reader() :: #reader{}.
+-opaque tar_descriptor() :: #reader{}.
+-export_type([tar_descriptor/0]).
+
 %% A reader for a regular file within the tar archive,
 %% It tracks its current state relative to that file.
 -record(reg_file_reader, {
-          handle :: reader(),
+          handle :: tar_descriptor(),
           num_bytes = 0,
           pos = 0,
           size = 0
@@ -175,7 +178,7 @@
 %% A reader for a sparse file within the tar archive,
 %% It tracks its current state relative to that file.
 -record(sparse_file_reader, {
-          handle :: reader(),
+          handle :: tar_descriptor(),
           num_bytes = 0, %% bytes remaining
           pos = 0, %% pos
           size = 0, %% total size of file
@@ -184,13 +187,13 @@
 -type sparse_file_reader() :: #sparse_file_reader{}.
 
 %% Types for the readers
--type reader_type() :: reader() | reg_file_reader() | sparse_file_reader().
--type handle() :: file:io_device() | term().
+-type descriptor_type() :: tar_descriptor() | reg_file_reader() | sparse_file_reader().
+-type user_data() :: term().
 
 %% Type for the I/O primitive wrapper function
 -type file_op() :: fun((write | close | read2 | position,
-                       {handle(), iodata()} | handle() | {handle(), non_neg_integer()}
-                        | {handle(), non_neg_integer()}) ->
+                       {user_data(), iodata()} | user_data() | {user_data(), non_neg_integer()}
+                        | {user_data(), non_neg_integer()}) ->
                               ok | eof | {ok, string() | binary()} | {ok, non_neg_integer()}
                                  | {error, term()}).
 
