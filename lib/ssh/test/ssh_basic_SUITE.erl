@@ -47,8 +47,11 @@ all() ->
      daemon_already_started
     ].
 
+%%%-define(PARALLEL, ).
+-define(PARALLEL, parallel).
+
 groups() ->
-    [{all_tests, [parallel], [{group, ssh_renegotiate_SUITE},
+    [{all_tests, [?PARALLEL], [{group, ssh_renegotiate_SUITE},
                               {group, ssh_basic_SUITE}
                              ]},
      {ssh_basic_SUITE, [], [app_test,
@@ -79,7 +82,7 @@ groups() ->
                             shell_exit_status
                            ]},
 
-     {ssh_renegotiate_SUITE, [parallel], [rekey0,
+     {ssh_renegotiate_SUITE, [?PARALLEL], [rekey0,
                                           rekey1,
                                           rekey2,
                                           rekey3,
@@ -101,7 +104,7 @@ groups() ->
      {ed25519_key, [], [{group, basic}]},
      {ed448_key,   [], [{group, basic}]},
      {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
-     {host_user_key_differs, [parallel], [exec_key_differs1,
+     {host_user_key_differs, [?PARALLEL], [exec_key_differs1,
                                           exec_key_differs2,
                                           exec_key_differs3,
                                           exec_key_differs_fail]},
@@ -110,9 +113,9 @@ groups() ->
      {ecdsa_sha2_nistp256_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp384_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp521_pass_key, [], [pass_phrase]},
-     {key_cb, [parallel], [key_callback, key_callback_options]},
+     {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]},
-     {login_bad_pwd_no_retry, [parallel], [login_bad_pwd_no_retry1,
+     {login_bad_pwd_no_retry, [?PARALLEL], [login_bad_pwd_no_retry1,
                                            login_bad_pwd_no_retry2,
                                            login_bad_pwd_no_retry3,
                                            login_bad_pwd_no_retry4,
@@ -124,8 +127,9 @@ groups() ->
                   close, 
                   known_hosts
                  ]},
-     {p_basic, [parallel], [send, peername_sockname,
+     {p_basic, [?PARALLEL], [send, peername_sockname,
                             exec, exec_compressed, 
+                            exec_with_io_out, exec_with_io_in,
                             cli,
                             idle_time_client, idle_time_server, openssh_zlib_basic_test, 
                             misc_ssh_options, inet_option, inet6_option]}
@@ -543,7 +547,7 @@ exec(Config) when is_list(Config) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "1+1.", infinity),
-    Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"2\n">>}},
+    Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"2">>}},
     case ssh_test_lib:receive_exec_result(Data0) of
 	expected ->
 	    ok;
@@ -557,7 +561,7 @@ exec(Config) when is_list(Config) ->
     {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId1,
 				  "2+2.", infinity),
-    Data1 = {ssh_cm, ConnectionRef, {data, ChannelId1, 0, <<"4\n">>}},
+    Data1 = {ssh_cm, ConnectionRef, {data, ChannelId1, 0, <<"4">>}},
     case ssh_test_lib:receive_exec_result(Data1) of
 	expected ->
 	    ok;
@@ -566,6 +570,65 @@ exec(Config) when is_list(Config) ->
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1),
     ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test api function ssh_connection:exec with erlang server and the Command
+%%% makes io
+exec_with_io_out(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,
+				  "io:write(hej).", infinity),
+    case ssh_test_lib:receive_exec_result(
+           {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"hej">>}}
+          ) of
+	expected ->
+            case ssh_test_lib:receive_exec_result(
+                   {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}}
+                  ) of
+                expected ->
+                    ok;
+                Other1 ->
+                    ct:fail(Other1)
+            end;
+	Other0 ->
+	    ct:fail(Other0)
+    end,
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+exec_with_io_in(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, Ch} = ssh_connection:session_channel(C, infinity),
+    ssh_connection:exec(C, Ch, "io:read('% ').", 1000),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm, C, {data,Ch,0,<<"% ">>}}),
+    ok = ssh_connection:send(C, Ch, "hej.\n", 10000),
+
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm, C, {data,Ch,0,<<"{ok,hej}">>}}),
+    ssh_test_lib:receive_exec_end(C, Ch),
+    ssh:close(C),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -591,7 +654,7 @@ exec_compressed(Config) when is_list(Config) ->
 	    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
 	    success = ssh_connection:exec(ConnectionRef, ChannelId,
 					  "1+1.", infinity),
-	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
+	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2">>}},
 	    case ssh_test_lib:receive_exec_result(Data) of
 		expected ->
 		    ok;

@@ -56,7 +56,9 @@ groups() ->
      {tunnel_distro_server, [], [tunnel_in_erlclient_openssh_server,
                                  tunnel_out_erlclient_openssh_server]},
      {erlang_server, [], [{group, tunnel_distro_client},
-                          erlang_server_openssh_client_renegotiate                          
+                          erlang_server_openssh_client_renegotiate,
+                          exec_with_io_in_sshc,
+                          exec_direct_with_io_in_sshc
 			 ]},
      {tunnel_distro_client, [], [tunnel_in_non_erlclient_erlserver,
                                  tunnel_out_non_erlclient_erlserver]}
@@ -136,6 +138,44 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     receive_logout(),
     receive_normal_exit(Shell).
    
+%%--------------------------------------------------------------------
+%% Test that the server could redirect stdin and stdout from/to an
+%% OpensSSH client when handling an exec request
+exec_with_io_in_sshc(Config) when is_list(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+
+    ExecStr = "\"io:read('% ').\"",
+    Cmd =  "echo howdy. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
+                                                          "-x", % Disable X forwarding
+                                                          ExecStr),
+    ct:pal("Cmd = ~p~n",[Cmd]),
+    "% {ok,howdy}" = os:cmd(Cmd),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Test that the server could redirect stdin and stdout from/to an
+%% OpensSSH client when handling an direct exec request
+exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {failfun, fun ssh_test_lib:failfun/2},
+                                             {exec,{direct,fun(Cmnd) ->
+                                                                   {ok,X} = io:read(Cmnd),
+                                                                   {ok,{X,lists:reverse(atom_to_list(X))}}
+                                                           end}}
+                                            ]),
+    ct:sleep(500),
+
+    Cmd =  "echo ciao. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
+                                                         "-x", % Disable X forwarding
+                                                         "'? '"),
+    ct:pal("Cmd = ~p~n",[Cmd]),
+    "? {ciao,\"oaic\"}" = os:cmd(Cmd),
+    ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 %% Test that the Erlang/OTP server can renegotiate with openSSH
 erlang_server_openssh_client_renegotiate(Config) ->
