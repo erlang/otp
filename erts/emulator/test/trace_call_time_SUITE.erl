@@ -405,8 +405,12 @@ bif(Config) when is_list(Config) ->
     %%
     2 = erlang:trace_pattern({erlang, binary_to_term, '_'}, true, [call_time]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
+    1 = erlang:trace_pattern({?MODULE, with_bif, 1}, true, [call_time]),
     Pid = setup(),
-    {L, T1} = execute(Pid, fun() -> with_bif(M) end),
+    {L, Tot1} = execute(Pid, fun() -> with_bif(M) end),
+
+    {call_time,[{Pid,_,S,Us}]} = erlang:trace_info({?MODULE,with_bif,1}, call_time),
+    T1 = Tot1 - (S*1000000 + Us),
 
     ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M - 1, 0, 0}], T1/2),
     ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M - 1, 0, 0}], T1/2),
@@ -415,9 +419,9 @@ bif(Config) when is_list(Config) ->
 
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, false, [call_time]),
 
-    {L, T2} = execute(Pid, fun() -> with_bif(M) end),
+    {L, _T2} = execute(Pid, fun() -> with_bif(M) end),
 
-    ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M*2 - 2, 0, 0}], T1/2 + T2),
+    ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M*2 - 2, 0, 0}], T1),
     ok = check_trace_info({erlang, term_to_binary, 1}, false, none),
 
     %%
@@ -436,12 +440,14 @@ nif(Config) when is_list(Config) ->
     1 = erlang:trace_pattern({?MODULE, nif_dec,  '_'}, true, [call_time]),
     1 = erlang:trace_pattern({?MODULE, with_nif, '_'}, true, [call_time]),
     Pid = setup(),
-    {_, T1} = execute(Pid, fun() -> with_nif(M) end),
+    {_, Tot1} = execute(Pid, fun() -> with_nif(M) end),
+
+    {call_time,[{Pid,_,S,Us}]} = erlang:trace_info({?MODULE,with_nif,1}, call_time),
+    T1 = Tot1 - (S*1000000 + Us),
 
     % the nif is called M - 1 times, the last time the function with 'with_nif'
     % returns ok and does not call the nif.
-    ok = check_trace_info({?MODULE, nif_dec,  1}, [{Pid, M-1, 0, 0}], T1/2),
-    ok = check_trace_info({?MODULE, with_nif, 1}, [{Pid, M, 0, 0}], T1/2),
+    ok = check_trace_info({?MODULE, nif_dec,  1}, [{Pid, M-1, 0, 0}], T1),
 
     %%
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
