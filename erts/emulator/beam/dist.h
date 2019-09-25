@@ -46,7 +46,7 @@
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
 #define DFLAG_BIG_SEQTRACE_LABELS 0x100000
-#define DFLAG_NO_MAGIC            0x200000 /* internal for pending connection */
+#define DFLAG_PENDING_CONNECT     0x200000 /* internal for pending connection */
 #define DFLAG_EXIT_PAYLOAD        0x400000
 #define DFLAG_FRAGMENTS           0x800000
 
@@ -144,7 +144,7 @@ typedef enum {
 
 /* Must be larger or equal to 16 */
 #ifdef DEBUG
-#define ERTS_DIST_FRAGMENT_SIZE 16
+#define ERTS_DIST_FRAGMENT_SIZE 1024
 #else
 /* This should be made configurable */
 #define ERTS_DIST_FRAGMENT_SIZE (64 * 1024)
@@ -175,6 +175,9 @@ extern int erts_is_alive;
 /* dist_ctrl_{g,s}et_option/2 */
 #define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
 
+/* for emulator internal testing... */
+extern int erts_dflags_test_remove_hopefull_flags;
+
 #ifdef DEBUG
 #define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
     erts_dbg_chk_no_dist_proc_link((D), (R), (L))
@@ -195,20 +198,72 @@ typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
 typedef struct TTBSizeContext_ {
     Uint flags;
     int level;
+    Sint vlen;
+    int iovec;
+    Uint fragment_size;
+    Uint last_result;
+    Uint extra_size;
     Uint result;
     Eterm obj;
     ErtsWStack wstack;
 } TTBSizeContext;
 
+#define ERTS_INIT_TTBSizeContext(Ctx, Flags)                    \
+    do {                                                        \
+        (Ctx)->wstack.wstart = NULL;                            \
+        (Ctx)->flags = (Flags);                                 \
+        (Ctx)->level = 0;                                       \
+        (Ctx)->vlen = -1;                                       \
+        (Ctx)->fragment_size = ~((Uint) 0);                     \
+        (Ctx)->extra_size = 0;                                  \
+        (Ctx)->last_result = 0;                                 \
+    } while (0)
+
 typedef struct TTBEncodeContext_ {
     Uint flags;
     Uint hopefull_flags;
+    byte *hopefull_flagsp;
     int level;
     byte* ep;
     Eterm obj;
     ErtsWStack wstack;
     Binary *result_bin;
+    byte *cptr;
+    Sint vlen;
+    Uint size;
+    byte *payload_ixp;
+    byte *hopefull_ixp;
+    SysIOVec* iov;
+    ErlDrvBinary** binv;
+    Eterm *termv;
+    int iovec;
+    Uint fragment_size;
+    Sint frag_ix;
+    ErlIOVec **fragment_eiovs;
+#ifdef DEBUG
+    int debug_fragments;
+    int debug_vlen;
+#endif
 } TTBEncodeContext;
+
+#define ERTS_INIT_TTBEncodeContext(Ctx, Flags)                  \
+    do {                                                        \
+        (Ctx)->wstack.wstart = NULL;                            \
+        (Ctx)->flags = (Flags);                                 \
+        (Ctx)->level = 0;                                       \
+        (Ctx)->vlen = 0;                                        \
+        (Ctx)->size = 0;                                        \
+        (Ctx)->termv = NULL;                                    \
+        (Ctx)->iov = NULL;                                      \
+        (Ctx)->binv = NULL;                                     \
+        (Ctx)->fragment_size = ~((Uint) 0);                     \
+        if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
+            (Ctx)->hopefull_flags = 0;                          \
+            (Ctx)->hopefull_flagsp = NULL;                      \
+            (Ctx)->hopefull_ixp = NULL;                         \
+            (Ctx)->payload_ixp = NULL;                          \
+        }                                                       \
+    } while (0)
 
 typedef struct {
     Uint real_size;
@@ -258,11 +313,12 @@ typedef struct erts_dsig_send_context {
     enum erts_dsig_send_phase phase;
     Sint reds;
 
-    Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
+    byte *dhdrp, *extp;
     ErtsAtomCacheMap *acmp;
     ErtsDistOutputBuf *obuf;
-    Uint fragments;
+    Uint alloced_fragments, fragments;
+    Sint vlen;
     Uint32 flags;
     Process *c_p;
     union {
@@ -333,4 +389,8 @@ extern int erts_dsig_prepare(ErtsDSigSendContext *,
 
 void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
+
+Uint erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments);
+ErlIOVec **erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
+                             Sint vlen, Uint fragments, Uint fragments_size);
 #endif

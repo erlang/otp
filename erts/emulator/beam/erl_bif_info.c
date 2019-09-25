@@ -4377,6 +4377,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		  break;
 	      BIF_RET(res);
 	    }
+            else if (ERTS_IS_ATOM_STR("term_to_binary", tp[1])) {
+                return erts_debug_term_to_binary(BIF_P, tp[2], tp[3]);
+            }
 	    break;
 	}
 	default:
@@ -4737,6 +4740,26 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             BIF_P->mbuf = frag;
             BIF_P->mbuf_sz += sz;
             BIF_RET(copy);
+        }
+        else if (ERTS_IS_ATOM_STR("remove_hopefull_dflags", BIF_ARG_1)) {
+            int old_val, new_val;
+
+            switch (BIF_ARG_2) {
+            case am_true: new_val = !0; break;
+            case am_false: new_val = 0; break;
+            default: BIF_ERROR(BIF_P, BADARG); break;
+            }
+
+            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_thr_progress_block();
+            
+            old_val = erts_dflags_test_remove_hopefull_flags;
+            erts_dflags_test_remove_hopefull_flags = new_val;
+            
+            erts_thr_progress_unblock();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
+            BIF_RET(old_val ? am_true : am_false);
         }
     }
 

@@ -60,6 +60,7 @@
 #define DIST_HEADER       'D'
 #define DIST_FRAG_HEADER  'E'
 #define DIST_FRAG_CONT    'F'
+#define HOPEFUL_DATA      'H'
 #define ATOM_CACHE_REF    'R'
 #define ATOM_INTERNAL_REF2 'I'
 #define ATOM_INTERNAL_REF3 'K'
@@ -89,6 +90,8 @@
 #include "erl_node_tables.h"
 #undef ERL_NODE_TABLES_BASIC_ONLY
 #include "erl_alloc.h"
+
+#define ERTS_NO_HIX (~((Uint32) 0))
 
 #define ERTS_ATOM_CACHE_SIZE 2048
 
@@ -153,14 +156,17 @@ typedef struct {
 
 
 /* -------------------------------------------------------------------------- */
+struct TTBSizeContext_;
+struct TTBEncodeContext_;
 
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
 void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 
-Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *, Uint);
-byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *, Uint, Eterm);
+Uint erts_encode_ext_dist_header_size(struct TTBEncodeContext_ *ctx, ErtsAtomCacheMap *, Uint);
+byte *erts_encode_ext_dist_header_setup(struct TTBEncodeContext_ *ctx, byte *,
+                                        ErtsAtomCacheMap *, Uint, Eterm);
 byte *erts_encode_ext_dist_header_fragment(byte **, Uint, Eterm);
 Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
 struct erts_dsig_send_context;
@@ -171,12 +177,13 @@ typedef enum {
     ERTS_EXT_SZ_SYSTEM_LIMIT
 } ErtsExtSzRes;
 
-ErtsExtSzRes erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
-ErtsExtSzRes erts_encode_dist_ext_size_ctx(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
-struct TTBEncodeContext_;
+ErtsExtSzRes erts_encode_dist_ext_size(Eterm term, ErtsAtomCacheMap *acmp,
+                                       struct TTBSizeContext_ *ctx,
+                                       Uint* szp, Sint *redsp,
+                                       Sint *vlenp, Uint *fragments);
 int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
-			  struct TTBEncodeContext_ *, Sint* reds);
-
+                         struct TTBEncodeContext_ *, Uint *,
+                         Sint *);
 ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
 ErtsExtSzRes erts_encode_ext_size_2(Eterm, unsigned, Uint *szp);
 Uint erts_encode_ext_size_ets(Eterm);
@@ -208,6 +215,7 @@ Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
 Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
+Eterm erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);
 void erts_binary2term_abort(ErtsBinary2TermState *);

@@ -290,6 +290,7 @@ atom gc_minor_start
 atom Ge='>='
 atom generational
 atom get_all_trap
+atom get_iovec
 atom get_seq_token
 atom get_size
 atom get_tcw
@@ -341,6 +342,8 @@ atom is_constant
 atom is_seq_trace
 atom iterator
 atom io
+atom iodata
+atom iovec
 atom keypos
 atom kill
 atom killed
