@@ -368,14 +368,16 @@
 
     <datatype>
       <name name="shell_daemon_option"/>
+      <name name="shell_spec"/>
+      <name name="shell_fun"/>
       <name name="'shell_fun/1'"/>
       <name name="'shell_fun/2'"/>
       <desc>
 	<p>Defines the read-eval-print loop used in a daemon when a shell is requested by the client.
 	The default is to use the Erlang shell: <c><![CDATA[{shell, start, []}]]></c>
 	</p>
-	<p>See the option <seealso marker="#type-exec_daemon_option"><c>exec</c></seealso>
-	for a description of how the daemon execute exec-requests depending on
+	<p>See the option <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
+	for a description of how the daemon executes shell-requests and exec-requests depending on
 	the shell- and exec-options.</p>
       </desc>
     </datatype>
@@ -415,37 +417,65 @@
 	</p>
 	<p>The option cooperates with the daemon-option <seealso marker="#type-shell_daemon_option"><c>shell</c></seealso>
 	in the following way:</p>
+	
 	<taglist>
-	  <tag>1. If the exec-option is present (the shell-option may or may not be present):</tag>
+	  <tag>1. If neither the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> nor the
+	  <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso> is present:</tag>
 	  <item>
-	    <p>The exec-option fun is called with the same number of parameters as the arity of the fun,
+	    <p>The default Erlang evaluator is used both for exec and shell requests.
+	    The result is returned to the client.</p>
+	  </item>
+
+	  <tag>2. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
+	  is present
+	  (the <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso> may or may not be present):</tag>
+	  <item>
+	    <p>The <seealso marker="#type-exec_daemon_option"><c>exec_spec</c></seealso>
+	    <c>fun()</c> is called with the same number of parameters as the arity of the fun,
 	    and the result is returned to the client.
+	    Shell-requests are not affected, they follow the
+	    <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>'s value.
 	    </p>
 	  </item>
 	  
-	  <tag>2. If the exec-option is absent, but a shell-option is present with the default Erlang shell:</tag>
+	  <tag>3. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
+	  <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso>
+	  is present with the default Erlang shell as the
+	  <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>'s
+	  value:</tag>
 	  <item>
-	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	    <p>The default Erlang evaluator is used both for exec and shell requests.
+	    The result is returned to the client.</p>
 	  </item>
 	  
-	  <tag>3. If the exec-option is absent, but a shell-option is present that is not the default Erlang shell:</tag>
+	  <tag>4. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
+	  <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso>
+	  is present with a value that is not the default Erlang shell:</tag>
 	  <item>
-	    <p>The exec-request is not evaluated and an error message is returned to the client.</p>
+	    <p>The exec-request is not evaluated and an error message is returned to the client. Shell-requests
+	    are executed according to the value of the
+	    <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>.</p>
 	  </item>
 	  
-	  <tag>4. If neither the exec-option nor the shell-option is present:</tag>
-	  <item>
-	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
-	  </item>
 	</taglist>
-	<p>If a custom CLI is installed (see the option <seealso marker="#type-ssh_cli_daemon_option"><c>ssh_cli</c></seealso>)
+	<p>If a custom CLI is installed (see the option
+	<seealso marker="#type-ssh_cli_daemon_option"><c>ssh_cli</c></seealso>)
 	the rules above are replaced by thoose implied by the custom CLI.
 	</p>
 	<note>
-	  <p>The exec-option has existed for a long time but has not previously been documented. The old
+	  <p>The <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
+	  has existed for a long time but has not previously been documented. The old
 	  definition and behaviour are retained but obey the rules 1-4 above if conflicting.
 	  The old and undocumented style should not be used in new programs.</p>
 	</note>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="deprecated_exec_opt"/>
+      <desc>
+	<p>Old-style exec specification that are kept for compatibility, but should not be used in
+	new programs</p>
       </desc>
     </datatype>
 
