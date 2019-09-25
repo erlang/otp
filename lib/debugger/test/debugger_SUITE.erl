@@ -91,7 +91,7 @@ no_abstract_code(Config) when is_list(Config) ->
     ok.
 
 encrypted_debug_info(Config) when is_list(Config) ->
-    try	begin crypto:start(), crypto:info(), crypto:stop(), ok end of
+    try	begin crypto:start(), crypto:stop(), ok end of
 	ok ->
 	    encrypted_debug_info_1(Config)
     catch
