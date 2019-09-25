@@ -33,9 +33,8 @@
 -include("ssl_internal.hrl").
 
 -export([decode/1, 
-         own_alert_txt/1, 
-         alert_txt/1,
-         alert_txt/4, 
+         own_alert_format/4, 
+         alert_format/4,
          reason_code/4]).
 
 %%====================================================================
@@ -62,53 +61,69 @@ decode(Bin) ->
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _, _, _) ->
     closed;
 reason_code(#alert{description = Description, role = Role} = Alert, Role, ProtocolName, StateName) ->
-    Txt = lists:flatten(alert_txt(ProtocolName, Role, StateName, own_alert_txt(Alert))),
+    {PrefixFmt, PrefixArgs} = alert_prefix_format(ProtocolName, Role, StateName),
+    {Fmt, Args} = own_alert_format_depth(Alert),
+    Txt = lists:flatten(io_lib:format(PrefixFmt ++ Fmt, PrefixArgs ++ Args)),
     {tls_alert, {description_atom(Description), Txt}};
 reason_code(#alert{description = Description} = Alert, Role, ProtocolName, StateName) ->
-    Txt = lists:flatten(alert_txt(ProtocolName, Role, StateName, alert_txt(Alert))),
+    {Fmt, Args} = alert_format(ProtocolName, Role, StateName, Alert),
+    Txt = lists:flatten(io_lib:format(Fmt, Args)),
     {tls_alert, {description_atom(Description), Txt}}.
 
 %%--------------------------------------------------------------------
--spec alert_txt(string(), server | client, StateNam::atom(), string()) -> string().
+-spec own_alert_format(string(), server | client, StateNam::atom(), #alert{}) -> {io:format(), list()}.
 %%
 %% Description: Generates alert text for log or string part of error return.
 %%--------------------------------------------------------------------
-alert_txt(ProtocolName, Role, StateName, Txt) ->
-    io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]).
+own_alert_format(ProtocolName, Role, StateName, Alert) ->
+    {PrfixFmt, PrefixArgs} = alert_prefix_format(ProtocolName, Role, StateName),
+    {Fmt, Args} = own_alert_format(Alert),
+    {PrfixFmt ++ Fmt, PrefixArgs ++ Args}.
 
 %%--------------------------------------------------------------------
--spec own_alert_txt(#alert{}) -> string().
+-spec alert_format(string(), server | client, StateNam::atom(), #alert{}) -> {io:format(), list()}.
 %%
-%% Description: Returns the error string for given alert generated
-%% by the erlang implementation.
+%% Description: Generates alert text for log or string part of error return.
 %%--------------------------------------------------------------------
-own_alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined, role = Role}) ->
-    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
-        level_txt(Level) ++ description_txt(Description);
-own_alert_txt(#alert{reason = Reason} = Alert) ->
-    BaseTxt = own_alert_txt(Alert#alert{reason = undefined}),
-    FormatDepth = 9, % Some limit on printed representation of an error
-    ReasonTxt = lists:flatten(io_lib:format("~P", [Reason, FormatDepth])),
-    BaseTxt ++ " - " ++ ReasonTxt.
-
-%%--------------------------------------------------------------------
--spec alert_txt(#alert{}) -> string().
-%%
-%% Description: Returns the error string for given alert received from
-%% the peer. 
-%%--------------------------------------------------------------------
-alert_txt(#alert{level = Level, description = Description, reason = undefined, role = Role}) ->
-    "received " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
-        level_txt(Level) ++ description_txt(Description);
-alert_txt(#alert{reason = Reason} = Alert) ->
-    BaseTxt = alert_txt(Alert#alert{reason = undefined}),
-    FormatDepth = 9, % Some limit on printed representation of an error
-    ReasonTxt = lists:flatten(io_lib:format("~P", [Reason, FormatDepth])),
-    BaseTxt ++ " - " ++ ReasonTxt.
+alert_format(ProtocolName, Role, StateName, Alert) ->
+    {PrfixFmt, PrefixArgs} = alert_prefix_format(ProtocolName, Role, StateName),
+    {Fmt, Args} = alert_format(Alert),
+    {PrfixFmt ++ Fmt, PrefixArgs ++ Args}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+alert_prefix_format(ProtocolName, Role, StateName) ->
+    {"~s ~p: In state ~p", [ProtocolName, Role, StateName]}.
+
+own_alert_format(#alert{reason = Reason} = Alert) ->   
+    Txt = own_alert_txt(Alert),
+    case Reason of
+        undefined ->            
+            {" ~s\n", [Txt]};
+        Reason ->
+            {" ~s\n - ~p", [Txt, Reason]}
+    end.
+own_alert_format_depth(#alert{reason = Reason} = Alert) ->   
+    Txt = own_alert_txt(Alert),
+    case Reason of
+        undefined ->            
+            {" ~s\n", [Txt]};
+        Reason ->
+            {" ~s\n ~P", [Txt, Reason, ?DEPTH]}
+    end.
+
+own_alert_txt(#alert{level = Level, description = Description, where = #{line := Line, file := Mod}, role = Role}) ->
+    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
+        level_txt(Level) ++ description_txt(Description).
+
+alert_format(Alert) ->
+    Txt = alert_txt(Alert),
+    {" ~s\n ", [Txt]}.
+
+alert_txt(#alert{level = Level, description = Description, role = Role}) ->
+    "received " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
+        level_txt(Level) ++ description_txt(Description).
 
 %% It is very unlikely that an correct implementation will send more than one alert at the time
 %% So it there is more than 10 warning alerts we consider it an error

@@ -82,7 +82,7 @@
 
 -export([get_cert_params/1,
          server_name/3,
-         validation_fun_and_state/9,
+         validation_fun_and_state/10,
          handle_path_validation_error/7]).
 
 %%====================================================================
@@ -343,12 +343,13 @@ next_protocol(SelectedProtocol) ->
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         #{server_name_indication := ServerNameIndication,
-         partial_chain := PartialChain,
-         verify_fun := VerifyFun,
-         customize_hostname_check := CustomizeHostnameCheck,
-         crl_check := CrlCheck,
-         depth := Depth} = Opts, CRLDbHandle, Role, Host) ->
-
+          partial_chain := PartialChain,
+          verify_fun := VerifyFun,
+          customize_hostname_check := CustomizeHostnameCheck,
+          crl_check := CrlCheck,
+          log_level := Level,
+          depth := Depth} = Opts, CRLDbHandle, Role, Host) ->
+    
     ServerName = server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = ASN1Certs,       
     try
@@ -358,7 +359,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         ValidationFunAndState = validation_fun_and_state(VerifyFun, Role,
                                                          CertDbHandle, CertDbRef, ServerName,
                                                          CustomizeHostnameCheck,
-                                                         CrlCheck, CRLDbHandle, CertPath),
+                                                         CrlCheck, CRLDbHandle, CertPath, Level),
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
@@ -1613,7 +1614,8 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 
 %%-------------Handle handshake messages --------------------------------
 validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CustomizeHostCheck, CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CustomizeHostCheck, CRLCheck, 
+                         CRLDbHandle, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1622,17 +1624,18 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef,
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				    SslState, CertPath);
+				    SslState, CertPath, LogLevel);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				    Extension, UserState, SslState, CertPath)
+				    Extension, UserState, SslState, CertPath, LogLevel)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
-			    SslState, CertPath)
+			    SslState, CertPath, LogLevel)
      end, {{Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}, UserState0}};
 validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CustomizeHostCheck, CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CustomizeHostCheck, CRLCheck, 
+                         CRLDbHandle, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
@@ -1640,7 +1643,7 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
                                                (VerifyResult == valid_peer) -> 
 	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
-                            CRLDbHandle, VerifyResult, CertPath) of
+                            CRLDbHandle, VerifyResult, CertPath, LogLevel) of
 		 valid ->                     
                      ssl_certificate:validate(OtpCert,
                                               VerifyResult,
@@ -1655,21 +1658,21 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
      end, {Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}}.
 
 apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
-	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath) when
+	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath, LogLevel) when
       (VerifyResult == valid) or (VerifyResult == valid_peer) ->
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
 	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
-                           CRLDbHandle, VerifyResult, CertPath) of
+                           CRLDbHandle, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState, CertPath)
+		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState, CertPath, LogLevel)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
     end;
-apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath) ->
+apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath, _LogLevel) ->
     case Fun(OtpCert, ExtensionOrError, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer)->
 	    {Valid, {SslState, UserState}};
@@ -1773,29 +1776,38 @@ bad_key(#'RSAPrivateKey'{}) ->
 bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key.
 
-crl_check(_, false, _,_,_, _, _) ->
+crl_check(_, false, _,_,_, _, _, _) ->
     valid;
-crl_check(_, peer, _, _,_, valid, _) -> %% Do not check CAs with this option.
+crl_check(_, peer, _, _,_, valid, _, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, CertPath) ->
+crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, CertPath, LogLevel) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
 				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
                                                                                  DBInfo})
 			     end, {CertDbHandle, CertDbRef}}}, 
-	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end},
+	       {update_crl, fun(DP, CRL) ->
+                                    case Callback:fresh_crl(DP, CRL) of
+                                        {logger, LogInfo, Fresh} ->
+                                            handle_log(LogLevel, LogInfo),
+                                            Fresh;
+                                        Fresh ->
+                                            Fresh
+                                    end
+                            end},
                {undetermined_details, true}
 	      ],
-    case dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) of
+    case dps_and_crls(OtpCert, Callback, CRLDbHandle, ext, LogLevel) of
 	no_dps ->
 	    crl_check_same_issuer(OtpCert, Check,
-				  dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer),
+				  dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel),
 				  Options);
 	DpsAndCRLs ->  %% This DP list may be empty if relevant CRLs existed 
 	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
 	    case public_key:pkix_crls_validate(OtpCert, DpsAndCRLs, Options) of
 		{bad_cert, {revocation_status_undetermined, _}} ->
-		    crl_check_same_issuer(OtpCert, Check, dps_and_crls(OtpCert, Callback, 
-								       CRLDbHandle, same_issuer), Options);
+		    crl_check_same_issuer(OtpCert, Check, 
+                                          dps_and_crls(OtpCert, Callback, 
+                                                       CRLDbHandle, same_issuer, LogLevel), Options);
 		Other ->
 		    Other
 	    end
@@ -1811,24 +1823,30 @@ crl_check_same_issuer(OtpCert, best_effort, Dps, Options) ->
 crl_check_same_issuer(OtpCert, _, Dps, Options) ->    
     public_key:pkix_crls_validate(OtpCert, Dps, Options).
 
-dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
+dps_and_crls(OtpCert, Callback, CRLDbHandle, ext, LogLevel) ->
     case public_key:pkix_dist_points(OtpCert) of
 	[] ->
 	    no_dps;
 	DistPoints ->
 	    Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
-	    CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle),
+	    CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle, LogLevel),
             dps_and_crls(DistPoints, CRLs, [])
     end;
 
-dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
+dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel) ->    
     DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
 	public_key:pkix_dist_point(OtpCert),
-    CRLs = lists:flatmap(fun({directoryName, Issuer}) ->
-                                 Callback:select(Issuer, CRLDbHandle);
-                            (_) ->
-                                 []
-                         end, GenNames),
+    CRLs = lists:flatmap(fun({directoryName, Issuer}) -> 
+				 case Callback:select(Issuer, CRLDbHandle) of
+                                     {logger, LogInfo, Return} ->
+                                         handle_log(LogLevel, LogInfo),
+                                         Return;
+                                     Return ->
+                                         Return
+                                 end;
+			    (_) ->
+				 []
+			 end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
 dps_and_crls([], _, Acc) ->
@@ -1837,9 +1855,9 @@ dps_and_crls([DP | Rest], CRLs, Acc) ->
     DpCRL = [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs],
     dps_and_crls(Rest, CRLs, DpCRL ++ Acc).
     
-distpoints_lookup([],_, _, _) ->
+distpoints_lookup([],_, _, _, _) ->
     [];
-distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
+distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle, LogLevel) ->
     Result =
 	try Callback:lookup(DistPoint, Issuer, CRLDbHandle)
 	catch
@@ -1850,8 +1868,11 @@ distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
 	end,
     case Result of
 	not_available ->
-	    distpoints_lookup(Rest, Issuer, Callback, CRLDbHandle);
-	CRLs ->
+	    distpoints_lookup(Rest, Issuer, Callback, CRLDbHandle, LogLevel);
+	{logger, LogInfo, CRLs} ->
+            handle_log(LogLevel, LogInfo),
+            CRLs;
+        CRLs ->
 	    CRLs
     end.
 
@@ -3234,3 +3255,6 @@ empty_extensions(_, server_hello) ->
       alpn => undefined,
       next_protocol_negotiation => undefined,
       ec_point_formats => undefined}.
+
+handle_log(Level, {LogLevel, ReportMap, Meta}) ->
+    ssl_logger:log(Level, LogLevel, ReportMap, Meta).

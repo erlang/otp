@@ -48,20 +48,14 @@ select([], _) ->
     [];
 select([{directoryName, Issuer} | _], {_DbHandle, [{dir, Dir}]}) ->
     case find_crls(public_key:pkix_normalize_name(Issuer), Dir) of
-        [_|_] = DERs ->
-	    DERs;
-        [] ->
-            %% That's okay, just report that we didn't find any CRL.
-            %% If the crl_check setting is best_effort, ssl_handshake
-            %% is happy with that, but if it's true, this is an error.
-            [];
+        {#{reason := []}, DERs} ->
+            DERs;
+        {#{reason := [_|_]} = Report, DERs} ->
+            {logger, {notice, Report, ?LOCATION}, DERs};
         {error, Error} ->
-            ?LOG_ERROR(
-              [{cannot_find_crl, Error},
-               {dir, Dir},
-               {module, ?MODULE},
-               {line, ?LINE}]),
-            []
+            {logger, {error, #{description => "CRL retrival",
+                               reason => [{cannot_find_crl, Error},
+                                          {dir, Dir}]}, ?LOCATION}, []}
     end;
 select([_ | Rest], CRLDbInfo) ->
     select(Rest, CRLDbInfo).
@@ -70,31 +64,28 @@ find_crls(Issuer, Dir) ->
     case filelib:is_dir(Dir) of
         true ->
 	    Hash = public_key:short_name_hash(Issuer),
-	    find_crls(Issuer, Hash, Dir, 0, []);
+	    find_crls(Issuer, Hash, Dir, 0, [], #{description => "CRL file traversal",
+                                                  reason => []});
         false ->
             {error, not_a_directory}
     end.
 
-find_crls(Issuer, Hash, Dir, N, Acc) ->
+find_crls(Issuer, Hash, Dir, N, Acc, #{reason := Reason} = Report) ->
     Filename = filename:join(Dir, Hash ++ ".r" ++ integer_to_list(N)),
     case file:read_file(Filename) of
 	{error, enoent} ->
-	    Acc;
-	{ok, Bin} ->
+            {Report, Acc};
+        {ok, Bin} ->
 	    try maybe_parse_pem(Bin) of
 		DER when is_binary(DER) ->
 		    %% Found one file.  Let's see if there are more.
-		    find_crls(Issuer, Hash, Dir, N + 1, [DER] ++ Acc)
+		    find_crls(Issuer, Hash, Dir, N + 1, [DER] ++ Acc, Report)
 	    catch
 		error:Error ->
 		    %% Something is wrong with the file.  Report
 		    %% it, and try the next one.
-		    ?LOG_ERROR(
-		      [{crl_parse_error, Error},
-		       {filename, Filename},
-		       {module, ?MODULE},
-		       {line, ?LINE}]),
-		    find_crls(Issuer, Hash, Dir, N + 1, Acc)
+		    find_crls(Issuer, Hash, Dir, N + 1, Acc, Report#{reason => [{{crl_parse_error, Error},
+                                                                                 {filename, Filename}} | Reason]})
 	    end
     end.
 

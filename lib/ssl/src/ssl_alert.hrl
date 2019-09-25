@@ -26,6 +26,7 @@
 
 -ifndef(ssl_alert).
 -define(ssl_alert, true).
+-include_lib("kernel/include/logger.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Alert protocol - RFC 2246 section 7.2
@@ -113,8 +114,8 @@
 -define(CERTIFICATE_REQUIRED, 116).
 -define(NO_APPLICATION_PROTOCOL, 120).
 
--define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
--define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where={?FILE, ?LINE},reason=Reason}).
+-define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where= ?LOCATION}).
+-define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where=?LOCATION,reason=Reason}).
 
 -define(MAX_ALERTS, 10).
 
@@ -122,7 +123,7 @@
 -record(alert, {
 	  level,
 	  description,
-          where = {?FILE, ?LINE},
+          where,
           role,
           reason
 	 }).

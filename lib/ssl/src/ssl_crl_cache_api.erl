@@ -23,13 +23,16 @@
 -module(ssl_crl_cache_api).
 -include_lib("public_key/include/public_key.hrl"). 
 
--export_type([dist_point/0, crl_cache_ref/0]).
+-export_type([dist_point/0, crl_cache_ref/0, logger_info/0]).
 
 -type crl_cache_ref() :: any().
 -type issuer_name() ::  {rdnSequence,[#'AttributeTypeAndValue'{}]}.
 -type dist_point()  :: #'DistributionPoint'{}.
+-type logger_info()     :: {logger:level(), Report::#{description => string(), reason => term()}, logger:metadata()}.
 
-  
--callback lookup(dist_point(), issuer_name(), crl_cache_ref()) -> not_available | [public_key:der_encoded()].
--callback select(issuer_name() | list(), crl_cache_ref()) ->  [public_key:der_encoded()].
--callback fresh_crl(dist_point(), public_key:der_encoded()) -> public_key:der_encoded().
+-callback lookup(dist_point(), issuer_name(), crl_cache_ref()) -> not_available | [public_key:der_encoded()] | 
+                                                                  {{logger, logger_info()}, [public_key:der_encoded()]}.
+-callback select(issuer_name() | list(), crl_cache_ref()) ->  [public_key:der_encoded()] |  
+                                                     {logger, logger_info(), [public_key:der_encoded()]}.
+-callback fresh_crl(dist_point(), public_key:der_encoded()) -> public_key:der_encoded() | 
+                                                               {logger, logger_info(),  public_key:der_encoded()}.
