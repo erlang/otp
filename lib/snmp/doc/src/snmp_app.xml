@@ -265,7 +265,7 @@
             {no_reuse,        no_reuse()} |  
 	    {req_limit,       req_limit()} |
             {filter,          agent_net_if_filter_options()} |
-	    {extra_sock_opts, <seealso marker="#extra_sock_opts">extra_socket_options()</seealso>}</c></p>
+	    {extra_sock_opts, extra_socket_options()}</c></p>
         <p>These options are actually specific to the used module.
           The ones shown here are applicable to the default 
           <c>agent_net_if_module()</c>.</p>
@@ -702,7 +702,7 @@
 	{recbuf,          recbuf()} | 
 	{no_reuse,        no_reuse()} |
 	{filter,          manager_net_if_filter_options()} |
-	{extra_sock_opts, <seealso marker="#extra_sock_opts">extra_socket_options()</seealso>}</c></p>
+	{extra_sock_opts, extra_socket_options()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>.</p>
