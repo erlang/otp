@@ -26,6 +26,8 @@
          log/1]).
 -export([init/1]).
 
+-include("snmp_test_lib.hrl").
+
 -define(NAME, ?MODULE).
 
 
@@ -56,7 +58,7 @@ init(Parent) ->
     process_flag(priority, high),
     case global:register_name(?NAME, self()) of
         yes ->
-            info_msg("Starting", []),
+            info_msg("Starting as ~p (on ~p)", [self(), node()]),
             proc_lib:init_ack(Parent, {ok, self()}),
             loop(#{parent => Parent, ev_cnt => 0, evs => []});
         no ->
@@ -110,7 +112,7 @@ process_event(State, Node, {Pid, TS, Tag, Info}) ->
 
 process_event(State, Node, {TS, starting}) ->
     FTS = snmp_misc:format_timestamp(TS),
-    info_msg("System Monitor on node ~p starting at ~s", [Node, FTS]),
+    info_msg("System Monitor starting on node ~p at ~s", [Node, FTS]),
     if
         (Node =/= node()) ->
             erlang:monitor_node(Node, true);
@@ -119,9 +121,20 @@ process_event(State, Node, {TS, starting}) ->
     end,
     State;
 
+process_event(State, Node, {TS, stopping}) ->
+    FTS = ?FTS(TS),
+    info_msg("System Monitor stopping on node ~p at ~s", [Node, FTS]),
+    if
+        (Node =/= node()) ->
+            erlang:monitor_node(Node, false);
+        true ->
+            ok
+    end,
+    State;
+
 process_event(State, Node, {TS, already_started}) ->
     FTS = snmp_misc:format_timestamp(TS),
-    info_msg("System Monitor on node ~p already started", [Node, FTS]),
+    info_msg("System Monitor already started on node ~p at ~s", [Node, FTS]),
     State;
 
 process_event(State, Node, nodedown) ->
