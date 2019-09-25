@@ -955,7 +955,7 @@ scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
     case catch list_to_integer(remove_digit_separators(Ncs, Us)) of
         B when B >= 2, B =< 1+$Z-$A+10 ->
             Bcs = Ncs++[$#],
-            scan_based_int(Cs, St, Line, Col, Toks, {B,[],Bcs}, no_underscore);
+            scan_based_int(Cs, St, Line, Col, Toks, B, [], Bcs, no_underscore);
         B ->
             Len = length(Ncs),
             scan_error({base,B}, Line, Col, Line, incr_column(Col, Len), Cs0)
@@ -982,18 +982,19 @@ remove_digit_separators(Number, with_underscore) ->
          orelse (C >= $A andalso B > 10 andalso C < $A + B - 10)
          orelse (C >= $a andalso B > 10 andalso C < $a + B - 10))).
 
-scan_based_int(Cs, St, Line, Col, Toks, {State,Us}) ->
-    scan_based_int(Cs, St, Line, Col, Toks, State, Us).
+scan_based_int(Cs, St, Line, Col, Toks, {B,NCs,BCs,Us}) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, NCs, BCs, Us).
 
-scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs}, Us) when
+scan_based_int([C|Cs], St, Line, Col, Toks, B, Ncs, Bcs, Us) when
       ?BASED_DIGIT(C, B) ->
-    scan_based_int(Cs, St, Line, Col, Toks, {B,[C|Ncs],Bcs}, Us);
-scan_based_int([$_,Next|Cs], St, Line, Col, Toks, {B,[Prev|_]=Ncs,Bcs}, _Us) when
-      ?BASED_DIGIT(Next, B) andalso ?BASED_DIGIT(Prev, B) ->
-    scan_based_int(Cs, St, Line, Col, Toks, {B,[Next,$_|Ncs],Bcs}, with_underscore);
-scan_based_int([]=Cs, _St, Line, Col, Toks, State, Us) ->
-    {more,{Cs,Col,Toks,Line,{State,Us},fun scan_based_int/6}};
-scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}, Us) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, [C|Ncs], Bcs, Us);
+scan_based_int([$_,Next|Cs], St, Line, Col, Toks, B, [Prev|_]=Ncs, Bcs, _Us)
+      when ?BASED_DIGIT(Next, B) andalso ?BASED_DIGIT(Prev, B) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, [Next,$_|Ncs], Bcs,
+                   with_underscore);
+scan_based_int([]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int(Cs, St, Line, Col, Toks, B, Ncs0, Bcs, Us) ->
     Ncs = lists:reverse(Ncs0),
     case catch erlang:list_to_integer(remove_digit_separators(Ncs, Us), B) of
         N when is_integer(N) ->
