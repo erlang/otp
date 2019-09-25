@@ -1624,6 +1624,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
     int is_decentralized_counters;
+    int is_decentralized_counters_option;
     int cret;
     DbTableMethod* meth;
 
@@ -1639,7 +1640,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     is_named = 0;
     is_fine_locked = 0;
     frequent_read = 0;
-    is_decentralized_counters = 1;
+    is_decentralized_counters = 0;
+    is_decentralized_counters_option = -1;
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
@@ -1656,6 +1658,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_ordered_set) {
+            is_decentralized_counters = 1;
 	    status |= DB_ORDERED_SET;
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET);
 	}
@@ -1686,9 +1689,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		}
                 else if (tp[1] == am_decentralized_counters) {
 		    if (tp[2] == am_true) {
-			is_decentralized_counters = 1;
+			is_decentralized_counters_option = 1;
 		    } else if (tp[2] == am_false) {
-			is_decentralized_counters = 0;
+			is_decentralized_counters_option = 0;
 		    } else break;
                 }
 		else break;
@@ -1723,6 +1726,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
+    }
+    if (-1 != is_decentralized_counters_option) {
+        is_decentralized_counters = is_decentralized_counters_option;
     }
     if (IS_TREE_TABLE(status) && is_fine_locked && !(status & DB_PRIVATE)) {
         meth = &db_catree;

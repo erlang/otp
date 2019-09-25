@@ -45,7 +45,7 @@
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
          test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1,
-         test_disable_decentralized_counters/1]).
+         test_decentralized_counters_setting/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_iter_bag/1,
@@ -161,11 +161,12 @@ all() ->
      take,
      whereis_table,
      delete_unfix_race,
-     test_throughput_benchmark,
-     {group, benchmark},
+     %test_throughput_benchmark,
+     %{group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
-     test_delete_table_while_size_snapshot].
+     test_delete_table_while_size_snapshot,
+     test_decentralized_counters_setting].
 
 
 groups() ->
@@ -4837,18 +4838,21 @@ repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
           end),
     repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes).
 
-test_disable_decentralized_counters(Config) when is_list(Config) ->
-    do_test_disable_decentralized_counters(set),
-    do_test_disable_decentralized_counters(ordered_set),
+test_decentralized_counters_setting(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    do_test_decentralized_counters_setting(set),
+    do_test_decentralized_counters_setting(ordered_set),
+    do_test_decentralized_counters_default_setting(),
+    verify_etsmem(EtsMem),
     ok.
 
-do_test_disable_decentralized_counters(TableType) ->
+do_test_decentralized_counters_setting(TableType) ->
     wait_for_memory_deallocations(),
     FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
     lists:foreach(
       fun(OptList) ->
-              T1 = ets:new(t1, [public, TableType] ++ OptList),
-              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+              T1 = ets:new(t1, [public, TableType] ++ OptList ++ [TableType]),
+              check_decentralized_counters(T1, false, FlxCtrMemUsage),
               ets:delete(T1)
       end,
       [[{write_concurrency, false}],
@@ -4857,18 +4861,38 @@ do_test_disable_decentralized_counters(TableType) ->
       fun(OptList) ->
               T1 = ets:new(t1, [public,
                                 TableType,
-                                {write_concurrency, true}] ++ OptList),
-              case erts_debug:get_internal_state(flxctr_memory_usage) of
-                  notsup -> ok;
-                  X when X > FlxCtrMemUsage -> ok;
-                  _ -> ct:fail("Decentralized counter not used.")
-              end,
+                                {write_concurrency, true}] ++ OptList ++ [TableType]),
+              check_decentralized_counters(T1, true, FlxCtrMemUsage),
               ets:delete(T1),
               wait_for_memory_deallocations(),
               FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage)
       end,
-      [[], [{decentralized_counters, true}]]),
+      [[{decentralized_counters, true}]]),
     ok.
+
+do_test_decentralized_counters_default_setting() ->
+    wait_for_memory_deallocations(),
+    FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+    Set = ets:new(t1, [public, {write_concurrency, true}]),
+    check_decentralized_counters(Set, false, FlxCtrMemUsage),
+    ets:delete(Set),
+    Set2 = ets:new(t1, [public, set, {write_concurrency, true}]),
+    check_decentralized_counters(Set2, false, FlxCtrMemUsage),
+    ets:delete(Set2),
+    OrdSet = ets:new(t1, [public, ordered_set, {write_concurrency, true}]),
+    check_decentralized_counters(OrdSet, true, FlxCtrMemUsage),
+    ets:delete(OrdSet),
+    ok.
+
+check_decentralized_counters(T, ExpectedState, InitMemUsage) ->
+    case {ExpectedState, erts_debug:get_internal_state(flxctr_memory_usage)} of
+        {false, notsup} -> ok;
+        {false, X} -> InitMemUsage = X;
+        {true, notsup} -> ok;
+        {true, X} when X > InitMemUsage -> ok;
+        {true, _} -> ct:fail("Decentralized counter not used.")
+    end,
+    ExpectedState = ets:info(T, decentralized_counters).
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->

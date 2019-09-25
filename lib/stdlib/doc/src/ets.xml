@@ -552,6 +552,13 @@ Error: fun containing local Erlang function calls
           for a table identifier, but does not refer to an existing ETS
           table, <c>undefined</c> is returned. If <c><anno>Tab</anno></c> is
           not of the correct type, a <c>badarg</c> exception is raised.</p>
+         <p><em>Performance Information</em></p>
+         <p>The execution time of this function is affected by
+          the <seealso marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seealso> table option.
+          The execution time is much longer when the <c>decentralized_counters</c>
+          option is set to <c>true</c> than when the <c>decentralized_counters</c>
+          option is set to <c>false</c>.</p>
         <taglist>
           <tag><c>{compressed, boolean()}</c></tag>
           <item>
@@ -705,6 +712,14 @@ Error: fun containing local Erlang function calls
             <p>Returns internal statistics about tables on an internal format
 	    used by OTP test suites. Not for production use.</p></item>
         </list>
+         <p><em>Performance Information</em></p>
+         <p>The execution time of this function is affected by
+          the <seealso marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seealso> table option when the second
+          argument of the function is <c>size</c> or <c>memory</c>.
+          The execution time is much longer when the <c>decentralized_counters</c>
+          option is set to <c>true</c> than when the <c>decentralized_counters</c>
+          option is set to <c>false</c>.</p>
       </desc>
     </func>
 
@@ -1223,11 +1238,13 @@ ets:select(Table, MatchSpec),</code>
               write bursts are common; for more information, see option
               <seealso marker="#new_2_read_concurrency">
               <c>read_concurrency</c></seealso>. The <c>decentralized_counters</c>
-              option is turned on by default when <c>write_concurrency</c> is enabled.
-              One may benefit from turning the <c>decentralized_counters</c> off if
-              calls to <seealso marker="#info/1"><c>info/1</c></seealso> or
-              <seealso marker="#info/2"><c>info/2</c></seealso> with <c>size</c> or
-              <c>memory</c> as parameter are frequent.</p>
+              option is turned on by default for tables of type <c>ordered_set</c>
+              with the <c>write_concurrency</c> option enabled, and the
+              <c>decentralized_counters</c> option is turned off by default for
+              all other table types.
+              For more information, see the documentation for the
+              <seealso marker="#new_2_decentralized_counters">
+              <c>decentralized_counters</c></seealso> option.</p>
             <p>Notice that this option does not change any guarantees about
               <seealso marker="#concurrency">atomicity and isolation</seealso>.
               Functions that makes such promises over many objects (like
@@ -1274,20 +1291,26 @@ ets:select(Table, MatchSpec),</code>
           <tag><c>{decentralized_counters,boolean()}</c></tag>
           <item>
             <p>
-              Performance tuning. Defaults to <c>true</c> when the
+              Performance tuning. Defaults to <c>true</c> for tables
+              of type <c>ordered_set</c> with the
               <seealso marker="#new_2_write_concurrency">
-              <c>write_concurrency</c></seealso> option is set to
-              <c>true</c>. This option has no effect if the
+              <c>write_concurrency</c></seealso> option enabled,
+              and defaults to false for all other
+              table types. This option has no effect if the
               <c>write_concurrency</c> option is set to
               <c>false</c>. When this option is set to <c>true</c>,
               the table is optimized for few calls to <seealso
               marker="#info/1"><c>info/1</c></seealso> or <seealso
               marker="#info/2"><c>info/2</c></seealso> with
-              <c>size</c> or <c>memory</c> as the second parameter and
+              <c>size</c> or <c>memory</c> as the second argument and
               frequent calls to operations that modify the table
               (e.g., <seealso
-              marker="#insert/2"><c>insert/2</c></seealso>, <seealso
-              marker="#delete/2"><c>delete/2</c></seealso>)
+              marker="#insert/2"><c>insert/2</c></seealso> and <seealso
+              marker="#delete/2"><c>delete/2</c></seealso>).
+              Calls to <seealso marker="#info/1"><c>info/1</c></seealso> and
+              <seealso marker="#info/2"><c>info/2</c></seealso> with <c>size</c> or
+              <c>memory</c> as the second argument get much slower when the
+              <c>decentralized_counters</c> option is turned on.
             </p>
             <p>
               When this option is enabled the counters for the
