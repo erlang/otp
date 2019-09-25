@@ -426,8 +426,15 @@
 	    The result is returned to the client.</p>
 	  </item>
 
-	  <tag>2. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
-	  is present
+	  <tag>2. If the <seealso marker="#type-exec_daemon_option"><c>exec_spec</c></seealso>'s value is <c>disabled</c>
+	  (the <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso> may or may not be present):</tag>
+	  <item>
+	    <p>No exec-requests are executed but shell-requests are not affected, they follow the
+	    <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>'s value.</p>
+	  </item>
+
+	  <tag>3. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
+	  is present and the <seealso marker="#type-exec_daemon_option"><c>exec_spec</c></seealso> value =/= <c>disabled</c>
 	  (the <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso> may or may not be present):</tag>
 	  <item>
 	    <p>The <seealso marker="#type-exec_daemon_option"><c>exec_spec</c></seealso>
@@ -438,7 +445,7 @@
 	    </p>
 	  </item>
 	  
-	  <tag>3. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
+	  <tag>4. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
 	  <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso>
 	  is present with the default Erlang shell as the
 	  <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>'s
@@ -448,15 +455,21 @@
 	    The result is returned to the client.</p>
 	  </item>
 	  
-	  <tag>4. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
+	  <tag>5. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
 	  <seealso marker="#type-shell_daemon_option"><c>shell-option</c></seealso>
-	  is present with a value that is not the default Erlang shell:</tag>
+	  is present with a value that is neither the default Erlang shell nor the value <c>disabled</c>:</tag>
 	  <item>
 	    <p>The exec-request is not evaluated and an error message is returned to the client. Shell-requests
 	    are executed according to the value of the
 	    <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>.</p>
 	  </item>
 	  
+	  <tag>6. If the <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso> is absent, and the
+	  <seealso marker="#type-shell_daemon_option"><c>shell_spec</c></seealso>'s value is <c>disabled</c>:</tag>
+	  <item>
+	    <p>Exec requests are executed by the default shell, but shell-requests are not executed.</p>
+	  </item>
+
 	</taglist>
 	<p>If a custom CLI is installed (see the option
 	<seealso marker="#type-ssh_cli_daemon_option"><c>ssh_cli</c></seealso>)
@@ -465,7 +478,7 @@
 	<note>
 	  <p>The <seealso marker="#type-exec_daemon_option"><c>exec-option</c></seealso>
 	  has existed for a long time but has not previously been documented. The old
-	  definition and behaviour are retained but obey the rules 1-4 above if conflicting.
+	  definition and behaviour are retained but obey the rules 1-6 above if conflicting.
 	  The old and undocumented style should not be used in new programs.</p>
 	</note>
       </desc>
