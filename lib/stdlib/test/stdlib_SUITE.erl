@@ -22,12 +22,11 @@
 %%%-----------------------------------------------------------------
 -module(stdlib_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+         app_test/1, appup_test/1, assert_test/1]).
 
--compile(export_all).
-
-%%
-%% all/1
-%%
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
