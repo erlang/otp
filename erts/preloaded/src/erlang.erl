@@ -66,6 +66,7 @@
 -export_type([deprecated_time_unit/0]).
 
 -type ext_binary() :: binary().
+-type ext_iovec() :: iovec().
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
                       Secs :: non_neg_integer(),
                       MicroSecs :: non_neg_integer()}.
@@ -183,7 +184,9 @@
          process_info/2, send/2, send/3, seq_trace_info/1,
          setelement/3, spawn_opt/1,
 	 statistics/1, subtract/2, system_flag/2,
-         term_to_binary/1, term_to_binary/2, tl/1, trace_pattern/2,
+         term_to_binary/1, term_to_binary/2,
+         term_to_iovec/1, term_to_iovec/2,
+         tl/1, trace_pattern/2,
          trace_pattern/3, tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
@@ -2594,9 +2597,22 @@ term_to_binary(_Term) ->
 -spec term_to_binary(Term, Options) -> ext_binary() when
       Term :: term(),
       Options :: [compressed |
-                  {compressed, Level :: 0..9} |
-                  {minor_version, Version :: 0..2} ].
+         {compressed, Level :: 0..9} |
+         {minor_version, Version :: 0..2} ].
 term_to_binary(_Term, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec term_to_iovec(Term) -> ext_iovec() when
+      Term :: term().
+term_to_iovec(_Term) ->
+    erlang:nif_error(undefined).
+
+-spec term_to_iovec(Term, Options) -> ext_iovec() when
+      Term :: term(),
+      Options :: [compressed |
+         {compressed, Level :: 0..9} |
+         {minor_version, Version :: 0..2} ].
+term_to_iovec(_Term, _Options) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:tl/1
@@ -3373,7 +3389,7 @@ dist_ctrl_put_data(_DHandle, _Data) ->
 -spec erlang:dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
       Size :: non_neg_integer(),
       DHandle :: dist_handle(),
-      Data :: iodata().
+      Data :: iovec().
 
 dist_ctrl_get_data(_DHandle) ->
     erlang:nif_error(undefined).

@@ -68,7 +68,9 @@
          message_latency_large_link_exit/1,
          message_latency_large_monitor_exit/1,
          message_latency_large_exit2/1,
-         system_limit/1]).
+         system_limit/1,
+         hopefull_data_encoding/1,
+         mk_hopefull_data/0]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -97,7 +99,8 @@ all() ->
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
-     start_epmd_false, epmd_module, system_limit].
+     start_epmd_false, epmd_module, system_limit,
+     hopefull_data_encoding].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -2567,6 +2570,134 @@ address_please(_Name, _Address, _AddressFamily) ->
     IP = {127,0,0,1},
     {ok, IP}.
 
+hopefull_data_encoding(Config) when is_list(Config) ->
+    test_hopefull_data_encoding(Config, true),
+    test_hopefull_data_encoding(Config, false).
+
+test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
+    {ok, ProxyNode} = start_node(hopefull_data_normal),
+    {ok, BouncerNode} = start_node(hopefull_data_bouncer, "-hidden"),
+    case Fallback of
+        false ->
+            ok;
+        true ->
+            rpc:call(BouncerNode, erts_debug, set_internal_state,
+                     [available_internal_state, true]),
+            false = rpc:call(BouncerNode, erts_debug, set_internal_state,
+                            [remove_hopefull_dflags, true])
+    end,
+    HData = mk_hopefull_data(),
+    Tester = self(),
+    R1 = make_ref(),
+    R2 = make_ref(),
+    R3 = make_ref(),
+    Bouncer = spawn_link(BouncerNode, fun () -> bounce_loop() end),
+    Proxy = spawn_link(ProxyNode,
+                       fun () ->
+                               register(bouncer, self()),
+                               %% Verify same result between this node and tester
+                               Tester ! [R1, HData],
+                               %% Test when connection has not been setup yet
+                               Bouncer ! {Tester, [R2, HData]}, 
+                               Sync = make_ref(),
+                               Bouncer ! {self(), Sync},
+                               receive Sync -> ok end,
+                               %% Test when connection is already up
+                               Bouncer ! {Tester, [R3, HData]},
+                               receive after infinity -> ok end
+                       end),
+    receive
+        [R1, HData1] ->
+            Hdata = HData1
+    end,
+    receive
+        [R2, HData2] ->
+            case Fallback of
+                false ->
+                    HData = HData2;
+                true ->
+                    check_hopefull_fallback_data(Hdata, HData2)
+            end
+    end,
+    receive
+        [R3, HData3] ->
+            case Fallback of
+                false ->
+                    HData = HData3;
+                true ->
+                    check_hopefull_fallback_data(Hdata, HData3)
+            end
+    end,
+    unlink(Proxy),
+    exit(Proxy, bye),
+    unlink(Bouncer),
+    exit(Bouncer, bye),
+    stop_node(ProxyNode),
+    stop_node(BouncerNode),
+    ok.
+
+bounce_loop() ->
+    receive
+        {SendTo, Data} ->
+            SendTo ! Data
+    end,
+    bounce_loop().
+
+mk_hopefull_data() ->
+    HugeBs = list_to_bitstring([lists:duplicate(12*1024*1024, 85), <<6:6>>]),
+    <<_:1/bitstring,HugeBs2/bitstring>> = HugeBs,
+    lists:flatten([mk_hopefull_data(list_to_binary(lists:seq(1,255))),
+                   1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
+                   self(), fun erlang:self/0,
+                   mk_hopefull_data(list_to_binary(lists:seq(1,32))), an_atom,
+                   fun lists:reverse/1, make_ref(), HugeBs2,
+                   fun blipp:blapp/7]).
+
+mk_hopefull_data(BS) ->
+    BSsz = bit_size(BS),
+    [lists:map(fun (Offset) ->
+                       <<_:Offset/bitstring, NewBs/bitstring>> = BS,
+                       NewBs
+               end, lists:seq(1, 16)),
+     lists:map(fun (Offset) ->
+                       <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                       NewBs
+               end, lists:seq(BSsz-16, BSsz-1)),
+     lists:map(fun (Offset) ->
+                       PreOffset = Offset rem 16,
+                       <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
+                       NewBs
+               end, lists:seq(BSsz-32, BSsz-17))].
+    
+
+check_hopefull_fallback_data([], []) ->
+    ok;
+check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
+    chk_hopefull_fallback(X, Y),
+    check_hopefull_fallback_data(Xs,Ys).
+
+chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
+    Binary = FallbackBinary;
+chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
+    true = is_binary(Bin),
+    true = is_integer(BitSize),
+    true = BitSize > 0,
+    true = BitSize < 8,
+    Hsz = size(Bin) - 1,
+    <<Head:Hsz/binary, I/integer>> = Bin,
+    IBits = I bsr (8 - BitSize),
+    FallbackBitStr = list_to_bitstring([Head,<<IBits:BitSize>>]),
+    BitStr = FallbackBitStr,
+    ok;
+chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
+    {M, F, _} = erlang:fun_info_mfa(Func),
+    M = ModName,
+    F = FuncName,
+    ok;
+chk_hopefull_fallback(Other, SameOther) ->
+    Other = SameOther,
+    ok.
+
 %%% Utilities
 
 timestamp() ->
@@ -3034,3 +3165,5 @@ free_memory() ->
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
+
+

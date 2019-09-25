@@ -72,7 +72,8 @@
          robustness/1,otp_8117/1,
 	 otp_8180/1, trapping/1, large/1,
 	 error_after_yield/1, cmp_old_impl/1,
-         t2b_system_limit/1]).
+         t2b_system_limit/1,
+         term_to_iovec/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -91,7 +92,7 @@ all() ->
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
-     bad_term_to_binary, t2b_system_limit, more_bad_terms,
+     bad_term_to_binary, t2b_system_limit, term_to_iovec, more_bad_terms,
      otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
@@ -454,6 +455,7 @@ bad_term_to_binary(Config) when is_list(Config) ->
     T = id({a,b,c}),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, not_a_list)),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [blurf])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [iovec])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,-1}])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,10}])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,cucumber}])),
@@ -471,7 +473,8 @@ t2b_system_limit(Config) when is_list(Config) ->
                                      memsup:get_system_memory_data()) of
                 Memory when is_integer(Memory),
                             Memory > 6*1024*1024*1024 ->
-                    test_t2b_system_limit(),
+                    test_t2b_system_limit(term_to_binary, fun erlang:term_to_binary/1, fun erlang:term_to_binary/2),
+                    test_t2b_system_limit(term_to_iovec, fun erlang:term_to_iovec/1, fun erlang:term_to_iovec/2),
                     garbage_collect(),
                     ok;
                 _ ->
@@ -481,36 +484,80 @@ t2b_system_limit(Config) when is_list(Config) ->
             {skipped, "Only interesting on 64-bit builds"}
     end.
 
-test_t2b_system_limit() ->
+test_t2b_system_limit(Name, F1, F2) ->
     io:format("Creating HugeBin~n", []),
     Bits = ((1 bsl 32)+1)*8,
     HugeBin = <<0:Bits>>,
 
-    io:format("Testing term_to_binary(HugeBin)~n", []),
-    {'EXIT',{system_limit,[{erlang,term_to_binary,
+    io:format("Testing ~p(HugeBin)~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,
                             [HugeBin],
-                            _} |_]}} = (catch term_to_binary(HugeBin)),
+                            _} |_]}} = (catch F1(HugeBin)),
 
-    io:format("Testing term_to_binary(HugeBin, [compressed])~n", []),
-    {'EXIT',{system_limit,[{erlang,term_to_binary,
+    io:format("Testing ~p(HugeBin, [compressed])~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,
                             [HugeBin, [compressed]],
-                            _} |_]}} = (catch term_to_binary(HugeBin, [compressed])),
+                            _} |_]}} = (catch F2(HugeBin, [compressed])),
 
     %% Check that it works also after we have trapped...
     io:format("Creating HugeListBin~n", []),
     HugeListBin = [lists:duplicate(2000000,2000000), HugeBin],
 
-    io:format("Testing term_to_binary(HugeListBin)~n", []),
-    {'EXIT',{system_limit,[{erlang,term_to_binary,
+    io:format("Testing ~p(HugeListBin)~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,
                             [HugeListBin],
-                            _} |_]}} = (catch term_to_binary(HugeListBin)),
+                            _} |_]}} = (catch F1(HugeListBin)),
 
-    io:format("Testing term_to_binary(HugeListBin, [compressed])~n", []),
-    {'EXIT',{system_limit,[{erlang,term_to_binary,
+    io:format("Testing ~p(HugeListBin, [compressed])~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,
                             [HugeListBin, [compressed]],
-                            _} |_]}} = (catch term_to_binary(HugeListBin, [compressed])),
+                            _} |_]}} = (catch F2(HugeListBin, [compressed])),
 
     ok.
+
+term_to_iovec(Config) when is_list(Config) ->
+    Bin = list_to_binary(lists:duplicate(1000,100)),
+    Bin2 = list_to_binary(lists:duplicate(65,100)),
+    check_term_to_iovec({[Bin, atom, Bin, 1244, make_ref(), Bin]}),
+    check_term_to_iovec(Bin),
+    check_term_to_iovec([Bin,Bin,Bin,Bin]),
+    check_term_to_iovec(blipp),
+    check_term_to_iovec(lists:duplicate(1000,100)),
+    check_term_to_iovec([[Bin2]]),
+    check_term_to_iovec([erlang:ports(), Bin, erlang:processes()]),
+    ok.
+
+check_term_to_iovec(Term) ->
+    IoVec1 = erlang:term_to_iovec(Term),
+    ok = check_is_iovec(IoVec1),
+    IoVec2 = erlang:term_to_iovec(Term, []),
+    ok = check_is_iovec(IoVec2),
+    B = erlang:term_to_binary(Term),
+    IoVec1Bin = erlang:iolist_to_binary(IoVec1),
+    IoVec2Bin = erlang:iolist_to_binary(IoVec2),
+    try
+        B = IoVec1Bin
+    catch
+        _:_ ->
+            io:format("Binary: ~p~n", [B]),
+            io:format("I/O vec1 binary: ~p~n", [IoVec1Bin]),
+            io:format("I/O vec1: ~p~n", [IoVec1]),
+            ct:fail(not_same_result)
+    end,
+    try
+        B = IoVec2Bin
+    catch
+        _:_ ->
+            io:format("Binary: ~p~n", [B]),
+            io:format("I/O vec2 binary: ~p~n", [IoVec2Bin]),
+            io:format("I/O vec2: ~p~n", [IoVec2]),
+            ct:fail(not_same_result)
+    end.
+    
+check_is_iovec([]) ->
+    ok;
+check_is_iovec([B|Bs]) when is_binary(B) ->
+    check_is_iovec(Bs).
 
 %% Tests binary_to_term/1 and term_to_binary/1.
 
@@ -1824,9 +1871,16 @@ huge_iolist(X, Sz, Lim) ->
     huge_iolist([X, X], Sz*2, Lim).
 
 cmp_node(Node, {M, F, A}) ->
-    Res = rpc:call(Node, M, F, A),
+    ResN = rpc:call(Node, M, F, A),
     Res = apply(M, F, A),
-    ok.
+    case ResN =:= Res of
+        true ->
+            ok;
+        false ->
+            io:format("~p: ~p~n~p: ~p~n",
+                      [Node, ResN, node(), Res]),
+            ct:fail(different_results)
+    end.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),

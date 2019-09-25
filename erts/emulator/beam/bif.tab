@@ -144,6 +144,8 @@ bif erlang:split_binary/2
 bif erlang:statistics/1
 bif erlang:term_to_binary/1
 bif erlang:term_to_binary/2
+bif erlang:term_to_iovec/1
+bif erlang:term_to_iovec/2
 bif erlang:throw/1
 bif erlang:time/0
 ubif erlang:tl/1

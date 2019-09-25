@@ -260,6 +260,7 @@ connection({call, From}, dist_get_tls_socket,
     {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
+    false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
     ok = ssl_connection:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
@@ -271,7 +272,7 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               [];
           Data ->
               [{next_event, internal,
-               {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
+               {application_packets,{self(),undefined},Data}}]
       end]};
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
@@ -293,7 +294,7 @@ connection(info, dist_data, #data{static = #static{dist_handle = DHandle}}) ->
               [];
           Data ->
               [{next_event, internal,
-               {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
+               {application_packets,{self(),undefined},Data}}]
       end};
 connection(info, tick, StateData) ->  
     consume_ticks(),
@@ -503,15 +504,14 @@ dist_data(DHandle) ->
         %% since the emulator will always deliver a Data
         %% smaller than 4 GB, and the distribution will
         %% therefore always have to use {packet,4}
-        Data when is_binary(Data) ->
-            Len = byte_size(Data),
-            [[<<Len:32>>,Data]|dist_data(DHandle)];
-        [BA,BB] = Data ->
-            Len = byte_size(BA) + byte_size(BB),
-            [[<<Len:32>>|Data]|dist_data(DHandle)];
-        Data when is_list(Data) ->
-            Len = iolist_size(Data),
-            [[<<Len:32>>|Data]|dist_data(DHandle)]
+        {Len, Data} ->
+            %% Data is of type iovec(); lets keep it
+            %% as an iovec()...
+            Packet = [<<Len:32>> | Data],
+            case dist_data(DHandle) of
+                [] -> Packet;
+                More -> Packet ++ More
+            end
     end.
 
 
