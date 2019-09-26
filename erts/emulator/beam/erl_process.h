@@ -1007,6 +1007,7 @@ struct process {
     Uint dt_utag_flags;         /* flag field for the dt_utag */
 #endif
     union {
+        struct process *real_proc;
 	void *terminate;
 	ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
                                    often used instead of pointer to funcinfo
@@ -1138,45 +1139,93 @@ void erts_check_for_holes(Process* p);
     (((erts_aint32_t) 1) << (ERTS_PSFLGS_ZERO_BIT_OFFSET + (N)))
 
 /*
- * ACT_PRIO -> Active prio, i.e., currently active prio. This
- *             prio may be higher than user prio.
- * USR_PRIO -> User prio. i.e., prio the user has set.
- * PRQ_PRIO -> Prio queue prio, i.e., prio queue currently
- *             enqueued in. 
  *
  * Update etp-proc-state-int in $ERL_TOP/erts/etc/unix/etp-commands.in
  * when changing ERTS_PSFLG_*.
  */
+/* ACT_PRIO - Active prio, i.e., currently active prio. This
+   prio may be higher than user prio */
 #define ERTS_PSFLGS_ACT_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_ACT_PRIO_OFFSET)
+/* USR_PRIO - User prio. i.e., prio the user has set */
 #define ERTS_PSFLGS_USR_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_USR_PRIO_OFFSET)
+/* PRQ_PRIO - Prio queue prio, i.e., prio queue this process
+   struct is currently enqueued in */
 #define ERTS_PSFLGS_PRQ_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_PRQ_PRIO_OFFSET)
+/* ERTS_PSFLG_IN_PRQ_MAX - Process in max prio on some
+   run queue (may be in multiple prio at the same time
+   via proxy process structures) */
 #define ERTS_PSFLG_IN_PRQ_MAX 		ERTS_PSFLG_BIT(0)
+/* ERTS_PSFLG_IN_PRQ_HIGH - Process in high prio on some
+   run queue (may be in multiple prio at the same time
+   via proxy process structures) */
 #define ERTS_PSFLG_IN_PRQ_HIGH		ERTS_PSFLG_BIT(1)
+/* ERTS_PSFLG_IN_PRQ_LOW - Process in low prio on some
+   run queue (may be in multiple prio at the same time
+   via proxy process structures) */
 #define ERTS_PSFLG_IN_PRQ_NORMAL	ERTS_PSFLG_BIT(2)
+/* ERTS_PSFLG_IN_PRQ_LOW - Process in normal prio on some
+   run queue (may be in multiple prio at the same time
+   via proxy process structures) */
 #define ERTS_PSFLG_IN_PRQ_LOW 		ERTS_PSFLG_BIT(3)
+/* FREE - Process is exiting, but not visible in
+   process table. Both EXITING and ACTIVE should
+   always be set when FREE */
 #define ERTS_PSFLG_FREE			ERTS_PSFLG_BIT(4)
+/* EXITING - Process is exiting, but still visible in
+   process table. Always ACTIVE while EXITING. Never
+   SUSPENDED unless also FREE. */
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
+/* UNUSED */
 #define ERTS_PSFLG_UNUSED		ERTS_PSFLG_BIT(6)
+/* ACTIVE - Process "wants" to execute */
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
+/* IN_RUNQ - Real process (not proxy) struct used in a
+   run queue */
 #define ERTS_PSFLG_IN_RUNQ		ERTS_PSFLG_BIT(8)
+/* RUNNING - Executing in process_main() */
 #define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(9)
+/* SUSPENDED - Process suspended; supress active but
+   not active-sys nor dirty-active-sys */
 #define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(10)
+/* GC - gc */
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
+/* SYS_TASKS - Have normal system tasks scheduled */
 #define ERTS_PSFLG_SYS_TASKS		ERTS_PSFLG_BIT(12)
+/* SIG_IN_Q - Have unhandled signals in signal in-queue */
 #define ERTS_PSFLG_SIG_IN_Q		ERTS_PSFLG_BIT(13)
+/* ACTIVE_SYS - Process "wants" to execute normal system
+   tasks or handle signals */
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
+/* RUNNING_SYS - Process is executing normal system
+   tasks or handling signals */
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
+/* PROXY - Current process struct is a proxy process
+   struct */
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
+/* DELAYED_SYS - Have delayed (gc) system tasks (gc
+   is disabled on process) */
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
+/* OFF_HEAP_MSGQ - Process have off heap message queue */
 #define ERTS_PSFLG_OFF_HEAP_MSGQ	ERTS_PSFLG_BIT(18)
+/* SIG_Q - Have unhandled signals in private (middle)
+   signal queue */
 #define ERTS_PSFLG_SIG_Q		ERTS_PSFLG_BIT(19)
+/* DIRTY_CPU_PROC - Process wants to reschedule onto a
+   dirty cpu scheduler */
 #define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(20)
+/* DIRTY_IO_PROC - Process wants to reschedule onto a
+   dirty io scheduler */
 #define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(21)
+/* DIRTY_ACTIVE_SYS - Process "wants" to execute dirty
+   system tasks */
 #define ERTS_PSFLG_DIRTY_ACTIVE_SYS	ERTS_PSFLG_BIT(22)
+/* DIRTY_RUNNING - Executing in erts_dirty_process_main() */
 #define ERTS_PSFLG_DIRTY_RUNNING	ERTS_PSFLG_BIT(23)
+/* DIRTY_RUNNING_SYS - Process is executing dirty system
+   tasks */    
 #define ERTS_PSFLG_DIRTY_RUNNING_SYS	ERTS_PSFLG_BIT(24)
 
 #define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 24)
