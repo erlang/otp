@@ -1456,7 +1456,15 @@ socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
 		 [];
 	     Sz ->
 		 [{sndbuf, Sz}]
-	 end].
+	 end] ++
+        case get_extra_sock_opts(Opts) of
+            ESO when is_list(ESO) ->
+                ESO;
+            BadESO ->
+                error_msg("Invalid 'extra socket options' (=> ignored):"
+                          "~n   ~p", [BadESO]),
+                []
+        end.
 
 
 %% ----------------------------------------------------------------
@@ -1509,6 +1517,9 @@ get_no_reuse_address(Opts) ->
 
 get_bind_to_ip_address(Opts) ->
     snmp_misc:get_option(bind_to, Opts, false).
+
+get_extra_sock_opts(Opts) ->
+    snmp_misc:get_option(extra_sock_opts, Opts, []).
 
 
 %% ----------------------------------------------------------------
