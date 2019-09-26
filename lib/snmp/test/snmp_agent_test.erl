@@ -294,7 +294,13 @@
 	 otp_4394/1, 
 
 	 %% all_tcs - tickets1 - otp7157
-	 otp_7157/1, 
+	 otp_7157/1,
+
+         %% all_tcs - tickets1 - otp16092
+         otp_16092_simple_start_and_stop1/1,
+         otp_16092_simple_start_and_stop2/1,
+         otp_16092_simple_start_and_stop3/1,
+         otp_16092_simple_start_and_stop4/1,
 
 	 %% tickets2
 	 otp8395/1, 
@@ -414,7 +420,7 @@
 	 mnesia_init/1, 
 	 mnesia_start/0, 
 	 mnesia_stop/0, 
-	 start_stdalone_agent/1, 
+	 start_standalone_agent/1, 
 	 do_info/1
 	]).
 
@@ -427,6 +433,7 @@
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/agent/snmpa_atl.hrl").
 
+-define(ALIB, snmp_agent_test_lib).
 
 -define(klas1, [1,3,6,1,2,1,7]).
 -define(klas2, [1,3,6,1,2,1,9]).
@@ -538,7 +545,8 @@ groups() ->
      {tickets1,                      [], tickets1_cases()}, 
      {tickets2,                      [], tickets2_cases()}, 
      {otp4394,                       [], [otp_4394]},
-     {otp7157,                       [], [otp_7157]}
+     {otp7157,                       [], [otp_7157]},
+     {otp16092,                      [], otp16092_cases()}
     ].
 
 
@@ -795,6 +803,17 @@ init_per_testcase1(otp_7157 = _Case, Config) when is_list(Config) ->
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(1)),
     [{watchdog, Dog} | Config ];
+init_per_testcase1(Case, Config) 
+  when ((Case =:= otp_16092_simple_start_and_stop1)  orelse
+        (Case =:= otp_16092_simple_start_and_stop2)  orelse
+        (Case =:= otp_16092_simple_start_and_stop3)  orelse
+        (Case =:= otp_16092_simple_start_and_stop4)) andalso
+       is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [_Case, Config]),
+    Dog = ?WD_START(?MINS(1)),
+    init_per_testcase2(Case, [{watchdog, Dog} | Config]);
 init_per_testcase1(v2_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
@@ -6541,9 +6560,10 @@ otp_3725_test(MaNode) ->
 tickets1_cases() ->
     [
      {group, otp4394}, 
-     {group, otp7157}
+     {group, otp7157}, 
+     {group, otp16092}
     ].
-    
+
 
 otp_4394_init(Config) when is_list(Config) ->
     ?DBG("otp_4394_init -> entry with"
@@ -6633,8 +6653,6 @@ otp_4394_test() ->
 %% Slogan: Target mib tag list check invalid
 %%-----------------------------------------------------------------
 
-
-
 otp_7157_init(Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
     Skippable = [win32],
@@ -6695,6 +6713,190 @@ otp_7157_test(MA) ->
     ?DBG("done", []),
     ok.
 
+
+
+%%-----------------------------------------------------------------
+%% Ticket: OTP-16092
+%% Slogan: Extra socket options
+%%         We perform simple start and stop tests with and without
+%%         this option.
+%%-----------------------------------------------------------------
+
+otp16092_cases() ->
+    [
+     otp_16092_simple_start_and_stop1, % default
+     otp_16092_simple_start_and_stop2, % []
+     otp_16092_simple_start_and_stop3, % bad => ignored
+     otp_16092_simple_start_and_stop4  % invalid content
+    ].
+
+otp_16092_simple_start_and_stop1(suite) -> [];
+otp_16092_simple_start_and_stop1(Config) ->
+    ?P(otp_16092_simple_start_and_stop1), 
+    ?DBG("otp_16092_simple_start_and_stop1 -> entry", []),
+
+    otp_16092_simple_start_and_stop(Config, default, success),
+
+    ?DBG("otp_16092_simple_start_and_stop1 -> done", []),
+    ok.
+
+
+otp_16092_simple_start_and_stop2(suite) -> [];
+otp_16092_simple_start_and_stop2(Config) ->
+    ?P(otp_16092_simple_start_and_stop2), 
+    ?DBG("otp_16092_simple_start_and_stop2 -> entry", []),
+
+    otp_16092_simple_start_and_stop(Config, [], success),
+
+    ?DBG("otp_16092_simple_start_and_stop2 -> done", []),
+    ok.
+
+
+otp_16092_simple_start_and_stop3(suite) -> [];
+otp_16092_simple_start_and_stop3(Config) ->
+    ?P(otp_16092_simple_start_and_stop3), 
+    ?DBG("otp_16092_simple_start_and_stop3 -> entry", []),
+
+    otp_16092_simple_start_and_stop(Config, 'this-should-be-ignored', success),
+
+    ?DBG("otp_16092_simple_start_and_stop3 -> done", []),
+    ok.
+
+
+otp_16092_simple_start_and_stop4(suite) -> [];
+otp_16092_simple_start_and_stop4(Config) ->
+    ?P(otp_16092_simple_start_and_stop4), 
+    ?DBG("otp_16092_simple_start_and_stop4 -> entry", []),
+
+    otp_16092_simple_start_and_stop(Config, ['this-should-fail'], failure),
+
+    ?DBG("otp_16092_simple_start_and_stop4 -> done", []),
+    ok.
+
+
+otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
+    ?line ConfDir = ?config(agent_conf_dir, Config),
+    ?line DbDir   = ?config(agent_db_dir,   Config),
+
+    p("try start agent node~n"),
+    p(user, "try start agent node~n"),
+    Node = case ?ALIB:start_node(agent_16092) of
+               {ok, N} ->
+                   p("agent node ~p started~n", [N]),
+                   p(user, "agent node ~p started~n", [N]),
+                   N;
+               {error, Reason} ->
+                   e("Failed starting agent node: "
+                     "~n   ~p"
+                     "~n", [Reason]),
+                   ?SKIP({failed_starting_node, Reason})
+           end,
+
+    Vsns      = [v1],
+    IP        = tuple_to_list(?config(ip, Config)),
+    ManagerIP = IP,
+    TrapPort  = ?TRAP_UDP,
+    AgentIP   = IP,
+    AgentPort = 4000,
+    SysName   = "test",
+    ok = snmp_config:write_agent_snmp_files(
+           ConfDir, Vsns, ManagerIP, TrapPort, AgentIP, AgentPort, SysName),
+
+    ConfOpts = [{dir,        ConfDir},
+                {force_load, false}, 
+                {verbosity,  trace}],
+    NiOpts   =
+        case ESO of
+            default ->
+                [{verbosity, trace}];
+            _ -> 
+                [{verbosity, trace}, {options, [{extra_sock_opts, ESO}]}]
+        end,
+
+    Opts = [{agent_type, master},
+            {versions,   Vsns},
+            {db_dir,     DbDir},
+            {config,     ConfOpts},
+            {net_if,     NiOpts}],
+
+    
+    otp16092_try_start_and_stop_agent(Node, Opts, Expected),
+
+    p("try stop agent node ~p~n", [Node]),
+    p(user, "try stop agent node ~p~n", [Node]),
+    ?ALIB:stop_node(Node),
+
+    ?SLEEP(1000),
+
+    p("done~n"),
+    p(user, "done~n"),
+    ok.
+
+    
+otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
+    i("try start snmp (agent) supervisor (on ~p) - expect ~p~n", [Node, Expected]),
+    case start_standalone_agent(Node, Opts) of
+        Pid when is_pid(Pid) andalso (Expected =:= success) ->
+            i("Expected success starting snmp (agent) supervisor~n"),
+            ?SLEEP(1000),
+            stop_standalone_agent(Pid),
+            ok;
+        Pid when is_pid(Pid) andalso (Expected =:= failure) ->
+            e("Unexpected success starting snmp (agent) supervisor: (~p)~n", [Pid]),
+            ?SLEEP(1000),
+            stop_standalone_agent(Pid),
+            ?FAIL('unexpected-start-success');
+
+        {error,
+         shutdown,
+         {failed_to_start_child, snmpa_agent_sup,
+          {shutdown,
+           {failed_to_start_child, snmpa_agent,
+            {net_if_error, Reason}}}}} when (Expected =:= failure) ->
+            p("Expected (shutdown, net-if) error starting "
+              "snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+        {error, {shutdown, Reason}} when (Expected =:= failure) ->
+            p("Expected (shutdown) error starting "
+              "snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+        {error, Reason} when (Expected =:= failure) ->
+            p("Expected error starting snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+
+        {badrpc, 
+         {'EXIT',
+          {shutdown,
+           {failed_to_start_child, snmpa_agent_sup,
+            {shutdown,
+             {failed_to_start_child, snmpa_agent,
+              {net_if_error, Reason}}}}}}} when (Expected =:= failure) ->
+            p("Expected (badrpc, shutdown, net-if) error starting "
+              "snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+        {badrpc, {'EXIT', {shutdown, Reason}}} when (Expected =:= failure) ->
+            p("Expected (badrpc, shutdown) error starting "
+              "snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+        {badrpc, {'EXIT', Reason}} when (Expected =:= failure) ->
+            p("Expected (badrpc) error starting snmp (agent) supervisor (on ~p):"
+              "~n   ~p", [Node, Reason]),
+            ok;
+
+        {badrpc, Reason} = BADRPC ->
+            e("Bad RPC to node ~p failed:"
+              "~n   ~p", [Node, Reason]),
+            ?SKIP({BADRPC, Node})
+
+    end,
+    ok.
+
+            
 
 
 %%-----------------------------------------------------------------
@@ -6800,7 +7002,7 @@ otp8395({fin, Config}) when is_list(Config) ->
 
     AgentSup = ?config(agent_sup, Config),
     ?DBG("otp8395(fin) -> stop (stand-alone) agent: ~p", [AgentSup]),
-    stop_stdalone_agent(AgentSup), 
+    stop_standalone_agent(AgentSup), 
 
     %% - 
     %% Stop mnesia
@@ -6984,11 +7186,10 @@ start_agent(Config, Opts) ->
     
     %% Nodes
     AgentNode = ?config(agent_node, Config),
-    %% ManagerNode = ?config(manager_node, Config),
     
-    process_flag(trap_exit,true),
+    process_flag(trap_exit, true),
 
-    AgentTopSup = start_stdalone_agent(AgentNode, AgentConfig),
+    AgentTopSup = start_standalone_agent(AgentNode, AgentConfig),
 
     [{agent_sup, AgentTopSup} | Config].
     
@@ -7033,21 +7234,23 @@ process_options(Defaults, _Opts) ->
     Defaults.
 
 
-start_stdalone_agent(Node, Config)  ->
-    rpc:call(Node, ?MODULE, start_stdalone_agent, [Config]).
+start_standalone_agent(Node, Config)  ->
+    rpc:call(Node, ?MODULE, start_standalone_agent, [Config]).
 
-start_stdalone_agent(Config)  ->
+start_standalone_agent(Config)  ->
     case snmpa_supervisor:start_link(normal, Config) of
         {ok, AgentTopSup} ->
             unlink(AgentTopSup),
             AgentTopSup;
         {error, {already_started, AgentTopSup}} ->
-            AgentTopSup
+            AgentTopSup;
+        {error, _} = ERROR ->
+            ERROR
     end.
 
-stop_stdalone_agent(Pid) when (node(Pid) =/= node()) ->
+stop_standalone_agent(Pid) when (node(Pid) =/= node()) ->
     MRef = erlang:monitor(process, Pid),
-    rpc:call(node(Pid), ?MODULE, stop_stdalone_agent, [Pid]),
+    rpc:call(node(Pid), ?MODULE, stop_standalone_agent, [Pid]),
     receive
 	{'DOWN', MRef, process, Pid, _Info} ->
 	    ?DBG("received expected DOWN message "
@@ -7059,7 +7262,7 @@ stop_stdalone_agent(Pid) when (node(Pid) =/= node()) ->
 		 "regarding snmp agent supervisor within time", []),
 	    ok
     end;
-stop_stdalone_agent(Pid) ->
+stop_standalone_agent(Pid) ->
     ?DBG("attempting to terminate agent top-supervisor: ~p", [Pid]),
     nkill(Pid, kill).
 
@@ -7425,11 +7628,30 @@ rcall(Node, Mod, Func, Args) ->
 
 %% ------
 
+%% e(F) ->
+%%     e(F, []).
+
+e(F, A) ->
+    p(user,        "<ERROR> " ++ F, A),
+    p(standard_io, "<ERROR> " ++ F, A).
+
+i(F) ->
+    i(F, []).
+i(F, A) ->
+    p(user,        F, A),
+    p(standard_io, F, A).
+
 p(F) ->
     p(F, []).
 
+p(Dev, F) when is_atom(Dev) ->
+    p(Dev, F, []);
 p(F, A) ->
-    io:format("*** [~s] ***"
+    p(standard_io, F, A).
+
+p(Dev, F, A) ->
+    io:format(Dev,
+              "*** [~s] ***"
               "~n" ++ F ++ "~n", [formated_timestamp()|A]).
 
 formated_timestamp() ->
@@ -7520,7 +7742,7 @@ fin_v1_agent(Config) ->
     %% 
 
     AgentSup = ?config(agent_sup, Config),
-    stop_stdalone_agent(AgentSup), 
+    stop_standalone_agent(AgentSup), 
 
     %% - 
     %% Stop mnesia
