@@ -94,7 +94,7 @@ static ERTS_NOINLINE
 int stack_grows_downwards(char *prev_c)
 {
     char c;
-    if erts_check_below_limit(&c, prev_c)
+    if (erts_check_below_limit(&c, prev_c))
         return 1;
     else
         return 0;
