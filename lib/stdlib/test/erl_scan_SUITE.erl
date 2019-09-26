@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -306,7 +306,7 @@ integers() ->
          {"1_2", 12}],
     lists:foreach(
          fun({S, I}) ->
-                 {ok, [{integer, 1, I}], _} = erl_scan_string(S)
+                 test_string(S, [{integer, {1, 1}, I}])
          end, UnderscoreSamples),
     UnderscoreErrors =
         ["123_",
@@ -324,6 +324,8 @@ integers() ->
                       ok
               end
       end, UnderscoreErrors),
+    test_string("_123", [{var,{1,1},'_123'}]),
+    test_string("123_", [{integer,{1,1},123},{var,{1,4},'_'}]),
     ok.
 
 base_integers() ->
@@ -339,13 +341,19 @@ base_integers() ->
     {error,{{1,1},erl_scan,{base,1}},{1,2}} =
         erl_scan:string("1#000", {1,1}, []),
 
+    {error,{1,erl_scan,{base,1}},1} = erl_scan:string("1#000"),
+    {error,{{1,1},erl_scan,{base,1000}},{1,6}} =
+        erl_scan:string("1_000#000", {1,1}, []),
+
     test_string("12#bc", [{integer,{1,1},11},{atom,{1,5},c}]),
 
     [begin
          Str = BS ++ "#" ++ S,
-         {error,{1,erl_scan,{illegal,integer}},1} =
-             erl_scan:string(Str)
-     end || {BS,S} <- [{"3","3"},{"15","f"}, {"12","c"}] ],
+         E = 2 + length(BS),
+         {error,{{1,1},erl_scan,{illegal,integer}},{1,E}} =
+             erl_scan:string(Str, {1,1}, [])
+     end || {BS,S} <- [{"3","3"},{"15","f"},{"12","c"},
+                       {"1_5","f"},{"1_2","c"}] ],
 
     {ok,[{integer,1,239},{'@',1}],1} = erl_scan_string("16#ef@"),
     {ok,[{integer,{1,1},239},{'@',{1,6}}],{1,7}} =
@@ -361,7 +369,7 @@ base_integers() ->
          {"16#abcdef", 16#ABCDEF}],
     lists:foreach(
          fun({S, I}) ->
-                 {ok, [{integer, 1, I}], _} = erl_scan_string(S)
+                 test_string(S, [{integer, {1, 1}, I}])
          end, UnderscoreSamples),
     UnderscoreErrors =
         ["16_#123ABC",
@@ -381,6 +389,8 @@ base_integers() ->
                       ok
               end
       end, UnderscoreErrors),
+    test_string("16#123_", [{integer,{1,1},291},{var,{1,7},'_'}]),
+    test_string("_16#ABC", [{var,{1,1},'_16'},{'#',{1,4}},{var,{1,5},'ABC'}]),
     ok.
 
 floats() ->
@@ -396,6 +406,8 @@ floats() ->
         erl_scan:string("1.0e400"),
     {error,{{1,1},erl_scan,{illegal,float}},{1,8}} =
         erl_scan:string("1.0e400", {1,1}, []),
+    {error,{{1,1},erl_scan,{illegal,float}},{1,9}} =
+        erl_scan:string("1.0e4_00", {1,1}, []),
     [begin
          {error,{1,erl_scan,{illegal,float}},1} = erl_scan:string(S),
          {error,{{1,1},erl_scan,{illegal,float}},{1,_}} =
@@ -411,7 +423,7 @@ floats() ->
          {"12_34.56_78e-1_8", 1234.5678e-18}],
     lists:foreach(
          fun({S, I}) ->
-                 {ok, [{float, 1, I}], _} = erl_scan_string(S)
+                 test_string(S, [{float, {1, 1}, I}])
          end, UnderscoreSamples),
     UnderscoreErrors =
         ["123_.456",
@@ -430,6 +442,8 @@ floats() ->
                       ok
               end
       end, UnderscoreErrors),
+    test_string("123._", [{integer,{1,1},123},{'.',{1,4}},{var,{1,5},'_'}]),
+    test_string("1.23_e10", [{float,{1,1},1.23},{var,{1,5},'_e10'}]),
     ok.
 
 dots() ->

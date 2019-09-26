@@ -946,6 +946,8 @@ scan_number([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_number([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_number(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_number([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
     scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs], Us);
 scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
@@ -992,6 +994,8 @@ scan_based_int([$_,Next|Cs], St, Line, Col, Toks, B, [Prev|_]=Ncs, Bcs, _Us)
       when ?BASED_DIGIT(Next, B) andalso ?BASED_DIGIT(Prev, B) ->
     scan_based_int(Cs, St, Line, Col, Toks, B, [Next,$_|Ncs], Bcs,
                    with_underscore);
+scan_based_int([$_]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
 scan_based_int([]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
     {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
 scan_based_int(Cs, St, Line, Col, Toks, B, Ncs0, Bcs, Us) ->
@@ -1013,6 +1017,8 @@ scan_fraction([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_fraction([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_fraction(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_fraction([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
 scan_fraction([E|Cs], St, Line, Col, Toks, Ncs, Us) when E =:= $e; E =:= $E ->
     scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs], Us);
 scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
@@ -1039,6 +1045,8 @@ scan_exponent([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_exponent([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_exponent(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_exponent([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
 scan_exponent([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
 scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us) ->
