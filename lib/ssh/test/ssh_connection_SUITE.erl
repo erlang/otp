@@ -47,6 +47,8 @@ all() ->
      interrupted_send,
      exec_erlang_term,
      exec_erlang_term_non_default_shell,
+     exec_disabled,
+     exec_shell_disabled,
      start_shell,
      start_shell_exec,
      start_shell_exec_fun,
@@ -506,19 +508,12 @@ start_shell(Config) when is_list(Config) ->
 						      {password, "morot"},
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
-
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ok = ssh_connection:shell(ConnectionRef,ChannelId0),
-
-    receive
-	{ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"Enter command\r\n">>}} ->
-	    ok
-    after 5000 ->
-	    ct:fail("CLI Timeout")
-    end,
-
+    test_shell_is_enabled(ConnectionRef, <<"Enter command\r\n">>),
+    test_exec_is_disabled(ConnectionRef),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+
 %%--------------------------------------------------------------------
 start_shell_exec() ->
     [{doc, "start shell to exec command"}].
@@ -538,18 +533,8 @@ start_shell_exec(Config) when is_list(Config) ->
 						      {password, "morot"},
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
-
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-
-    success = ssh_connection:exec(ConnectionRef, ChannelId0,
-				  "testing", infinity),
-    receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
-	    ok
-    after 5000 ->
-	    ct:fail("Exec Timeout")
-    end,
-
+    test_shell_is_enabled(ConnectionRef),
+    test_exec_is_enabled(ConnectionRef,  "testing",  <<"echo testing\r\n">>),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
@@ -569,24 +554,10 @@ exec_erlang_term(Config) when is_list(Config) ->
 						      {password, "morot"},
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
-
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-
-    success = ssh_connection:exec(ConnectionRef, ChannelId0,
-				  "1+2.", infinity),
-    TestResult =
-        receive
-            {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"3",_/binary>>}} = R ->
-                ct:log("Got expected ~p",[R]);
-            Other ->
-                ct:log("Got unexpected ~p",[Other])
-        after 5000 ->
-                {fail,"Exec Timeout"}
-        end,
-
+    test_shell_is_enabled(ConnectionRef),
+    test_exec_is_enabled(ConnectionRef),
     ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid),
-    TestResult.
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 exec_erlang_term_non_default_shell(Config) when is_list(Config) ->
@@ -606,25 +577,51 @@ exec_erlang_term_non_default_shell(Config) when is_list(Config) ->
 						      {user_interaction, true},
 						      {user_dir, UserDir}
                                                      ]),
-
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-
-    success = ssh_connection:exec(ConnectionRef, ChannelId0,
-				  "1+2.", infinity),
-    TestResult =
-        receive
-            {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"3",_/binary>>}} = R ->
-                ct:log("Got unexpected ~p",[R]),
-                {fail,"Could exec erlang term although non-erlang shell"};
-            Other ->
-                ct:log("Got expected ~p",[Other])
-        after 5000 ->
-                {fail, "Exec Timeout"}
-        end,
-
+    test_exec_is_disabled(ConnectionRef),
     ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid),
-    TestResult.
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+exec_disabled(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+                                             {exec, disabled}
+                                            ]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, true},
+						      {user_dir, UserDir}
+                                                     ]),
+    test_shell_is_enabled(ConnectionRef),
+    test_exec_is_disabled(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+
+exec_shell_disabled(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+                                             {shell, disabled}
+                                            ]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, true},
+						      {user_dir, UserDir}
+                                                     ]),
+    test_shell_is_disabled(ConnectionRef),
+    test_exec_is_enabled(ConnectionRef),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 start_shell_exec_fun(Config) ->
@@ -1179,6 +1176,117 @@ max_channels_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+flush_msgs() ->
+    receive
+        _ -> flush_msgs()
+    after
+        500 -> ok
+    end.
+
+test_shell_is_disabled(ConnectionRef) ->
+    test_shell_is_disabled(ConnectionRef, <<"Prohibited.">>, <<"Eshell V">>).
+
+test_shell_is_disabled(ConnectionRef, Expect, NotExpect) ->
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef, ChannelId),
+    ExpSz = size(Expect),
+    NotExpSz = size(NotExpect),
+    receive
+        {ssh_cm, ConnectionRef, {data, ChannelId, 1, <<Expect:ExpSz/binary, _/binary>>}} ->
+            flush_msgs();
+
+        {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<NotExpect:NotExpSz/binary, _/binary>>}} ->
+            ct:fail("Could start disabled shell!");
+
+        R ->
+            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:fail("Strange shell response")
+
+    after 5000 ->
+            ct:fail("Shell Timeout")
+    end.
+
+test_exec_is_disabled(ConnectionRef) ->
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, "1+2.", infinity),
+    receive
+        {ssh_cm, ConnectionRef, {data,ChannelId,1,<<"Prohibited.">>}} ->
+            flush_msgs();
+        R ->
+            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:fail("Could exec erlang term although non-erlang shell")
+    after 5000 ->
+            ct:fail("Exec Timeout")
+    end.
+
+test_shell_is_enabled(ConnectionRef) ->
+    test_shell_is_enabled(ConnectionRef, <<"Eshell V">>).
+
+test_shell_is_enabled(ConnectionRef, Expect) ->
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef,ChannelId),
+    ExpSz = size(Expect),
+    receive
+	{ssh_cm,ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} ->
+	    flush_msgs();
+
+        R ->
+            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:fail("Strange shell response")
+
+    after 5000 ->
+	    ct:fail("CLI Timeout")
+    end.
+
+
+test_exec_is_enabled(ConnectionRef) ->
+    test_exec_is_enabled(ConnectionRef, "1+2.", <<"3">>).
+
+test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, Exec, infinity),
+    ExpSz = size(Expect),
+    receive
+        {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} = R ->
+            ct:log("~p:~p Got expected ~p",[?MODULE,?LINE,R]);
+        Other ->
+            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Other])
+    after 5000 ->
+            {fail,"Exec Timeout"}
+    end.
+
+
+%%%----------------------------------------------------------------
+get_channel_close_sequence(ConnectionRef, ChannelId) ->
+    Set = [eof, exit_status, closed],
+    get_channel_close_sequence(ConnectionRef, ChannelId, Set).
+
+get_channel_close_sequence(_ConnectionRef, _ChannelId, []) ->
+    ok;
+get_channel_close_sequence(ConnectionRef, ChannelId, Set) ->
+    receive
+        {ssh_cm, ConnectionRef, Event} when element(2,Event) == ChannelId ->
+            try lists:member(element(1,Event), Set)
+            of
+                true ->
+                    ct:log("get_channel_close_sequence: ~p received", [Event]),
+                    get_channel_close_sequence(ConnectionRef, Event, Set--[element(1,Event)]);
+                false ->
+                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
+                    ct:fail("Strange response 1")
+            catch
+                _ :_ ->
+                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
+                    ct:fail("Strange response 2")
+            end;
+        Msg ->
+            ct:log("~p:~p Got unexpected ~p~nExpecting event from the set ~p",[?MODULE,?LINE,Msg,Set]),
+            ct:fail("Strange response 3")
+    after
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
+
+%%%----------------------------------------------------------------
 big_cat_rx(ConnectionRef, ChannelId) ->
     big_cat_rx(ConnectionRef, ChannelId, []).
 
