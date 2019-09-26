@@ -9716,7 +9716,7 @@ hello
 	<seealso marker="#type-ext_iovec"><c>ext_iovec()</c></seealso>.</p>
 	
 	<p>This function produce the same encoding as
-	<seealso marker="#term_to_binary/1"><c>term_to_binary/2</c></seealso>,
+	<seealso marker="#term_to_binary/1"><c>term_to_binary/1</c></seealso>,
 	but with another return type. The call
 	<c>iolist_to_binary(term_to_iovec(Term))</c> will produce
 	exactly the same result as the call <c>term_to_binary(Term)</c>.</p>
