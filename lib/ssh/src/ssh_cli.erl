@@ -105,6 +105,12 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{pty = Pty, buf = NewBuf}};
 
+handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, #state{shell=disabled} = State) ->
+    write_chars(ConnectionHandler, ChannelId, 1, "Prohibited."),
+    ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, 255),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
+    {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
 handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, State) ->
     NewState = start_shell(ConnectionHandler, State),
     ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
@@ -114,13 +120,17 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, Stat
 handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, S0) ->
     case
         case S0#state.exec of
+            disabled ->
+                {"Prohibited.", 255, 1};
+
             {direct,F} ->
                 %% Exec called and a Fun or MFA is defined to use.  The F returns the
                 %% value to return.
                 %% The standard I/O is directed from/to the channel ChannelId.
                 exec_direct(ConnectionHandler, ChannelId, Cmd, F, WantReply, S0);
 
-            undefined when S0#state.shell == ?DEFAULT_SHELL ->
+            undefined when S0#state.shell == ?DEFAULT_SHELL ; 
+                           S0#state.shell == disabled ->
                 %% Exec called and the shell is the default shell (= Erlang shell).
                 %% To be exact, eval the term as an Erlang term (but not using the
                 %% ?DEFAULT_SHELL directly). This disables banner, prompts and such.
