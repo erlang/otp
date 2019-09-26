@@ -370,7 +370,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                              CertDbHandle, CertDbRef)
 	end
     catch
-	error:{badmatch,{error, {asn1, Asn1Reason}}} ->
+	error:{_,{error, {asn1, Asn1Reason}}} ->
 	    %% ASN-1 decode of certificate somehow failed
             ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
         error:OtherReason ->
