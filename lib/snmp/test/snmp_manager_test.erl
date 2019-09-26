@@ -55,6 +55,7 @@
 	
 	 simple_start_and_stop1/1,
 	 simple_start_and_stop2/1,
+	 simple_start_and_stop3/1,
 	 simple_start_and_monitor_crash1/1,
 	 simple_start_and_monitor_crash2/1,
 	 notify_started01/1,
@@ -451,6 +452,7 @@ groups() ->
       [
        simple_start_and_stop1, 
        simple_start_and_stop2,
+       simple_start_and_stop3, 
        simple_start_and_monitor_crash1,
        simple_start_and_monitor_crash2, 
        notify_started01,
@@ -722,6 +724,40 @@ do_simple_start_and_stop2(Config) ->
     ?SLEEP(1000),
 
     stop_node(ManagerNode),
+
+    ?SLEEP(1000),
+
+    ok.
+
+
+%%======================================================================
+
+simple_start_and_stop3(suite) -> [];
+simple_start_and_stop3(Config) when is_list(Config) ->
+    ?TC_TRY(simple_start_and_stop3,
+            fun() -> do_simple_start_and_stop3(Config) end).
+
+do_simple_start_and_stop3(Config) ->
+    p("starting with Config: ~n~p", [Config]),
+    ConfDir = ?config(manager_conf_dir, Config),
+    DbDir   = ?config(manager_db_dir, Config),
+
+    write_manager_conf(ConfDir),
+
+    Opts = [{server,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, [{extra_sock_opts, ['this-should-not-work']}]}]},
+	    {note_store, [{verbosity, trace}]},
+	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+
+    p("try starting manager"),
+    try snmpm:start_link(Opts) of
+        ok ->
+            ?FAIL('unexpected-success')
+    catch
+        _:_:_ ->
+            p("expected start failure"),
+            ok
+    end,
 
     ?SLEEP(1000),
 

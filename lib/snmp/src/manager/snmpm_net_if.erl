@@ -372,7 +372,15 @@ common_socket_opts(Opts) ->
 		 [{reuseaddr, true}];
 	     _ ->
 		 []
-	 end].
+	 end ++
+         case get_opt(Opts, extra_sock_opts, []) of
+             ESO when is_list(ESO) ->
+                 ESO;
+             BadESO ->
+                 error_msg("Invalid 'extra socket options' (=> ignored):"
+                           "~n   ~p", [BadESO]),
+                 []
+         end].
 
 
 create_filter(Opts) when is_list(Opts) ->
