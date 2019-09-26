@@ -823,7 +823,7 @@ label(T) ->
 -spec label(cerl:cerl(), integer()) -> {cerl:cerl(), integer()}.
 
 label(T, N) ->
-    label(T, N, dict:new()).
+    label(T, N, #{}).
 
 label(T, N, Env) ->
     case type(T) of
@@ -831,12 +831,13 @@ label(T, N, Env) ->
 	    %% Constant literals are not labeled.
 	    {T, N};
 	var ->
+            VarName = var_name(T),
             {As, N1} =
-                case dict:find(var_name(T), Env) of
-		    {ok, L} ->
+                case Env of
+                    #{VarName := L} ->
 		        {A, _} = label_ann(T, L),
 		        {A, N};
-                    error ->
+                    #{} ->
 		        label_ann(T, N)
                 end,
 	    {set_ann(T, As), N1};
@@ -974,7 +975,7 @@ label_list([], N, _Env) ->
     {[], N}.
 
 label_vars([T | Ts], N, Env) ->
-    Env1 = dict:store(var_name(T), N, Env),
+    Env1 = Env#{var_name(T) => N},
     {As, N1} = label_ann(T, N),
     T1 = set_ann(T, As),
     {Ts1, N2, Env2} = label_vars(Ts, N1, Env1),

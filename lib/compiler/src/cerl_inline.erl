@@ -2526,21 +2526,19 @@ set_clause_bodies([], _) ->
 %% Abstract datatype: renaming()
 
 ren__identity() ->
-    dict:new().
+    #{}.
 
 ren__add(X, Y, Ren) ->
-    dict:store(X, Y, Ren).
+    Ren#{X=>Y}.
 
 ren__map(X, Ren) ->
-    case dict:find(X, Ren) of
-	{ok, Y} ->
-	    Y;
-	error ->
-	    X
+    case Ren of
+        #{X:=Y} -> Y;
+        #{} -> X
     end.
 
 ren__add_identity(X, Ren) ->
-    dict:erase(X, Ren).
+    maps:remove(X, Ren).
 
 
 %% =====================================================================
@@ -2633,7 +2631,7 @@ st__new(Effort, Size, Unroll) ->
 	   size = counter__new_passive(Size),
 	   effort = counter__new_passive(Effort),
 	   unroll = Unroll,
-	   cache = dict:new(),
+	   cache = maps:new(),
  	   var_flags = ets:new(var, EtsOpts),
 	   opnd_flags = ets:new(opnd, EtsOpts),
 	   app_flags = ets:new(app, EtsOpts)}.
@@ -2664,12 +2662,12 @@ st__get_var_referenced(L, S) ->
     ets:lookup_element(S#state.var_flags, L, #var_flags.referenced).
 
 st__lookup_opnd_cache(L, S) ->
-    dict:find(L, S#state.cache).
+    maps:find(L, S#state.cache).
 
 %% Note that setting the cache should only be done once.
 
 st__set_opnd_cache(L, C, S) ->
-    S#state{cache = dict:store(L, C, S#state.cache)}.
+    S#state{cache = maps:put(L, C, S#state.cache)}.
 
 st__set_opnd_effect(L, S) ->
     T = S#state.opnd_flags,
