@@ -257,8 +257,7 @@ log(Level, FunOrFormat, Args, Metadata) ->
       Level :: level(),
       Module :: module().
 allow(Level,Module) when is_atom(Module) ->
-    logger_config:allow(?LOGGER_TABLE,Level,Module).
-
+    logger_config:allow(Level,Module).
 
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
       Location :: location(),
@@ -595,7 +594,7 @@ get_module_level(Modules) when is_list(Modules) ->
       Module :: module(),
       Level :: level() | all | none.
 get_module_level() ->
-    logger_config:get_module_level(?LOGGER_TABLE).
+    logger_config:get_module_level().
 
 %%%-----------------------------------------------------------------
 %%% Misc
@@ -1027,14 +1026,14 @@ get_logger_env(App) ->
 %%%-----------------------------------------------------------------
 %%% Internal
 do_log(Level,Msg,#{mfa:={Module,_,_}}=Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level,Module) of
+    case logger_config:allow(Level,Module) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
             ok
     end;
 do_log(Level,Msg,Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level) of
+    case logger_config:allow(Level) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->

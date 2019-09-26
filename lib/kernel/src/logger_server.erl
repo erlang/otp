@@ -322,11 +322,11 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
             {error,{not_found,HandlerId}}
         end,
     {reply,Reply,State};
-handle_call({set_module_level,Modules,Level}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:set_module_level(Tid,Modules,Level),
+handle_call({set_module_level,Modules,Level}, _From, State) ->
+    Reply = logger_config:set_module_level(Modules,Level),
     {reply,Reply,State};
-handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:unset_module_level(Tid,Modules),
+handle_call({unset_module_level,Modules}, _From, State) ->
+    Reply = logger_config:unset_module_level(Modules),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->

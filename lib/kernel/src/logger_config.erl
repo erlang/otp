@@ -21,11 +21,11 @@
 
 -export([new/1,delete/2,
          exist/2,
-         allow/2,allow/3,
+         allow/1,allow/2,
          get/2, get/3,
          create/3, set/3,
-         set_module_level/3,unset_module_level/2,
-         get_module_level/1,
+         set_module_level/2,unset_module_level/1,
+         get_module_level/0,
          level_to_int/1]).
 
 -include("logger_internal.hrl").
@@ -50,7 +50,7 @@ delete(Tid,What) ->
     ets:delete(Tid,table_key(What)).
 
 %% Optimized for speed.
-allow(_Tid,Level,Module) ->
+allow(Level,Module) ->
     ModLevel =
         case persistent_term:get({?MODULE,Module},undefined) of
             undefined ->
@@ -68,7 +68,7 @@ allow(_Tid,Level,Module) ->
         end,
     less_or_equal_level(Level,ModLevel).
 
-allow(_Tid,Level) ->
+allow(Level) ->
     PrimaryLevelInt = get_primary_level(),
     less_or_equal_level(Level,PrimaryLevelInt).
 
@@ -135,24 +135,24 @@ set(Tid,What,Config) ->
     ets:insert(Tid,{table_key(What),Config}),
     ok.
 
-set_module_level(_Tid,Modules,Level) ->
+set_module_level(Modules,Level) ->
     LevelInt = level_to_int(Level),
     [persistent_term:put({?MODULE,Module},?LEVEL_TO_CACHE(LevelInt)) || Module <- Modules],
     ok.
 
 %% We overwrite instead of delete because that is more efficient
 %% when using persistent_term
-unset_module_level(_Tid,all) ->
+unset_module_level(all) ->
     PrimaryLevel = get_primary_level(),
     [persistent_term:put(Key, ?PRIMARY_TO_CACHE(PrimaryLevel))
      || {{?MODULE, Module} = Key,_} <- persistent_term:get(), ?IS_MODULE(Module)],
     ok;
-unset_module_level(_Tid,Modules) ->
+unset_module_level(Modules) ->
     PrimaryLevel = get_primary_level(),
     [persistent_term:put({?MODULE,Module}, ?PRIMARY_TO_CACHE(PrimaryLevel)) || Module <- Modules],
     ok.
 
-get_module_level(_Tid) ->
+get_module_level() ->
     lists:sort(
       [{Module,int_to_level(?CACHE_TO_LEVEL(Level))}
        || {{?MODULE, Module},Level} <- persistent_term:get(),
