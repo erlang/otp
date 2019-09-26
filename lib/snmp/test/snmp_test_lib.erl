@@ -186,6 +186,13 @@ hostname(Node) ->
 %%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
 %%     Ip.
 
+%% localhost() ->
+%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
+%%     Ip.
+%% localhost(Family) ->
+%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
+%%     Ip.
+
 localhost() ->
     localhost(inet).
 

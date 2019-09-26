@@ -76,17 +76,23 @@
   	 simple_sync_get_next2/1, 
   	 simple_sync_get_next3/1, 
   	 simple_async_get_next2/1, 
-  	 simple_async_get_next3/1, 
+         simple_async_get_next3_cbp_def/1,
+         simple_async_get_next3_cbp_temp/1,
+         simple_async_get_next3_cbp_perm/1,
 	 
 	 simple_sync_set2/1, 
 	 simple_sync_set3/1, 
 	 simple_async_set2/1, 
-	 simple_async_set3/1, 
+         simple_async_set3_cbp_def/1,
+         simple_async_set3_cbp_temp/1,
+         simple_async_set3_cbp_perm/1,
 	 
   	 simple_sync_get_bulk2/1, 
   	 simple_sync_get_bulk3/1, 
   	 simple_async_get_bulk2/1, 
-  	 simple_async_get_bulk3/1, 
+         simple_async_get_bulk3_cbp_def/1,
+         simple_async_get_bulk3_cbp_temp/1,
+         simple_async_get_bulk3_cbp_perm/1,
 	 
   	 misc_async2/1, 
 
@@ -99,7 +105,9 @@
 	 inform2/1,
 	 inform3/1,
 	 inform4/1,
-	 inform_swarm/1,
+	 inform_swarm_cbp_def/1,
+         inform_swarm_cbp_temp/1,
+         inform_swarm_cbp_perm/1,
 
 	 report/1,
 
@@ -248,8 +256,19 @@ init_per_testcase2(Case, Config) ->
 
     Family = proplists:get_value(ipfamily, Config, inet),
 
-    Conf = [{watchdog,                  ?WD_START(?MINS(5))},
-	    {ipfamily,                  Family},
+    TO = case Case of
+             inform3 ->
+                 ?MINS(2);
+             InformSwarm when (InformSwarm =:= inform_swarm_cbp_def) orelse
+                              (InformSwarm =:= inform_swarm_cbp_temp) orelse
+                              (InformSwarm =:= inform_swarm_cbp_perm) ->
+                 ?MINS(60);
+             _ ->
+                 ?MINS(1)
+         end,
+    ct:timetrap(TO),
+
+    Conf = [{ipfamily,                  Family},
 	    {ip,                        ?LOCALHOST(Family)},
 	    {case_top_dir,              CaseTopDir},
 	    {agent_dir,                 AgTopDir},
@@ -282,13 +301,19 @@ init_per_testcase3(Case, Config) ->
     ApiCases03 = 
 	[
 	 simple_sync_get3,
-	 simple_async_get3, 
-	 simple_sync_get_next3, 
-	 simple_async_get_next3, 
-	 simple_sync_set3, 
-	 simple_async_set3, 
-	 simple_sync_get_bulk3, 
-	 simple_async_get_bulk3
+	 simple_async_get3,
+	 simple_sync_get_next3,
+	 simple_async_get_next3_cbp_def,
+	 simple_async_get_next3_cbp_temp,
+	 simple_async_get_next3_cbp_perm,
+	 simple_sync_set3,
+	 simple_async_set3_cbp_def,
+	 simple_async_set3_cbp_temp,
+	 simple_async_set3_cbp_perm,
+	 simple_sync_get_bulk3,
+         simple_async_get_bulk3_cbp_def,
+         simple_async_get_bulk3_cbp_temp,
+         simple_async_get_bulk3_cbp_perm
 	],
     Cases = 
 	[
@@ -298,17 +323,26 @@ init_per_testcase3(Case, Config) ->
 	 inform2,
 	 inform3,
 	 inform4,
-	 inform_swarm,
+	 inform_swarm_cbp_def,
+         inform_swarm_cbp_temp,
+         inform_swarm_cbp_perm,
 	 report
 	] ++ 
 	ApiCases02 ++
 	ApiCases03,
     case lists:member(Case, Cases) of
 	true ->
-	    NoAutoInformCases = [inform1, inform2, inform3, inform_swarm], 
+	    NoAutoInformCases = [inform1, inform2, inform3,
+                                 inform_swarm_cbp_def,
+                                 inform_swarm_cbp_temp,
+                                 inform_swarm_cbp_perm], 
 	    AutoInform = not lists:member(Case, NoAutoInformCases),
 	    Conf1 = if 
-			Case =:= inform_swarm ->
+                        %% We turn off verbosity for the swarm cases
+                        %% (too much output).
+			(Case =:= inform_swarm_cbp_def) orelse
+                        (Case =:= inform_swarm_cbp_temp) orelse
+                        (Case =:= inform_swarm_cbp_perm) ->
 			    Verb = [{manager_config_verbosity,     silence},
 				    {manager_note_store_verbosity, silence},
 				    {manager_server_verbosity,     info},
@@ -321,17 +355,31 @@ init_per_testcase3(Case, Config) ->
 			true ->
 			    Config
 		    end,
+            Conf2 = if
+                        (Case =:= simple_async_get_next3_cbp_temp) orelse
+                        (Case =:= simple_async_set3_cbp_temp) orelse
+                        (Case =:= simple_async_get_bulk3_cbp_temp) orelse
+                        (Case =:= inform_swarm_cbp_temp) ->
+                            [{manager_server_cbproxy, temporary} | Conf1];
+                        (Case =:= simple_async_get_next3_cbp_perm) orelse
+                        (Case =:= simple_async_set3_cbp_perm) orelse
+                        (Case =:= simple_async_get_bulk3_cbp_perm) orelse
+                        (Case =:= inform_swarm_cbp_perm) ->
+                            [{manager_server_cbproxy, permanent} | Conf1];
+                        true ->
+                            Conf1
+                    end,
             %% We don't need to try catch this (init_agent)
             %% since we have a try catch "higher up"...
-	    Conf2 = init_agent(Conf1),
-	    Conf3 = try init_manager(AutoInform, Conf2)
+	    Conf3 = init_agent(Conf2),
+	    Conf4 = try init_manager(AutoInform, Conf3)
                     catch AC:AE:_ ->
                             %% Ouch we need to clean up: 
                             %% The init_agent starts an agent node!
                             init_per_testcase_fail_agent_cleanup(Conf2),
                             throw({skip, {manager_init_failed, AC, AE}})
                     end,
-	    Conf4 = try init_mgr_user(Conf3)
+	    Conf5 = try init_mgr_user(Conf4)
                     catch MC:ME:_ ->
                             %% Ouch we need to clean up: 
                             %% The init_agent starts an agent node!
@@ -342,9 +390,9 @@ init_per_testcase3(Case, Config) ->
                     end,
 	    case lists:member(Case, ApiCases02 ++ ApiCases03) of
 		true ->
-		    init_mgr_user_data2(Conf4);
+		    init_mgr_user_data2(Conf5);
 		false ->
-		    init_mgr_user_data1(Conf4)
+		    init_mgr_user_data1(Conf5)
 	    end;
 	false ->
 	    Config
@@ -360,13 +408,12 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "end_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
-    Dog    = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    Conf1  = lists:keydelete(watchdog, 1, Config),
+    %% Dog    = ?config(watchdog, Config),
+    %% ?WD_STOP(Dog),
+    %% Conf1  = lists:keydelete(watchdog, 1, Config),
+    Conf1  = Config,
     Conf2  = end_per_testcase2(Case, Conf1),
     ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
-    %%     TopDir = ?config(top_dir, Conf2),
-    %%     ?DEL_DIR(TopDir),
     p(Case, "end_per_testcase end when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
@@ -390,11 +437,17 @@ end_per_testcase2(Case, Config) ->
 	 simple_sync_get3, 
 	 simple_async_get3, 
 	 simple_sync_get_next3, 
-	 simple_async_get_next3, 
+	 simple_async_get_next3_cbp_def, 
+	 simple_async_get_next3_cbp_temp, 
+	 simple_async_get_next3_cbp_perm, 
 	 simple_sync_set3, 
-	 simple_async_set3, 
+	 simple_async_set3_cbp_def,
+	 simple_async_set3_cbp_temp,
+	 simple_async_set3_cbp_perm,
 	 simple_sync_get_bulk3, 
-	 simple_async_get_bulk3 
+         simple_async_get_bulk3_cbp_def,
+         simple_async_get_bulk3_cbp_temp,
+         simple_async_get_bulk3_cbp_perm
 	],
     Cases = 
 	[
@@ -404,7 +457,9 @@ end_per_testcase2(Case, Config) ->
 	 inform2,
 	 inform3,
 	 inform4,
-	 inform_swarm,
+         inform_swarm_cbp_def,
+         inform_swarm_cbp_temp,
+         inform_swarm_cbp_perm,
 	 report
 	] ++ 
 	ApiCases02 ++ 
@@ -504,16 +559,20 @@ groups() ->
       [
        simple_sync_get_next2,
        simple_sync_get_next3,
-       simple_async_get_next2, 
-       simple_async_get_next3
+       simple_async_get_next2,
+       simple_async_get_next3_cbp_def,
+       simple_async_get_next3_cbp_temp,
+       simple_async_get_next3_cbp_perm
       ]
      },
      {set_tests, [],
       [
        simple_sync_set2, 
        simple_sync_set3, 
-       simple_async_set2, 
-       simple_async_set3
+       simple_async_set2,
+       simple_async_set3_cbp_def,
+       simple_async_set3_cbp_temp,
+       simple_async_set3_cbp_perm
       ]
      },
      {bulk_tests, [],
@@ -521,7 +580,9 @@ groups() ->
         simple_sync_get_bulk2,
         simple_sync_get_bulk3,
         simple_async_get_bulk2, 
-	simple_async_get_bulk3
+        simple_async_get_bulk3_cbp_def,
+        simple_async_get_bulk3_cbp_temp,
+        simple_async_get_bulk3_cbp_perm
        ]
       },
       {misc_request_tests, [], 
@@ -537,7 +598,9 @@ groups() ->
        inform2, 
        inform3, 
        inform4,
-       inform_swarm, 
+       inform_swarm_cbp_def,
+       inform_swarm_cbp_temp,
+       inform_swarm_cbp_perm,
        report
       ]
      },
@@ -549,7 +612,9 @@ groups() ->
        inform2, 
        inform3, 
        inform4,
-       inform_swarm, 
+       inform_swarm_cbp_def,
+       inform_swarm_cbp_temp,
+       inform_swarm_cbp_perm,
        report
       ]
      },
@@ -584,10 +649,14 @@ ipv6_tests() ->
      simple_sync_set3,
      simple_async_set2,
      simple_sync_get_bulk2,
-     simple_async_get_bulk3,
+     simple_async_get_bulk3_cbp_def,
+     simple_async_get_bulk3_cbp_temp,
+     simple_async_get_bulk3_cbp_perm,
      misc_async2,
      inform1,
-     inform_swarm
+     inform_swarm_cbp_def,
+     inform_swarm_cbp_temp,
+     inform_swarm_cbp_perm
     ].
 
 
@@ -2340,15 +2409,33 @@ async_gn_exec2(Node, TargetName, Oids) ->
 
 %%======================================================================
 
-simple_async_get_next3(doc) -> 
+simple_async_get_next3_cbp_def(doc) -> 
     ["Simple (async) get_next-request - "
      "Version 3 API (TargetName with send-opts)"];
-simple_async_get_next3(suite) -> [];
-simple_async_get_next3(Config) when is_list(Config) ->
-    ?TC_TRY(simple_async_get_next3,
+simple_async_get_next3_cbp_def(suite) -> [];
+simple_async_get_next3_cbp_def(Config) when is_list(Config) ->
+    simple_async_get_next3(ssgn2_cbp_def, Config).
+
+simple_async_get_next3_cbp_temp(doc) -> 
+    ["Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_next3_cbp_temp(suite) -> [];
+simple_async_get_next3_cbp_temp(Config) when is_list(Config) ->
+    simple_async_get_next3(ssgn2_cbp_temp, Config).
+
+simple_async_get_next3_cbp_perm(doc) -> 
+    ["Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_next3_cbp_perm(suite) -> [];
+simple_async_get_next3_cbp_perm(Config) when is_list(Config) ->
+    simple_async_get_next3(ssgn2_cbp_perm, Config).
+
+simple_async_get_next3(Case, Config) when is_list(Config) ->
+    ?TC_TRY(Case,
             fun() -> do_simple_async_get_next3(Config) end).
 
 do_simple_async_get_next3(Config) ->
+    %% process_flag(trap_exit, true),
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -2609,11 +2696,26 @@ async_s_exec2(Node, TargetName, VAVs) ->
 
 %%======================================================================
 
-simple_async_set3(doc) -> 
+simple_async_set3_cbp_def(doc) -> 
     ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
-simple_async_set3(suite) -> [];
-simple_async_set3(Config) when is_list(Config) ->
-    ?TC_TRY(simple_async_set3,
+simple_async_set3_cbp_def(suite) -> [];
+simple_async_set3_cbp_def(Config) when is_list(Config) ->
+    simple_async_set3(sas3_cbp_def, Config).
+
+simple_async_set3_cbp_temp(doc) -> 
+    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
+simple_async_set3_cbp_temp(suite) -> [];
+simple_async_set3_cbp_temp(Config) when is_list(Config) ->
+    simple_async_set3(sas3_cbp_temp, Config).
+
+simple_async_set3_cbp_perm(doc) -> 
+    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
+simple_async_set3_cbp_perm(suite) -> [];
+simple_async_set3_cbp_perm(Config) when is_list(Config) ->
+    simple_async_set3(sas3_cbp_perm, Config).
+
+simple_async_set3(Case, Config) ->
+    ?TC_TRY(Case,
             fun() -> do_simple_async_set3(Config) end).
 
 do_simple_async_set3(Config) ->
@@ -3046,15 +3148,19 @@ async_gb_exec2(Node, TargetName, {NR, MR, Oids}) ->
 
 %%======================================================================
 
-simple_async_get_bulk3(doc) -> 
+simple_async_get_bulk3_cbp_def(doc) -> 
     ["Simple (async) get_bulk-request - "
      "Version 3 API (TargetName with send-opts)"];
-simple_async_get_bulk3(suite) -> [];
-simple_async_get_bulk3(Config) when is_list(Config) ->
-    ?TC_TRY(simple_async_get_bulk3,
+simple_async_get_bulk3_cbp_def(suite) -> [];
+simple_async_get_bulk3_cbp_def(Config) when is_list(Config) ->
+    simple_async_get_bulk3(sagb3_cbp_def, Config).
+
+simple_async_get_bulk3(Case, Config) ->
+    ?TC_TRY(Case,
             fun() -> do_simple_async_get_bulk3(Config) end).
 
 do_simple_async_get_bulk3(Config) ->
+    process_flag(trap_exit, true),
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
@@ -3089,6 +3195,26 @@ do_simple_async_get_bulk3(Config) ->
 
 async_gb_exec3(Node, TargetName, {NR, MR, Oids}, SendOpts) ->
     mgr_user_async_get_bulk2(Node, TargetName, NR, MR, Oids, SendOpts).
+
+
+%%======================================================================
+
+simple_async_get_bulk3_cbp_temp(doc) -> 
+    ["Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_bulk3_cbp_temp(suite) -> [];
+simple_async_get_bulk3_cbp_temp(Config) when is_list(Config) ->
+    simple_async_get_bulk3(sagb3_cbp_temp, Config).
+
+
+%%======================================================================
+
+simple_async_get_bulk3_cbp_perm(doc) -> 
+    ["Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_bulk3_cbp_perm(suite) -> [];
+simple_async_get_bulk3_cbp_perm(Config) when is_list(Config) ->
+    simple_async_get_bulk3(sagb3_cbp_perm, Config).
 
 
 %%======================================================================
@@ -4258,14 +4384,26 @@ do_inform4(Config) ->
 
 %%======================================================================
 %% 
-%% Test: ts:run(snmp, snmp_manager_test, inform_swarm, [batch]).
+%% Test: ts:run(snmp, snmp_manager_test, inform_swarm_cbp_def, [batch]).
 
-inform_swarm(suite) -> [];
-inform_swarm(Config) when is_list(Config) ->
-    ?TC_TRY(inform_swarm,
+inform_swarm_cbp_def(suite) -> [];
+inform_swarm_cbp_def(Config) when is_list(Config) ->
+    inform_swarm(is_cbp_def, Config).
+
+inform_swarm_cbp_temp(suite) -> [];
+inform_swarm_cbp_temp(Config) when is_list(Config) ->
+    inform_swarm(is_cbp_temp, Config).
+
+inform_swarm_cbp_perm(suite) -> [];
+inform_swarm_cbp_perm(Config) when is_list(Config) ->
+    inform_swarm(is_cbp_perm, Config).
+
+inform_swarm(Case, Config) ->
+    ?TC_TRY(Case,
             fun() -> do_inform_swarm(Config) end).
 
 do_inform_swarm(Config) ->
+    %% process_flag(trap_exit, true),
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4281,7 +4419,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 100, 
+    NumInforms = 20000, 
 
     Collector = self(),
 
@@ -4303,10 +4441,13 @@ do_inform_swarm(Config) ->
 					     []),
 			    %% Sleep some [(N div 10)*100 ms] 
 			    %% every tenth notification
-			    if 
+			    if
+                                N rem 100 == 0 ->
+                                    Sleep = 1000,
+				    p("sleep ~w [~w]", [Sleep, N]),
+                                    ?SLEEP(Sleep);
 				N rem 10 == 0 ->
-				    %% Time to sleep some
-				    Sleep = (N div 10) * 50,
+                                    Sleep = 100,
 				    p("sleep ~w [~w]", [Sleep, N]),
 				    ?SLEEP(Sleep);
 				true ->
@@ -4366,17 +4507,17 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _)
 	(N == RespCnt)    and
 	(N =< RecvCnt)) ->
     p("inform_swarm_collector -> done when"
-      "~n   N:          ~w"
-      "~n   SentAckCnt: ~w"
-      "~n   RecvCnt:    ~w"
-      "~n   RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
+      "~n      N:          ~w"
+      "~n      SentAckCnt: ~w"
+      "~n      RecvCnt:    ~w"
+      "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
     ok;
 inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
     p("inform_swarm_collector -> entry with"
-      "~n   N:          ~w"
-      "~n   SentAckCnt: ~w"
-      "~n   RecvCnt:    ~w"
-      "~n   RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
+      "~n      N:          ~w"
+      "~n      SentAckCnt: ~w"
+      "~n      RecvCnt:    ~w"
+      "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
     receive
 	{snmp_targets, {inform2_tag1, Id}, [_Addr]} ->
 	    p("received inform-sent acknowledgement for ~w", [Id]),
@@ -4402,9 +4543,9 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 
 	%% The agent has received ack from the manager 
 	{snmp_notification, {inform2_tag1, Id}, {got_response, Addr}} ->
-	    p("received expected \"got response\" for ~w"
+	    p("received expected \"got response\" for ~w "
 	      "notification from: "
-	      "~n   ~p", 
+	      "~n      ~p", 
 	      [Id, Addr]),
 	    inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt+1, 
 				   Timeout);
@@ -4413,7 +4554,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 	{snmp_notification, inform2_tag1, {no_response, Addr}} ->
 	    e("Received expected \"no response\" notification "
 	      "from: "
-	      "~n   ~p", [Addr]),
+	      "~n      ~p", [Addr]),
 	    Reason = {no_response, Addr, {N, SentAckCnt, RecvCnt, RespCnt}},
 	    {error, Reason}
 
@@ -4603,10 +4744,10 @@ command_handler([{No, Desc, Cmd}|Cmds]) ->
 %% -- Misc manager functions --
 
 init_manager(AutoInform, Config) ->
+
     ?LOG("init_manager -> entry with"
 	 "~n   AutoInform: ~p"
 	 "~n   Config:     ~p", [AutoInform, Config]),
-
 
     %% -- 
     %% Start node
@@ -5264,16 +5405,17 @@ mgr_user_name_to_oid(Node, Name) ->
 start_manager(Node, Vsns, Config) ->
     start_manager(Node, Vsns, Config, []).
 start_manager(Node, Vsns, Conf0, _Opts) ->
+
     ?DBG("start_manager -> entry with"
 	 "~n   Node:   ~p"
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
 	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
-    
+
     AtlDir  = ?config(manager_log_dir,  Conf0),
     ConfDir = ?config(manager_conf_dir, Conf0),
-    DbDir   = ?config(manager_db_dir, Conf0),
-    IRB     = ?config(irb, Conf0),
+    DbDir   = ?config(manager_db_dir,   Conf0),
+    IRB     = ?config(irb,              Conf0),
 
     ConfigVerbosity    = get_opt(manager_config_verbosity,     Conf0, trace),
     NoteStoreVerbosity = get_opt(manager_note_store_verbosity, Conf0, log),
@@ -5281,6 +5423,8 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
     NetIfVerbosity     = get_opt(manager_net_if_verbosity,     Conf0, trace),
 
     AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
+
+    CBP                = get_opt(manager_server_cbproxy,       Conf0, temporary),
 
     NetIfConf = 
 	case get_opt(manager_net_if_module, Conf0, no_module) of
@@ -5302,7 +5446,8 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 			      {db_dir,    DbDir}, 
 			      {verbosity, ConfigVerbosity}]},
 	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
-	   {server,          [{verbosity, ServerVerbosity}]},
+	   {server,          [{verbosity, ServerVerbosity},
+                              {cbproxy,   CBP}]},
 	   {net_if,          NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
