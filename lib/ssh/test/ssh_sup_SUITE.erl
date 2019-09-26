@@ -435,7 +435,7 @@ check_sshc_system_tree(SysSup, Connection, LocalIP, LocalPort, _Config) ->
                  {_,ChPidB,worker,[ssh_client_channel]}],
                 supervisor:which_children(ChannelSup),
                [ChPidA, ChPidB]),
-    lists:sort([ChPidA, ChPidB]) == lists:sort([ChPid1, ChPid2]),
+    true = (lists:sort([ChPidA, ChPidB]) == lists:sort([ChPid1, ChPid2])),
 
     ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
     exit(ChPid1, kill),
