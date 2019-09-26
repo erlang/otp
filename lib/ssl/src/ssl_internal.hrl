@@ -108,76 +108,88 @@
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
 
--record(ssl_options, {
-	  protocol    :: tls | dtls | 'undefined',
-	  versions    :: [ssl_record:ssl_version()] | 'undefined', %% ssl_record:atom_version() in API
-	  verify      :: verify_none | verify_peer | 'undefined',
-	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
-	  partial_chain       :: fun() | 'undefined',
-	  fail_if_no_peer_cert ::  boolean() | 'undefined',
-	  verify_client_once   ::  boolean() | 'undefined',
-	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
-	  validate_extensions_fun, 
-	  depth                :: integer() | 'undefined',
-	  certfile             :: binary() | 'undefined',
-	  cert                 :: public_key:der_encoded() | secret_printout() | 'undefined',
-	  keyfile              :: binary() | 'undefined',
-	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo' | 'undefined',
-                                   public_key:der_encoded()} | map()  %%map() -> ssl:key() how to handle dialyzer?
-                                | secret_printout() | 'undefined',
-	  password	       :: string() | secret_printout() | 'undefined',
-	  cacerts              :: [public_key:der_encoded()] | secret_printout() | 'undefined',
-	  cacertfile           :: binary() | 'undefined',
-	  dh                   :: public_key:der_encoded() | secret_printout() | 'undefined',
-	  dhfile               :: binary() | secret_printout() | 'undefined',
-	  user_lookup_fun,  % server option, fun to lookup the user
-	  psk_identity         :: binary() | secret_printout() | 'undefined',
-	  srp_identity,  % client option {User, Password}
-	  ciphers,    % 
-	  %% Local policy for the server if it want's to reuse the session
-	  %% or not. Defaluts to allways returning true.
-	  %% fun(SessionId, PeerCert, Compression, CipherSuite) -> boolean()
-	  reuse_session        :: fun() | binary() | undefined, %% Server side is a fun()
-	  %% If false sessions will never be reused, if true they
-	  %% will be reused if possible.
-	  reuse_sessions       :: boolean() | save | 'undefined',  %% Only client side can use value save
-	  renegotiate_at,
-	  secure_renegotiate,
-	  client_renegotiation,
-	  %% undefined if not hibernating, or number of ms of
-	  %% inactivity after which ssl_connection will go into
-	  %% hibernation
-	  hibernate_after      :: timeout() | 'undefined',
-	  %% This option should only be set to true by inet_tls_dist
-	  erl_dist = false     :: boolean(),
-          alpn_advertised_protocols = undefined :: [binary()] | undefined,
-          alpn_preferred_protocols = undefined  :: [binary()] | undefined,
-	  next_protocols_advertised = undefined :: [binary()] | undefined,
-	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_level = notice :: atom(),
-	  server_name_indication = undefined,
-	  sni_hosts  :: [{inet:hostname(), [tuple()]}] | 'undefined',
-	  sni_fun :: function() | undefined,
-	  %% Should the server prefer its own cipher order over the one provided by
-	  %% the client?
-	  honor_cipher_order = false :: boolean(),
-	  padding_check = true       :: boolean(),
-	  %%Should we use 1/n-1 or 0/n splitting to mitigate BEAST, or disable
-	  %%mitigation entirely?
-	  beast_mitigation = one_n_minus_one :: one_n_minus_one | zero_n | disabled,
-	  fallback = false           :: boolean(),
-	  crl_check                  :: boolean() | peer | best_effort | 'undefined',
-	  crl_cache,
-	  signature_algs,
-	  signature_algs_cert,
-	  eccs,
-	  supported_groups,  %% RFC 8422, RFC 8446
-	  honor_ecc_order            :: boolean() | 'undefined',
-          max_handshake_size         :: integer() | 'undefined',
-          handshake,
-          customize_hostname_check
-    %%                 ,
-      %%    save_session               :: boolean()            
+
+%% This map stores all supported options with default values and
+%% list of dependencies:
+%%   #{<option> => {<default_value>, [<option>]},
+%%     ...}
+-define(RULES,
+        #{
+          alpn_advertised_protocols  => {undefined, [versions]},
+          alpn_preferred_protocols   => {undefined, [versions]},
+          beast_mitigation           => {one_n_minus_one, [versions]},
+          cacertfile                 => {undefined, [versions,
+                                                     verify_fun,
+                                                     cacerts]},
+          cacerts                    => {undefined, [versions]},
+          cert                       => {undefined, [versions]},
+          certfile                   => {<<>>,      [versions]},
+          ciphers                    => {[],        [versions]},
+          client_renegotiation       => {undefined, [versions]},
+          crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
+          crl_check                  => {false,     [versions]},
+          customize_hostname_check   => {[],        [versions]},
+          depth                      => {1,         [versions]},
+          dh                         => {undefined, [versions]},
+          dhfile                     => {undefined, [versions]},
+          eccs                       => {undefined, [versions]},
+          erl_dist                   => {false,     [versions]},
+          fail_if_no_peer_cert       => {false,     [versions]},
+          fallback                   => {false,     [versions]},
+          handshake                  => {full,      [versions]},
+          hibernate_after            => {infinity,  [versions]},
+          honor_cipher_order         => {false,     [versions]},
+          honor_ecc_order            => {undefined, [versions]},
+          key                        => {undefined, [versions]},
+          keyfile                    => {undefined, [versions,
+                                                     certfile]},
+          log_level                  => {notice,    [versions]},
+          max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
+          next_protocol_selector     => {undefined, [versions]},
+          next_protocols_advertised  => {undefined, [versions]},
+          padding_check              => {true,      [versions]},
+          partial_chain              => {fun(_) -> unknown_ca end, [versions]},
+          password                   => {"",        [versions]},
+          protocol                   => {tls,       []},
+          psk_identity               => {undefined, [versions]},
+          renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
+          reuse_session              => {undefined, [versions]},
+          reuse_sessions             => {true,      [versions]},
+          secure_renegotiate         => {true,      [versions]},
+          server_name_indication     => {undefined, [versions]},
+          signature_algs             => {undefined, [versions]},
+          signature_algs_cert        => {undefined, [versions]},
+          sni_fun                    => {undefined, [versions,
+                                                     sni_hosts]},
+          sni_hosts                  => {[],        [versions]},
+          srp_identity               => {undefined, [versions]},
+          supported_groups           => {undefined, [versions]},
+          user_lookup_fun            => {undefined, [versions]},
+          validate_extensions_fun    => {undefined, [versions]},
+          verify                     => {verify_none, [versions,
+                                                       fail_if_no_peer_cert,
+                                                       partial_chain,
+                                                       verify_client_once]},
+          verify_client_once         => {false,     [versions]},
+          verify_fun                 =>
+              {
+               {fun(_,{bad_cert, _}, UserState) ->
+                        {valid, UserState};
+                   (_,{extension, #'Extension'{critical = true}}, UserState) ->
+                        %% This extension is marked as critical, so
+                        %% certificate verification should fail if we don't
+                        %% understand the extension.  However, this is
+                        %% `verify_none', so let's accept it anyway.
+                        {valid, UserState};
+                   (_,{extension, _}, UserState) ->
+                        {unknown, UserState};
+                   (_, valid, UserState) ->
+                        {valid, UserState};
+                   (_, valid_peer, UserState) ->
+                        {valid, UserState}
+                end, []},
+               [versions, verify]},
+          versions                   => {[], [protocol]}
          }).
 
 -record(socket_options,

@@ -28,6 +28,7 @@
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include("tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -106,7 +107,7 @@ decode_hello_handshake(_Config) ->
 	
     Version = {3, 0},
     {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>, 
-							 ssl:options_to_map(#ssl_options{})),
+                                                         default_options_map()),
 
     {Hello, _Data} = hd(Records),
     Extensions = Hello#server_hello.extensions,
@@ -274,3 +275,7 @@ is_supported(Hash) ->
     Algos = crypto:supports(),
     Hashs = proplists:get_value(hashs, Algos), 
     lists:member(Hash, Hashs).
+
+default_options_map() ->
+    Fun = fun (_Key, {Default, _}) -> Default end,
+    maps:map(Fun, ?RULES).

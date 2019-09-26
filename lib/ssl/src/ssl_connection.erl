@@ -821,7 +821,7 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0, Connection) ->
     try 
-        SslOpts = ssl:handle_options(Opts, OrigSSLOptions),
+        SslOpts = ssl:handle_options(Opts, Role, OrigSSLOptions),
 	State = ssl_config(SslOpts, Role, State0),
 	init({call, From}, {start, Timeout}, 
 	     State#state{ssl_options = SslOpts, 
@@ -870,7 +870,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = #handshake_env{hello = Hello},
                   ssl_options = Options0} = State0, _Connection) ->
-    Options = ssl:handle_options(NewOptions, Options0#{handshake => full}),
+    Options = ssl:handle_options(NewOptions, Role, Options0#{handshake => full}),
     State = ssl_config(Options, Role, State0),
     {next_state, hello, State#state{start_or_recv_from = From}, 
      [{next_event, internal, Hello}, {{timeout, handshake}, Timeout, close}]};
@@ -3042,7 +3042,7 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun,
         undefined ->
             undefined;
         _ ->
-            ssl:handle_options(SSLOption, OrigSSLOptions)
+            ssl:handle_options(SSLOption, server, OrigSSLOptions)
     end.
 
 new_emulated([], EmOpts) ->
