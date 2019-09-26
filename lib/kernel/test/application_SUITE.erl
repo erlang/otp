@@ -2095,7 +2095,10 @@ handle_many_config_files(Conf) when is_list(Conf) ->
         Config,
         " -config " ++ Config ++ " " ++ Config
     ),
-    {ok, [[Config], [Config, Config]]} = rpc:call(Node, init, get_argument, [config]),
+    case rpc:call(Node, init, get_argument, [config]) of
+        {ok, [[Config], [Config, Config]]} -> ok;
+        {ok, [[Config], [Config], [Config]]} -> ok %% This happens on windows
+    end,
     stop_node_nice(Node).
 
 %%%-----------------------------------------------------------------
