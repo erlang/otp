@@ -605,6 +605,7 @@ call_compile_server(char** argv)
 {
     ei_cnode ec;
     char* user;
+    char* server_id;
     char node_name[MAXNODELEN+1];
     char remote[MAXNODELEN+1];
     short creation = 1;
@@ -656,6 +657,20 @@ call_compile_server(char** argv)
         user = "nouser";
     }
 
+    /* Get build server id, if any */
+    server_id = get_env("ERLC_SERVER_ID");
+    if (server_id) {
+        /* Filter out obviously wrong characters. Making it waterproof would be
+         * too complicated and letting an invalid name through won't have any
+         * negative consequences beyond bad performance. */
+        if (strpbrk(server_id, ",@.!#$%^&=+*/()[]{}|'\"`~?")) {
+            error("ERLC_SERVER_ID must not contain characters that are "
+                  "invalid in node names.\n");
+        }
+    } else {
+        server_id = "";
+    }
+
     /* Create my own node name. */
 #ifdef __WIN32__
     sprintf(node_name, "erlc_client_%s_%lu", user, (unsigned long) GetCurrentProcessId());
@@ -671,13 +686,25 @@ call_compile_server(char** argv)
             fprintf(stderr, "\ncan't create C node %s: %s\n",
                     node_name, strerror(erl_errno));
         }
-        sprintf(remote, "erl_compile_server_%s@host", user);
+        if(snprintf(remote, MAXNODELEN, "erl_compile_server_%s_%s@host",
+                    server_id, user) >= MAXNODELEN) {
+            error("Compile server node name is too long.\n"
+                  "\tERL_SERVER_ID = %s\n"
+                  "\tuser name = %s\n",
+                  server_id, user);
+        }
         goto start_compile_server;
     }
 
     /* Create node name for compile server. */
 
-    sprintf(remote, "erl_compile_server_%s@%s", user, ei_thishostname(&ec));
+    if(snprintf(remote, MAXNODELEN, "erl_compile_server_%s_%s@%s",
+                server_id, user, ei_thishostname(&ec)) >= MAXNODELEN) {
+        error("Compile server node name is too long.\n"
+              "\tERL_SERVER_ID = %s\n"
+              "\tuser name = %s\n",
+              server_id, user);
+    }
 
     if ((fd = ei_connect(&ec, remote)) < 0) {
         if (debug > 1) {
