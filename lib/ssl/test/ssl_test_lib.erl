@@ -537,13 +537,17 @@ check_server_alert(Pid, Alert) ->
             check_server_txt(STxt),
             ok;
         {Pid, {error, closed}} ->
-            ok
+            ok;
+        {Pid, {ok, _}} ->
+            ct:fail("Successful connection during negative test.")
     end.
 check_server_alert(Server, Client, Alert) ->
     receive
 	{Server, {error, {tls_alert, {Alert, STxt}}}} ->
             check_server_txt(STxt),
-            check_client_alert(Client, Alert)
+            check_client_alert(Client, Alert);
+        {Server, {ok, _}} ->
+            ct:fail("Successful connection during negative test.")
     end.
 check_client_alert(Pid, Alert) ->
     receive
@@ -554,7 +558,9 @@ check_client_alert(Pid, Alert) ->
             check_client_txt(CTxt),
             ok;
         {Pid, {error, closed}} ->
-            ok
+            ok;
+        {Pid, {ok, _}} ->
+            ct:fail("Successful connection during negative test.")
     end.
 check_client_alert(Server, Client, Alert) ->
     receive
@@ -565,7 +571,9 @@ check_client_alert(Server, Client, Alert) ->
             check_client_txt(CTxt),
             ok;
         {Client, {error, closed}} ->
-            ok
+            ok;
+        {Client, {ok, _}} ->
+            ct:fail("Successful connection during negative test.")
     end.
 check_server_txt("TLS server" ++ _) ->
     ok;
