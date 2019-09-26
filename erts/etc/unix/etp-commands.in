@@ -2158,8 +2158,7 @@ define etp-process-info-int
   if $proxy_process != 0
     printf "  Pointer: (Process*)%p\n", $etp_proc
     printf "  *** PROXY process struct *** refer to: \n"
-    etp-pid2proc-1 $etp_proc->common.id
-    etp-process-info $proc
+    etp-process-info $etp_proc->u.real_proc
   else
   if (*(((Uint32 *) &($etp_proc->state))) & 0x800) == 0
     if ($etp_proc->common.u.alive.reg)

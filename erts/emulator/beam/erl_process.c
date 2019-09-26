@@ -3928,6 +3928,11 @@ check_requeue_process(ErtsRunQueue *rq, int prio_q)
 static ERTS_INLINE void
 free_proxy_proc(Process *proxy)
 {
+    ASSERT(proxy->u.real_proc);
+    erts_proc_dec_refc(proxy->u.real_proc);
+#ifdef DEBUG
+    proxy->u.real_proc = NULL;
+#endif
     ASSERT(erts_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
     erts_free(ERTS_ALC_T_PROC, proxy);
 }
@@ -4263,16 +4268,10 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    prio = ERTS_PSFLGS_GET_PRQ_PRIO(state);
 	    qbit = ((erts_aint32_t) 1) << prio;
 
-	    if (!(state & ERTS_PSFLG_PROXY)) {
-		real_proc = proc;
-	    }
-	    else {
-		real_proc = erts_proc_lookup_raw(proc->common.id);
-		if (!real_proc) {
-		    free_proxy_proc(proc);
-		    goto handle_next_proc;
-		}
-	    }
+            real_proc = ((state & ERTS_PSFLG_PROXY)
+                         ? proc->u.real_proc
+                         : proc);
+            ASSERT(real_proc);
 
 	    max_qbit = (state >> ERTS_PSFLGS_IN_PRQ_MASK_OFFSET);
 	    max_qbit &= ERTS_PSFLGS_QMASK;
@@ -4280,23 +4279,29 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    max_qbit &= -max_qbit;
 
 	    if (qbit > max_qbit) {
+                erts_aint32_t clr_bits;
 		/* Process already queued with higher prio; drop it... */
+                clr_bits = qbit << ERTS_PSFLGS_IN_PRQ_MASK_OFFSET;
 		if (real_proc != proc)
 		    free_proxy_proc(proc);
-		else {
-		    erts_aint32_t clr_bits;
+		else
+		    clr_bits |= ERTS_PSFLG_IN_RUNQ;
 
-		    clr_bits = ERTS_PSFLG_IN_RUNQ;
-		    clr_bits |= qbit << ERTS_PSFLGS_IN_PRQ_MASK_OFFSET;
+                state = erts_atomic32_read_band_mb(&real_proc->state, ~clr_bits);
+                ASSERT((state & clr_bits) == clr_bits);
 
-                    state = erts_atomic32_read_band_mb(&proc->state, ~clr_bits);
-                    ASSERT((state & clr_bits) == clr_bits);
-
-                    if (state & ERTS_PSFLG_FREE) {
-                        /* free and not queued by proxy */
-                        erts_proc_dec_refc(proc);
-		    }
-		}
+                if (((state & (ERTS_PSFLG_ACTIVE | ERTS_PSFLG_FREE))
+                     | (clr_bits & ERTS_PSFLG_IN_RUNQ))
+                    == (ERTS_PSFLG_FREE | ERTS_PSFLG_IN_RUNQ)) {
+                    /* 
+                     * inactive-free and not queued by proxy
+                     *
+                     * Corresponds to increment in
+                     * erts_continue_exit_process() after
+                     * state ERTS_CONTINUE_EXIT_DONE.
+                     */
+                    erts_proc_dec_refc(real_proc);
+                }
 
 		goto handle_next_proc;
 	    }
@@ -6230,6 +6235,11 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 
     if (prev_proxy) {
 	proxy = prev_proxy;
+        ASSERT(proxy->u.real_proc);
+        erts_proc_dec_refc(proxy->u.real_proc);
+#ifdef DEBUG
+        proxy->u.real_proc = NULL;
+#endif
 	ASSERT(erts_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
 	erts_atomic32_set_nob(&proxy->state, state);
         (void) erts_set_runq_proc(proxy, rq, &bound);
@@ -6243,12 +6253,16 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	    for (i = 0; i < sizeof(Process)/sizeof(Uint32); i++)
 		ui32[i] = (Uint32) 0xdeadbeef;
 	}
+        proxy->u.real_proc = NULL;
 #endif
 	erts_atomic32_init_nob(&proxy->state, state);
         erts_init_runq_proc(proxy, rq, bound);
     }
 
     proxy->common.id = proc->common.id;
+    ASSERT(proxy->u.real_proc == NULL);
+    proxy->u.real_proc = proc;
+    erts_proc_inc_refc(proc);
 
     return proxy;
 }
@@ -6268,12 +6282,6 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 {
     int queue;
     erts_aint32_t dact, max_qbit;
-
-    /* Do not enqueue free process... */
-    if (actual & ERTS_PSFLG_FREE) {
-	*newp &= ~ERTS_PSFLGS_DIRTY_WORK;
-        return ERTS_ENQUEUE_NOT;
-    }
 
     /* Termination should be done on an ordinary scheduler */
     if ((*newp) & ERTS_PSFLG_EXITING) {
@@ -6342,7 +6350,16 @@ fin_dirty_enq_s_change(Process *p,
             state = erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_IN_RUNQ);
             ASSERT(state & ERTS_PSFLG_IN_RUNQ);
 
-            if (state & ERTS_PSFLG_FREE) {
+            if ((state & (ERTS_PSFLG_ACTIVE
+                          | ERTS_PSFLG_FREE))
+                == ERTS_PSFLG_FREE) {
+                /*
+                 * inactive-free and not queued by proxy
+                 *
+                 * Corresponds to increment in
+                 * erts_continue_exit_process() after
+                 * state ERTS_CONTINUE_EXIT_DONE.
+                 */
                 erts_proc_dec_refc(p);
             }
 	}
@@ -6586,16 +6603,16 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 
 	ASSERT(runq);
 
-	erts_runq_lock(runq);
-
-        if (is_normal_sched && sched_p == p && ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
+        if (runq != c_rq && ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
             erts_proc_inc_refc(p); /* Needs to be done before enqueue_process() */
+        
+	erts_runq_lock(runq);
 
 	/* Enqueue the process */
 	enqueue_process(runq, (int) enq_prio, sched_p);
 
 	if (runq == c_rq)
-	    return 0;
+	    return 0; /* No decrement of refc since enqueued on same dirty scheduler */
 
 	erts_runq_unlock(runq);
 
@@ -6603,14 +6620,8 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 
 	erts_runq_lock(c_rq);
 
-        /*
-         * Decrement refc if process is scheduled out by a
-         * dirty scheduler, and we have not just scheduled
-         * the process using the ordinary process struct
-         * on a dirty run-queue again...
-         */
-        return !is_normal_sched && (sched_p != p
-                                    || !ERTS_RUNQ_IX_IS_DIRTY(runq->ix));
+        /* Decrement refc if scheduled out from dirty scheduler... */
+        return !is_normal_sched;
     }
 }
 
@@ -6624,20 +6635,9 @@ add2runq(int enqueue, erts_aint32_t prio,
     runq = select_enqueue_run_queue(enqueue, prio, proc, state);
 
     if (runq) {
-	Process *sched_p;
-
-	if (enqueue > 0) {
-	    sched_p = proc;
-	    /*
-	     * Refc on process struct (i.e. true struct,
-	     * not proxy-struct) increased while in a
-	     * dirty run-queue or executing on a dirty
-	     * scheduler.
-	     */
-            if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
-                erts_proc_inc_refc(proc);
-        }
-	else {
+	Process *sched_p = proc;
+        
+	if (enqueue < 0) { /* use proxy */
 	    Process *pxy;
 
 	    if (!proxy)
@@ -6649,6 +6649,9 @@ add2runq(int enqueue, erts_aint32_t prio,
 	    sched_p = make_proxy_proc(pxy, proc, prio);
 	}
 
+        if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix))
+            erts_proc_inc_refc(proc);
+        
 	erts_runq_lock(runq);
 
 	/* Enqueue the process */
@@ -6711,6 +6714,7 @@ change_proc_schedule_state(Process *p,
 	if (set_state_flags)
 	    n |= set_state_flags;
 
+        
 	if ((n & (ERTS_PSFLG_SUSPENDED
 		  | ERTS_PSFLG_RUNNING
 		  | ERTS_PSFLG_RUNNING_SYS
@@ -6718,6 +6722,7 @@ change_proc_schedule_state(Process *p,
 		  | ERTS_PSFLG_DIRTY_RUNNING_SYS
 		  | ERTS_PSFLG_IN_RUNQ
 		  | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE
+            /* If exiting and executing dirty, schedule on normal */
 	    || (n & (ERTS_PSFLG_RUNNING
 		     | ERTS_PSFLG_RUNNING_SYS
 		     | ERTS_PSFLG_EXITING)) == ERTS_PSFLG_EXITING
@@ -9606,17 +9611,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    if (!(state & ERTS_PSFLG_PROXY))
 		psflg_band_mask &= ~ERTS_PSFLG_IN_RUNQ;
 	    else {
-                Eterm pid = p->common.id;
 		proxy_p = p;
-		p = (is_normal_sched
-                     ? erts_proc_lookup_raw(pid)
-                     : erts_pid2proc_opt(NULL, 0, pid, 0,
-                                         ERTS_P2P_FLG_INC_REFC));
-		if (!p) {
-		    free_proxy_proc(proxy_p);
-		    proxy_p = NULL;
-		    goto pick_next_process;
-		}
+                p = proxy_p->u.real_proc;
+                ASSERT(p);
 		state = erts_atomic32_read_nob(&p->state);
 	    }
 
@@ -9625,43 +9622,47 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	    while (1) {
 		erts_aint32_t exp, new;
-		int run_process, not_running, exiting_on_normal_sched,
-                    not_suspended, not_exiting_on_dirty_sched;
+		int run_process, is_active, is_running,
+                    is_suspended, need_forced_exit;
 		new = exp = state;
 		new &= psflg_band_mask;
-		/*
-		 * Run process if not already running (or free)
-		 * or exiting and not running on a normal
-		 * scheduler, and not suspended (and not in a
-		 * state where suspend should be ignored).
-		 */
-                not_running = !(state & (ERTS_PSFLG_RUNNING
+                
+                /* Active? (has work to do) */
+                is_active = !!(state & (ERTS_PSFLG_ACTIVE
+                                        | ERTS_PSFLG_ACTIVE_SYS
+                                        | ERTS_PSFLG_DIRTY_ACTIVE_SYS));
+
+                /* Suspended? (suspend does not effect active-sys) */
+                is_suspended = !!((state & (ERTS_PSFLG_SUSPENDED
+                                            | ERTS_PSFLG_ACTIVE_SYS
+                                            | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+                                  == ERTS_PSFLG_SUSPENDED);
+
+                /* Already running? */
+                is_running = !!(state & (ERTS_PSFLG_RUNNING
                                          | ERTS_PSFLG_RUNNING_SYS
                                          | ERTS_PSFLG_DIRTY_RUNNING
-                                         | ERTS_PSFLG_DIRTY_RUNNING_SYS
-                                         | ERTS_PSFLG_FREE));
-                exiting_on_normal_sched =
-                    ((state & (ERTS_PSFLG_RUNNING
-                               | ERTS_PSFLG_ACTIVE
-                               | ERTS_PSFLG_RUNNING_SYS
-                               | ERTS_PSFLG_DIRTY_RUNNING_SYS
-                               | ERTS_PSFLG_EXITING))
-                     == (ERTS_PSFLG_EXITING|ERTS_PSFLG_ACTIVE))
-                    & (!!is_normal_sched);
+                                         | ERTS_PSFLG_DIRTY_RUNNING_SYS));
 
+                /*
+                 * If on a normal scheduler, check if we should forcebly
+                 * terminate process despite it is executing on a dirty
+                 * scheduler (we can not do that if it is executing
+                 * dirty system tasks though).
+                 */
 
-                not_suspended = ((state & (ERTS_PSFLG_SUSPENDED
-                                           | ERTS_PSFLG_EXITING
-                                           | ERTS_PSFLG_FREE
-                                           | ERTS_PSFLG_ACTIVE_SYS
-                                           | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-                                 != ERTS_PSFLG_SUSPENDED);
+                need_forced_exit = (!!is_normal_sched
+                                    & ((state & (ERTS_PSFLG_RUNNING
+                                                 | ERTS_PSFLG_DIRTY_RUNNING
+                                                 | ERTS_PSFLG_RUNNING_SYS
+                                                 | ERTS_PSFLG_DIRTY_RUNNING_SYS
+                                                 | ERTS_PSFLG_EXITING))
+                                       == (ERTS_PSFLG_DIRTY_RUNNING
+                                           | ERTS_PSFLG_EXITING)));
 
-                not_exiting_on_dirty_sched = !(state & ERTS_PSFLG_EXITING) | (!!is_normal_sched);
-
-		run_process = (not_running | exiting_on_normal_sched)
-                    & not_suspended
-                    & not_exiting_on_dirty_sched;
+                run_process = (is_active
+                               & (!is_suspended)
+                               & ((!is_running) | need_forced_exit));
 
 		if (run_process) {
 		    if (state & (ERTS_PSFLG_ACTIVE_SYS
@@ -9677,8 +9678,16 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 			    free_proxy_proc(proxy_p);
 			    proxy_p = NULL;
 			}
-			else if (state & ERTS_PSFLG_FREE) {
-			    /* free and not queued by proxy */
+			else if ((state & (ERTS_PSFLG_ACTIVE
+                                           | ERTS_PSFLG_FREE))
+                                 == ERTS_PSFLG_FREE) {
+			    /*
+                             * inactive-free and not queued by proxy
+                             *
+                             * Corresponds to increment in
+                             * erts_continue_exit_process() after
+                             * state ERTS_CONTINUE_EXIT_DONE.
+                             */
                             ASSERT(state & ERTS_PSFLG_IN_RUNQ);
 			    erts_proc_dec_refc(p);
 			}
@@ -12785,26 +12794,8 @@ restart:
          * when the monitors and/or links hit.
          */
 
-        {
-            /* Inactivate and notify free */
-            erts_aint32_t n, e, a = erts_atomic32_read_nob(&p->state);
-            int refc_inced = 0;
-            while (1) {
-                n = e = a;
-                ASSERT(a & ERTS_PSFLG_EXITING);
-                n |= ERTS_PSFLG_FREE;
-                if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
-                    erts_proc_inc_refc(p);
-                    refc_inced = 1;
-                }
-                a = erts_atomic32_cmpxchg_mb(&p->state, n, e);
-                if (a == e)
-                    break;
-            }
-
-            if (refc_inced && !(n & ERTS_PSFLG_IN_RUNQ))
-                erts_proc_dec_refc(p);
-        }
+        /* notify free */
+        erts_atomic32_read_bor_relb(&p->state, ERTS_PSFLG_FREE);
 
         trap_state->dep = ((p->flags & F_DISTRIBUTION)
                       ? ERTS_PROC_SET_DIST_ENTRY(p, NULL)
@@ -12989,11 +12980,38 @@ restart:
 
         /* Set state to not active as we don't want this process
            to be scheduled in again after this. */
-        state = erts_atomic32_read_band_relb(&p->state,
-                                             ~(ERTS_PSFLG_ACTIVE
-                                               | ERTS_PSFLG_ACTIVE_SYS
-                                               | ERTS_PSFLG_DIRTY_ACTIVE_SYS));
+        {
+            /* Inactivate */
+            erts_aint32_t n, e, a = erts_atomic32_read_nob(&p->state);
+            int refc_inced = 0;
+            while (1) {
+                n = e = a;
+                ASSERT(a & ERTS_PSFLG_FREE);
+                n &= ~(ERTS_PSFLG_ACTIVE
+                       | ERTS_PSFLG_ACTIVE_SYS
+                       | ERTS_PSFLG_DIRTY_ACTIVE_SYS);
+                if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
+                    /*
+                     * Happens when we have been scheduled via
+                     * a proxy-proc struct.
+                     *
+                     * Corresponding decrement in erts_schedule()
+                     * right after "if (!run_process)".
+                     */
+                    erts_proc_inc_refc(p);
+                    refc_inced = 1;
+                }
+                a = erts_atomic32_cmpxchg_mb(&p->state, n, e);
+                if (a == e) {
+                    state = n;
+                    break;
+                }
+            }
 
+            if (refc_inced && !(n & ERTS_PSFLG_IN_RUNQ))
+                erts_proc_dec_refc(p);
+        }
+        
         ASSERT(p->scheduler_data);
         ASSERT(p->scheduler_data->current_process == p);
         ASSERT(p->scheduler_data->free_process == NULL);
