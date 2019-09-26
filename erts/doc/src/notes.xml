@@ -31,6 +31,36 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A terminating process sending distributed <c>'EXIT'</c>
+	    or <c>'DOWN'</c> signals while terminating could end up
+	    in a state where no progress at all was made. This was
+	    triggered by a distribution channel that the terminating
+	    process was sending on got busy. This bug has existed
+	    since ERTS version 10.4 (OTP 22.0).</p>
+          <p>
+	    Own Id: OTP-16069</p>
+        </item>
+        <item>
+          <p>
+	    When communicating with a simultaneously exiting port via
+	    the <c>erlang:port_*()</c> BIFs one could sometimes get
+	    stray <c>{Ref, What}</c> messages. Where <c>Ref</c> was a
+	    reference and <c>What</c> usually were the atom
+	    <c>badarg</c>.</p>
+          <p>
+	    Own Id: OTP-16107 Aux Id: ERL-1049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
