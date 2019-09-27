@@ -24,7 +24,7 @@
 
 -module(ssh_xfer).
 
--export([attach/3, connect/3, connect/4, connect/5]).
+-export([connect/3, connect/4, connect/5]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
@@ -49,10 +49,6 @@
 
 -define(XFER_PACKET_SIZE, 65536).
 -define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
-
-attach(CM, Opts, ChanOpts) ->
-    open_xfer(CM, Opts, ChanOpts).
-
 
 connect(Host, Port, Opts) ->
     case ssh:connect(Host, Port, Opts) of

@@ -160,8 +160,11 @@ start_channel(Socket, UserOptions) when is_port(Socket) ->
 start_channel(Cm, UserOptions) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
-    case ssh_xfer:attach(Cm, [], ChanOpts) of
-	{ok, ChannelId, Cm} ->
+
+    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
+    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
+    case ssh_connection:session_channel(Cm, WindowSize, PacketSize, Timeout) of
+	{ok, ChannelId} ->
 	    case ssh_client_channel:start(Cm, ChannelId,
 				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
 		{ok, Pid} ->
