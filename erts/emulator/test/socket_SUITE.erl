@@ -1687,6 +1687,7 @@ ttest_ssockt_csockt_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    print_host_info(),
     case lists:member(socket, erlang:loaded()) of
         true ->
             case os:type() of
@@ -1711,6 +1712,54 @@ end_per_suite(_) ->
     ok.
 
 
+%% This function prints various host info, which might be usefull
+%% when analyzing the test suite (results).
+print_host_info() ->
+    {OsFam, OsName} = os:type(),
+    Version         =
+        case os:version() of
+            {Maj, Min, Rel} ->
+                ?F("~w.~w.~w", [Maj, Min, Rel]);
+            VStr ->
+                VStr
+        end,
+    case {OsFam, OsName} of
+        {unix, linux} ->
+            case file:read_file_info("/etc/issue") of
+                {ok, _} ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, string:trim(os:cmd("cat /etc/issue"))]);
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n", [Version])
+            end,
+            case (catch [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])]) of
+                ["model name", CPU | _] ->
+                    io:format("CPU: ~s"
+                              "~n", [CPU]);
+                _ ->
+                    ok
+            end,
+            case (catch [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])]) of
+                [_, MemTotal] ->
+                    io:format("Memory: ~s"
+                              "~n", [MemTotal]);
+                _ ->
+                    ok
+            end;
+        {unix, sunos} ->
+            io:format("Solaris: ~s"
+                      "~n", [Version]);
+        _ ->
+            io:format("OS Family: ~p"
+                      "~n   OS Type: ~p"
+                      "~n   Version: ~p"
+                      "~n", [OsFam, OsName, Version])
+    end.
+    
+    
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
