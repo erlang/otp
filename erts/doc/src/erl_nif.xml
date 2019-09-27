@@ -1316,7 +1316,7 @@ typedef struct {
 
     <func>
       <name since="OTP 20.1"><ret>void</ret>
-        <nametext>enif_free_iovec(ErlNifIOvec* iov)</nametext></name>
+        <nametext>enif_free_iovec(ErlNifIOVec* iov)</nametext></name>
       <fsummary>Free an ErlIOVec</fsummary>
       <desc>
         <p>Frees an io vector returned from
