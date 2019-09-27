@@ -496,7 +496,8 @@ no_forwarding() ->
     FailRegExp =
         "Port forwarding is disabled"
         "|remote port forwarding failed"
-        "|Bad.*specification",
+        "|Bad.*specification"
+        "|Bad forwarding port",
     {Result,TheText} =
         try
             Parent = self(),
