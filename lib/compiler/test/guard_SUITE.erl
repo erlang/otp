@@ -2271,6 +2271,7 @@ beam_bool_SUITE(_Config) ->
     cover_shortcut_branches(),
     wrong_order(),
     megaco(),
+    looks_like_a_guard(),
     ok.
 
 before_and_inside_if() ->
@@ -2480,6 +2481,22 @@ megaco(Top, SelPrio)
     ok;
 megaco(_, _) ->
     error.
+
+%% ERL-1054.
+looks_like_a_guard() ->
+    ok = looks_like_a_guard(0),
+    ok = looks_like_a_guard(1),
+    ok.
+
+looks_like_a_guard(N) ->
+    GuessPosition = id(42),
+    %% The matching of `true` would look like a guard to
+    %% beam_ssa_bool. The optimized code would not be safe.
+    case {1 >= N, GuessPosition == 0} of
+        {true, _} -> ok;
+        {_, true} -> ok;
+        _ -> looks_like_a_guard(N)
+    end.
 
 %%%
 %%% End of beam_bool_SUITE tests.
