@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,6 +52,10 @@
 
 %% for debugging, to turn off catch
 -define(CATCH, catch).
+
+%% Debug.
+-define(SHOW_GP_BIT_11(B, F), ok).
+%%-define(SHOW_GP_BIT_11(B, F), io:format("F = ~.16#, B = ~lp\n", [F, B])).
 
 %% option sets
 -record(unzip_opts, {
@@ -138,6 +142,8 @@
 -define(PKWARE_RESERVED, 11).
 -define(BZIP2_COMPRESSED, 12).
 
+-define(GP_BIT_11, 16#800). % Filename and file comment UTF-8 encoded.
+
 %% zip-file records
 -define(LOCAL_FILE_MAGIC,16#04034b50).
 -define(LOCAL_FILE_HEADER_SZ,(4+2+2+2+2+2+4+4+4+2+2)).
@@ -191,12 +197,16 @@
 	       zip_comment_length}).
 
 
--type create_option() :: memory | cooked | verbose | {comment, string()}
-                       | {cwd, file:filename()}
-                       | {compress, extension_spec()}
-                       | {uncompress, extension_spec()}.
+-type create_option() :: memory | cooked | verbose
+                       | {comment, Comment ::string()}
+                       | {cwd, CWD :: file:filename()}
+                       | {compress, What :: extension_spec()}
+                       | {uncompress, What :: extension_spec()}.
 -type extension() :: string().
--type extension_spec() :: all | [extension()] | {add, [extension()]} | {del, [extension()]}.
+-type extension_spec() :: all
+                        | [Extension :: extension()]
+                        | {add, [Extension :: extension()]}
+                        | {del, [Extension :: extension()]}.
 -type filename() :: file:filename().
 
 -type zip_comment() :: #zip_comment{}.
@@ -277,8 +287,11 @@ do_openzip_get(_, _) ->
     throw(einval).
 
 file_name_search(Name,Files) ->
-    case lists:dropwhile(fun({ZipFile,_}) -> ZipFile#zip_file.name =/= Name end,
-			 Files) of
+    Fun = fun({ZipFile,_}) ->
+                  not string:equal(ZipFile#zip_file.name, Name,
+                                   _IgnoreCase = false, _Norm = nfc)
+          end,
+    case lists:dropwhile(Fun, Files) of
 	[ZFile|_] -> ZFile;
 	[] -> false
     end.
@@ -429,12 +442,7 @@ zip(F, Files) -> zip(F, Files, []).
       FileSpec :: file:name() | {file:name(), binary()}
                 | {file:name(), binary(), file:file_info()},
       Options  :: [Option],
-      Option   :: memory | cooked | verbose | {comment, Comment}
-                | {cwd, CWD} | {compress, What} | {uncompress, What},
-      What     :: all | [Extension] | {add, [Extension]} | {del, [Extension]},
-      Extension :: string(),
-      Comment  :: string(),
-      CWD      :: file:filename(),
+      Option   :: create_option(),
       RetValue :: {ok, FileName :: file:name()}
                 | {ok, {FileName :: file:name(), binary()}}
                 | {error, Reason :: term()}).
@@ -622,9 +630,11 @@ get_zip_opt([Unknown | _Rest], _Opts) ->
 %% feedback funs
 silent(_) -> ok.
 
-verbose_unzip(FN) -> io:format("extracting: ~tp\n", [FN]).
+verbose_unzip(FN) ->
+    io:format("extracting: ~ts\n", [io_lib:write_string(FN)]).
 
-verbose_zip(FN) -> io:format("adding: ~tp\n", [FN]).
+verbose_zip(FN) ->
+    io:format("adding: ~ts\n", [io_lib:write_string(FN)]).
 
 %% file filter funs
 all(_) -> true.
@@ -655,7 +665,10 @@ get_zip_options(Files, Options) ->
 		     compress = all,
 		     uncompress = Suffixes
 		    },
-    get_zip_opt(Options, Opts).
+    Opts1 = #zip_opts{comment = Comment} = get_zip_opt(Options, Opts),
+    %% UTF-8 encode characters in the interval from 127 to 255.
+    {Comment1, _} = encode_string(Comment),
+    Opts1#zip_opts{comment = Comment1}.
 
 get_unzip_options(F, Options) ->
     Opts = #unzip_opts{file_filter = fun all/1,
@@ -850,16 +863,18 @@ put_z_files([F | Rest], Z, Out0, Pos0,
 	    regular -> FileInfo#file_info.size;
 	    directory -> 0
 	end,
-    FileName = get_filename(F, Type),
+    FileName0 = get_filename(F, Type),
+    %% UTF-8 encode characters in the interval from 127 to 255.
+    {FileName, GPFlag} = encode_string(FileName0),
     CompMethod = get_comp_method(FileName, UncompSize, Opts, Type),
-    LH = local_file_header_from_info_method_name(FileInfo, UncompSize, CompMethod, FileName),
+    LH = local_file_header_from_info_method_name(FileInfo, UncompSize, CompMethod, FileName, GPFlag),
     BLH = local_file_header_to_bin(LH),
     B = [<<?LOCAL_FILE_MAGIC:32/little>>, BLH],
     Out1 = Output({write, B}, Out0),
     Out2 = Output({write, FileName}, Out1),
     {Out3, CompSize, CRC} = put_z_file(CompMethod, UncompSize, Out2, F1,
 				       0, Input, Output, OpO, Z, Type),
-    FB(FileName),
+    FB(FileName0),
     Patch = <<CRC:32/little, CompSize:32/little>>,
     Out4 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET, Patch}, Out3),
     Out5 = Output({seek, eof, 0}, Out4),
@@ -1103,10 +1118,10 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
 %% put together a local file header
 local_file_header_from_info_method_name(#file_info{mtime = MTime},
 					UncompSize,
-					CompMethod, Name) ->
+					CompMethod, Name, GPFlag) ->
     {ModDate, ModTime} = dos_date_time_from_datetime(MTime),
     #local_file_header{version_needed = 20,
-		       gp_flag = 0,
+		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
 		       last_mod_time = ModTime,
 		       last_mod_date = ModDate,
@@ -1270,7 +1285,9 @@ get_central_dir(In0, RawIterator, Input) ->
     In2 = Input({seek, bof, EOCD#eocd.offset}, In1),
     N = EOCD#eocd.entries,
     Acc0 = [],
-    Out0 = RawIterator(EOCD, "", binary_to_list(BComment), <<>>, Acc0),
+    %% There is no encoding flag for the archive comment.
+    Comment = heuristic_to_string(BComment),
+    Out0 = RawIterator(EOCD, "", Comment, <<>>, Acc0),
     get_cd_loop(N, In2, RawIterator, Input, Out0).
 
 get_cd_loop(0, In, _RawIterator, _Input, Acc) ->
@@ -1286,20 +1303,32 @@ get_cd_loop(N, In0, RawIterator, Input, Acc0) ->
     ExtraLen = CD#cd_file_header.extra_field_length,
     CommentLen = CD#cd_file_header.file_comment_length,
     ToRead = FileNameLen + ExtraLen + CommentLen,
+    GPFlag = CD#cd_file_header.gp_flag,
     {B2, In2} = Input({read, ToRead}, In1),
     {FileName, Comment, BExtra} =
-	get_name_extra_comment(B2, FileNameLen, ExtraLen, CommentLen),
+	get_name_extra_comment(B2, FileNameLen, ExtraLen, CommentLen, GPFlag),
     Acc1 = RawIterator(CD, FileName, Comment, BExtra, Acc0),
     get_cd_loop(N-1, In2, RawIterator, Input, Acc1).
 
-get_name_extra_comment(B, FileNameLen, ExtraLen, CommentLen) ->
-    case B of
-	<<BFileName:FileNameLen/binary,
-	 BExtra:ExtraLen/binary,
-	 BComment:CommentLen/binary>> ->
-	    {binary_to_list(BFileName), binary_to_list(BComment), BExtra};
-	_ ->
-	    throw(bad_central_directory)
+get_name_extra_comment(B, FileNameLen, ExtraLen, CommentLen, GPFlag) ->
+    try
+        <<BFileName:FileNameLen/binary,
+          BExtra:ExtraLen/binary,
+          BComment:CommentLen/binary>> = B,
+        {binary_to_chars(BFileName, GPFlag),
+         %% Appendix D says: "If general purpose bit 11 is unset, the
+         %% file name and comment should conform to the original ZIP
+         %% character encoding." However, it seems that at least Linux
+         %% zip(1) encodes the comment without setting bit 11 if the
+         %% filename is 7-bit ASCII. If bit 11 is set,
+         %% binary_to_chars/1 could (should?) be called (it can fail),
+         %% but the choice is to employ heuristics in this case too
+         %% (it does not fail).
+         heuristic_to_string(BComment),
+         BExtra}
+    catch
+        _:_ ->
+            throw(bad_central_directory)
     end.
 
 %% get end record, containing the offset to the central directory
@@ -1428,7 +1457,8 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 					     LH#local_file_header.crc32}
 			       end,
 	    {BFileN, In3} = Input({read, FileNameLen + ExtraLen}, In1),
-	    {FileName, _} = get_file_name_extra(FileNameLen, ExtraLen, BFileN),
+	    {FileName, _} =
+                get_file_name_extra(FileNameLen, ExtraLen, BFileN, GPFlag),
 	    ReadAndWrite =
 		case check_valid_location(CWD, FileName) of
 		    {true,FileName1} ->
@@ -1488,12 +1518,13 @@ check_dir_level([".." | Parts], Level) ->
 check_dir_level([_Dir | Parts], Level) ->
     check_dir_level(Parts, Level+1).
 
-get_file_name_extra(FileNameLen, ExtraLen, B) ->
-    case B of
-	<<BFileName:FileNameLen/binary, BExtra:ExtraLen/binary>> ->
-	    {binary_to_list(BFileName), BExtra};
-	_ ->
-	    throw(bad_file_header)
+get_file_name_extra(FileNameLen, ExtraLen, B, GPFlag) ->
+    try
+        <<BFileName:FileNameLen/binary, BExtra:ExtraLen/binary>> = B,
+        {binary_to_chars(BFileName, GPFlag), BExtra}
+    catch
+        _:_ ->
+            throw(bad_file_header)
     end.
 
 %% get compressed or stored data
@@ -1597,6 +1628,38 @@ skip_bin(B, Pos) when is_binary(B) ->
 	_ -> <<>>
     end.
 
+binary_to_chars(B, GPFlag) ->
+    ?SHOW_GP_BIT_11(B, GPFlag band ?GP_BIT_11),
+    case GPFlag band ?GP_BIT_11 of
+        0 ->
+            binary_to_list(B);
+        ?GP_BIT_11 ->
+            case unicode:characters_to_list(B) of
+                List when is_list(List) ->
+                    List
+            end
+    end.
+
+heuristic_to_string(B) when is_binary(B) ->
+    case unicode:characters_to_binary(B) of
+	B ->
+            unicode:characters_to_list(B);
+	_ ->
+            binary_to_list(B)
+    end.
+
+encode_string(String) ->
+    case lists:any(fun(C) -> C > 127 end, String) of
+        true ->
+            case unicode:characters_to_binary(String) of
+                B when is_binary(B) ->
+                    {binary_to_list(B), ?GP_BIT_11};
+                _ ->
+                    throw({bad_unicode, String})
+            end;
+        false ->
+            {String, 0}
+    end.
 
 %% ZIP header manipulations
 eocd_and_comment_from_bin(<<DiskNum:16/little,
