@@ -160,9 +160,8 @@ start_channel(Socket, UserOptions) when is_port(Socket) ->
 start_channel(Cm, UserOptions) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
-
-    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
-    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
+    WindowSize = proplists:get_value(window_size, ChanOpts, ?XFER_WINDOW_SIZE),
+    PacketSize = proplists:get_value(packet_size, ChanOpts, ?XFER_PACKET_SIZE),
     case ssh_connection:session_channel(Cm, WindowSize, PacketSize, Timeout) of
 	{ok, ChannelId} ->
 	    case ssh_client_channel:start(Cm, ChannelId,
@@ -197,25 +196,24 @@ start_channel(Host, UserOptions) ->
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()}.
 
 start_channel(Host, Port, UserOptions) ->
-    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
+    {SshOpts, _ChanOpts, _SftpOpts} = handle_options(UserOptions),
     Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
-        proplists:get_value(connect_timeout, SshOpts,
-                            proplists:get_value(timeout, SftpOpts, infinity)),
-    case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
-	{ok, ChannelId, Cm} ->
-	    case ssh_client_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
-		{ok, Pid} ->
-		    case wait_for_version_negotiation(Pid, Timeout) of
-			ok ->
-			    {ok, Pid, Cm};
-			TimeOut ->
-			    TimeOut
-		    end;
-		{error, Reason} ->
-		    {error, format_channel_start_error(Reason)};
-		ignore ->
-		    {error, ignore}
-	    end;
+        case proplists:get_value(connect_timeout, UserOptions) of
+            undefined ->
+                proplists:get_value(timeout, UserOptions, infinity);
+            TO ->
+                TO
+        end,
+    case ssh:connect(Host, Port, SshOpts, Timeout) of
+	{ok, Cm} ->
+            case start_channel(Cm, UserOptions) of
+                {ok, Pid} ->
+                    {ok, Pid, Cm};
+                Error ->
+                    Error
+            end;
+	{error, Timeout} ->
+            {error, timeout};
 	Error ->
 	    Error
     end.

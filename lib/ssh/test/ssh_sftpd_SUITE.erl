@@ -32,8 +32,8 @@
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+%% -define(XFER_PACKET_SIZE, 32768).
+%% -define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
 -define(SSH_TIMEOUT, 10000).
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).

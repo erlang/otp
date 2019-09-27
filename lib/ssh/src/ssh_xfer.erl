@@ -24,7 +24,6 @@
 
 -module(ssh_xfer).
 
--export([connect/3, connect/4, connect/5]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
@@ -46,37 +45,6 @@
 
 -define(is_set(F, Bits),
 	((F) band (Bits)) == (F)).
-
--define(XFER_PACKET_SIZE, 65536).
--define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
-
-connect(Host, Port, Opts) ->
-    case ssh:connect(Host, Port, Opts) of
-	{ok, CM} -> open_xfer(CM, Opts, []);
-	Error -> Error
-    end.
-
-connect(Host, Port, Opts, Timeout) ->
-    connect(Host, Port, Opts, [], Timeout).
-
-connect(Host, Port, Opts, ChanOpts, Timeout) ->
-    case ssh:connect(Host, Port, Opts, Timeout) of
-	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts], ChanOpts);
-	{error, Timeout} -> {error, timeout};
-	Error -> Error
-    end.
-
-
-open_xfer(CM, Opts, ChanOpts) ->
-    TMO = proplists:get_value(timeout, Opts, infinity),
-    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
-    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
-    case ssh_connection:session_channel(CM, WindowSize, PacketSize, TMO) of
-	{ok, ChannelId} ->
-	    {ok, ChannelId, CM};
-	Error -> 
-	    Error
-    end.
 
 protocol_version_request(XF, Version) ->
     xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(Version)>>).
