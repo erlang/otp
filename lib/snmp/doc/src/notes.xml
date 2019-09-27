@@ -34,7 +34,29 @@
   </header>
 
 
-  <section><title>SNMP 5.4</title>
+  <section><title>SNMP 5.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Made it possible to add 'extra socket options' to the
+	    (gen_udp) socket open call (for both manager and agent).
+	    A new option has been added, extra_sock_opts, which makes
+	    it possible for the user to add a list of extra socket
+	    options that will be appended to the other socket options
+	    for the open call. See the snmp application config man
+	    page (erl -man 6 snmp) or the "Configuring the
+	    application" chapter of the Users Guide for more info.</p>
+          <p>
+	    Own Id: OTP-16092 Aux Id: ERIERL-410 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the bit-syntax optimization pass that
+	    could crash the compiler.</p>
+          <p>
+	    Own Id: OTP-16103 Aux Id: ERL-1050 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
