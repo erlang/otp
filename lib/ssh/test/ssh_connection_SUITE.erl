@@ -318,7 +318,7 @@ send_after_exit(Config) when is_list(Config) ->
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     receive
-	{ssh_cm, ConnectionRef, {exit_status, ChannelId0, _ExitStatus}} ->
+	{ssh_cm, ConnectionRef, {exit_status, ChannelId0, ExitStatus}} when ExitStatus=/=0 ->
 	    ok
     after 
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
@@ -747,7 +747,7 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     ok = ssh_connection:send(C, Ch, "bad_input.\n", 5000),
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,1,<<"**Error** {bad_input,3}">>}}),
     receive
-        {ssh_cm,C,{exit_status,Ch,_}} -> ok
+        {ssh_cm,C,{exit_status,Ch,255}} -> ok
     after 5000 -> go_on
     end,
     receive

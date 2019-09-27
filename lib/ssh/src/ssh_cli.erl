@@ -46,6 +46,8 @@
 	  exec
 	 }).
 
+-define(EXEC_ERROR_STATUS, 255).
+
 %%====================================================================
 %% ssh_server_channel callbacks
 %%====================================================================
@@ -108,7 +110,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
 handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, #state{shell=disabled} = State) ->
     write_chars(ConnectionHandler, ChannelId, 1, "Prohibited."),
     ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
-    ssh_connection:exit_status(ConnectionHandler, ChannelId, 255),
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, ?EXEC_ERROR_STATUS),
     ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
 handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, State) ->
@@ -121,7 +123,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, 
     case
         case S0#state.exec of
             disabled ->
-                {"Prohibited.", 255, 1};
+                {"Prohibited.", ?EXEC_ERROR_STATUS, 1};
 
             {direct,F} ->
                 %% Exec called and a Fun or MFA is defined to use.  The F returns the
@@ -141,7 +143,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, 
                 %% Exec called, but the a shell other than the default shell is defined.
                 %% No new exec shell is defined, so don't execute!
                 %% We don't know if it is intended to use the new shell or not.
-                {"Prohibited.", 255, 1};
+                {"Prohibited.", ?EXEC_ERROR_STATUS, 1};
 
             _ ->
                 %% Exec called and a Fun or MFA is defined to use.  The F communicates via
@@ -602,7 +604,7 @@ exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun) ->
                                   ssh_connection:exit_status(ConnectionHandler, ChannelId, 0);
                               {error, Str} ->
                                   write_chars(ConnectionHandler, ChannelId, 1, "**Error** "++t2str(Str)),
-                                  ssh_connection:exit_status(ConnectionHandler, ChannelId, -1)
+                                  ssh_connection:exit_status(ConnectionHandler, ChannelId, ?EXEC_ERROR_STATUS)
                           end
                   end)
         end,
