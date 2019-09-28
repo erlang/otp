@@ -840,7 +840,7 @@ update_successors(#b_ret{arg=Arg}=Last, Ts, D) ->
                   #{ Arg := #b_set{op=call,args=[FuncId | Args]} } ->
                       {call_self, argument_types(Args, Ts)};
                   #{} ->
-                      raw_type(Arg, Ts)
+                      argument_type(Arg, Ts)
               end,
 
     ArgTypes = argument_types(D#d.params, Ts),
@@ -1257,7 +1257,7 @@ argument_type(V, Ts) ->
     %% "bs_start_match3" instruction.
     case raw_type(V, Ts) of
         #t_bs_context{} -> #t_bitstring{};
-        Type -> Type
+        Type -> beam_types:limit_depth(Type)
     end.
 
 -spec raw_type(beam_ssa:value(), type_db()) -> type().

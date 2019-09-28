@@ -40,6 +40,8 @@
          make_integer/1,
          make_integer/2]).
 
+-export([limit_depth/1]).
+
 -define(IS_LIST_TYPE(N),
         N =:= list orelse
         N =:= cons orelse
@@ -50,7 +52,8 @@
         N =:= float orelse
         is_record(N, t_integer)).
 
--define(TUPLE_SET_LIMIT, 20).
+-define(TUPLE_SET_LIMIT, 12).
+-define(MAX_TYPE_DEPTH, 4).
 
 %% Folds meet/2 over a list.
 
@@ -470,6 +473,49 @@ make_integer(Int) when is_integer(Int) ->
       Max :: integer().
 make_integer(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     #t_integer{elements={Min,Max}}.
+
+-spec limit_depth(type()) -> type().
+
+limit_depth(Type) ->
+    limit_depth(Type, ?MAX_TYPE_DEPTH).
+
+limit_depth(#t_tuple{elements=Es0}=T, Depth) ->
+    if Depth =< 0 ->
+            #t_tuple{elements=#{}};
+       true ->
+            Es = limit_depth_elements(Es0, Depth - 1),
+            T#t_tuple{elements=Es}
+    end;
+limit_depth(#t_union{tuple_set=TupleSet}=U, Depth) ->
+    case TupleSet of
+        none ->
+            U;
+        #t_tuple{}=Tup ->
+            U#t_union{tuple_set=limit_depth(Tup, Depth)};
+        [_|_] ->
+            if Depth =< 0 ->
+                    %% Preserve the minimum size of the tuple.
+                    [{{MinSize,_},_}|_] = TupleSet,
+                    T = #t_tuple{exact=false,size=MinSize},
+
+                    %% We must take care to get rid of the union
+                    %% wrapper if the union does not hold any other
+                    %% types than tuples.
+                    shrink_union(U#t_union{tuple_set=T});
+               true ->
+                    U#t_union{tuple_set=limit_depth_tuple_set(TupleSet, Depth)}
+            end
+    end;
+limit_depth(Type, _Depth) ->
+    Type.
+
+limit_depth_elements(Es, Depth) ->
+    maps:map(fun(_, E) -> limit_depth(E, Depth) end, Es).
+
+limit_depth_tuple_set([{SzTag,Tuple}|Ts], Depth) ->
+    [{SzTag,limit_depth(Tuple, Depth)}|limit_depth_tuple_set(Ts, Depth)];
+limit_depth_tuple_set([], _Depth) ->
+    [].
 
 %%%
 %%% Helpers
