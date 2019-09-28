@@ -43,7 +43,7 @@
                 reverse/1,reverse/2,
                 splitwith/2,sort/1,takewhile/2,unzip/1]).
 
--define(DEFAULT_REPETITIONS, 2).
+-define(MAX_REPETITIONS, 16).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -56,27 +56,56 @@
 -type st_map() :: #{ func_id() => #st{} }.
 
 module(Module, Opts) ->
-    FuncDb0 = case proplists:get_value(no_module_opt, Opts, false) of
-                  false -> build_func_db(Module);
-                  true -> #{}
-              end,
+    FuncDb = case proplists:get_value(no_module_opt, Opts, false) of
+                 false -> build_func_db(Module);
+                 true -> #{}
+             end,
 
     %% Passes that perform module-level optimizations are often aided by
     %% optimizing callers before callees and vice versa, so we optimize all
-    %% functions in call order, flipping it as required.
+    %% functions in call order, alternating the order every time.
     StMap0 = build_st_map(Module),
-    Order = get_call_order_po(StMap0, FuncDb0),
+    Order = get_call_order_po(StMap0, FuncDb),
 
-    Phases =
-        [{Order, prologue_passes(Opts)}] ++
-        repeat(Opts, repeated_passes(Opts), Order) ++
-        [{Order, epilogue_passes(Opts)}],
+    Phases = [{once, Order, prologue_passes(Opts)},
+              {fixpoint, Order, repeated_passes(Opts)},
+              {once, Order, epilogue_passes(Opts)}],
 
-    {StMap, _FuncDb} = foldl(fun({FuncIds, Ps}, {StMap, FuncDb}) ->
-                                     phase(FuncIds, Ps, StMap, FuncDb)
-                             end, {StMap0, FuncDb0}, Phases),
-
+    StMap = run_phases(Phases, StMap0, FuncDb),
     {ok, finish(Module, StMap)}.
+
+run_phases([{once, FuncIds, Passes} | Phases], StMap0, FuncDb0) ->
+    {StMap, FuncDb} = phase(FuncIds, Passes, StMap0, FuncDb0),
+    run_phases(Phases, StMap, FuncDb);
+run_phases([{fixpoint, FuncIds, Passes} | Phases], StMap0, FuncDb0) ->
+    RevFuncIds = reverse(FuncIds),
+    Order = {FuncIds, RevFuncIds},
+    {StMap, FuncDb} = fixpoint(RevFuncIds, Order, Passes,
+                               StMap0, FuncDb0, ?MAX_REPETITIONS),
+    run_phases(Phases, StMap, FuncDb);
+run_phases([], StMap, _FuncDb) ->
+    StMap.
+
+%% Run the given passes until a fixpoint is reached.
+fixpoint(_FuncIds, _Order, _Passes, StMap, FuncDb, 0) ->
+    %% Too many repetitions. Give up and return what we have.
+    {StMap, FuncDb};
+fixpoint(FuncIds0, Order0, Passes, StMap0, FuncDb0, N) ->
+    {StMap, FuncDb} = phase(FuncIds0, Passes, StMap0, FuncDb0),
+    Repeat = changed(FuncIds0, FuncDb0, FuncDb, StMap0, StMap),
+    case cerl_sets:size(Repeat) of
+        0 ->
+            %% No change. Fixpoint reached.
+            {StMap, FuncDb};
+        _ ->
+            %% Repeat the optimizations for functions whose code has
+            %% changed or for which there is potentially updated type
+            %% information.
+            {OrderA, OrderB} = Order0,
+            Order = {OrderB, OrderA},
+            FuncIds = [Id || Id <- OrderA, cerl_sets:is_element(Id, Repeat)],
+            fixpoint(FuncIds, Order, Passes, StMap, FuncDb, N - 1)
+    end.
 
 phase([FuncId | Ids], Ps, StMap, FuncDb0) ->
     try compile:run_sub_passes(Ps, {map_get(FuncId, StMap), FuncDb0}) of
@@ -91,19 +120,90 @@ phase([FuncId | Ids], Ps, StMap, FuncDb0) ->
 phase([], _Ps, StMap, FuncDb) ->
     {StMap, FuncDb}.
 
-%% Repeats the given passes, alternating the order between runs to make the
-%% type pass more efficient.
-repeat(Opts, Ps, OrderA) ->
-    Repeat = proplists:get_value(ssa_opt_repeat, Opts, ?DEFAULT_REPETITIONS),
-    OrderB = reverse(OrderA),
-    repeat_1(Repeat, Ps, OrderA, OrderB).
+changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
+    %% Find all functions in FuncDb that can be reached by changes
+    %% of argument and/or return types. Those are the functions that
+    %% may gain from running the optimization passes again.
+    %%
+    %% Note that we examine all functions in FuncDb, not only functions
+    %% optimized in the previous run, because the argument types can
+    %% have been updated for functions not included in the previous run.
 
-repeat_1(0, _Opts, _OrderA, _OrderB) ->
-    [];
-repeat_1(N, Ps, OrderA, OrderB) when N > 0, N rem 2 =:= 0 ->
-    [{OrderA, Ps} | repeat_1(N - 1, Ps, OrderA, OrderB)];
-repeat_1(N, Ps, OrderA, OrderB) when N > 0, N rem 2 =:= 1 ->
-    [{OrderB, Ps} | repeat_1(N - 1, Ps, OrderA, OrderB)].
+    F = fun(Id, A) ->
+                case cerl_sets:is_element(Id, A) of
+                    true ->
+                        A;
+                    false ->
+                        {#func_info{arg_types=ATs0,ret_types=RT0},
+                         #func_info{arg_types=ATs1,ret_types=RT1}} =
+                            {map_get(Id, FuncDb0),map_get(Id, FuncDb)},
+
+                        %% If the argument types have changed for this
+                        %% function, re-optimize this function and all
+                        %% functions it calls directly or indirectly.
+                        %%
+                        %% If the return type has changed, re-optimize
+                        %% this function and all functions that call
+                        %% this function directly or indirectly.
+                        Opts = case ATs0 =:= ATs1 of
+                                    true -> [];
+                                    false -> [called]
+                                end ++
+                            case RT0 =:= RT1 of
+                                true -> [];
+                                false -> [callers]
+                            end,
+                        case Opts of
+                            [] -> A;
+                            [_|_] -> add_changed([Id], Opts, FuncDb, A)
+                        end
+                end
+        end,
+    Ids = foldl(F, cerl_sets:new(), maps:keys(FuncDb)),
+
+    %% From all functions that were optimized in the previous run,
+    %% find the functions that had any change in the SSA code. Those
+    %% functions might gain from being optimized again. (For example,
+    %% when beam_ssa_dead has shortcut branches, the types for some
+    %% variables could become narrower, giving beam_ssa_type new
+    %% opportunities for optimization.)
+    %%
+    %% Note that the functions examined could be functions with module-level
+    %% optimization turned off (and thus not included in FuncDb).
+
+    foldl(fun(Id, A) ->
+                  case cerl_sets:is_element(Id, A) of
+                      true ->
+                          %% Already scheduled for another optimization.
+                          %% No need to compare the SSA code.
+                          A;
+                      false ->
+                          %% Compare the SSA code before and after optimization.
+                          case {map_get(Id, StMap0),map_get(Id, StMap)} of
+                              {Same,Same} -> A;
+                              {_,_} -> cerl_sets:add_element(Id, A)
+                          end
+                  end
+          end, Ids, PrevIds).
+
+add_changed([Id|Ids], Opts, FuncDb, S0) ->
+    case cerl_sets:is_element(Id, S0) of
+        true ->
+            add_changed(Ids, Opts, FuncDb, S0);
+        false ->
+            S1 = cerl_sets:add_element(Id, S0),
+            #func_info{in=In,out=Out} = map_get(Id, FuncDb),
+            S2 = case member(callers, Opts) of
+                     true -> add_changed(In, Opts, FuncDb, S1);
+                     false -> S1
+                 end,
+            S = case member(called, Opts) of
+                    true -> add_changed(Out, Opts, FuncDb, S2);
+                    false -> S2
+                end,
+            add_changed(Ids, Opts, FuncDb, S)
+    end;
+add_changed([], _, _, S) -> S.
 
 %%
 
