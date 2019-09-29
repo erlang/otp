@@ -1934,7 +1934,15 @@ The format is described in the documentation of `erlang-man-dirs'."
          (("Error! Why?" erlang-man-describe-error)))))))
 
 (defun erlang-man-dir (subdir)
-  (concat erlang-root-dir "/lib/erlang/" subdir))
+  (let ((default_man_dir (concat (file-name-as-directory erlang-root-dir)
+                                 (file-name-as-directory "lib")
+                                 (file-name-as-directory "erlang") subdir)))
+    (if (or (equal erlang-root-dir nil) (file-directory-p default_man_dir))
+        default_man_dir
+      (concat (file-name-as-directory erlang-root-dir) subdir)
+      )
+    )
+  )
 
 ;; Should the menu be to long, let's split it into a number of
 ;; smaller menus.  Warning, this code contains beautiful
