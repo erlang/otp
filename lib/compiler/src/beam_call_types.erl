@@ -203,8 +203,6 @@ types(erlang, 'node', []) ->
     sub_unsafe(#t_atom{}, []);
 types(erlang, 'size', [_]) ->
     sub_unsafe(#t_integer{}, [any]);
-types(erlang, 'size', [_]) ->
-    sub_unsafe(#t_integer{}, [any]);
 
 %% Tuple element ops
 types(erlang, element, [PosType, TupleType]) ->
