@@ -26,13 +26,15 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 
 all() ->
     [encode_decode,
      finished_verify_data,
-     '1_RTT_handshake'].
+     '1_RTT_handshake',
+     '0_RTT_handshake'].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -735,6 +737,22 @@ encode_decode(_Config) ->
     SAPTrafficSecret =
         tls_v1:server_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
 
+    %% Resumption master secret from '0-RTT'
+    %%
+    %% {server}  generate resumption secret "tls13 resumption":
+    %%
+    %%    PRK (32 octets):  7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
+    %%       da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c
+    %%
+    RMS = hexstr2bin("7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
+                      da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c"),
+
+    %% Verify calculation of resumption master secret that is used to create
+    %% the pre shared key in '0-RTT'.
+    Temp = tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
+    erlang:display({rms, RMS}),
+    erlang:display({new_rms, Temp}),
+
     %% {server}  derive secret "tls13 exp master":
     %%
     %%    PRK (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a 47
@@ -783,7 +801,7 @@ encode_decode(_Config) ->
 
     %% PRK = SAPTrafficsecret
     %% key info = WriteKeyInfo
-    %% iv info = WrtieIVInfo
+    %% iv info = WriteIVInfo
     SWKey =
         hexstr2bin("9f 02 28 3b 6c 9c 07 ef c2 6b b9 f2 ac 92 e3 56"),
 
@@ -815,7 +833,449 @@ encode_decode(_Config) ->
     SRIV =
         hexstr2bin("5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f"),
 
-    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CHSTrafficSecret).
+    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CHSTrafficSecret),
+
+    %% {client}  calculate finished "tls13 finished":
+    %%
+    %%    PRK (32 octets):  b3 ed db 12 6e 06 7f 35 a7 80 b3 ab f4 5e 2d 8f
+    %%       3b 1a 95 07 38 f5 2e 96 00 74 6a 0e 27 a5 5a 21
+    %%
+    %%    hash (0 octets):  (empty)
+    %%
+    %%    info (18 octets):  00 20 0e 74 6c 73 31 33 20 66 69 6e 69 73 68 65
+    %%       64 00
+    %%
+    %%    expanded (32 octets):  b8 0a d0 10 15 fb 2f 0b d6 5f f7 d4 da 5d
+    %%       6b f8 3f 84 82 1d 1f 87 fd c7 d3 c7 5b 5a 7b 42 d9 c4
+    %%
+    %%    finished (32 octets):  a8 ec 43 6d 67 76 34 ae 52 5a c1 fc eb e1
+    %%       1a 03 9e c1 76 94 fa c6 e9 85 27 b6 42 f2 ed d5 ce 61
+
+    %% PRK = CHSTrafficsecret
+    %% info = FInfo
+    CFExpanded =
+        hexstr2bin("b8 0a d0 10 15 fb 2f 0b d6 5f f7 d4 da 5d
+        6b f8 3f 84 82 1d 1f 87 fd c7 d3 c7 5b 5a 7b 42 d9 c4"),
+
+    CFinishedVerifyData =
+        hexstr2bin("a8 ec 43 6d 67 76 34 ae 52 5a c1 fc eb e1
+        1a 03 9e c1 76 94 fa c6 e9 85 27 b6 42 f2 ed d5 ce 61"),
+
+    MessageHistory1 = [FinishedHSBin,
+                       CertificateVerify,
+                       Certificate,
+                       EncryptedExtensions,
+                       ServerHello,
+                       ClientHello],
+
+    CFExpanded = tls_v1:finished_key(CHSTrafficSecret, HKDFAlgo),
+    CFinishedVerifyData = tls_v1:finished_verify_data(CFExpanded, HKDFAlgo, MessageHistory1),
+
+    %% {client}  construct a Finished handshake message:
+    %%
+    %%    Finished (36 octets):  14 00 00 20 a8 ec 43 6d 67 76 34 ae 52 5a
+    %%       c1 fc eb e1 1a 03 9e c1 76 94 fa c6 e9 85 27 b6 42 f2 ed d5 ce
+    %%       61
+    CFinishedBin =
+        hexstr2bin("14 00 00 20 a8 ec 43 6d 67 76 34 ae 52 5a
+          c1 fc eb e1 1a 03 9e c1 76 94 fa c6 e9 85 27 b6 42 f2 ed d5 ce
+          61"),
+
+    CFinished = #finished{verify_data = CFinishedVerifyData},
+
+    CFinishedIOList = tls_handshake:encode_handshake(CFinished, {3,4}),
+    CFinishedBin = iolist_to_binary(CFinishedIOList),
+
+    %% {client}  derive write traffic keys for application data:
+    %%
+    %%    PRK (32 octets):  9e 40 64 6c e7 9a 7f 9d c0 5a f8 88 9b ce 65 52
+    %%       87 5a fa 0b 06 df 00 87 f7 92 eb b7 c1 75 04 a5
+    %%
+    %%    key info (13 octets):  00 10 09 74 6c 73 31 33 20 6b 65 79 00
+    %%
+    %%    key expanded (16 octets):  17 42 2d da 59 6e d5 d9 ac d8 90 e3 c6
+    %%       3f 50 51
+    %%
+    %%    iv info (12 octets):  00 0c 08 74 6c 73 31 33 20 69 76 00
+    %%
+    %%    iv expanded (12 octets):  5b 78 92 3d ee 08 57 90 33 e5 23 d9
+
+    %% PRK = CAPTrafficsecret
+    %% key info = WriteKeyInfo
+    %% iv info = WriteIVInfo
+
+    CWKey =
+        hexstr2bin("17 42 2d da 59 6e d5 d9 ac d8 90 e3 c6 3f 50 51"),
+
+    CWIV =
+        hexstr2bin("5b 78 92 3d ee 08 57 90 33 e5 23 d9"),
+
+    {CWKey, CWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CAPTrafficSecret),
+
+    %% {client}  derive secret "tls13 res master":
+    %%
+    %%    PRK (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a 47
+    %%       80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19
+    %%
+    %%    hash (32 octets):  20 91 45 a9 6e e8 e2 a1 22 ff 81 00 47 cc 95 26
+    %%       84 65 8d 60 49 e8 64 29 42 6d b8 7c 54 ad 14 3d
+    %%
+    %%    info (52 octets):  00 20 10 74 6c 73 31 33 20 72 65 73 20 6d 61 73
+    %%       74 65 72 20 20 91 45 a9 6e e8 e2 a1 22 ff 81 00 47 cc 95 26 84
+    %%       65 8d 60 49 e8 64 29 42 6d b8 7c 54 ad 14 3d
+    %%
+    %%    expanded (32 octets):  7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41
+    %%       b0 bf da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c
+
+    %% PRK = MasterSecret
+
+    CRMHash = hexstr2bin("20 91 45 a9 6e e8 e2 a1 22 ff 81 00 47 cc 95 26
+                          84 65 8d 60 49 e8 64 29 42 6d b8 7c 54 ad 14 3d"),
+
+    CRMInfo = hexstr2bin(" 00 20 10 74 6c 73 31 33 20 72 65 73 20 6d 61 73
+            74 65 72 20 20 91 45 a9 6e e8 e2 a1 22 ff 81 00 47 cc 95 26 84
+            65 8d 60 49 e8 64 29 42 6d b8 7c 54 ad 14 3d"),
+
+    ResumptionMasterSecret = hexstr2bin("7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41
+                             b0 bf da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c"),
+
+    CHCF = <<ClientHello/binary,
+             ServerHello/binary,
+             EncryptedExtensions/binary,
+             Certificate/binary,
+             CertificateVerify/binary,
+             FinishedHSBin/binary,
+             CFinishedBin/binary>>,
+
+    MessageHistory3 = [ClientHello,
+                       ServerHello,
+                       EncryptedExtensions,
+                       Certificate,
+                       CertificateVerify,
+                       FinishedHSBin,
+                       CFinishedBin
+                       ],
+
+    CRMHash = crypto:hash(HKDFAlgo, CHCF),
+
+    CRMInfo =
+        tls_v1:create_info(<<"res master">>, CRMHash, ssl_cipher:hash_size(HKDFAlgo)),
+
+    ResumptionMasterSecret =
+        tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, MessageHistory3),
+    ok.
+
+%%--------------------------------------------------------------------
+'0_RTT_handshake'() ->
+     [{doc,"Test TLS 1.3 0-RTT Handshake"}].
+
+'0_RTT_handshake'(_Config) ->
+    HKDFAlgo = sha256,
+
+    %% {server}  generate resumption secret "tls13 resumption":
+    %%
+    %%    PRK (32 octets):  7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
+    %%       da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c
+    %%
+    %%    hash (2 octets):  00 00
+    %%
+    %%    info (22 octets):  00 20 10 74 6c 73 31 33 20 72 65 73 75 6d 70 74
+    %%       69 6f 6e 02 00 00
+    %%
+    %%    expanded (32 octets):  4e cd 0e b6 ec 3b 4d 87 f5 d6 02 8f 92 2c
+    %%       a4 c5 85 1a 27 7f d4 13 11 c9 e6 2d 2c 94 92 e1 c4 f3
+    %%
+    %% {server}  construct a NewSessionTicket handshake message:
+    %%
+    %%    NewSessionTicket (205 octets):  04 00 00 c9 00 00 00 1e fa d6 aa
+    %%       c5 02 00 00 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9 00 00 00
+    %%       00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00 70 ad 3c
+    %%       49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3 a9 82 11
+    %%       72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f d6 1d 28
+    %%       27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e e0 37 25
+    %%       a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f a5 90 6c
+    %%       5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97 b5 ae a6
+    %%       17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f 7d e6 50
+    %%       5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 00 08 00 2a 00
+    %%       04 00 00 04 00
+    ResPRK =
+        hexstr2bin("7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
+                    da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c"),
+
+    _ResHash = hexstr2bin("00 00"),
+
+    _ResInfo = hexstr2bin("00 20 10 74 6c 73 31 33 20 72 65 73 75 6d 70 74
+                           69 6f 6e 02 00 00"),
+
+    ResExpanded =
+        hexstr2bin("4e cd 0e b6 ec 3b 4d 87 f5 d6 02 8f 92 2c
+        a4 c5 85 1a 27 7f d4 13 11 c9 e6 2d 2c 94 92 e1 c4 f3"),
+
+    NewSessionTicket =
+        hexstr2bin("04 00 00 c9 00 00 00 1e fa d6 aa
+          c5 02 00 00 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9 00 00 00
+          00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00 70 ad 3c
+          49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3 a9 82 11
+          72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f d6 1d 28
+          27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e e0 37 25
+          a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f a5 90 6c
+          5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97 b5 ae a6
+          17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f 7d e6 50
+          5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 00 08 00 2a 00
+          04 00 00 04 00"),
+    <<?BYTE(NWT), ?UINT24(_), TicketBody/binary>> = NewSessionTicket,
+    #new_session_ticket{
+       ticket_lifetime = _LifeTime,
+       ticket_age_add = _AgeAdd,
+       ticket_nonce = Nonce,
+       ticket = Ticket,
+       extensions = _Extensions
+      } = tls_handshake:decode_handshake({3,4}, NWT, TicketBody),
+
+    %% ResPRK = resumption master secret
+    ResExpanded = tls_v1:pre_shared_key(ResPRK, Nonce, HKDFAlgo),
+
+    %% {client}  create an ephemeral x25519 key pair:
+    %%
+    %%    private key (32 octets):  bf f9 11 88 28 38 46 dd 6a 21 34 ef 71
+    %%       80 ca 2b 0b 14 fb 10 dc e7 07 b5 09 8c 0d dd c8 13 b2 df
+    %%
+    %%    public key (32 octets):  e4 ff b6 8a c0 5f 8d 96 c9 9d a2 66 98 34
+    %%       6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b
+    %%
+    %% {client}  extract secret "early":
+    %%
+    %%    salt:  0 (all zero octets)
+    %%
+    %%    IKM (32 octets):  4e cd 0e b6 ec 3b 4d 87 f5 d6 02 8f 92 2c a4 c5
+    %%       85 1a 27 7f d4 13 11 c9 e6 2d 2c 94 92 e1 c4 f3
+    %%
+    %%    secret (32 octets):  9b 21 88 e9 b2 fc 6d 64 d7 1d c3 29 90 0e 20
+    %%       bb 41 91 50 00 f6 78 aa 83 9c bb 79 7c b7 d8 33 2c
+    %%
+
+    PSK = hexstr2bin("4e cd 0e b6 ec 3b 4d 87 f5 d6 02 8f 92 2c a4 c5
+                      85 1a 27 7f d4 13 11 c9 e6 2d 2c 94 92 e1 c4 f3"),
+    PSK = ResExpanded,
+    EarlySecret = hexstr2bin("9b 21 88 e9 b2 fc 6d 64 d7 1d c3 29 90 0e 20
+                      bb 41 91 50 00 f6 78 aa 83 9c bb 79 7c b7 d8 33 2c"),
+
+    {early_secret, EarlySecret} = tls_v1:key_schedule(early_secret, HKDFAlgo, {psk, PSK}),
+
+    %% {client}  construct a ClientHello handshake message:
+    %%
+    %%    ClientHello (477 octets):  01 00 01 fc 03 03 1b c3 ce b6 bb e3 9c
+    %%       ff 93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49 d7 b4 bc 41 9d 78
+    %%       76 48 7d 95 00 00 06 13 01 13 03 13 02 01 00 01 cd 00 00 00 0b
+    %%       00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00
+    %%       12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 33
+    %%       00 26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d 96 c9 9d a2 66 98
+    %%       34 6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b 00 2a
+    %%       00 00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03
+    %%       02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06
+    %%       02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 57 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9
+    %%       00 00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00
+    %%       70 ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3
+    %%       a9 82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f
+    %%       d6 1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e
+    %%       e0 37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f
+    %%       a5 90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97
+    %%       b5 ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f
+    %%       7d e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 fa d6
+    %%       aa cb
+    %%
+    ClientHello =
+        hexstr2bin("01 00 01 fc 03 03 1b c3 ce b6 bb e3 9c
+          ff 93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49 d7 b4 bc 41 9d 78
+          76 48 7d 95 00 00 06 13 01 13 03 13 02 01 00 01 cd 00 00 00 0b
+          00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00
+          12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 33
+          00 26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d 96 c9 9d a2 66 98
+          34 6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b 00 2a
+          00 00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03
+          02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06
+          02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 57 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9
+          00 00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00
+          70 ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3
+          a9 82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f
+          d6 1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e
+          e0 37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f
+          a5 90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97
+          b5 ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f
+          7d e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 fa d6
+          aa cb"),
+
+    %% {client}  calculate PSK binder:
+    %%
+    %%    ClientHello prefix (477 octets):  01 00 01 fc 03 03 1b c3 ce b6 bb
+    %%       e3 9c ff 93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49 d7 b4 bc 41
+    %%       9d 78 76 48 7d 95 00 00 06 13 01 13 03 13 02 01 00 01 cd 00 00
+    %%       00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00
+    %%       14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04
+    %%       00 33 00 26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d 96 c9 9d a2
+    %%       66 98 34 6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b
+    %%       00 2a 00 00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03
+    %%       06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05
+    %%       02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 57
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59 ee 5f f7 af
+    %%       4e c9 00 00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf
+    %%       1b 00 70 ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60
+    %%       97 a3 a9 82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61
+    %%       be 7f d6 1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4
+    %%       d2 9e e0 37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2
+    %%       67 7f a5 90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb
+    %%       f2 97 b5 ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41
+    %%       ef 5f 7d e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57
+    %%       fa d6 aa cb
+    %%
+    %%    binder hash (32 octets):  63 22 4b 2e 45 73 f2 d3 45 4c a8 4b 9d
+    %%       00 9a 04 f6 be 9e 05 71 1a 83 96 47 3a ef a0 1e 92 4a 14
+    %%
+    %%    PRK (32 octets):  69 fe 13 1a 3b ba d5 d6 3c 64 ee bc c3 0e 39 5b
+    %%       9d 81 07 72 6a 13 d0 74 e3 89 db c8 a4 e4 72 56
+    %%
+    %%    hash (0 octets):  (empty)
+    %%
+    %%    info (18 octets):  00 20 0e 74 6c 73 31 33 20 66 69 6e 69 73 68 65
+    %%       64 00
+    %%
+    %%    expanded (32 octets):  55 88 67 3e 72 cb 59 c8 7d 22 0c af fe 94
+    %%       f2 de a9 a3 b1 60 9f 7d 50 e9 0a 48 22 7d b9 ed 7e aa
+    %%
+    %%    finished (32 octets):  3a dd 4f b2 d8 fd f8 22 a0 ca 3c f7 67 8e
+    %%       f5 e8 8d ae 99 01 41 c5 92 4d 57 bb 6f a3 1b 9e 5f 9d
+    BinderHash =
+        hexstr2bin("63 22 4b 2e 45 73 f2 d3 45 4c a8 4b 9d
+                    00 9a 04 f6 be 9e 05 71 1a 83 96 47 3a ef a0 1e 92 4a 14"),
+
+    %% Part of derive_secret/4
+    BinderHash = crypto:hash(HKDFAlgo, [ClientHello]),
+
+    PRK = hexstr2bin("69 fe 13 1a 3b ba d5 d6 3c 64 ee bc c3 0e 39 5b
+                      9d 81 07 72 6a 13 d0 74 e3 89 db c8 a4 e4 72 56"),
+
+    PRK = tls_v1:resumption_binder_key(HKDFAlgo, {early_secret, EarlySecret}),
+
+    Expanded =
+        hexstr2bin("55 88 67 3e 72 cb 59 c8 7d 22 0c af fe 94
+                    f2 de a9 a3 b1 60 9f 7d 50 e9 0a 48 22 7d b9 ed 7e aa"),
+
+    Expanded = tls_v1:finished_key(PRK, HKDFAlgo),
+
+    Finished = hexstr2bin("3a dd 4f b2 d8 fd f8 22 a0 ca 3c f7 67 8e
+               f5 e8 8d ae 99 01 41 c5 92 4d 57 bb 6f a3 1b 9e 5f 9d"),
+
+    Finished = tls_v1:finished_verify_data(Expanded, HKDFAlgo, [ClientHello]),
+
+    %% {client}  send handshake record:
+    %%
+    %%    payload (512 octets):  01 00 01 fc 03 03 1b c3 ce b6 bb e3 9c ff
+    %%       93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49 d7 b4 bc 41 9d 78 76
+    %%       48 7d 95 00 00 06 13 01 13 03 13 02 01 00 01 cd 00 00 00 0b 00
+    %%       09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00 12
+    %%       00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 33 00
+    %%       26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d 96 c9 9d a2 66 98 34
+    %%       6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b 00 2a 00
+    %%       00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03 02
+    %%       03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06 02
+    %%       02 02 00 2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 57 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9 00
+    %%       00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00 70
+    %%       ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3 a9
+    %%       82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f d6
+    %%       1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e e0
+    %%       37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f a5
+    %%       90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97 b5
+    %%       ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f 7d
+    %%       e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 fa d6 aa
+    %%       cb 00 21 20 3a dd 4f b2 d8 fd f8 22 a0 ca 3c f7 67 8e f5 e8 8d
+    %%       ae 99 01 41 c5 92 4d 57 bb 6f a3 1b 9e 5f 9d
+    %%
+    %%    complete record (517 octets):  16 03 01 02 00 01 00 01 fc 03 03 1b
+    %%       c3 ce b6 bb e3 9c ff 93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49
+    %%       d7 b4 bc 41 9d 78 76 48 7d 95 00 00 06 13 01 13 03 13 02 01 00
+    %%       01 cd 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+    %%       00 00 0a 00 14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02
+    %%       01 03 01 04 00 33 00 26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d
+    %%       96 c9 9d a2 66 98 34 6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1
+    %%       8d 66 8f 0b 00 2a 00 00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e
+    %%       04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02
+    %%       01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
+    %%       00 15 00 57 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59
+    %%       ee 5f f7 af 4e c9 00 00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb
+    %%       33 fa 90 bf 1b 00 70 ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc
+    %%       55 cd 22 60 97 a3 a9 82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3
+    %%       6d 64 e8 61 be 7f d6 1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66
+    %%       4d 4e 6d a4 d2 9e e0 37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29
+    %%       51 3e 3d a2 67 7f a5 90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72
+    %%       14 70 f9 fb f2 97 b5 ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6
+    %%       21 a7 91 41 ef 5f 7d e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93
+    %%       4a e4 d3 57 fa d6 aa cb 00 21 20 3a dd 4f b2 d8 fd f8 22 a0 ca
+    %%       3c f7 67 8e f5 e8 8d ae 99 01 41 c5 92 4d 57 bb 6f a3 1b 9e 5f
+    %%       9d
+    ClientHelloRecord =
+        hexstr2bin("01 00 01 fc 03 03 1b c3 ce b6 bb e3 9c ff
+          93 83 55 b5 a5 0a db 6d b2 1b 7a 6a f6 49 d7 b4 bc 41 9d 78 76
+          48 7d 95 00 00 06 13 01 13 03 13 02 01 00 01 cd 00 00 00 0b 00
+          09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00 12
+          00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 33 00
+          26 00 24 00 1d 00 20 e4 ff b6 8a c0 5f 8d 96 c9 9d a2 66 98 34
+          6c 6b e1 64 82 ba dd da fe 05 1a 66 b4 f1 8d 66 8f 0b 00 2a 00
+          00 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03 02
+          03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06 02
+          02 02 00 2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 57 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+          00 29 00 dd 00 b8 00 b2 2c 03 5d 82 93 59 ee 5f f7 af 4e c9 00
+          00 00 00 26 2a 64 94 dc 48 6d 2c 8a 34 cb 33 fa 90 bf 1b 00 70
+          ad 3c 49 88 83 c9 36 7c 09 a2 be 78 5a bc 55 cd 22 60 97 a3 a9
+          82 11 72 83 f8 2a 03 a1 43 ef d3 ff 5d d3 6d 64 e8 61 be 7f d6
+          1d 28 27 db 27 9c ce 14 50 77 d4 54 a3 66 4d 4e 6d a4 d2 9e e0
+          37 25 a6 a4 da fc d0 fc 67 d2 ae a7 05 29 51 3e 3d a2 67 7f a5
+          90 6c 5b 3f 7d 8f 92 f2 28 bd a4 0d da 72 14 70 f9 fb f2 97 b5
+          ae a6 17 64 6f ac 5c 03 27 2e 97 07 27 c6 21 a7 91 41 ef 5f 7d
+          e6 50 5e 5b fb c3 88 e9 33 43 69 40 93 93 4a e4 d3 57 fa d6 aa
+          cb 00 21 20 3a dd 4f b2 d8 fd f8 22 a0 ca 3c f7 67 8e f5 e8 8d
+          ae 99 01 41 c5 92 4d 57 bb 6f a3 1b 9e 5f 9d"),
+
+    <<?BYTE(CH), ?UINT24(_Length), ClientHelloBody/binary>> = ClientHelloRecord,
+    #client_hello{extensions = #{pre_shared_key := PreSharedKey}} =
+        tls_handshake:decode_handshake({3,4}, CH, ClientHelloBody),
+
+    #pre_shared_key_client_hello{
+       offered_psks = #offered_psks{
+                         identities = [Identity],
+                         binders = [_Binders]}} =  PreSharedKey,
+
+    #psk_identity{
+       identity = Ticket} = Identity,
+
+    ok.
+
 
 %%--------------------------------------------------------------------
 finished_verify_data() ->

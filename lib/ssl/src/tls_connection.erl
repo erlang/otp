@@ -551,25 +551,25 @@ init({call, From}, {start, Timeout},
 	   } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
-    TicketData = get_ticket_data(UseTicket),
-    Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-                                        Session#session.session_id,
-                                        Renegotiation,
-                                        Session#session.own_certificate,
-                                        KeyShare,
-                                        TicketData),
+    TicketData = get_ticket_data(SessionTickets, UseTicket),
+    Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
+                                       Session#session.session_id,
+                                       Renegotiation,
+                                       Session#session.own_certificate,
+                                       KeyShare,
+                                       TicketData),
 
     HelloVersion = tls_record:hello_version(Versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
-    {BinMsg, ConnectionStates, Handshake} =
-        encode_handshake(Hello0,  HelloVersion, ConnectionStates0, Handshake0),
 
     %% Update pre_shared_key extension with binders (TLS 1.3)
-    Hello = tls_handshake_1_3:maybe_add_binders(Hello0, TicketData, HelloVersion),
+    Hello1 = tls_handshake_1_3:maybe_add_binders(Hello, TicketData, HelloVersion),
 
+    {BinMsg, ConnectionStates, Handshake} =
+        encode_handshake(Hello1,  HelloVersion, ConnectionStates0, Handshake0),
 
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
+    ssl_logger:debug(LogLevel, outbound, 'handshake', Hello1),
     ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
     State = State0#state{connection_states = ConnectionStates,
@@ -1345,31 +1345,30 @@ effective_version(Version, _) ->
 
 handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := false}}) ->
     ok;
-handle_new_session_ticket(NewSessionTicket, #state{connection_states = ConnectionStates,
-                                                   ssl_options = #{session_tickets := true,
-                                                                   server_name_indication := SNI}}) ->
+handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
+                          #state{connection_states = ConnectionStates,
+                                 ssl_options = #{session_tickets := true,
+                                                 server_name_indication := SNI}}) ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
-    store_session_ticket(NewSessionTicket, HKDF, SNI, RMS).
+    PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
+    store_session_ticket(NewSessionTicket, HKDF, SNI, PSK).
 
 
 %% ===== Prototype =====
-store_session_ticket(NewSessionTicket, HKDF, SNI, RMS) ->
+store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
     _TicketDb =
         case ets:whereis(tls13_session_ticket_db) of
             undefined ->
-                erlang:display({debug, create_table}),
                 ets:new(tls13_session_ticket_db, [public, named_table, ordered_set]);
             Tid ->
-                erlang:display({debug, table_exists}),
                 Tid
         end,
     Id = make_ticket_id(NewSessionTicket),
     Timestamp = gregorian_seconds(),
-    ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, RMS, Timestamp, NewSessionTicket}).
-    %% ets:insert(tls13_session_ticket_db, {hello, world}).
+    ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, PSK, Timestamp, NewSessionTicket}).
 
 
 make_ticket_id(NewSessionTicket) ->
@@ -1377,11 +1376,13 @@ make_ticket_id(NewSessionTicket) ->
     crypto:hash(sha256, B).
 
 
-get_ticket_data(undefined) ->
+get_ticket_data(undefined, _) ->
     undefined;
-get_ticket_data(UseTicket) ->
+get_ticket_data(_, undefined) ->
+    undefined;
+get_ticket_data(_, UseTicket) ->
     case ets:lookup(tls13_session_ticket_db, UseTicket) of
-        [{_Key, HKDF, _SNI, RMS, Timestamp, NewSessionTicket}] ->
+        [{_Key, HKDF, _SNI, PSK, Timestamp, NewSessionTicket}] ->
             #new_session_ticket{
                ticket_lifetime = _LifeTime,
                ticket_age_add = AgeAdd,
@@ -1396,7 +1397,7 @@ get_ticket_data(UseTicket) ->
                              identity = Ticket,
                              obfuscated_ticket_age = ObfuscatedTicketAge}],
 
-            {Identities, RMS, Nonce, HKDF};
+            {Identities, PSK, Nonce, HKDF};
         [] ->
             %% TODO Fault handling
             undefined
