@@ -610,7 +610,7 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
 
     %% Make sure that every variable that is used will be defined
     %% on every path to its use.
-    ensure_init(Root, G),
+    ensure_init(Root, G, G0),
 
     %% Delete the original blocks. This is important so that we will not
     %% try optimize the already optimized code. That would not work
@@ -1258,8 +1258,12 @@ eval_literal_args([], Acc) ->
 %%% `bif:is_boolean` are not initialized on all paths.
 %%%
 
-ensure_init(Root, G) ->
+ensure_init(Root, G, G0) ->
     Vs = dg_vertices(G),
+
+    %% Build an ordset of a all variables used by the code
+    %% before the optimization.
+    Used = ensure_init_used(G0),
 
     %% Build a map of all variables that are set by instructions in
     %% the digraph. Variables not included in this map have been
@@ -1267,14 +1271,14 @@ ensure_init(Root, G) ->
     Vars = maps:from_list([{Dst,unset} ||
                               {_,#b_set{dst=Dst}} <- Vs]),
     RPO = dg_reverse_postorder(G, [Root]),
-    ensure_init_1(RPO, G, #{Root=>Vars}).
+    ensure_init_1(RPO, Used, G, #{Root=>Vars}).
 
-ensure_init_1([V|Vs], G, InitMaps0) ->
-    InitMaps = ensure_init_instr(V, G, InitMaps0),
-    ensure_init_1(Vs, G, InitMaps);
-ensure_init_1([], _, _) -> ok.
+ensure_init_1([V|Vs], Used, G, InitMaps0) ->
+    InitMaps = ensure_init_instr(V, Used, G, InitMaps0),
+    ensure_init_1(Vs, Used, G, InitMaps);
+ensure_init_1([], _, _, _) -> ok.
 
-ensure_init_instr(Vtx, G, InitMaps0) ->
+ensure_init_instr(Vtx, Used, G, InitMaps0) ->
     VarMap0 = map_get(Vtx, InitMaps0),
     case dg_vertex(G, Vtx) of
         #b_set{dst=Dst}=I ->
@@ -1283,10 +1287,68 @@ ensure_init_instr(Vtx, G, InitMaps0) ->
             VarMap = VarMap0#{Dst=>set},
             InitMaps = InitMaps0#{Vtx:=VarMap},
             ensure_init_successors(OutVs, G, VarMap, InitMaps);
+        {external,_} ->
+            %% We have reached the success or failure node.
+            %% If the code we have been optimizing does not
+            %% originate from a guard, it is possible that a
+            %% variable set in the optimized code will be used
+            %% here.
+            case [V || {V,unset} <- maps:to_list(VarMap0)] of
+                [] ->
+                    InitMaps0;
+                [_|_]=Unset0 ->
+                    %% There are some variables that are not always
+                    %% set when this node is reached. We must make
+                    %% sure that they are not used at this node or
+                    %% one of its successors.
+                    Unset = ordsets:from_list(Unset0),
+                    case ordsets:is_subset(Unset, Used) of
+                        true ->
+                            %% Note that all of the potentially unset
+                            %% variables are only used once (otherwise
+                            %% the optimization would have been
+                            %% aborted earlier). Therefore, since all
+                            %% variables are used in the optimized code,
+                            %% they cannot be used in this node or in one
+                            %% of its successors.
+                            InitMaps0;
+                        false ->
+                            %% The original code probably did not
+                            %% originate from a guard. One of the
+                            %% potentially unset variables are not
+                            %% used in the optimized code. That means
+                            %% that it must be used at this node or in
+                            %% one of its successors. (Or that it was
+                            %% not used at all in the original code,
+                            %% but that basically only happens in test
+                            %% cases.)
+                            not_possible()
+                    end
+            end;
         _ ->
             OutVs = dg_out_neighbours(G, Vtx),
             ensure_init_successors(OutVs, G, VarMap0, InitMaps0)
     end.
+
+ensure_init_used(G) ->
+    Vs = dg_vertices(G),
+    ensure_init_used_1(Vs, G, []).
+
+ensure_init_used_1([{Vtx,#b_set{dst=Dst}=I}|Vs], G, Acc0) ->
+    Acc1 = [beam_ssa:used(I)|Acc0],
+    case dg_out_degree(G, Vtx) of
+        2 ->
+            Acc = [[Dst]|Acc1],
+            ensure_init_used_1(Vs, G, Acc);
+        _ ->
+            ensure_init_used_1(Vs, G, Acc1)
+    end;
+ensure_init_used_1([{_Vtx,{br,Bool}}|Vs], G, Acc) ->
+    ensure_init_used_1(Vs, G, [[Bool]|Acc]);
+ensure_init_used_1([_|Vs], G, Acc) ->
+    ensure_init_used_1(Vs, G, Acc);
+ensure_init_used_1([], _G, Acc) ->
+    ordsets:union(Acc).
 
 do_ensure_init_instr(#b_set{op=phi,args=Args},
                      _VarMap, InitMaps) ->
@@ -1593,6 +1655,9 @@ dg_add_edge(Dg, From, To, Label) ->
     InEsMap = dg__edge_map_add(To, Name, InEsMap0),
     OutEsMap = dg__edge_map_add(From, Name, OutEsMap0),
     Dg#dg{in_es=InEsMap,out_es=OutEsMap}.
+
+dg_out_degree(#dg{out_es=OutEsMap}, V) ->
+    length(map_get(V, OutEsMap)).
 
 dg_out_edges(#dg{out_es=OutEsMap}, V) ->
     map_get(V, OutEsMap).
