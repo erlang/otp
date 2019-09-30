@@ -216,15 +216,21 @@ defined_functions(Forms) ->
 %%     ok.
 
 function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
-    St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
-		ws=Ws0,file=[{file,File}]},
-    {B0,St1} = body(Cs0, Name, Arity, St0),
-    %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
-    {B1,St2} = ubody(B0, St1),
-    %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
-    {B2,#core{ws=Ws}} = cbody(B1, St2),
-    %% ok = function_dump(Name,Arity,"cbody:~n~p~n",[B2]),
-    {{#c_var{name={Name,Arity}},B2},Ws}.
+    try
+        St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
+                    ws=Ws0,file=[{file,File}]},
+        {B0,St1} = body(Cs0, Name, Arity, St0),
+        %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
+        {B1,St2} = ubody(B0, St1),
+        %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
+        {B2,#core{ws=Ws}} = cbody(B1, St2),
+        %% ok = function_dump(Name,Arity,"cbody:~n~p~n",[B2]),
+        {{#c_var{name={Name,Arity}},B2},Ws}
+    catch
+        Class:Error:Stack ->
+	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+	    erlang:raise(Class, Error, Stack)
+    end.
 
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
