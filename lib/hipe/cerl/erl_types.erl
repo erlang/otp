@@ -154,6 +154,7 @@
 	 t_map_update/2, t_map_update/3,
 	 t_map_pairwise_merge/4,
 	 t_map_put/2, t_map_put/3,
+         t_map_remove/3,
 	 t_matchstate/0,
 	 t_matchstate/2,
 	 t_matchstate_present/1,
@@ -1922,6 +1923,27 @@ map_put({Key, Value}, ?map(Pairs,DefK,DefV), Opaques) ->
 			    end} || {K, MNess, V} <- Pairs],
 		t_sup(DefK, Key),
 		t_sup(DefV, Value))
+      end
+  end.
+
+-spec t_map_remove(erl_type(), erl_type(), opaques()) -> erl_type().
+
+t_map_remove(Key, Map, Opaques) ->
+  do_opaque(Map, Opaques, fun(UM) -> map_remove(Key, UM) end).
+
+map_remove(_, ?none) -> ?none;
+map_remove(_, ?unit) -> ?none;
+map_remove(Key, Map) ->
+  %% ?map(lists:keydelete(Key, 1, Pairs), DefK, DefV).
+  case is_singleton_type(Key) of
+    false -> Map;
+    true ->
+      ?map(Pairs,DefK,DefV) = Map,
+      case lists:keyfind(Key, 1, Pairs) of
+        false -> Map;
+        {Key, _, _} ->
+          Pairs1 = lists:keydelete(Key, 1, Pairs),
+          t_map(Pairs1, DefK, DefV)
       end
   end.
 

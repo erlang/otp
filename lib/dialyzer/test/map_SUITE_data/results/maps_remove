@@ -1,0 +1,4 @@
+
+maps_remove.erl:22: Function get/2 has no local return
+maps_remove.erl:23: The call maps:get(K::'a',M::#{}) will never return since the success typing arguments are (any(),map())
+maps_remove.erl:7: Function t1/0 has no local return
