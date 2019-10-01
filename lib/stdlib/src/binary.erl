@@ -141,7 +141,7 @@ last(_) ->
     erlang:nif_error(undef).
 
 -spec list_to_bin(ByteList) -> binary() when
-      ByteList :: iodata().
+      ByteList :: iolist().
 
 list_to_bin(_) ->
     erlang:nif_error(undef).
