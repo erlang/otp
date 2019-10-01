@@ -34,7 +34,8 @@
 	 ex_binaries_errors_utf16_big/1,
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1,
-         normalize/1
+         normalize/1,
+         huge_illegal_code_points/1
         ]).
 
 suite() ->
@@ -47,7 +48,8 @@ all() ->
      latin1, exceptions,
      binaries_errors_limit,
      normalize,
-     {group,binaries_errors}].
+     {group,binaries_errors},
+     huge_illegal_code_points].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -1024,6 +1026,26 @@ normalize(_) ->
 
     ok.
 
+huge_illegal_code_points(Config) when is_list(Config) ->
+    LargeList = lists:duplicate(1024, $x),
+    Pre = ["ok part", [[LargeList]]],
+    Post = ["error tail", [[LargeList]]],
+    huge_illegal_code_points_aux(Pre, 1 bsl 27, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 28, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 32, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 59, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 60, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 64, Post),
+    ok.
+
+huge_illegal_code_points_aux(Pre, Error, Post) ->
+    ErrorList = [Error|Post],
+    In = [Pre | ErrorList],
+    FlatPre = lists:flatten(Pre),
+    {error, FlatPre, ErrorList} = unicode:characters_to_list(In),
+    BinPre = list_to_binary(FlatPre),
+    {error, BinPre, ErrorList} = unicode:characters_to_binary(In),
+    ok.
 
 %%
 %% Diverse utilities
