@@ -64,7 +64,13 @@ all() ->
         {group, aes_192_gcm},
         {group, aes_256_gcm},
         {group, des_ede3_cbc},
-        {group, des_ede3_cfb}
+        {group, des_ede3_cfb},
+        {group, aes_128_cfb128},
+        {group, aes_192_cfb128},
+        {group, aes_256_cfb128},
+        {group, aes_128_cfb8},
+        {group, aes_192_cfb8},
+        {group, aes_256_cfb8}
        ).
         
 -define(RETIRED_TYPE_ALIASES,
@@ -78,7 +84,9 @@ all() ->
         {group, des3_cfb},
         {group, des3_cbc},
         {group, des3_cbf},
-        {group, des_ede3}
+        {group, des_ede3},
+        {group, aes_cfb128},
+        {group, aes_cfb8}
        ).
 
 groups() ->
@@ -123,15 +131,7 @@ groups() ->
                      {group, rc4},
 
                      ?NEW_CIPHER_TYPE_SCHEMA,
-                     {group, aes_128_cfb128},
-                     {group, aes_192_cfb128},
-                     {group, aes_256_cfb128},
-                     {group, aes_128_cfb8},
-                     {group, aes_192_cfb8},
-                     {group, aes_256_cfb8},
-                     ?RETIRED_TYPE_ALIASES,
-                     {group, aes_cfb128},
-                     {group, aes_cfb8}
+                     ?RETIRED_TYPE_ALIASES
                     ]},
      {fips, [], [
                  {group, no_blake2b},
@@ -163,8 +163,6 @@ groups() ->
                  {group, no_blowfish_ecb},
                  {group, no_blowfish_ofb64},
 
-                 {group, no_aes_cfb128},
-                 {group, no_aes_cfb8},
                  {group, no_aes_ige256},
                  {group, no_des_cbc},
                  {group, no_des_cfb},
