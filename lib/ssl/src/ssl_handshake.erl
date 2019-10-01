@@ -1792,7 +1792,11 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
     DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
 	public_key:pkix_dist_point(OtpCert),
-    CRLs = Callback:select(GenNames, CRLDbHandle),
+    CRLs = lists:flatmap(fun({directoryName, Issuer}) ->
+                                 Callback:select(Issuer, CRLDbHandle);
+                            (_) ->
+                                 []
+                         end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
 dps_and_crls([], _, Acc) ->
