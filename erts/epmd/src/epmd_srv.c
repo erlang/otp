@@ -38,7 +38,7 @@
  *  register their names with this server.
  *
  *  To be accessible to all Erlang nodes this server listens to a well
- *  known port EPMD_PORT_NO (curently port 4369) where requests
+ *  known port EPMD_PORT_NO (currently port 4369) where requests
  *  for connections can be sent.
  *
  *  To keep track of when registered Erlang nodes are terminated this
@@ -59,7 +59,7 @@
 
 /* We use separate data structures for node names and connections
    so that a request will not use a slot with a name that we
-   want to resuse later incrementing the "creation" */
+   want to reuse later incrementing the "creation" */
 
 
 /* forward declarations */
@@ -525,7 +525,7 @@ void run(EpmdVars *g)
 
 /*
  *  This routine read as much of the packet as possible and
- *  if completed calls "do_request()" to fullfill the request.
+ *  if completed calls "do_request()" to fulfill the request.
  *
  */
 

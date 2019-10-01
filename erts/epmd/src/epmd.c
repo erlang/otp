@@ -474,7 +474,7 @@ static void usage(EpmdVars *g)
  *  Error reporting - dbg_printf() & dbg_tty_printf & dbg_perror()
  *
  *  The first form will print out on tty or syslog depending on
- *  if it runs as deamon or not. The second form will never print
+ *  if it runs as daemon or not. The second form will never print
  *  out on syslog.
  *
  *  The arguments are

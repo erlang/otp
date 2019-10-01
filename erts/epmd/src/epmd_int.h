@@ -293,7 +293,7 @@ static const struct in6_addr in6addr_loopback =
 
 /* ************************************************************************ */
 
-/* Stuctures used by server */
+/* Structures used by server */
 
 typedef struct {
   int fd;			/* File descriptor */
