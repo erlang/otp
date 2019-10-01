@@ -119,7 +119,8 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-               no_shared_fun_wrappers=false :: boolean()
+               no_shared_fun_wrappers=false :: boolean(),
+               labels=cerl_sets:new()
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -312,25 +313,13 @@ expr(#c_let{anno=A,vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
 	   end,
     {Kb,Pb,St3} = body(Cb, Sub1, St2),
     {Kb,Pa ++ Sets ++ Pb,St3};
-expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub0, St0) ->
-    %% Make new function names and store substitution.
-    {Fs0,{Sub1,St1}} =
-	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
-			 {N,St1} = new_fun_name(atom_to_list(F)
-						++ "/" ++
-						integer_to_list(Ar),
-						S0),
-			 B = set_kanno(B0, [{letrec_name,N}]),
-			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
-		 end, {Sub0,St0}, Cfs),
-    %% Run translation on functions and body.
-    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
-				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
-				 Fd = set_kanno(Fd1, A),
-				 {{N,Fd},St2}
-			 end, St1, Fs0),
-    {Kb,Pb,St3} = body(Cb, Sub1, St2),
-    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3};
+expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub, St) ->
+    case member(letrec_goto, A) of
+        true ->
+            letrec_goto(Cfs, Cb, Sub, St);
+        false ->
+            letrec_local_function(A, Cfs, Cb, Sub, St)
+    end;
 expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),		%This is a body!
     {Kvs,Pv,St2} = match_vars(Ka, St1),		%Must have variables here!
@@ -396,6 +385,47 @@ expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
     {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1};
 %% Handle internal expressions.
 expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
+
+%% Implement letrec in the traditional way as a local
+%% function for each definition in the letrec.
+
+letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
+    %% Make new function names and store substitution.
+    {Fs0,{Sub1,St1}} =
+	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
+			 {N,St1} = new_fun_name(atom_to_list(F)
+						++ "/" ++
+						integer_to_list(Ar),
+						S0),
+			 B = set_kanno(B0, [{letrec_name,N}]),
+			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
+		 end, {Sub0,St0}, Cfs),
+    %% Run translation on functions and body.
+    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
+				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
+				 Fd = set_kanno(Fd1, A),
+				 {{N,Fd},St2}
+			 end, St1, Fs0),
+    {Kb,Pb,St3} = body(Cb, Sub1, St2),
+    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3}.
+
+%% Implement letrec with the single definition as a label and each
+%% apply of it as a goto.
+
+letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
+            #kern{labels=Labels0}=St0) ->
+    Labels = cerl_sets:add_element(Label, Labels0),
+    {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
+    #c_fun{body=FailBody} = Cfail,
+    {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
+    case {Kb,Kfail,Fb} of
+        {#k_goto{label=Label},#k_goto{}=InnerGoto,[]} ->
+            {InnerGoto,Pb,St2};
+        {_,_,_} ->
+            St3 = St2#kern{labels=Labels0},
+            Alt = #k_letrec_goto{label=Label,first=Kb,then=pre_seq(Fb, Kfail)},
+            {Alt,Pb,St3}
+    end.
 
 %% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
 %%  Translate a match_fail primop to a call erlang:error/1 or
@@ -546,13 +576,19 @@ match_vars(Ka, St0) ->
     {[V],Vp,St1}.
 
 %% c_apply(A, Op, [Carg], Sub, State) -> {Kexpr,[PreKexpr],State}.
-%%  Transform application, detect which are guaranteed to be bifs.
+%%  Transform application.
 
-c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, St0) ->
-    {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
-    F1 = get_fsub(F0, Ar, Sub),			%Has it been rewritten
-    {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
-     Ap,St1};
+c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
+    case Ar =:= 0 andalso cerl_sets:is_element(F0, Labels) of
+        true ->
+            %% This is a goto to a label in a letrec_goto construct.
+            {#k_goto{label=F0},[],St0};
+        false ->
+            {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
+            F1 = get_fsub(F0, Ar, Sub),         %Has it been rewritten
+            {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
+             Ap,St1}
+    end;
 c_apply(A, Cop, Cargs, Sub, St0) ->
     {Kop,Op,St1} = variable(Cop, Sub, St0),
     {Kargs,Ap,St2} = atomic_list(Cargs, Sub, St1),
@@ -953,6 +989,7 @@ is_remote_bif(_, _, _) -> false.
 %%  return multiple values.  Only used in bodies where a BIF may be
 %%  called for effect only.
 
+bif_vals(recv_peek_message, 0) -> 2;
 bif_vals(_, _) -> 1.
 
 bif_vals(_, _, _) -> 1.
@@ -1795,6 +1832,8 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
     {#k_break{anno=A,args=As},Au,St};
+ubody(#k_goto{}=Goto, _Br, St) ->
+    {Goto,[],St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -1869,6 +1908,7 @@ is_enter_expr(#k_call{}) -> true;
 is_enter_expr(#k_match{}) -> true;
 is_enter_expr(#k_receive{}) -> true;
 is_enter_expr(#k_receive_next{}) -> true;
+is_enter_expr(#k_letrec_goto{}) -> true;
 is_enter_expr(_) -> false.
 
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
@@ -1991,6 +2031,12 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
+uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
+    Rs = break_rets(Br),
+    {F1,Fu,St1} = ubody(F0, Br, St0),
+    {T1,Tu,St2} = ubody(T0, Br, St1),
+    Used = union(Fu, Tu),
+    {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),

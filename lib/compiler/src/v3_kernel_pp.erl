@@ -171,6 +171,20 @@ format_1(#k_alt{first=O,then=T}, Ctxt) ->
      format(O, Ctxt1),
      nl_indent(Ctxt1),
      format(T, Ctxt1)];
+format_1(#k_letrec_goto{label=Label,first=First,then=Then,ret=Rs}, Ctxt) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
+    ["letrec_goto ",
+     atom_to_list(Label),
+     nl_indent(Ctxt1),
+     format(Then, Ctxt1),
+     nl_indent(Ctxt1),
+     format(First, Ctxt1),
+     nl_indent(Ctxt),
+     "end",
+     format_ret(Rs, Ctxt1)
+    ];
+format_1(#k_goto{label=Label}, _Ctxt) ->
+    ["goto ",atom_to_list(Label)];
 format_1(#k_select{var=V,types=Cs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, 2),
     ["select ",

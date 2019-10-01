@@ -40,7 +40,8 @@
              vars=#{} :: map(),     %Defined variables.
              break=0 :: label(),    %Break label
              recv=0 :: label(),     %Receive label
-             ultimate_failure=0 :: label() %Label for ultimate match failure.
+             ultimate_failure=0 :: label(), %Label for ultimate match failure.
+             labels=#{} :: #{atom() => label()}
             }).
 
 %% Internal records.
@@ -137,7 +138,21 @@ cg(#k_return{args=[Ret0]}, St) ->
     {[#b_ret{arg=Ret}],St};
 cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
     Args = ssa_args(Bs, St),
-    {[#cg_break{args=Args,phi=Br}],St}.
+    {[#cg_break{args=Args,phi=Br}],St};
+cg(#k_letrec_goto{label=Label,first=First,then=Then,ret=Rs},
+   #cg{break=OldBreak,labels=Labels0}=St0) ->
+    {Tf,St1} = new_label(St0),
+    {B,St2} = new_label(St1),
+    Labels = Labels0#{Label=>Tf},
+    {Fis,St3} = cg(First, St2#cg{labels=Labels,break=B}),
+    {Sis,St4} = cg(Then, St3),
+    St5 = St4#cg{labels=Labels0},
+    {BreakVars,St} = new_ssa_vars(Rs, St5),
+    Phi = #cg_phi{vars=BreakVars},
+    {Fis ++ [{label,Tf}] ++ Sis ++ [{label,B},Phi],St#cg{break=OldBreak}};
+cg(#k_goto{label=Label}, #cg{labels=Labels}=St) ->
+    Branch = map_get(Label, Labels),
+    {[make_uncond_branch(Branch)],St}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.

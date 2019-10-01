@@ -59,6 +59,9 @@
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
+-record(k_letrec_goto, {anno=[],label,first,then,ret=[]}).
+-record(k_goto, {anno=[],label}).
+
 -record(k_match, {anno=[],body,ret=[]}).
 -record(k_alt, {anno=[],first,then}).
 -record(k_select, {anno=[],var,types}).
