@@ -133,6 +133,7 @@
          api_opt_sock_error/1,
          api_opt_sock_keepalive/1,
          api_opt_sock_linger/1,
+         api_opt_sock_mark/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
@@ -806,6 +807,7 @@ api_options_socket_cases() ->
      api_opt_sock_error,
      api_opt_sock_keepalive,
      api_opt_sock_linger,
+     api_opt_sock_mark,
      api_opt_sock_timestamp_udp4,
      api_opt_sock_timestamp_tcp4
     ].
@@ -11282,6 +11284,22 @@ api_opt_sock_linger(doc) ->
 api_opt_sock_linger(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_opt_sock_linger,
+           fun() -> not_yet_implemented() end,
+           fun() -> ok end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option mark. PLACEHOLDER!
+
+api_opt_sock_mark(suite) ->
+    [];
+api_opt_sock_mark(doc) ->
+    [];
+api_opt_sock_mark(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_mark,
            fun() -> not_yet_implemented() end,
            fun() -> ok end).
 
