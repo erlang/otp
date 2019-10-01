@@ -725,7 +725,7 @@
 -define(SOCKET_OPT_SOCK_LINGER,         11).
 %% -define(SOCKET_OPT_SOCK_MARK,           12).
 -define(SOCKET_OPT_SOCK_OOBINLINE,      13).
-%% -define(SOCKET_OPT_SOCK_PASSCRED,       14).
+-define(SOCKET_OPT_SOCK_PASSCRED,       14).
 -define(SOCKET_OPT_SOCK_PEEK_OFF,       15).
 %% -define(SOCKET_OPT_SOCK_PEEKCRED,       16).
 -define(SOCKET_OPT_SOCK_PRIORITY,       17).
@@ -2916,6 +2916,8 @@ enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
     V;
 enc_setopt_value(socket, oobinline, V, _D, _T, _P) when is_boolean(V) ->
     V;
+enc_setopt_value(socket, passcred, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket, peek_off, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
@@ -3412,8 +3414,8 @@ enc_sockopt_key(socket = L, mark = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, oobinline = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_OOBINLINE;
-enc_sockopt_key(socket = L, passcred = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket, passcred, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_PASSCRED;
 enc_sockopt_key(socket = _L, peek_off = _Opt, _Dir, local = _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PEEK_OFF;
 enc_sockopt_key(socket = L, peekcred = Opt, get = _Dir, _D, _T, _P) ->

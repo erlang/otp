@@ -579,6 +579,7 @@ typedef union {
 #define ESOCK_OPT_SOCK_KEEPALIVE     10
 #define ESOCK_OPT_SOCK_LINGER        11
 #define ESOCK_OPT_SOCK_OOBINLINE     13
+#define ESOCK_OPT_SOCK_PASSCRED      14
 #define ESOCK_OPT_SOCK_PEEK_OFF      15
 #define ESOCK_OPT_SOCK_PRIORITY      17
 #define ESOCK_OPT_SOCK_PROTOCOL      18
@@ -1272,6 +1273,11 @@ static ERL_NIF_TERM esock_setopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                                     ESockDescriptor* descP,
                                                     ERL_NIF_TERM     eVal);
 #endif
+#if defined(SO_PASSCRED)
+static ERL_NIF_TERM esock_setopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     eVal);
+#endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM esock_setopt_lvl_sock_peek_off(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
@@ -1781,6 +1787,10 @@ static ERL_NIF_TERM esock_getopt_lvl_sock_linger(ErlNifEnv*       env,
 #if defined(SO_OOBINLINE)
 static ERL_NIF_TERM esock_getopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                                     ESockDescriptor* descP);
+#endif
+#if defined(SO_PASSCRED)
+static ERL_NIF_TERM esock_getopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP);
 #endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM esock_getopt_lvl_sock_peek_off(ErlNifEnv*       env,
@@ -3649,8 +3659,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** ESOCK_OPT_PASSCRED => SO_PASSCRED *** */
+    /* *** ESOCK_OPT_SOCK_PASSCRED => SO_PASSCRED *** */
+#if defined(SO_PASSCRED)
+    tmp = MKT2(env, esock_atom_passcred, esock_atom_true);
+#else
     tmp = MKT2(env, esock_atom_passcred, esock_atom_false);
+#endif
     TARRAY_ADD(opts, tmp);
 
 
@@ -8150,6 +8164,12 @@ ERL_NIF_TERM esock_setopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(SO_PASSCRED)
+    case ESOCK_OPT_SOCK_PASSCRED:
+        result = esock_setopt_lvl_sock_passcred(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_PRIORITY)
     case ESOCK_OPT_SOCK_PRIORITY:
         result = esock_setopt_lvl_sock_priority(env, descP, eVal);
@@ -8317,6 +8337,17 @@ ERL_NIF_TERM esock_setopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                              ERL_NIF_TERM     eVal)
 {
     return esock_setopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE, eVal);
+}
+#endif
+
+
+#if defined(SO_PASSCRED)
+static
+ERL_NIF_TERM esock_setopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal)
+{
+    return esock_setopt_bool_opt(env, descP, SOL_SOCKET, SO_PASSCRED, eVal);
 }
 #endif
 
@@ -11857,6 +11888,12 @@ ERL_NIF_TERM esock_getopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(SO_PASSCRED)
+    case ESOCK_OPT_SOCK_PASSCRED:
+        result = esock_getopt_lvl_sock_passcred(env, descP);
+        break;
+#endif
+
 #if defined(SO_PEEK_OFF)
     case ESOCK_OPT_SOCK_PEEK_OFF:
         result = esock_getopt_lvl_sock_peek_off(env, descP);
@@ -12094,6 +12131,16 @@ ERL_NIF_TERM esock_getopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                              ESockDescriptor* descP)
 {
     return esock_getopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE);
+}
+#endif
+
+
+#if defined(SO_PASSCRED)
+static
+ERL_NIF_TERM esock_getopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                            ESockDescriptor* descP)
+{
+    return esock_getopt_bool_opt(env, descP, SOL_SOCKET, SO_PASSCRED);
 }
 #endif
 
