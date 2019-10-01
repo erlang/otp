@@ -168,9 +168,6 @@
       <tag><c>-refresh_logs</c></tag>
       <item><p>Refreshes the top-level HTML index files.</p></item>
 
-      <tag><c>-vts</c></tag>
-      <item><p>Starts web-based GUI (described later).</p></item>
-
       <tag><c>-shell</c></tag>
       <item><p>Starts interactive shell mode (described later).</p></item>
 
@@ -1142,45 +1139,6 @@
 	</section>
   </section>
 
-  <section>
-    <title>Running Tests from the Web-Based GUI</title>
-    
-    <p>The web-based GUI, Virtual Test Server (VTS), is started with the
-      <seealso marker="run_test_chapter#ct_run"><c>ct_run</c></seealso>
-      program. From the GUI, you can load configuration files and select
-      directories, suites, and cases to run. You can also state the
-      configuration files, directories, suites, and cases on the command line
-      when starting the web-based GUI.
-    </p>
-    <p><em>Examples:</em></p>
-    <list type="bulleted">
-      <item><c>ct_run -vts</c></item>
-      <item><c><![CDATA[ct_run -vts -config <configfilename>]]></c></item>
-      <item><c><![CDATA[ct_run -vts -config <configfilename> -suite <suitewithfullpath>
-	      -case <casename>]]></c></item>
-    </list>
-    
-    <p>From the GUI you can run tests and view the result and the logs.
-    </p>
-    
-    <p><c>ct_run -vts</c> tries to open the <c>Common Test</c> start
-      page in an existing web browser window, or start the browser if it is
-      not running. Which browser to start can be specified with
-      the browser start command option:</p>
-      <p><c><![CDATA[ct_run -vts -browser <browser_start_cmd>]]></c></p>
-      <p><em>Example:</em></p>
-      <p><c><![CDATA[$ ct_run -vts -browser 'firefox&']]></c></p>
-
-      <note><p>The browser must run as a separate OS process, otherwise VTS hangs.</p></note>
-
-      <p>If no specific browser start command is specified, Firefox is
-        the default browser on Unix platforms, and Internet Explorer on Windows.
-	If <c>Common Test</c> fails to start a browser automatically, or <c>none</c> is
-	specified as the value for <c>-browser</c> (that is, <c>-browser none</c>), start your
-	favourite browser manually and type the URL that <c>Common Test</c>
-	displays in the shell.</p>    
-  </section>
-  
   <section>
     <marker id="log_files"></marker>
     <title>Log Files</title>
