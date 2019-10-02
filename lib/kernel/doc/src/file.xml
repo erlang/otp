@@ -202,10 +202,7 @@
       <desc>
         <p><c>allocate/3</c> can be used to preallocate space for a file.</p>
         <p>This function only succeeds in platforms that provide this
-          feature. When it succeeds, space is preallocated for the file but
-          the file size might not be updated. This behaviour depends on the
-          preallocation implementation. To guarantee that the file size is updated,
-          truncate the file to the new size.</p>
+          feature.</p>
       </desc>
     </func>
     <func>
