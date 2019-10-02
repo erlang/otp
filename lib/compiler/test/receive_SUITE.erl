@@ -41,13 +41,14 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [{group,p}].
+    slow_group() ++ [{group,p}].
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [recv,coverage,otp_7980,ref_opt,export,wait,
+      [recv,coverage,otp_7980,export,wait,
        recv_in_try,double_recv,receive_var_zero,
-       match_built_terms,elusive_common_exit]}].
+       match_built_terms,elusive_common_exit]},
+     {slow,[],[ref_opt]}].
 
 
 init_per_suite(Config) ->
@@ -62,6 +63,16 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+slow_group() ->
+    case ?MODULE of
+	receive_SUITE ->
+            %% Canononical module name. Run slow cases.
+            [{group,slow}];
+        _ ->
+            %% Cloned module. Don't run.
+            []
+    end.
 
 -record(state, {ena = true}).
 
@@ -190,12 +201,6 @@ otp_7980_add_clients(Count) ->
 		end, Count, [1,2,3]).
 
 ref_opt(Config) when is_list(Config) ->
-    case ?MODULE of
-	receive_SUITE -> ref_opt_1(Config);
-	_ -> {skip,"Enough to run this case once."}
-    end.
-
-ref_opt_1(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.{erl,S}"])),
