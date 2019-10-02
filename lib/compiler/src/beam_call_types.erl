@@ -449,14 +449,6 @@ types(_, _, Args) ->
 %% Helpers
 %%
 
-sub_unsafe(none, ArgTypes) ->
-    %% This is known to fail at runtime, but the type optimization pass
-    %% doesn't yet support cutting a block short at any point, so we
-    %% pretend it's raining instead.
-    %%
-    %% Actual exit BIFs get special treatment in the catch-all clause
-    %% for the 'erlang' module.
-    sub_unsafe(any, ArgTypes);
 sub_unsafe(RetType, ArgTypes) ->
     {RetType, ArgTypes, false}.
 
