@@ -42,7 +42,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group,p}].
+    slow_group() ++ [{group,p}].
 
 groups() -> 
     [{p,[parallel],
@@ -52,11 +52,12 @@ groups() ->
        more_xor_guards,build_in_guard,
        old_guard_tests,complex_guard,gbif,
        t_is_boolean,is_function_2,tricky,
-       rel_ops,rel_op_combinations,generated_combinations,
-       literal_type_tests,basic_andalso_orelse,traverse_dcd,
+       rel_ops,rel_op_combinations,
+       basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests]}].
+       repeated_type_tests]},
+     {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -71,6 +72,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+slow_group() ->
+    case ?MODULE of
+	guard_SUITE ->
+            %% Canononical module name. Run slow cases.
+            [{group,slow}];
+        _ ->
+            %% Cloned module. Don't run.
+            []
+    end.
 
 misc(Config) when is_list(Config) ->
     42 = case id(42) of
@@ -1591,16 +1601,10 @@ redundant_12(X) when X >= 50, X =< 80 -> 2*X;
 redundant_12(X) when X < 51 -> 5*X;
 redundant_12(_) -> none.
 
-generated_combinations(Config) ->
-    case ?MODULE of
-	guard_SUITE -> generated_combinations_1(Config);
-	_ -> {skip,"Enough to run this case once."}
-    end.
-
 %% Exhaustively test all combinations of relational operators
 %% to ensure the correctness of the optimizations in beam_ssa_dead.
 
-generated_combinations_1(Config) ->
+generated_combinations(Config) ->
     Mod = ?FUNCTION_NAME,
     RelOps = ['=:=','=/=','==','/=','<','=<','>=','>'],
     Combinations0 = [{Op1,Op2} || Op1 <- RelOps, Op2 <- RelOps],
@@ -1709,12 +1713,6 @@ eval_combination_expr({Op1,Lit1,Op2,Lit2}, Val) ->
 
 %% Test type tests on literal values. (From emulator test suites.)
 literal_type_tests(Config) when is_list(Config) ->
-    case ?MODULE of
-	guard_SUITE -> literal_type_tests_1(Config);
-	_ -> {skip,"Enough to run this case once."}
-    end.
-
-literal_type_tests_1(Config) ->
     %% Generate an Erlang module with all different type of type tests.
     Tests = make_test([{T,L} || T <- type_tests(), L <- literals()] ++
 			    [{is_function,L1,L2} || 

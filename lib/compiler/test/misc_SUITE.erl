@@ -61,12 +61,13 @@ suite() ->
 
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
-    [{group,p}].
+    slow_group() ++ [{group,p}].
 
 groups() -> 
-    [{p,[],
-      [tobias,empty_string,md5,silly_coverage,
-       confused_literals,integer_encoding,override_bif]}].
+    [{p,[parallel],
+      [tobias,empty_string,silly_coverage,
+       confused_literals,override_bif]},
+     {slow,[parallel],[integer_encoding,md5]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -81,8 +82,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-
+slow_group() ->
+    case ?MODULE of
+	misc_SUITE ->
+            %% Canononical module name. Run slow cases.
+            [{group,slow}];
+        _ ->
+            %% Cloned module. Don't run.
+            []
+    end.
+    
 %%
 %% Functions that override new and old bif's
 %%
@@ -142,12 +151,6 @@ empty_string_1(T) ->
     end.
 
 md5(Config) when is_list(Config) ->
-    case ?MODULE of
-	misc_SUITE -> md5();
-	_ -> {skip,"Enough to run this case once."}
-    end.
-
-md5() ->
     Dir = filename:dirname(code:which(?MODULE)),
     Beams = filelib:wildcard(filename:join(Dir, "*.beam")),
     io:format("Found ~w beam files", [length(Beams)]),
@@ -347,12 +350,6 @@ integer_encoding() ->
     [{timetrap,{minutes,4}}].
 
 integer_encoding(Config) when is_list(Config) ->
-    case ?MODULE of
-	misc_SUITE -> integer_encoding_1(Config);
-	_ -> {skip,"Enough to run this case once."}
-    end.
-
-integer_encoding_1(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     SrcFile = filename:join(PrivDir, "misc_SUITE_integer_encoding.erl"),
     DataFile = filename:join(PrivDir, "integer_encoding.data"),

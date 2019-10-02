@@ -891,7 +891,7 @@ simple_file(File, Module, F) ->
     ok = file:write_file(File, B).
 
 run_if_crypto_works(Test) ->
-    try	begin crypto:start(), crypto:info(), crypto:stop(), ok end of
+    try	begin crypto:start(), crypto:stop(), ok end of
 	ok ->
 	    Test()
     catch
