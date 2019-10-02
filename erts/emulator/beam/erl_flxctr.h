@@ -288,6 +288,24 @@ int erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c);
  */
 int erts_flxctr_suspend_until_thr_prg_if_snapshot_ongoing(ErtsFlxCtr* c, Process* p);
 
+/**
+ * @brief This function returns the number of bytes that are allocated
+ * for for the given FlxCtr.
+ *
+ * @return nr of bytes allocated for the FlxCtr
+ */
+size_t erts_flxctr_nr_of_allocated_bytes(ErtsFlxCtr* c);
+
+/**
+ * @brief This debug function returns the amount of memory allocated
+ * for decentralized counter arrays when compiled with the DEBUG
+ * macro. The function returns -1 if the DEBUG macro is undefined.
+ *
+ * @return number of bytes allocated for decentralized counter arrays
+ * if in debug mode and otherwise -1
+ */
+Sint erts_flxctr_debug_memory_usage(void);
+
 /* End: Public Interface */
 
 /* Internal Declarations */

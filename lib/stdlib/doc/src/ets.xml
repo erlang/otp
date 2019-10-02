@@ -557,6 +557,10 @@ Error: fun containing local Erlang function calls
           <item>
             <p>Indicates if the table is compressed.</p>
           </item>
+          <tag><c>{decentralized_counters, boolean()}</c></tag>
+          <item>
+            <p>Indicates whether the table uses <c>decentralized_counters</c>.</p>
+          </item>
           <tag><c>{heir, pid() | none}</c></tag>
           <item>
             <p>The pid of the heir of the table, or <c>none</c> if no heir
@@ -616,6 +620,13 @@ Error: fun containing local Erlang function calls
             <p>Indicates whether the table uses <c>write_concurrency</c>.</p>
           </item>
         </taglist>
+	<note><p>The execution time of this function is affected by
+          the <seealso marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seealso> table option.
+          The execution time is much longer when the <c>decentralized_counters</c>
+          option is set to <c>true</c> than when the <c>decentralized_counters</c>
+          option is set to <c>false</c>.</p>
+	</note>
       </desc>
     </func>
 
@@ -701,6 +712,15 @@ Error: fun containing local Erlang function calls
             <p>Returns internal statistics about tables on an internal format
 	    used by OTP test suites. Not for production use.</p></item>
         </list>
+        <note>
+         <p>The execution time of this function is affected by
+          the <seealso marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seealso> table option when the second
+          argument of the function is <c>size</c> or <c>memory</c>.
+          The execution time is much longer when the <c>decentralized_counters</c>
+          option is set to <c>true</c> than when the <c>decentralized_counters</c>
+          option is set to <c>false</c>.</p>
+	</note>
       </desc>
     </func>
 
@@ -1113,7 +1133,8 @@ ets:select(Table, MatchSpec),</code>
           table is named. Default values are used for omitted options.
           This means that not specifying any options (<c>[]</c>) is the same
           as specifying <c>[set, protected, {keypos,1}, {heir,none},
-          {write_concurrency,false}, {read_concurrency,false}]</c>.</p>
+          {write_concurrency,false}, {read_concurrency,false},
+          {decentralized_counters,false}]</c>.</p>
         <taglist>
           <tag><c>set</c></tag>
           <item>
@@ -1208,13 +1229,23 @@ ets:select(Table, MatchSpec),</code>
               (and read) by concurrent processes. This is achieved to some
               degree at the expense of memory consumption and the performance
               of sequential access and concurrent reading.</p>
-            <p>Option <c>write_concurrency</c> can be combined with option
+              <p>The <c>write_concurrency</c> option can be combined with the options
               <seealso marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seealso>. You typically want to combine
-              these when large concurrent read bursts and large concurrent
+              <c>read_concurrency</c></seealso> and
+              <seealso marker="#new_2_decentralized_counters">
+              <c>decentralized_counters</c></seealso>. You typically want to combine
+              <c>write_concurrency</c> with <c>read_concurrency</c> when large
+              concurrent read bursts and large concurrent
               write bursts are common; for more information, see option
               <seealso marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seealso>.</p>
+              <c>read_concurrency</c></seealso>. The <c>decentralized_counters</c>
+              option is turned on by default for tables of type <c>ordered_set</c>
+              with the <c>write_concurrency</c> option enabled, and the
+              <c>decentralized_counters</c> option is turned off by default for
+              all other table types.
+              For more information, see the documentation for the
+              <seealso marker="#new_2_decentralized_counters">
+              <c>decentralized_counters</c></seealso> option.</p>
             <p>Notice that this option does not change any guarantees about
               <seealso marker="#concurrency">atomicity and isolation</seealso>.
               Functions that makes such promises over many objects (like
@@ -1256,7 +1287,39 @@ ets:select(Table, MatchSpec),</code>
               <c>write_concurrency</c></seealso>.
               You typically want to combine these when large concurrent
               read bursts and large concurrent write bursts are common.</p>
-            <marker id="new_2_compressed"></marker>
+            <marker id="new_2_decentralized_counters"></marker>
+          </item>
+          <tag><c>{decentralized_counters,boolean()}</c></tag>
+          <item>
+            <p>
+              Performance tuning. Defaults to <c>true</c> for tables
+              of type <c>ordered_set</c> with the
+              <seealso marker="#new_2_write_concurrency">
+              <c>write_concurrency</c></seealso> option enabled, and defaults to
+	      false for all other   table types. This option has no effect if
+	      the <c>write_concurrency</c> option is set to <c>false</c>.</p>
+	    <p>
+	      When this option is set to <c>true</c>, the table is optimized for
+	      frequent concurrent calls to operations that modify the tables
+	      size and/or its memory consumption (e.g., <seealso
+              marker="#insert/2"><c>insert/2</c></seealso> and <seealso
+              marker="#delete/2"><c>delete/2</c></seealso>).
+	      The drawback is that calls to
+	      <seealso marker="#info/1"><c>info/1</c></seealso> and
+	      <seealso marker="#info/2"><c>info/2</c></seealso> with <c>size</c> or
+              <c>memory</c> as the second argument can get much slower when the
+              <c>decentralized_counters</c> option is turned on.</p>
+            <p>
+              When this option is enabled the counters for the
+              table size and memory consumption are distributed over
+              several cache lines and the scheduling threads are
+              mapped to one of those cache lines. The <c>erl</c>
+              option <seealso
+              marker="erts:erl#+dcg"><c>+dcg</c></seealso> can be used
+              to control the number of cache lines that the counters
+              are distributed over.
+            </p>
+              <marker id="new_2_compressed"></marker>
           </item>
           <tag><c>compressed</c></tag>
           <item>

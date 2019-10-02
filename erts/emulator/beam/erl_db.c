@@ -406,9 +406,11 @@ static void
 free_dbtable(void *vtb)
 {
     DbTable *tb = (DbTable *) vtb;
+    erts_flxctr_add(&tb->common.counters,
+                    ERTS_DB_TABLE_MEM_COUNTER_ID,
+                    -((Sint)erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)));
     ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
-           sizeof(DbTable) == erts_flxctr_read_approx(&tb->common.counters,
-                                                      ERTS_DB_TABLE_MEM_COUNTER_ID));
+           sizeof(DbTable) == DB_GET_APPROX_MEM_CONSUMED(tb));
 
     erts_rwmtx_destroy(&tb->common.rwlock);
     erts_mtx_destroy(&tb->common.fixlock);
@@ -417,7 +419,7 @@ free_dbtable(void *vtb)
     if (tb->common.btid)
         erts_bin_release(tb->common.btid);
 
-    erts_flxctr_destroy(&tb->common.counters, ERTS_ALC_T_DB_TABLE);
+    erts_flxctr_destroy(&tb->common.counters, ERTS_ALC_T_ETS_CTRS);
     erts_free(ERTS_ALC_T_DB_TABLE, tb);
 }
 
@@ -1621,6 +1623,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
+    int is_decentralized_counters;
+    int is_decentralized_counters_option;
     int cret;
     DbTableMethod* meth;
 
@@ -1636,6 +1640,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     is_named = 0;
     is_fine_locked = 0;
     frequent_read = 0;
+    is_decentralized_counters = 0;
+    is_decentralized_counters_option = -1;
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
@@ -1652,6 +1658,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_ordered_set) {
+            is_decentralized_counters = 1;
 	    status |= DB_ORDERED_SET;
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET);
 	}
@@ -1661,7 +1668,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		if (tp[1] == am_keypos
 		    && is_small(tp[2]) && (signed_val(tp[2]) > 0)) {
 		    keypos = signed_val(tp[2]);
-		}		
+		}
 		else if (tp[1] == am_write_concurrency) {
 		    if (tp[2] == am_true) {
 			is_fine_locked = 1;
@@ -1675,12 +1682,18 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    } else if (tp[2] == am_false) {
 			frequent_read = 0;
 		    } else break;
-		    
 		}
 		else if (tp[1] == am_heir && tp[2] == am_none) {
 		    heir = am_none;
 		    heir_data = am_undefined;
 		}
+                else if (tp[1] == am_decentralized_counters) {
+		    if (tp[2] == am_true) {
+			is_decentralized_counters_option = 1;
+		    } else if (tp[2] == am_false) {
+			is_decentralized_counters_option = 0;
+		    } else break;
+                }
 		else break;
 	    }
 	    else if (arityval(tp[0]) == 3 && tp[1] == am_heir
@@ -1714,6 +1727,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
     }
+    if (-1 != is_decentralized_counters_option) {
+        is_decentralized_counters = is_decentralized_counters_option;
+    }
     if (IS_TREE_TABLE(status) && is_fine_locked && !(status & DB_PRIVATE)) {
         meth = &db_catree;
         status |= DB_CA_ORDERED_SET;
@@ -1738,25 +1754,26 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     /* we create table outside any table lock
      * and take the unusal cost of destroy table if it
-     * fails to find a slot 
+     * fails to find a slot
      */
     {
         DbTable init_tb;
-        erts_flxctr_init(&init_tb.common.counters, 0, 2, ERTS_ALC_T_DB_TABLE);
+        erts_flxctr_init(&init_tb.common.counters, 0, 2, ERTS_ALC_T_ETS_CTRS);
 	tb = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 				      &init_tb, sizeof(DbTable));
         erts_flxctr_init(&tb->common.counters,
-                         status & DB_CA_ORDERED_SET,
+                         (status & DB_FINE_LOCKED) && is_decentralized_counters,
                          2,
-                         ERTS_ALC_T_DB_TABLE);
+                         ERTS_ALC_T_ETS_CTRS);
         erts_flxctr_add(&tb->common.counters,
                         ERTS_DB_TABLE_MEM_COUNTER_ID,
-                        DB_GET_APPROX_MEM_CONSUMED(&init_tb));
+                        DB_GET_APPROX_MEM_CONSUMED(&init_tb) +
+                        erts_flxctr_nr_of_allocated_bytes(&tb->common.counters));
     }
 
     tb->common.meth = meth;
     tb->common.the_name = BIF_ARG_1;
-    tb->common.status = status;    
+    tb->common.status = status;
     tb->common.type = status;
     /* Note, 'type' is *read only* from now on... */
     erts_refc_init(&tb->common.fix_count, 0);
@@ -1795,7 +1812,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
         table_dec_refc(tb, 0);
 	BIF_ERROR(BIF_P, BADARG);
     }
-    
+
     BIF_P->flags |= F_USING_DB; /* So we can remove tb if p dies */
 
 #ifdef HARDDEBUG
@@ -3286,6 +3303,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
                              am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed,
                              am_write_concurrency,
                              am_read_concurrency,
+                             am_decentralized_counters,
                              am_id};
     Eterm results[sizeof(fields)/sizeof(Eterm)];
     DbTable* tb;
@@ -3349,7 +3367,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 
     if (!is_ctrs_read_result_set) {
         ErtsFlxCtrSnapshotResult res =
-            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
+            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_ETS_CTRS, BIF_P);
         if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
             Eterm tuple;
             db_unlock(tb, LCK_READ);
@@ -3426,7 +3444,7 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
     }
     if (BIF_ARG_2 == am_size || BIF_ARG_2 == am_memory) {
         ErtsFlxCtrSnapshotResult res =
-            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
+            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_ETS_CTRS, BIF_P);
         if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
             db_unlock(tb, LCK_READ);
             BIF_TRAP2(&bif_trap_export[BIF_ets_info_2], BIF_P, res.trap_resume_state, BIF_ARG_2);
@@ -4319,7 +4337,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     } else if (What == am_heir) {
 	ret = tb->common.heir;
     } else if (What == am_protection) {
-	if (tb->common.status & DB_PRIVATE) 
+	if (tb->common.status & DB_PRIVATE)
 	    ret = am_private;
 	else if (tb->common.status & DB_PROTECTED)
 	    ret = am_protected;
@@ -4341,6 +4359,8 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	ret = tb->common.compress ? am_true : am_false;
     } else if (What == am_id) {
         ret = make_tid(p, tb);
+    } else if (What == am_decentralized_counters) {
+        ret = tb->common.counters.is_decentralized ? am_true : am_false;
     }
 
     /*

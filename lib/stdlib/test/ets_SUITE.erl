@@ -44,7 +44,8 @@
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
-         test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/0]).
+         test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1,
+         test_decentralized_counters_setting/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_iter_bag/1,
@@ -160,11 +161,12 @@ all() ->
      take,
      whereis_table,
      delete_unfix_race,
-     test_throughput_benchmark,
-     {group, benchmark},
+     %test_throughput_benchmark,
+     %{group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
-     test_delete_table_while_size_snapshot].
+     test_delete_table_while_size_snapshot,
+     test_decentralized_counters_setting].
 
 
 groups() ->
@@ -2644,15 +2646,17 @@ write_concurrency(Config) when is_list(Config) ->
     Yes6 = ets_new(foo,[duplicate_bag,protected,{write_concurrency,true}]),
     No3 = ets_new(foo,[duplicate_bag,private,{write_concurrency,true}]),
 
-    Yes7 = ets_new(foo,[ordered_set,public,{write_concurrency,true}]),
-    Yes8 = ets_new(foo,[ordered_set,protected,{write_concurrency,true}]),
-    Yes9 = ets_new(foo,[ordered_set,{write_concurrency,true}]),
-    Yes10 = ets_new(foo,[{write_concurrency,true},ordered_set,public]),
-    Yes11 = ets_new(foo,[{write_concurrency,true},ordered_set,protected]),
+    NoCentCtrs = {decentralized_counters,false},
+    Yes7 = ets_new(foo,[ordered_set,public,{write_concurrency,true},NoCentCtrs]),
+    Yes8 = ets_new(foo,[ordered_set,protected,{write_concurrency,true},NoCentCtrs]),
+    Yes9 = ets_new(foo,[ordered_set,{write_concurrency,true},NoCentCtrs]),
+    Yes10 = ets_new(foo,[{write_concurrency,true},ordered_set,public,NoCentCtrs]),
+    Yes11 = ets_new(foo,[{write_concurrency,true},ordered_set,protected,NoCentCtrs]),
     Yes12 = ets_new(foo,[set,{write_concurrency,false},
-                         {write_concurrency,true},ordered_set,public]),
+                         {write_concurrency,true},ordered_set,public,NoCentCtrs]),
     Yes13 = ets_new(foo,[private,public,set,{write_concurrency,false},
-                         {write_concurrency,true},ordered_set]),
+                         {write_concurrency,true},ordered_set,NoCentCtrs]),
+    Yes14 = ets_new(foo,[ordered_set,public,{write_concurrency,true}]),
     No4 = ets_new(foo,[ordered_set,private,{write_concurrency,true}]),
     No5 = ets_new(foo,[ordered_set,public,{write_concurrency,false}]),
     No6 = ets_new(foo,[ordered_set,protected,{write_concurrency,false}]),
@@ -2664,6 +2668,7 @@ write_concurrency(Config) when is_list(Config) ->
     YesMem = ets:info(Yes1,memory),
     NoHashMem = ets:info(No1,memory),
     YesTreeMem = ets:info(Yes7,memory),
+    YesYesTreeMem = ets:info(Yes14,memory),
     NoTreeMem = ets:info(No4,memory),
     io:format("YesMem=~p NoHashMem=~p NoTreeMem=~p YesTreeMem=~p\n",[YesMem,NoHashMem,
                                                                      NoTreeMem,YesTreeMem]),
@@ -2693,14 +2698,14 @@ write_concurrency(Config) when is_list(Config) ->
     true = YesMem > NoTreeMem,
     true = YesMem > YesTreeMem,
     true = YesTreeMem < NoTreeMem,
-
+    true = YesYesTreeMem > YesTreeMem,
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,true,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,write_concurrency])),
 
     lists:foreach(fun(T) -> ets:delete(T) end,
-        	  [Yes1,Yes2,Yes3,Yes4,Yes5,Yes6,Yes7,Yes8,Yes9,Yes10,Yes11,Yes12,Yes13,
+        	  [Yes1,Yes2,Yes3,Yes4,Yes5,Yes6,Yes7,Yes8,Yes9,Yes10,Yes11,Yes12,Yes13,Yes14,
         	   No1,No2,No3,No4,No5,No6,No7,No8,No9]),
     verify_etsmem(EtsMem),
     ok.
@@ -4583,6 +4588,8 @@ info_do(Opts) ->
     {value, {protection, Protection}} =
 	lists:keysearch(protection, 1, Res),
     {value, {id, Tab}} = lists:keysearch(id, 1, Res),
+    {value, {decentralized_counters, _DecentralizedCtrs}} =
+        lists:keysearch(decentralized_counters, 1, Res),
 
     %% Test 'binary'
     [] = ?ets_info(Tab, binary, SlavePid),
@@ -4696,7 +4703,10 @@ size_loop(_T, 0, _, _) ->
 size_loop(T, I, PrevSize, WhatToTest) ->
     Size = ets:info(T, WhatToTest),
     case Size < PrevSize of
-        true -> ct:fail("Bad ets:info/2");
+        true ->
+            io:format("Bad ets:info/2 (got ~p expected >=~p)",
+                      [Size, PrevSize]),
+            ct:fail("Bad ets:info/2)");
         _ -> ok
     end,
     size_loop(T, I -1, Size, WhatToTest).
@@ -4708,13 +4718,17 @@ add_loop(T, I) ->
     add_loop(T, I -1).
 
 
-test_table_counter_concurrency(WhatToTest) ->
+test_table_counter_concurrency(WhatToTest, TableOptions) ->
     IntStatePrevOn =
         erts_debug:set_internal_state(available_internal_state, true),
     ItemsToAdd = 1000000,
     SizeLoopSize = 1000,
-    T = ets:new(k, [public, ordered_set, {write_concurrency, true}]),
-    erts_debug:set_internal_state(ets_debug_random_split_join, {T, false}),
+    T = ets:new(k, TableOptions),
+    case lists:member(ordered_set, TableOptions) of
+        true ->
+            erts_debug:set_internal_state(ets_debug_random_split_join, {T, false});
+        false -> ok
+    end,
     0 = ets:info(T, size),
     P = self(),
     SpawnedSizeProcs =
@@ -4742,10 +4756,14 @@ test_table_counter_concurrency(WhatToTest) ->
     ok.
 
 test_table_size_concurrency(Config) when is_list(Config) ->
-    test_table_counter_concurrency(size).
+    BaseOptions = [public, {write_concurrency, true}],
+    test_table_counter_concurrency(size, [set | BaseOptions]),
+    test_table_counter_concurrency(size, [ordered_set | BaseOptions]).
 
 test_table_memory_concurrency(Config) when is_list(Config) ->
-    test_table_counter_concurrency(memory).
+    BaseOptions = [public, {write_concurrency, true}],
+    test_table_counter_concurrency(memory, [set | BaseOptions]),
+    test_table_counter_concurrency(memory, [ordered_set | BaseOptions]).
 
 %% Tests that calling the ets:delete operation on a table T with
 %% decentralized counters works while ets:info(T, size) operations are
@@ -4755,15 +4773,19 @@ test_delete_table_while_size_snapshot(Config) when is_list(Config) ->
     %% depend on that pids are ordered in creation order which is no
     %% longer the case when many processes have been started before
     Node = start_slave(),
-    ok = rpc:call(Node, ?MODULE, test_delete_table_while_size_snapshot_helper, []),
+    [ok = rpc:call(Node,
+                   ?MODULE,
+                   test_delete_table_while_size_snapshot_helper,
+                   [TableType])
+     || TableType <- [set, ordered_set]],
     test_server:stop_node(Node),
     ok.
 
-test_delete_table_while_size_snapshot_helper()->
+test_delete_table_while_size_snapshot_helper(TableType) ->
     TopParent = self(),
     repeat_par(
       fun() ->
-              Table = ets:new(t, [public, ordered_set,
+              Table = ets:new(t, [public, TableType,
                                   {write_concurrency, true}]),
               Parent = self(),
               NrOfSizeProcs = 100,
@@ -4771,7 +4793,7 @@ test_delete_table_while_size_snapshot_helper()->
                        || _ <- lists:seq(1, NrOfSizeProcs)],
               timer:sleep(1),
               ets:delete(Table),
-              [receive 
+              [receive
                    table_gone ->  ok;
                    Problem -> TopParent ! Problem
                end || _ <- Pids]
@@ -4815,6 +4837,62 @@ repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
                   Parent ! done
           end),
     repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes).
+
+test_decentralized_counters_setting(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    do_test_decentralized_counters_setting(set),
+    do_test_decentralized_counters_setting(ordered_set),
+    do_test_decentralized_counters_default_setting(),
+    verify_etsmem(EtsMem),
+    ok.
+
+do_test_decentralized_counters_setting(TableType) ->
+    wait_for_memory_deallocations(),
+    FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+    lists:foreach(
+      fun(OptList) ->
+              T1 = ets:new(t1, [public, TableType] ++ OptList ++ [TableType]),
+              check_decentralized_counters(T1, false, FlxCtrMemUsage),
+              ets:delete(T1)
+      end,
+      [[{write_concurrency, false}],
+       [{write_concurrency, true}, {decentralized_counters, false}]]),
+    lists:foreach(
+      fun(OptList) ->
+              T1 = ets:new(t1, [public,
+                                TableType,
+                                {write_concurrency, true}] ++ OptList ++ [TableType]),
+              check_decentralized_counters(T1, true, FlxCtrMemUsage),
+              ets:delete(T1),
+              wait_for_memory_deallocations(),
+              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage)
+      end,
+      [[{decentralized_counters, true}]]),
+    ok.
+
+do_test_decentralized_counters_default_setting() ->
+    wait_for_memory_deallocations(),
+    FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+    Set = ets:new(t1, [public, {write_concurrency, true}]),
+    check_decentralized_counters(Set, false, FlxCtrMemUsage),
+    ets:delete(Set),
+    Set2 = ets:new(t1, [public, set, {write_concurrency, true}]),
+    check_decentralized_counters(Set2, false, FlxCtrMemUsage),
+    ets:delete(Set2),
+    OrdSet = ets:new(t1, [public, ordered_set, {write_concurrency, true}]),
+    check_decentralized_counters(OrdSet, true, FlxCtrMemUsage),
+    ets:delete(OrdSet),
+    ok.
+
+check_decentralized_counters(T, ExpectedState, InitMemUsage) ->
+    case {ExpectedState, erts_debug:get_internal_state(flxctr_memory_usage)} of
+        {false, notsup} -> ok;
+        {false, X} -> InitMemUsage = X;
+        {true, notsup} -> ok;
+        {true, X} when X > InitMemUsage -> ok;
+        {true, _} -> ct:fail("Decentralized counter not used.")
+    end,
+    ExpectedState = ets:info(T, decentralized_counters).
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->
@@ -7676,6 +7754,7 @@ my_tab_to_list(Ts,Key, Acc) ->
 
 wait_for_memory_deallocations() ->
     try
+	erts_debug:set_internal_state(wait, thread_progress),
 	erts_debug:set_internal_state(wait, deallocations)
     catch
 	error:undef ->
@@ -7687,20 +7766,52 @@ etsmem() ->
     % The following is done twice to avoid an inconsistent memory
     % "snapshot" (see verify_etsmem/2).
     lists:foldl(
-      fun(_,_) ->
+      fun(AttemptNr, PrevEtsMem) ->
+              AllTabsExceptions = [logger, code],
+              %% The logger table is excluded from the AllTabs list
+              %% below because it uses decentralized counters to keep
+              %% track of the size and the memory counters. This cause
+              %% ets:info(T,size) and ets:info(T,memory) to trigger
+              %% allocations and frees that may change the amount of
+              %% memory that is allocated for ETS.
+              %%
+              %% The code table is excluded from the list below
+              %% because the amount of memory allocated for it may
+              %% change if the tested code loads a new module.
+              AllTabs =
+                  lists:sort(
+                    [begin
+                         case ets:info(T, decentralized_counters) of
+                             true ->
+                                 ct:fail("Background ETS table (~p) that "
+                                         "uses decentralized counters (Add exception?)",
+                                         [ets:info(T,name)]);
+                             _ -> ok
+                         end,
+                         {T,
+                          ets:info(T,name),
+                          ets:info(T,size),
+                          ets:info(T,memory),
+                          ets:info(T,type)}
+                     end
+                     || T <- ets:all(),
+                        not lists:member(ets:info(T, name), AllTabsExceptions)]),
               wait_for_memory_deallocations(),
-
-              AllTabs = lists:map(fun(T) -> {T,ets:info(T,name),ets:info(T,size),
-                                             ets:info(T,memory),ets:info(T,type)}
-                                  end, ets:all()),
-
               EtsAllocSize = erts_debug:alloc_blocks_size(ets_alloc),
               ErlangMemoryEts = try erlang:memory(ets) catch error:notsup -> notsup end,
-
-              Mem = {ErlangMemoryEts, EtsAllocSize},
-              {Mem, AllTabs}
+              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+              Mem = {ErlangMemoryEts, EtsAllocSize, FlxCtrMemUsage},
+              EtsMem = {Mem, AllTabs},
+              case PrevEtsMem of
+                  first -> ok;
+                  _ when PrevEtsMem =:= EtsMem -> ok;
+                  _ ->
+                      io:format("etsmem(): Change in attempt ~p~n~nbefore:~n~p~n~nafter:~n~p~n~n",
+                                [AttemptNr, PrevEtsMem, EtsMem])
+              end,
+              EtsMem
       end,
-      not_used,
+      first,
       lists:seq(1,2)).
 
 verify_etsmem(MI) ->

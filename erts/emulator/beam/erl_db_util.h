@@ -92,7 +92,7 @@ typedef struct {
     int flags;
     union {
         struct {
-            erts_rwmtx_t* lck;
+            struct DbTableHashLockAndCounter* lck_ctr;
         } hash;
         struct {
             struct DbTableCATreeNode* base_node;

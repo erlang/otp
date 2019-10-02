@@ -1915,6 +1915,7 @@ Uint erts_debug_nbalance(void);
 #define ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS		(1 << 0)
 #define ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS	(1 << 1)
 #define ERTS_DEBUG_WAIT_COMPLETED_AUX_WORK		(1 << 2)
+#define ERTS_DEBUG_WAIT_COMPLETED_THREAD_PROGRESS       (1 << 3)
 
 int erts_debug_wait_completed(Process *c_p, int flags);
 

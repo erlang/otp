@@ -2307,9 +2307,12 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
 		     sizeof(TreeDbTerm *) * STACK_NEED);
 	ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
                ((APPROX_MEM_CONSUMED(tb)
-                 == sizeof(DbTable)) ||
+                 == (sizeof(DbTable) +
+                     erts_flxctr_nr_of_allocated_bytes(&tb->common.counters))) ||
                 (APPROX_MEM_CONSUMED(tb)
-                 == (sizeof(DbTable) + sizeof(DbFixation)))));
+                 == (sizeof(DbTable) +
+                     sizeof(DbFixation) +
+                     erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)))));
     }
     return reds;
 }
