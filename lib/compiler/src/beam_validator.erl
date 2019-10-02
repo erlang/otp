@@ -388,13 +388,13 @@ valfun_1({swap,RegA,RegB}, Vst0) ->
     Vst = set_reg_vref(VrefB, RegA, Vst2),
     set_reg_vref(VrefA, RegB, Vst);
 valfun_1({fmove,Src,{fr,_}=Dst}, Vst) ->
-    assert_type(float, Src, Vst),
+    assert_type(#t_float{}, Src, Vst),
     set_freg(Dst, Vst);
 valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
-    create_term(float, fmove, [], Dst, Vst);
+    create_term(#t_float{}, fmove, [], Dst, Vst);
 valfun_1({kill,Reg}, Vst) ->
     create_tag(initialized, kill, [], Reg, Vst);
 valfun_1({init,Reg}, Vst) ->
@@ -878,7 +878,7 @@ valfun_3({test,bs_get_integer2=Op,{f,Fail},Live,
           [Ctx,_Size,Unit,_Flags],Dst},Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
 valfun_3({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, 1, float, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, 1, #t_float{}, Dst, Vst);
 valfun_3({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
     Type = #t_bitstring{size_unit=Unit},
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
@@ -921,7 +921,7 @@ valfun_3({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
 valfun_3({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, beam_types:make_boolean(), Src, Vst);
 valfun_3({test,is_float,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, float, Src, Vst);
+    type_test(Lbl, #t_float{}, Src, Vst);
 valfun_3({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
 valfun_3({test,is_integer,{f,Lbl},[Src]}, Vst) ->
@@ -1060,7 +1060,7 @@ valfun_3({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, float, Src, SuccVst)
+                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
            end);
 valfun_3({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
@@ -1759,7 +1759,7 @@ infer_types_1(#value{op={bif,is_binary},args=[Src]}, Val, Op, Vst) ->
 infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
-    infer_type_test_bif(float, Src, Val, Op, Vst);
+    infer_type_test_bif(#t_float{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
@@ -2057,11 +2057,12 @@ is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
 
-%% `dialyzer` complains about the float and general literal cases never being
-%% matched and I don't like suppressing warnings. Should they become possible
-%% I'm sure `dialyzer` will warn about it.
+%% `dialyzer` complains about the general literal case never being matched and
+%% I don't like suppressing warnings. Should it become possible I'm sure
+%% `dialyzer` will warn about it.
 value_to_literal([]) -> nil;
 value_to_literal(A) when is_atom(A) -> {atom,A};
+value_to_literal(F) when is_float(F) -> {float,F};
 value_to_literal(I) when is_integer(I) -> {integer,I}.
 
 %% These are just wrappers around their equivalents in beam_types, which

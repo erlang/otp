@@ -153,7 +153,7 @@ list_types() ->
     [cons, list, nil].
 
 numerical_types() ->
-    [gen_integer(), float, number].
+    [gen_integer(), gen_float(), number].
 
 nested_types(Depth) when Depth >= 3 -> [none];
 nested_types(Depth) -> [#t_map{}, gen_union(Depth + 1), gen_tuple(Depth + 1)].
@@ -188,6 +188,17 @@ gen_integer_bounded() ->
     ?LET({A, B}, {integer(), integer()},
          begin
              #t_integer{elements={min(A,B), max(A,B)}}
+         end).
+
+gen_float() ->
+    oneof([gen_float_bounded(), #t_float{}]).
+
+gen_float_bounded() ->
+    ?LET({A, B}, {integer(), integer()},
+         begin
+             Min = float(min(A,B)),
+             Max = float(max(A,B)),
+             #t_float{elements={Min,Max}}
          end).
 
 gen_tuple(Depth) ->

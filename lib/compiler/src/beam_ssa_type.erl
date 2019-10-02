@@ -473,7 +473,7 @@ simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' -
     EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
                 {none,any} -> true;
                 {#t_integer{},#t_integer{}} -> true;
-                {float,float} -> true;
+                {#t_float{},#t_float{}} -> true;
                 {#t_bitstring{},_} -> true;
                 {#t_atom{},_} -> true;
                 {_,_} -> false
@@ -739,7 +739,7 @@ eval_type_test_bif(I, is_boolean, [Type]) ->
             end
     end;
 eval_type_test_bif(I, is_float, [Type]) ->
-    eval_type_test_bif_1(I, Type, float);
+    eval_type_test_bif_1(I, Type, #t_float{});
 eval_type_test_bif(I, is_function, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_fun{});
 eval_type_test_bif(I, is_integer, [Type]) ->
@@ -786,13 +786,13 @@ sub_arg(#b_var{}=Old, Sub) ->
         #{} -> Old
     end.
 
-is_float_op('-', [float]) ->
+is_float_op('-', [#t_float{}]) ->
     true;
 is_float_op('/', [_,_]) ->
     true;
-is_float_op(Op, [float,_Other]) ->
+is_float_op(Op, [#t_float{},_Other]) ->
     is_float_op_1(Op);
-is_float_op(Op, [_Other,float]) ->
+is_float_op(Op, [_Other,#t_float{}]) ->
     is_float_op_1(Op);
 is_float_op(_, _) -> false.
 
@@ -801,7 +801,7 @@ is_float_op_1('-') -> true;
 is_float_op_1('*') -> true;
 is_float_op_1(_) -> false.
 
-anno_float_arg(float) -> float;
+anno_float_arg(#t_float{}) -> float;
 anno_float_arg(_) -> convert.
 
 opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
@@ -1114,7 +1114,7 @@ bs_match_type(binary, Args) ->
     [_,_,_,#b_literal{val=U}] = Args,
     #t_bitstring{size_unit=U};
 bs_match_type(float, _) ->
-    float;
+    #t_float{};
 bs_match_type(integer, Args) ->
     case Args of
         [_,
@@ -1397,7 +1397,7 @@ infer_type({bif,is_boolean}, [Arg], _Ts, _Ds) ->
     T = {Arg, beam_types:make_boolean()},
     {[T], [T]};
 infer_type({bif,is_float}, [Arg], _Ts, _Ds) ->
-    T = {Arg, float},
+    T = {Arg, #t_float{}},
     {[T], [T]};
 infer_type({bif,is_integer}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},

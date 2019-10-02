@@ -32,8 +32,8 @@
 %%    - #t_fun{}             Fun.
 %%    - #t_map{}             Map.
 %%    - number               Any number.
-%%       -- float            Floating point number.
-%%       -- integer          Integer.
+%%       -- #t_float{}       Floating point number.
+%%       -- #t_integer{}     Integer.
 %%    - list                 Any list.
 %%       -- cons             Cons (nonempty list).
 %%       -- nil              The empty list.
@@ -51,6 +51,7 @@
 -define(ATOM_SET_SIZE, 5).
 
 -record(t_atom, {elements=any :: 'any' | [atom()]}).
+-record(t_float, {elements=any :: 'any' | {float(),float()}}).
 -record(t_fun, {arity=any :: arity() | 'any'}).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 -record(t_bitstring, {size_unit=1 :: pos_integer()}).
@@ -71,11 +72,13 @@
 -type tuple_elements() :: #{ Key :: pos_integer() => type() }.
 
 -type normal_type() :: any | none |
-                       list | number |
+                       list | cons | nil |
+                       number | #t_float{} | #t_integer{} |
                        #t_atom{} |
                        #t_bitstring{} | #t_bs_context{} | #t_bs_matchable{} |
-                       #t_fun{} | #t_integer{} | #t_map{} | #t_tuple{} |
-                       'cons' | 'float' | 'nil'.
+                       #t_fun{} |
+                       #t_map{} |
+                       #t_tuple{}.
 
 -type record_key() :: {Arity :: integer(), Tag :: normal_type() }.
 -type record_set() :: ordsets:ordset({record_key(), #t_tuple{}}).
@@ -83,7 +86,7 @@
 
 -record(t_union, {atom=none :: none | #t_atom{},
                   list=none :: none | list | cons | nil,
-                  number=none :: none | number | float | #t_integer{},
+                  number=none :: none | number | #t_float{} | #t_integer{},
                   tuple_set=none :: none | tuple_set(),
                   other=none :: normal_type()}).
 
