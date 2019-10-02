@@ -215,7 +215,7 @@
                        }.
 
 %% If the integer value is used, its up to the caller to ensure its valid!
--type ip_tos() :: lowdeley |
+-type ip_tos() :: lowdelay |
                   throughput |
                   reliability |
                   mincost |
@@ -382,7 +382,7 @@
                          oobinline |
                          passcred |
                          peek_off |
-                         peekcred |
+                         peercred |
                          priority |
                          protocol |
                          rcvbuf |
@@ -727,7 +727,7 @@
 -define(SOCKET_OPT_SOCK_OOBINLINE,      13).
 -define(SOCKET_OPT_SOCK_PASSCRED,       14).
 -define(SOCKET_OPT_SOCK_PEEK_OFF,       15).
-%% -define(SOCKET_OPT_SOCK_PEEKCRED,       16).
+%% -define(SOCKET_OPT_SOCK_PEERCRED,       16).
 -define(SOCKET_OPT_SOCK_PRIORITY,       17).
 -define(SOCKET_OPT_SOCK_PROTOCOL,       18).
 -define(SOCKET_OPT_SOCK_RCVBUF,         19).
@@ -3418,7 +3418,7 @@ enc_sockopt_key(socket, passcred, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PASSCRED;
 enc_sockopt_key(socket = _L, peek_off = _Opt, _Dir, local = _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PEEK_OFF;
-enc_sockopt_key(socket = L, peekcred = Opt, get = _Dir, _D, _T, _P) ->
+enc_sockopt_key(socket = L, peercred = Opt, get = _Dir, loocal = _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;
