@@ -139,6 +139,7 @@
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
+         api_opt_ip_tos_udp4/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -837,7 +838,8 @@ api_option_sock_timestamp_cases() ->
 
 api_options_ip_cases() ->
     [
-     api_opt_ip_add_drop_membership
+     api_opt_ip_add_drop_membership,
+     api_opt_ip_tos_udp4
     ].
 
 %% api_options_ipv6_cases() ->
@@ -13048,6 +13050,247 @@ which_local_host_ifname(Domain) ->
     end.
 
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the ip socket option 'tos' casn be set and retrieved from a
+%% the socket its set on. It sets the type-of-server field in the IP
+%% header for a TCP or UDP socket.
+%% There is no way to fetch the value a received IP datagram.
+%% Default value is supposed to be '0'.
+%% 
+
+api_opt_ip_tos_udp4(suite) ->
+    [];
+api_opt_ip_tos_udp4(doc) ->
+    [];
+api_opt_ip_tos_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_ip_tos_udp4,
+           fun() -> has_support_ip_tos() end,
+           fun() ->
+                   Set  = fun(Sock, Value) ->
+                                  socket:setopt(Sock, ip, tos, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, ip, tos)
+                          end,
+                   InitState = #{set => Set,
+                                 get => Get},
+                   ok = api_opt_ip_tos_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_ip_tos_udp(InitState) ->
+    process_flag(trap_exit, true),
+    TOS1 = mincost,     TOS1Str = atom_to_list(TOS1),
+    TOS2 = throughput,  TOS2Str = atom_to_list(TOS2),
+    TOS3 = reliability, TOS3Str = atom_to_list(TOS3),
+    TOS4 = lowdelay,    TOS4Str = atom_to_list(TOS4),
+    TOS5 = 42,          TOS5Str = integer_to_list(TOS5),
+    Seq =
+        [
+         #{desc => "local address",
+           cmd  => fun(State) ->
+                           LSA = which_local_socket_addr(inet),
+                           {ok, State#{lsa => LSA}}
+                   end},
+
+         #{desc => "open socket",
+           cmd  => fun(State) ->
+                           Sock = sock_open(inet, dgram, udp),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "bind",
+           cmd  => fun(#{sock := Sock, lsa := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("socket bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "get default tos",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, 0 = Value} ->
+                                   ?SEV_IPRINT("expected default tos: ~p", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected default tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "set tos " ++ TOS1Str,
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, TOS1) of
+                               ok ->
+                                   ?SEV_IPRINT("tos set to ~p", [TOS1]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get tos (expect " ++ TOS1Str ++ ")",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, TOS1 = Value} ->
+                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "set tos " ++ TOS2Str,
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, TOS2) of
+                               ok ->
+                                   ?SEV_IPRINT("tos set to ~p", [TOS2]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get tos (expect " ++ TOS2Str ++ ")",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, TOS2 = Value} ->
+                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "set tos " ++ TOS3Str,
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, TOS3) of
+                               ok ->
+                                   ?SEV_IPRINT("tos set to ~p", [TOS3]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get tos (expect " ++ TOS3Str ++ ")",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, TOS3 = Value} ->
+                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "set tos " ++ TOS4Str,
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, TOS4) of
+                               ok ->
+                                   ?SEV_IPRINT("tos set to ~p", [TOS4]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get tos (expect " ++ TOS4Str ++ ")",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, TOS4 = Value} ->
+                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "set tos " ++ TOS5Str,
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, TOS5) of
+                               ok ->
+                                   ?SEV_IPRINT("tos set to ~p", [TOS5]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get tos (expect " ++ TOS5Str ++ ")",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, TOS5 = Value} ->
+                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected tos: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) tos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31538,6 +31781,9 @@ has_support_ip_add_membership() ->
 
 has_support_ip_drop_membership() ->
     has_support_socket_option_ip(drop_membership).
+
+has_support_ip_tos() ->
+    has_support_socket_option_ip(tos).
 
 
 has_support_socket_option_ip(Opt) ->
