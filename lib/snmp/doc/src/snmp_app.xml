@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>snmp</title>
+    <title>SNMP</title>
     <prepared></prepared>
     <responsible></responsible>
     <docno></docno>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp.xml</file>
   </header>
-  <app>snmp</app>
+  <app>SNMP</app>
   <appsummary>The SNMP Application</appsummary>
   <description>
     <p>This chapter describes the <c>snmp</c>
