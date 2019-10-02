@@ -20,6 +20,10 @@
 
 %%
 
+
+-define(XFER_PACKET_SIZE, 65536).
+-define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
+
 %%% Description: SFTP defines
 -define(SSH_SFTP_PROTOCOL_VERSION, 6).		
 %%%----------------------------------------------------------------------
