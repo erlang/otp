@@ -38,13 +38,21 @@
          %% when dealing with co-recursive functions.
          arg_types = [] :: list(arg_type_map()),
 
-         %% The inferred return type of this function, this is either [type()]
-         %% or [] to note absence.
-         ret_type = [] :: list()}).
+         %% The inferred return types of this function, grouped by the inferred
+         %% argument types at the time of return.
+         %%
+         %% This gives us more precise types than a naive join of all returned
+         %% values, as we can rule out the cases where the arguments are
+         %% incompatible with the ones we're passing.
+         ret_types = ordsets:new() :: return_type_set()}).
 
 -type arg_key() :: {CallerId :: func_id(),
                     CallDst :: beam_ssa:b_var()}.
 -type arg_type_map() :: #{ arg_key() => term() }.
+
+-type call_self() :: {call_self, ArgTypes :: [term()]}.
+-type return_type_set() :: ordsets:ordset({ArgTypes :: [term()],
+                                           RetType :: call_self() | term()}).
 
 %% Per-function metadata used by various optimization passes to perform
 %% module-level optimization. If a function is absent it means that

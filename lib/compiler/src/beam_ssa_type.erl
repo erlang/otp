@@ -33,10 +33,11 @@
         {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
          ls :: #{beam_ssa:label():=type_db()},
          once :: cerl_sets:set(beam_ssa:b_var()),
+         params :: [beam_ssa:b_var()],
          func_id :: func_id(),
          func_db :: func_info_db(),
          sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
-         ret_type = [] :: [type()]}).
+         ret_types = [] :: return_type_set()}).
 
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
@@ -108,15 +109,16 @@ opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
 
     D = #d{ func_db=FuncDb0,
             func_id=Id,
+            params=Args,
             ds=Defs,
-            ls=#{0=>Ts,?EXCEPTION_BLOCK=>#{}},
+            ls=#{0=>Ts,?EXCEPTION_BLOCK=>Ts},
             once=UsedOnce },
 
     {Linear, FuncDb, NewRet} = opt(Linear0, D, []),
 
     case FuncDb of
         #{ Id := Entry0 } ->
-            Entry = Entry0#func_info{ret_type=NewRet},
+            Entry = Entry0#func_info{ret_types=NewRet},
             {Linear, FuncDb#{ Id := Entry }};
         #{} ->
             %% Module-level optimizations have been turned off for this
@@ -166,7 +168,7 @@ opt([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
             opt(Bs, D, Acc)
     end;
 opt([], D, Acc) ->
-    #d{func_db=FuncDb,ret_type=NewRet} = D,
+    #d{func_db=FuncDb,ret_types=NewRet} = D,
     {reverse(Acc), FuncDb, NewRet}.
 
 opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
@@ -281,16 +283,10 @@ opt_simplify(#b_set{dst=Dst}=I0, Is, Ts0, Ds0, Fdb, D, Sub0, Acc) ->
     end.
 
 opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, D) ->
-    I = opt_local_call_return(I0, Callee, Fdb0),
+    I = opt_local_call_return(I0, Callee, Fdb0, Ts),
     case Fdb0 of
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
-            %% Match contexts are treated as bitstrings when optimizing
-            %% arguments, as we don't yet support removing the
-            %% "bs_start_match3" instruction.
-            Types = [case raw_type(Arg, Ts) of
-                         #t_bs_context{} -> #t_bitstring{};
-                         Type -> Type
-                     end || Arg <- Args],
+            Types = argument_types(Args, Ts),
 
             %% Update the argument types of *this exact call*, the types
             %% will be joined later when the callee is optimized.
@@ -307,13 +303,74 @@ opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, D) ->
 opt_call(I, _Ts, Fdb, _D) ->
     {I, Fdb}.
 
-opt_local_call_return(I, Callee, Fdb) ->
+opt_local_call_return(#b_set{args=[_|Args]}=I, Callee, Fdb, Ts) ->
     case Fdb of
-       #{ Callee := #func_info{ret_type=[Type]} } when Type =/= any ->
-           beam_ssa:add_anno(result_type, Type, I);
-       #{} ->
-           I
-   end.
+        #{ Callee := #func_info{ret_types=[_|_]=RetTypes0} } ->
+            ArgTypes0 = argument_types(Args, Ts),
+
+            {RetTypes, ArgTypes} =
+                rt_recurse_types(RetTypes0, ArgTypes0, [], []),
+
+            case rt_join_types(RetTypes, ArgTypes, none) of
+                any -> I;
+                Type -> beam_ssa:add_anno(result_type, Type, I)
+            end;
+        #{} ->
+            I
+    end.
+
+rt_recurse_types([{SiteTypes, {call_self, CallTypes}}=Site | Sites],
+                 ArgTypes0, Deferred, Acc) ->
+    case rt_is_reachable(SiteTypes, ArgTypes0) of
+        true ->
+            %% If we return a call to ourselves, we need to join our current
+            %% argument types with that of the call to ensure all possible
+            %% return paths are covered.
+            ArgTypes = rt_parallel_join(CallTypes, ArgTypes0),
+            rt_recurse_types(Sites, ArgTypes, Deferred, Acc);
+        false ->
+            %% This may be reachable after we've joined another self-call, so
+            %% we defer it until we've gone through all other self-calls.
+            rt_recurse_types(Sites, ArgTypes0, [Site | Deferred], Acc)
+    end;
+rt_recurse_types([Site | Sites], ArgTypes, Deferred, Acc) ->
+    rt_recurse_types(Sites, ArgTypes, Deferred, [Site | Acc]);
+rt_recurse_types([], ArgTypes, Deferred, Acc) ->
+    case rt_any_reachable(Deferred, ArgTypes) of
+        true -> rt_recurse_types(Deferred, ArgTypes, [], Acc);
+        false -> {Acc, ArgTypes}
+    end.
+
+%% Joins all returns that can be reached with the given argument types
+rt_join_types([{SiteTypes, RetType} | Sites], ArgTypes, Acc0) ->
+    Acc = case rt_is_reachable(SiteTypes, ArgTypes) of
+              true -> beam_types:join(RetType, Acc0);
+              false -> Acc0
+          end,
+    rt_join_types(Sites, ArgTypes, Acc);
+rt_join_types([], _ArgTypes, Acc) ->
+    Acc.
+
+rt_any_reachable([{SiteTypes, _} | Sites], ArgTypes) ->
+    case rt_is_reachable(SiteTypes, ArgTypes) of
+        true -> true;
+        false -> rt_any_reachable(Sites, ArgTypes)
+    end;
+rt_any_reachable([], _ArgTypes) ->
+    false.
+
+rt_is_reachable([A | SiteTypes], [B | ArgTypes]) ->
+    case beam_types:meet(A, B) of
+        none -> false;
+        _Other -> rt_is_reachable(SiteTypes, ArgTypes)
+    end;
+rt_is_reachable([], []) ->
+    true.
+
+rt_parallel_join([A | As], [B | Bs]) ->
+    [beam_types:join(A, B) | rt_parallel_join(As, Bs)];
+rt_parallel_join([], []) ->
+    [].
 
 %% While we have no way to know which arguments a fun will be called with, we
 %% do know its free variables and can update their types as if this were a
@@ -776,18 +833,20 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
             Last = Last0#b_switch{list=List1},
             {Last, D}
     end;
-update_successors(#b_ret{arg=Arg}=Last, Ts, D0) ->
-    FuncId = D0#d.func_id,
-    D = case D0#d.ds of
-            #{ Arg := #b_set{op=call,args=[FuncId | _]} } ->
-                %% Returning a call to ourselves doesn't affect our own return
-                %% type.
-                D0;
-            #{} ->
-                RetType = beam_types:join([raw_type(Arg, Ts) | D0#d.ret_type]),
-                D0#d{ret_type=[RetType]}
-        end,
-    {Last, D}.
+update_successors(#b_ret{arg=Arg}=Last, Ts, D) ->
+    FuncId = D#d.func_id,
+
+    RetType = case D#d.ds of
+                  #{ Arg := #b_set{op=call,args=[FuncId | Args]} } ->
+                      {call_self, argument_types(Args, Ts)};
+                  #{} ->
+                      raw_type(Arg, Ts)
+              end,
+
+    ArgTypes = argument_types(D#d.params, Ts),
+    RetTypes = ordsets:add_element({ArgTypes, RetType}, D#d.ret_types),
+
+    {Last, D#d{ret_types=RetTypes}}.
 
 update_switch([{Val, Lbl}=Sw | List], V, Ts, UsedOnce, Acc, D0) ->
     case infer_types_switch(V, Val, Ts, UsedOnce, D0) of
@@ -1186,6 +1245,20 @@ normalized_types(Values, Ts) ->
 
 normalized_type(V, Ts) ->
     beam_types:normalize(raw_type(V, Ts)).
+
+argument_types(Values, Ts) ->
+    [argument_type(Val, Ts) || Val <- Values].
+
+-spec argument_type(beam_ssa:value(), type_db()) -> type().
+
+argument_type(V, Ts) ->
+    %% Match contexts are treated as bitstrings when optimizing
+    %% arguments, as we don't yet support removing the
+    %% "bs_start_match3" instruction.
+    case raw_type(V, Ts) of
+        #t_bs_context{} -> #t_bitstring{};
+        Type -> Type
+    end.
 
 -spec raw_type(beam_ssa:value(), type_db()) -> type().
 
