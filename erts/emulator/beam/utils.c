@@ -4789,3 +4789,11 @@ erts_ptr_id(void *ptr)
     return ptr;
 }
 
+int erts_check_if_stack_grows_downwards(char *ptr)
+{
+    char c;
+    if (erts_check_below_limit(&c, ptr))
+        return 1;
+    else
+        return 0;
+}
