@@ -16243,11 +16243,18 @@ ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
 
     recv_error_current_reader(env, descP, sockRef, res);
 
+    /* Here we have readMtx.
+     * Release it and lock closeMtx over this call
+     */
+    MUNLOCK(descP->readMtx);
+    MLOCK(descP->closeMtx);
     if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
         esock_warning_msg("Failed stop select (closed) "
                           "for current reader (%T): %d\r\n",
                           recvRef, sres);
     }
+    MUNLOCK(descP->closeMtx);
+    MLOCK(descP->readMtx);
 
     return res;
 }
@@ -19892,6 +19899,14 @@ int esock_select_write(ErlNifEnv*       env,
 }
 
 
+/* *** esock_select_stop ***
+ *
+ * WARNING: enif_select may call esock_stop directly
+ * in which case deadlock is avoided by esock_stop that checks
+ * if it got a direct call and then does not lock closeMtx.
+ *
+ * So closeMtx is supposed to be locked when this function is called.
+ */
 static
 int esock_select_stop(ErlNifEnv*  env,
                       ErlNifEvent event,
@@ -20509,7 +20524,9 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
             ((is_direct_call) ? "called" : "scheduled"), descP->sock, fd) );
 
     /* +++ Lock it down +++ */
-    
+
+    /* If we are called with a direct call; we already have closeMtx
+     */
     MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
     MLOCK(descP->accMtx);
@@ -20705,7 +20722,8 @@ void esock_stop_handle_current(ErlNifEnv*       env,
 
     DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
 
-    if (COMPARE_PIDS(&descP->closerPid, &reqP->pid) != 0) {
+    if ((! enif_is_pid_undefined(&descP->closerPid)) &&
+        (COMPARE_PIDS(&descP->closerPid, &reqP->pid) != 0)) {
 
         SSDBG( descP, ("SOCKET", "esock_stop_handle_current -> "
                        "send abort message to current %s %T\r\n",
@@ -20714,7 +20732,8 @@ void esock_stop_handle_current(ErlNifEnv*       env,
         if (esock_send_abort_msg(env, sockRef, reqP->ref, reqP->env,
                                  atom_closed, &reqP->pid) != NULL) {
 
-            esock_warning_msg("Failed sending abort (%T) message to "
+            esock_warning_msg("esock_stop_handle_current: "
+                              "Failed sending abort (%T, closed) message to "
                               "current %s %T\r\n",
                               reqP->ref, role, reqP->pid);
         }
@@ -20768,9 +20787,11 @@ void inform_waiting_procs(ErlNifEnv*         env,
                                  reason,
                                  &currentP->data.pid) != NULL) {
 
-            esock_warning_msg("Failed sending abort (%T) message to "
+            esock_warning_msg("inform_waiting_procs: "
+                              "Failed sending abort (%T, %T) message to "
                               "current %s %T\r\n",
                               currentP->data.ref,
+                              reason,
                               role,
                               currentP->data.pid);
 
