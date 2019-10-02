@@ -360,17 +360,6 @@ block() ->
 block(Config) when is_list(Config) ->
     Fips = proplists:get_bool(fips, Config),
     Type = ?config(type, Config),
-    %% See comment about EVP_CIPHER_CTX_set_key_length in
-    %% block_crypt_nif in crypto.c.
-    case {Fips, Type} of
-	{true, aes_cfb8} ->
-	    throw({skip, "Cannot test aes_cfb8 in FIPS mode because of key length issue"});
-	{true, aes_cfb128} ->
-	    throw({skip, "Cannot test aes_cfb128 in FIPS mode because of key length issue"});
-	_ ->
-	    ok
-    end,
-
     Blocks = lazy_eval(proplists:get_value(block, Config)),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
