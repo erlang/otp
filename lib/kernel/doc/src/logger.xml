@@ -689,6 +689,18 @@ start(_, []) ->
     </func>
 
     <func>
+      <name name="get_process_level" arity="0" since="OTP 23.0"/>
+      <fsummary>Retrieve level set with set_process_level/1.</fsummary>
+      <desc>
+        <p>Retrieve data set
+          with <seealso marker="#set_process_level-1">
+	    <c>set_process_level/1</c></seealso> or
+	  <seealso marker="#unset_process_level-0">
+	    <c>unset_process_level/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="i" arity="0" since="OTP 21.3"/>
       <name name="i" arity="1" since="OTP 21.3"/>
       <fsummary>Pretty print the Logger configuration.</fsummary>
@@ -888,6 +900,36 @@ start(_, []) ->
     </func>
 
     <func>
+      <name name="set_process_level" arity="1" since="OTP 23.0"/>
+      <fsummary>Set the log level for current process.</fsummary>
+      <desc>
+        <p>Set the log level for current process.</p>
+        <p>The log level for a process overrides the primary and module
+	  log level of Logger for log events originating from current
+	  process. Notice, however, that it does not override the
+	  level configuration for any handler.</p>
+	<p>For example: Assume that the primary log level for Logger
+	  is <c>info</c>, and there is one handler, <c>h1</c>, with
+	  level <c>info</c> and one handler, <c>h2</c>, with
+	  level <c>debug</c>.</p>
+	<p>With this configuration, no debug messages will be logged,
+	  since they are all stopped by the primary log level.</p>
+	<p>If the level for current process is now set
+	  to <c>debug</c>, then debug events from this module will be
+	  logged by the handler <c>h2</c>, but not by
+	  handler <c>h1</c>.</p>
+	<p>Debug events from other processes are still not logged.</p>
+        <p>To change the primary log level for Logger, use
+          <seealso marker="#set_primary_config/2">
+	    <c>set_primary_config(level, Level)</c></seealso>.</p>
+        <p>To change the log level for a handler, use
+          <seealso marker="#set_handler_config/3">
+	    <c>set_handler_config(HandlerId, level, Level)</c>
+	  </seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_process_metadata" arity="1" since="OTP 21.0"/>
       <fsummary>Set metadata to use when logging from current process.</fsummary>
       <desc>
@@ -945,6 +987,18 @@ start(_, []) ->
 	    <c>set_process_metadata/1</c></seealso> or
 	  <seealso marker="#update_process_metadata-1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unset_process_level" arity="0" since="OTP 23.0"/>
+      <fsummary>Delete data set with set_process_level/1.</fsummary>
+      <desc>
+        <p>Delete data set
+          with <seealso marker="#set_process_level-1">
+	    <c>set_process_level/1</c></seealso> or
+	  <seealso marker="#get_process_level-1">
+	    <c>get_process_level/1</c></seealso>.</p>
       </desc>
     </func>
 
