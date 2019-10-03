@@ -77,6 +77,15 @@
 %% GCT exports
 -export([gct_init/1, gct/2]).
 
+%% CallBack Proxy exports
+-export([cbproxy_loop/1,
+	 do_handle_error/4,
+	 do_handle_pdu/5,
+	 do_handle_agent/9,
+	 do_handle_trap/9,
+	 do_handle_inform/10,
+	 do_handle_report/9]).
+
 
 -include("snmpm_internal.hrl").
 -include("snmp_debug.hrl").
@@ -134,6 +143,9 @@
 -endif.
 
 
+-define(CBP_AWT_MAX, 60*60*1000*1000).
+-define(CBP_CNT_MAX, 16#FFFFFFFF).
+
 
 %%----------------------------------------------------------------------
 
@@ -147,7 +159,16 @@
 	 net_if_ref,
 	 req,  %%  ???? Last request id in outgoing message
 	 oid,  %%  ???? Last oid in request outgoing message
-	 mini_mib
+	 mini_mib,
+         %% temporary: create a new (temporary) proxy process for each callback.
+         %% transient: create one proxy process per known agent 
+         %%            Its created "on the fly" and lives for as long as
+         %%            there is activity (inactivity for a "long" time,
+         %%            will cause it to terminate).
+         %%            Not currently used!
+         %% permanent: create one (named) static callback proxy process.
+         cbproxy :: temporary | permanent,
+	 cbproxy_pid % Pid of the callback proxy *if* cbp = permanent
 	}
        ).
 
@@ -181,6 +202,9 @@
 	 proc
 	}
        ).
+
+
+-define(CBPROXY,     snmpm_server_cbproxy).
 
 
 %%%-------------------------------------------------------------------
@@ -544,6 +568,16 @@ do_init() ->
     {ok, Timeout} = snmpm_config:system_info(server_timeout),
     {ok, GCT} = gct_start(Timeout),
 
+    %% What kind of CallBack Proxy (temporary by default)
+    {CBProxy, CBPPid} =
+         case snmpm_config:system_info(server_cbproxy) of
+             {ok, permanent = CBP} ->
+                 %% Start CallBack Proxy process
+                 {CBP, cbproxy_start()};
+             {ok, CBP} ->
+                 {CBP, undefined}
+         end,
+
     %% -- Create request table --
     ets:new(snmpm_request_table, 
 	    [set, protected, named_table, {keypos, #request.id}]),
@@ -553,7 +587,7 @@ do_init() ->
 	    [set, protected, named_table, {keypos, #monitor.id}]),
 
     %% -- Start the note-store and net-if processes --
-    {NoteStore, NoteStoreRef} = do_init_note_store(Prio),
+    {NoteStore, NoteStoreRef}      = do_init_note_store(Prio),
     {NetIf, NetIfModule, NetIfRef} = do_init_net_if(NoteStore),
 
     MiniMIB = snmpm_config:make_mini_mib(),
@@ -563,7 +597,9 @@ do_init() ->
 		   note_store_ref = NoteStoreRef,
 		   net_if         = NetIf,
 		   net_if_mod     = NetIfModule,
-		   net_if_ref     = NetIfRef},
+		   net_if_ref     = NetIfRef,
+                   cbproxy        = CBProxy,
+		   cbproxy_pid    = CBPPid},
     ?vlog("started", []),
     {ok, State}.
 
@@ -1075,6 +1111,13 @@ handle_info({'EXIT', Pid, Reason}, #state{gct = Pid} = State) ->
     {noreply, State#state{gct = GCT}};
 
 
+handle_info({'EXIT', Pid, Reason}, #state{cbproxy_pid = Pid} = State) ->
+    warning_msg("CallBack Proxy (~w) process crashed: "
+		"~n   ~p", [Pid, Reason]),
+    NewCBP = cbproxy_start(),
+    {noreply, State#state{cbproxy_pid = NewCBP}};
+
+
 handle_info(Info, State) ->
     warning_msg("received unknown info: ~n~p", [Info]),
     {noreply, State}.
@@ -1103,8 +1146,9 @@ code_change(_Vsn, #state{gct = Pid} = State0, _Extra) ->
 %% Terminate
 %%----------------------------------------------------------
                                                                               
-terminate(Reason, #state{gct = GCT}) ->
+terminate(Reason, #state{gct = GCT, cbproxy = CBP}) ->
     ?vdebug("terminate: ~p",[Reason]),
+    cbproxy_stop(CBP),
     gct_stop(GCT),
     snmpm_misc_sup:stop_note_store(),
     snmpm_misc_sup:stop_net_if(),
@@ -1746,23 +1790,25 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
     end.
 
 
-handle_error(_UserId, Mod, Reason, ReqId, Data, _State) ->
+handle_error(_UserId, Mod, Reason, ReqId, Data,
+	     #state{cbproxy = CBP} = _State) ->
     ?vtrace("handle_error -> entry when"
 	    "~n   Mod: ~p", [Mod]),
-    F = fun() ->
-		try 
-		    begin
-			Mod:handle_error(ReqId, Reason, Data)
-		    end
-		catch
-		    C:E:S ->
-			CallbackArgs = [ReqId, Reason, Data], 
-			handle_invalid_result(handle_error, CallbackArgs,
-                                              C, E, S)
-		end
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_error,
+		    [Mod, ReqId, Reason, Data]),
     ok.
+
+do_handle_error(Mod, ReqId, Reason, Data) ->
+  try 
+      begin
+	  Mod:handle_error(ReqId, Reason, Data)
+      end
+  catch
+      C:E:S ->
+	  CallbackArgs = [ReqId, Reason, Data], 
+	  handle_invalid_result(handle_error, CallbackArgs, C, E, S)
+  end.
 
 
 handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu, 
@@ -1940,46 +1986,49 @@ handle_snmp_pdu(CrapPdu, Domain, Addr, _State) ->
 
 handle_pdu(
   _UserId, Mod, target_name = _RegType, TargetName, _Domain, _Addr,
-  ReqId, SnmpResponse, Data, _State) ->
+  ReqId, SnmpResponse, Data, #state{cbproxy = CBP} = _State) ->
     ?vtrace("handle_pdu(target_name) -> entry when"
 	    "~n   Mod: ~p", [Mod]),
-    F = fun() ->
-		try
-		    begin
-			Mod:handle_pdu(TargetName, ReqId, SnmpResponse, Data)
-		    end
-		catch
-		    C:E:S ->
-			CallbackArgs = [TargetName, ReqId, SnmpResponse, Data], 
-			handle_invalid_result(handle_pdu, CallbackArgs,
-                                              C, E, S) 
-		end
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_pdu,
+		    [Mod, TargetName, ReqId, SnmpResponse, Data]),
     ok;
 handle_pdu(
   _UserId, Mod, addr_port = _RegType, _TargetName, _Domain, Addr,
-  ReqId, SnmpResponse, Data, _State) ->
+  ReqId, SnmpResponse, Data, #state{cbproxy = CBP} = _State) ->
     ?vtrace("handle_pdu(addr_port) -> entry when"
 	    "~n   Mod: ~p", [Mod]),
-    F = fun() ->
-		{Ip, Port} = Addr,
-		(catch Mod:handle_pdu(Ip, Port, ReqId, SnmpResponse, Data))
-	end,
-    handle_callback(F),
+    handle_callback(CBP, 
+		    do_handle_pdu,
+		    [Mod, Addr, ReqId, SnmpResponse, Data]),
     ok.
 
+do_handle_pdu(Mod, TargetName, ReqId, SnmpResponse, Data) ->
+    try
+        begin
+            Mod:handle_pdu(TargetName, ReqId, SnmpResponse, Data)
+        end
+    catch
+        C:E:S ->
+            CallbackArgs = [TargetName, ReqId, SnmpResponse, Data], 
+            handle_invalid_result(handle_pdu, CallbackArgs, C, E, S) 
+    end;
+do_handle_pdu(Mod, {Ip, Port}, ReqId, SnmpResponse, Data) ->
+    %% This is a deprecated version of the callback API, we skip handle 
+    %% errors for this.
+    (catch Mod:handle_pdu(Ip, Port, ReqId, SnmpResponse, Data)).
 
-handle_agent(UserId, Mod, Domain, Addr, Type, Ref, SnmpInfo, Data, State) ->
+
+handle_agent(UserId, Mod, Domain, Addr, Type, Ref, SnmpInfo, Data,
+	     #state{cbproxy = CBP} = State) ->
     ?vtrace("handle_agent -> entry when"
 	    "~n   UserId: ~p"
 	    "~n   Type:   ~p"
 	    "~n   Mod:    ~p", [UserId, Type, Mod]),
-    F = fun() ->
-		do_handle_agent(UserId, Mod, Domain, Addr,
-				Type, Ref, SnmpInfo, Data, State)
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_agent,
+		    [UserId, Mod, Domain, Addr,
+		     Type, Ref, SnmpInfo, Data, State]),
     ok.
 
 do_handle_agent(DefUserId, DefMod, 
@@ -2247,17 +2296,16 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 
 
 handle_trap(
-  UserId, Mod, RegType, Target, Domain, Addr, SnmpTrapInfo, Data, State) ->
+  UserId, Mod, RegType, Target, Domain, Addr, SnmpTrapInfo, Data,
+  #state{cbproxy = CBP} = State) ->
     ?vtrace("handle_trap -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
-    F = fun() ->
-		do_handle_trap(
-		  UserId, Mod, 
-		  RegType, Target, Domain, Addr,
-		  SnmpTrapInfo, Data, State)
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_trap,
+		    [UserId, Mod, 
+		     RegType, Target, Domain, Addr,
+		     SnmpTrapInfo, Data, State]),
     ok.
     
 
@@ -2425,17 +2473,16 @@ handle_snmp_inform(_Ref, CrapInform, Domain, Addr, _State) ->
 
 handle_inform(
   UserId, Mod, Ref, 
-  RegType, Target, Domain, Addr, SnmpInform, Data, State) ->
+  RegType, Target, Domain, Addr, SnmpInform, Data,
+  #state{cbproxy = CBP} = State) ->
     ?vtrace("handle_inform -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
-    F = fun() ->
-		do_handle_inform(
-		  UserId, Mod, Ref, 
-		  RegType, Target, Domain, Addr, SnmpInform,
-		  Data, State)
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_inform,
+		    [UserId, Mod, Ref, 
+		     RegType, Target, Domain, Addr, SnmpInform,
+		     Data, State]),
     ok.
 
 do_handle_inform(
@@ -2748,16 +2795,15 @@ handle_snmp_report(CrapReqId, CrapReport, CrapInfo, Domain, Addr, _State) ->
    
 
 handle_report(UserId, Mod, RegType, Target, Domain, Addr,
-	      SnmpReport, Data, State) ->
+	      SnmpReport, Data,
+	      #state{cbproxy = CBP} = State) ->
     ?vtrace("handle_report -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
-    F = fun() ->
-		do_handle_report(
-		  UserId, Mod, RegType, Target, Domain, Addr,
-		  SnmpReport, Data, State)
-	end,
-    handle_callback(F),
+    handle_callback(CBP,
+		    do_handle_report,
+		    [UserId, Mod, RegType, Target, Domain, Addr,
+		     SnmpReport, Data, State]),
     ok.
 
 do_handle_report(
@@ -2846,24 +2892,224 @@ do_handle_report(
     end.
 
 
-handle_callback(F) ->
+
+%%----------------------------------------------------------------------
+%% Handle Callback
+%%----------------------------------------------------------------------
+
+handle_callback(temporary, Func, Args) ->
     V = get(verbosity),
     erlang:spawn(
       fun() -> 
 	      put(sname, msew), 
 	      put(verbosity, V), 
-	      F() 
-      end).
+	      apply(?MODULE, Func, Args) 
+      end);
+%% handle_callback(transient, MFA) ->
+%%     Pid = which_transient_callback_proxy(ProxyID),
+%%     Pid ! {?MODULE, self(), {callback, MFA}};
+handle_callback(permanent, Func, Args) ->
+    case whereis(?CBPROXY) of
+	Pid when is_pid(Pid) ->
+	    Pid ! {?MODULE, self(), {callback, {?MODULE, Func, Args}}};
+	_ ->
+	    %% We should really either die or restart (the cbproxy).
+            %% It could also be a race, in which case spawning a temporary
+            %% process is better than nothing...
+            %% ...but we should inform someone...
+            warning_msg("Permanent Callback Proxy could not be found - "
+                        "using temporary"),
+	    handle_callback(temporary, Func, Args)
+    end.
 
+
+
+%%----------------------------------------------------------------------
+
+cbproxy_start() ->
+    cbproxy_start(infinity).
+
+cbproxy_start(IdleTimeout) ->
+    cbproxy_start(self(), IdleTimeout).
+
+cbproxy_start(Parent, IdleTimeout) ->
+    Pid = spawn_link(fun() -> cbproxy_init(Parent, IdleTimeout) end),
+    receive
+	{?MODULE, Pid, ready} ->
+	    Pid
+    end.
+
+cbproxy_stop(permanent) ->
+    case whereis(?CBPROXY) of
+	Pid when is_pid(Pid) ->
+	    Pid ! {?MODULE, self(), stop},
+	    ok;
+	_ ->
+	    ok
+    end;
+cbproxy_stop(_) ->
+    ok.
+
+cbproxy_info() ->
+    case whereis(?CBPROXY) of
+	Pid when is_pid(Pid) ->
+	    Pid ! {?MODULE, self(), info},
+	    receive
+		{?MODULE, Pid, {info, Info}} ->
+		    Info
+	    after 5000 ->
+		    %% If a callback function takes a long time,
+		    %% the cb proxy may be busy. But we only wait for
+		    %% a "short" time. No point in making things
+		    %% complicated when all we do is collecting "info".
+		    [{timeout, process_info(Pid)}]
+	    end;
+	_ ->
+	    []
+    end.
+
+%% The timeout is future proofing (intended to be used for
+%% "when" we introduce a transient callback proxy).
+cbproxy_init(Parent, _IdleTimeout) ->
+    ?snmpm_info("CallBack Proxy: starting", []),
+    erlang:register(?CBPROXY, self()),
+    State = #{parent   => Parent,
+	      cnt      => 0,
+	      max_work => 0,
+	      awork    => 0},
+    Parent ! {?MODULE, self(), ready},
+    cbproxy_loop(State).
+
+%% * Every time a "counter" wraps, we send a message regarding this
+%%   (to the server) and resets the counter.
+%% * Every time the AWT (accumulated work time) exceeds or is equal to 1h,
+%%   we send a message regarding this (to the server) and resets the AWT.
+%% 
+cbproxy_loop(#{parent := Pid} = State) ->
+    receive
+        {?MODULE, Pid, stop} ->
+	    cbp_handle_stop(State),
+            exit(normal);
+
+
+        {?MODULE, Pid, info} ->
+	    Info = cbp_handle_info(State),
+	    Pid ! {?MODULE, self(), {info, Info}},
+            ?MODULE:cbproxy_loop(State);
+
+
+        %% And this is what we are here for:
+        {?MODULE, Pid, {callback, {Mod, Func, Args}}} ->
+	    F = fun() -> apply(Mod, Func, Args) end,
+	    ?MODULE:cbproxy_loop(cbp_handle_callback(State, F));
+
+        %% And this is what we are here for:
+        {?MODULE, Pid, {callback, F}} when is_function(F, 0) ->
+	    ?MODULE:cbproxy_loop(cbp_handle_callback(State, F))
+
+
+    after 5000 ->
+            %% This is for code upgrade
+            ?MODULE:cbproxy_loop(State)
+    end.
+
+cbp_handle_stop(#{activity := AT,
+		  cnt      := CNT,
+		  max_work := MWT,
+		  awork    := AWT}) ->
+    ?snmpm_info("CallBack Proxy: stop =>"
+		"~n   Number of Calls:       ~w"
+		"~n   Last Activity:         ~s"
+		"~n   Max Work Time:         ~s"
+		"~n   Accumulated Work Time: ~s",
+		[CNT, cbp_fts(cbp_ts(AT)), cbp_ft(MWT), cbp_ft(AWT)]);
+cbp_handle_stop(_) ->
+    ?snmpm_info("CallBack Proxy: stop =>"
+		"~n   Number of Calls: 0", []).
+
+cbp_handle_info(#{activity := AT,
+		  cnt      := CNT,
+		  max_work := MWT,
+		  awork    := AWT}) ->
+    ATS = cbp_ts(AT),
+    [{cnt,      CNT},
+     {activity, ATS},
+     {max_work, MWT},
+     {work,     AWT}];
+cbp_handle_info(_) ->
+    [{cnt, 0}, {awork, 0}, {max_work, 0}].
     
+
+cbp_handle_callback(#{cnt      := CNT1,
+		      max_work := MWT,
+		      awork    := AWT1} = State, F) ->
+    T1         = cbp_t(),
+    (catch F()),
+    T2         = cbp_t(),
+    CallbackWT = T2 - T1,
+    NewMWT     = cbp_max(CallbackWT, MWT),
+    AWT2       = cbp_inc(awt, AWT1, CallbackWT, ?CBP_AWT_MAX),
+    CNT2       = cbp_inc(cnt, CNT1, 1,          ?CBP_CNT_MAX),
+    State#{cnt      => CNT2,
+	   max_work => NewMWT,
+	   awork    => AWT2,
+	   activity => T2}.
+
+cbp_t() ->
+    erlang:system_time(microsecond).
+
+cbp_max(A, B) when (A > B) ->
+    A;
+cbp_max(_, B) ->
+    B.
+
+cbp_inc(awt, Val, Inc, Max) when (Val + Inc) > Max ->
+    ?snmpm_info("CallBack Proxy: Accumulated Work Time wrapped 1 hour", []),
+    (Val+Inc) - Max;
+cbp_inc(cnt, Val, Inc, Max) when (Val + Inc) > Max ->
+    ?snmpm_info("CallBack Proxy: work counter wrapped", []),
+    (Val+Inc) - Max;
+cbp_inc(_, Val, Inc, _) ->
+    Val + Inc.
+
+cbp_ts(T) ->
+    MegaSecs  = T div 1000000000000,
+    Secs      = T div 1000000 - MegaSecs*1000000,
+    MicroSecs = T rem 1000000,
+    {MegaSecs, Secs, MicroSecs}.
+
+cbp_fts({_, _, N3} = TS) ->
+    {Date, Time}   = calendar:now_to_datetime(TS),
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
+                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
+    lists:flatten(FormatDate).
+
+cbp_ft(T) when T < 1000 ->
+    cbp_f("~w usec", [T]);
+cbp_ft(T) when T < 1000000 ->
+    cbp_f("~w msec", [T div 1000]);
+cbp_ft(T) when T < 60000000 ->
+    cbp_f("~w sec", [T div (1000*1000)]);
+cbp_ft(T) ->
+    cbp_f("~w min", [T div (60*1000*1000)]).
+
+
+cbp_f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+
+%%----------------------------------------------------------------------
 
 handle_invalid_result(Func, Args, C, E, S) ->
     error_msg("Callback function failed: "
-	      "~n   Function:   ~p"
-	      "~n   Args:       ~p"
-	      "~n   Class:      ~p"
-	      "~n   Error:      ~p"
-	      "~n   Stacktrace: ~p", 
+	      "~n   Function:    ~p"
+	      "~n   Args:        ~p"
+	      "~n   Error Class: ~p"
+	      "~n   Error:       ~p"
+	      "~n   Stacktrace:  ~p", 
 	      [Func, Args, C, E, S]). 
 
 handle_invalid_result(Func, Args, InvalidResult) ->
@@ -3411,6 +3657,8 @@ call(Req) ->
 call(Req, To) ->
     gen_server:call(?SERVER, Req, To).
 
+warning_msg(F) ->
+    warning_msg(F, []).
 warning_msg(F, A) ->
     ?snmpm_warning("Server: " ++ F, A).
 
@@ -3420,23 +3668,33 @@ error_msg(F, A) ->
 
 %%----------------------------------------------------------------------
 
-get_info(#state{gct = GCT, 
-		net_if = NI, net_if_mod = NIMod, 
-		note_store = NS}) ->
-    Info = [{server,         server_info(GCT)},
+get_info(#state{gct        = GCT, 
+		net_if     = NI,
+                net_if_mod = NIMod, 
+		note_store = NS,
+		cbproxy    = CBP}) ->
+    Info = [{server,         server_info(GCT, CBP)},
 	    {config,         config_info()},
 	    {net_if,         net_if_info(NI, NIMod)},
 	    {note_store,     note_store_info(NS)},
 	    {stats_counters, get_stats_counters()}],
     Info.
 
-server_info(GCT) ->
+server_info(GCT, CBP) ->
+    {CBPInfo, CBPSz} =
+	if
+	    (CBP =:= permanent) ->
+		{[{cbp, cbproxy_info()}],
+		 [{cbp, proc_mem(whereis(?CBPROXY))}]};
+	    true ->
+		{[], []}
+	end,
     ProcSize = proc_mem(self()),
     GCTSz    = proc_mem(GCT),
     RTSz     = tab_size(snmpm_request_table),
     MTSz     = tab_size(snmpm_monitor_table),
-    [{process_memory, [{server, ProcSize}, {gct, GCTSz}]},
-     {db_memory, [{request, RTSz}, {monitor, MTSz}]}].
+    [{process_memory, [{server, ProcSize}, {gct, GCTSz}] ++ CBPSz},
+     {db_memory, [{request, RTSz}, {monitor, MTSz}]}] ++ CBPInfo.
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
