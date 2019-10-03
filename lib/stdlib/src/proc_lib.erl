@@ -901,7 +901,7 @@ format_mfa(Indent0, {M,F,Args}=StartF, #{encoding:=Enc,single_line:=Single}=Extr
              end,
     try
 	A = length(Args),
-	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
+	[Indent,"initial call: ",to_string(M, Enc),$:,to_string(F, Enc),$/,
 	 integer_to_list(A)]
     catch
 	error:_ ->
