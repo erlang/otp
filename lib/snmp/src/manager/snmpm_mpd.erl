@@ -871,8 +871,20 @@ get_agent_max_message_size(Domain, Addr) ->
 	{ok, MMS} ->
 	    MMS;
 	_Error ->
-	    ?vlog("unknown agent: ~s",
-		  [snmp_conf:mk_addr_string({Domain, Addr})]),
+            TAddr = fun(TN) ->
+                            case snmpm_config:agent_info(TN, taddress) of
+                                {ok, TA} ->
+                                    TA;
+                                {error, _} ->
+                                    undefined
+                            end
+                    end,
+            KnownAgents =
+                [{TargetName, TAddr(TargetName)} ||
+                    TargetName <- snmpm_config:which_agents()],
+	    ?vlog("[agent engine max msg size lookup] unknown agent: ~s"
+                  "~n      Known Agents: ~p",
+		  [snmp_conf:mk_addr_string({Domain, Addr}), KnownAgents]),
 	    get_max_message_size()
     end.
 %% get_agent_max_message_size(Addr, Port) ->

@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -583,7 +583,7 @@
       <tag><marker id="manager_server"></marker>
         <c><![CDATA[server() = [server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>server_opt() = {timeout, server_timeout()} |  {verbosity, verbosity()}</c></p>
+        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()}</c></p>
         <p>Specifies the options for the manager server process.</p>
         <p>Default is <c>silence</c>.</p>
       </item>
@@ -607,6 +607,27 @@
           <seealso marker="snmpm#async_set">async_set</seealso>).</p>
         <p>Time in milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_cbproxy"></marker>
+        <c><![CDATA[server_cbproxy() = temporary (default) | permanent <optional>]]></c></tag>
+      <item>
+        <p>This option specifies how the server will handle callback calls.</p>
+	<taglist>
+	  <tag><marker id="manager_server_cbproxy_temporary"></marker>
+	  <c><![CDATA[temporary (default)]]></c></tag>
+	  <item>
+	    <p>A temporary process will be created for each callback call. </p>
+	  </item>
+	  
+	  <tag><marker id="manager_server_cbproxy_temporary"></marker>
+	  <c><![CDATA[permanent]]></c></tag>
+	  <item>
+	    <p>With this the server will create a permanent (named) process that
+	    in effect serializes all callback calls.</p>
+	  </item>
+	</taglist>
+        <p>Default is <c>temporary</c>.</p>
       </item>
 
       <tag><marker id="manager_config"></marker>
