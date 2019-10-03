@@ -5609,11 +5609,8 @@ erts_early_init_scheduling(int no_schedulers)
         erts_sched_set_wakeup_other_threshold(type, "medium");
         erts_sched_set_wakeup_other_type(type, "default");
 
-        erts_sched_set_busy_wait_threshold(type, "medium");
+        erts_sched_set_busy_wait_threshold(type, "very_short");
     }
-
-    erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_CPU, "short");
-    erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_IO, "short");
 }
 
 int
