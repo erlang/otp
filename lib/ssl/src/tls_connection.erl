@@ -90,6 +90,8 @@
  
 -export([encode_handshake/4]).
 
+-export([get_ticket_data/2]).
+
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
 %%====================================================================

@@ -49,7 +49,8 @@
          do_wait_sh/2,
          do_wait_ee/2,
          do_wait_cert_cr/2,
-         maybe_add_binders/3]).
+         maybe_add_binders/3,
+         maybe_add_binders/4]).
 
 
 %% crypto:hash(sha256, "HelloRetryRequest").
@@ -603,6 +604,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
                                 versions := Versions,
+                                use_ticket := UseTicket,
+                                session_tickets := SessionTickets,
                                 log_level := LogLevel} = SslOpts,
                 session = #session{own_certificate = Cert} = Session0,
                 connection_states = ConnectionStates0
@@ -631,9 +634,10 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% new KeyShareEntry for the group indicated in the selected_group field
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
-        Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
+        TicketData = tls_connection:get_ticket_data(SessionTickets, UseTicket),
+        Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
-                                           undefined),  %% TODO PSK after HRR!
+                                           TicketData),
 
         HelloVersion = tls_record:hello_version(Versions),
 
@@ -647,6 +651,9 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% Replace ClientHello1 with a special synthetic handshake message
         State2 = replace_ch1_with_message_hash(State1),
         #state{handshake_env = #handshake_env{tls_handshake_history = HHistory}} = State2,
+
+        %% Update pre_shared_key extension with binders (TLS 1.3)
+        Hello = tls_handshake_1_3:maybe_add_binders(Hello0, HHistory, TicketData, HelloVersion),
 
         {BinMsg, ConnectionStates, Handshake} =
             tls_connection:encode_handshake(Hello,  HelloVersion, ConnectionStates0, HHistory),
@@ -1974,8 +1981,6 @@ maybe() ->
 %% Truncate(ClientHello1) is hashed directly, but in the second flight,
 %% ClientHello1 is hashed and then reinjected as a "message_hash"
 %% message, as described in Section 4.4.1.
-
-%% TODO HelloRetryRequest
 maybe_add_binders(Hello, undefined, _) ->
     Hello;
 maybe_add_binders(Hello0, TicketData, Version) when Version =:= {3,4} ->
@@ -1987,6 +1992,20 @@ maybe_add_binders(Hello0, TicketData, Version) when Version =:= {3,4} ->
     Binder = calculate_binder(FinishedKey, HKDF, Truncated),
     update_binder(Hello0, Binder);
 maybe_add_binders(Hello, _, Version) when Version =< {3,3} ->
+    Hello.
+%%
+%% HelloRetryRequest
+maybe_add_binders(Hello, _, undefined, _) ->
+    Hello;
+maybe_add_binders(Hello0, {[HRR,MessageHash|_], _}, TicketData, Version) when Version =:= {3,4} ->
+    HelloBin0 = tls_handshake:encode_handshake(Hello0, Version),
+    HelloBin1 = iolist_to_binary(HelloBin0),
+    {_, PSK, _, HKDF} = TicketData,
+    Truncated = truncate_client_hello(HelloBin1, HKDF),
+    FinishedKey = calculate_finished_key(PSK, HKDF),
+    Binder = calculate_binder(FinishedKey, HKDF, [MessageHash, HRR, Truncated]),
+    update_binder(Hello0, Binder);
+maybe_add_binders(Hello, _, _, Version) when Version =< {3,3} ->
     Hello.
 
 
