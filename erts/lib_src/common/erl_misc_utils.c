@@ -54,6 +54,7 @@
 #     endif
 #  endif
 #  include <string.h>
+#  include <stdio.h>
 #  ifdef HAVE_UNISTD_H
 #    include <unistd.h>
 #  endif
@@ -133,6 +134,7 @@
 #endif
 
 static int read_topology(erts_cpu_info_t *cpuinfo);
+static int read_cpu_quota(int limit);
 
 #if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
 static int
@@ -176,6 +178,7 @@ struct erts_cpu_info_t_ {
     int online;
     int available;
     int topology_size;
+    int quota;
     erts_cpu_topology_t *topology;
 #if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     char *affinity_str;
@@ -238,6 +241,7 @@ erts_cpu_info_create(void)
     cpuinfo->configured = -1;
     cpuinfo->online = -1;
     cpuinfo->available = -1;
+    cpuinfo->quota = -1;
     erts_cpu_info_update(cpuinfo);
     return cpuinfo;
 }
@@ -269,6 +273,7 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
     int configured = 0;
     int online = 0;
     int available = 0;
+    int quota = 0;
     erts_cpu_topology_t *old_topology;
     int old_topology_size;
 #if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
@@ -412,9 +417,14 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
     if (cpuinfo->available != available)
 	changed = 1;
 
+    quota = read_cpu_quota(online);
+    if (cpuinfo->quota != quota)
+	changed = 1;
+
     cpuinfo->configured = configured;
     cpuinfo->online = online;
     cpuinfo->available = available;
+    cpuinfo->quota = quota;
 
     old_topology = cpuinfo->topology;
     old_topology_size = cpuinfo->topology_size;
@@ -469,6 +479,16 @@ erts_get_cpu_available(erts_cpu_info_t *cpuinfo)
     if (cpuinfo->available <= 0)
 	return -ENOTSUP;
     return cpuinfo->available;
+}
+
+int
+erts_get_cpu_quota(erts_cpu_info_t *cpuinfo)
+{
+    if (!cpuinfo)
+	return -EINVAL;
+    if (cpuinfo->quota <= 0)
+	return -ENOTSUP;
+    return cpuinfo->quota;
 }
 
 char *
@@ -775,7 +795,7 @@ adjust_processor_nodes(erts_cpu_info_t *cpuinfo, int no_nodes)
 #ifdef __linux__
 
 static int
-read_file(char *path, char *buf, int size)
+read_file(const char *path, char *buf, int size)
 {
     int ix = 0;
     ssize_t sz = size-1;
@@ -999,6 +1019,211 @@ read_topology(erts_cpu_info_t *cpuinfo)
     return res;
 }
 
+static int
+csv_contains(const char *haystack,
+             const char *element,
+             char separator) {
+    size_t element_len;
+    const char *ptr;
+
+    element_len = strlen(element);
+    ptr = strstr(haystack, element);
+
+    while (ptr) {
+        if (!ptr[element_len] || ptr[element_len] == separator) {
+            if (ptr == haystack || ptr[-1] == separator) {
+                return 1;
+            }
+        }
+
+        ptr = strstr(&ptr[1], element);
+    }
+
+    return 0;
+}
+
+static const char*
+str_combine(const char *a, const char *b) {
+    size_t a_len, b_len;
+    char *result;
+
+    a_len = strlen(a);
+    b_len = strlen(b);
+
+    result = malloc(a_len + b_len + 1);
+
+    memcpy(&result[0], a, a_len);
+    memcpy(&result[a_len], b, b_len + 1);
+
+    return result;
+}
+
+static const char*
+get_cgroup_v1_base_dir(const char *controller) {
+    char line_buf[5 << 10];
+    FILE *var_file;
+
+    var_file = fopen("/proc/self/cgroup", "r");
+
+    if (var_file == NULL) {
+        return NULL;
+    }
+
+    while (fgets(line_buf, sizeof(line_buf), var_file)) {
+        /* sscanf_s requires C11, so we use hardcoded sizes (rather than rely
+         * on macros like MAXPATHLEN) so we can specify them directly in the
+         * format string. */
+        char base_dir[4 << 10];
+        char controllers[256];
+
+        if (sscanf(line_buf, "%*d:%255[^:]:%4095s\n",
+                   controllers, base_dir) != 2) {
+            continue;
+        }
+
+        if (csv_contains(controllers, controller, ',')) {
+            fclose(var_file);
+            return strdup(base_dir);
+        }
+    }
+
+    fclose(var_file);
+    return NULL;
+}
+
+static const char*
+get_cgroup_path(const char *controller) {
+    char line_buf[10 << 10];
+    FILE *var_file;
+
+    var_file = fopen("/proc/self/mountinfo", "r");
+
+    if (var_file == NULL) {
+        return NULL;
+    }
+
+    while (fgets(line_buf, sizeof(line_buf), var_file)) {
+        char mount_path[4 << 10];
+        char root_path[4 << 10];
+        char fs_flags[512];
+        char fs_type[64];
+
+        /* Format:
+         *    [Mount id] [Parent id] [Major] [Minor] [Root] [Mounted at]    \
+         *    [Mount flags] ... (options terminated by a single hyphen) ... \
+         *    [FS type] [Mount source] [Flags]
+         *
+         * (See proc(5) for a more complete description.)
+         *
+         * This fails if any of the fs options contain a hyphen, but this is
+         * not likely to happen on a cgroup, so we just skip such lines. */
+        if (sscanf(line_buf,
+                   "%*d %*d %*d:%*d %4095s %4095s %*s %*[^-]- "
+                   "%63s %*s %511[^\n]\n",
+                   root_path, mount_path,
+                   fs_type, fs_flags) != 4) {
+            continue;
+        }
+
+        if (!strcmp(fs_type, "cgroup2")) {
+            char controllers[256];
+            const char *cgc_path;
+
+            cgc_path = str_combine(mount_path, "/cgroup.controllers");
+            if (read_file(cgc_path, controllers, sizeof(controllers)) > 0) {
+                if (csv_contains(controllers, controller, ' ')) {
+                    free((void*)cgc_path);
+                    fclose(var_file);
+                    return strdup(mount_path);
+                }
+            }
+            free((void*)cgc_path);
+        } else if (!strcmp(fs_type, "cgroup")) {
+            if (csv_contains(fs_flags, controller, ',')) {
+                const char *base_dir = get_cgroup_v1_base_dir(controller);
+
+                if (base_dir) {
+                    const char *result;
+
+                    if (strcmp(root_path, base_dir)) {
+                        result = str_combine(mount_path, base_dir);
+                    } else {
+                        result = strdup(mount_path);
+                    }
+
+                    free((void*)base_dir);
+                    fclose(var_file);
+                    return result;
+                }
+            }
+        }
+    }
+
+    fclose(var_file);
+    return NULL;
+}
+
+static int read_cgroup_var(const char *group_path, const char *var_name,
+                           ssize_t *out) {
+    const char *var_path;
+    int res;
+
+    var_path = str_combine(group_path, var_name);
+    res = 0;
+
+    if (var_path) {
+        FILE *var_file = fopen(var_path, "r");
+        free((void*)var_path);
+
+        if (var_file) {
+            if (fscanf(var_file, "%zi", out) == 1) {
+                res = 1;
+            }
+            fclose(var_file);
+        }
+    }
+
+    return res;
+}
+
+/* CPU quotas are read from the cgroup configuration, which can be pretty hairy
+ * as we need to support both v1 and v2, and it's possible for both versions to
+ * be active at the same time. */
+
+static int
+read_cpu_quota(int limit)
+{
+    const char *cgroup_path = get_cgroup_path("cpu");
+
+    if (cgroup_path) {
+        ssize_t cfs_period_us, cfs_quota_us;
+        int succeeded;
+
+        cfs_period_us = -1;
+        cfs_quota_us = -1;
+
+        succeeded =
+            read_cgroup_var(cgroup_path, "/cpu.cfs_quota_us", &cfs_quota_us) &&
+            read_cgroup_var(cgroup_path, "/cpu.cfs_period_us", &cfs_period_us);
+
+        free((void*)cgroup_path);
+
+        if (succeeded) {
+            if (cfs_period_us > 0 && cfs_quota_us > 0) {
+                size_t quota = cfs_quota_us / cfs_period_us;
+
+                if (quota > 0 && quota <= (size_t)limit) {
+                    return quota;
+                }
+            }
+
+            return limit;
+        }
+    }
+
+    return 0;
+}
+
 #elif defined(HAVE_KSTAT) /* SunOS kstat */
 
 #include <kstat.h>
@@ -1150,6 +1375,13 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     return res;
 
+}
+
+static int
+read_cpu_quota(int limit)
+{
+    (void)limit;
+    return 0;
 }
 
 #elif defined(__WIN32__)
@@ -1426,6 +1658,13 @@ read_topology(erts_cpu_info_t *cpuinfo)
     return res;
 }
 
+static int
+read_cpu_quota(int limit)
+{
+    (void)limit;
+    return 0;
+}
+
 #elif defined(__FreeBSD__)
 
 /**
@@ -1665,7 +1904,21 @@ error:
     return res;
 }
 
+static int
+read_cpu_quota(int limit)
+{
+    (void)limit;
+    return 0;
+}
+
 #else
+
+static int
+read_cpu_quota(int limit)
+{
+    (void)limit;
+    return 0;
+}
 
 static int
 read_topology(erts_cpu_info_t *cpuinfo)

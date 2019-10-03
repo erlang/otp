@@ -1632,7 +1632,7 @@ erts_get_cpu_topology_term(Process *c_p, Eterm which)
 }
 
 static void
-get_logical_processors(int *conf, int *onln, int *avail)
+get_logical_processors(int *conf, int *onln, int *avail, int *quota)
 {
     if (conf)
 	*conf = erts_get_cpu_configured(cpuinfo);
@@ -1640,13 +1640,15 @@ get_logical_processors(int *conf, int *onln, int *avail)
 	*onln = erts_get_cpu_online(cpuinfo);
     if (avail)
 	*avail = erts_get_cpu_available(cpuinfo);
+    if (quota)
+	*quota = erts_get_cpu_quota(cpuinfo);
 }
 
 void
-erts_get_logical_processors(int *conf, int *onln, int *avail)
+erts_get_logical_processors(int *conf, int *onln, int *avail, int *quota)
 {
     erts_rwmtx_rlock(&cpuinfo_rwmtx);
-    get_logical_processors(conf, onln, avail);
+    get_logical_processors(conf, onln, avail, quota);
     erts_rwmtx_runlock(&cpuinfo_rwmtx);
 }
 
@@ -1655,14 +1657,15 @@ erts_pre_early_init_cpu_topology(int *max_dcg_p,
                                  int *max_rg_p,
 				 int *conf_p,
 				 int *onln_p,
-				 int *avail_p)
+				 int *avail_p,
+				 int *quota_p)
 {
     cpu_groups_maps = NULL;
     no_cpu_groups_callbacks = 0;
     *max_rg_p = ERTS_MAX_READER_GROUPS;
     *max_dcg_p = ERTS_MAX_FLXCTR_GROUPS;
     cpuinfo = erts_cpu_info_create();
-    get_logical_processors(conf_p, onln_p, avail_p);
+    get_logical_processors(conf_p, onln_p, avail_p, quota_p);
 }
 
 void
