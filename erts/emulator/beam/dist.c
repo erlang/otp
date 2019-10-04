@@ -278,6 +278,7 @@ typedef enum {
 
 typedef struct {
     ErtsConMonLnkSeqCleanupState state;
+    DistEntry* dep;
     ErtsMonLnkDist *dist;
     DistSeqNode *seq;
     void *yield_state;
@@ -342,11 +343,30 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
         cmlcp->state = ERTS_CML_CLEANUP_STATE_NODE_MONITORS;
     case ERTS_CML_CLEANUP_STATE_NODE_MONITORS:
         if (cmlcp->trigger_node_monitors) {
+            Process* waiter;
             send_nodes_mon_msgs(NULL,
                                 am_nodedown,
                                 cmlcp->nodename,
                                 cmlcp->visability,
                                 cmlcp->reason);
+            erts_de_rwlock(cmlcp->dep);
+            ASSERT(cmlcp->dep->state == ERTS_DE_STATE_IDLE ||
+                   cmlcp->dep->state == ERTS_DE_STATE_PENDING);
+            ASSERT(cmlcp->dep->pending_nodedown);
+            waiter = cmlcp->dep->suspended_nodeup;
+            cmlcp->dep->suspended_nodeup = NULL;
+            cmlcp->dep->pending_nodedown = 0;
+            erts_de_rwunlock(cmlcp->dep);
+            erts_deref_dist_entry(cmlcp->dep);
+
+            if (waiter) {
+                erts_proc_lock(waiter, ERTS_PROC_LOCK_STATUS);
+                if (!ERTS_PROC_IS_EXITING(waiter)) {
+                    erts_resume(waiter, ERTS_PROC_LOCK_STATUS);
+                }
+                erts_proc_unlock(waiter, ERTS_PROC_LOCK_STATUS);
+                erts_proc_dec_refc(waiter);
+            }
         }
         erts_cleanup_offheap(&cmlcp->oh);
         erts_free(ERTS_ALC_T_CML_CLEANUP, vcmlcp);
@@ -363,7 +383,8 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 }
 
 static void
-schedule_con_monitor_link_seq_cleanup(ErtsMonLnkDist *dist,
+schedule_con_monitor_link_seq_cleanup(DistEntry* dep,
+                                      ErtsMonLnkDist *dist,
                                       DistSeqNode *seq,
                                       Eterm nodename,
                                       Eterm visability,
@@ -403,7 +424,16 @@ schedule_con_monitor_link_seq_cleanup(ErtsMonLnkDist *dist,
 
         cmlcp->seq = seq;
 
-        cmlcp->trigger_node_monitors = is_value(nodename);
+        if (is_value(nodename)) {
+            ASSERT(dep);
+            cmlcp->trigger_node_monitors = 1;
+            cmlcp->dep = dep;
+            erts_ref_dist_entry(dep);
+        }
+        else {
+            cmlcp->trigger_node_monitors = 0;
+            cmlcp->dep = NULL;
+        }
         cmlcp->nodename = nodename;
         cmlcp->visability = visability;
         if (rsz == 0)
@@ -692,10 +722,11 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
         dep->send = NULL;
 
 	erts_set_dist_entry_not_connected(dep);
-
+        dep->pending_nodedown = 1;
 	erts_de_rwunlock(dep);
 
-        schedule_con_monitor_link_seq_cleanup(mld,
+        schedule_con_monitor_link_seq_cleanup(dep,
+                                              mld,
                                               sequences,
                                               nodename,
                                               (flags & DFLAG_PUBLISHED
@@ -3933,6 +3964,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 
 typedef struct {
     DistEntry *dep;
+    int de_locked;
     Uint flags;
     Uint version;
 } ErtsSetupConnDistCtrl;
@@ -4011,14 +4043,21 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 	goto system_limit; /* Should never happen!!! */
 
     if (is_internal_pid(BIF_ARG_2)) {
+        erts_de_rwlock(dep);
+        de_locked = 1;
+        if (dep->pending_nodedown)
+            goto suspend;
+
         if (BIF_P->common.id == BIF_ARG_2) {
             ErtsSetupConnDistCtrl scdc;
 
             scdc.dep = dep;
+            scdc.de_locked = 1;
             scdc.flags = flags;
             scdc.version = version;
 
             res = setup_connection_distctrl(BIF_P, &scdc, NULL, NULL);
+            de_locked = 0;
             BUMP_REDS(BIF_P, 5);
             dep = NULL;
 
@@ -4031,10 +4070,14 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
         else {
             ErtsSetupConnDistCtrl *scdcp;
 
+            erts_de_rwunlock(dep);
+            de_locked = 0;
+
             scdcp = erts_alloc(ERTS_ALC_T_SETUP_CONN_ARG,
                                sizeof(ErtsSetupConnDistCtrl));
 
             scdcp->dep = dep;
+            scdcp->de_locked = 0;
             scdcp->flags = flags;
             scdcp->version = version;
 
@@ -4077,6 +4120,9 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
         if (erts_prtsd_get(pp, ERTS_PRTSD_DIST_ENTRY) != NULL
             || is_not_nil(dep->cid))
             goto badarg;
+
+        if(dep->pending_nodedown)
+            goto suspend;
 
         erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
 
@@ -4131,6 +4177,17 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 	erts_port_release(pp);
 
     return ret;
+
+ suspend:
+     ASSERT(de_locked);
+     ASSERT(!dep->suspended_nodeup);
+     dep->suspended_nodeup = BIF_P;
+     erts_proc_inc_refc(BIF_P);
+     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+     ERTS_BIF_PREP_YIELD4(ret,
+                          &bif_trap_export[BIF_erts_internal_create_dist_channel_4],
+                          BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+     goto done;
 
  badarg:
     ERTS_BIF_PREP_RET(ret, am_badarg);
@@ -4197,7 +4254,6 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
 {
     ErtsSetupConnDistCtrl *scdcp = (ErtsSetupConnDistCtrl *) arg;
     DistEntry *dep = scdcp->dep;
-    int dep_locked = 0;
     Eterm *hp;
     Uint32 conn_id;
 
@@ -4206,8 +4262,10 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
 
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 
-    erts_de_rwlock(dep);
-    dep_locked = !0;
+    if (!scdcp->de_locked) {
+        erts_de_rwlock(dep);
+        scdcp->de_locked = !0;
+    }
 
     if (dep->state != ERTS_DE_STATE_PENDING)
         goto badarg;
@@ -4244,7 +4302,7 @@ badarg:
     if (bpp) /* not called directly */
         erts_free(ERTS_ALC_T_SETUP_CONN_ARG, arg);
 
-    if (dep_locked)
+    if (scdcp->de_locked)
         erts_de_rwunlock(dep);
 
     erts_deref_dist_entry(dep);
@@ -4344,7 +4402,7 @@ Sint erts_abort_connection_rwunlock(DistEntry* dep)
 	erts_de_rwunlock(dep);
 
         schedule_con_monitor_link_seq_cleanup(
-            mld, NULL, THE_NON_VALUE,
+            NULL, mld, NULL, THE_NON_VALUE,
             THE_NON_VALUE, THE_NON_VALUE);
 
         if (resume_procs) {
