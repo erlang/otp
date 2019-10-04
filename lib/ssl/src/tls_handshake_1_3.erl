@@ -789,7 +789,6 @@ do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
 %% TLS Server
 do_wait_finished(#finished{verify_data = VerifyData},
                  #state{static_env = #static_env{role = server}} = State0) ->
-
     {Ref,Maybe} = maybe(),
 
     try
@@ -798,9 +797,12 @@ do_wait_finished(#finished{verify_data = VerifyData},
         State1 = calculate_traffic_secrets(State0),
 
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State1)
+        State = ssl_record:step_encryption_state(State1),
 
+        %% Send session ticket
+        maybe_send_session_ticket(State),
 
+        State
     catch
         {Ref, decrypt_error} ->
             ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
@@ -1110,6 +1112,36 @@ maybe_send_certificate_request(State, #{verify := verify_peer,
                                         signature_algs_cert := SignAlgsCert}) ->
     CertificateRequest = certificate_request(SignAlgs, SignAlgsCert),
     {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
+
+
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = _State) ->
+    %% Do nothing!
+    ok;
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State) ->
+    NewSessionTicket = create_stateless_ticket(),
+    {_, _} = tls_connection:send_handshake(NewSessionTicket, State),
+    ok.
+
+
+create_stateless_ticket() ->
+    #new_session_ticket{
+       ticket_lifetime = 7200,
+       ticket_age_add = 937352221,
+       ticket_nonce = <<0,0,0,0,0,0,0,0>>,
+       ticket = <<235,91,136,113,238,205,6,116,242,94,170,64,47,215,120,17,18,51,166,
+           213,81,5,32,161,98,200,136,45,37,45,155,246,77,193,226,136,67,105,
+           80,7,42,114,14,148,246,15,249,108,210,104,145,90,31,56,118,228,149,
+           209,50,48,147,230,16,220,252,203,152,96,34,168,220,191,165,114,254,
+           215,78,252,15,68,69,28,114,148,103,222,107,132,114,4,151,18,133,1,
+           12,94,80,113,189,95,226,42,194,2,27,72,59,98,93,42,102,81,161,181,
+           143,184,90,165,36,183,45,229,111,93,12,114,78,158,151,239,213,119,
+           55,172,186,104,177,216,46,45,249,181,197,133,137,23,33,39,31,115,
+           235,214,85,117,153,137,105,169,57,20,39,110,142,40,84,85,55,51,107,
+           207,193,196,121,246,237,165,18,202,135,234,143,66,209,107,230,242,
+           70,223,31,73,40,145,162,226,187,161,182,125,211,76,250,94,165,197,
+           159,119,223,220>>,
+       extensions = #{}
+      }.
 
 
 process_certificate_request(#certificate_request_1_3{},
