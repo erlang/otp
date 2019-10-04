@@ -207,9 +207,9 @@
         <p>Not recommended; use <seealso marker="erlc"><c>erlc</c></seealso>
           instead.</p>
       </item>
-      <tag><c><![CDATA[-config Config]]></c></tag>
+      <tag><c><![CDATA[-config Config [Config]]]></c></tag>
       <item>
-        <p>Specifies the name of a configuration file,
+        <p>Specifies the name of one or more configuration files,
           <c><![CDATA[Config.config]]></c>, which is used to configure
           applications; see
           <seealso marker="kernel:app"><c>app(4)</c></seealso> and
