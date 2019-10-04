@@ -521,7 +521,6 @@ typedef union {
 /*----------------------------------------------------------------------------
  * Interface constants.
  *
- * This section must be "identical" to the corresponding socket.hrl
  */
 
 /* domain */
@@ -3500,6 +3499,16 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
         result = esock_supports_options(env);
         break;
 
+        /*
+    case ESOCK_SUPPORTS_SEND_FLAGS:
+        result = esock_supports_send_flags(env);
+        break;
+
+    case ESOCK_SUPPORTS_RECV_FLAGS:
+        result = esock_supports_recv_flags(env);
+        break;
+        */
+
     case ESOCK_SUPPORTS_SCTP:
         result = esock_supports_sctp(env);
         break;
@@ -6246,11 +6255,13 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
             "\r\n   Socket:       %T"
             "\r\n   SendRef:      %T"
             "\r\n   Size of data: %d"
-            "\r\n   eFlags:       %d"
+            "\r\n   eFlags:       0x%lX"
             "\r\n", descP->sock, sockRef, sendRef, sndData.size, eflags) );
 
     if (!esendflags2sendflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nif_send -> flags: 0x%lX\r\n", flags) );
 
     MLOCK(descP->writeMtx);
 
@@ -6806,7 +6817,9 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     }
     
     if (!erecvflags2recvflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nif_recv -> flags: 0x%lX\r\n", flags) );
 
     MLOCK(descP->readMtx);
 
@@ -6961,7 +6974,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 
     if (!erecvflags2recvflags(eflags, &flags)) {
         SSDBG( descP, ("SOCKET", "nif_recvfrom -> recvflags decode failed\r\n") );
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
     }
 
     MLOCK(descP->readMtx);
@@ -7130,7 +7143,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     /*     return esock_make_error(env, atom_enotconn); */
 
     if (!erecvflags2recvflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
 
     MLOCK(descP->readMtx);
 
@@ -17960,8 +17973,11 @@ BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns)
 #endif
 
 
-/* esendflags2sendflags - convert internal (erlang) send flags to (proper)
+/* esendflags2sendflags - convert internal (erlang) send flags to (native)
  * send flags.
+ *
+ * We should really have a way to point out the faulty flag if we get one
+ * we don't support. Or add something to the supports function.
  */
 static
 BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
@@ -17978,49 +17994,69 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
     for (ef = ESOCK_SEND_FLAG_LOW; ef <= ESOCK_SEND_FLAG_HIGH; ef++) {
 
         switch (ef) {
-#if defined(MSG_CONFIRM)
         case ESOCK_SEND_FLAG_CONFIRM:
-            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags) {
+#if defined(MSG_CONFIRM)
                 tmp |= MSG_CONFIRM;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_DONTROUTE)
         case ESOCK_SEND_FLAG_DONTROUTE:
-            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags) {
+#if defined(MSG_DONTROUTE)
                 tmp |= MSG_DONTROUTE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_EOR)
         case ESOCK_SEND_FLAG_EOR:
-            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags) {
+#if defined(MSG_EOR)
                 tmp |= MSG_EOR;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_MORE)
         case ESOCK_SEND_FLAG_MORE:
-            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags) {
+#if defined(MSG_MORE)
                 tmp |= MSG_MORE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_NOSIGNAL)
         case ESOCK_SEND_FLAG_NOSIGNAL:
-            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags) {
+#if defined(MSG_NOSIGNAL)
                 tmp |= MSG_NOSIGNAL;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_OOB)
         case ESOCK_SEND_FLAG_OOB:
-            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags) {
+#if defined(MSG_OOB)
                 tmp |= MSG_OOB;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
         default:
+            esock_warning_msg("Use of unknown send flag %d (0x%lX)\r\n",
+                              ef, eflags);
             return FALSE;
         }
 
@@ -18035,16 +18071,15 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
 
 /* erecvflags2recvflags - convert internal (erlang) send flags to (proper)
  * send flags.
+ *
+ * We should really have a way to point out the faulty flag if we get one
+ * we don't support. Or add something to the supports function.
  */
 static
 BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 {
     unsigned int ef;
     int          tmp = 0;
-
-    SGDBG( ("SOCKET", "erecvflags2recvflags -> entry with"
-            "\r\n   eflags: %d"
-            "\r\n", eflags) );
 
     if (eflags == 0) {
         *flags = 0;
@@ -18053,32 +18088,36 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 
     for (ef = ESOCK_RECV_FLAG_LOW; ef <= ESOCK_RECV_FLAG_HIGH; ef++) {
 
-        SGDBG( ("SOCKET", "erecvflags2recvflags -> iteration"
-                "\r\n   ef:  %d"
-                "\r\n   tmp: %d"
-                "\r\n", ef, tmp) );
-
         switch (ef) {
-#if defined(MSG_CMSG_CLOEXEC)
         case ESOCK_RECV_FLAG_CMSG_CLOEXEC:
-            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags) {
+#if defined(MSG_CMSG_CLOEXEC)
                 tmp |= MSG_CMSG_CLOEXEC;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_ERRQUEUE)
         case ESOCK_RECV_FLAG_ERRQUEUE:
-            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags) {
+#if defined(MSG_ERRQUEUE)
                 tmp |= MSG_ERRQUEUE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_OOB)
         case ESOCK_RECV_FLAG_OOB:
-            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags) {
+#if defined(MSG_OOB)
                 tmp |= MSG_OOB;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
             /*
              * <KOLLA>
@@ -18087,21 +18126,29 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
              *
              * </KOLLA>
              */
-#if defined(MSG_PEEK)
         case ESOCK_RECV_FLAG_PEEK:
-            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags) {
+#if defined(MSG_PEEK)
                 tmp |= MSG_PEEK;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_TRUNC)
         case ESOCK_RECV_FLAG_TRUNC:
-            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags) {
+#if defined(MSG_TRUNC)
                 tmp |= MSG_TRUNC;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
         default:
+            esock_warning_msg("Use of unknown recv flag %d (0x%lX)\r\n",
+                              ef, eflags);
             return FALSE;
         }
 
