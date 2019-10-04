@@ -34,7 +34,27 @@
   </header>
 
 
-  <section><title>SNMP 5.2.11.1</title>
+  <section><title>SNMP 5.2.11.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    [manager] The callbacks where executed in a (new)
+	    'temporary' process, that executed the callback call and
+	    then exited. This has now been made configurable so that
+	    is also possible to specify a 'permanent' callback proxy
+	    process. All callback calls will then be executed in this
+	    (permanent) process (in sequence).</p>
+          <p>
+	    Own Id: OTP-15947 Aux Id: ERIERL-378 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.11.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
