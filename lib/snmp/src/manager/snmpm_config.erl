@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,12 @@
 -define(USER_MOD_DEFAULT,   snmpm_user_default).
 -define(USER_DATA_DEFAULT,  undefined).
 
-%% -define(DEF_ADDR_TAG, default_addr_tag).
+-define(SERVER_OPT_VERB_DEFAULT, silence).
+-define(SERVER_OPT_GCT_DEFAULT,  30000).
+-define(SERVER_OPT_MT_DEFAULT,   true).
+-define(SERVER_OPT_CBP_DEFAULT,  temporary). % permanent
+
+%% -define(DEF_ADDR_TAG,       default_addr_tag).
 -define(DEFAULT_TARGETNAME, default_agent).
 -define(DEF_PORT_TAG,       default_port_tag).
 -define(SUPPORTED_DOMAINS,  [transportDomainUdpIpv4, transportDomainUdpIpv6]).
@@ -1117,12 +1122,14 @@ do_init(Opts) ->
 
     %% -- Server (optional) --
     ServerOpts = get_opt(server,         Opts,      []),
-    ServerVerb = get_opt(verbosity,      ServerOpts, silence),
-    ServerGct  = get_opt(timeout,        ServerOpts, 30000),
-    ServerMt   = get_opt(multi_threaded, ServerOpts, true),
+    ServerVerb = get_opt(verbosity,      ServerOpts, ?SERVER_OPT_VERB_DEFAULT),
+    ServerGct  = get_opt(timeout,        ServerOpts, ?SERVER_OPT_GCT_DEFAULT),
+    ServerMt   = get_opt(multi_threaded, ServerOpts, ?SERVER_OPT_MT_DEFAULT),
+    ServerCBP  = get_opt(cbproxy,        ServerOpts, ?SERVER_OPT_CBP_DEFAULT),
     ets:insert(snmpm_config_table, {server_verbosity,      ServerVerb}),
     ets:insert(snmpm_config_table, {server_timeout,        ServerGct}),
     ets:insert(snmpm_config_table, {server_multi_threaded, ServerMt}),
+    ets:insert(snmpm_config_table, {server_cbproxy,        ServerCBP}),
    
     %% -- Mibs (optional) --
     ?vdebug("initiate mini mib", []),
@@ -1415,6 +1422,11 @@ verify_server_opts([{verbosity, Verbosity}|Opts]) ->
 verify_server_opts([{timeout, Timeout}|Opts]) ->
     verify_server_timeout(Timeout),
     verify_server_opts(Opts);
+verify_server_opts([{multi_threaded, MT}|Opts]) when is_boolean(MT) ->
+    verify_server_opts(Opts);
+verify_server_opts([{cbproxy, CBP}|Opts]) ->
+    verify_server_cbproxy(CBP),
+    verify_server_opts(Opts);
 verify_server_opts([Opt|_]) ->
     error({invalid_server_option, Opt}).
 
@@ -1422,6 +1434,13 @@ verify_server_timeout(T) when is_integer(T) andalso (T > 0) ->
     ok;
 verify_server_timeout(T) ->
     error({invalid_server_timeout, T}).
+
+verify_server_cbproxy(temporary) ->
+    ok;
+verify_server_cbproxy(permanent) ->
+    ok;
+verify_server_cbproxy(CBP) ->
+    error({invalid_server_cbproxy, CBP}).
 
 verify_net_if_opts([]) ->
     ok;
@@ -1794,14 +1813,14 @@ order_agent(ItemA, ItemB) ->
     snmp_conf:keyorder(1, ItemA, ItemB, [tdomain, port]).
 
 fix_agent_config(Conf) ->
-    ?vdebug("fix_agent_config -> entry with~n~n"
-	    "   Conf: ~p", [Conf]),
+    ?vdebug("fix_agent_config -> entry with"
+	    "~n      Conf: ~p", [Conf]),
     fix_agent_config(lists:sort(fun order_agent/2, Conf), []).
 
 fix_agent_config([], FixedConf) ->
     Ret = lists:reverse(FixedConf),
-    ?vdebug("fix_agent_config -> returns:~n"
-	    "   ~p", [Ret]),
+    ?vdebug("fix_agent_config -> done when (fixed config):"
+	    "~n      ~p", [Ret]),
     Ret;
 fix_agent_config([{taddress = Item, Address} = Entry|Conf], FixedConf) ->
     {value, {tdomain, TDomain}} = lists:keysearch(tdomain, 1, FixedConf),
