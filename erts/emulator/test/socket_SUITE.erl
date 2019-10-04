@@ -11679,7 +11679,7 @@ api_opt_sock_timestamp_udp(InitState) ->
                                        "~n   ~p", [SASrc]),
                            {ok, State#{sa_src => SASrc}}
                    end},
-         #{desc => "timestamp for src socket",
+         #{desc => "get current (default) timestamp for src socket",
            cmd  => fun(#{sock_src := Sock, get := Get} = _State) ->
                            case Get(Sock) of
                                {ok, false = Value} ->
@@ -11797,12 +11797,26 @@ api_opt_sock_timestamp_udp(InitState) ->
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := socket,
-                                             type   := timestamp,
-                                             data   := TS}], ?BASIC_REQ}} ->
+                                             type  := timestamp,
+                                             data  := TS}], ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("received req *with* "
                                                "expected timestamp: "
                                                "~n   ~p", [TS]),
                                    ok;
+                               {ok, {Src, [#{level := Level,
+                                             type  := Type,
+                                             data  := Data} = CMsgHdr], ?BASIC_REQ}} ->
+                                   ?SEV_EPRINT("Unexpected control message header:"
+                                               "~n   Level: ~p"
+                                               "~n   Type:  ~p"
+                                               "~n   Data:  ~p",
+                                               [Level, Type, Data]),
+                                   {error, {unexpected_cmsghdr, CMsgHdr}};
+                               {ok, {Src, CMsgHdrs, ?BASIC_REQ}} ->
+                                   ?SEV_EPRINT("Unexpected control message header(s):"
+                                               "~n   CMsgHdrs: ~p",
+                                               [CMsgHdrs]),
+                                   {error, {unexpected_cmsghdrs, CMsgHdrs}};
                                {ok, UnexpData} ->
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
