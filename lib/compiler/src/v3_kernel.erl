@@ -112,7 +112,7 @@ copy_anno(Kdst, Ksrc) ->
 
 %% State record for kernel translator.
 -record(kern, {func,				%Current host function
-	       ff,				%Current function
+               fargs=[] :: [#k_var{}],          %Arguments for current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
                ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
@@ -165,7 +165,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
         %% the function. We use integers as variable names to avoid
         %% filling up the atom table when compiling huge functions.
         Count = cerl_trees:next_free_variable_name(Body),
-	St1 = St0#kern{func=FA,ff=undefined,vcount=Count,fcount=0,ds=cerl_sets:new()},
+	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -287,24 +287,12 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
 	    expr(Error, Sub, St1)
     end;
-expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
-    FA = case OldFF of
-	     undefined ->
-		 Func;
-	     _ ->
-                 case keyfind(id, 1, A) of
-		     {id,{_,_,Name}} -> Name;
-		     _ ->
-                         case keyfind(letrec_name, 1, A) of
-			     {letrec_name,Name} -> Name;
-			     _ -> unknown_fun
-			 end
-		 end
-	 end,
-    {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0#kern{ff=FA}),
+expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0,
+     #kern{fargs=OldFargs}=St0) ->
+    {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,{{Cvs,Sub0,St0},{Kvs,Sub1,St1}}]),
-    {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{ff=FA}),
-    {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{ff=OldFF}};
+    {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{fargs=Kvs}),
+    {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{fargs=OldFargs}};
 expr(#c_seq{arg=Ca,body=Cb}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),
     {Kb,Pb,St2} = body(Cb, Sub, St1),
@@ -338,11 +326,11 @@ expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub0, St0) ->
 		 end, {Sub0,St0}, Cfs),
     %% Run translation on functions and body.
     {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
-				 {Fd1,[],St2} = expr(Fd0, Sub1, S1#kern{ff=N}),
+				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
 				 Fd = set_kanno(Fd1, A),
 				 {{N,Fd},St2}
 			 end, St1, Fs0),
-    {Kb,Pb,St3} = body(Cb, Sub1, St2#kern{ff=St1#kern.ff}),
+    {Kb,Pb,St3} = body(Cb, Sub1, St2),
     {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3};
 expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),		%This is a body!
@@ -387,8 +375,8 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 			   args=[M0,F0,cerl:make_list(Cargs)]},
 	    expr(Call, Sub, St)
     end;
-expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St) ->
-    translate_match_fail(Cargs0, Sub, A, St);
+expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=[Arg]}, Sub, St) ->
+    translate_match_fail(Arg, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=N},args=Cargs}, Sub, St0) ->
     {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
@@ -410,12 +398,14 @@ expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
 %% Handle internal expressions.
 expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
 
-%% Translate a function_clause exception to a case_clause exception if
-%% it has been moved into another function.
-translate_match_fail([Arg], Sub, Anno, St0) ->
+%% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
+%%  Translate a match_fail primop to a call erlang:error/1 or
+%%  erlang:error/2.
+
+translate_match_fail(Arg, Sub, Anno, St0) ->
     Cargs = case {cerl:data_type(Arg),cerl:data_es(Arg)} of
                 {tuple,[#c_literal{val=function_clause}|As]} ->
-                    translate_fc_args(Anno, As, Sub, St0);
+                    translate_fc_args(As, Sub, St0);
                 {_,_} ->
                     [Arg]
             end,
@@ -427,33 +417,28 @@ translate_match_fail([Arg], Sub, Anno, St0) ->
                                 arity=Ar},args=Kargs},
     {Call,Ap,St}.
 
-translate_fc_args(Anno, As, Sub, #kern{ff=FF}) ->
-    AnnoFunc = case keyfind(function_name, 1, Anno) of
-		   false ->
-		       none;			%Force rewrite.
-		   {function_name,{Name,Arity}} ->
-		       {get_fsub(Name, Arity, Sub),Arity}
-	       end,
-    case {AnnoFunc,FF} of
-	{Same,Same} ->
-	    %% Still in the correct function.
-	    translate_fc(As);
-	{{F,_},F} ->
-	    %% Still in the correct function.
-	    translate_fc(As);
-	_ ->
-	    %% Wrong function or no function_name annotation.
-	    %%
-	    %% The inliner has copied the match_fail(function_clause)
-	    %% primop from another function (or from another instance
-	    %% of the current function). Keeping the function_clause
-            %% exception reason would be confusing.
+translate_fc_args(As, Sub, #kern{fargs=Fargs}) ->
+    case same_args(As, Fargs, Sub) of
+        true ->
+            %% The arguments for the `function_clause` exception are
+            %% the arguments for the current function in the correct
+            %% order.
+            [#c_literal{val=function_clause},cerl:make_list(As)];
+        false ->
+            %% The arguments in the `function_clause` exception don't
+            %% match the arguments for the current function because
+            %% of inlining. Keeping the `function_clause`
+            %% exception reason would be confusing. Rewrite it to
+            %% a `case_clause` exception with the arguments in a
+            %% tuple.
 	    [cerl:c_tuple([#c_literal{val=case_clause},
                            cerl:c_tuple(As)])]
     end.
 
-translate_fc(Args) ->
-    [#c_literal{val=function_clause},cerl:make_list(Args)].
+same_args([#c_var{name=Cv}|Vs], [#k_var{name=Kv}|As], Sub) ->
+    get_vsub(Cv, Sub) =:= Kv andalso same_args(Vs, As, Sub);
+same_args([], [], _Sub) -> true;
+same_args(_, _, _) -> false.
 
 expr_map(A,Var0,Ces,Sub,St0) ->
     {Var,Mps,St1} = expr(Var0, Sub, St0),
@@ -1832,7 +1817,7 @@ iletrec_funs_gen(_, _, #kern{funs=ignore}=St) ->
 iletrec_funs_gen(Fs, FreeVs, St) ->
     foldl(fun ({N,#ifun{anno=Fa,vars=Vs,body=Fb0}}, Lst0) ->
 		  Arity0 = length(Vs),
-		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0#kern{ff={N,Arity0}}),
+		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0),
 		  Arity = Arity0 + length(FreeVs),
                   Fun = make_fdef(Fa, N, Arity, Vs++FreeVs, Fb1),
 		  Lst1#kern{funs=[Fun|Lst1#kern.funs]}

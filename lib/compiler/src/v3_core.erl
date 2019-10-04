@@ -219,7 +219,7 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
                     ws=Ws0,file=[{file,File}]},
-        {B0,St1} = body(Cs0, Name, Arity, St0),
+        {B0,St1} = body(Cs0, Arity, St0),
         %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
         %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
@@ -232,14 +232,14 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
-body(Cs0, Name, Arity, St0) ->
+body(Cs0, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
     {Args0,St1} = new_vars(Anno, Arity, St0),
     Args = reverse(Args0),                      %Nicer order
     case clauses(Cs0, St1) of
 	{Cs1,[],St2} ->
 	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-	    Fc = function_clause(Ps, Anno, {Name,Arity}),
+	    Fc = function_clause(Ps, Anno),
 	    {#ifun{anno=#a{anno=Anno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3};
 	{Cs1,Eps,St2} ->
 	    %% We have pre-expressions from patterns and
@@ -247,9 +247,9 @@ body(Cs0, Name, Arity, St0) ->
 	    %% since only bound variables are allowed
 	    AnnoGen = #a{anno=[compiler_generated]},
 	    {Ps1,St3} = new_vars(Arity, St2),    %Need new variables here
-	    Fc1 = function_clause(Ps1, Anno, {Name,Arity}),
+	    Fc1 = function_clause(Ps1, Anno),
 	    {Ps2,St4} = new_vars(Arity, St3),    %Need new variables here
-	    Fc2 = function_clause(Ps2, Anno, {Name,Arity}),
+	    Fc2 = function_clause(Ps2, Anno),
 	    Case = #icase{anno=AnnoGen,args=Args,
 			  clauses=Cs1,
 			  fc=Fc2},
@@ -670,7 +670,7 @@ expr({'try',L,Es0,[],[],As0}, St0) ->
     {V,St4} = new_var(St3),		% (must not exist in As1)
     LA = lineno_anno(L, St4),
     Lanno = #a{anno=LA},
-    Fc = function_clause([], LA, {Name,0}),
+    Fc = function_clause([], LA),
     Fun = #ifun{anno=Lanno,id=[],vars=[],
 		clauses=[#iclause{anno=Lanno,pats=[],
 				  guard=[#c_literal{val=true}],
@@ -1165,7 +1165,7 @@ fun_tq(Cs0, L, St0, NameInfo) ->
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
     Anno = full_anno(L, St3),
     {Name,St4} = new_fun_name(St3),
-    Fc = function_clause(Ps, Anno, {Name,Arity}),
+    Fc = function_clause(Ps, Anno),
     Id = {0,0,Name},
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
@@ -1185,7 +1185,7 @@ lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,ceps=Ceps,
     F = #c_var{anno=LA,name={Name,1}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
     {Var,St2} = new_var(St1),
-    Fc = function_clause([Var], GA, {Name,1}),
+    Fc = function_clause([Var], GA),
     TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
     Cs0 = case {AccPat,AccGuard} of
               {SkipPat,[]} ->
@@ -1246,7 +1246,7 @@ bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
     {Vars=[_,AccVar],St2} = new_vars(LA, 2, St1),
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
-    Fc = function_clause(Vars, LA, {Name,2}),
+    Fc = function_clause(Vars, LA),
     TailClause = #iclause{anno=LAnno,pats=[TailPat,AccVar],guard=[],
                           body=[AccVar]},
     Cs0 = case {AccPat,AccGuard} of
@@ -2075,9 +2075,8 @@ new_vars_1(N, Anno, St0, Vs) when N > 0 ->
     new_vars_1(N-1, Anno, St1, [V|Vs]);
 new_vars_1(0, _, St, Vs) -> {Vs,St}.
 
-function_clause(Ps, LineAnno, Name) ->
-    FcAnno = [{function_name,Name}|LineAnno],
-    fail_clause(Ps, FcAnno,
+function_clause(Ps, LineAnno) ->
+    fail_clause(Ps, LineAnno,
 		ann_c_tuple(LineAnno, [#c_literal{val=function_clause}|Ps])).
 
 fail_clause(Pats, Anno, Arg) ->
