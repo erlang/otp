@@ -11992,7 +11992,10 @@ api_opt_sock_timestamp_tcp4(doc) ->
 api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_sock_timestamp_tcp4,
-           fun() -> has_support_sock_timestamp() end,
+           fun() ->
+                   has_support_sock_timestamp(),
+                   is_not_freebsd()
+           end,
            fun() ->
                    Set  = fun(Sock, Value) ->
                                   socket:setopt(Sock, socket, timestamp, Value)
@@ -13797,6 +13800,10 @@ api_opt_ip_recvopts_udp(InitState) ->
 %% For all subsequent *received* messages, the tos control message
 %% header will be with the message.
 %%
+%% On some platforms it works sending TOS with the message (sendmsg with 
+%% a control message header), but since its not universal, we can't use
+%% that method. Instead, set tos (true) on the sending socket.
+%%
 
 api_opt_ip_recvtos_udp4(suite) ->
     [];
@@ -13965,11 +13972,35 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
-         #{desc => "send req (to dst) (w explicit tos = mincost)",
-           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           Send(Sock, ?BASIC_REQ, Dst, mincost)
+         #{desc => "set tos = mincost on src sock",
+           cmd  => fun(#{sock_src := Sock}) ->
+                           ok = socket:setopt(Sock, ip, tos, mincost)
                    end},
-         #{desc => "recv req (from src) - wo tos",
+         #{desc => "send req (to dst) (w tos = mincost)",
+           cmd  => fun(#{sock_src := Sock,
+                         sa_dst   := Dst,
+                         send     := Send}) ->
+                           Send(Sock, ?BASIC_REQ, Dst, default)
+                   end},
+
+         %% #{desc => "send req (to dst) (w explicit tos = mincost)",
+         %%   cmd  => fun(#{sock_src := Sock,
+         %%                 sa_dst   := Dst,
+         %%                 send     := Send}) ->
+         %%                   socket:setopt(Sock, otp, debug, true),
+         %%                   case Send(Sock, ?BASIC_REQ, Dst, mincost) of
+         %%                       ok ->
+         %%                           socket:setopt(Sock, otp, debug, false),
+         %%                           ok;
+         %%                       {error, Reason} ->
+         %%                           ?SEV_EPRINT("Failed sending message with tos: "
+         %%                                       "~n   Reason: ~p", [Reason]),
+         %%                           socket:setopt(Sock, otp, debug, false),
+         %%                           {skip, "Failed sending message with TOS"}
+         %%                   end
+         %%           end},
+
+         #{desc => "recv req (from src) - wo explicit tos",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [], ?BASIC_REQ}} ->
@@ -14001,6 +14032,11 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
+         #{desc => "set tos = 0 on src sock (\"disabled\")",
+           cmd  => fun(#{sock_src := Sock}) ->
+                           ok = socket:setopt(Sock, ip, tos, 0)
+                   end},
+
          #{desc => "enable recvtos on dst socket",
            cmd  => fun(#{sock_dst := Sock, set := Set} = _State) ->
                            case Set(Sock, true) of
@@ -14022,8 +14058,11 @@ api_opt_ip_recvtos_udp(InitState) ->
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
-                                             type  := tos,
-                                             data  := 0}], ?BASIC_REQ}} ->
+                                             type  := TOS,
+                                             data  := 0}], ?BASIC_REQ}}  
+                               when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
+                                   ?SEV_IPRINT("got default TOS (~w) "
+                                               "control message header", [TOS]),
                                    ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
@@ -14052,16 +14091,26 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
-         #{desc => "send req (to dst) (w explicit tos = mincost)",
+         #{desc => "set tos = mincost on src sock",
+           cmd  => fun(#{sock_src := Sock}) ->
+                           ok = socket:setopt(Sock, ip, tos, mincost)
+                   end},
+
+         #{desc => "send req (to dst) (w tos = mincost)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           Send(Sock, ?BASIC_REQ, Dst, mincost)
+                           Send(Sock, ?BASIC_REQ, Dst, default)
                    end},
          #{desc => "recv req (from src) - w tos = mincost",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
-                                             type  := tos,
-                                             data  := mincost}], ?BASIC_REQ}} ->
+                                             type  := TOS,
+                                             data  := mincost = TOSData}],
+                                     ?BASIC_REQ}} 
+                               when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
+                                   ?SEV_IPRINT("got expected TOS (~w) = ~w "
+                                               "control message header", 
+                                               [TOS, TOSData]),
                                    ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
@@ -14304,7 +14353,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    (catch socket:close(SSock)),
                                    (catch socket:close(DSock)),
                                    {skip, Reason};
-                               {error, Reason} = ERROR ->
+                               {error, _Reason} = ERROR ->
                                    ERROR
                            end
                    end},
