@@ -72,25 +72,8 @@
 
 -define(timestamp(), erlang:monotonic_time(microsecond)).
 
--define(get_mode(Tid),
-        case ets:lookup(Tid, mode) of
-            [{mode,M}] -> M;
-            _          -> async
-        end).
-
--define(set_mode(Tid, M),
-        begin ets:insert(Tid, {mode,M}), M end).
-
--define(change_mode(Tid, M0, M1),
-        if M0 == M1 ->
-                M0;
-           true ->
-                ets:insert(Tid, {mode,M1}),
-                M1
-        end).
-
 -define(max(X1, X2),
-        if 
+        if
             X2 == undefined -> X1;
             X2 > X1 -> X2;
             true -> X1

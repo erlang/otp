@@ -77,7 +77,7 @@ load({_Name,Pid,ModeRef},Msg) ->
     %% synchronous instead of asynchronous (slows down the tempo of a
     %% process causing much load). If the process is choked, drop mode
     %% is set and no message is sent.
-    try ?get_mode(ModeRef) of
+    case get_mode(ModeRef) of
         async ->
             gen_server:cast(Pid, {'$olp_load',Msg});
         sync ->
@@ -86,17 +86,11 @@ load({_Name,Pid,ModeRef},Msg) ->
                     ok;
                 _Other ->
                     %% dropped or {error,busy}
-                    ?observe(_Name,{dropped,1}),
-                    ok
+                    ?observe(_Name,{dropped,1})
             end;
         drop ->
             ?observe(_Name,{dropped,1})
-    catch
-        %% if the ETS table doesn't exist (maybe because of a
-        %% process restart), we can only drop the event
-        _:_ -> ?observe(_Name,{dropped,1})
-    end,
-    ok.    
+    end.
 
 -spec info(Olp) -> map() | {error, busy} when
       Olp :: atom() | pid() | olp_ref().
@@ -174,40 +168,32 @@ init([Name,Module,Args,Options]) ->
 
     ?start_observation(Name),
 
-    try ets:new(Name, [public]) of
-        ModeRef ->
-            OlpRef = {Name,self(),ModeRef},
-            put(olp_ref,OlpRef),
-            try Module:init(Args) of
-                {ok,CBState} ->
-                    ?set_mode(ModeRef, async),
-                    T0 = ?timestamp(),
-                    proc_lib:init_ack({ok,self(),OlpRef}),
-                    %% Storing options in state to avoid copying
-                    %% (sending) the option data with each message
-                    State0 = ?merge_with_stats(
-                                Options#{id => Name,
-                                         idle=> true,
-                                         module => Module,
-                                         mode_ref => ModeRef,
-                                         mode => async,
-                                         last_qlen => 0,
-                                         last_load_ts => T0,
-                                         burst_win_ts => T0,
-                                         burst_msg_count => 0,
-                                         cb_state => CBState}),
-                    State = reset_restart_flag(State0),
-                    gen_server:enter_loop(?MODULE, [], State);
-                Error ->
-                    _ = ets:delete(ModeRef),
-                    unregister(Name),
-                    proc_lib:init_ack(Error)
-            catch
-                _:Error ->
-                    _ = ets:delete(ModeRef),
-                    unregister(Name),
-                    proc_lib:init_ack(Error)
-            end
+    ModeRef = {?MODULE, Name},
+    OlpRef = {Name,self(),ModeRef},
+    put(olp_ref,OlpRef),
+    try Module:init(Args) of
+        {ok,CBState} ->
+            set_mode(ModeRef, async),
+            T0 = ?timestamp(),
+            proc_lib:init_ack({ok,self(),OlpRef}),
+            %% Storing options in state to avoid copying
+            %% (sending) the option data with each message
+            State0 = ?merge_with_stats(
+                        Options#{id => Name,
+                                 idle=> true,
+                                 module => Module,
+                                 mode_ref => ModeRef,
+                                 mode => async,
+                                 last_qlen => 0,
+                                 last_load_ts => T0,
+                                 burst_win_ts => T0,
+                                 burst_msg_count => 0,
+                                 cb_state => CBState}),
+            State = reset_restart_flag(State0),
+            gen_server:enter_loop(?MODULE, [], State);
+        Error ->
+            unregister(Name),
+            proc_lib:init_ack(Error)
     catch
         _:Error ->
             unregister(Name),
@@ -274,11 +260,11 @@ handle_cast(Msg, #{module:=Module, cb_state:=CBState} = State) ->
             {stop, Reason, State#{cb_state=>CBState1}}
     end.
 
-handle_info(timeout, #{mode_ref:=_ModeRef, mode:=Mode} = State) ->
+handle_info(timeout, #{mode_ref:=ModeRef} = State) ->
     State1 = notify(idle,State),
     State2 = maybe_notify_mode_change(async,State1),
     {noreply, State2#{idle => true,
-                      mode => ?change_mode(_ModeRef, Mode, async),
+                      mode => set_mode(ModeRef, async),
                       burst_msg_count => 0}};
 handle_info(Msg, #{module := Module, cb_state := CBState} = State) ->
     case try_callback_call(Module,handle_info,[Msg, CBState]) of
@@ -357,7 +343,7 @@ do_load(Msg, CallOrCast, State) ->
 
 %% this function is called by do_load/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := _T0, mode_ref := ModeRef}) ->
+flush(T1, State=#{id := _Name, last_load_ts := _T0, mode_ref := ModeRef}) ->
     %% flush load messages in the mailbox (a limited number in order
     %% to not cause long delays)
     NewFlushed = flush_load(?FLUSH_MAX_N),
@@ -378,7 +364,7 @@ flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := _T0, mode_ref := Mo
     State3 = ?update_max_qlen(QLen1,State2),
     State4 = maybe_notify_mode_change(async,State3),
     {dropped,?update_other(flushed,FLUSHED,NewFlushed,
-                           State4#{mode => ?change_mode(ModeRef,Mode,async),
+                           State4#{mode => set_mode(ModeRef,async),
                                    last_qlen => QLen1,
                                    last_load_ts => T1})}.
 
@@ -507,11 +493,11 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
                 %% be dropped on the client side (never sent to
                 %% the olp process).
                 IncDrops = if Mode == drop -> 0; true -> 1 end,
-                {?change_mode(ModeRef, Mode, drop), IncDrops,0};
+                {set_mode(ModeRef, drop), IncDrops,0};
             QLen >= SyncModeQLen ->
-                {?change_mode(ModeRef, Mode, sync), 0,0};
+                {set_mode(ModeRef, sync), 0,0};
             true ->
-                {?change_mode(ModeRef, Mode, async), 0,0}
+                {set_mode(ModeRef, async), 0,0}
         end,
     State1 = ?update_other(drops,DROPS,_NewDrops,State),
     State2 = ?update_max_qlen(QLen,State1),
@@ -576,7 +562,7 @@ flush_load(N, Limit) ->
         {log,_,_,_,_} ->
             flush_load(N+1, Limit);
         {log,_,_,_} ->
-            flush_load(N+1, Limit)            
+            flush_load(N+1, Limit)
     after
         0 -> N
     end.
@@ -586,6 +572,11 @@ overload_levels_ok(Options) ->
     DMQL = maps:get(drop_mode_qlen, Options, ?DROP_MODE_QLEN),
     FQL = maps:get(flush_qlen, Options, ?FLUSH_QLEN),
     (DMQL > 1) andalso (SMQL =< DMQL) andalso (DMQL =< FQL).
+
+get_mode(Ref) -> persistent_term:get(Ref, async).
+
+set_mode(Ref, M) ->
+    true = is_atom(M), persistent_term:put(Ref, M), M.
 
 maybe_notify_mode_change(drop,#{mode:=Mode0}=State)
   when Mode0=/=drop ->

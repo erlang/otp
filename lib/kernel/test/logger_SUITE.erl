@@ -276,7 +276,7 @@ change_config(_Config) ->
         logger:get_primary_config(),
     3 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
-    MS = [{{{?HANDLER_KEY,'$1'},'_','_'},[],['$1']}],
+    MS = [{{{?HANDLER_KEY,'$1'},'_'},[],['$1']}],
     HIds1 = lists:sort(ets:select(?LOGGER_TABLE,MS)), % dirty, internal data
     HIds2 = lists:sort(logger:get_handler_ids()),
     HIds1 = HIds2,
@@ -478,14 +478,15 @@ set_application_level(cleanup,_Config) ->
     ok.
 
 cache_module_level(_Config) ->
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+
+    %% This test does a lot of whitebox tests so be prepared for that
+    persistent_term:erase({logger_config,?MODULE}),
+
+    primary = persistent_term:get({logger_config,?MODULE}, primary),
     ?LOG_NOTICE(?map_rep),
-    %% Caching is done asynchronously, so wait a bit for the update
-    timer:sleep(100),
-    [_] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+    5 = persistent_term:get({logger_config,?MODULE}, primary),
+    logger:set_primary_config(level, info),
+    6 = persistent_term:get({logger_config,?MODULE}, primary),
     ok.
 
 cache_module_level(cleanup,_Config) ->
@@ -1146,7 +1147,7 @@ kernel_config(Config) ->
 
     ok.
 
-pretty_print(Config) ->
+pretty_print(_Config) ->
     ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),
     ok = logger:set_module_level([module1,module2],debug),
 
