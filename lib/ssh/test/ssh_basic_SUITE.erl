@@ -591,18 +591,11 @@ exec_with_io_out(Config) when is_list(Config) ->
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "io:write(hej).", infinity),
     case ssh_test_lib:receive_exec_result(
-           {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"hej">>}}
-          ) of
-	expected ->
-            case ssh_test_lib:receive_exec_result(
-                   {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}}
-                  ) of
-                expected ->
-                    ok;
-                Other1 ->
-                    ct:fail(Other1)
-            end;
-	Other0 ->
+           [{ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"hej">>}},
+            {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}}]) of
+        expected ->
+            ok;
+        Other0 ->
 	    ct:fail(Other0)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0),
