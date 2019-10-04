@@ -60,6 +60,7 @@
                                                | 'undefined',
                         expecting_finished =                  false ::boolean(),
                         renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
+                        resumption = false   :: boolean(),
                         allow_renegotiate = true                    ::boolean(),
                         %% Ext handling
                         hello,                %%:: #client_hello{} | #server_hello{}            

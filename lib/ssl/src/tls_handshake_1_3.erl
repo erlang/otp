@@ -846,12 +846,16 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                                   supported_groups := ClientGroups0}} = State0) ->
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
+    ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
     ClientKeyShare = get_key_shares(ClientKeyShare0),
 
     {Ref,Maybe} = maybe(),
     try
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(maybe_hello_retry_request(ServerHello, State0)),
+
+        %% Resumption and PSK
+        State1 = handle_resumption(State0, ServerPreSharedKey),
 
         ServerKeyShare = get_key_shares(ServerKeyShare0),
 
@@ -864,18 +868,18 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
         {_, ClientPrivateKey} = get_client_private_key([SelectedGroup], ClientKeyShare),
 
         %% Update state
-        State1 = update_start_state(State0,
+        State2 = update_start_state(State1,
                                     #{cipher => SelectedCipherSuite,
                                      key_share => ClientKeyShare0,
                                      session_id => SessionId,
                                      group => SelectedGroup,
                                      peer_public_key => ServerPublicKey}),
 
-        State2 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup, State1),
+        State3 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup, State2),
 
-        State3 = ssl_record:step_encryption_state(State2),
+        State4 = ssl_record:step_encryption_state(State3),
 
-        {State3, wait_ee}
+        {State4, wait_ee}
 
     catch
         {Ref, {State, StateName, ServerHello}} ->
@@ -898,9 +902,12 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
     ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
     ALPNProtocol = get_alpn(ALPNProtocol0),
 
-    {Ref,_Maybe} = maybe(),
+    {Ref, Maybe} = maybe(),
 
     try
+        %% Go to state 'wait_finished' if using PSK.
+        Maybe(maybe_resumption(State0)),
+
         %% Update state
         #state{handshake_env = HsEnv} = State0,
         State1 = State0#state{handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol}},
@@ -916,7 +923,9 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
         {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
         {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
+        {Ref, {State, StateName}} ->
+            {State, StateName}
     end.
 
 
@@ -980,6 +989,23 @@ maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = 
     {error, {State0, start, ServerHello}};
 maybe_hello_retry_request(_, _) ->
     ok.
+
+
+maybe_resumption(#state{handshake_env =
+                            #handshake_env{resumption = true} = HSEnv0} = State0) ->
+    HSEnv = HSEnv0#handshake_env{resumption = false},
+    State = State0#state{handshake_env = HSEnv},
+    {error, {State, wait_finished}};
+maybe_resumption(_) ->
+    ok.
+
+
+%% TODO Support of multiple PSKs
+handle_resumption(State, undefined) ->
+    State;
+handle_resumption(#state{handshake_env = HSEnv0} = State, _ServerPreSharedKey) ->
+    HSEnv = HSEnv0#handshake_env{resumption = true},
+    State#state{handshake_env = HSEnv}.
 
 
 maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
