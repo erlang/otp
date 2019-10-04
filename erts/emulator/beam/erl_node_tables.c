@@ -176,6 +176,8 @@ dist_table_alloc(void *dep_tmpl)
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
     dep->connection_id			= 0;
     dep->state				= ERTS_DE_STATE_IDLE;
+    dep->pending_nodedown               = 0;
+    dep->suspended_nodeup               = NULL;
     dep->flags				= 0;
     dep->opts                           = 0;
     dep->version			= 0;
@@ -731,6 +733,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     ASSERT(dep != erts_this_dist_entry);
     ASSERT(is_nil(dep->cid));
     ASSERT(dep->state == ERTS_DE_STATE_PENDING);
+    ASSERT(!dep->pending_nodedown);
     ASSERT(is_internal_port(cid) || is_internal_pid(cid));
 
     if(dep->prev) {
