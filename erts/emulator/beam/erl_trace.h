@@ -91,10 +91,10 @@ int erts_is_tracer_valid(Process* p);
 void erts_check_my_tracer_proc(Process *);
 void erts_block_sys_msg_dispatcher(void);
 void erts_release_sys_msg_dispatcher(void);
-void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
-					    Eterm,
-					    Eterm,
-					    ErlHeapFragment *));
+void erts_debug_foreach_sys_msg_in_q(void (*func)(Eterm,
+                                                  Eterm,
+                                                  Eterm,
+                                                  ErlHeapFragment *));
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 #endif
