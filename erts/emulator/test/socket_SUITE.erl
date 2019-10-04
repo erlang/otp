@@ -14290,8 +14290,23 @@ api_opt_ip_recvttl_udp(InitState) ->
                    end},
 
          #{desc => "send req (to dst) (w explicit ttl = 100)",
-           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           Send(Sock, ?BASIC_REQ, Dst, 100)
+           cmd  => fun(#{sock_src := SSock,
+                         sock_dst := DSock, sa_dst := Dst,
+                         send     := Send}) ->
+                           case Send(SSock, ?BASIC_REQ, Dst, 100) of
+                               ok ->
+                                   ok;
+                               {error, enoprotoopt = Reason} ->
+                                   %% On some platforms this is not
+                                   %% accepted (FreeBSD), so skip.
+                                   ?SEV_EPRINT("Expected Failure: "
+                                               "~p => SKIP", [Reason]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ERROR
+                           end
                    end},
          #{desc => "recv req (from src) - wo ttl",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
