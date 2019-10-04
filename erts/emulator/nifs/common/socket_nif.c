@@ -14831,18 +14831,27 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
 
     reason = MKA(env, erl_errno_id(saveErrno));
 
-    if (descP->currentWriterP != NULL) {
+    if (saveErrno != EINVAL) {
 
-        DEMONP("send_check_fail -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        /*
+         * We assume that anything other then einval (invalid input)
+         * is basically fatal (=> all waiting sends are aborted)
+         */
 
-        while (writer_pop(env, descP, &req)) {
-            SSDBG( descP,
-                   ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
-            esock_send_abort_msg(env, sockRef, req.ref, req.env,
-                                 reason, &req.pid);
-            req.env = NULL;
-            DEMONP("send_check_fail -> pop'ed writer", env, descP, &req.mon);
+        if (descP->currentWriterP != NULL) {
+
+            DEMONP("send_check_fail -> current writer",
+                   env, descP, &descP->currentWriter.mon);
+
+            while (writer_pop(env, descP, &req)) {
+                SSDBG( descP,
+                       ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
+                esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                                     reason, &req.pid);
+                req.env = NULL;
+                DEMONP("send_check_fail -> pop'ed writer",
+                       env, descP, &req.mon);
+            }
         }
     }
 
@@ -16359,7 +16368,8 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
                     int data;
                     if (decode_ip_tos(env, eData, &data)) {
                         SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
-                                       "do final decode with tos\r\n") );
+                                       "do final decode with tos (=%d)"
+                                       "\r\n", data) );
                         return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
                                                     sizeof(data),
@@ -16378,7 +16388,8 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
                     int data;
                     if (GET_INT(env, eData, &data)) {
                         SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
-                                       "do final decode with ttl\r\n") );
+                                       "do final decode with ttl (=%d)"
+                                       "\r\n", data) );
                         return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
                                                     sizeof(data),
@@ -16426,8 +16437,8 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
     SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> entry when"
                    "\r\n   level: %d"
                    "\r\n   type:  %d"
-                   "\r\n   sz:    %d => %d, %d"
-                   "\r\n", level, type, sz, len, space) );
+                   "\r\n   sz:    %d => %d, %d, %d"
+                   "\r\n", level, type, sz, len, space, rem) );
 
     if (rem >= space) {
         struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
@@ -16440,6 +16451,9 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
         sys_memcpy(CMSG_DATA(cmsgP), data, sz);
         *used = space;
     } else {
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr_final -> "
+                       "not enough space (needs %d, have %d)\r\n",
+                       space, rem) );
         *used = 0;
         return ESOCK_STR_EINVAL;
     }
@@ -16613,6 +16627,18 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
 #if defined(IP_TOS)
         case IP_TOS:
             *eType = esock_atom_tos;
+            break;
+#endif
+
+            /* 
+             * On FreeBSD (among others) TOS has type RECVTOS!
+             * We could convert to TOS (that is esock_atom_tos,
+             * but that opens up pandoras box, so leave it to
+             * the user).
+             */
+#if defined(IP_RECVTOS)
+        case IP_RECVTOS:
+            *eType = esock_atom_recvtos;
             break;
 #endif
 
@@ -16982,6 +17008,38 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         }
         break;
 #endif
+
+        /*
+         * On FreeBSD (among others) you don't get TOS when 
+         * you order TOS with RECVTOS ( = "I want to receive TOS")
+         * Instead, you receive RECVTOS...
+         */
+#if defined(IP_RECVTOS)
+    case IP_RECVTOS:
+        {
+            unsigned char tos = *dataP;
+            switch (IPTOS_TOS(tos)) {
+            case IPTOS_LOWDELAY:
+                *eCMsgHdrData = esock_atom_lowdelay;
+                break;
+            case IPTOS_THROUGHPUT:
+                *eCMsgHdrData = esock_atom_throughput;
+                break;
+            case IPTOS_RELIABILITY:
+                *eCMsgHdrData = esock_atom_reliability;
+                break;
+#if defined(IPTOS_MINCOST)
+            case IPTOS_MINCOST:
+                *eCMsgHdrData = esock_atom_mincost;
+                break;
+#endif
+            default:
+                *eCMsgHdrData = MKUI(env, tos);
+                break;
+            }
+        }
+        break;
+#endif // if defined(IP_RECVTOS)
 
 #if defined(IP_TTL)
     case IP_TTL:
