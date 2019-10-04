@@ -1260,6 +1260,7 @@ void *erts_calc_stacklimit(char *prev_c, UWord stacksize) ERTS_NOINLINE;
 int erts_check_below_limit(char *ptr, char *limit) ERTS_NOINLINE;
 int erts_check_above_limit(char *ptr, char *limit) ERTS_NOINLINE;
 void *erts_ptr_id(void *ptr) ERTS_NOINLINE;
+int erts_check_if_stack_grows_downwards(char *ptr) ERTS_NOINLINE;
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
