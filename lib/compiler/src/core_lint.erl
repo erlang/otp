@@ -111,9 +111,9 @@ format_error({return_mismatch,{F,A}}) ->
 format_error({undefined_function,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
 format_error({duplicate_var,N,{F,A}}) ->
-    io_lib:format("duplicate variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("duplicate variable ~p in ~w/~w", [N,F,A]);
 format_error({unbound_var,N,{F,A}}) ->
-    io_lib:format("unbound variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("unbound variable ~p in ~w/~w", [N,F,A]);
 format_error({undefined_function,{F1,A1},{F2,A2}}) ->
     io_lib:format("undefined function ~w/~w in ~w/~w", [F1,A1,F2,A2]);
 format_error({tail_segment_not_at_end,{F,A}}) ->
