@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1]).
+	 test_if/1,source_name/1,column_numbers/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -1714,6 +1714,15 @@ source_name(Config) when is_list(Config) ->
 source_name_1(File, Expected) ->
     Res = epp:parse_file(File, [{source_name, Expected}]),
     {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
+
+column_numbers(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "source_name.erl"),
+    Res = epp:parse_file(File, [{start_location, {1, 1}}]),
+    {ok, Forms} = Res,
+    %% all forms should have column numbers
+    {attribute, {_, 2}, module, _} = lists:keyfind(module, 3, Forms),
+    {eof, {_, 1}} = lists:last(Forms).
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).

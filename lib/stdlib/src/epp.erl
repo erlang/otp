@@ -110,14 +110,16 @@ open(Name, Path, Pdm) ->
     internal_open([{name, Name}, {includes, Path}, {macros, Pdm}], #epp{}).
 
 open(Name, File, StartLocation, Path, Pdm) ->
-    internal_open([{name, Name}, {includes, Path}, {macros, Pdm}],
-		  #epp{file=File, pre_opened=true, location=StartLocation}).
+    internal_open([{name, Name}, {includes, Path}, {macros, Pdm},
+                   {start_location, StartLocation}],
+		  #epp{file=File, pre_opened=true}).
 
 -spec open(Options) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
 		  {'source_name', SourceName :: file:name()} |
+                  {'start_location', StartLocation :: erl_anno:location()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  'extra'],
@@ -252,6 +254,7 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
+                  {'start_location', StartLocation :: erl_anno:location()} |
 		  'extra'],
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
       Line :: erl_anno:line(),
@@ -544,11 +547,12 @@ server(Pid, Name, Options, #epp{pre_opened=PreOpened}=St) ->
 
 init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
+    AtLocation = proplists:get_value(start_location, Options, 1),
     Pdm = proplists:get_value(macros, Options, []),
     Ms0 = predef_macros(FileName),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
-	    #epp{file = File, location = AtLocation} = St0,
+	    #epp{file = File} = St0,
             DefEncoding = proplists:get_value(default_encoding, Options,
                                               ?DEFAULT_ENCODING),
             Encoding = set_encoding(File, DefEncoding),
@@ -559,6 +563,7 @@ init_server(Pid, FileName, Options, St0) ->
                     proplists:get_value(includes, Options, [])],
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, macs=Ms1,
+                         location = AtLocation,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
