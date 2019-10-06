@@ -164,10 +164,10 @@ scan_erl_form(Epp) ->
 
 -spec parse_erl_form(Epp) ->
     {'ok', AbsForm} | {error, ErrorInfo} |
-    {'warning',WarningInfo} | {'eof',Line} when
+    {'warning',WarningInfo} | {'eof',Loc} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
-      Line :: erl_anno:line(),
+      Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -238,9 +238,9 @@ format_error(E) -> file:format_error(E).
                 {'ok', [Form]} | {error, OpenError} when
       FileName :: file:name(),
       IncludePath :: [DirectoryName :: file:name()],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Loc},
       PredefMacros :: macros(),
-      Line :: erl_anno:line(),
+      Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       OpenError :: file:posix() | badarg | system_limit.
 
@@ -256,8 +256,8 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'default_encoding', DefEncoding :: source_encoding()} |
                   {'start_location', StartLocation :: erl_anno:location()} |
 		  'extra'],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Loc},
+      Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       OpenError :: file:posix() | badarg | system_limit.
@@ -279,8 +279,8 @@ parse_file(Ifile, Options) ->
 -spec parse_file(Epp) -> [Form] when
       Epp :: epp_handle(),
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} |
-	      {'warning',WarningInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+	      {'warning',WarningInfo} | {'eof',Loc},
+      Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -929,8 +929,8 @@ scan_define_cont(F, #epp{macs=Ms0}=St, M, Defs, Arity, Def) ->
 	    Uses = Uses0#{M=>Val},
             scan_toks(F, St#epp{uses=Uses,macs=Ms})
     catch
-        {error, Line, Reason} ->
-            epp_reply(F, {error,{Line,epp,Reason}}),
+        {error, Loc, Reason} ->
+            epp_reply(F, {error,{Loc,epp,Reason}}),
             wait_req_scan(St)
     end.
 
