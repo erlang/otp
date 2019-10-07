@@ -310,6 +310,12 @@
     <datatype>
       <name name="supports_options"/>
     </datatype>
+    <datatype>
+      <name name="supports_send_flags"/>
+    </datatype>
+    <datatype>
+      <name name="supports_recv_flags"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -897,14 +903,19 @@
       <name name="supports" arity="1" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
+      <name name="supports" arity="1" clause_i="4" since="OTP-22.0"/>
+      <name name="supports" arity="1" clause_i="5" since="@OTP-16153@"/>
+      <name name="supports" arity="1" clause_i="6" since="@OTP-16153@"/>
+      <name name="supports" arity="1" clause_i="7" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="3" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="5" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="7" since="OTP 22.0"/>
+      <name name="supports" arity="2" clause_i="7" since="@OTP-16153@"/>
+      <name name="supports" arity="2" clause_i="8" since="@OTP-16153@"/>
+      <name name="supports" arity="2" clause_i="9" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="3" since="OTP 22.0"/>

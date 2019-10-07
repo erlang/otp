@@ -1014,10 +1014,8 @@ supports(_Key1) ->
               (options,    tcp)      -> supports_options_tcp();
               (options,    udp)      -> supports_options_udp();
               (options,    sctp)     -> supports_options_sctp();
-              (send_flags, SendFlag) -> boolean() when
-      SendFlag :: send_flag();
-              (send_flags, RecvFlag) -> boolean() when
-      RecvFlag :: recv_flag();
+              (send_flags, SendFlag :: send_flag()) -> boolean();
+              (recv_flags, RecvFlag :: recv_flag()) -> boolean();
               (Key1,       Key2)     -> false when
       Key1     :: term(),
       Key2     :: term().
@@ -1033,18 +1031,12 @@ supports(_Key1, _Level) ->
 
 
 -dialyzer({nowarn_function, supports/3}).
--spec supports(options, socket, Opt) -> boolean() when
-      Opt :: socket_option();
-              (options, ip, Opt) -> boolean() when
-      Opt :: ip_socket_option();
-              (options, ipv6, Opt) -> boolean() when
-      Opt :: ipv6_socket_option();
-              (options, tcp, Opt) -> boolean() when
-      Opt :: tcp_socket_option();
-              (options, udp, Opt) -> boolean() when
-      Opt :: udp_socket_option();
-              (options, sctp, Opt) -> boolean() when
-      Opt :: sctp_socket_option();
+-spec supports(options, socket, Opt :: socket_option()) -> boolean();
+              (options, ip,     Opt :: ip_socket_option()) -> boolean();
+              (options, ipv6,   Opt :: ipv6_socket_option()) -> boolean();
+              (options, tcp,    Opt :: tcp_socket_option()) -> boolean();
+              (options, udp,    Opt :: udp_socket_option()) -> boolean();
+              (options, sctp,   Opt :: sctp_socket_option()) -> boolean();
               (Key1, Key2, Key3) -> false when
       Key1 :: term(),
       Key2 :: term(),
