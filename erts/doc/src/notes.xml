@@ -3186,6 +3186,43 @@
 
 </section>
 
+<section><title>Erts 9.3.3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The runtime system disconnected a connection if it
+	    received an <c>exit/2</c> signal where the recipient was
+	    a process on an old incarnation of the current node. That
+	    is, the receiving node had the same node name, but
+	    another "creation" number. The signal will now just be
+	    dropped since the receiving process no longer exists.</p>
+          <p>
+	    Own Id: OTP-15867 Aux Id: ERIERL-373 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in <c>binary_to_term</c> that would crash the
+	    emulator if a term larger than 16GB was to be decoded.</p>
+          <p>
+	    Own Id: OTP-16058 Aux Id: PR-2382 </p>
+        </item>
+        <item>
+          <p>
+	    When communicating with a simultaneously exiting port via
+	    the <c>erlang:port_*()</c> BIFs one could sometimes get
+	    stray <c>{Ref, What}</c> messages. Where <c>Ref</c> was a
+	    reference and <c>What</c> usually were the atom
+	    <c>badarg</c>.</p>
+          <p>
+	    Own Id: OTP-16107 Aux Id: ERL-1049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
