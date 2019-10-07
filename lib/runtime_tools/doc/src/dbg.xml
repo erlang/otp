@@ -808,7 +808,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">tracer(Type, Data) -> {ok, pid()} | {error, Error}</name>
       <fsummary>Start a tracer server with additional parameters</fsummary>
       <type>
-        <v>Type = port | process | module</v>
+        <v>Type = port | process | module | logger</v>
         <v>Data = PortGenerator | HandlerSpec | ModuleSpec</v>
         <v>PortGenerator = fun() (no arguments)</v>
         <v>Error = term()</v>
@@ -823,8 +823,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           parameters on the local node. The first parameter, the
           <c>Type</c>, indicates if trace messages should be handled
           by a receiving process (<c>process</c>), by a tracer port
-          (<c>port</c>) or by a tracer module
-          (<c>module</c>). For a description about tracer ports see
+          (<c>port</c>), by a tracer module
+          (<c>module</c>) or by creating a
+          <seemod marker="kernel:logger">logger</seemod> event.
+          For a description about tracer ports see
           <seemfa marker="#trace_port/2"><c>trace_port/2</c></seemfa>
           and for a tracer modules see
           <seeerl marker="erts:erl_tracer"><c>erl_tracer</c></seeerl>.
@@ -849,6 +851,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
             be either a tuple describing the <seeerl marker="erts:erl_tracer"><c>erl_tracer</c></seeerl>
           module to be used for tracing and the state to be used for
           that tracer module or a fun returning the same tuple.</p>
+        <p>if <c>Type</c> is <c>logger</c>, then the second parameter
+          is the logger level that the trace event should be emitted as.
+          If not level is given it defaults to DEBUG level.</p>
         <p>If an error is returned, it can either be due to a tracer
           server already running (<c>{error,already_started}</c>) or
           due to the <c>HandlerFun</c> throwing an exception.

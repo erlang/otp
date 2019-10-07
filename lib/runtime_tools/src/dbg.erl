@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg).
--export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,
+-export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,tracer/1,
 	 tracer/2, tracer/3, get_tracer/0, get_tracer/1, tp/2, tp/3, tp/4, 
 	 tpe/2, ctpe/1,
 	 ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, ctpl/0, ctpl/1, 
@@ -304,6 +304,12 @@ rtp(FileName) ->
 
 tracer() ->
     tracer(process, {fun dhandler/2,user}).
+
+tracer(logger) ->
+    tracer(logger, debug).
+
+tracer(logger, Level) ->
+    tracer(process, {fun loggerhandler/2,Level});
 
 tracer(port, Fun) when is_function(Fun) ->
     start(Fun);
@@ -981,170 +987,156 @@ do_relay_1(RelP) ->
 	    do_relay_1(RelP)
     end.
 
-dhandler(end_of_trace, Out) ->
-    Out;
-dhandler(Trace, Out) when element(1, Trace) == trace, tuple_size(Trace) >= 3 ->
-    dhandler1(Trace, tuple_size(Trace), out(Out));
-dhandler(Trace, Out) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
-    dhandler1(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace)
-             , out(Out));
-dhandler(Trace, Out) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
+dhandler(Trace, Out) ->
     {Device,Modifier} = out(Out),
-    io:format(Device, "*** Dropped ~p messages.~n", [element(2,Trace)]),
-    {Device,Modifier};
-dhandler(Trace, Out) when element(1, Trace) == seq_trace,
-                          tuple_size(Trace) >= 3 ->
-    {Device,Modifier} = out(Out),
-    SeqTraceInfo = case Trace of
-		       {seq_trace, Lbl, STI, TS} ->
-			   io:format(Device, "SeqTrace ~p [~p]: ",
-				     [TS, Lbl]),
-			   STI;
-		       {seq_trace, Lbl, STI} ->
-			  io:format(Device, "SeqTrace [~p]: ",
-				     [Lbl]),
-			   STI 
-		   end,
-    case SeqTraceInfo of
-	{send, Ser, Fr, To, Mes} ->
-	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p [Serial: ~p]~n",
-		      [Fr, To, Mes, Ser]);
-	{'receive', Ser, Fr, To, Mes} ->
-	    io:format(Device, "(~p) << ~"++Modifier++"p [Serial: ~p, From: ~p]~n",
-		      [To, Mes, Ser, Fr]);
-	{print, Ser, Fr, _, Info} ->
-	    io:format(Device, "-> ~"++Modifier++"p [Serial: ~p, From: ~p]~n",
-		      [Info, Ser, Fr]);
-	Else ->
-	    io:format(Device, "~"++Modifier++"p~n", [Else])
+    case dhandler_format(Trace,Modifier) of
+        {Fmt, Args} ->
+            io:format(Device, Fmt, Args);
+        undefined ->
+            ok
     end,
-    {Device,Modifier};
-dhandler(_Trace, Out) ->
     Out.
 
-dhandler1(Trace, Size, {Device,Modifier}) ->
-    From = element(2, Trace),
-    case element(3, Trace) of
-	'receive' ->
-	    case element(4, Trace) of
-		{dbg,ok} -> ok;
-		Message ->
-		    io:format(Device, "(~p) << ~"++Modifier++"p~n",
-                              [From,Message])
-	    end;
-	'send' ->
-	    Message = element(4, Trace),
-	    To = element(5, Trace),
-	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p~n", [From,To,Message]);
-	call ->
-	    case element(4, Trace) of
-		MFA when Size == 5 ->
-		    Message = element(5, Trace),
-		    io:format(Device,
-                              "(~p) call ~"++Modifier++"s (~"++Modifier++"p)~n",
-                              [From,ffunc(MFA,Modifier),Message]);
-		MFA ->
-		    io:format(Device, "(~p) call ~"++Modifier++"s~n",
-                              [From,ffunc(MFA,Modifier)])
-	    end;
-	return -> %% To be deleted...
-	    case element(4, Trace) of
-		MFA when Size == 5 ->
-		    Ret = element(5, Trace),
-		    io:format(Device,
-                              "(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
-                                  "p~n",
-                              [From,ffunc(MFA,Modifier),Ret]);
-		MFA ->
-		    io:format(Device, "(~p) old_ret ~"++Modifier++"s~n",
-                              [From,ffunc(MFA,Modifier)])
-	    end;
-	return_from ->
-	    MFA = element(4, Trace),
-	    Ret = element(5, Trace),
-	    io:format(Device,
-                      "(~p) returned from ~"++Modifier++"s -> ~"++Modifier++"p~n",
-                      [From,ffunc(MFA,Modifier),Ret]);
-	return_to ->
-	    MFA = element(4, Trace),
-	    io:format(Device, "(~p) returning to ~"++Modifier++"s~n",
-                      [From,ffunc(MFA,Modifier)]);
-	spawn when Size == 5 ->
-	    Pid = element(4, Trace),
-	    MFA = element(5, Trace),
-	    io:format(Device, "(~p) spawn ~p as ~"++Modifier++"s~n",
-                      [From,Pid,ffunc(MFA,Modifier)]);
-	Op ->
-	    io:format(Device, "(~p) ~p ~"++Modifier++"s~n",
-                      [From,Op,ftup(Trace,4,Size,Modifier)])
-    end,
-    {Device,Modifier}.
+dhandler_format(end_of_trace, _Modifier) ->
+    undefined;
+dhandler_format(Trace, Modifier) when element(1, Trace) == trace, tuple_size(Trace) >= 3 ->
+    dhandler_format_event(Trace, tuple_size(Trace), Modifier);
+dhandler_format(Trace, Modifier) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
+    TS = element(tuple_size(Trace), Trace),
+    {EvtFmt,EvtArgs} = dhandler_format_event(Trace, tuple_size(Trace)-1, Modifier),
+    {EvtFmt ++ " (Timestamp ~p)",EvtArgs ++ [TS]};
+dhandler_format(Trace, _Modifier) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
+    {"*** Dropped ~p messages.~n",[element(2,Trace)]};
+dhandler_format({seq_trace, Lbl, STI, TS}, Modifier) ->
+    {EvtFmt,EvtArgs} = dhandler_format({seq_trace, Lbl, STI}, Modifier),
+    {EvtFmt ++ " (Timestamp ~p)",EvtArgs ++ [TS]};
+dhandler_format({seq_trace, Lbl, STI}, Modifier) ->
+    {EvtFmt, EvtArgs} =
+        case STI of
+            {send, Ser, Fr, To, Mes} ->
+                {"(~p) ~p ! ~"++Modifier++"p [Serial: ~p]",[Fr, To, Mes, Ser]};
+            {'receive', Ser, Fr, To, Mes} ->
+                {"(~p) << ~"++Modifier++"p [Serial: ~p, From: ~p]", [To, Mes, Ser, Fr]};
+            {print, Ser, Fr, _, Info} ->
+                {"-> ~"++Modifier++"p [Serial: ~p, From: ~p]", [Info, Ser, Fr]};
+            Else ->
+                {"~"++Modifier++"p", [Else]}
+        end,
+    {"SeqTrace [~p]: " ++ EvtFmt, [Lbl] ++ EvtArgs};
+dhandler_format(_Trace, _Out) ->
+    undefined.
 
-dhandler1(Trace, Size, TS, {Device,Modifier}) ->
+dhandler_format_event(Trace, Size, Modifier) ->
     From = element(2, Trace),
     case element(3, Trace) of
 	'receive' ->
 	    case element(4, Trace) of
-		{dbg,ok} -> ok;
+		{dbg,ok} -> undefined;
 		Message ->
-		    io:format(Device,
-                              "(~p) << ~"++Modifier++"p (Timestamp: ~p)~n",
-                              [From,Message,TS])
+                    {"(~p) << ~"++Modifier++"p",[From,Message]}
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
 	    To = element(5, Trace),
-	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p (Timestamp: ~p)~n",
-                      [From,To,Message,TS]);
+	    {"(~p) ~p ! ~"++Modifier++"p", [From,To,Message]};
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Message = element(5, Trace),
-		    io:format(Device,
-                              "(~p) call ~"++Modifier++"s (~"++Modifier++
-                                  "p) (Timestamp: ~p)~n",
-                              [From,ffunc(MFA,Modifier),Message,TS]);
+		    {"(~p) call ~"++Modifier++"s (~"++Modifier++"p)",
+                     [From,ffunc(MFA,Modifier),Message]};
 		MFA ->
-		    io:format(Device,
-                              "(~p) call ~"++Modifier++"s (Timestamp: ~p)~n",
-                              [From,ffunc(MFA,Modifier),TS])
+		    {"(~p) call ~"++Modifier++"s",
+                     [From,ffunc(MFA,Modifier)]}
 	    end;
 	return -> %% To be deleted...
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Ret = element(5, Trace),
-		    io:format(Device,
-                              "(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
-                                  "p (Timestamp: ~p)~n",
-                              [From,ffunc(MFA,Modifier),Ret,TS]);
+		    {"(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
+                         "p",
+                     [From,ffunc(MFA,Modifier),Ret]};
 		MFA ->
-		    io:format(Device,
-                              "(~p) old_ret ~"++Modifier++"s (Timestamp: ~p)~n",
-                              [From,ffunc(MFA,Modifier),TS])
+		    {"(~p) old_ret ~"++Modifier++"s",
+                     [From,ffunc(MFA,Modifier)]}
 	    end;
 	return_from ->
 	    MFA = element(4, Trace),
 	    Ret = element(5, Trace),
-	    io:format(Device,
-                      "(~p) returned from ~"++Modifier++"s -> ~"++Modifier++
-                          "p (Timestamp: ~p)~n",
-                      [From,ffunc(MFA,Modifier),Ret,TS]);
+	    {"(~p) returned from ~"++Modifier++"s -> ~"++Modifier++"p",
+             [From,ffunc(MFA,Modifier),Ret]};
 	return_to ->
 	    MFA = element(4, Trace),
-	    io:format(Device,
-                      "(~p) returning to ~"++Modifier++"s (Timestamp: ~p)~n",
-                      [From,ffunc(MFA,Modifier),TS]);
+            {"(~p) returning to ~"++Modifier++"s",
+             [From,ffunc(MFA,Modifier)]};
 	spawn when Size == 5 ->
 	    Pid = element(4, Trace),
 	    MFA = element(5, Trace),
-	    io:format(Device,
-                      "(~p) spawn ~p as ~"++Modifier++"s (Timestamp: ~p)~n",
-                      [From,Pid,ffunc(MFA,Modifier),TS]);
+	    {"(~p) spawn ~p as ~"++Modifier++"s",
+             [From,Pid,ffunc(MFA,Modifier)]};
 	Op ->
-	    io:format(Device, "(~p) ~p ~"++Modifier++"s (Timestamp: ~p)~n",
-                      [From,Op,ftup(Trace,4,Size,Modifier),TS])
+	    {"(~p) ~p ~"++Modifier++"s",
+             [From,Op,ftup(Trace,4,Size,Modifier)]}
+    end.
+
+
+loggerhandler(Trace, Level) ->
+    Metadata = #{ report_cb => fun dhandler_format/1 },
+    case dhandler_event_to_report(Trace) of
+        {Report, {MS,S,US}} ->
+            logger:Level(Report, Metadata#{ time => MS * 1000000000000 + S * 1000000 + US });
+        #{} = Report ->
+            logger:Level(Report, Metadata)
     end,
-    {Device,Modifier}.
+    Level.
+
+dhandler_event_to_report(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
+    TS = element(tuple_size(Trace), Trace),
+    TraceNoTS = erlang:setelement(1,erlang:delete_element(tuple_size(Trace), Trace),trace),
+    {dhandler_event_to_report(TraceNoTS), TS};
+dhandler_event_to_report(Trace) when element(1, Trace) == trace, tuple_size(Trace) >= 3 ->
+
+    MFAToReport = fun({M,F,A}) when is_integer(A) ->
+                        #{ module => M, function => F, arity => A};
+                     ({M,F,Args}) when is_list(Args) ->
+                        #{ module => M, function => F, args => Args}
+                  end,
+
+    R = case element(3, Trace) of
+            'receive' ->
+                #{ message => element(4, Trace)};
+            'send' ->
+                #{ message => element(4, Trace), to => element(5, Trace) };
+            call ->
+                MatchMessage =
+                    try
+                            #{ message => element(5, Trace) }
+                    catch _:_ ->
+                            #{}
+                    end,
+                maps:merge(MatchMessage, MFAToReport(element(4, Trace)));
+            return_from ->
+                maps:merge(#{ return => element(5, Trace) }, MFAToReport(element(4, Trace)));
+            return_to ->
+                MFAToReport(element(4, Trace));
+            spawn ->
+                maps:merge(#{ spawned_pid => element(4, Trace) }, MFAToReport(element(5, Trace)));
+            _Op ->
+                #{}
+        end,
+    R#{ pid => element(2, Trace), event => element(3, Trace), trace => Trace };
+dhandler_event_to_report({drop, N} = Trace) ->
+    #{ event => drop, count => N, trace => Trace};
+dhandler_event_to_report(Trace) ->
+    #{ trace => Trace }.
+
+dhandler_format(#{ trace := Trace }) ->
+    case dhandler_format(Trace, "t") of
+        undefined ->
+            {"",[]};
+        Else ->
+            Else
+    end.
 
 %%% These f* functions returns non-flat strings
 
