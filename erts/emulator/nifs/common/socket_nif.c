@@ -666,10 +666,12 @@ typedef union {
 
 #define ESOCK_CMD_DEBUG        0x0001
 
-#define ESOCK_SUPPORTS_OPTIONS 0x0001
-#define ESOCK_SUPPORTS_SCTP    0x0002
-#define ESOCK_SUPPORTS_IPV6    0x0003
-#define ESOCK_SUPPORTS_LOCAL   0x0004
+#define ESOCK_SUPPORTS_OPTIONS      0x0001
+#define ESOCK_SUPPORTS_SCTP         0x0002
+#define ESOCK_SUPPORTS_IPV6         0x0003
+#define ESOCK_SUPPORTS_LOCAL        0x0004
+#define ESOCK_SUPPORTS_SEND_FLAGS   0x0005
+#define ESOCK_SUPPORTS_RECV_FLAGS   0x0006
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
@@ -1064,6 +1066,8 @@ static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ipv6(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open(ErlNifEnv* env,
                           int        domain,
@@ -2728,9 +2732,11 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(busy_poll);                       \
     GLOBAL_ATOM_DECL(checksum);                        \
     GLOBAL_ATOM_DECL(close);                           \
+    GLOBAL_ATOM_DECL(cmsg_cloexec);                    \
     GLOBAL_ATOM_DECL(command);                         \
-    GLOBAL_ATOM_DECL(connect);                         \
+    GLOBAL_ATOM_DECL(confirm);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
+    GLOBAL_ATOM_DECL(connect);                         \
     GLOBAL_ATOM_DECL(context);                         \
     GLOBAL_ATOM_DECL(cork);                            \
     GLOBAL_ATOM_DECL(credentials);                     \
@@ -2796,6 +2802,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(md5sig);                          \
     GLOBAL_ATOM_DECL(mincost);                         \
     GLOBAL_ATOM_DECL(minttl);                          \
+    GLOBAL_ATOM_DECL(more);                            \
     GLOBAL_ATOM_DECL(msfilter);                        \
     GLOBAL_ATOM_DECL(mtu);                             \
     GLOBAL_ATOM_DECL(mtu_discover);                    \
@@ -2808,6 +2815,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(nodefrag);                        \
     GLOBAL_ATOM_DECL(noopt);                           \
     GLOBAL_ATOM_DECL(nopush);                          \
+    GLOBAL_ATOM_DECL(nosignal);                        \
     GLOBAL_ATOM_DECL(not_found);                       \
     GLOBAL_ATOM_DECL(not_owner);                       \
     GLOBAL_ATOM_DECL(ok);                              \
@@ -2818,6 +2826,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(partial_delivery_point);          \
     GLOBAL_ATOM_DECL(passcred);                        \
     GLOBAL_ATOM_DECL(path);                            \
+    GLOBAL_ATOM_DECL(peek);                            \
     GLOBAL_ATOM_DECL(peekcred);                        \
     GLOBAL_ATOM_DECL(peek_off);                        \
     GLOBAL_ATOM_DECL(peer_addr_params);                \
@@ -3499,16 +3508,6 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
         result = esock_supports_options(env);
         break;
 
-        /*
-    case ESOCK_SUPPORTS_SEND_FLAGS:
-        result = esock_supports_send_flags(env);
-        break;
-
-    case ESOCK_SUPPORTS_RECV_FLAGS:
-        result = esock_supports_recv_flags(env);
-        break;
-        */
-
     case ESOCK_SUPPORTS_SCTP:
         result = esock_supports_sctp(env);
         break;
@@ -3519,6 +3518,14 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
 
     case ESOCK_SUPPORTS_LOCAL:
         result = esock_supports_local(env);
+        break;
+
+    case ESOCK_SUPPORTS_SEND_FLAGS:
+        result = esock_supports_send_flags(env);
+        break;
+
+    case ESOCK_SUPPORTS_RECV_FLAGS:
+        result = esock_supports_recv_flags(env);
         break;
 
     default:
@@ -4762,6 +4769,141 @@ ERL_NIF_TERM esock_supports_local(ErlNifEnv* env)
     return supports;
 }
 #endif
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env)
+{
+    SocketTArray sflags = TARRAY_CREATE(8);
+    ERL_NIF_TERM tmp, sflagsL;
+
+
+    /* *** ESOCK_SEND_FLAG_OOB => MSG_OOB *** */
+#if defined(MSG_OOB)
+    tmp = MKT2(env, esock_atom_oob, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_oob, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_DONTROUTE => MSG_DONTROUTE *** */
+#if defined(MSG_DONTROUTE)
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_EOR => MSG_EOR *** */
+#if defined(MSG_EOR)
+    tmp = MKT2(env, esock_atom_eor, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_eor, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_CONFIRM => MSG_CONFIRM *** */
+#if defined(MSG_CONFIRM)
+    tmp = MKT2(env, esock_atom_confirm, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_confirm, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_NOSIGNAL => MSG_NOSIGNAL *** */
+#if defined(MSG_NOSIGNAL)
+    tmp = MKT2(env, esock_atom_nosignal, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_nosignal, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_MORE => MSG_MORE *** */
+#if defined(MSG_MORE)
+    tmp = MKT2(env, esock_atom_more, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_more, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    TARRAY_TOLIST(sflags, env, &sflagsL);
+    
+    return sflagsL;
+}
+#endif
+
+
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
+{
+    SocketTArray rflags = TARRAY_CREATE(8);
+    ERL_NIF_TERM tmp, rflagsL;
+
+
+    /* *** ESOCK_SEND_FLAG_OOB => MSG_OOB *** */
+#if defined(MSG_OOB)
+    tmp = MKT2(env, esock_atom_oob, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_oob, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_PEEK => MSG_PEEK *** */
+#if defined(MSG_PEEK)
+    tmp = MKT2(env, esock_atom_peek, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_peek, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_TRUNC => MSG_TRUNC *** */
+#if defined(MSG_TRUNC)
+    tmp = MKT2(env, esock_atom_trunc, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_trunc, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_ERRQUEUE => MSG_ERRQUEUE *** */
+#if defined(MSG_ERRQUEUE)
+    tmp = MKT2(env, esock_atom_errqueue, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_errqueue, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_CMSG_CLOEXEC => MSG_CMSG_CLOEXEC *** */
+#if defined(MSG_CMSG_CLOEXEC)
+    tmp = MKT2(env, esock_atom_cmsg_cloexec, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_cmsg_cloexec, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    TARRAY_TOLIST(rflags, env, &rflagsL);
+    
+    return rflagsL;
+}
+#endif
+
+
 
 
 

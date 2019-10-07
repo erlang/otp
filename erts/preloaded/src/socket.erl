@@ -871,10 +871,12 @@
 -define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
--define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
--define(SOCKET_SUPPORTS_SCTP,    16#0002).
--define(SOCKET_SUPPORTS_IPV6,    16#0003).
--define(SOCKET_SUPPORTS_LOCAL,   16#0004).
+-define(SOCKET_SUPPORTS_OPTIONS,    16#0001).
+-define(SOCKET_SUPPORTS_SCTP,       16#0002).
+-define(SOCKET_SUPPORTS_IPV6,       16#0003).
+-define(SOCKET_SUPPORTS_LOCAL,      16#0004).
+-define(SOCKET_SUPPORTS_SEND_FLAGS, 16#0005).
+-define(SOCKET_SUPPORTS_RECV_FLAGS, 16#0006).
 
 
 %% ===========================================================================
@@ -955,30 +957,38 @@ info(#socket{ref = SockRef}) ->
 -type supports_options_tcp()    :: [{tcp_socket_option(),  boolean()}].
 -type supports_options_udp()    :: [{udp_socket_option(),  boolean()}].
 -type supports_options_sctp()   :: [{sctp_socket_option(), boolean()}].
--type supports_options() :: [{socket, supports_options_socket()} |
-                             {ip,     supports_options_ip()}     |
-                             {ipv6,   supports_options_ipv6()}   |
-                             {tcp,    supports_options_tcp()}    |
-                             {udp,    supports_options_udp()}    |
-                             {sctp,   supports_options_sctp()}].
+-type supports_options()        :: [{socket, supports_options_socket()} |
+                                    {ip,     supports_options_ip()}     |
+                                    {ipv6,   supports_options_ipv6()}   |
+                                    {tcp,    supports_options_tcp()}    |
+                                    {udp,    supports_options_udp()}    |
+                                    {sctp,   supports_options_sctp()}].
+-type supports_send_flags()     :: [{send_flag(), boolean()}].
+-type supports_recv_flags()     :: [{recv_flag(), boolean()}].
 
--spec supports() -> [{options, supports_options()} | 
-                     {sctp,    boolean()} |
-                     {ipv6,    boolean()} |
-                     {local,   boolean()}].
+-spec supports() -> [{options,    supports_options()} | 
+                     {sctp,       boolean()} |
+                     {ipv6,       boolean()} |
+                     {local,      boolean()} |
+                     {send_flags, supports_send_flags()} |
+                     {recv_flags, supports_recv_flags()}].
 
 supports() ->
-    [{options, supports(options)},
-     {sctp,    supports(sctp)},
-     {ipv6,    supports(ipv6)},
-     {local,   supports(local)}].
+    [{options,    supports(options)},
+     {sctp,       supports(sctp)},
+     {ipv6,       supports(ipv6)},
+     {local,      supports(local)},
+     {send_flags, supports(send_flags)},
+     {recv_flags, supports(recv_flags)}].
 
 
 -dialyzer({nowarn_function, supports/1}).
--spec supports(options) -> supports_options();
-              (sctp)    -> boolean();
-              (ipv6)    -> boolean();
-              (local)   -> boolean();
+-spec supports(options)    -> supports_options();
+              (sctp)       -> boolean();
+              (ipv6)       -> boolean();
+              (local)      -> boolean();
+              (send_flags) -> supports_send_flags();
+              (recv_flags) -> supports_recv_flags();
               (Key1)    -> false when
       Key1 :: term().
                         
@@ -990,22 +1000,34 @@ supports(ipv6) ->
     nif_supports(?SOCKET_SUPPORTS_IPV6);
 supports(local) ->
     nif_supports(?SOCKET_SUPPORTS_LOCAL);
+supports(send_flags) ->
+    nif_supports(?SOCKET_SUPPORTS_SEND_FLAGS);
+supports(recv_flags) ->
+    nif_supports(?SOCKET_SUPPORTS_RECV_FLAGS);
 supports(_Key1) ->
     false.
 
 -dialyzer({nowarn_function, supports/2}).
--spec supports(options, socket) -> supports_options_socket();
-              (options, ip) -> supports_options_ip();
-              (options, ipv6) -> supports_options_ipv6();
-              (options, tcp) -> supports_options_tcp();
-              (options, udp) -> supports_options_udp();
-              (options, sctp) -> supports_options_sctp();
-              (Key1, Key2) -> false when
-      Key1 :: term(),
-      Key2 :: term().
+-spec supports(options,    socket)   -> supports_options_socket();
+              (options,    ip)       -> supports_options_ip();
+              (options,    ipv6)     -> supports_options_ipv6();
+              (options,    tcp)      -> supports_options_tcp();
+              (options,    udp)      -> supports_options_udp();
+              (options,    sctp)     -> supports_options_sctp();
+              (send_flags, SendFlag) -> boolean() when
+      SendFlag :: send_flag();
+              (send_flags, RecvFlag) -> boolean() when
+      RecvFlag :: recv_flag();
+              (Key1,       Key2)     -> false when
+      Key1     :: term(),
+      Key2     :: term().
 
 supports(options, Level) ->
     proplists:get_value(Level, supports(options), false);
+supports(send_flags, Flag) ->
+    proplists:get_value(Flag, supports(send_flags), false);
+supports(recv_flags, Flag) ->
+    proplists:get_value(Flag, supports(recv_flags), false);
 supports(_Key1, _Level) ->
     false.
 
