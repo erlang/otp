@@ -66,13 +66,13 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
     {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
 
-    {{"aes_128_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_192_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_256_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_128_cfb8"}, {&EVP_aes_128_cfb8}, 16, AES_CFBx},
+    {{"aes_192_cfb8"}, {&EVP_aes_192_cfb8}, 24, AES_CFBx},
+    {{"aes_256_cfb8"}, {&EVP_aes_256_cfb8}, 32, AES_CFBx},
 
-    {{"aes_128_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_192_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_256_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_128_cfb128"}, {&EVP_aes_128_cfb128}, 16, AES_CFBx},
+    {{"aes_192_cfb128"}, {&EVP_aes_192_cfb128}, 24, AES_CFBx},
+    {{"aes_256_cfb128"}, {&EVP_aes_256_cfb128}, 32, AES_CFBx},
 
     {{"aes_128_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L},
     {{"aes_192_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L},
