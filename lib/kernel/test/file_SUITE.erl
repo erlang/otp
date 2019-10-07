@@ -2233,23 +2233,32 @@ allocate_and_assert(Fd, Offset, Length) ->
 allocate_file_size(Config) when is_list(Config) ->
     case os:type() of
         {unix, darwin} ->
-            PrivDir = proplists:get_value(priv_dir, Config),
-            Allocate = filename:join(PrivDir, atom_to_list(?MODULE)++"_allocate_file"),
-
-            {ok, Fd} = ?FILE_MODULE:open(Allocate, [write]),
-            ok = ?FILE_MODULE:allocate(Fd, 0, 1024),
-            {ok, 1024} = ?FILE_MODULE:position(Fd, eof),
-            ok = ?FILE_MODULE:close(Fd),
-
-            [] = flush(),
-            ok;
+            do_allocate_file_size(Config);
         {unix, linux} ->
-            {skip, "file:allocate/3 on Linux does not change file size"};
+            do_allocate_file_size(Config);
         {win32, _} ->
             {skip, "Windows does not support file:allocate/3"};
         _ ->
             {skip, "Support for allocate/3 is spotty in our test platform at the moment."}
     end.
+
+do_allocate_file_size(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Allocate = filename:join(PrivDir, atom_to_list(?MODULE)++"_allocate_file"),
+
+    {ok, Fd} = ?FILE_MODULE:open(Allocate, [write]),
+    Result =
+        case ?FILE_MODULE:allocate(Fd, 0, 1024) of
+            ok ->
+                {ok, 1024} = ?FILE_MODULE:position(Fd, eof),
+                ok;
+            {error, enotsup} ->
+                {skip, "Filesystem does not support file:allocate/3"}
+          end,
+    ok = ?FILE_MODULE:close(Fd),
+
+    [] = flush(),
+    Result.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

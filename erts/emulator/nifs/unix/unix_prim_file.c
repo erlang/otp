@@ -562,7 +562,7 @@ int efile_allocate(efile_data_t *d, Sint64 offset, Sint64 length) {
 #if defined(HAVE_FALLOCATE)
     /* Linux-specific */
     do {
-        ret = fallocate(u->fd, FALLOC_FL_KEEP_SIZE, offset, length);
+        ret = fallocate(u->fd, 0, offset, length);
     } while(ret < 0 && errno == EINTR);
 #elif defined(F_PREALLOCATE)
     /* Mac-specific */
