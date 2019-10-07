@@ -10196,7 +10196,8 @@ api_opt_sock_oobinline(_Config) when is_list(_Config) ->
     tc_try(api_opt_sock_ooinline,
            fun() ->
                    has_support_sock_oobinline(),
-                   %% has_support_send_flag_oob(),
+                   has_support_send_flag_oob(),
+                   has_support_recv_flag_oob(),
                    is_not_freebsd()
            end,
            fun() ->
@@ -33260,16 +33261,26 @@ has_support_socket_option(Level, Option) ->
     end.
 
 
-%% has_support_send_flag_oob() ->
-%%     has_support_send_flag(oob).
+has_support_send_flag_oob() ->
+    has_support_send_flag(oob).
 
-%% has_support_send_flag(Flag) ->
-%%     case socket:supports(send_flags, Flag) of
-%%         true ->
-%%             ok;
-%%         false ->
-%%             skip(?F("Send Flag ~w *Not* Supported", [Flag]))
-%%     end.
+has_support_send_flag(Flag) ->
+    has_support_send_or_recv_flag("Send", send_flags, Flag).
+
+has_support_recv_flag_oob() ->
+    has_support_recv_flag(oob).
+
+has_support_recv_flag(Flag) ->
+    has_support_send_or_recv_flag("Recv", recv_flags, Flag).
+
+has_support_send_or_recv_flag(Pre, Key, Flag) ->
+    case socket:supports(Key, Flag) of
+        true ->
+            ok;
+        false ->
+            skip(?F("~s Flag ~w *Not* Supported", [Pre, Flag]))
+    end.
+
 
 
 is_not_freebsd() ->
