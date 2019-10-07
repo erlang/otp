@@ -53,6 +53,12 @@
                      tracker              :: pid() | 'undefined' %% Tracker process for listen socket
                     }).
 
+-record(tickets, {
+                  nonce = 0        :: integer(),
+                  ticket_iv        :: binary(),
+                  ticket_key_shard :: binary()
+                 }).
+
 -record(handshake_env, {
                         client_hello_version  :: ssl_record:ssl_version() | 'undefined',
                         unprocessed_handshake_events = 0    :: integer(),
@@ -60,7 +66,8 @@
                                                | 'undefined',
                         expecting_finished =                  false ::boolean(),
                         renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
-                        resumption = false   :: boolean(),
+                        resumption = false   :: boolean(),  %% TLS 1.3
+                        tickets              :: undefined | #tickets{},  %% TLS 1.3
                         allow_renegotiate = true                    ::boolean(),
                         %% Ext handling
                         hello,                %%:: #client_hello{} | #server_hello{}            

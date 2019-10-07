@@ -559,7 +559,10 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        State1 = update_start_state(State0,
+        %% Initialize tickets record
+        State1 = maybe_initialize_tickets(State0),
+
+        State2 = update_start_state(State1,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
                                       session_id => SessionId,
@@ -574,7 +577,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId))
+        Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId))
 
         %% TODO: session handling
 
@@ -795,14 +798,14 @@ do_wait_finished(#finished{verify_data = VerifyData},
         Maybe(validate_client_finished(State0, VerifyData)),
 
         State1 = calculate_traffic_secrets(State0),
+        State2 = maybe_calculate_resumption_master_secret(State1),
 
         %% Configure traffic keys
-        State = ssl_record:step_encryption_state(State1),
+        State3 = ssl_record:step_encryption_state(State2),
 
         %% Send session ticket
-        maybe_send_session_ticket(State),
+        maybe_send_session_ticket(State3)
 
-        State
     catch
         {Ref, decrypt_error} ->
             ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
@@ -1114,34 +1117,79 @@ maybe_send_certificate_request(State, #{verify := verify_peer,
     {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = _State) ->
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = State) ->
     %% Do nothing!
-    ok;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State) ->
-    NewSessionTicket = create_stateless_ticket(),
+    State;
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State0) ->
+    {State, NewSessionTicket} = create_stateless_ticket(State0),
     {_, _} = tls_connection:send_handshake(NewSessionTicket, State),
-    ok.
+    State.
 
 
-create_stateless_ticket() ->
-    #new_session_ticket{
-       ticket_lifetime = 7200,
-       ticket_age_add = 937352221,
-       ticket_nonce = <<0,0,0,0,0,0,0,0>>,
-       ticket = <<235,91,136,113,238,205,6,116,242,94,170,64,47,215,120,17,18,51,166,
-           213,81,5,32,161,98,200,136,45,37,45,155,246,77,193,226,136,67,105,
-           80,7,42,114,14,148,246,15,249,108,210,104,145,90,31,56,118,228,149,
-           209,50,48,147,230,16,220,252,203,152,96,34,168,220,191,165,114,254,
-           215,78,252,15,68,69,28,114,148,103,222,107,132,114,4,151,18,133,1,
-           12,94,80,113,189,95,226,42,194,2,27,72,59,98,93,42,102,81,161,181,
-           143,184,90,165,36,183,45,229,111,93,12,114,78,158,151,239,213,119,
-           55,172,186,104,177,216,46,45,249,181,197,133,137,23,33,39,31,115,
-           235,214,85,117,153,137,105,169,57,20,39,110,142,40,84,85,55,51,107,
-           207,193,196,121,246,237,165,18,202,135,234,143,66,209,107,230,242,
-           70,223,31,73,40,145,162,226,187,161,182,125,211,76,250,94,165,197,
-           159,119,223,220>>,
-       extensions = #{}
-      }.
+maybe_initialize_tickets(#state{ssl_options = #{session_tickets := false}} = State) ->
+    %% Do nothing!
+    State;
+maybe_initialize_tickets(#state{
+                            ssl_options = #{session_tickets := _SessionTickets},
+                            handshake_env = HSEnv0} = State) ->
+    Tickets = #tickets{
+                 nonce = 0,
+                 ticket_iv = crypto:strong_rand_bytes(16),
+                 ticket_key_shard = crypto:strong_rand_bytes(32)},
+    HSEnv = HSEnv0#handshake_env{tickets = Tickets},
+    State#state{handshake_env = HSEnv}.
+
+
+create_stateless_ticket(#state{
+                           handshake_env =
+                               #handshake_env{
+                                  tickets =
+                                      #tickets{nonce = Nonce} = Tickets0} = HSEnv0} = State0) ->
+    TicketAgeAdd = ticket_age_add(),
+    Ticket = #new_session_ticket{
+                ticket_lifetime = 7200,
+                ticket_age_add = TicketAgeAdd,
+                ticket_nonce = ticket_nonce(Nonce),
+                ticket = generate_ticket(State0),
+                extensions = #{}
+               },
+    %% Increment nonce
+    Tickets = Tickets0#tickets{nonce = Nonce + 1},
+    State = State0#state{
+              handshake_env = HSEnv0#handshake_env{tickets = Tickets}},
+    {State, Ticket}.
+
+
+ticket_age_add() ->
+    <<?UINT32(I)>> = crypto:strong_rand_bytes(4),
+    I.
+
+
+ticket_nonce(I) ->
+    <<?UINT64(I)>>.
+
+
+generate_ticket(#state{connection_states = ConnectionStates,
+                       handshake_env =
+                           #handshake_env{
+                              tickets =
+                                  #tickets{
+                                     nonce = Nonce,
+                                     ticket_iv = IV,
+                                     ticket_key_shard = Key0}}}) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:current_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDF,
+                         resumption_master_secret = RMS} = SecParamsR,
+
+    PSK = tls_v1:pre_shared_key(RMS, ticket_nonce(Nonce), HKDF),
+    Padding = binary:copy(<<0>>, 15),
+    Plaintext = <<PSK/binary,(ssl_cipher:hash_algorithm(HKDF)):8,Padding/binary>>,
+    Size = byte_size(Key0),
+    OTP = crypto:strong_rand_bytes(Size),
+    Key = crypto:exor(OTP, Key0),
+    Encrypted = crypto:crypto_one_time(aes_256_cbc, Key, IV, Plaintext, true),
+    <<OTP/binary, Encrypted/binary>>.
 
 
 process_certificate_request(#certificate_request_1_3{},
