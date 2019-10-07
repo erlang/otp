@@ -164,8 +164,8 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
     PacketSize = proplists:get_value(packet_size, ChanOpts, ?XFER_PACKET_SIZE),
     case ssh_connection:session_channel(Cm, WindowSize, PacketSize, Timeout) of
 	{ok, ChannelId} ->
-	    case ssh_client_channel:start(Cm, ChannelId,
-				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
+            case ssh_connection_handler:start_channel(Cm, ?MODULE, ChannelId,
+                                                      [Cm,ChannelId,SftpOpts], undefined) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
