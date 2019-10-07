@@ -133,14 +133,7 @@ packed_registers(Config) when is_list(Config) ->
 	       "id([_@Vars,_@NewVars,_@MoreNewVars]).\n"
 	       "id(I) -> I.\n"]),
 
-    %% FIXME: For the moment, we must turn off module optimization for
-    %% compilation of this module to terminate. We will probably have
-    %% to add some limitation to how much type information the
-    %% compiler will collect before the release of OTP 23, but for now
-    %% we will apply the ostrich algorithm.
-
-    Opts = [no_module_opt],
-    merl:compile_and_load(Code, Opts),
+    merl:compile_and_load(Code, []),
 
     %% Optionally print the generated code.
     PrintCode = false,                          %Change to true to print code.

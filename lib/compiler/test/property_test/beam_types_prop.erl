@@ -34,6 +34,8 @@
 -include_lib("proper/include/proper.hrl").
 -define(MOD_eqc,proper).
 
+-import(lists, [foldl/3]).
+
 %% The default repetitions of 100 is a bit too low to reliably cover all type
 %% combinations, so we crank it up a bit.
 -define(REPETITIONS, 1000).
@@ -208,11 +210,14 @@ gen_wide_union(Depth) ->
 gen_tuple_union(Depth) ->
     ?SIZED(Size,
            ?LET(Tuples, sized_list(Size, gen_tuple(Depth)),
-                lists:foldl(fun join/2, none, Tuples))).
+                foldl(fun join/2, none, Tuples))).
 
 gen_tuple_elements(Size, Depth) ->
     ?LET(Types, sized_list(rand:uniform(Size div 4 + 1), gen_element(Depth)),
-         maps:from_list([{rand:uniform(Size), T} || T <- Types])).
+         foldl(fun(Type, Acc) ->
+                       Index = rand:uniform(Size),
+                       beam_types:set_tuple_element(Index, Type, Acc)
+               end, #{}, Types)).
 
 gen_element(Depth) ->
     ?LAZY(?SUCHTHAT(Type, type(Depth),

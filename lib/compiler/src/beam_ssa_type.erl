@@ -540,7 +540,7 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     true = Size > N,                            %Assertion.
-    ElemType = beam_types:get_element_type(N + 1, Es),
+    ElemType = beam_types:get_tuple_element(N + 1, Es),
     case beam_types:get_singleton_value(ElemType) of
         {ok, Val} -> #b_literal{val=Val};
         error -> I
@@ -931,7 +931,7 @@ type(get_tuple_element, [Tuple, Offset], _Anno, Ts, _Ds) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
     true = Size > N, %Assertion.
-    beam_types:get_element_type(N + 1, Es);
+    beam_types:get_tuple_element(N + 1, Es);
 type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
@@ -945,7 +945,7 @@ type(put_list, _Args, _Anno, _Ts, _Ds) ->
 type(put_tuple, Args, _Anno, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
                             Type = raw_type(Arg, Ts),
-                            Es = beam_types:set_element_type(Index, Type, Es0),
+                            Es = beam_types:set_tuple_element(Index, Type, Es0),
                             {Es, Index + 1}
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
@@ -1343,7 +1343,7 @@ infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
 %% not branching on 'succeeded'.
 infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
                              #b_literal{}=Tag], _Ts, _Ds) ->
-    Es = beam_types:set_element_type(1, raw_type(Tag, #{}), #{}),
+    Es = beam_types:set_tuple_element(1, raw_type(Tag, #{}), #{}),
     T = {Src,#t_tuple{exact=true,size=Size,elements=Es}},
     {[T], [T]};
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
@@ -1440,7 +1440,7 @@ infer_eq_lit(#b_set{op=get_tuple_element,
                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
              #b_literal{}=Lit) ->
     Index = N + 1,
-    Es = beam_types:set_element_type(Index, raw_type(Lit, #{}), #{}),
+    Es = beam_types:set_tuple_element(Index, raw_type(Lit, #{}), #{}),
     [{Tuple,#t_tuple{size=Index,elements=Es}}];
 infer_eq_lit(_, _) ->
     [].

@@ -55,19 +55,17 @@
 -record(t_bitstring, {unit=1 :: pos_integer()}).
 -record(t_bs_context, {slots=0 :: non_neg_integer(),
                        valid=0 :: non_neg_integer()}).
--record(t_map, {elements=#{} :: map_elements()}).
+-record(t_map, {}).
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
                   elements=#{} :: tuple_elements()}).
 
-%% Known element types, unknown elements are assumed to be 'any'. The key is
-%% a 1-based integer index for tuples, and a plain literal for maps (that is,
-%% not wrapped in a #b_literal{}, just the value itself).
+%% Known element types, where the key is a 1-based integer index. Unknown
+%% elements are assumed to be 'any', and indexes above ?TUPLE_ELEMENT_LIMIT are
+%% ignored for performance reasons.
 
+-define(TUPLE_ELEMENT_LIMIT, 12).
 -type tuple_elements() :: #{ Key :: pos_integer() => type() }.
--type map_elements() :: #{ Key :: term() => type() }.
-
--type elements() :: tuple_elements() | map_elements().
 
 -type normal_type() :: any | none |
                        list | number |

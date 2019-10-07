@@ -216,7 +216,7 @@ types(erlang, element, [PosType, TupleType]) ->
     RetType = case TupleType of
                   #t_tuple{size=Sz,elements=Es} when Index =< Sz,
                                                      Index >= 1 ->
-                      beam_types:get_element_type(Index, Es);
+                      beam_types:get_tuple_element(Index, Es);
                   _ ->
                       any
               end,
@@ -229,7 +229,7 @@ types(erlang, setelement, [PosType, TupleType, ArgType]) ->
                       %% This is an exact index, update the type of said
                       %% element or return 'none' if it's known to be out of
                       %% bounds.
-                      Es = beam_types:set_element_type(Index, ArgType, Es0),
+                      Es = beam_types:set_tuple_element(Index, ArgType, Es0),
                       case T#t_tuple.exact of
                           false ->
                               T#t_tuple{size=max(Index, Size),elements=Es};
@@ -416,7 +416,7 @@ types(lists, keyfind, [KeyType,PosType,_]) ->
     TupleType = case PosType of
                     #t_integer{elements={Index,Index}} when is_integer(Index),
                                                             Index >= 1 ->
-                        Es = beam_types:set_element_type(Index, KeyType, #{}),
+                        Es = beam_types:set_tuple_element(Index, KeyType, #{}),
                         #t_tuple{size=Index,elements=Es};
                     _ ->
                         #t_tuple{}
@@ -536,6 +536,6 @@ lists_zip_type(Types) ->
           end, list, Types).
 
 make_two_tuple(Type1, Type2) ->
-    Es0 = beam_types:set_element_type(1, Type1, #{}),
-    Es = beam_types:set_element_type(2, Type2, Es0),
+    Es0 = beam_types:set_tuple_element(1, Type1, #{}),
+    Es = beam_types:set_tuple_element(2, Type2, Es0),
     #t_tuple{size=2,exact=true,elements=Es}.
