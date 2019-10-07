@@ -1427,6 +1427,8 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
 #if defined(HAVE_GCM)
@@ -1440,8 +1442,6 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
 #ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cfb");
