@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug in <c>binary_to_term</c> that would crash the
+	    emulator if a term larger than 16GB was to be decoded.</p>
+          <p>
+	    Own Id: OTP-16058 Aux Id: PR-2382 </p>
+        </item>
+        <item>
+          <p>
+	    When communicating with a simultaneously exiting port via
+	    the <c>erlang:port_*()</c> BIFs one could sometimes get
+	    stray <c>{Ref, What}</c> messages. Where <c>Ref</c> was a
+	    reference and <c>What</c> usually were the atom
+	    <c>badarg</c>.</p>
+          <p>
+	    Own Id: OTP-16107 Aux Id: ERL-1049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
