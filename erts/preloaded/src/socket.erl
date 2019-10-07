@@ -87,9 +87,6 @@
               sockaddr_in6/0,
               sockaddr_un/0,
 
-              accept_flags/0,
-              accept_flag/0,
-
               send_flags/0,
               send_flag/0,
 
@@ -541,9 +538,6 @@
 
 -opaque socket() :: #socket{}.
 
--type accept_flags() :: [accept_flag()].
--type accept_flag()  :: nonblock | cloexec.
-
 -type send_flags() :: [send_flag()].
 -type send_flag()  :: confirm |
                       dontroute |
@@ -552,13 +546,6 @@
                       nosignal |
                       oob.
 
-%% Extend with OWN flags for other usage:
-%%   - adapt-buffer-sz:
-%%     This will have the effect that the nif recvfrom will use
-%%     MSG_PEEK to ensure no part of the message is lost, but if
-%%     necessary adapt (increase) the buffer size until all of
-%%     it fits.
-%%
 %% Note that not all of these flags are useful for every recv function!
 %%
 -type recv_flags() :: [recv_flag()].
@@ -871,12 +858,12 @@
 -define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
--define(SOCKET_SUPPORTS_OPTIONS,    16#0001).
--define(SOCKET_SUPPORTS_SCTP,       16#0002).
--define(SOCKET_SUPPORTS_IPV6,       16#0003).
--define(SOCKET_SUPPORTS_LOCAL,      16#0004).
--define(SOCKET_SUPPORTS_SEND_FLAGS, 16#0005).
--define(SOCKET_SUPPORTS_RECV_FLAGS, 16#0006).
+-define(SOCKET_SUPPORTS_OPTIONS,      16#0001).
+-define(SOCKET_SUPPORTS_SCTP,         16#0002).
+-define(SOCKET_SUPPORTS_IPV6,         16#0003).
+-define(SOCKET_SUPPORTS_LOCAL,        16#0004).
+-define(SOCKET_SUPPORTS_SEND_FLAGS,   16#0005).
+-define(SOCKET_SUPPORTS_RECV_FLAGS,   16#0006).
 
 
 %% ===========================================================================
