@@ -368,6 +368,14 @@ erlc +export_all file.erl</pre>
       compile server. If other values are given, <c>erlc</c> will
       print a warning message and continue.
       </item>
+      <tag><c>ERLC_SERVER_ID</c></tag>
+      <item>Tells <c>erlc</c> to identify the
+        <seealso marker="#compile_server">compile server</seealso> by the given
+        name, allowing a single user to run multiple unrelated builds in
+        parallel without them affecting each other, which can be useful for
+        shared build machines and the like. The name must be alpha&shy;numeric,
+        and it defaults to being empty.
+      </item>
     </taglist>
   </section>
 
