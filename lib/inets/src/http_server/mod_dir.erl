@@ -28,7 +28,6 @@
 %% do
 
 do(Info) ->
-    ?DEBUG("do -> entry",[]),
     case Info#mod.method of
 	"GET" ->
 	    case proplists:get_value(status, Info#mod.data) of
@@ -52,7 +51,6 @@ do(Info) ->
     end.
 
 do_dir(Info) ->
-    ?DEBUG("do_dir -> Request URI: ~p",[Info#mod.request_uri]),
     Path = mod_alias:path(Info#mod.data,Info#mod.config_db,
 			  Info#mod.request_uri),
     DefaultPath = mod_alias:default_index(Info#mod.config_db,Path),
@@ -61,11 +59,6 @@ do_dir(Info) ->
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    DecodedRequestURI =
 		http_uri:decode(Info#mod.request_uri),
-	    ?DEBUG("do_dir -> ~n"
-		   "      Path:              ~p~n"
-		   "      DefaultPath:       ~p~n"
-		   "      DecodedRequestURI: ~p",
-		   [Path,DefaultPath,DecodedRequestURI]),
 	    case dir(DefaultPath,string:strip(DecodedRequestURI,right,$/),
 		     Info#mod.config_db) of
 		{ok, Dir} ->
@@ -85,21 +78,13 @@ do_dir(Info) ->
 		    {proceed,[{response,{response, Head, Dir}},
 			      {mime_type,"text/html"} | Info#mod.data]};
 		{error, Reason} ->
-		    ?ERROR("do_dir -> dir operation failed: ~p",[Reason]),
 		    {proceed,
 		     [{status,{404,Info#mod.request_uri,Reason}}|
 		      Info#mod.data]}
 	    end;
 	{ok, _FileInfo} ->
-	    ?DEBUG("do_dir -> ~n"
-		   "      Path:        ~p~n"
-		   "      DefaultPath: ~p~n"
-		   "      FileInfo:    ~p",
-		   [Path,DefaultPath,FileInfo]),
 	    {proceed,Info#mod.data};
 	{error,Reason} ->
-	    ?LOG("do_dir -> failed reading file info (~p) for: ~p",
-		 [Reason,DefaultPath]),
 	    Status = httpd_file:handle_error(Reason, "access", Info,
 					     DefaultPath),
 	    {proceed, [{status, Status}| Info#mod.data]}
