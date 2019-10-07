@@ -46,6 +46,12 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+select(GenNames, CRLDbHandle) when is_list(GenNames) ->
+    lists:flatmap(fun({directoryName, Issuer}) ->
+                          select(Issuer, CRLDbHandle);
+                     (_) ->
+                          []
+                  end, GenNames);
 select(Issuer, {{_Cache, Mapping},_}) ->
     case ssl_pkix_db:lookup(Issuer, Mapping) of
 	undefined ->

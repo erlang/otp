@@ -42,7 +42,8 @@ groups() ->
      {check_true, [],  [{group, v2_crl},
 			{group, v1_crl},
 			{group, idp_crl},
-                        {group, crl_hash_dir}]},
+                        {group, crl_hash_dir},
+                        {group, crl_verify_crldp_crlissuer}]},
      {check_peer, [],   [{group, v2_crl},
 			 {group, v1_crl},
 			 {group, idp_crl},
@@ -54,7 +55,8 @@ groups() ->
      {v2_crl,  [], basic_tests()},
      {v1_crl,  [], basic_tests()},
      {idp_crl, [], basic_tests()},
-     {crl_hash_dir, [], basic_tests() ++ crl_hash_dir_tests()}].
+     {crl_hash_dir, [], basic_tests() ++ crl_hash_dir_tests()},
+     {crl_verify_crldp_crlissuer, [], [crl_verify_valid]}].
 
 basic_tests() ->
     [crl_verify_valid, crl_verify_revoked, crl_verify_no_crl].
@@ -108,8 +110,8 @@ init_per_group(Group, Config0) ->
 		CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
 		{CertOpts, Config} = init_certs(CertDir, Group, Config0),
 		{ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-		CrlCacheOpts = case Group of
-				   crl_hash_dir ->
+		CrlCacheOpts = case need_hash_dir(Group) of
+				   true ->
 				       CrlDir = filename:join(CertDir, "crls"),
 				       %% Copy CRLs to their hashed filenames.
 				       %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
@@ -462,8 +464,17 @@ is_idp(idp_crl) ->
 is_idp(_) ->
     false.
 
+need_hash_dir(crl_hash_dir) ->
+    true;
+need_hash_dir(crl_verify_crldp_crlissuer) ->
+    true;
+need_hash_dir(_) ->
+    false.
+
 init_certs(_,v1_crl, Config)  -> 
     {[{v2_crls, false}], Config};
+init_certs(_,crl_verify_crldp_crlissuer , Config) ->
+    {[{crldp_crlissuer, true}], Config};
 init_certs(_, idp_crl, Config) -> 
     Port = proplists:get_value(httpd_port, Config),
     {[{crl_port,Port},
