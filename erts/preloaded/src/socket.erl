@@ -2725,6 +2725,7 @@ enc_protocol(dgram,     ip)      -> ?SOCKET_PROTOCOL_IP;
 enc_protocol(stream,    tcp)     -> ?SOCKET_PROTOCOL_TCP;
 enc_protocol(dgram,     udp)     -> ?SOCKET_PROTOCOL_UDP;
 enc_protocol(seqpacket, sctp)    -> ?SOCKET_PROTOCOL_SCTP;
+enc_protocol(dgram,     icmp)    -> ?SOCKET_PROTOCOL_ICMP;
 enc_protocol(raw,       icmp)    -> ?SOCKET_PROTOCOL_ICMP;
 enc_protocol(raw,       igmp)    -> ?SOCKET_PROTOCOL_IGMP;
 enc_protocol(raw,       {raw, P} = RAW) when is_integer(P) -> RAW;
