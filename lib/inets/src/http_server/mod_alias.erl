@@ -37,7 +37,6 @@
 %% do
 
 do(#mod{data = Data} = Info) ->
-    ?hdrt("do", []),
     case proplists:get_value(status, Data) of
 	%% A status code has been generated!
 	{_StatusCode, _PhraseArgs, _Reason} ->
@@ -60,17 +59,11 @@ do_alias(#mod{config_db   = ConfigDB,
 	      data        = Data}) ->
     {ShortPath, Path, AfterPath} = 
 	real_name(ConfigDB, ReqURI, which_alias(ConfigDB)),
-    ?hdrt("real name", 
-	  [{request_uri, ReqURI}, 
-	   {short_path,  ShortPath}, 
-	   {path,        Path}, 
-	   {after_path,  AfterPath}]),
     %% Relocate if a trailing slash is missing else proceed!
     LastChar = lists:last(ShortPath),
     case file:read_file_info(ShortPath) of 
 	{ok, FileInfo} when ((FileInfo#file_info.type =:= directory) andalso 
 			     (LastChar =/= $/)) ->
-	    ?hdrt("directory and last-char is a /", []),
 	    ServerName = which_server_name(ConfigDB), 
 	    Port = port_string(which_port(ConfigDB)),
 	    Protocol = get_protocol(SocketType),

@@ -77,6 +77,7 @@ all() ->
      {group, http_post},
      {group, http_rel_path_script_alias},
      {group, http_not_sup},
+     {group, https_alert},
      {group, https_not_sup},
      mime_types_format,
      erl_script_timeout_default,
@@ -111,6 +112,7 @@ groups() ->
      {http_post, [], [{group, post}]},
      {http_not_sup, [], [{group, not_sup}]},
      {https_not_sup, [], [{group, not_sup}]},
+     {https_alert, [], [tls_alert]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
      {custom, [],  [customize, add_default]},  
@@ -183,6 +185,9 @@ init_per_suite(Config) ->
     setup_tmp_dir(PrivDir),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
     {ok, Hostname0} = inet:gethostname(),
+    logger:add_handler_filter(default, inets_httpd, {fun logger_filters:domain/2,
+                                                     {log, equal,[otp,inets, httpd, httpd_test, error]}}),
+    %%logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
     Inet = 
 	case (catch ct:get_config(ipv6_hosts)) of
 	    undefined ->
@@ -217,7 +222,8 @@ init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_auth_api_mnesia;
 				    Group == https_security;
 				    Group == https_reload;
-                                    Group == https_not_sup
+                                    Group == https_not_sup;
+                                    Group == https_alert
 				    ->
     catch crypto:stop(),
     try crypto:start() of
@@ -1908,6 +1914,10 @@ erl_script_timeout_apache(Config) when is_list(Config) ->
     verify_body(Body, 6000),
     inets:stop().
 
+tls_alert(Config) when is_list(Config) ->
+    SSLOpts = proplists:get_value(client_alert_conf, Config),    
+    Port = proplists:get_value(port, Config),    
+    {error, {tls_alert, _}} = ssl:connect("localhost", Port, [{verify, verify_peer} | SSLOpts]).
 
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
@@ -2041,7 +2051,8 @@ start_apps(Group) when  Group == https_basic;
 			Group == https_htaccess;
 			Group == https_security;
 			Group == https_reload;
-                        Group == https_not_sup
+                        Group == https_not_sup;
+                        Group == https_alert
 			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
@@ -2071,7 +2082,7 @@ server_start(_, HttpdConfig) ->
 init_ssl(Group, Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
-    GenCertData =
+    GenCertData = #{client_config := CConf} =
         public_key:pkix_test_data(#{server_chain => 
                                         #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
@@ -2081,11 +2092,12 @@ init_ssl(Group, Config) ->
                                         #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
-
+    [_ | CAs] = proplists:get_value(cacerts, CConf),
+    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],                 
     Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),                               
     case start_apps(Group) of
 	ok ->
-	    init_httpd(Group, [{type, ssl}, {ssl_conf, Conf} | Config]);
+	    init_httpd(Group, [{client_alert_conf, AlertConf}, {type, ssl}, {ssl_conf, Conf} | Config]);
 	_ ->
 	    {skip, "Could not start https apps"}
     end.
@@ -2157,7 +2169,8 @@ server_config(http_mime_types, Config0) ->
     ServerRoot = proplists:get_value(server_root, Config0),
     MimeTypesFile = filename:join([ServerRoot,"config", "mime.types"]),
     [{mime_types, MimeTypesFile} | proplists:delete(mime_types, Config1)];
-
+server_config(https_alert, Config) ->
+    basic_conf() ++ server_config(https, Config);
 server_config(http, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     [{port, 0},
@@ -2246,10 +2259,21 @@ head_status(_) ->
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
-		mod_trace, mod_esi, mod_cgi, mod_get, mod_head]}].
+		mod_trace, mod_esi, ?MODULE, mod_cgi, mod_get, mod_head]},
+     {logger, [{error, httpd_test}]}].
+
+do(ModData) ->
+    case whereis(propagate_test) of
+        undefined ->
+            ok;
+        _ ->
+            {already_sent, Status, _Size} = proplists:get_value(response, ModData#mod.data),
+            propagate_test ! {status, Status}              
+    end,
+    {proceed, ModData#mod.data}.
 
 not_sup_conf() ->
-     [{modules, [mod_get]}].
+    [{modules, [mod_get]}].
 
 auth_access_conf() ->
     [{modules, [mod_alias, mod_htaccess, mod_dir, mod_get, mod_head]},

@@ -34,7 +34,7 @@
 
 -include("httpd.hrl").
 -include("http_internal.hrl").
--include("httpd_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(HANDSHAKE_TIMEOUT, 5000).
 
@@ -100,21 +100,39 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
     
+    Peername = http_transport:peername(SocketType, Socket),
+    Sockname = http_transport:sockname(SocketType, Socket),
+ 
     %%Timeout value is in seconds we want it in milliseconds
     KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
     
     case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
-	{error, Error} ->
-	    exit({shutdown, Error}); %% Can be 'normal'.
-	ok ->
-	    continue_init(Manager, ConfigDB, SocketType, Socket, KeepAliveTimeOut)
+	{error, {tls_alert, {_, AlertDesc}} = Error} ->
+            ModData = #mod{config_db = ConfigDB, init_data = #init_data{peername = Peername,
+                                                                        sockname = Sockname}},
+            httpd_util:error_log(ConfigDB, httpd_logger:error_report('TLS', AlertDesc, 
+                                                                     ModData, ?LOCATION)),
+	    exit({shutdown, Error}); 
+        {error, _Reason} = Error ->
+            %% This happens if the peer closes the connection 
+            %% or the handshake is timed out. This is not
+            %% an error condition of the server and client will
+            %% retry in the timeout situation.  
+            exit({shutdown, Error}); 
+        {ok, TLSSocket} ->
+	    continue_init(Manager, ConfigDB, SocketType, TLSSocket, 
+                          Peername, Sockname, KeepAliveTimeOut);
+        ok  ->
+            continue_init(Manager, ConfigDB, SocketType, Socket, 
+                          Peername, Sockname, KeepAliveTimeOut)
     end.
 
-continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
+continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
+              TimeOut) ->
     Resolve = http_transport:resolve(),
-    
-    Peername = httpd_socket:peername(SocketType, Socket),
-    InitData = #init_data{peername = Peername, resolve = Resolve},
+    InitData = #init_data{peername = Peername, 
+                          sockname = Sockname, 
+                          resolve = Resolve},
     Mod = #mod{config_db = ConfigDB,
                socket_type = SocketType,
                socket = Socket,
@@ -163,14 +181,11 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call(Request, From, #state{mod = ModData} = State) ->
-    Error = 
-	lists:flatten(
-	  io_lib:format("Unexpected request: "
-			"~n~p"
-			"~nto request handler (~p) from ~p"
-			"~n", [Request, self(), From])),
-    error_log(Error, ModData),
+handle_call(Request, From, #state{mod = #mod{config_db = Db} = ModData} = State) ->
+    httpd_util:error_log(Db, 
+                         httpd_logger:error_report(internal,
+                                                   [{unexpected_call, Request}, {to, self()}, {from, From}], ModData,
+                                                   ?LOCATION)),
     {stop, {call_api_violation, Request, From}, State}.
 
 %%--------------------------------------------------------------------
@@ -179,14 +194,10 @@ handle_call(Request, From, #state{mod = ModData} = State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast(Msg, #state{mod = ModData} = State) ->
-    Error = 
-	lists:flatten(
-	  io_lib:format("Unexpected message: "
-			"~n~p"
-			"~nto request handler (~p)"
-			"~n", [Msg, self()])),
-    error_log(Error, ModData),
+handle_cast(Msg, #state{mod = #mod{config_db = Db} = ModData} = State) ->
+    httpd_util:error_log(Db,
+                         httpd_logger:error_report(internal, [{unexpected_cast, Msg}, {to, self()}], ModData,
+                                                   ?LOCATION)),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -223,10 +234,7 @@ handle_info({Proto, Socket, Data},
             handle_msg(Result, NewState);
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
-	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
-	    Reason = io_lib:format("~p: ~p max size is ~p~n", 
-				   [ErrCode, ErrStr, MaxSize]),
-	    error_log(Reason, NewModData),
+	    httpd_response:send_status(NewModData, ErrCode, ErrStr, {max_size, MaxSize}),
 	    {stop, normal, State#state{response_sent = true, 
 				       mod = NewModData}};
         
@@ -255,14 +263,12 @@ handle_info({ssl_error, _, _} = Reason, State) ->
 
 %% Timeouts
 handle_info(timeout, #state{mfa = {_, parse, _}} = State) ->
-    %% error_log("No request received on keep-alive connection "
-    %% 	      "before server side timeout", ModData),
-    %% No response should be sent!
+    %% No request received on keep-alive connection 
+    %% before server side timeout. No response should be sent!
     {stop, normal, State#state{response_sent = true}}; 
 handle_info(timeout, #state{mod = ModData} = State) ->
-    httpd_response:send_status(ModData, 408, "Request timeout"),
-    error_log("The client did not send the whole request before the "
-	      "server side timeout", ModData),
+    httpd_response:send_status(ModData, 408, "Request timeout", "The client did not send the whole request before the "
+                               "server side timeout"),
     {stop, normal, State#state{response_sent = true}};
 handle_info(check_data_first, #state{data = Data, byte_limit = Byte_Limit} = State) ->
     case Data >= (Byte_Limit*3) of 
@@ -285,13 +291,11 @@ handle_info({'EXIT', _, Reason}, State) ->
     {stop, Reason, State};
 
 %% Default case
-handle_info(Info, #state{mod = ModData} = State) ->
-    Error = lists:flatten(
-	      io_lib:format("Unexpected info: "
-			    "~n~p"
-			    "~nto request handler (~p)"
-			    "~n", [Info, self()])),
-    error_log(Error, ModData),
+handle_info(Info, #state{mod = #mod{config_db = Db} =ModData} = State) ->
+    httpd_util:error_log(Db, 
+                         httpd_logger:error_report(internal,
+                                                   [{unexpected_info, Info}, {to, self()}], ModData,
+                                                   ?LOCATION)),
     {noreply, State}.
 
 
@@ -310,10 +314,6 @@ terminate({shutdown,_}, State) ->
     do_terminate(State);
 terminate(Reason, #state{response_sent = false, mod = ModData} = State) ->
     httpd_response:send_status(ModData, 500, none),
-     ReasonStr = 
-	lists:flatten(io_lib:format("~s - ~p", 
-				    [httpd_util:reason_phrase(500), Reason])),
-    error_log(ReasonStr, ModData),
     terminate(Reason, State#state{response_sent = true, mod = ModData});
 terminate(_Reason, State) ->
     do_terminate(State).
@@ -419,26 +419,18 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 	    end;
 	{error, {not_supported, What}} ->
 	    httpd_response:send_status(ModData#mod{http_version = Version},
-				       501, {Method, Uri, Version}),
-	    Reason = io_lib:format("Not supported: ~p~n", [What]),
-	    error_log(Reason, ModData),
+				       501, {Method, Uri, Version}, {not_sup, What}),
 	    {stop, normal, State#state{response_sent = true}};
 	{error, {bad_request, {forbidden, URI}}} ->
 	    httpd_response:send_status(ModData#mod{http_version = Version},
 				       403, URI),
-	    Reason = io_lib:format("Forbidden URI: ~p~n", [URI]),
-	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}};
 	{error, {bad_request, {malformed_syntax, URI}}} ->
 	    httpd_response:send_status(ModData#mod{http_version = Version},
-				       400, URI),
-	    Reason = io_lib:format("Malformed syntax in URI: ~p~n", [URI]),
-	    error_log(Reason, ModData),
+				       400, URI, {malformed_syntax, URI}),
 	    {stop, normal, State#state{response_sent = true}};
 	{error, {bad_version, Ver}} ->
-	    httpd_response:send_status(ModData#mod{http_version = "HTTP/0.9"}, 400, Ver),
-	    Reason = io_lib:format("Malformed syntax version: ~p~n", [Ver]),
-	    error_log(Reason, ModData),
+	    httpd_response:send_status(ModData#mod{http_version = "HTTP/0.9"}, 400, Ver, {malformed_syntax, Ver}),
 	    {stop, normal, State#state{response_sent = true}}
     end;
 handle_http_msg(Body, State) ->
@@ -497,18 +489,13 @@ handle_body(#state{headers = Headers, body = Body,
 	    catch 
 		throw:Error ->
 		    httpd_response:send_status(ModData, 400, 
-					       "Bad input"),
-		    Reason = io_lib:format("Chunk decoding failed: ~p~n", 
-					   [Error]),
-		    error_log(Reason, ModData),
+					       "Bad input", {chunk_decoding, bad_input, Error}),
 		    {stop, normal, State#state{response_sent = true}}  
 	    end;
 	Encoding when is_list(Encoding) ->
 	    httpd_response:send_status(ModData, 501, 
-				       "Unknown Transfer-Encoding"),
-	    Reason = io_lib:format("Unknown Transfer-Encoding: ~p~n", 
-				   [Encoding]),
-	    error_log(Reason, ModData),
+				       "Unknown Transfer-Encoding", 
+                                       {unknown_transfer_encoding, Encoding}),
 	    {stop, normal, State#state{response_sent = true}};
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
@@ -544,7 +531,6 @@ handle_body(#state{headers = Headers, body = Body,
 		    end;
 		false ->
 		    httpd_response:send_status(ModData, 413, "Body too long"),
-		    error_log("Body too long", ModData),
 		    {stop, normal,  State#state{response_sent = true}}
 	    end
     end.
@@ -559,22 +545,21 @@ handle_expect(#state{headers = Headers, mod =
 	    ok;
 	continue when MaxBodySize < Length ->
 	    httpd_response:send_status(ModData, 413, "Body too long"),
-	    error_log("Body too long", ModData),
 	    {stop, normal, State#state{response_sent = true}};
 	{break, Value} ->
 	    httpd_response:send_status(ModData, 417, 
-				       "Unexpected expect value"),
-	    Reason = io_lib:format("Unexpected expect value: ~p~n", [Value]),
-	    error_log(Reason, ModData),
+				       "Unexpected expect value",
+                                       {unexpected, Value}
+                                      ),
 	    {stop, normal,  State#state{response_sent = true}};
 	no_expect_header ->
 	    ok;
 	http_1_0_expect_header ->
 	    httpd_response:send_status(ModData, 400, 
 				       "Only HTTP/1.1 Clients "
-				       "may use the Expect Header"),
-	    error_log("Client with lower version than 1.1 tried to send"
-		      "an expect header", ModData),
+				       "may use the Expect Header", 
+                                       "Client with lower version than 1.1 tried to send"
+                                       "an expect header"),
 	    {stop, normal, State#state{response_sent = true}}
     end.
 
@@ -732,13 +717,7 @@ decrease(N) when is_integer(N) ->
 decrease(N) ->
     N.
 
-error_log(ReasonString,  #mod{config_db = ConfigDB}) ->
-    Error = lists:flatten(
-	      io_lib:format("Error reading request: ~s", [ReasonString])),
-    httpd_util:error_log(ConfigDB, Error).
-
-
-%%--------------------------------------------------------------------
+%--------------------------------------------------------------------
 %% Config access wrapper functions
 %%--------------------------------------------------------------------
 
