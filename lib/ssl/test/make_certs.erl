@@ -33,6 +33,7 @@
 	     v2_crls = true,
 	     ecc_certs = false,
 	     issuing_distribution_point = false,
+	     crldp_crlissuer = false,
 	     crl_port = 8000,
              openssl_cmd = "openssl",
              hostname = "host.example.com"}).
@@ -66,6 +67,8 @@ make_config([{ecc_certs, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{ecc_certs = Bool});
 make_config([{issuing_distribution_point, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{issuing_distribution_point = Bool});
+make_config([{crldp_crlissuer, Bool}|T], C) when is_boolean(Bool) ->
+    make_config(T, C#config{crldp_crlissuer = Bool});
 make_config([{openssl_cmd, Cmd}|T], C) when is_list(Cmd) ->
     make_config(T, C#config{openssl_cmd = Cmd});
 make_config([{hostname, Hostname}|T], C) when is_list(Hostname) ->
@@ -480,6 +483,87 @@ ca_cnf(
      "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
+    ];
+
+ca_cnf(
+  Root,
+  #config{
+     crldp_crlissuer = true,
+     hostname = Hostname} = C) ->
+    ["# Purpose: Configuration for CAs.\n"
+     "\n"
+     "ROOTDIR	          = " ++ Root ++ "\n"
+     "default_ca	= ca\n"
+     "\n"
+
+     "[ca]\n"
+     "dir		= $ROOTDIR/", C#config.commonName, "\n"
+     "certs		= $dir/certs\n"
+     "crl_dir	        = $dir/crl\n"
+     "database	        = $dir/index.txt\n"
+     "new_certs_dir	= $dir/newcerts\n"
+     "certificate	= $dir/cert.pem\n"
+     "serial		= $dir/serial\n"
+     "crl		= $dir/crl.pem\n",
+     ["crlnumber		= $dir/crlnumber\n" || C#config.v2_crls],
+     "private_key	= $dir/private/key.pem\n"
+     "RANDFILE	        = $dir/private/RAND\n"
+     "\n"
+     "x509_extensions   = user_cert\n",
+     ["crl_extensions = crl_ext\n" || C#config.v2_crls],
+     "unique_subject  = no\n"
+     "default_days	= 3600\n"
+     "default_md	= sha1\n"
+     "preserve	        = no\n"
+     "policy		= policy_match\n"
+     "\n"
+
+     "[policy_match]\n"
+     "commonName		= supplied\n"
+     "organizationalUnitName	= optional\n"
+     "organizationName	        = match\n"
+     "countryName		= match\n"
+     "localityName		= match\n"
+     "emailAddress		= supplied\n"
+     "\n"
+
+     "[crl_ext]\n"
+     "authorityKeyIdentifier=keyid:always,issuer:always\n",
+
+     "[user_cert]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
+     "issuerAltName	= issuer:copy\n"
+     "crlDistributionPoints=crl_section\n"
+
+     "[crl_section]\n"
+     "fullname=URI:http://localhost/",C#config.commonName,"/crl.pem\n"
+     "CRLissuer=dirName:issuer_sect\n"
+
+     "[issuer_sect]\n"
+     "C=UK\n"
+     "O=Organisation\n"
+     "CN=Some Name\n"
+
+     "[user_cert_digital_signature_only]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= digitalSignature\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
+     "issuerAltName	= issuer:copy\n"
+     "\n"
+
+     "[ca_cert]\n"
+     "basicConstraints 	= critical,CA:true\n"
+     "keyUsage 		= cRLSign, keyCertSign\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid:always,issuer:always\n"
+     "subjectAltName	= email:copy\n"
+     "issuerAltName	= issuer:copy\n"
     ];
 
 ca_cnf(
