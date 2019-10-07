@@ -863,9 +863,9 @@ psk_identities(N, Acc) ->
     psk_identities(N - 1, [psk_identity()|Acc]).
 
 psk_identity() ->
-    Len = rand:uniform(32),
+    Len = 8 + rand:uniform(8),
     Identity = crypto:strong_rand_bytes(Len),
-    Age = crypto:strong_rand_bytes(4),
+    <<?UINT32(Age)>> = crypto:strong_rand_bytes(4),
     #psk_identity{
       identity = Identity,
       obfuscated_ticket_age = Age}.
