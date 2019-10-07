@@ -66,6 +66,7 @@
           hash_size,				% unit 8
           compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
+          resumption_master_secret,
           client_random,			% opaque 32
           server_random,			% opaque 32
           exportable				% boolean

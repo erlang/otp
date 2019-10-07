@@ -78,7 +78,9 @@ client_hello(_Host, _Port, Cookie, ConnectionStates,
 
     Extensions = ssl_handshake:client_hello_extensions(TLSVersion, CipherSuites,
                                                        SslOpts, ConnectionStates, 
-                                                       Renegotiation, undefined),
+                                                       Renegotiation, undefined,
+                                                       undefined),
+
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = 
