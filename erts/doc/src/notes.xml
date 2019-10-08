@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added the environment variable <c>ERLC_SERVER_ID</c>,
+	    which allows multiple compile servers to run separately
+	    under the same user.</p>
+          <p>
+	    Own Id: OTP-16125 Aux Id: ERIERL-412 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
