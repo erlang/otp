@@ -520,6 +520,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     ClientShares0 = maps:get(key_share, Extensions, undefined),
     ClientShares = get_key_shares(ClientShares0),
 
+    OfferedPSKs = get_offered_psks(Extensions),
+
     ClientALPN0 = maps:get(alpn, Extensions, undefined),
     ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
 
@@ -539,6 +541,13 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
+
+        %% Update server instance data used for ticket generation
+        maybe_update_instance_data(State0),
+
+        %% Exclude any incompatible PSKs.
+        PSK = handle_pre_shared_key(State0, OfferedPSKs, Cipher),
+
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
 
@@ -559,10 +568,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        %% Initialize tickets record
-        State1 = maybe_initialize_tickets(State0),
-
-        State2 = update_start_state(State1,
+        State1 = update_start_state(State0,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
                                       session_id => SessionId,
@@ -577,7 +583,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId))
+        NextStateTuple = Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)),
+        Maybe(session_resumption(NextStateTuple, PSK))
 
         %% TODO: session handling
 
@@ -1108,6 +1115,17 @@ send_hello_retry_request(State0, _, _, _) ->
     {ok, {State0, negotiated}}.
 
 
+session_resumption({State, start}, _) ->
+    {ok, {State, start}};
+session_resumption({#state{ssl_options = #{session_tickets := false}} = State, negotiated}, _) ->
+    {ok, {State, negotiated}};
+session_resumption({#state{ssl_options = #{session_tickets := true}} = State, negotiated}, undefined) ->
+    {ok, {State, negotiated}};
+session_resumption({#state{ssl_options = #{session_tickets := true}} = State, negotiated}, _PSKs) ->
+    %% TODO implement new state!
+    {ok, {State, negotiated}}.
+
+
 maybe_send_certificate_request(State, #{verify := verify_none}) ->
     {State, wait_finished};
 maybe_send_certificate_request(State, #{verify := verify_peer,
@@ -1120,44 +1138,42 @@ maybe_send_certificate_request(State, #{verify := verify_peer,
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = State) ->
     %% Do nothing!
     State;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State0) ->
-    {State, NewSessionTicket} = create_stateless_ticket(State0),
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State) ->
+    NewSessionTicket = create_stateless_ticket(State),
     {_, _} = tls_connection:send_handshake(NewSessionTicket, State),
     State.
 
 
-maybe_initialize_tickets(#state{ssl_options = #{session_tickets := false}} = State) ->
-    %% Do nothing!
+maybe_update_instance_data(#state{ssl_options = #{session_tickets := false}} = State) ->
     State;
-maybe_initialize_tickets(#state{
-                            ssl_options = #{session_tickets := _SessionTickets},
-                            handshake_env = HSEnv0} = State) ->
-    Tickets = #tickets{
-                 nonce = 0,
-                 ticket_iv = crypto:strong_rand_bytes(16),
-                 ticket_key_shard = crypto:strong_rand_bytes(32)},
-    HSEnv = HSEnv0#handshake_env{tickets = Tickets},
-    State#state{handshake_env = HSEnv}.
+maybe_update_instance_data(_) ->
+    case tls_connection:read_server_state() of
+        undefined ->
+            %% Initialize
+            Data = #server_instance_data{
+                         nonce = 0,
+                         ticket_iv = crypto:strong_rand_bytes(16),
+                         ticket_key_shard = crypto:strong_rand_bytes(32)},
+            tls_connection:store_server_state(Data);
+        _Data ->
+            %% Increment nonce
+            tls_connection:increment_ticket_nonce()
+    end.
 
 
-create_stateless_ticket(#state{
-                           handshake_env =
-                               #handshake_env{
-                                  tickets =
-                                      #tickets{nonce = Nonce} = Tickets0} = HSEnv0} = State0) ->
+create_stateless_ticket(State) ->
+    Data = #server_instance_data{nonce = Nonce} = tls_connection:read_server_state(),
     TicketAgeAdd = ticket_age_add(),
     Ticket = #new_session_ticket{
                 ticket_lifetime = 7200,
                 ticket_age_add = TicketAgeAdd,
                 ticket_nonce = ticket_nonce(Nonce),
-                ticket = generate_ticket(State0),
+                ticket = generate_ticket(State, Data),
                 extensions = #{}
                },
     %% Increment nonce
-    Tickets = Tickets0#tickets{nonce = Nonce + 1},
-    State = State0#state{
-              handshake_env = HSEnv0#handshake_env{tickets = Tickets}},
-    {State, Ticket}.
+    tls_connection:increment_ticket_nonce(),
+    Ticket.
 
 
 ticket_age_add() ->
@@ -1169,14 +1185,11 @@ ticket_nonce(I) ->
     <<?UINT64(I)>>.
 
 
-generate_ticket(#state{connection_states = ConnectionStates,
-                       handshake_env =
-                           #handshake_env{
-                              tickets =
-                                  #tickets{
-                                     nonce = Nonce,
-                                     ticket_iv = IV,
-                                     ticket_key_shard = Key0}}}) ->
+generate_ticket(#state{connection_states = ConnectionStates},
+                #server_instance_data{
+                   nonce = Nonce,
+                   ticket_iv = IV,
+                   ticket_key_shard = Key0}) ->
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
@@ -2047,6 +2060,54 @@ get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
 get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
     ServerShare.
+
+
+get_offered_psks(Extensions) ->
+    PSK = maps:get(pre_shared_key, Extensions, undefined),
+    case PSK of
+        undefined ->
+            undefined;
+        #pre_shared_key_client_hello{offered_psks = OfferedPSKs} ->
+            OfferedPSKs
+    end.
+
+
+decode_pre_shared_keys(IV, Key, PSKs) ->
+    #offered_psks{
+       identities = Identities,
+       binders = Binders
+      } = PSKs,
+    decode_pre_shared_keys(IV, Key, Identities, Binders, []).
+%%
+decode_pre_shared_keys(_, _, [], [], Acc) ->
+    Acc;
+decode_pre_shared_keys(IV, Key, [I|Identities], [_B|Binders], Acc) ->
+    %% TODO Validate binder
+    PSK = decode_identity(I),
+    decode_pre_shared_keys(IV, Key, Identities, Binders, [PSK|Acc]).
+
+
+decode_identity(I) ->
+    %% TODO
+    I.
+
+
+%% TODO implement
+handle_pre_shared_key(_, undefined, _) ->
+    undefined;
+handle_pre_shared_key(#state{ssl_options = #{session_tickets := false}}, _, _) ->
+    undefined;
+handle_pre_shared_key(_, PreSharedKeys, Cipher) ->
+    #server_instance_data{ticket_iv = IV, ticket_key_shard = Key} =
+        tls_connection:read_server_state(),
+    PSKs = decode_pre_shared_keys(IV, Key, PreSharedKeys),
+    select_psk(PSKs, Cipher).
+
+
+select_psk([H|_T], _Cipher) ->
+    %% TODO
+    {0, H}.
+
 
 get_selected_group(#key_share_hello_retry_request{selected_group = SelectedGroup}) ->
     SelectedGroup.
