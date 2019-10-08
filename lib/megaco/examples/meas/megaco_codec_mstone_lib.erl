@@ -269,7 +269,7 @@ display_megaco_info() ->
     io:format("Megaco version:      ~s~n", [Ver]).
 
 display_asn1_info() ->
-    AI = megaco_ber__media_gateway_control_v1:info(),
+    AI = megaco_ber_media_gateway_control_v1:info(),
     Vsn = 
 	case lists:keysearch(vsn, 1, AI) of
 	    {value, {vsn, V}} when is_atom(V) ->
