@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %% 
 %%          {Codec, Messages}.
 %% 
-%%          Codec = pretty | compact | ber | per | erlang
+%%          Codec    = pretty | compact | ber | per | erlang
 %%          Messages = [{Name, binary()}]
 %%          Name     = atom
 %%          
@@ -255,11 +255,11 @@ encode_message(compact, Msg) ->
     Conf = [{version3,?V3}],
     do_encode(Mod, Conf, Msg);
 encode_message(ber, Msg) ->
-    Mod  = megaco_ber_bin_encoder,
+    Mod  = megaco_ber_encoder,
     Conf = [{version3,?V3}],
     do_encode(Mod, Conf, Msg);
 encode_message(per, Msg) ->
-    Mod  = megaco_per_bin_encoder,
+    Mod  = megaco_per_encoder,
     Conf = [{version3,?V3}],
     do_encode(Mod, Conf, Msg);
 encode_message(erlang, Msg) ->
