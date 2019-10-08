@@ -490,8 +490,15 @@ single_trans_req(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -544,6 +551,7 @@ single_trans_req(Config) when is_list(Config) ->
 -endif.
 
 str_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -555,10 +563,6 @@ str_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?str_mgc_service_change_req_verify_fun(Mid),
     NotifyReqVerify        = ?str_mgc_notify_req_verify_fun(),
     DiscoVerify            = ?str_mgc_disco_verify_fun(),
-%%     ConnectVerify = fun str_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = str_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify = str_mgc_verify_notify_request_fun(),
-%%     DiscoVerify = fun str_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, false},
 	     {megaco_trace, disable},
@@ -566,6 +570,10 @@ str_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect, ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -762,9 +770,6 @@ str_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?str_mg_connect_verify_fun(), 
     ServiceChangeReplyVerify = ?str_mg_service_change_reply_verify_fun(), 
     NotifyReplyVerify        = ?str_mg_notify_reply_verify_fun(), 
-    %% ConnectVerify = fun str_mg_verify_handle_connect/1,
-    %% ServiceChangeReplyVerify = fun str_mg_verify_service_change_reply/1,
-    %% NotifyReplyVerify = fun str_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -924,8 +929,15 @@ multi_trans_req_timeout(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -978,6 +990,7 @@ multi_trans_req_timeout(Config) when is_list(Config) ->
 -endif.
 
 mtrt_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -989,10 +1002,6 @@ mtrt_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?mtrt_mgc_verify_service_change_req_fun(Mid),
     NotifyReqVerify        = ?mtrt_mgc_verify_notify_req_fun(),
     DiscoVerify            = ?mtrt_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrt_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrt_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrt_mgc_verify_notify_request_fun(),
-%%     DiscoVerify            = fun mtrt_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -1000,14 +1009,18 @@ mtrt_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
-	     {megaco_callback, handle_connect, ConnectVerify},
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
+	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_disconnect, DiscoVerify},
+	     {megaco_callback, handle_disconnect,    DiscoVerify},
 	     {sleep, 1000},
 	     megaco_stop_user,
 	     megaco_stop
@@ -1370,8 +1383,15 @@ multi_trans_req_maxcount1(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -1424,6 +1444,7 @@ multi_trans_req_maxcount1(Config) when is_list(Config) ->
 -endif.
 
 mtrmc1_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -1435,10 +1456,6 @@ mtrmc1_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?mtrmc1_mgc_verify_service_change_req_fun(Mid),
     NotifyReqVerify        = ?mtrmc1_mgc_verify_notify_req_fun(),
     DiscoVerify            = ?mtrmc1_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify = fun mtrmc1_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrmc1_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify = mtrmc1_mgc_verify_notify_request_fun(),
-%%     DiscoVerify = fun mtrmc1_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -1446,14 +1463,18 @@ mtrmc1_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
-	     {megaco_callback, handle_connect, ConnectVerify},
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
+	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_disconnect, DiscoVerify},
+	     {megaco_callback, handle_disconnect,    DiscoVerify},
 	     {sleep, 1000},
 	     megaco_stop_user,
 	     megaco_stop
@@ -1643,9 +1664,6 @@ mtrmc1_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrmc1_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrmc1_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrmc1_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrmc1_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrmc1_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrmc1_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -1822,8 +1840,15 @@ multi_trans_req_maxcount2(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
    {ok, MgcId} =  megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -1876,6 +1901,7 @@ multi_trans_req_maxcount2(Config) when is_list(Config) ->
 -endif.
 
 mtrmc2_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -1887,10 +1913,6 @@ mtrmc2_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?mtrmc2_mgc_verify_service_change_req_fun(Mid),
     NotifyReqVerify        = ?mtrmc2_mgc_verify_notify_req_fun(),
     DiscoVerify            = ?mtrmc2_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrmc2_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrmc2_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrmc2_mgc_verify_notify_request_fun(),
-%%     DiscoVerify            = fun mtrmc2_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -1898,6 +1920,10 @@ mtrmc2_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -2121,9 +2147,6 @@ mtrmc2_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrmc2_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrmc2_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrmc2_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrmc2_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrmc2_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrmc2_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -2326,8 +2349,15 @@ multi_trans_req_maxsize1(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -2380,6 +2410,7 @@ multi_trans_req_maxsize1(Config) when is_list(Config) ->
 -endif.
 
 mtrms1_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -2391,10 +2422,6 @@ mtrms1_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?mtrms1_mgc_verify_service_change_req_fun(Mid),
     NotifyReqVerify        = ?mtrms1_mgc_verify_notify_req_fun(),
     DiscoVerify            = ?mtrms1_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrms1_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrms1_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify1       = mtrms1_mgc_verify_notify_request_fun1(),
-%%     DiscoVerify            = fun mtrms1_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -2402,6 +2429,10 @@ mtrms1_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -2602,9 +2633,6 @@ mtrms1_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrms1_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrms1_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrms1_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrms1_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrms1_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrms1_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -2776,8 +2804,15 @@ multi_trans_req_maxsize2(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -2830,6 +2865,7 @@ multi_trans_req_maxsize2(Config) when is_list(Config) ->
 -endif.
 
 mtrms2_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -2841,10 +2877,6 @@ mtrms2_mgc_event_sequence(text, tcp) ->
     ServiceChangeReqVerify = ?mtrms2_mgc_verify_service_change_req_fun(Mid),
     NotifyReqVerify        = ?mtrms2_mgc_verify_notify_req_fun(),
     DiscoVerify            = ?mtrms2_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrms2_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrms2_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrms2_mgc_verify_notify_request_fun(),
-%%     DiscoVerify            = fun mtrms2_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -2852,6 +2884,10 @@ mtrms2_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -3071,9 +3107,6 @@ mtrms2_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrms2_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrms2_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrms2_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrms2_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrms2_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrms2_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -3268,8 +3301,15 @@ single_trans_req_and_ack(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -3326,6 +3366,7 @@ single_trans_req_and_ack(Config) when is_list(Config) ->
 -endif.
 
 straa_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -3338,11 +3379,6 @@ straa_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?straa_mgc_verify_notify_req_fun(),
     AckVerify              = ?straa_mgc_verify_ack_fun(), 
     DiscoVerify            = ?straa_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun straa_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = straa_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = straa_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun straa_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun straa_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -3350,6 +3386,10 @@ straa_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -3571,9 +3611,6 @@ straa_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?straa_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?straa_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?straa_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun straa_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun straa_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun straa_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -3747,8 +3784,15 @@ multi_trans_req_and_ack_timeout(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -3805,6 +3849,7 @@ multi_trans_req_and_ack_timeout(Config) when is_list(Config) ->
 -endif.
 
 mtrtaat_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -3817,11 +3862,6 @@ mtrtaat_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?mtrtaat_mgc_verify_notify_req_fun(),
     AckVerify              = ?mtrtaat_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtrtaat_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrtaat_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrtaat_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrtaat_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun mtrtaat_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtrtaat_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -3829,6 +3869,10 @@ mtrtaat_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -4056,9 +4100,6 @@ mtrtaat_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrtaat_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrtaat_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrtaat_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrtaat_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrtaat_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrtaat_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -4236,8 +4277,15 @@ multi_trans_req_and_ack_ackmaxcount(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -4294,6 +4342,7 @@ multi_trans_req_and_ack_ackmaxcount(Config) when is_list(Config) ->
 -endif.
 
 mtrtaaamc_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -4306,11 +4355,6 @@ mtrtaaamc_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?mtrtaaamc_mgc_verify_notify_req_fun(),
     AckVerify              = ?mtrtaaamc_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtrtaaamc_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrtaaamc_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrtaaamc_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrtaaamc_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun mtrtaaamc_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtrtaaamc_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -4318,6 +4362,10 @@ mtrtaaamc_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -4550,9 +4598,6 @@ mtrtaaamc_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrtaaamc_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrtaaamc_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrtaaamc_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrtaaamc_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrtaaamc_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrtaaamc_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -4732,8 +4777,15 @@ multi_trans_req_and_ack_reqmaxcount(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
    {ok, MgcId} =  megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -4790,6 +4842,7 @@ multi_trans_req_and_ack_reqmaxcount(Config) when is_list(Config) ->
 -endif.
 
 mtrtaarac_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -4802,11 +4855,6 @@ mtrtaarac_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?mtrtaarac_mgc_verify_notify_req_fun(),
     AckVerify              = ?mtrtaarac_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtrtaarac_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrtaarac_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrtaarac_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrtaarac_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun mtrtaarac_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtrtaarac_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -4814,6 +4862,10 @@ mtrtaarac_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -5045,9 +5097,6 @@ mtrtaarac_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrtaarac_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrtaarac_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrtaarac_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrtaarac_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrtaarac_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrtaarac_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -5229,8 +5278,15 @@ multi_trans_req_and_ack_maxsize1(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -5287,6 +5343,7 @@ multi_trans_req_and_ack_maxsize1(Config) when is_list(Config) ->
 -endif.
 
 mtrtaams1_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -5299,11 +5356,6 @@ mtrtaams1_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?mtrtaams1_mgc_verify_notify_req_fun(),
     AckVerify              = ?mtrtaams1_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtrtaams1_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrtaams1_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrtaams1_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrtaams1_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun mtrtaams1_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtrtaams1_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -5311,6 +5363,10 @@ mtrtaams1_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -5542,9 +5598,6 @@ mtrtaams1_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrtaams1_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrtaams1_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrtaams1_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrtaams1_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrtaams1_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrtaams1_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -5723,8 +5776,15 @@ multi_trans_req_and_ack_maxsize2(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -5781,6 +5841,7 @@ multi_trans_req_and_ack_maxsize2(Config) when is_list(Config) ->
 -endif.
 
 mtrtaams2_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -5793,11 +5854,6 @@ mtrtaams2_mgc_event_sequence(text, tcp) ->
     NotifyReqVerify        = ?mtrtaams2_mgc_verify_notify_req_fun(),
     AckVerify              = ?mtrtaams2_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtrtaams2_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtrtaams2_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtrtaams2_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtrtaams2_mgc_verify_notify_request_fun(),
-%%     AckVerify              = fun mtrtaams2_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtrtaams2_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -5805,6 +5861,10 @@ mtrtaams2_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     {listen, [{serialize, true}]},
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -6046,9 +6106,6 @@ mtrtaams2_mg_event_sequence(text, tcp) ->
     ConnectVerify            = ?mtrtaams2_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtrtaams2_mg_verify_service_change_reply_fun(), 
     NotifyReplyVerify        = ?mtrtaams2_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtrtaams2_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtrtaams2_mg_verify_service_change_reply/1,
-%%     NotifyReplyVerify        = fun mtrtaams2_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -6260,8 +6317,15 @@ multi_trans_req_and_ack_and_pending(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -6322,6 +6386,7 @@ multi_trans_req_and_ack_and_pending(Config) when is_list(Config) ->
 -endif.
 
 mtraaap_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -6342,12 +6407,6 @@ mtraaap_mgc_event_sequence(text, tcp) ->
     NotifyReplyVerify      = ?mtraaap_mgc_verify_notify_reply_fun(), 
     AckVerify              = ?mtraaap_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtraaap_mgc_verify_handle_disconnect_fun(),
-%%     ConnectVerify          = fun mtraaap_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtraaap_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtraaap_mgc_verify_notify_request_fun(),
-%%     NotifyReplyVerify      = fun mtraaap_mgc_verify_notify_reply/1, 
-%%     AckVerify              = fun mtraaap_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtraaap_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     {megaco_trace, disable},
@@ -6355,6 +6414,10 @@ mtraaap_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,        ConnectVerify},
 	     {megaco_callback, handle_trans_request,  ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request,  NotifyReqVerify},
@@ -6605,10 +6668,6 @@ mtraaap_mg_event_sequence(text, tcp) ->
     ServiceChangeReplyVerify = ?mtraaap_mg_verify_service_change_reply_fun(), 
     NotifyReqVerify          = ?mtraaap_mg_verify_notify_req_fun(),
     NotifyReplyVerify        = ?mtraaap_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtraaap_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtraaap_mg_verify_service_change_reply/1,
-%%     NotifyReqVerify          = mtraaap_mg_verify_notify_request_fun(),
-%%     NotifyReplyVerify        = fun mtraaap_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -6846,8 +6905,15 @@ multi_trans_req_and_ack_and_reply(Config) when is_list(Config) ->
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
 
-    i("wait some time before starting the MG simulator"),
-    sleep(1000),
+    %% i("wait some time before starting the MG simulator"),
+    %% sleep(1000),
+
+    i("await MGC ready announcement"),
+    receive
+        announce_mgc ->
+            i("received MGC ready announcement"),
+            ok
+    end,
 
     d("[MG] start the simulator (generator)"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -6908,6 +6974,7 @@ multi_trans_req_and_ack_and_reply(Config) when is_list(Config) ->
 -endif.
 
 mtraaar_mgc_event_sequence(text, tcp) ->
+    CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
 	  {port,             2944},
@@ -6925,12 +6992,6 @@ mtraaar_mgc_event_sequence(text, tcp) ->
     NotifyReplyVerify      = ?mtraaar_mgc_verify_notify_reply_fun(), 
     AckVerify              = ?mtraaar_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtraaar_mgc_verify_handle_disconnect_fun(), 
-%%     ConnectVerify          = fun mtraaar_mgc_verify_handle_connect/1,
-%%     ServiceChangeReqVerify = mtraaar_mgc_verify_service_change_req_fun(Mid),
-%%     NotifyReqVerify        = mtraaar_mgc_verify_notify_request_fun(),
-%%     NotifyReplyVerify      = fun mtraaar_mgc_verify_notify_reply/1, 
-%%     AckVerify              = fun mtraaar_mgc_verify_ack/1, 
-%%     DiscoVerify            = fun mtraaar_mgc_verify_handle_disconnect/1,
     EvSeq = [
 	     {debug, true},
 	     %% {megaco_trace, max}, 
@@ -6939,6 +7000,10 @@ mtraaar_mgc_event_sequence(text, tcp) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_callback, handle_connect,       ConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
@@ -7195,10 +7260,6 @@ mtraaar_mg_event_sequence(text, tcp) ->
     ServiceChangeReplyVerify = ?mtraaar_mg_verify_service_change_reply_fun(), 
     NotifyReqVerify          = ?mtraaar_mg_verify_notify_req_fun(),
     NotifyReplyVerify        = ?mtraaar_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun mtraaar_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun mtraaar_mg_verify_service_change_reply/1,
-%%     NotifyReqVerify          = mtraaar_mg_verify_notify_request_fun(),
-%%     NotifyReplyVerify        = fun mtraaar_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -7492,6 +7553,7 @@ otp_7192_1(Config) when is_list(Config) ->
 -endif.
 
 otp71921_mgc_event_sequence(text, tcp, MgMid) ->
+    CTRL = self(),
     Mid = {deviceName, "ctrl"},
     RI = [
 	  {port,             2944},
@@ -7517,6 +7579,10 @@ otp71921_mgc_event_sequence(text, tcp, MgMid) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_connect,  MgMid}, 
 	     {megaco_callback, handle_connect,       LocalConnectVerify},
 	     %% {megaco_callback, handle_connect,       RemoteConnectVerify},
@@ -7774,10 +7840,6 @@ otp71921_mg_event_sequence(text, tcp, Mid) ->
     ServiceChangeReplyVerify = ?otp71921_mg_verify_service_change_reply_fun(), 
     NotifyReqVerify          = ?otp71921_mg_verify_notify_req_fun(),
     NotifyReplyVerify        = ?otp71921_mg_verify_notify_reply_fun(), 
-%%     ConnectVerify            = fun otp71921_mg_verify_handle_connect/1,
-%%     ServiceChangeReplyVerify = fun otp71921_mg_verify_service_change_reply/1,
-%%     NotifyReqVerify          = otp71921_mg_verify_notify_request_fun(),
-%%     NotifyReplyVerify        = fun otp71921_mg_verify_notify_reply/1, 
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -8063,6 +8125,7 @@ otp_7192_2(Config) when is_list(Config) ->
 -endif.
 
 otp71922_mgc_event_sequence(text, tcp, MgMid) ->
+    CTRL = self(),
     Mid = {deviceName, "ctrl"},
     RI = [
 	  {port,             2944},
@@ -8088,6 +8151,10 @@ otp71922_mgc_event_sequence(text, tcp, MgMid) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_connect,  MgMid}, 
 	     {megaco_callback, handle_connect,       LocalConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
@@ -8627,6 +8694,7 @@ otp_7192_3(Config) when is_list(Config) ->
 -endif.
 
 otp72923_mgc_event_sequence(text, udp, MgMid) ->
+    CTRL = self(),
     Mid = {deviceName, "ctrl"},
     RI = [
 	  {port,             2944},
@@ -8652,6 +8720,10 @@ otp72923_mgc_event_sequence(text, udp, MgMid) ->
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
 	     listen,
+
+             %% ANNOUNCE READY
+             {trigger, fun() -> CTRL ! announce_mgc end}, 
+
 	     {megaco_connect,  MgMid}, 
 	     {megaco_callback, handle_connect,       LocalConnectVerify},
 	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
