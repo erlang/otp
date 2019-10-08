@@ -16527,8 +16527,8 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
     switch (level) {
     case SOL_SOCKET:
         switch (type) {
-#if defined(SO_TIMESTAMP)
-        case SO_TIMESTAMP:
+#if defined(SCM_TIMESTAMP)
+        case SCM_TIMESTAMP:
             *eType = esock_atom_timestamp;
             break;
 #endif
@@ -16543,10 +16543,14 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
         case SCM_CREDENTIALS:
             *eType = esock_atom_credentials;
             break;
+#elif defined(SCM_CREDS)
+        case SCM_CREDS:
+            *eType = esock_atom_credentials;
+            break;
 #endif
 
         default:
-            xres = ESOCK_STR_EINVAL;
+            *eType = MKI(env, type);
             break;
         }        
         break;
@@ -16659,7 +16663,29 @@ char* decode_cmsghdr_type(ErlNifEnv*   env,
 
     switch (level) {
     case SOL_SOCKET:
-        if (IS_NUM(env, eType)) {
+        if (IS_ATOM(env, eType)) {
+            if (COMPARE(eType, esock_atom_timestamp) == 0) {
+#if defined(SCM_TIMESTAMP)
+                *type = SCM_TIMESTAMP;
+#else
+                xres  = ESOCK_STR_EINVAL;
+#endif
+            } else if (COMPARE(eType, esock_atom_rights) == 0) {
+#if defined(SCM_RIGHTS)
+                *type = SCM_RIGHTS;
+#else
+                xres  = ESOCK_STR_EINVAL;
+#endif
+            } else if (COMPARE(eType, esock_atom_credentials) == 0) {
+#if defined(SCM_CREDENTIALS)
+                *type = SCM_CREDENTIALS;
+#elif defined(SCM_CREDS)
+                *type = SCM_CREDS;
+#else
+                xres  = ESOCK_STR_EINVAL;
+#endif
+            }
+        } else if (IS_NUM(env, eType)) {
             if (!GET_INT(env, eType, type)) {
                 *type = -1;
                 xres  = ESOCK_STR_EINVAL;
@@ -16842,8 +16868,8 @@ char* encode_cmsghdr_data_socket(ErlNifEnv*     env,
     // char* xres;
 
     switch (type) {
-#if defined(SO_TIMESTAMP)
-    case SO_TIMESTAMP:
+#if defined(SCM_TIMESTAMP)
+    case SCM_TIMESTAMP:
         {
             struct timeval* timeP = (struct timeval*) dataP;
 
