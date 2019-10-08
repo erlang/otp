@@ -4755,7 +4755,7 @@ ERL_NIF_TERM esock_supports_local(ErlNifEnv* env)
  * Extra    - A map with "obscure" options.
  *            Currently the only allowed option is netns (network namespace).
  *            This is *only* allowed on linux!
- *            We sould also use this for the fd value, in case we should use
+ *            We should also use this for the fd value, in case we should use
  *            an already existing (file) descriptor.
  */
 static
@@ -4766,10 +4766,11 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    int          edomain, etype, eproto;
+    int          edomain, etype;
+    ERL_NIF_TERM eproto; // This is normally an int, but can also be '{raw, int}'
+    ERL_NIF_TERM emap;
     int          domain, type, proto;
     char*        netns;
-    ERL_NIF_TERM emap;
     ERL_NIF_TERM result;
 
     SGDBG( ("SOCKET", "nif_open -> entry with %d args\r\n", argc) );
@@ -17878,7 +17879,7 @@ BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns)
         return TRUE;
     }
 
-    /* The currently only supported extra option is:  netns */
+    /* The currently only supported extra option is: netns */
     key = enif_make_atom(env, "netns");
     if (!GET_MAP_VAL(env, map, key, &value)) {
         *netns = NULL; // Just in case...
