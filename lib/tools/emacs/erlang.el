@@ -2679,8 +2679,9 @@ Value is list (stack token-start token-type in-what)."
         (if stack
             (forward-char 1)
           (forward-char 6)
-          (skip-chars-forward "^(\n")
           (erlang-push (list 'spec (point) (current-column)) stack)
+          (skip-chars-forward "^(\n")
+          (erlang-push (list 'spec_arg (point) (current-column)) stack)
           ))
 
        ;; Type spec delimiter
@@ -2797,7 +2798,7 @@ Return nil if inside string, t if in a comment."
                  (t
                   (erlang-indent-to-first-element stack-top 2))))
 
-          ((memq (car stack-top) '(icr fun spec))
+          ((memq (car stack-top) '(icr fun spec_arg))
            ;; The default indentation is the column of the option
            ;; directly following the keyword. (This does not apply to
            ;; `case'.)  Should no option be on the same line, the
@@ -2844,10 +2845,11 @@ Return nil if inside string, t if in a comment."
                      ((eq (car stack-top) '->)
                       ;; If in fun definition use standard indent level not double
                       ;;(if (not (eq (car (car (cdr stack))) 'fun))
-                      ;; Removed it made multi clause fun's look too bad
-                      (setq off (+ erlang-indent-level (if (not erlang-icr-indent)
-                                                           erlang-indent-level
-                                                         erlang-icr-indent)))))
+                      ;; Removed it made multi clause Named fun's look too bad
+                      (setq off (+ erlang-indent-level
+                                   (if (not erlang-icr-indent)
+                                       erlang-indent-level
+                                     erlang-icr-indent)))))
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
@@ -2873,6 +2875,10 @@ Return nil if inside string, t if in a comment."
                                        (erlang-caddr (car stack))
                                      0)))
                                 (t (erlang-indent-standard indent-point token base 'nil))))) ;; old catch
+                       ;; Indent result types
+                       ((eq (car (car (cdr stack))) 'spec_arg)
+                        (setq base (+ (erlang-caddr (car (last stack))) erlang-indent-level))
+                        (erlang-indent-standard indent-point token base 'nil))
                        (t
                         (erlang-indent-standard indent-point token base 'nil)
                         ))))
