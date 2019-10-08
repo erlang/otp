@@ -615,13 +615,16 @@
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
 -type cmsghdr_send() :: 
-        #{level := socket,    type := integer(), data := binary()} |
-        #{level := ip,        type := tos,       data := ip_tos()  | binary()} |
-        #{level := ip,        type := ttl,       data := integer() | binary()} |
-        #{level := ip,        type := integer(), data := binary()} |
-        #{level := ipv6,      type := integer(), data := binary()} |
-        #{level := udp,       type := integer(), data := binary()} |
-        #{level := integer(), type := integer(), data := binary()}.
+        #{level := socket,    type := timestamp,   data := binary()} |
+        #{level := socket,    type := rights,      data := binary()} |
+        #{level := socket,    type := credentials, data := binary()} |
+        #{level := socket,    type := integer(),   data := binary()} |
+        #{level := ip,        type := tos,         data := ip_tos()  | binary()} |
+        #{level := ip,        type := ttl,         data := integer() | binary()} |
+        #{level := ip,        type := integer(),   data := binary()} |
+        #{level := ipv6,      type := integer(),   data := binary()} |
+        #{level := udp,       type := integer(),   data := binary()} |
+        #{level := integer(), type := integer(),   data := binary()}.
 
 
 -opaque select_tag() :: atom().
