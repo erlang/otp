@@ -136,6 +136,7 @@
          api_opt_sock_mark/1,
          api_opt_sock_oobinline/1,
          api_opt_sock_passcred_tcp4/1,
+         api_opt_sock_peercred_tcpL/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
@@ -831,7 +832,8 @@ api_option_sock_acceptconn_cases() ->
 api_option_sock_passcred_cases() ->
     [
      %% api_opt_sock_passcred_udp4,
-     api_opt_sock_passcred_tcp4
+     api_opt_sock_passcred_tcp4,
+     api_opt_sock_peercred_tcpL
     ].
 
 api_option_sock_timestamp_cases() ->
@@ -11584,6 +11586,548 @@ api_opt_sock_passcred_tcp(InitState) ->
 
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that we get the peer credentials for a connected unix domain
+%% TCP (stream) socket.
+%% That is, all we need to do is to create a slave node, and have 
+%% process connect from that to a local (unix domain socket) socket.
+%%
+%% THIS IS A PLACEHOLDER!!
+%%
+%% We need to figure out what the ucred structure looks like,
+%% and decode it...
+%%
+
+api_opt_sock_peercred_tcpL(suite) ->
+    [];
+api_opt_sock_peercred_tcpL(doc) ->
+    [];
+api_opt_sock_peercred_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_peercred_tcpL,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   has_support_sock_peercred(),
+                   not_yet_implemented()
+           end,
+           fun() ->
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, socket, peercred)
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default, % Type = stream => tcp
+                                 get    => Get},
+                   ok = api_opt_sock_peercred_tcp(InitState)
+           end).
+
+
+api_opt_sock_peercred_tcp(_InitState) ->
+    %% ServerSeq =
+    %%     [
+    %%      %% *** Wait for start order part ***
+    %%      #{desc => "await start (from tester)",
+    %%        cmd  => fun(State) ->
+    %%                        {Tester, Backlog} = ?SEV_AWAIT_START(),
+    %%                        {ok, State#{tester  => Tester,
+    %%                                    backlog => Backlog}}
+    %%                end},
+    %%      #{desc => "monitor tester",
+    %%        cmd  => fun(#{tester := Tester} = _State) ->
+    %%                        _MRef = erlang:monitor(process, Tester),
+    %%                        ok
+    %%                end},
+
+    %%      %% *** Init part ***
+    %%      #{desc => "which local address",
+    %%        cmd  => fun(#{domain := Domain} = State) ->
+    %%                        LSA = which_local_socket_addr(Domain),
+    %%                        {ok, State#{lsa => LSA}}
+    %%                end},
+    %%      #{desc => "create listen socket",
+    %%        cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+    %%                        case socket:open(Domain, stream, Proto) of
+    %%                            {ok, Sock} ->
+    %%                                {ok, State#{lsock => Sock}};
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "bind to local address",
+    %%        cmd  => fun(#{domain := local,
+    %%                      lsock  := LSock,
+    %%                      lsa    := LSA} = _State) ->
+    %%                        case socket:bind(LSock, LSA) of
+    %%                            {ok, _Port} ->
+    %%                                ok;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "make listen socket",
+    %%        cmd  => fun(#{lsock := LSock}) ->
+    %%                        socket:listen(LSock)
+    %%                end},
+    %%      #{desc => "announce ready (init)",
+    %%        cmd  => fun(#{domain := local,
+    %%                      tester := Tester, lsa := #{path := Path}}) ->
+    %%                        ?SEV_ANNOUNCE_READY(Tester, init, Path),
+    %%                        ok
+    %%                end},
+
+
+    %%      %% The actual test
+    %%      #{desc => "await continue (accept)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+    %%                end},
+    %%      #{desc => "await connection",
+    %%        cmd  => fun(#{lsock := LSock} = State) ->
+    %%                        case socket:accept(LSock) of
+    %%                            {ok, Sock} ->
+    %%                                ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
+    %%                                {ok, State#{csock => Sock}};
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "announce ready (accept)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_ANNOUNCE_READY(Tester, accept),
+    %%                        ok
+    %%                end},
+
+    %%      #{desc => "await continue (peercred)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_AWAIT_CONTINUE(Tester, tester, peercred)
+    %%                end},
+    %%      #{desc => "get peercred",
+    %%        cmd  => fun(#{csock := Sock, get := Get} = _State) ->
+    %%                        case Get(Sock) of
+    %%                            {ok, PeerCred} ->
+    %%                                ?SEV_IPRINT("PeerCred: ~n   ~p", [PeerCred]),
+    %%                                ok;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "announce ready (peercred)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_ANNOUNCE_READY(Tester, peercred),
+    %%                        ok
+    %%                end},
+
+
+    %%      %% Termination
+    %%      #{desc => "await terminate",
+    %%        cmd  => fun(#{tester := Tester} = State) ->
+    %%                        case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+    %%                            ok ->
+    %%                                {ok, maps:remove(tester, State)};
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "close connection socket",
+    %%        cmd  => fun(#{csock := Sock} = State) ->
+    %%                        ok = socket:close(Sock),
+    %%                        {ok, maps:remove(csock, State)}
+    %%                end},
+    %%      #{desc => "close listen socket",
+    %%        cmd  => fun(#{domain := local,
+    %%                      lsock  := Sock,
+    %%                      lsa    := #{path := Path}} = State) ->
+    %%                        ok = socket:close(Sock),
+    %%                        State1 =
+    %%                            unlink_path(Path,
+    %%                                        fun() ->
+    %%                                                maps:remove(lsa, State)
+    %%                                        end,
+    %%                                        fun() -> State end),
+    %%                        {ok, maps:remove(lsock, State1)}
+    %%                end},
+
+    %%      %% *** We are done ***
+    %%      ?SEV_FINISH_NORMAL
+    %%     ],
+
+
+    %% ClientSeq =
+    %%     [
+    %%      %% *** Wait for start order part ***
+    %%      #{desc => "await start",
+    %%        cmd  => fun(#{domain := local} = State) ->
+    %%                        {Tester, Path} = ?SEV_AWAIT_START(),
+    %%                        {ok, State#{tester    => Tester,
+    %%                                    server_path => Path}}
+    %%                end},
+    %%      #{desc => "monitor tester",
+    %%        cmd  => fun(#{tester := Tester} = _State) ->
+    %%                        _MRef = erlang:monitor(process, Tester),
+    %%                        ok
+    %%                end},
+
+
+    %%      %% *** Init part ***
+    %%      #{desc => "which local address",
+    %%        cmd  => fun(#{domain      := local = Domain,
+    %%                      server_path := Path} = State) ->
+    %%                        LSA = which_local_socket_addr(Domain),
+    %%                        SSA = #{family => Domain, path => Path},
+    %%                        {ok, State#{local_sa => LSA, server_sa => SSA}}
+    %%                end},
+    %%      #{desc => "create node",
+    %%        cmd  => fun(#{host := Host} = State) ->
+    %%     		   ?SEV_IPRINT("try create node on ~p", [Host]),
+    %%                        case start_node(Host, client) of
+    %%                            {ok, Node} ->
+    %%                                ?SEV_IPRINT("client node ~p started",
+    %%                                            [Node]),
+    %%                                {ok, State#{node => Node}};
+    %%                            {error, Reason} ->
+    %%                                {skip, Reason}
+    %%                        end
+    %%                end},
+    %%       #{desc => "monitor client node",
+    %%        cmd  => fun(#{node := Node} = _State) ->
+    %%                        true = erlang:monitor_node(Node, true),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "start remote client on client node",
+    %%        cmd  => fun(#{node := Node} = State) ->
+    %%                        Pid = api_opt_sock_peercred_tcp_client_start(Node),
+    %%                        ?SEV_IPRINT("remote client ~p started", [Pid]),
+    %%                        {ok, State#{rclient => Pid}}
+    %%                end},
+    %%      #{desc => "monitor remote client",
+    %%        cmd  => fun(#{rclient := Pid}) ->
+    %%                        _MRef = erlang:monitor(process, Pid),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "order remote client to start",
+    %%        cmd  => fun(#{rclient   := Client,
+    %%                     proto      := Proto,
+    %%                      server_sa := ServerSA}) ->
+    %%                        ?SEV_ANNOUNCE_START(Client, {Proto, ServerSA}),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await remote client ready",
+    %%        cmd  => fun(#{tester  := Tester,
+    %%                      rclient := Client} = _State) ->
+    %%                        ?SEV_AWAIT_READY(Client, rclient, init,
+    %%                                         [{tester, Tester}])
+    %%                end},
+    %%      #{desc => "announce ready (init)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_ANNOUNCE_READY(Tester, init),
+    %%                        ok
+    %%                end},
+
+
+    %%      %% The actual test
+    %%      #{desc => "await continue (connect)",
+    %%        cmd  => fun(#{tester  := Tester,
+    %%                      rclient := Client} = State) ->
+    %%                        case ?SEV_AWAIT_CONTINUE(Tester, tester, connect,
+    %%                                                 [{rclient, Client}]) of
+    %%                            {ok, {ConTimeout, ConLimit}} ->
+    %%                                {ok, State#{connect_timeout => ConTimeout,
+    %%                                            connect_limit   => ConLimit}};
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "order remote client to continue (connect)",
+    %%        cmd  => fun(#{rclient         := RClient,
+    %%                      connect_timeout := ConTimeout,
+    %%                      connect_limit   := ConLimit}) ->
+    %%                        ?SEV_ANNOUNCE_CONTINUE(RClient, connect,
+    %%                                               {ConTimeout, ConLimit}),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await remote client ready (connect)",
+    %%        cmd  => fun(#{tester  := Tester,
+    %%                      rclient := RClient} = State) ->
+    %%                        case ?SEV_AWAIT_READY(RClient, rclient, connect,
+    %%                                              [{tester, Tester}]) of
+    %%                            {ok, ok = _Result} ->
+    %%                                {ok, maps:remove(connect_limit, State)};
+    %%                            {ok, {error, {connect_limit_reached,R,L}}} ->
+    %%                                {skip,
+    %%                                 ?LIB:f("Connect limit reached ~w: ~w",
+    %%                                        [L, R])};
+    %%                            {ok, Result} ->
+    %%                                Result;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "announce ready (connect)",
+    %%        cmd  => fun(#{tester := Tester}) ->
+    %%                        ?SEV_ANNOUNCE_READY(Tester, connect),
+    %%                        ok
+    %%                end},
+
+    %%      %% Termination
+    %%      #{desc => "await terminate (from tester)",
+    %%        cmd  => fun(#{tester  := Tester,
+    %%                      rclient := RClient} = State) ->
+    %%                        case ?SEV_AWAIT_TERMINATE(Tester, tester,
+    %%                                                  [{rclient, RClient}]) of
+    %%                            ok ->
+    %%                                {ok, maps:remove(tester, State)};
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "kill remote client",
+    %%        cmd  => fun(#{rclient := Client}) ->
+    %%                        ?SEV_ANNOUNCE_TERMINATE(Client),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await remote client termination",
+    %%        cmd  => fun(#{rclient := Client} = State) ->
+    %%                        ?SEV_AWAIT_TERMINATION(Client),
+    %%                        State1 = maps:remove(rclient, State),
+    %%                        {ok, State1}
+    %%                end},
+    %%      #{desc => "stop client node",
+    %%        cmd  => fun(#{node := Node} = _State) ->
+    %%                        stop_node(Node)
+    %%                end},
+    %%      #{desc => "await client node termination",
+    %%        cmd  => fun(#{node := Node} = State) ->
+    %%                        receive
+    %%                            {nodedown, Node} ->
+    %%                                State1 = maps:remove(node_id, State),
+    %%                                State2 = maps:remove(node,    State1),
+    %%                                {ok, State2}
+    %%                        end
+    %%                end},
+
+    %%      %% *** We are done ***
+    %%      ?SEV_FINISH_NORMAL
+    %%    ],
+
+    %% TesterSeq =
+    %%     [
+    %%      %% *** Init part ***
+    %%      #{desc => "monitor server",
+    %%        cmd  => fun(#{server := Server} = _State) ->
+    %%                        _MRef = erlang:monitor(process, Server),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "monitor client",
+    %%        cmd  => fun(#{client := Client} = _State) ->
+    %%                        _MRef = erlang:monitor(process, Client),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "which local address",
+    %%        cmd  => fun(#{domain := Domain} = State) ->
+    %%                        LSA = which_local_socket_addr(Domain),
+    %%                        {ok, State#{local_sa => LSA}}
+    %%                end},
+    %%      #{desc => "order server start",
+    %%        cmd  => fun(#{server  := Server,
+    %%                      backlog := Backlog}) ->
+    %%                        ?SEV_ANNOUNCE_START(Server, Backlog),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await server ready (init)",
+    %%        cmd  => fun(#{server := Server, local_sa := LSA} = State) ->
+    %%                        {ok, Port} = ?SEV_AWAIT_READY(Server, server, init),
+    %%                        ServerSA = LSA#{port => Port},
+    %%                        {ok, State#{server_sa => ServerSA}}
+    %%                end},
+    %%      #{desc => "order client start",
+    %%        cmd  => fun(#{client    := Client,
+    %%                      server_sa := ServerSA}) ->
+    %%                        ?SEV_ANNOUNCE_START(Client, ServerSA),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await client ready (init)",
+    %%        cmd  => fun(#{client := Client} = _State) ->
+    %%                        ?SEV_AWAIT_READY(Client, client, init),
+    %%                        ok
+    %%                end},
+
+
+    %%      %% The actual test
+    %%      %% The server accepts the connect from the client, announces
+    %%      %% this to us (accept) and then attempts to get peercred.
+    %%      #{desc => "order client continue (connect)",
+    %%        cmd  => fun(#{client        := Client,
+    %%                      timeout       := Timeout,
+    %%                      connect_limit := ConLimit} = _State) ->
+    %%                        ?SEV_ANNOUNCE_CONTINUE(Client, connect,
+    %%                                               {Timeout, ConLimit}),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await client ready (connect)",
+    %%        cmd  => fun(#{server := Server,
+    %%                      client := Client} = _State) ->
+    %%                        case ?SEV_AWAIT_READY(Client, client, connect,
+    %%                                              [{server, Server}]) of
+    %%                            ok ->
+    %%                                ok;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "await server ready (accept)",
+    %%        cmd  => fun(#{server := Server,
+    %%                      client := Client} = _State) ->
+    %%                        case ?SEV_AWAIT_READY(Server, server, accept,
+    %%                                              [{client, Client}]) of
+    %%                            ok ->
+    %%                                ok;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+    %%      #{desc => "await server ready (peercred)",
+    %%        cmd  => fun(#{server := Server,
+    %%                      client := Client} = _State) ->
+    %%                        case ?SEV_AWAIT_READY(Server, server, peercred,
+    %%                                              [{client, Client}]) of
+    %%                            ok ->
+    %%                                ok;
+    %%                            {error, _} = ERROR ->
+    %%                                ERROR
+    %%                        end
+    %%                end},
+
+
+    %%      %% *** Terminate server ***
+    %%      #{desc => "order client terminate",
+    %%        cmd  => fun(#{client := Client} = _State) ->
+    %%                        ?SEV_ANNOUNCE_TERMINATE(Client),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await client down",
+    %%        cmd  => fun(#{client := Client} = State) ->
+    %%                        ?SEV_AWAIT_TERMINATION(Client),
+    %%                        State1 = maps:remove(client,    State),
+    %%                        {ok, State1}
+    %%                end},
+    %%      #{desc => "order server terminate",
+    %%        cmd  => fun(#{server := Server} = _State) ->
+    %%                        ?SEV_ANNOUNCE_TERMINATE(Server),
+    %%                        ok
+    %%                end},
+    %%      #{desc => "await server down",
+    %%        cmd  => fun(#{server := Server} = State) ->
+    %%                        ?SEV_AWAIT_TERMINATION(Server),
+    %%                        State1 = maps:remove(server,    State),
+    %%                        State2 = maps:remove(server_sa, State1),
+    %%                        {ok, State2}
+    %%                end},
+
+    %%      %% *** We are done ***
+    %%      ?SEV_FINISH_NORMAL
+    %%     ],
+
+    %% i("create server evaluator"),
+    %% ServerInitState = #{domain => maps:get(domain, InitState)},
+    %% Server          = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    %% i("create client evaluator"),
+    %% ClientInitState = #{host   => local_host(),
+    %%                     domain => maps:get(domain, InitState)},
+    %% Client          = ?SEV_START("client", ClientSeq, ClientInitState),
+
+    %% i("create tester evaluator"),
+    %% TesterInitState = InitState#{server => Server#ev.pid,
+    %%                              client => Client#ev.pid},
+    %% Tester          = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    %% i("await evaluator(s)"),
+    %% ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+    %% This should actually never be called (the conditions should cause a skip),
+    %% but just to be on the safe side...
+    skip.
+
+
+%% api_opt_sock_peercred_tcp_client_start(Node) ->
+%%     Self = self(),
+%%     Fun  = fun() -> api_opt_sock_peercred_tcp_client(Self) end,
+%%     erlang:spawn(Node, Fun).
+
+%% api_opt_sock_peercred_tcp_client(Parent) ->
+%%     api_opt_sock_peercred_tcp_client_init(Parent),
+%%     {Proto, ServerSA} = api_opt_sock_peercred_tcp_client_await_start(Parent),
+%%     Domain   = maps:get(family, ServerSA),
+%%     api_opt_sock_peercred_tcp_client_announce_ready(Parent, init),
+%%     api_opt_sock_peercred_tcp_client_await_continue(Parent, connect),
+%%     Result = api_opt_sock_peercred_tcp_client_connect(Domain, Proto, ServerSA),
+%%     ?SEV_IPRINT("result: ~p", [Result]),
+%%     api_opt_sock_peercred_tcp_client_announce_ready(Parent, connect, Result),
+%%     Reason = api_opt_sock_peercred_tcp_client_await_terminate(Parent),
+%%     api_opt_sock_peercred_tcp_client_close(Result),
+%%     exit(Reason).
+
+%% api_opt_sock_peercred_tcp_client_init(Parent) ->
+%%     put(sname, "rclient"),
+%%     _MRef = erlang:monitor(process, Parent),
+%%     ok.
+
+%% api_opt_sock_peercred_tcp_client_await_start(Parent) ->
+%%     ?SEV_AWAIT_START(Parent).
+
+%% api_opt_sock_peercred_tcp_client_announce_ready(Parent, Slogan) ->
+%%     ?SEV_ANNOUNCE_READY(Parent, Slogan).
+%% api_opt_sock_peercred_tcp_client_announce_ready(Parent, Slogan, Result) ->
+%%     ?SEV_ANNOUNCE_READY(Parent, Slogan, Result).
+
+%% api_opt_sock_peercred_tcp_client_await_continue(Parent, Slogan) ->
+%%     case ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan) of
+%%         ok ->
+%%             ok;
+%%         {ok, Extra} ->
+%%             Extra;
+%%         {error, Reason} ->
+%%             exit({await_continue, Slogan, Reason})
+%%     end.
+
+%% api_opt_sock_peercred_tcp_client_await_terminate(Parent) ->
+%%     case ?SEV_AWAIT_TERMINATE(Parent, parent) of
+%%         ok ->
+%%             ok;
+%%         {error, Reason} ->
+%%             Reason
+%%     end.
+
+%% api_opt_sock_peercred_tcp_client_connect(Domain, Proto, ServerSA) ->
+%%     LSA  = which_local_socket_addr(Domain),
+%%     Sock = case socket:open(Domain, stream, Proto) of
+%%                {ok, S} ->
+%%                    S;
+%%                {error, OReason} ->
+%%                    ?FAIL({open, OReason})
+%%            end,
+%%     case socket:bind(Sock, LSA) of
+%%         {ok, _} ->
+%%             ok;
+%%         {error, BReason} ->
+%%             (catch socket:close(Sock)),
+%%             ?FAIL({bind, BReason})
+%%     end,
+%%     case socket:connect(Sock, ServerSA) of
+%%         ok ->
+%%             {ok, Sock};
+%%         {error, Reason} ->
+%%             (catch socket:close(Sock)),
+%%             ?FAIL({connect, Reason})
+%%     end.
+
+%% api_opt_sock_peercred_tcp_client_close({ok, Sock}) ->
+%%     (catch socket:close(Sock));
+%% api_opt_sock_peercred_tcp_client_close(_) ->
+%%     ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33219,6 +33763,9 @@ has_support_sock_oobinline() ->
 
 has_support_sock_passcred() ->
     has_support_socket_option_sock(passcred).
+
+has_support_sock_peercred() ->
+    has_support_socket_option_sock(peercred).
 
 has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
