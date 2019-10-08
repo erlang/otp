@@ -464,16 +464,25 @@
 
   <!-- Datatype -->
   <xsl:template match="datatype">
-    <xsl:variable name="id" select="concat('type-',name/@name)"/>
     <div class="data-types-body">
-      <div class="data-type-name"
-           onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-           onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-        <xsl:call-template name="ghlink">
-          <xsl:with-param name="id" select="$id"/>
-        </xsl:call-template>
-        <xsl:apply-templates select="name"/>
-      </div>
+      <xsl:choose>
+        <xsl:when test="string-length(name/@name) > 0">
+            <xsl:variable name="id" select="concat('type-',name/@name)"/>
+            <div class="data-type-name"
+                 onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
+                 onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+              <xsl:call-template name="ghlink">
+                <xsl:with-param name="id" select="$id"/>
+              </xsl:call-template>
+              <xsl:apply-templates select="name"/>
+            </div>
+        </xsl:when>
+        <xsl:otherwise>
+          <div class="data-type-name">
+            <xsl:apply-templates select="name"/>
+          </div>
+        </xsl:otherwise>
+      </xsl:choose>
       <div class="data-type-desc"><xsl:apply-templates select="desc"/></div>
     </div>
   </xsl:template>
