@@ -909,7 +909,7 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
     end;
 
 handle_info({whereis, Name, From}, S) ->
-    do_whereis(Name, From),
+    _ = do_whereis(Name, From),
     {noreply, S};
 
 handle_info(known, S) ->

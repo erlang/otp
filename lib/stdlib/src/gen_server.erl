@@ -249,7 +249,8 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
 reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply}.
+    catch To ! {Tag, Reply},
+    ok.
 
 %% ----------------------------------------------------------------- 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
