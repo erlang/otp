@@ -2118,36 +2118,49 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	erts_thr_progress_unblock();
 	break;
     case SYS_MSG_TYPE_ERRLGR: {
-	char *no_elgger = "(no logger present)";
 	Eterm *tp;
 	Eterm tag;
+
 	if (is_not_tuple(smqp->msg)) {
-	unexpected_elmsg:
-	    erts_fprintf(stderr,
-			 "%s unexpected logger message: %T\n",
-			 no_elgger,
-			 smqp->msg);
+	    goto unexpected_error_msg;
+	}
+	tp = tuple_val(smqp->msg);
+	if (arityval(tp[0]) != 2) {
+	    goto unexpected_error_msg;
+	}
+	if (is_not_tuple(tp[2])) {
+	    goto unexpected_error_msg;
+	}
+	tp = tuple_val(tp[2]);
+	if (arityval(tp[0]) != 3) {
+	    goto unexpected_error_msg;
+	}
+	tag = tp[1];
+	if (is_not_tuple(tp[3])) {
+	    goto unexpected_error_msg;
+	}
+	tp = tuple_val(tp[3]);
+	if (arityval(tp[0]) != 3) {
+	    goto unexpected_error_msg;
+	}
+	if (is_not_list(tp[3])) {
+	    goto unexpected_error_msg;
 	}
 
-	tp = tuple_val(smqp->msg);
-	if (arityval(tp[0]) != 2)
-	    goto unexpected_elmsg;
-	if (is_not_tuple(tp[2]))
-	    goto unexpected_elmsg;
-	tp = tuple_val(tp[2]);
-	if (arityval(tp[0]) != 3)
-	    goto unexpected_elmsg;
-	tag = tp[1];
-	if (is_not_tuple(tp[3]))
-	    goto unexpected_elmsg;
-	tp = tuple_val(tp[3]);
-	if (arityval(tp[0]) != 3)
-	    goto unexpected_elmsg;
-	if (is_not_list(tp[3]))
-	    goto unexpected_elmsg;
-	erts_fprintf(stderr, "%s %T: %T\n",
-		     no_elgger, tag, CAR(list_val(tp[3])));
-	break;
+        {
+            static const char *no_logger = "(no logger present)";
+        /* no_error_logger: */
+            erts_fprintf(stderr, "%s %T: %T\n",
+                         no_logger, tag, CAR(list_val(tp[3])));
+            break;
+        unexpected_error_msg:
+            erts_fprintf(stderr,
+                         "%s unexpected logger message: %T\n",
+                         no_logger,
+                         smqp->msg);
+            break;
+        }
+        ASSERT(0);
     }
     case SYS_MSG_TYPE_PROC_MSG:
         break;
