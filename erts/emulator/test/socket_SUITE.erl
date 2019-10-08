@@ -10188,6 +10188,11 @@ api_opt_sock_mark(_Config) when is_list(_Config) ->
 %% This works on linux of some version (atleast linux kernel 4.15.0),
 %% but not on FreeBSD (12) for some reason. Until we have figured out
 %% exctly why, we skip a bunch of OSs...
+%%
+%% Do we need to make sure the two entities does not run in the same
+%% process? This test case does not currently do that (which works in'
+%% linux but maybe not in, say, FreeBSD).
+%%
 
 api_opt_sock_oobinline(suite) ->
     [];
@@ -10200,7 +10205,7 @@ api_opt_sock_oobinline(_Config) when is_list(_Config) ->
                    has_support_sock_oobinline(),
                    has_support_send_flag_oob(),
                    has_support_recv_flag_oob(),
-                   is_not_freebsd()
+                   is_valid_oobinline_platform()
            end,
            fun() ->
                    Set  = fun(Sock, Value) ->
@@ -10227,6 +10232,21 @@ api_opt_sock_oobinline(_Config) when is_list(_Config) ->
                                  get    => Get},
                    ok = do_api_opt_sock_oobinline(InitState)
            end).
+
+%% Hopefully this is a temporary solution...
+is_valid_oobinline_platform() ->
+    case os:type() of
+        {unix, linux} ->
+            ok;
+
+        Type ->
+            %% Actually, all we know is that the
+            %% test case only work for linux, but
+            %% it *should* for FreeBSD and Solaris
+            %% also...
+            not_supported(Type)
+    end.
+    
 
 
 
@@ -12878,6 +12898,8 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                    ?SEV_EPRINT("Unexpected timestamp: ~p",
                                                [Unexpected]),
                                    {error, {unexpected_timestamp, Unexpected}};
+                               {error, enoprotoopt = Reason} ->
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed getting timestamp:"
                                                "   ~p", [Reason]),
@@ -14008,7 +14030,14 @@ api_opt_ip_recvopts_udp4(doc) ->
 api_opt_ip_recvopts_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ip_recvopts_udp4,
-           fun() -> has_support_ip_recvopts() end,
+           fun() ->
+                   has_support_ip_recvopts(),
+                   %% We also use the recvtos and timestamp options
+                   %% in this test, so at least one of them must
+                   %% be supported
+                   has_support_ip_recvtos_and_or_sock_timestamp()
+           
+           end,
            fun() ->
                    Set  = fun(Sock, Value) ->
                                   socket:setopt(Sock, ip, recvopts, Value)
@@ -14055,6 +14084,33 @@ api_opt_ip_recvopts_udp4(_Config) when is_list(_Config) ->
 api_opt_ip_recvopts_udp(InitState) ->
     Seq = 
         [
+         %% Start by figure out which of the ip:recvtos and/or socket:timestamp
+         %% options we can use.
+         #{desc => "test for ip:recvtos",
+           cmd  => fun(State) ->
+                           ?SEV_IPRINT("test for ip:recvtos"),
+                           case socket:supports(options, ip, recvtos) of
+                               true ->
+                                   ?SEV_IPRINT("use ip:recvtos"),
+                                   {ok, State#{recvtos => true}};
+                               false -> 
+                                   ?SEV_IPRINT("do *not* use ip:recvtos"),
+                                   {ok, State#{recvtos => false}}
+                           end
+                   end},
+         #{desc => "test for socket:timestamp",
+           cmd  => fun(State) ->
+                           ?SEV_IPRINT("test for socket:timestamp"),
+                           case socket:supports(options, socket, timestamp) of
+                               true ->
+                                   ?SEV_IPRINT("use socket:timestamp"),
+                                   {ok, State#{timestamp => true}};
+                               false -> 
+                                   ?SEV_IPRINT("do *not* use socket:timestamp"),
+                                   {ok, State#{timestamp => false}}
+                           end
+                   end},
+
          #{desc => "local address",
            cmd  => fun(#{domain := local = Domain} = State) ->
                            LSASrc = which_local_socket_addr(Domain),
@@ -14222,15 +14278,20 @@ api_opt_ip_recvopts_udp(InitState) ->
                    end},
 
          %% This specific option, recvtos, is tested in another test case
-         #{desc => "enable recvtos on dst socket",
-           cmd  => fun(#{sock_dst := Sock} = _State) ->
-                           ok = socket:setopt(Sock, ip, recvtos, true),
+         %% Note that this may not actually be supported here!!
+         #{desc => "maybe enable ip:recvtos on dst socket",
+           cmd  => fun(#{recvtos := true, sock_dst := Sock} = _State) ->
+                           ?SEV_IPRINT("enable ip:recvtos"),
+                           ok = socket:setopt(Sock, ip, recvtos, true);
+                      (#{recvtos := false} = _State) ->
                            ok
                    end},
          %% This specific option, timestamp, is tested in another test case
-         #{desc => "enable timestamp on dst socket",
-           cmd  => fun(#{sock_dst := Sock} = _State) ->
-                           ok = socket:setopt(Sock, socket, timestamp, true),
+         #{desc => "maybe enable socket:timestamp on dst socket",
+           cmd  => fun(#{timestamp := true, sock_dst := Sock} = _State) ->
+                           ?SEV_IPRINT("enable socket:timestamp"),
+                           ok = socket:setopt(Sock, socket, timestamp, true);
+                      (#{timestamp := false} = _State) ->
                            ok
                    end},
 
@@ -14239,10 +14300,83 @@ api_opt_ip_recvopts_udp(InitState) ->
                            Send(Sock, ?BASIC_REQ, Dst, default)
                    end},
          #{desc => "recv req (from src) - w default options",
-           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+           cmd  => fun(#{recvtos := true, timestamp := true,
+                         sock_dst := Sock,
+                         sa_src   := Src,
+                         recv     := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, Opts, ?BASIC_REQ}} 
-                                 when (length(Opts) =:= 2) ->
+                               when (length(Opts) =:= 2) ->
+                                   ?SEV_IPRINT("Got (default) Options: "
+                                               "~n   Opts:  ~p", [Opts]),
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                [], BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {ok, UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Unexp Data:    ~p",
+                                               [Src, [], ?BASIC_REQ, UnexpData]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end;
+                      (#{timestamp := true,
+                         sock_dst := Sock,
+                         sa_src   := Src,
+                         recv     := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, Opts, ?BASIC_REQ}} 
+                               when (length(Opts) =:= 1) ->
+                                   ?SEV_IPRINT("Got (default) Options: "
+                                               "~n   Opts:  ~p", [Opts]),
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                [], BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {ok, UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Unexp Data:    ~p",
+                                               [Src, [], ?BASIC_REQ, UnexpData]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end;
+                      (#{recvtos := true,
+                         sock_dst := Sock,
+                         sa_src   := Src,
+                         recv     := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, Opts, ?BASIC_REQ}} 
+                               when (length(Opts) =:= 1) ->
                                    ?SEV_IPRINT("Got (default) Options: "
                                                "~n   Opts:  ~p", [Opts]),
                                    ok;
@@ -33785,6 +33919,16 @@ has_support_ip_recvopts() ->
 
 has_support_ip_recvtos() ->
     has_support_socket_option_ip(recvtos).
+
+has_support_ip_recvtos_and_or_sock_timestamp() ->
+    case (socket:supports(options, ip, recvtos) orelse 
+          socket:supports(options, socket, timestamp)) of
+        true ->
+            ok;
+        false ->
+            skip(?F("Neither needed opts "
+                    "ip:recvtos or socket:timestamp supported", []))
+    end.
 
 has_support_ip_recvttl() ->
     has_support_socket_option_ip(recvttl).
