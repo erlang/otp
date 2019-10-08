@@ -171,6 +171,7 @@ supported_algorithms(mac) ->
 	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
+	 {'hmac-sha1-96',     [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]}
 	]
