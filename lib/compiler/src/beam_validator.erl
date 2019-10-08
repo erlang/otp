@@ -436,7 +436,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     Vst = eat_heap(Size+1, Vst0),
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                        Type = get_term_type(Val, Vst0),
-                       Es = beam_types:set_element_type(Index, Type, Es0),
+                       Es = beam_types:set_tuple_element(Index, Type, Es0),
                        {Es, Index + 1}
                    end, {#{}, 1}, Elements),
     Type = #t_tuple{exact=true,size=Size,elements=Es},
@@ -457,14 +457,14 @@ valfun_1({put,Src}, Vst0) ->
             error(not_building_a_tuple);
         #st{puts_left={1,{Dst,Sz,Es0}}} ->
             ElementType = get_term_type(Src, Vst0),
-            Es = beam_types:set_element_type(Sz, ElementType, Es0),
+            Es = beam_types:set_tuple_element(Sz, ElementType, Es0),
             St = St0#st{puts_left=none},
             Type = #t_tuple{exact=true,size=Sz,elements=Es},
             create_term(Type, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
             Index = Sz - PutsLeft + 1,
             ElementType = get_term_type(Src, Vst0),
-            Es = beam_types:set_element_type(Index, ElementType, Es0),
+            Es = beam_types:set_tuple_element(Index, ElementType, Es0),
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
@@ -479,7 +479,7 @@ valfun_1({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
     #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
-    Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
+    Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Instructions for optimization of selective receives.
 valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
@@ -625,7 +625,7 @@ valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(#t_tuple{size=Index}, Src, Vst),
     #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
-    Type = beam_types:get_element_type(Index, Es),
+    Type = beam_types:get_tuple_element(Index, Es),
     extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     branch(Lbl, Vst,
@@ -1702,7 +1702,7 @@ infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst) ->
 infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
               Val, Op, Vst) when Index >= 1 ->
     ElementType = get_term_type(Val, Vst),
-    Es = beam_types:set_element_type(Index, ElementType, #{}),
+    Es = beam_types:set_tuple_element(Index, ElementType, #{}),
     Type = #t_tuple{size=Index,elements=Es},
     case Op of
         eq_exact -> update_type(fun meet/2, Type, Tuple, Vst);

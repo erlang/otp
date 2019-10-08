@@ -31,7 +31,7 @@
          is_boolean_type/1,
          normalize/1]).
 
--export([get_element_type/2, set_element_type/3]).
+-export([get_tuple_element/2, set_tuple_element/3]).
 
 -export([make_type_from_value/1]).
 
@@ -390,21 +390,23 @@ is_boolean_type(_) ->
 is_singleton_type(Type) ->
     get_singleton_value(Type) =/= error.
 
--spec set_element_type(Key, Type, Elements) -> Elements when
-      Key :: term(),
+-spec set_tuple_element(Index, Type, Elements) -> Elements when
+      Index :: pos_integer(),
       Type :: type(),
-      Elements :: elements().
-set_element_type(_Key, none, Es) ->
+      Elements :: tuple_elements().
+set_tuple_element(Index, _Type, Es) when Index > ?TUPLE_ELEMENT_LIMIT ->
     Es;
-set_element_type(Key, any, Es) ->
-    maps:remove(Key, Es);
-set_element_type(Key, Type, Es) ->
-    Es#{ Key => Type }.
+set_tuple_element(_Index, none, Es) ->
+    Es;
+set_tuple_element(Index, any, Es) ->
+    maps:remove(Index, Es);
+set_tuple_element(Index, Type, Es) ->
+    Es#{ Index => Type }.
 
--spec get_element_type(Key, Elements) -> type() when
-      Key :: term(),
-      Elements :: elements().
-get_element_type(Index, Es) ->
+-spec get_tuple_element(Index, Elements) -> type() when
+      Index :: pos_integer(),
+      Elements :: tuple_elements().
+get_tuple_element(Index, Es) ->
     case Es of
         #{ Index := T } -> T;
         #{} -> any
@@ -449,7 +451,7 @@ mtfv_1(M) when is_map(M) -> #t_map{};
 mtfv_1(T) when is_tuple(T) ->
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                            Type = mtfv_1(Val),
-                           Es = set_element_type(Index, Type, Es0),
+                           Es = set_tuple_element(Index, Type, Es0),
                            {Es, Index + 1}
                    end, {#{}, 1}, tuple_to_list(T)),
     #t_tuple{exact=true,size=tuple_size(T),elements=Es};
@@ -713,7 +715,7 @@ lub_elements_1([Key | Keys], Es1, Es2, Acc0) ->
     case {Es1, Es2} of
         {#{ Key := Type1 }, #{ Key := Type2 }} ->
             %% Note the use of join/2; elements don't need to be normal types.
-            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
+            Acc = set_tuple_element(Key, join(Type1, Type2), Acc0),
             lub_elements_1(Keys, Es1, Es2, Acc);
         {#{}, #{}} ->
             lub_elements_1(Keys, Es1, Es2, Acc0)
@@ -829,6 +831,7 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% entire tuple to 'none'.
     maps:fold(fun(Index, Element, _) when is_integer(Index),
                                           1 =< Index, Index =< Size,
+                                          Index =< ?TUPLE_ELEMENT_LIMIT,
                                           Element =/= any, Element =/= none ->
                       verified_type(Element)
               end, [], Es),
