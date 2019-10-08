@@ -773,7 +773,12 @@
     <datatype>
       <name name="max_idle_time_common_option"/>
       <desc>
-	<p>Sets a time-out on a connection when no channels are active. Defaults to <c>infinity</c>.</p>
+	<p>Sets a time-out on a connection when no channels are open. Defaults to <c>infinity</c>.
+	The unit is milliseconds.
+	</p>
+	<p>The timeout is not active until channels are started, so it does
+	not limit the time from the connection creation to the first channel opening.
+	</p>
       </desc>
     </datatype>
 
