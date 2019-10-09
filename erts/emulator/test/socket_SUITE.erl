@@ -15041,6 +15041,16 @@ api_opt_ip_recvttl_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [], ?BASIC_REQ}} ->
                                    ok;
+                               {ok, {Src, [#{level := ip,
+                                             type  := TTLType,
+                                             data  := TTL}], ?BASIC_REQ}}
+                               when ((TTLType =:= recvttl) andalso
+                                     (TTL =:= 255)) ->
+                                   %% This is the behaviopur on Solaris (11)
+                                   %% and maybe on other platforms...
+                                   ?SEV_IPRINT("Got (default) TTL (~w): ~p",
+                                               [TTLType, TTL]),
+                                   ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
                                                "~n   Expect Source: ~p"
@@ -15089,9 +15099,12 @@ api_opt_ip_recvttl_udp(InitState) ->
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
-                                             type  := ttl,
-                                             data  := TTL}], ?BASIC_REQ}} ->
-                                   ?SEV_IPRINT("Got (default) TTL: ~p", [TTL]),
+                                             type  := TTLType,
+                                             data  := TTL}], ?BASIC_REQ}}
+                               when ((TTLType =:= ttl) orelse 
+                                     (TTLType =:= recvttl)) ->
+                                   ?SEV_IPRINT("Got (default) TTL (~w): ~p",
+                                               [TTLType, TTL]),
                                    ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
@@ -15128,8 +15141,12 @@ api_opt_ip_recvttl_udp(InitState) ->
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
-                                             type  := ttl,
-                                             data  := 100}], ?BASIC_REQ}} ->
+                                             type  := TTLType,
+                                             data  := 100 = TTL}], ?BASIC_REQ}}
+                               when ((TTLType =:= ttl) orelse
+                                     (TTLType =:= recvttl)) ->
+                                   ?SEV_IPRINT("Got TTL (~w): ~p",
+                                               [TTLType, TTL]),
                                    ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
@@ -15212,7 +15229,12 @@ api_opt_ip_tos_udp4(_Config) when is_list(_Config) ->
 
 api_opt_ip_tos_udp(InitState) ->
     process_flag(trap_exit, true),
-    TOS1 = mincost,     TOS1Str = atom_to_list(TOS1),
+    %% mincost is not supported on all platforms.
+    %% For instance, Solaris 10, does not have that constant.
+    %% Instead it has two others with, what appers to be,
+    %% completely different meanings...
+    %% So, avoid the complication by not using this value...
+    %% TOS1 = mincost,     TOS1Str = atom_to_list(TOS1),
     TOS2 = throughput,  TOS2Str = atom_to_list(TOS2),
     TOS3 = reliability, TOS3Str = atom_to_list(TOS3),
     TOS4 = lowdelay,    TOS4Str = atom_to_list(TOS4),
@@ -15259,34 +15281,37 @@ api_opt_ip_tos_udp(InitState) ->
                            end
                    end},
 
-         #{desc => "set tos " ++ TOS1Str,
-           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
-                           case Set(Sock, TOS1) of
-                               ok ->
-                                   ?SEV_IPRINT("tos set to ~p", [TOS1]),
-                                   ok;
-                               {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Failed setting timestamp:"
-                                               "   ~p", [Reason]),
-                                   ERROR
-                           end
-                   end},
-         #{desc => "get tos (expect " ++ TOS1Str ++ ")",
-           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
-                           case Get(Sock) of
-                               {ok, TOS1 = Value} ->
-                                   ?SEV_IPRINT("expected tos (~p)", [Value]),
-                                   ok;
-                               {ok, Unexpected} ->
-                                   ?SEV_EPRINT("Unexpected tos: ~p",
-                                               [Unexpected]),
-                                   {error, {unexpected, Unexpected}};
-                               {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Failed getting (default) tos:"
-                                               "   ~p", [Reason]),
-                                   ERROR
-                           end
-                   end},
+         %% #{desc => "set tos " ++ TOS1Str,
+         %%   cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+         %%                   socket:setopt(Sock, otp, debug, true),
+         %%                   case Set(Sock, TOS1) of
+         %%                       ok ->
+         %%                           socket:setopt(Sock, otp, debug, false),
+         %%                           ?SEV_IPRINT("tos set to ~p", [TOS1]),
+         %%                           ok;
+         %%                       {error, Reason} = ERROR ->
+         %%                           socket:setopt(Sock, otp, debug, false),
+         %%                           ?SEV_EPRINT("Failed setting timestamp:"
+         %%                                       "   ~p", [Reason]),
+         %%                           ERROR
+         %%                   end
+         %%           end},
+         %% #{desc => "get tos (expect " ++ TOS1Str ++ ")",
+         %%   cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+         %%                   case Get(Sock) of
+         %%                       {ok, TOS1 = Value} ->
+         %%                           ?SEV_IPRINT("expected tos (~p)", [Value]),
+         %%                           ok;
+         %%                       {ok, Unexpected} ->
+         %%                           ?SEV_EPRINT("Unexpected tos: ~p",
+         %%                                       [Unexpected]),
+         %%                           {error, {unexpected, Unexpected}};
+         %%                       {error, Reason} = ERROR ->
+         %%                           ?SEV_EPRINT("Failed getting (default) tos:"
+         %%                                       "   ~p", [Reason]),
+         %%                           ERROR
+         %%                   end
+         %%           end},
 
          #{desc => "set tos " ++ TOS2Str,
            cmd  => fun(#{sock := Sock, set := Set} = _State) ->
