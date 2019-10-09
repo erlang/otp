@@ -44,10 +44,8 @@
 %%%  Internal application API
 %%%=========================================================================
 parse([Bin, Options]) ->
-    ?hdrt("parse", [{bin, Bin}, {max_sizes, Options}]),    
     parse_method(Bin, [], 0, proplists:get_value(max_method, Options), Options, []);
 parse(Unknown) ->
-    ?hdrt("parse", [{unknown, Unknown}]),
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
@@ -436,19 +434,13 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 			%%older http/1.1 might be older Clients that
 			%%use it.
 			"keep-alive" when hd(NList) >= 49 ->
-			    ?DEBUG("CONNECTION MODE: ~p",[true]),  
 			    true;
 			"close" ->
-			    ?DEBUG("CONNECTION MODE: ~p",[false]),  
-			    false;
+                            false;
 			_Connect ->
-  			    ?DEBUG("CONNECTION MODE: ~p VALUE: ~p",
-				   [false, _Connect]),  
-			    false
+                            false
 		    end; 
 		_ ->
-		    ?DEBUG("CONNECTION MODE: ~p VERSION: ~p",
-			   [false, HTTPVersion]),  
 		    false
 	    end;
 	_ ->
