@@ -165,7 +165,7 @@
     <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
     or
     <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
-    options)</item>
+    options.  Use for example the Option value <c>{modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}</c>)</item>
 	</list>
       </item>
 
@@ -190,6 +190,11 @@
 	  <item>hmac-sha2-256</item>
 	  <item>hmac-sha2-512</item>
 	  <item>hmac-sha1</item>
+	  <item>(hmac-sha1-96  It can be enabled with the 
+	  <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	  or
+	  <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	  options. Use for example the Option value <c>{modify_algorithms, [{append, [{mac,['hmac-sha1-96']}]}]}</c>)</item>
 	</list>
       </item>
 
@@ -202,6 +207,8 @@
 	  <item>aes192-ctr</item>
           <item>aes128-gcm@openssh.com</item>
 	  <item>aes128-ctr</item>
+	  <item>aes256-cbc</item>
+	  <item>aes192-cbc</item>
 	  <item>aes128-cbc</item>
 	  <item>3des-cbc</item>
 	  <item>(AEAD_AES_128_GCM, not enabled per default)</item>
