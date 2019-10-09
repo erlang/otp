@@ -2161,12 +2161,18 @@ command is executed asynchronously."
               (set-buffer buf)
               (goto-char (point-min))
               (if (re-search-forward
-                   (concat "^[ \t]+" func " ?(")
+                   (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*([A-Za-z0-9 \t:,_()]*)[ \t]*->")
                    (point-max) t)
                   (progn
                     (forward-word -1)
                     (set-window-point win (point)))
-                (message "Could not find function `%s'" func)))))))
+                (if (re-search-forward
+                     (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*\(")
+                     (point-max) t)
+                    (progn
+                      (forward-word -1)
+                      (set-window-point win (point)))
+                  (message "Could not find function `%s'" func))))))))
 
 (defvar erlang-man-file-regexp
   "\\(.*\\)/man[^/]*/\\([^.]+\\)\\.\\([124-9]\\|3\\(erl\\)?\\)\\(\\.gz\\)?$")
