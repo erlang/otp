@@ -108,7 +108,9 @@ default_algorithms(cipher) ->
                                       ]));
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
-				    'AEAD_AES_256_GCM']));
+				    'AEAD_AES_256_GCM',
+                                    'hmac-sha1-96'
+                                   ]));
 
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
