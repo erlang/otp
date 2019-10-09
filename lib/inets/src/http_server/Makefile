@@ -57,6 +57,7 @@ MODULES = \
 	httpd_file\
 	httpd_instance_sup \
 	httpd_log \
+	httpd_logger \
 	httpd_manager \
 	httpd_misc_sup \
 	httpd_request \
