@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,42 +51,25 @@ register_handler(Id,Pid) ->
 %%% gen_server callbacks
 %%%===================================================================
 
--spec init(Args :: term()) -> {ok, State :: term()} |
-                              {ok, State :: term(), Timeout :: timeout()} |
-                              {ok, State :: term(), hibernate} |
-                              {stop, Reason :: term()} |
-                              ignore.
+-spec init(Args :: term()) -> {ok, State :: term()}.
 init([]) ->
     process_flag(trap_exit, true),
     {ok, #state{handlers=[]}}.
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
-                         {reply, Reply :: term(), NewState :: term()} |
-                         {reply, Reply :: term(), NewState :: term(), Timeout :: timeout()} |
-                         {reply, Reply :: term(), NewState :: term(), hibernate} |
-                         {noreply, NewState :: term()} |
-                         {noreply, NewState :: term(), Timeout :: timeout()} |
-                         {noreply, NewState :: term(), hibernate} |
-                         {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
-                         {stop, Reason :: term(), NewState :: term()}.
+                         {reply, ok, NewState :: term()}.
 handle_call({register,Id,Pid}, _From, #state{handlers=Hs}=State) ->
     Ref = erlang:monitor(process,Pid),
     Hs1 = lists:keystore(Id,1,Hs,{Id,Ref}),
     {reply, ok, State#state{handlers=Hs1}}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
-                         {noreply, NewState :: term()} |
-                         {noreply, NewState :: term(), Timeout :: timeout()} |
-                         {noreply, NewState :: term(), hibernate} |
-                         {stop, Reason :: term(), NewState :: term()}.
+                         {noreply, NewState :: term()}.
 handle_cast(_Request, State) ->
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
-                         {noreply, NewState :: term()} |
-                         {noreply, NewState :: term(), Timeout :: timeout()} |
-                         {noreply, NewState :: term(), hibernate} |
-                         {stop, Reason :: normal | term(), NewState :: term()}.
+                         {noreply, NewState :: term()}.
 handle_info({'DOWN',Ref,process,_,shutdown}, #state{handlers=Hs}=State) ->
     case lists:keytake(Ref,2,Hs) of
         {value,{Id,Ref},Hs1} ->
@@ -108,6 +91,6 @@ handle_info(_Other,State) ->
     {noreply,State}.
 
 -spec terminate(Reason :: normal | shutdown | {shutdown, term()} | term(),
-                State :: term()) -> any().
+                State :: term()) -> ok.
 terminate(_Reason, _State) ->
     ok.
