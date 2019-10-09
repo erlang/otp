@@ -594,7 +594,9 @@
         #{level := socket,    type := credentials, data := binary()}       |
         #{level := socket,    type := integer(),   data := binary()}       |
         #{level := ip,        type := tos,         data := ip_tos()}       |
+        #{level := ip,        type := recvtos,     data := ip_tos()}       |
         #{level := ip,        type := ttl,         data := integer()}      |
+        #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
         #{level := ip,        type := integer(),   data := binary()}       |
