@@ -4766,9 +4766,10 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    int          edomain, etype, eproto;
+    int          edomain, etype;
     int          domain, type, proto;
     char*        netns;
+    ERL_NIF_TERM eproto;
     ERL_NIF_TERM emap;
     ERL_NIF_TERM result;
 
