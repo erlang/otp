@@ -55,9 +55,9 @@
 -type fa()       :: {atom(), arity()}.
 
 -type err_desc() :: 'invalid_attributes' | 'invalid_exports'
-                  | {'arg_mismatch', fa()} | {'bittype_unit', fa()}
+                  | {'arg_mismatch', fa()}
                   | {'illegal_expr', fa()} | {'illegal_guard', fa()}
-                  | {'illegal_pattern', fa()} | {'illegal_try', fa()}
+                  | {'illegal_try', fa()}
                   | {'not_bs_pattern', fa()} | {'not_pattern', fa()}
                   | {'not_var', fa()} | {'pattern_mismatch', fa()}
                   | {'return_mismatch', fa()} | {'undefined_function', fa()}
@@ -88,14 +88,10 @@ format_error(invalid_attributes) -> "invalid attributes";
 format_error(invalid_exports) -> "invalid exports";
 format_error({arg_mismatch,{F,A}}) ->
     io_lib:format("argument count mismatch in ~w/~w", [F,A]);
-format_error({bittype_unit,{F,A}}) ->
-    io_lib:format("unit without size in bit syntax pattern/expression in ~w/~w", [F,A]);
 format_error({illegal_expr,{F,A}}) ->
     io_lib:format("illegal expression in ~w/~w", [F,A]);
 format_error({illegal_guard,{F,A}}) ->
     io_lib:format("illegal guard expression in ~w/~w", [F,A]);
-format_error({illegal_pattern,{F,A}}) ->
-    io_lib:format("illegal pattern in ~w/~w", [F,A]);
 format_error({illegal_try,{F,A}}) ->
     io_lib:format("illegal try expression in ~w/~w", [F,A]);
 format_error({not_bs_pattern,{F,A}}) ->
@@ -111,9 +107,9 @@ format_error({return_mismatch,{F,A}}) ->
 format_error({undefined_function,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
 format_error({duplicate_var,N,{F,A}}) ->
-    io_lib:format("duplicate variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("duplicate variable ~p in ~w/~w", [N,F,A]);
 format_error({unbound_var,N,{F,A}}) ->
-    io_lib:format("unbound variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("unbound variable ~p in ~w/~w", [N,F,A]);
 format_error({undefined_function,{F1,A1},{F2,A2}}) ->
     io_lib:format("undefined function ~w/~w in ~w/~w", [F1,A1,F2,A2]);
 format_error({tail_segment_not_at_end,{F,A}}) ->

@@ -44,7 +44,7 @@
 
 -export([module/2]).
 
--import(lists, [member/2,map/2,foldl/3,mapfoldl/3,keydelete/3]).
+-import(lists, [member/2,map/2,foldl/3,mapfoldl/3]).
 
 -include("core_parse.hrl").
 
@@ -116,14 +116,11 @@ inline(Fs0, St0) ->
 				  false -> {Fst,Ifs}
 			      end
 		      end, [], Fs1),
-    Is1 = map(fun (#ifun{body=B}=If) ->
-		      If#ifun{body=cerl_trees:map(match_fail_fun(), B)}
-	      end, Is0),
-    Is2 = [inline_inline(If, Is1) || If <- Is1],
+    Is1 = [inline_inline(If, Is0) || If <- Is0],
     %% We would like to remove inlined, non-exported functions here,
     %% but this can be difficult as they may be recursive.
     %% Use fixed inline functions on all functions.
-    Fs = [inline_func(F, Is2) || F <- Fs2],
+    Fs = [inline_func(F, Is1) || F <- Fs2],
     %% Regenerate module body.
     [Def || #fstat{def=Def} <- Fs].
 
@@ -171,17 +168,6 @@ inline_func(#fstat{def={Name,F0}}=Fstat, Is) ->
     Fstat#fstat{def={Name,F1},modified=Mod}.
 
 weight_func(_Core, Acc) -> Acc + 1.
-
-%% match_fail_fun() -> fun/1.
-%% Return a function to use with map to fix inlineable functions
-%% function_clause match_fail (if they have one).
-
-match_fail_fun() ->
-    fun (#c_primop{anno=Anno0,name=#c_literal{val=match_fail}}=P) ->
-	    Anno = keydelete(function_name, 1, Anno0),
-	    P#c_primop{anno=Anno};
-	(Other) -> Other
-    end.
 
 %% find_inl(Func, Arity, [Inline]) -> #ifun{} | no.
 
