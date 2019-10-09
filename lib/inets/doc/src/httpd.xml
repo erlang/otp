@@ -353,6 +353,82 @@ text/plain	asc txt</pre>
 	<p>By default, the value is as before, that is, <c>minimal</c>.</p>
       </item>
 
+      
+      <tag><marker id="prop_logger"></marker>{logger, Options::list()}</tag>
+      <item>
+
+	<p>Currently only one option is supported: </p>
+	
+	<taglist>
+	  <tag><c>{error, ServerID::atom()}</c></tag>
+	  <item>	    <p>Produces  
+	    <seealso marker="kernel:logger#type-log_event">logger events</seealso>
+	    on logger <seealso marker="kernel:logger#type-level">level error</seealso>
+	    under the hierarchical logger <seealso marker="kernel:logger#type-log_event">domain:</seealso> <c>[otp, inets, httpd, ServerID, error]</c>
+	    The built in logger formatting 
+	    function produces log entries from the
+	    error reports:</p>
+	    
+	    <code>
+#{server_name => string()
+  protocol => internal | 'TCP' | 'TLS' | 'HTTP',
+  transport => "TCP "| "TLS", %% Present when protocol = 'HTTP'
+  uri => string(), %% Present when protocol = 'HTTP' and URI is valid
+  peer => inet:peername(),
+  host => inet:hostname(),
+  reason => term()
+}
+</code>
+
+<p>An example of a log entry with only default settings of logger</p>
+
+<code>
+=ERROR REPORT==== 9-Oct-2019::09:33:27.350235 ===
+   Server: My Server
+ Protocol: HTTP
+Transport: TLS
+      URI: /not_there
+     Host: 127.0.1.1:80
+     Peer: 127.0.0.1:45253
+   Reason: [{statuscode,404},{description,"Object Not Found"}]
+</code>
+
+<p>Using this option makes mod_log and mod_disk_log error logs redundant.</p>
+	
+	<p>Add the filter</p>
+	<code>
+{fun logger_filters:domain/2,
+	{log,equal,[otp,inets, httpd, ServerID, error]}</code>
+	
+        to appropriate logger handler to handle the events. For
+        example to write the error log from an httpd server with a
+        <c>ServerID</c> of <c>my_server</c> to a file you can use the following
+        sys.config:
+
+	<code>[{kernel,
+ [{logger,
+  [{handler, http_error_test, logger_std_h,
+    #{config => #{ file => "log/http_error.log" },
+      filters => [{inets_httpd, {fun logger_filters:domain/2,
+                                 {log, equal,
+                                  [otp, inets, httpd, my_server, error]
+                                 }}}],
+      filter_default => stop }}]}]}].
+	</code>
+
+	<p>or if you want to add it to the default logger via an API:</p>
+	
+	<code>logger:add_handler_filter(default,
+                          inets_httpd,
+                          {fun logger_filters:domain/2,
+                           {log, equal,
+                            [otp, inets, httpd, my_server, error]}}).</code>
+			    
+	  </item>      
+	</taglist> 
+	
+      </item>      
+      
       <tag><marker id="prop_log_format"></marker>{log_format, common | combined}</tag>
       <item>
 	<p>Defines if access logs are to be written according to the <c>common</c>

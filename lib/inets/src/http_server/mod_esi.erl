@@ -31,6 +31,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(VMODULE,"ESI").
 -define(DEFAULT_ERL_TIMEOUT,15).
@@ -464,8 +465,9 @@ handle_body(Pid, ModData, Body, Timeout, Size, StatusCode, IsDisableChunkedSend)
 	    {proceed, [{response, {already_sent, StatusCode, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
-	    Error = lists:flatten(io_lib:format("mod_esi process failed with reason ~p", [Reason])),
-	    httpd_util:error_log(ModData#mod.config_db, Error),
+	    httpd_util:error_log(ModData#mod.config_db,  
+                                 httpd_logger:error_report('HTTP', 
+                                                           [{mod_esi, Reason}], ModData, ?LOCATION)),
 	    httpd_response:send_final_chunk(ModData, 
 					    [{"Warning", "199 inets server - body maybe incomplete, "
 					      "internal server error"}],

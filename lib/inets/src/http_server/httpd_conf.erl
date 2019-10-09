@@ -56,21 +56,16 @@
 
 %% Phase 1: Load
 load(ConfigFile) ->
-    ?hdrv("load config", [{config_file, ConfigFile}]),
     case read_config_file(ConfigFile) of
 	{ok, Config} ->
-	    ?hdrt("config read", []),
 	    case bootstrap(Config) of
 		{error, Reason} ->
-		    ?hdri("bootstrap failed", [{reason, Reason}]),
 		    {error, Reason};
 		{ok, Modules} ->
-                    ?hdrd("config bootstrapped", [{modules, Modules}]),
 		    load_config(Config, lists:append(Modules, [?MODULE]))
 	    end;
 	{error, Reason} ->
-	    ?hdri("failed reading config file", [{reason, Reason}]),
-	    {error, ?NICE("Error while reading config file: "++Reason)}
+            {error, ?NICE("Error while reading config file: "++Reason)}
     end.
 
 load(eof, []) ->
@@ -151,25 +146,15 @@ load("BindAddress " ++ Address0, []) ->
 
     try
 	begin
-	    ?hdrv("load BindAddress", [{address0, Address0}]),
 	    {Address, IpFamily} = 
 		case string:tokens(Address0, [$|]) of
 		    [Address1] ->
-			?hdrv("load BindAddress", [{address1, Address1}]),
 			{clean_address(Address1), inet};
 		    [Address1, IpFamilyStr] ->
-			?hdrv("load BindAddress", 
-			      [{address1, Address1}, 
-			       {ipfamily_str, IpFamilyStr}]),
-			{clean_address(Address1), make_ipfamily(IpFamilyStr)};
+                        {clean_address(Address1), make_ipfamily(IpFamilyStr)};
 		    _Bad ->
-			?hdrv("load BindAddress - bad address", 
-			      [{bad_address, _Bad}]),
-			throw({error, {bad_bind_address, Address0}})
+                        throw({error, {bad_bind_address, Address0}})
 		end,
-
-	    ?hdrv("load BindAddress - address and ipfamily separated", 
-		  [{address, Address}, {ipfamily, IpFamily}]),
 
 	    case Address of
 		"*" ->
@@ -177,11 +162,9 @@ load("BindAddress " ++ Address0, []) ->
 		_ ->
 		    case httpd_util:ip_address(Address, IpFamily) of
 			{ok, IPAddr} ->
-			    ?hdrv("load BindAddress - checked", 
-				  [{ip_address, IPAddr}]),
-			    Entries = [{bind_address, IPAddr}, 
-				       {ipfamily,     IpFamily}], 
-			    {ok, [], Entries};
+                            Entries = [{bind_address, IPAddr}, 
+                                       {ipfamily,     IpFamily}],
+                            {ok, [], Entries};
 			{error, _} ->
 			    {error, ?NICE(Address ++ " is an invalid address")}
 		    end
@@ -189,11 +172,9 @@ load("BindAddress " ++ Address0, []) ->
 	end
     catch
 	throw:{error, {bad_bind_address, _}} ->
-	    ?hdrv("load BindAddress - bad bind address", []),
 	    {error, ?NICE(Address0 ++ " is an invalid address")};
 	throw:{error, {bad_ipfamily, _}} ->
-	    ?hdrv("load BindAddress - bad ipfamily", []),
-	    {error, ?NICE(Address0 ++ " has an invalid ipfamily")}
+            {error, ?NICE(Address0 ++ " has an invalid ipfamily")}
     end;
 
 load("KeepAlive " ++ OnorOff, []) ->
@@ -592,6 +573,12 @@ validate_config_params([{default_type, Value} | Rest]) when is_list(Value) ->
 validate_config_params([{default_type, Value} | _]) ->
     throw({default_type, Value});
 
+validate_config_params([{logger, Value} | Rest]) when is_list(Value) ->
+    true = validate_logger(Value),
+    validate_config_params(Rest);
+validate_config_params([{logger, Value} | _]) ->
+    throw({logger, Value});
+
 validate_config_params([{ssl_certificate_file = Key, Value} | Rest]) ->
     ok = httpd_util:file_validate(Key, Value),
     validate_config_params(Rest);
@@ -671,12 +658,10 @@ is_bind_address(Value, IpFamily) ->
     end.
  
 store(ConfigList0) -> 
-    ?hdrd("store", []),
     try validate_config_params(ConfigList0) of
 	ok ->
 	    Modules = 
 		proplists:get_value(modules, ConfigList0, ?DEFAULT_MODS),
-	    ?hdrt("store", [{modules, Modules}]),
 	    Port = proplists:get_value(port, ConfigList0),
 	    Addr = proplists:get_value(bind_address, ConfigList0, any),
 	    Profile = proplists:get_value(profile, ConfigList0, default),
@@ -688,8 +673,6 @@ store(ConfigList0) ->
 		  ConfigList)
     catch
 	throw:Error ->
-	    ?hdri("store - config parameter validation failed", 
-		  [{error, Error}]),
 	    {error, {invalid_option, Error}}
     end.
 
@@ -907,11 +890,9 @@ load_config(Config, Modules) ->
     load_config(Config, Modules, Contexts, []).
 
 load_config([], _Modules, _Contexts, ConfigList) ->
-    ?hdrv("config loaded", []),
     {ok, ConfigList};
 	
 load_config([Line|Config], Modules, Contexts, ConfigList) ->
-    ?hdrt("load config", [{config_line, Line}]),
     case load_traverse(Line, Contexts, Modules, [], ConfigList, no) of
 	{ok, NewContexts, NewConfigList} ->
 	    load_config(Config, Modules, NewContexts, NewConfigList);
@@ -935,17 +916,12 @@ load_traverse(_Line, [], [], NewContexts, ConfigList, yes) ->
     {ok, lists:reverse(NewContexts), ConfigList};
 load_traverse(Line, [Context|Contexts], [Module|Modules], NewContexts,
 	      ConfigList, State) ->
-    ?hdrt("load config traverse",
-          [{context, Context}, {httpd_module, Module}, {state, State}]),
     case catch apply(Module, load, [Line, Context]) of
 	{'EXIT', {function_clause, _FC}} ->
-	    ?hdrt("does not handle load config", 
-		  [{config_line, Line}, {fc, _FC}]),
 	    load_traverse(Line, Contexts, Modules, 
 			  [Context|NewContexts], ConfigList, State);
 
 	{'EXIT', {undef, _}} ->
-	    ?hdrt("does not implement load", []),
 	    load_traverse(Line, Contexts, Modules,
 			  [Context|NewContexts], ConfigList, yes);
 
@@ -955,30 +931,23 @@ load_traverse(Line, [Context|Contexts], [Module|Modules], NewContexts,
 			  [Context|NewContexts], ConfigList, State);
 
 	ok ->
-	    ?hdrt("line processed", []),
 	    load_traverse(Line, Contexts, Modules, 
 			  [Context|NewContexts], ConfigList, yes);
 
 	{ok, NewContext} ->
-	    ?hdrt("line processed", [{new_context, NewContext}]),
 	    load_traverse(Line, Contexts, Modules, 
 			  [NewContext|NewContexts], ConfigList, yes);
 
 	{ok, NewContext, ConfigEntry} when is_tuple(ConfigEntry) ->
-	     ?hdrt("line processed",
-                  [{new_context, NewContext}, {config_entry, ConfigEntry}]),
 	    load_traverse(Line, Contexts, 
 			  Modules, [NewContext|NewContexts],
 			  [ConfigEntry|ConfigList], yes);
 
 	{ok, NewContext, ConfigEntry} when is_list(ConfigEntry) ->
-	    ?hdrt("line processed",
-                  [{new_context, NewContext}, {config_entry, ConfigEntry}]),
 	    load_traverse(Line, Contexts, Modules, [NewContext|NewContexts],
 			  lists:append(ConfigEntry, ConfigList), yes);
 
 	{error, Reason} ->
-	    ?hdrv("line processing failed", [{reason, Reason}]),
 	    {error, Reason}
     end.
 	
@@ -1063,7 +1032,6 @@ suffixes(MimeType,[Suffix|Rest]) ->
 store(ConfigDB, _ConfigList, _Modules, []) ->
     {ok, ConfigDB};
 store(ConfigDB, ConfigList, Modules, [ConfigListEntry|Rest]) ->
-    ?hdrt("store", [{entry, ConfigListEntry}]),
     case store_traverse(ConfigListEntry, ConfigList, Modules) of
 	{ok, ConfigDBEntry} when is_tuple(ConfigDBEntry) ->
 	    ets:insert(ConfigDB, ConfigDBEntry),
@@ -1080,20 +1048,15 @@ store(ConfigDB, ConfigList, Modules, [ConfigListEntry|Rest]) ->
 store_traverse(_ConfigListEntry, _ConfigList,[]) ->
     {error, ?NICE("Unable to store configuration...")};
 store_traverse(ConfigListEntry, ConfigList, [Module|Rest]) ->
-    ?hdrt("store traverse",
-          [{httpd_module, Module}, {entry, ConfigListEntry}]),
     case catch apply(Module, store, [ConfigListEntry, ConfigList]) of
 	{'EXIT',{function_clause,_}} ->
-	    ?hdrt("does not handle store config", []),
 	    store_traverse(ConfigListEntry,ConfigList,Rest);
 	{'EXIT',{undef, _}} ->
-	    ?hdrt("does not implement store", []),
 	    store_traverse(ConfigListEntry,ConfigList,Rest);
 	{'EXIT', Reason} ->
 	    error_logger:error_report({'EXIT',Reason}),
 	    store_traverse(ConfigListEntry,ConfigList,Rest);
 	Result ->
-	    ?hdrt("config entry processed", [{result, Result}]),
 	    Result
     end.
 
@@ -1223,6 +1186,10 @@ white_space_clean(String) ->
     re:replace(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$","", 
 	       [{return,list}, global]).
 
+validate_logger([{error, Domain}]) when is_atom(Domain) ->
+    true;
+validate_logger(List) ->
+    throw({logger, List}).
 
 %%%=========================================================================
 %%%  Deprecated remove in 19

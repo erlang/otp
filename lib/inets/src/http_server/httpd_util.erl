@@ -35,6 +35,7 @@
 
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
+-include_lib("inets/include/httpd.hrl").
 
 ip_address({_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
@@ -762,16 +763,33 @@ do_enable_debug([{Level,Modules}|Rest])
     end,
     do_enable_debug(Rest).
 
-error_log(ConfigDb, Error) ->
-    error_log(mod_log, ConfigDb, Error),
-    error_log(mod_disk_log, ConfigDb, Error).
-	
-error_log(Mod, ConfigDB, Error) ->
+
+error_log(ConfigDB, Report) ->
+    case lookup(ConfigDB, logger) of
+        undefined ->
+            mod_error_logging(mod_log, ConfigDB, Report),
+            mod_error_logging(mod_disk_log, ConfigDB, Report);
+        Logger  ->
+            Domain = proplists:get_value(error, Logger),
+            httpd_logger:log(error, Report, Domain),
+            %% Backwards compat
+            mod_error_logging(mod_log, ConfigDB, Report),
+            mod_error_logging(mod_disk_log, ConfigDB, Report)
+    end.
+
+mod_error_logging(Mod, ConfigDB, Report) ->
     Modules = httpd_util:lookup(ConfigDB, modules,
 				[mod_get, mod_head, mod_log]),
     case lists:member(Mod, Modules) of
 	true ->
-	    Mod:report_error(ConfigDB, Error);
+            %% Make it oneline string for backwards compatibility
+            Msg = httpd_logger:format(Report),
+            ErrorStr = lists:flatten(logger_formatter:format(#{level => error,
+                                                               msg => Msg,
+                                                               meta => #{}
+                                                              },
+                                                             #{template => [msg]})),
+            Mod:report_error(ConfigDB, ErrorStr);
 	_ ->
 	    ok
     end.
