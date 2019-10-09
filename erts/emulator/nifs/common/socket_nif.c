@@ -16772,21 +16772,21 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
 #endif
 
-            /* 
-             * On FreeBSD (among others) TOS has type RECVTOS!
-             * We could convert to TOS (that is esock_atom_tos,
-             * but that opens up pandoras box, so leave it to
-             * the user).
-             */
-#if defined(IP_RECVTOS)
-        case IP_RECVTOS:
-            *eType = esock_atom_recvtos;
-            break;
-#endif
-
 #if defined(IP_TTL)
         case IP_TTL:
             *eType = esock_atom_ttl;
+            break;
+#endif
+
+            /*
+             * On Solaris (among others) TTL has type RECVTTL!
+             * We could convert to TTL (that is esock_atom_ttl,
+             * but that opens up pandoras box, so leave it to
+             * the user).
+             */
+#if defined(IP_RECVTTL)
+        case IP_RECVTTL:
+            *eType = esock_atom_recvttl;
             break;
 #endif
 
@@ -16799,6 +16799,18 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
 #if defined(IP_ORIGDSTADDR)
         case IP_ORIGDSTADDR:
             *eType = esock_atom_origdstaddr;
+            break;
+#endif
+
+            /*
+             * On FreeBSD (among others) TOS has type RECVTOS!
+             * We could convert to TOS (that is esock_atom_tos,
+             * but that opens up pandoras box, so leave it to
+             * the user).
+             */
+#if defined(IP_RECVTOS)
+        case IP_RECVTOS:
+            *eType = esock_atom_recvtos;
             break;
 #endif
 
@@ -17151,37 +17163,6 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif
 
-        /*
-         * On FreeBSD (among others) you don't get TOS when 
-         * you order TOS with RECVTOS ( = "I want to receive TOS")
-         * Instead, you receive RECVTOS...
-         */
-#if defined(IP_RECVTOS)
-    case IP_RECVTOS:
-        {
-            unsigned char tos = *dataP;
-            switch (IPTOS_TOS(tos)) {
-            case IPTOS_LOWDELAY:
-                *eCMsgHdrData = esock_atom_lowdelay;
-                break;
-            case IPTOS_THROUGHPUT:
-                *eCMsgHdrData = esock_atom_throughput;
-                break;
-            case IPTOS_RELIABILITY:
-                *eCMsgHdrData = esock_atom_reliability;
-                break;
-#if defined(IPTOS_MINCOST)
-            case IPTOS_MINCOST:
-                *eCMsgHdrData = esock_atom_mincost;
-                break;
-#endif
-            default:
-                *eCMsgHdrData = MKUI(env, tos);
-                break;
-            }
-        }
-        break;
-#endif // if defined(IP_RECVTOS)
 
 #if defined(IP_TTL)
     case IP_TTL:
@@ -17191,6 +17172,24 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         }
         break;
 #endif
+
+
+        /*
+         * On Solaris (among others) you don't get TTL when 
+         * you order TTL with RECVTTL ( = "I want to receive TTL")
+         * Instead, you receive RECVTTL...
+         * And also, its not an 'int', its an 'uint8_t' (unsigned char)...
+         * Why can't we all get along...
+         */
+#if defined(IP_RECVTTL)
+    case IP_RECVTTL:
+        {
+            unsigned int ttl = *((unsigned char*) dataP);
+            *eCMsgHdrData = MKUI(env, ttl);
+        }
+        break;
+#endif
+
 
 #if defined(IP_PKTINFO)
     case IP_PKTINFO:
@@ -17233,6 +17232,7 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif
 
+
 #if defined(IP_ORIGDSTADDR)
     case IP_ORIGDSTADDR:
         if ((xres = esock_encode_sockaddr_in4(env,
@@ -17244,6 +17244,40 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         }
         break;
 #endif
+
+
+        /*
+         * On FreeBSD (among others) you don't get TOS when 
+         * you order TOS with RECVTOS ( = "I want to receive TOS")
+         * Instead, you receive RECVTOS...
+         */
+#if defined(IP_RECVTOS)
+    case IP_RECVTOS:
+        {
+            unsigned char tos = *dataP;
+            switch (IPTOS_TOS(tos)) {
+            case IPTOS_LOWDELAY:
+                *eCMsgHdrData = esock_atom_lowdelay;
+                break;
+            case IPTOS_THROUGHPUT:
+                *eCMsgHdrData = esock_atom_throughput;
+                break;
+            case IPTOS_RELIABILITY:
+                *eCMsgHdrData = esock_atom_reliability;
+                break;
+#if defined(IPTOS_MINCOST)
+            case IPTOS_MINCOST:
+                *eCMsgHdrData = esock_atom_mincost;
+                break;
+#endif
+            default:
+                *eCMsgHdrData = MKUI(env, tos);
+                break;
+            }
+        }
+        break;
+#endif // if defined(IP_RECVTOS)
+
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
@@ -19648,8 +19682,10 @@ void esock_down(ErlNifEnv*           env,
                                       "controlling process: "
                                       "\r\n   Controlling Process: %T"
                                       "\r\n   Descriptor:          %d"
-                                      "\r\n   Errno:               %d"
-                                      "\r\n", pid, descP->sock, save_errno);
+                                      "\r\n   Errno:               %d (%T)"
+                                      "\r\n",
+                                      pid, descP->sock,
+                                      save_errno, MKA(env, save_errno));
                 }
                 sock_close_event(descP->event);
 
@@ -19684,8 +19720,10 @@ void esock_down(ErlNifEnv*           env,
                                       "controlling process: "
                                       "\r\n   Controlling Process: %T"
                                       "\r\n   Descriptor:          %d"
-                                      "\r\n   Errno:               %d"
-                                      "\r\n", pid, descP->sock, save_errno);
+                                      "\r\n   Errno:               %d (%T)"
+                                      "\r\n",
+                                      pid, descP->sock,
+                                      save_errno, MKA(env, save_errno));
                 }
                 sock_close_event(descP->event);
 
