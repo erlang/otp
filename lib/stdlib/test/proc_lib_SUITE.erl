@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -726,10 +726,14 @@ report_cb_chars_limit(_Config) ->
     %% according to the chars_limit setting.
     %%
     %% Currently, multi-line formatting with chars_limit=1024 gives
-    %% a final report of 1392 character.
+    %% a final report of 1845 character. The excess is due to a
+    %% deficiency of erl_error:format_exception().
     %%
     %% Single-line formatting with chars_limit=1024 gives a final
-    %% report of 778 characters.
+    %% report of 1104 characters.
+    %%
+    %% Single-line formatting a fake report with chars_limit=1024 gives
+    %% a final report of 1024 characters.
 
     ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
     Pid = proc_lib:spawn(?MODULE, rcb_tester, []),
@@ -743,22 +747,34 @@ report_cb_chars_limit(_Config) ->
                 ct:fail(no_report_received)
         end,
 
+    ct:sleep(500), % To separate debug calls to erlang:display(), if any.
     Str1 = flatten_report_cb(Report,#{}),
     L1 = length(Str1),
     ct:log("Multi-line, no size limit:~n~s",[Str1]),
     ct:log("Length, multi-line, no size limit: ~p",[L1]),
 
+    ct:sleep(500),
     FormatOpts2 = #{chars_limit=>1024},
     Str2 = flatten_report_cb(Report,FormatOpts2),
     L2 = length(Str2),
     ct:log("Multi-line, chars_limit=1024:~n~s",[Str2]),
     ct:log("Length, multi-line, chars_limit=1024: ~p",[L2]),
 
+    ct:sleep(500),
     FormatOpts3 = #{single_line=>true, chars_limit=>1024},
     Str3 = flatten_report_cb(Report,FormatOpts3),
     L3 = length(Str3),
     ct:log("Single-line, chars_limit=1024:~n~s",[Str3]),
     ct:log("Length, single-line, chars_limit=1024: ~p",[L3]),
+
+    ct:sleep(500),
+    Seq = lists:seq(1, 1000),
+    FakeReport = [[{fake_tag,Seq}],Seq],
+    FReport = #{label=>{proc_lib,crash}, report=>FakeReport},
+    Str4 = flatten_report_cb(FReport,FormatOpts3),
+    L4 = length(Str4),
+    ct:log("Fake: Single-line, chars_limit=1024:~n~s",[Str4]),
+    ct:log("Fake: Length, single-line, chars_limit=1024: ~p",[L4]),
 
     ok = logger:remove_handler(?MODULE),
     ok.
@@ -767,7 +783,7 @@ rcb_tester() ->
     L = lists:seq(1,255),
     Term = [{some_data,#{pids=>processes(),
                          info=>process_info(self())}},
-            {tabs,ets:all()},
+            {tabs,lists:sort(ets:all())},
             {bin,list_to_binary(L)},
             {list,L}],
 
