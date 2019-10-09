@@ -153,12 +153,6 @@
       <name name="in6_scope_id"/>
     </datatype>
     <datatype>
-      <name name="accept_flags"/>
-    </datatype>
-    <datatype>
-      <name name="accept_flag"/>
-    </datatype>
-    <datatype>
       <name name="send_flags"/>
     </datatype>
     <datatype>
