@@ -416,7 +416,9 @@ erts_vfprintf(FILE *filep, const char *format, va_list arglist)
 	    fmt_f = write_f_add_cr;
 	else
 	    fmt_f = erts_write_fp;
+	FLOCKFILE(filep);
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
+	FUNLOCKFILE(filep);
     }
     return res;
 }
