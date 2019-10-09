@@ -1880,7 +1880,8 @@ the location of the manual pages."
       ()
     (setq erlang-menu-man-items
           '(nil
-            ("Man - Function" erlang-man-function)))
+            ("Man - Function" erlang-man-function)
+            ("Man - Function Under Cursor" erlang-man-function-no-prompt)))
     (if erlang-man-dirs
         (setq erlang-menu-man-items
               (append erlang-menu-man-items
@@ -2076,32 +2077,41 @@ This function is aware of imported functions."
   (require 'man)
   (setq name (or name
                  (erlang-default-function-or-module)))
-  (let ((modname nil)
-        (funcname nil))
-    (cond ((string-match ":" name)
-           (setq modname (substring name 0 (match-beginning 0)))
-           (setq funcname (substring name (match-end 0) nil)))
-          ((stringp name)
-           (setq modname name)))
-    (when (or (null modname) (string= modname ""))
-      (error "No Erlang module name given"))
-    (cond ((fboundp 'Man-notify-when-ready)
-           ;; Emacs 19:  The man command could possibly start an
-           ;; asynchronous process, i.e. we must hook ourselves into
-           ;; the system to be activated when the man-process
-           ;; terminates.
-           (if (null funcname)
-               ()
-             (erlang-man-patch-notify)
-             (setq erlang-man-function-name funcname))
-           (condition-case err
-               (erlang-man-module modname)
-             (error (setq erlang-man-function-name nil)
-                    (signal (car err) (cdr err)))))
-          (t
-           (erlang-man-module modname)
-           (when funcname
-             (erlang-man-find-function (current-buffer) funcname))))))
+  (require 'cl)
+  (flet ((disp-man-page-erl-fun (name)
+           (let ((modname nil)
+                 (funcname nil))
+             (cond ((string-match ":" name)
+                    (setq modname (substring name 0 (match-beginning 0)))
+                    (setq funcname (substring name (match-end 0) nil)))
+                   ((stringp name)
+                    (setq modname name)))
+             (when (or (null modname) (string= modname ""))
+               (error "No Erlang module name given"))
+             (cond ((fboundp 'Man-notify-when-ready)
+                    ;; Emacs 19:  The man command could possibly start an
+                    ;; asynchronous process, i.e. we must hook ourselves into
+                    ;; the system to be activated when the man-process
+                    ;; terminates.
+                    (if (null funcname)
+                        ()
+                      (erlang-man-patch-notify)
+                      (setq erlang-man-function-name funcname))
+                    (condition-case err
+                        (erlang-man-module modname)
+                      (error (setq erlang-man-function-name nil)
+                             (signal (car err) (cdr err)))))
+                   (t
+                    (erlang-man-module modname)
+                    (when funcname
+                      (erlang-man-find-function (current-buffer) funcname)))))))
+    (disp-man-page-erl-fun name)
+    (sleep-for 0 600)
+    ;; A hack to make sure that the function scrolls
+    ;; to the description of the function when it is
+    ;; the first time that the man page for a module
+    ;; is opened
+    (disp-man-page-erl-fun name)))
 
 
 (defun erlang-man-function-no-prompt ()
@@ -2111,14 +2121,10 @@ provides the same functionality as erlang-man-function except for
 that it does not ask the user to confirm the function name before
 opening the man page for the function."
   (interactive)
-  (progn
-    (erlang-man-function (erlang-default-function-or-module))
-    (sleep-for 0 800) ; A hack to make sure that the function scrolls
-                      ; to the description of the function when it is
-                      ; the first time that the man page for a module
-                      ; is opened
-    (erlang-man-function (erlang-default-function-or-module))
-    ))
+  (let ((name (erlang-default-function-or-module)))
+    (if name
+        (erlang-man-function name)
+      (error "No function name under the cursor. Place the cursor over the function name you want to find the man page for and try again"))))
 
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
