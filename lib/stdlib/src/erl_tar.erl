@@ -321,22 +321,29 @@ do_open(Name, Mode) when is_list(Mode) ->
             {error, {Name, Reason}}
     end.
 
-open1({binary,Bin}, read, _Raw, Opts) when is_binary(Bin) ->
+open1({binary,Bin}=Handle, read, _Raw, Opts) when is_binary(Bin) ->
     case file:open(Bin, [ram,binary,read]) of
         {ok,File} ->
             _ = [ram_file:uncompress(File) || lists:member(compressed, Opts)],
             {ok, #reader{handle=File,access=read,func=fun file_op/2}};
-        Error ->
-            Error
+        {error, Reason} ->
+            {error, {Handle, Reason}}
     end;
-open1({file, Fd}, read, _Raw, _Opts) ->
-    Reader = #reader{handle=Fd,access=read,func=fun file_op/2},
-    case do_position(Reader, {cur, 0}) of
-        {ok, Pos, Reader2} ->
-            {ok, Reader2#reader{pos=Pos}};
-        {error, _} = Err ->
-            Err
+open1({file, Fd}=Handle, read, [raw], Opts) ->
+    case not lists:member(compressed, Opts) of
+        true ->
+            Reader = #reader{handle=Fd,access=read,func=fun file_op/2},
+            case do_position(Reader, {cur, 0}) of
+                {ok, Pos, Reader2} ->
+                    {ok, Reader2#reader{pos=Pos}};
+                {error, Reason} ->
+                    {error, {Handle, Reason}}
+            end;
+        false ->
+            {error, {Handle, {incompatible_option, compressed}}}
     end;
+open1({file, _Fd}=Handle, read, [], _Opts) ->
+    {error, {Handle, {incompatible_option, cooked}}};
 open1(Name, Access, Raw, Opts) when is_list(Name) or is_binary(Name) ->
     case file:open(Name, Raw ++ [binary, Access|Opts]) of
         {ok, File} ->

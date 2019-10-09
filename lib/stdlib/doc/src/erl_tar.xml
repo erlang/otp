@@ -288,6 +288,11 @@
 	writing the file. That is, absolute paths will be turned into
 	relative paths. There will be an info message written to the error
 	logger when paths are changed in this way.</p></note>
+        <warning>
+          <p>The <c>compressed</c> and <c>cooked</c> flags are invalid when
+            passing a file descriptor with <c>{file,Fd}</c>. The file is
+            assumed to have been opened with the appropriate flags.</p>
+        </warning>
       </desc>
     </func>
 
@@ -349,6 +354,11 @@
             <p>Prints an informational message for each extracted file.</p>
           </item>
         </taglist>
+        <warning>
+          <p>The <c>compressed</c> and <c>cooked</c> flags are invalid when
+            passing a file descriptor with <c>{file,Fd}</c>. The file is
+            assumed to have been opened with the appropriate flags.</p>
+        </warning>
       </desc>
     </func>
 
@@ -474,10 +484,15 @@ erl_tar:close(TarDesc)</code>
           finished adding files, use function <seealso marker="#close/1">
           <c>close/1</c></seealso> to close the tar file.</p>
         <warning>
+          <p>The <c>compressed</c> and <c>cooked</c> flags are invalid when
+            passing a file descriptor with <c>{file,Fd}</c>. The file must
+            already be opened with the appropriate flags.</p>
+        </warning>
+        <warning>
           <p>The <c>TarDescriptor</c> term is not a file descriptor. You are
             advised not to rely on the specific contents of this term, as it
             can change in future Erlang/OTP releases when more features are
-            added to this module..</p>
+            added to this module.</p>
         </warning>
       </desc>
     </func>
