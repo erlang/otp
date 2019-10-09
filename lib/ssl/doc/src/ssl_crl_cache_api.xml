@@ -142,12 +142,19 @@
       <fsummary>Select the CRLs in the cache that are issued by <c>Issuer</c></fsummary>
       <type>
 	<v> Issuer = <seealso
-	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso></v>
+	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso> | list() </v>
 	<v> DbHandle = <seealso marker="#type-crl_cache_ref"> cache_ref() </seealso></v>
 	<v> LoggerInfo = {logger, <seealso marker="#type-logger_info"> logger_info() </seealso>} </v>
       </type>
 	<desc>
-	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> </p>
+	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> unless
+	  the value is a list of so called general names, see <seealso 
+	  marker="public_key:public_key_records"> X509 certificates records</seealso>,
+	  originating form <c>#'DistributionPoint'.cRLissuer</c> and  
+	  representing different mechanism to obtain the CRLs. The cache
+	  callback needs to use the appropriate entry to retrive the CRLs or
+	  return an empty list if it does not exist.
+	  </p>
 
 	  <p>It is possible to return logger info that will be used by the TLS connection
 	  to produce log events.</p>
