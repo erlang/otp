@@ -28,7 +28,8 @@
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
-         roundtrip_metadata/1, apply_file_info_opts/1]).
+         roundtrip_metadata/1, apply_file_info_opts/1,
+         incompatible_options/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -43,7 +44,7 @@ all() ->
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts].
+     apply_file_info_opts,incompatible_options].
 
 groups() -> 
     [].
@@ -571,6 +572,29 @@ extract_from_open_file(Config) when is_list(Config) ->
 
     %% Clean up.
     delete_files([ExtractDir]),
+
+    verify_ports(Config).
+
+%% Make sure incompatible options are rejected when opening archives with file
+%% descriptors.
+incompatible_options(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Long = filename:join(DataDir, "no_fancy_stuff.tar"),
+
+    {ok, File} = file:open(Long, [read]),
+    Handle = {file, File},
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:open(Handle, [read, compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:open(Handle, [read, cooked]),
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:extract(Handle, [compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:extract(Handle, [cooked]),
+
+    ok = file:close(File),
 
     verify_ports(Config).
 
