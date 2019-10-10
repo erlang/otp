@@ -12551,6 +12551,12 @@ api_opt_sock_timestamp_udp(InitState) ->
 %%
 %% All subsequent *received* messages will be timestamped.
 %%
+%% There is no mention of this not working for TCP in the man page
+%% on a SLES 11 SP4 machine (=> 3.0.101-108.87), but it does not
+%% (we don't get a timestamp control message header when its enabled),
+%% so we start by skipping from that version or older!
+%% Don't actually know if its the distro or the (kernel) version...
+%%
 
 api_opt_sock_timestamp_tcp4(suite) ->
     [];
@@ -12561,6 +12567,7 @@ api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_opt_sock_timestamp_tcp4,
            fun() ->
                    has_support_sock_timestamp(),
+                   is_good_enough_linux({3,0,101}),
                    is_not_freebsd()
            end,
            fun() ->
@@ -15666,7 +15673,9 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
                                                "~n   Expect Msg:    ~p"
                                                "~n   Recv Msg:      ~p",
                                                [Src, BadSrc,
-                                                [], BadCHdrs,
+                                                #{level => ipv6,
+                                                  type  => pktinfo,
+                                                  data  => "something"} , BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
@@ -34267,6 +34276,20 @@ has_support_send_or_recv_flag(Pre, Key, Flag) ->
     end.
 
 
+%% On a linux machine it checks that the version os "good enough".
+
+is_good_enough_linux(CondVsn) ->
+    case os:type() of
+        {unix, linux} ->
+            is_good_enough_linux(os:version(), CondVsn);
+        _ ->
+            ok
+    end.
+
+is_good_enough_linux(Vsn, CondVsn) when Vsn > CondVsn ->
+    ok;
+is_good_enough_linux(Vsn, CondVsn) ->
+    skip(?F("Not 'good enough' linux (~p <= ~p)", [Vsn, CondVsn])).
 
 is_not_freebsd() ->
     case os:type() of
