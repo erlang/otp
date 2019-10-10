@@ -776,7 +776,7 @@ echo_recv(_Socket, 0) ->
     ok;
 echo_recv(Socket, Size) ->
     {ok, Data} = ssl:recv(Socket, 0),
-    ok = ssl:send(Socket, Data),
+    spawn(fun() -> ssl:send(Socket, Data) end),
     echo_recv(Socket, Size - byte_size(Data)).
 
 
@@ -785,7 +785,7 @@ echo_recv_chunk(_Socket, _, 0) ->
     ok;
 echo_recv_chunk(Socket, ChunkSize, Size) ->
     {ok, Data} = ssl:recv(Socket, ChunkSize),
-    ok = ssl:send(Socket, Data),
+    spawn(fun() -> ssl:send(Socket, Data) end),
     echo_recv_chunk(Socket, ChunkSize, Size - ChunkSize).
 
 
@@ -795,7 +795,7 @@ echo_active_once(_Socket, 0) ->
 echo_active_once(Socket, Size) ->
     receive
         {ssl, Socket, Data} ->
-            ok = ssl:send(Socket, Data),
+            spawn(fun() -> ssl:send(Socket, Data) end),
             NewSize = Size - byte_size(Data),
             ssl:setopts(Socket, [{active, once}]),
             echo_active_once(Socket, NewSize)
@@ -807,7 +807,7 @@ echo_active(_Socket, 0) ->
 echo_active(Socket, Size) ->
     receive
         {ssl, Socket, Data} ->
-            ok = ssl:send(Socket, Data),
+            spawn(fun() -> ssl:send(Socket, Data) end),
             echo_active(Socket, Size - byte_size(Data))
     end.    
         
