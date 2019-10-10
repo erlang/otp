@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.1</title>
+  <section><title>Inets 7.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add HTTP server error logging vi logger</p>
+          <p>
+	    Own Id: OTP-16019</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
