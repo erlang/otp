@@ -1005,6 +1005,18 @@ case "${host}:${GCC}" in
 esac
 
 
+case $host_os in
+        darwin19*)
+	    # Disable stack checking to avoid crashing with a segment fault
+	    # in macOS Catalina.
+	    AC_MSG_NOTICE([Turning off stack check on macOS 10.15 (Catalina)])
+	    CFLAGS="-fno-stack-check $CFLAGS"
+	    ;;
+        *)
+	    ;;
+esac
+
+
 dnl ----------------------------------------------------------------------
 dnl Checks for libraries.
 dnl ----------------------------------------------------------------------
