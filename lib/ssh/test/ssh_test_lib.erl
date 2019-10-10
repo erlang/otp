@@ -290,21 +290,32 @@ rcv_lingering(Timeout) ->
     end.
 
 
-receive_exec_result(Msg) ->
-    ct:log("Expect data! ~p", [Msg]),
+receive_exec_result([]) ->
+    expected;
+receive_exec_result(Msgs) when is_list(Msgs) ->
+    ct:log("Expect data! ~p", [Msgs]),
     receive
-	Msg ->
-	    ct:log("1: Collected data ~p", [Msg]),
-	    expected;
-	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:log("StdErr: ~p~n", [Data]),
-	    receive_exec_result(Msg);
-	Other ->
-	    ct:log("Other ~p", [Other]),
-	    {unexpected_msg, Other}
+        Msg ->
+            case lists:member(Msg, Msgs) of
+                true ->
+                    ct:log("Collected data ~p", [Msg]),
+                    receive_exec_result(Msgs--[Msg]);
+                false ->
+                    case Msg of
+                        {ssh_cm,_,{data,_,1, Data}} ->
+                            ct:log("StdErr: ~p~n", [Data]),
+                            receive_exec_result(Msgs);
+                        Other ->
+                            ct:log("Other ~p", [Other]),
+                            {unexpected_msg, Other}
+                    end
+            end
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    end;
+receive_exec_result(Msg) ->
+    receive_exec_result([Msg]).
+
 
 receive_exec_result_or_fail(Msg) ->
     case receive_exec_result(Msg) of
