@@ -16640,7 +16640,7 @@ char* encode_cmsghdr_level(ErlNifEnv*    env,
 #else
     case IPPROTO_IPV6:
 #endif
-        *eLevel = esock_atom_ip;
+        *eLevel = esock_atom_ipv6;
         xres    = NULL;
         break;
 #endif
