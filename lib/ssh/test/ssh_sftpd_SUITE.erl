@@ -841,7 +841,7 @@ reply(Cm, Channel, RBuf) ->
 	{ssh_cm, Cm, Msg} ->
 	    ct:fail(Msg)
     after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	90000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 open_file(File, Cm, Channel, ReqId, Access, Flags) ->

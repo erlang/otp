@@ -43,7 +43,7 @@ all() ->
 
 
 groups() ->
-    ErlAlgos = extract_algos(ssh:default_algorithms()),
+    ErlAlgos = extract_algos(ssh_transport:supported_algorithms()),
     SshcAlgos = extract_algos(ssh_test_lib:default_algorithms(sshc)),
     SshdAlgos = extract_algos(ssh_test_lib:default_algorithms(sshd)),
     
@@ -225,22 +225,29 @@ end_per_testcase(_TC, Config) ->
 %% A simple sftp transfer
 simple_sftp(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
-    ssh_test_lib:std_simple_sftp(Host, Port, Config).
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
+    ssh_test_lib:std_simple_sftp(Host, Port, Config,
+                                 [{modify_algorithms,[{append,AlgEntries}]}]
+                                ).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_exec(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
-    ssh_test_lib:std_simple_exec(Host, Port, Config).
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
+    ssh_test_lib:std_simple_exec(Host, Port, Config,
+                                 [{modify_algorithms,[{append,AlgEntries}]}]
+                                ).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_connect(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
     Opts =
         case proplists:get_value(tag_alg, Config) of
             {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
-            _ -> []
+            _ -> [{modify_algorithms,[{append,AlgEntries}]}]
         end,
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
