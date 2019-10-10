@@ -15033,6 +15033,14 @@ api_opt_ip_recvttl_udp(InitState) ->
                            case Send(SSock, ?BASIC_REQ, Dst, 100) of
                                ok ->
                                    ok;
+                               {error, einval = Reason} ->
+                                   %% IF we can't send it the test will not work
+                                   ?SEV_EPRINT("Cannot send TTL: "
+                                               "~p => SKIP", [Reason]),
+                                   (catch socket:close(SSock)),
+                                   (catch socket:close(DSock)),
+                                   {skip,
+				    ?F("Cannot send with TTL: ~p", [Reason])};
                                {error, enoprotoopt = Reason} ->
                                    %% On some platforms this is not
                                    %% accepted (FreeBSD), so skip.
