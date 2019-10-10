@@ -449,7 +449,6 @@
         esp_network_level |
         faith |
         flowinfo |
-        hoplimit |
         hopopts |
         ipcomp_level |
         join_group |
@@ -462,6 +461,7 @@
         portrange |
         pktoptions |
         recverr |
+        recvhoplimit | hoplimit |
         recvpktinfo | pktinfo |
         recvtclass |
         router_alert |
@@ -601,6 +601,7 @@
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
         #{level := ip,        type := integer(),   data := binary()}       |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+        #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
 -type cmsghdr_send() :: 
@@ -794,14 +795,15 @@
 %% -define(SOCKET_OPT_IPV6_PORTRANGE,         22). % FreeBSD
 %% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        23). % FreeBSD
 -define(SOCKET_OPT_IPV6_RECVERR,           24).
--define(SOCKET_OPT_IPV6_RECVPKTINFO,       25). % On FreeBSD: PKTINFO
-%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        26).
--define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
--define(SOCKET_OPT_IPV6_RTHDR,             28).
-%% -define(SOCKET_OPT_IPV6_TCLASS,            29). % FreeBSD
--define(SOCKET_OPT_IPV6_UNICAST_HOPS,      30).
-%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31). % FreeBSD
--define(SOCKET_OPT_IPV6_V6ONLY,            32).
+-define(SOCKET_OPT_IPV6_RECVHOPLIMIT,      25).
+-define(SOCKET_OPT_IPV6_RECVPKTINFO,       26). % On FreeBSD: PKTINFO
+%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
+-define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
+-define(SOCKET_OPT_IPV6_RTHDR,             29).
+%% -define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
+-define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
+%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32). % FreeBSD
+-define(SOCKET_OPT_IPV6_V6ONLY,            33).
 
 %% *** TCP (socket) options
 -define(SOCKET_OPT_TCP_CONGESTION,      1).
@@ -3129,6 +3131,9 @@ enc_setopt_value(ipv6, multicast_loop, V, _D, _T, _P)
 enc_setopt_value(ipv6, recverr, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
+enc_setopt_value(ipv6, recvhoplimit, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
 enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        is_boolean(V) ->
@@ -3561,7 +3566,7 @@ enc_sockopt_key(ipv6 = L, esp_network_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, flowinfo = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_DSTOPTS;
+    ?SOCKET_OPT_IPV6_FLOWINFO;
 enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;
@@ -3591,6 +3596,9 @@ enc_sockopt_key(ipv6 = L, pktoptions = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, recverr = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_RECVERR;
+enc_sockopt_key(ipv6, recvhoplimit = _Opt, _Dir, _D, T, _P)
+  when (T =:= dgram) orelse (T =:= raw) ->
+    ?SOCKET_OPT_IPV6_RECVHOPLIMIT;
 enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P) 
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        ((T =:= dgram) orelse (T =:= raw)) ->

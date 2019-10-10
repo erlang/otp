@@ -249,6 +249,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(recvdstaddr);              \
     GLOBAL_ATOM_DEF(recverr);                  \
     GLOBAL_ATOM_DEF(recvfrom);                 \
+    GLOBAL_ATOM_DEF(recvhoplimit);             \
     GLOBAL_ATOM_DEF(recvif);                   \
     GLOBAL_ATOM_DEF(recvmsg);                  \
     GLOBAL_ATOM_DEF(recvopts);                 \
