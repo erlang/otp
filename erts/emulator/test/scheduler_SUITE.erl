@@ -993,62 +993,81 @@ sct_cmd(Config) when is_list(Config) ->
 	 {"db", thread_no_node_processor_spread}]).
 
 sbt_cmd(Config) when is_list(Config) ->
-    Bind = try
-	      OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
-	      erlang:system_flag(scheduler_bind_type, OldVal),
-	      go_for_it
-	  catch
-	      error:notsup -> notsup;
-		error:_ -> go_for_it
-	  end,
-    case Bind of
-	notsup ->
-	    {skipped, "Binding of schedulers not supported"};
-	go_for_it ->
-	    CpuTCmd = case erlang:system_info({cpu_topology,detected}) of
-			  undefined ->
-			      case os:type() of
-				  linux ->
-				      case erlang:system_info(logical_processors) of
-					  1 ->
-					      "+sctL0";
-					  N when is_integer(N) ->
-					      NS = integer_to_list(N-1),
-					      "+sctL0-"++NS++"p0-"++NS;
-					  _ ->
-					      false
-				      end;
-				  _ ->
-				      false
-			      end;
-			  _ ->
-			      ""
-		      end,
-	    case CpuTCmd of
-		false ->
-		    {skipped, "Don't know how to create cpu topology"};
-		_ ->
-		    case erlang:system_info(logical_processors) of
-			LP when is_integer(LP) ->
-			    OldRelFlags = clear_erl_rel_flags(),
-			    try
-				lists:foreach(fun ({ClBt, Bt}) ->
-						      sbt_test(Config,
-								     CpuTCmd,
-								     ClBt,
-								     Bt,
-								     LP)
-					      end,
-					      ?BIND_TYPES)
-			    after
-				restore_erl_rel_flags(OldRelFlags)
-			    end,
-			    ok;
-			_ ->
-			    {skipped,
-				   "Don't know the amount of logical processors"}
-		    end
-	    end
+    case sbt_check_prereqs() of
+        {skipped, _Reason}=Skipped ->
+            Skipped;
+        ok ->
+            case sbt_make_topology_args() of
+                false ->
+                    {skipped, "Don't know how to create cpu topology"};
+                CpuTCmd ->
+                    LP = erlang:system_info(logical_processors),
+                    OldRelFlags = clear_erl_rel_flags(),
+                    try
+                        lists:foreach(fun ({ClBt, Bt}) ->
+                                              sbt_test(Config, CpuTCmd,
+                                                       ClBt, Bt, LP)
+                                      end,
+                                      ?BIND_TYPES)
+                    after
+                        restore_erl_rel_flags(OldRelFlags)
+                    end,
+                    ok
+            end
+    end.
+
+sbt_make_topology_args() ->
+    case erlang:system_info({cpu_topology,detected}) of
+        undefined ->
+            case os:type() of
+                linux ->
+                    case erlang:system_info(logical_processors) of
+                        1 ->
+                            "+sctL0";
+                        N ->
+                            NS = integer_to_list(N - 1),
+                            "+sctL0-"++NS++"p0-"++NS
+                    end;
+                _ ->
+                    false
+            end;
+        _ ->
+            ""
+    end.
+
+sbt_check_prereqs() ->
+    try
+        Available = erlang:system_info(logical_processors_available),
+        Quota = erlang:system_info(cpu_quota),
+        if
+            Quota =:= unknown; Quota >= Available ->
+                ok;
+            Quota < Available ->
+                throw({skipped, "Test requires that CPU quota is greater than "
+                                "the number of available processors."})
+        end,
+
+        try
+            OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
+            erlang:system_flag(scheduler_bind_type, OldVal)
+        catch
+            error:notsup ->
+                throw({skipped, "Scheduler binding not supported."});
+            error:_ ->
+                %% ?!
+                ok
+        end,
+
+        case erlang:system_info(logical_processors) of
+            Count when is_integer(Count) ->
+                ok;
+            unknown ->
+                throw({skipped, "Can't detect number of logical processors."})
+        end,
+
+        ok
+    catch
+        throw:{skip,_Reason}=Skip -> Skip
     end.
 
 sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
@@ -1110,27 +1129,47 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
     %% Configure 2x scheduler threads only
     {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
-    case {erlang:system_info(logical_processors),
-	  erlang:system_info(logical_processors_available)} of
-	{LProc, LProcAvail} when is_integer(LProc), is_integer(LProcAvail) ->
-	    %% Test resetting the scheduler counts
-	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
-	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
-	    %% Test negative +S settings, but only for SMP-enabled emulators
-	    case {LProc > 1, LProcAvail > 1} of
-		{true, true} ->
-		    SchedMinus1 = LProc-1,
-		    SchedOnlnMinus1 = LProcAvail-1,
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
-		    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
-		    ok;
-		_ ->
-		    {comment, "Skipped reduced amount of schedulers test due to too few logical processors"}
-	    end;
-	_ -> %% Skipped when missing info about logical processors...
-	    {comment, "Skipped reset amount of schedulers test, and reduced amount of schedulers test due to too unknown amount of logical processors"}
+
+    LProc = erlang:system_info(logical_processors),
+    LProcAvail = erlang:system_info(logical_processors_available),
+    Quota = erlang:system_info(cpu_quota),
+
+    if
+        not is_integer(LProc); not is_integer(LProcAvail) ->
+            {comment, "Skipped reset amount of schedulers test, and reduced "
+                      "amount of schedulers test due to too unknown amount of "
+                      "logical processors"};
+        is_integer(LProc); is_integer(LProcAvail) ->
+            ExpectedOnln = st_expected_onln(LProcAvail, Quota),
+
+            st_reset(Config, LProc, ExpectedOnln, FourSched, FourSchedOnln),
+
+            if
+                LProc =:= 1; LProcAvail =:= 1 ->
+                    {comment, "Skipped reduced amount of schedulers test due "
+                              "to too few logical processors"};
+                LProc > 1, LProcAvail > 1 ->
+                    st_reduced(Config, LProc, ExpectedOnln)
+            end
     end.
+
+st_reset(Config, LProc, ExpectedOnln, FourSched, FourSchedOnln) ->
+    %% Test resetting # of schedulers.
+    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
+    {LProc, ExpectedOnln, _} = get_sstate(Config, ResetCmd),
+    ok.
+
+st_reduced(Config, LProc, ExpectedOnln) ->
+    %% Test negative +S settings
+    SchedMinus1 = LProc-1,
+    SchedOnlnMinus1 = ExpectedOnln-1,
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
+    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
+    ok.
+
+st_expected_onln(LProcAvail, unknown) -> LProcAvail;
+st_expected_onln(LProcAvail, Quota) -> min(LProcAvail, Quota).
 
 dirty_scheduler_threads(Config) when is_list(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of

@@ -39,6 +39,7 @@ int erts_cpu_info_update(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_configured(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_online(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_available(erts_cpu_info_t *cpuinfo);
+int erts_get_cpu_quota(erts_cpu_info_t *cpuinfo);
 char *erts_get_unbind_from_cpu_str(erts_cpu_info_t *cpuinfo);
 int erts_get_available_cpu(erts_cpu_info_t *cpuinfo, int no);
 int erts_get_cpu_topology_size(erts_cpu_info_t *cpuinfo);

@@ -944,14 +944,19 @@
         <c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
       <item>
         <p>Sets the number of scheduler threads to create and scheduler threads
-          to set online. The maximum for both
-          values is 1024. If the Erlang runtime system is able to determine the
-          number of logical processors configured and logical processors
-          available, <c>Schedulers</c> defaults to logical processors
-          configured, and <c>SchedulersOnline</c> defaults to logical processors
-          available; otherwise the default values are 1. <c>Schedulers</c> can
-          be omitted if <c>:SchedulerOnline</c> is not and conversely. The
-          number of schedulers online can be changed at runtime through
+          to set online. The maximum for both values is 1024. If the Erlang
+          runtime system is able to determine the number of logical processors
+          configured and logical processors available, <c>Schedulers</c>
+          defaults to logical processors configured, and
+          <c>SchedulersOnline</c> defaults to logical processors available;
+          otherwise the default values are 1. If the emulator detects that it
+          is subject to a <seealso marker="erlang#system_info_cpu_quota">CPU
+          quota</seealso>, the default value for <c>SchedulersOnline</c> will
+          be limited accordingly.</p>
+        <p>
+          <c>Schedulers</c> can be omitted if <c>:SchedulerOnline</c> is not
+          and conversely. The number of schedulers online can be changed at
+          runtime through
           <seealso marker="erlang#system_flag_schedulers_online">
           <c>erlang:system_flag(schedulers_online,
           SchedulersOnline)</c></seealso>.</p>
@@ -1175,9 +1180,10 @@
           <tag><marker id="+sbwt"/>
             <c>+sbwt none|very_short|short|medium|long|very_long</c></tag>
           <item>
-            <p>Sets scheduler busy wait threshold. Defaults to <c>medium</c>.
-              The threshold determines how long schedulers are to busy
-              wait when running out of work before going to sleep.</p>
+            <p>Sets scheduler busy wait threshold. Defaults to
+              <c>very_short</c>. The threshold determines how long schedulers
+              are to busy wait when running out of work before going to
+              sleep.</p>
             <note>
               <p>This flag can be removed or changed at any time
                 without prior notice.</p>
@@ -1187,7 +1193,7 @@
             <c>+sbwtdcpu none|very_short|short|medium|long|very_long</c></tag>
           <item>
             <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
-              dirty CPU schedulers. Defaults to <c>short</c>.</p>
+              dirty CPU schedulers. Defaults to <c>very_short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
                 without prior notice.</p>
@@ -1197,7 +1203,7 @@
             <c>+sbwtdio none|very_short|short|medium|long|very_long</c></tag>
           <item>
             <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
-              dirty IO schedulers. Defaults to <c>short</c>.</p>
+              dirty IO schedulers. Defaults to <c>very_short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
                 without prior notice.</p>

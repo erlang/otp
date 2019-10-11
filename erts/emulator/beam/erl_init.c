@@ -774,6 +774,7 @@ early_init(int *argc, char **argv) /*
     int ncpu;
     int ncpuonln;
     int ncpuavail;
+    int ncpuquota;
     int schdlrs;
     int schdlrs_onln;
     int schdlrs_percentage = 100;
@@ -811,7 +812,8 @@ early_init(int *argc, char **argv) /*
                                      &max_reader_groups,
 				     &ncpu,
 				     &ncpuonln,
-				     &ncpuavail);
+				     &ncpuavail,
+				     &ncpuquota);
 
     ignore_break = 0;
     replace_intr = 0;
@@ -838,9 +840,18 @@ early_init(int *argc, char **argv) /*
      * can initialize the allocators.
      */
     no_schedulers = (Uint) (ncpu > 0 ? ncpu : 1);
-    no_schedulers_online = (ncpuavail > 0
-			    ? ncpuavail
-			    : (ncpuonln > 0 ? ncpuonln : no_schedulers));
+
+    if (ncpuavail > 0) {
+        if (ncpuquota > 0) {
+            no_schedulers_online = MIN(ncpuquota, ncpuavail);
+        } else {
+            no_schedulers_online = ncpuavail;
+        }
+    } else if (ncpuonln > 0) {
+        no_schedulers_online = ncpuonln;
+    } else {
+        no_schedulers_online = no_schedulers;
+    }
 
     schdlrs = no_schedulers;
     schdlrs_onln = no_schedulers_online;

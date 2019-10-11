@@ -2834,7 +2834,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     /* Arguments that are unusual follow ... */
     else if (ERTS_IS_ATOM_STR("logical_processors", BIF_ARG_1)) {
 	int no;
-	erts_get_logical_processors(&no, NULL, NULL);
+	erts_get_logical_processors(&no, NULL, NULL, NULL);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {
@@ -2844,7 +2844,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     }
     else if (ERTS_IS_ATOM_STR("logical_processors_online", BIF_ARG_1)) {
 	int no;
-	erts_get_logical_processors(NULL, &no, NULL);
+	erts_get_logical_processors(NULL, &no, NULL, NULL);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {
@@ -2854,7 +2854,17 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     }
     else if (ERTS_IS_ATOM_STR("logical_processors_available", BIF_ARG_1)) {
 	int no;
-	erts_get_logical_processors(NULL, NULL, &no);
+	erts_get_logical_processors(NULL, NULL, &no, NULL);
+	if (no > 0)
+	    BIF_RET(make_small((Uint) no));
+	else {
+	    DECL_AM(unknown);
+	    BIF_RET(AM_unknown);
+	}
+    }
+    else if (ERTS_IS_ATOM_STR("cpu_quota", BIF_ARG_1)) {
+	int no;
+	erts_get_logical_processors(NULL, NULL, NULL, &no);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {

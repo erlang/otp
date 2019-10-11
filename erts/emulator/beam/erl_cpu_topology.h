@@ -32,7 +32,8 @@ erts_pre_early_init_cpu_topology(int *max_dcg_p,
                                  int *max_rg_p,
 				 int *conf_p,
 				 int *onln_p,
-				 int *avail_p);
+				 int *avail_p,
+				 int *quota_p);
 void
 erts_early_init_cpu_topology(int no_schedulers,
 			     int *max_main_threads_p,
@@ -81,7 +82,7 @@ Eterm erts_set_cpu_topology(Process *c_p, Eterm term);
 Eterm erts_get_cpu_topology_term(Process *c_p, Eterm which);
 
 int erts_update_cpu_info(void);
-void erts_get_logical_processors(int *conf, int *onln, int *avail);
+void erts_get_logical_processors(int *conf, int *onln, int *avail, int *quota);
 
 int erts_sched_bind_atthrcreate_prepare(void);
 int erts_sched_bind_atthrcreate_child(int unbind);

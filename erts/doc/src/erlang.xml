@@ -8189,6 +8189,15 @@ Metadata = #{ pid => pid(),
               <seealso marker="#system_info_logical_processors">logical processors
               configured</seealso>.</p>
           </item>
+          <tag><marker id="system_info_cpu_quota"/>
+            <c>cpu_quota</c></tag>
+          <item>
+            <p>Returns the detected CPU quota the emulator is limited by. The
+              return value is an integer saying how many processors' worth of
+              runtime we get (between 1 and the number of logical processors),
+              or the atom <c>unknown</c> if the emulator cannot detect a
+              quota.</p>
+          </item>
           <tag><marker id="system_info_update_cpu_info"/>
             <c>update_cpu_info</c></tag>
           <item>
@@ -8198,8 +8207,9 @@ Metadata = #{ pid => pid(),
               CPU topology</seealso> and the number of logical processors
               <seealso marker="#system_info_logical_processors">configured</seealso>,
               <seealso marker="#system_info_logical_processors_online">online</seealso>,
-              and <seealso marker="#system_info_logical_processors_available">
-              available</seealso>.</p>
+              <seealso marker="#system_info_logical_processors_available">available</seealso>,
+              and <seealso marker="#system_info_cpu_quota">cpu
+              quota</seealso>.</p>
             <p>If the CPU information has changed since the last time
               it was read, the atom <c>changed</c> is returned, otherwise
               the atom <c>unchanged</c>. If the CPU information has changed,
