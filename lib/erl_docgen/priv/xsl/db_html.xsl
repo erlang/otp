@@ -1226,17 +1226,18 @@
   <!-- Code -->
   <xsl:template match="code">
     <xsl:param name="chapnum"/>
+    <xsl:variable name="type" select="@type"/>
     <xsl:variable name="codenum">
       <xsl:number level="any" from="chapter" count="code"/>
     </xsl:variable>
-      <xsl:choose> 
-	<xsl:when test="not(descendant::anno)">
- 	   <div class="example"><pre><xsl:value-of select="erl:code_trim(text())"/></pre></div>
- 	</xsl:when>
-	<xsl:otherwise>    
-	   <div class="example"><pre><xsl:apply-templates/></pre></div>
-	</xsl:otherwise>
-      </xsl:choose>	
+    <xsl:choose>
+      <xsl:when test="not(descendant::anno)">
+ 	<div class="example example-{$type}"><pre><xsl:value-of select="erl:code_trim(text())"/></pre></div>
+      </xsl:when>
+      <xsl:otherwise>
+	<div class="example example-{$type}"><pre><xsl:apply-templates/></pre></div>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- Pre -->
