@@ -19778,7 +19778,8 @@ void esock_down(ErlNifEnv*           env,
                                       "\r\n   Errno:               %d (%T)"
                                       "\r\n",
                                       pid, descP->sock,
-                                      save_errno, MKA(env, save_errno));
+                                      save_errno,
+                                      MKA(env, erl_errno_id(save_errno)));
                 }
                 sock_close_event(descP->event);
 
@@ -19816,7 +19817,8 @@ void esock_down(ErlNifEnv*           env,
                                       "\r\n   Errno:               %d (%T)"
                                       "\r\n",
                                       pid, descP->sock,
-                                      save_errno, MKA(env, save_errno));
+                                      save_errno,
+                                      MKA(env, erl_errno_id(save_errno)));
                 }
                 sock_close_event(descP->event);
 
