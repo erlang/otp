@@ -291,27 +291,6 @@
        following pattern. The last message is a channel close message, as the <c>exec</c>
        request is a one-time execution that closes the channel when it is done.</p>
 
-       <!--taglist>
-	 <tag><c>N x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {data, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, </c><seealso marker="#type-ssh_data_type_code">ssh_data_type_code()</seealso><c>, Data :: binary()}}</c></tag>
-	 <item><p>The result of executing the command can be only one line
-	 or thousands of lines depending on the command.</p></item>
-
-	 <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {eof, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}}</c></tag>
-	 <item><p>Indicates that no more data is to be sent.</p></item>
-
-	 <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {exit_signal, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, ExitSignal :: string(), ErrorMsg :: string(), LanguageString :: string()}}</c></tag>
-	 <item><p>Not all systems send signals. For details on valid string
-	 values, see RFC 4254, Section 6.10</p></item>
-	 
-	  <tag><c>0 or 1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {exit_status, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>, ExitStatus :: integer()}}</c></tag>
-	  <item><p>It is recommended by the SSH Connection Protocol to send this
-	  message, but that is not always the case.</p></item>
-
-	  <tag><c>1 x {ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, {closed, </c><seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso><c>}}</c></tag>
-	  <item><p>Indicates that the <c>ssh_client_channel</c> started for the
-	  execution of the command has now been shut down.</p></item>
-       </taglist-->
-
        <taglist>
 	 <tag>N x <seealso marker="#type-data_ch_msg">data message(s)</seealso></tag>
 	 <item><p>The result of executing the command can be only one line
@@ -332,6 +311,9 @@
 	 <item><p>Indicates that the <c>ssh_client_channel</c> started for the
 	 execution of the command has now been shut down.</p></item>
        </taglist>
+       <p>See the User's Guide section on
+       <seealso marker="using_ssh#one-time-execution">One-Time Execution</seealso> for examples.
+       </p>
      </desc>
    </func>
 
