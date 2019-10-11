@@ -49,7 +49,7 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 alerts() ->
-    [{doc, "Test ssl_alert:alert_txt/1"}].
+    [{doc, "Test ssl_alert formating code"}].
 alerts(Config) when is_list(Config) ->
     Descriptions = [?CLOSE_NOTIFY, ?UNEXPECTED_MESSAGE, ?BAD_RECORD_MAC,
 		    ?DECRYPTION_FAILED_RESERVED, ?RECORD_OVERFLOW, ?DECOMPRESSION_FAILURE,
@@ -66,7 +66,9 @@ alerts(Config) when is_list(Config) ->
     Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
 	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
     lists:foreach(fun(Alert) ->
-                          try ssl_alert:alert_txt(Alert)
+                          try 
+                              ssl_alert:reason_code(Alert, server, "TLS", cipher),
+                              ssl_alert:reason_code(Alert, client, "TLS", hello)
                           catch
 			    C:E:T ->
                                   ct:fail({unexpected, {C, E, T}})
@@ -78,8 +80,9 @@ alert_details() ->
 alert_details(Config) when is_list(Config) ->
     Unique = make_ref(),
     UniqueStr = lists:flatten(io_lib:format("~w", [Unique])),
-    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Unique),
-    case string:str(ssl_alert:alert_txt(Alert), UniqueStr) of
+    Alert = ?ALERT_REC(?WARNING, ?INTERNAL_ERROR, Unique),
+    {tls_alert, {_, Txt}} = ssl_alert:reason_code(Alert#alert{role=server}, server, "TLS", cipher),
+    case string:str(Txt, UniqueStr) of
         0 ->
             ct:fail(error_details_missing);
         _ ->
@@ -90,11 +93,16 @@ alert_details(Config) when is_list(Config) ->
 alert_details_not_too_big() ->
     [{doc, "Test that ssl_alert:alert_txt/1 limits printed depth of extended error description"}].
 alert_details_not_too_big(Config) when is_list(Config) ->
-    Reason = lists:duplicate(10, lists:duplicate(10, lists:duplicate(10, {some, data}))),
-    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Reason),
-    case length(ssl_alert:alert_txt(Alert)) < 1000 of
+    Reason = ssl:cipher_suites(all, 'tlsv1.2'),
+    ReasonText = lists:flatten(io_lib:format("~p", [Reason])),
+    Alert = ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason),
+    PrefixLen = 
+        length("TLS server: In state cipher at ssl_handshake.erl:1710 generated SERVER ALERT: Fatal - Handshake Failure"),
+    {tls_alert, {_, Txt}} = ssl_alert:reason_code(Alert#alert{role=server, where = #{file => "ssl_handshake.erl", 
+                                                                                     line => 1710}}, server, "TLS", cipher),
+    case byte_size(term_to_binary(Txt)) < (byte_size(term_to_binary(ReasonText)) - PrefixLen) of
         true ->
-            ok;
+            ct:pal("~s", [Txt]);
         false ->
             ct:fail(ssl_alert_text_too_big)
     end.

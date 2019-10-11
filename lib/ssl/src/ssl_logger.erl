@@ -20,9 +20,10 @@
 
 -module(ssl_logger).
 
--export([debug/4,
+-export([log/4, 
+         debug/4,
          format/2,
-         notice/2]).
+         format/1]).
 
 -define(DEC2HEX(X),
         if ((X) >= 0) andalso ((X) =< 9) -> (X) + $0;
@@ -31,6 +32,7 @@
 
 -define(rec_info(T,R),lists:zip(record_info(fields,T),tl(tuple_to_list(R)))).
 
+-include("ssl_internal.hrl").
 -include("tls_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
@@ -40,11 +42,75 @@
 -include_lib("kernel/include/logger.hrl").
 
 %%-------------------------------------------------------------------------
-%% External API
+%% Internal API -- Stateful logging
 %%-------------------------------------------------------------------------
 
-%% SSL log formatter
-format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
+log(Level, LogLevel, ReportMap, Meta) ->
+    case logger:compare_levels(LogLevel, Level) of
+        lt ->
+            logger:log(Level, ReportMap,  Meta#{depth => ?DEPTH, 
+                                                report_cb => fun ?MODULE:format/1});
+        eq ->
+            logger:log(Level, ReportMap, Meta#{depth => ?DEPTH, 
+                                               report_cb => fun ?MODULE:format/1});
+        _ ->
+            ok
+    end.
+
+debug(Level, Direction, Protocol, Message)
+  when (Direction =:= inbound orelse Direction =:= outbound) andalso
+       (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
+    case logger:compare_levels(Level, debug) of
+        lt ->
+            ?LOG_DEBUG(#{direction => Direction,
+                         protocol => Protocol,
+                         message => Message},
+                       #{domain => [otp,ssl,Protocol]});
+        eq ->
+            ?LOG_DEBUG(#{direction => Direction,
+                         protocol => Protocol,
+                         message => Message},
+                       #{domain => [otp,ssl,Protocol]});
+        _ ->
+            ok
+    end.
+
+%%-------------------------------------------------------------------------
+%%  Report formatting CB
+%%-------------------------------------------------------------------------
+format(#{alert := Alert, alerter := own} = Report) ->
+    #{protocol := ProtocolName,
+      role := Role,
+      alert := Alert,
+      statename := StateName } = Report,
+    ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert);
+format(#{alert := Alert, alerter := peer} = Report) ->
+    #{protocol := ProtocolName,
+      role := Role,
+      alert := Alert,
+      statename := StateName } = Report,
+    ssl_alert:alert_format(ProtocolName, Role, StateName, Alert);
+format(#{alert := Alert, alerter := ignored} = Report) -> 
+    #{protocol := ProtocolName,
+      role := Role,
+      alert := Alert,
+      statename := StateName} = Report,
+    %% Happens in DTLS
+    {Fmt, Args} = ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert),
+    {"~s " ++ Fmt, ["Ignored alert to mitigate DoS attacks", Args]};
+format(#{description := Desc} = Report) ->
+    #{reason := Reason}  = Report,
+    {"~s11:~p"
+    "~n"
+     "~s11:~p"
+    "~n",
+     ["Description", Desc, "Reason", Reason]
+    }.
+
+%%-------------------------------------------------------------------------
+%%  SSL log handler formatter
+%%-------------------------------------------------------------------------
+format(#{msg:= {report, Msg}}, _Config0) ->
      #{direction := Direction,
        protocol := Protocol,
        message := Content} = Msg,
@@ -64,36 +130,9 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
             []
     end.
 
-%% Stateful logging
-debug(Level, Direction, Protocol, Message)
-  when (Direction =:= inbound orelse Direction =:= outbound) andalso
-       (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
-    case logger:compare_levels(Level, debug) of
-        lt ->
-            ?LOG_DEBUG(#{direction => Direction,
-                         protocol => Protocol,
-                         message => Message},
-                       #{domain => [otp,ssl,Protocol]});
-        eq ->
-            ?LOG_DEBUG(#{direction => Direction,
-                         protocol => Protocol,
-                         message => Message},
-                       #{domain => [otp,ssl,Protocol]});
-        _ ->
-            ok
-    end.
-
-%% Stateful logging
-notice(Level, Report) ->
-    case logger:compare_levels(Level, notice) of
-        lt ->
-            ?LOG_NOTICE(Report);
-        eq ->
-            ?LOG_NOTICE(Report);
-        _ ->
-            ok
-    end.
-
+%%-------------------------------------------------------------------------
+%%  Internal functions
+%%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
 %% Handshake Protocol

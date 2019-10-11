@@ -54,10 +54,10 @@ is_new(_ClientSuggestion, _ServerDecision) ->
 %% Description: Should be called by the client side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-client_select_session({Host, Port, #{versions := Versions,
-                                     protocol := Protocol}} = ClientInfo, 
+client_select_session({_, _, #{versions := Versions,
+                               protocol := Protocol}} = ClientInfo, 
                       Cache, CacheCb, NewSession) ->
- 
+    
     RecordCb = record_cb(Protocol),
     Version = RecordCb:lowest_protocol_version(Versions),
     

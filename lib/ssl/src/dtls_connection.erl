@@ -1203,12 +1203,13 @@ is_ignore_alert(#alert{description = ?ILLEGAL_PARAMETER}) ->
 is_ignore_alert(_) ->
     false.
 
-log_ignore_alert(debug, StateName, Alert, Role) ->
-    Txt = ssl_alert:alert_txt(Alert),
-    ?LOG_ERROR("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n",
-                 [Role, StateName, Txt]);
-log_ignore_alert(_, _, _, _) ->
-    ok.
+log_ignore_alert(Level, StateName, #alert{where = Location} = Alert, Role) ->
+    ssl_logger:log(info, 
+                   Level, #{alert => Alert, 
+                            alerter => ignored,
+                            statename => StateName,
+                            role => Role,  
+                            protocol => protocol_name()}, Location).
 
 send_application_data(Data, From, _StateName,
                       #state{static_env = #static_env{socket = Socket,

@@ -1498,9 +1498,10 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
     {stop, {shutdown, normal}, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{socket = Socket,
-                                                                                   error_tag = ErrorTag}} = State)  ->
-    Report = io_lib:format("SSL: Socket error: ~p ~n", [Reason]),
-    ?LOG_ERROR(Report),
+                                                                                   error_tag = ErrorTag},
+                                                          ssl_options = #{log_level := Level}} = State)  ->
+    ssl_logger:log(info, Level, #{description => "Socket error", 
+                                  reason => [{error_tag, ErrorTag}, {description, Reason}]}, ?LOCATION),
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown,normal}, State};
 
@@ -1528,9 +1529,11 @@ handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_en
 handle_info(allow_renegotiate, StateName, #state{handshake_env = HsEnv} = State) ->
     {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{allow_renegotiate = true}}};
 
-handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = Tag}} = State) ->
-    Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [{Msg, Tag, Socket}]),
-    ?LOG_NOTICE(Report),
+handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = ErrorTag},
+                                   ssl_options = #{log_level := Level}} = State) ->
+    ssl_logger:log(notice, Level, #{description => "Unexpected INFO message", 
+                                    reason => [{message, Msg}, {socket, Socket}, 
+                                               {error_tag, ErrorTag}]}, ?LOCATION),
     {next_state, StateName, State}.
 
 %%====================================================================
@@ -2980,13 +2983,17 @@ alert_user(Pids, Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Sta
     end.
 
 log_alert(Level, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
-    Txt = ssl_alert:own_alert_txt(Alert),
-    Report = ssl_alert:alert_txt(ProtocolName, Role, StateName, Txt),
-    ssl_logger:notice(Level, Report);
-log_alert(Level, Role, ProtocolName, StateName, Alert) ->
-    Txt = ssl_alert:alert_txt(Alert),
-    Report = ssl_alert:alert_txt(ProtocolName, Role, StateName, Txt),
-    ssl_logger:notice(Level, Report).
+    ssl_logger:log(notice, Level, #{protocol => ProtocolName, 
+                                    role => Role,
+                                    statename => StateName,
+                                    alert => Alert,
+                                    alerter => own}, Alert#alert.where);
+log_alert(Level, Role, ProtocolName, StateName,  Alert) ->
+    ssl_logger:log(notice, Level, #{protocol => ProtocolName, 
+                                    role => Role,
+                                    statename => StateName,
+                                    alert => Alert,
+                                    alerter => peer}, Alert#alert.where).
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);

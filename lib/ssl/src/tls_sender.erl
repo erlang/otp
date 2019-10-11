@@ -395,16 +395,13 @@ handle_common(
   info, {'DOWN', Monitor, _, _, _},
   #data{static = #static{connection_monitor = Monitor}} = StateData) ->
     {stop, normal, StateData};
-handle_common(info, Msg, _) ->
-    Report =
-        io_lib:format("TLS sender: Got unexpected info: ~p ~n", [Msg]),
-    error_logger:info_report(Report),
+handle_common(info, Msg, #data{static = #static{log_level = Level}}) ->
+    ssl_logger:log(info, Level, #{event => "TLS sender recived unexpected info", 
+                                  reason => [{message, Msg}]}, ?LOCATION),
     keep_state_and_data;
-handle_common(Type, Msg, _) ->
-    Report =
-        io_lib:format(
-          "TLS sender: Got unexpected event: ~p ~n", [{Type,Msg}]),
-    error_logger:error_report(Report),
+handle_common(Type, Msg, #data{static = #static{log_level = Level}}) ->
+    ssl_logger:log(error, Level, #{event => "TLS sender recived unexpected event", 
+                                   reason => [{type, Type}, {message, Msg}]}, ?LOCATION),
     keep_state_and_data.
 
 send_tls_alert(#alert{} = Alert,
