@@ -138,6 +138,7 @@
          api_opt_sock_passcred_tcp4/1,
          api_opt_sock_peercred_tcpL/1,
          api_opt_sock_priority_udp4/1,
+         api_opt_sock_priority_tcp4/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
@@ -844,7 +845,8 @@ api_option_sock_passcred_cases() ->
 
 api_option_sock_priority_cases() ->
     [
-     api_opt_sock_priority_udp4
+     api_opt_sock_priority_udp4,
+     api_opt_sock_priority_tcp4
     ].
 
 api_option_sock_timestamp_cases() ->
@@ -12166,7 +12168,7 @@ api_opt_sock_peercred_tcp(_InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Tests the 'PRIORITY' socket 'socket' option:
+%% Tests the 'PRIORITY' socket 'socket' option with IPv4 UDP:
 %%
 %%               socket:setopt(Sock, socket, priority, integer()).
 %%
@@ -12192,14 +12194,47 @@ api_opt_sock_priority_udp4(_Config) when is_list(_Config) ->
                                  proto  => udp,
                                  set    => Set,
                                  get    => Get},
-                   ok = api_opt_sock_priority_udp(InitState)
+                   ok = api_opt_sock_priority(InitState)
            end).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_opt_sock_priority_udp(InitState) ->
+%% Tests the 'PRIORITY' socket 'socket' option with IPv4 TCP:
+%%
+%%               socket:setopt(Sock, socket, priority, integer()).
+%%
+%%
+
+api_opt_sock_priority_tcp4(suite) ->
+    [];
+api_opt_sock_priority_tcp4(doc) ->
+    [];
+api_opt_sock_priority_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_priority_tcp4,
+           fun() -> has_support_sock_priority() end,
+           fun() ->
+                   Set  = fun(Sock, Value) ->
+                                  socket:setopt(Sock, socket, priority, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, socket, priority)
+                          end,
+                   InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_sock_priority(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_sock_priority(InitState) ->
     Seq = 
         [
          #{desc => "local address",
