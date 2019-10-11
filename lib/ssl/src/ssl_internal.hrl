@@ -60,6 +60,7 @@
 -define(CDR_MAGIC, "GIOP").
 -define(CDR_HDR_SIZE, 12).
 -define(INTERNAL_ACTIVE_N, 100).
+-define(DEPTH, 20).
 
 -define(DEFAULT_TIMEOUT, 5000).
 -define(NO_DIST_POINT, "http://dummy/no_distribution_point").

@@ -310,9 +310,8 @@ decode_certs(Ref, Cert) ->
 	 {decoded, {{Ref, SerialNumber, Issuer}, {Cert, ErlCert}}}
     catch
 	error:_ ->
-	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
-				   "it could not be correctly decoded.~n", []),
-	    ?LOG_NOTICE(Report),
+	    ?LOG_NOTICE("SSL WARNING: Ignoring a CA cert as "
+                        "it could not be correctly decoded.~n"),
 	    undefined
     end.
 

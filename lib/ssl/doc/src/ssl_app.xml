@@ -67,14 +67,14 @@
       <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:ssl_tls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      TLS protocols currently supported by the SSL application.
+      TLS protocols currently supported, more might be configurable, by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
       <tag><c>dtls_protocol_version = </c><seealso marker="ssl#type-protocol">ssl:dtls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      DTLS protocols currently supported by the SSL application.
+      DTLS protocols currently supported, more might be configurable, by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
       
@@ -155,10 +155,17 @@
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The SSL application uses the default <seealso
-    marker="kernel:error_logger">OTP error logger</seealso> to log
-    unexpected errors and TLS/DTLS alerts. The logging of TLS/DTLS alerts may be
-    turned off with the <c>log_alert</c> option. </p>
+
+    <p>The SSL application uses <seealso
+    marker="kernel:logger">OTP logger</seealso>.
+    TLS/DTLS alerts are logged on notice level. Unexpected
+    errors are logged on error level. These log entries
+    will by default end up in the default Erlang log.
+    The option <c>log_level</c> may be used to in run-time to set
+    the log level of a specific TLS connection, which is
+    handy when you want to use level debug to inspect the
+    TLS handshake setup.    
+    </p>
   </section>
 
   <section>
