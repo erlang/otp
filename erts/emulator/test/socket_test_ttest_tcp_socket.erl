@@ -248,7 +248,7 @@ listen(Port, #{domain := Domain} = Opts)
   when is_integer(Port) andalso (Port >= 0) ->
     %% Bind fills in the rest
     case ?LIB:which_local_host_info(Domain) of
-	{ok, {_, _, Addr}} ->
+	{ok, #{addr := Addr}} ->
 	    SA = #{family => Domain,
 		   addr   => Addr,
 		   port   => Port},
