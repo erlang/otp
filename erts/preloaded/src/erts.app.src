@@ -35,6 +35,7 @@
 		prim_zip,
                 atomics,
                 counters,
+                persistent_term,
 		zlib,
 		%ESOCK_MODS%
 	    ]},
