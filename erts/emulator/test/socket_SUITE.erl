@@ -137,6 +137,7 @@
          api_opt_sock_oobinline/1,
          api_opt_sock_passcred_tcp4/1,
          api_opt_sock_peercred_tcpL/1,
+         api_opt_sock_priority_udp4/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
@@ -650,6 +651,7 @@ groups() ->
      {api_option_sock_acceptconn,  [], api_option_sock_acceptconn_cases()},
      {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_option_sock_passcred,    [], api_option_sock_passcred_cases()},
+     {api_option_sock_priority,    [], api_option_sock_priority_cases()},
      {api_options_ip,              [], api_options_ip_cases()},
      {api_options_ipv6,            [], api_options_ipv6_cases()},
      %% {api_options_tcp,            [], api_options_tcp_cases()},
@@ -823,6 +825,7 @@ api_options_socket_cases() ->
      api_opt_sock_mark,
      api_opt_sock_oobinline,
      {group, api_option_sock_passcred},
+     {group, api_option_sock_priority},
      {group, api_option_sock_timestamp}
     ].
 
@@ -837,6 +840,11 @@ api_option_sock_passcred_cases() ->
      %% api_opt_sock_passcred_udp4,
      api_opt_sock_passcred_tcp4,
      api_opt_sock_peercred_tcpL
+    ].
+
+api_option_sock_priority_cases() ->
+    [
+     api_opt_sock_priority_udp4
     ].
 
 api_option_sock_timestamp_cases() ->
@@ -12154,6 +12162,146 @@ api_opt_sock_peercred_tcp(_InitState) ->
 %%     (catch socket:close(Sock));
 %% api_opt_sock_peercred_tcp_client_close(_) ->
 %%     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the 'PRIORITY' socket 'socket' option:
+%%
+%%               socket:setopt(Sock, socket, priority, integer()).
+%%
+%%
+
+api_opt_sock_priority_udp4(suite) ->
+    [];
+api_opt_sock_priority_udp4(doc) ->
+    [];
+api_opt_sock_priority_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_priority_udp4,
+           fun() -> has_support_sock_priority() end,
+           fun() ->
+                   Set  = fun(Sock, Value) ->
+                                  socket:setopt(Sock, socket, priority, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, socket, priority)
+                          end,
+                   InitState = #{domain => inet,
+                                 type   => dgram,
+                                 proto  => udp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_sock_priority_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_sock_priority_udp(InitState) ->
+    Seq = 
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+
+         #{desc => "open socket",
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, Type, Proto),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "bind",
+           cmd  => fun(#{sock := Sock, lsa := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get current (default) priority",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, Prio} ->
+                                   ?SEV_IPRINT("(default) priority: ~p",
+                                               [Prio]),
+                                   {ok, State#{default => Prio}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) "
+                                               "priority:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "change priority (to within non-root range)",
+           cmd  => fun(#{sock    := Sock,
+                         default := DefaultPrio,
+                         set     := Set} = _State) ->
+                           NewPrio =
+                               if
+                                   (DefaultPrio =< 0) andalso
+                                   (DefaultPrio < 6) ->
+                                       DefaultPrio+1;
+                                   (DefaultPrio =:= 6) ->
+                                       DefaultPrio-1;
+                                   true ->
+                                       3 % ...
+                               end,
+                           ?SEV_IPRINT("try set new priority (to ~p)",
+                                       [NewPrio]),
+                           case Set(Sock, NewPrio) of
+                               ok ->
+                                   ?SEV_IPRINT("priority changed (to ~p)",
+                                               [NewPrio]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "change priority (to outside root-range)",
+           cmd  => fun(#{sock := Sock,
+                         set  := Set} = _State) ->
+                           NewPrio = 42,
+                           ?SEV_IPRINT("try set new priority (to ~p)",
+                                       [NewPrio]),
+                           case Set(Sock, NewPrio) of
+                               ok ->
+                                   ?SEV_IPRINT("priority changed (to ~p)",
+                                               [NewPrio]),
+                                   ok;
+                               {error, eperm} ->
+                                   ?SEV_IPRINT("priority change not allowed"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -34750,6 +34898,9 @@ has_support_sock_passcred() ->
 
 has_support_sock_peercred() ->
     has_support_socket_option_sock(peercred).
+
+has_support_sock_priority() ->
+    has_support_socket_option_sock(priority).
 
 has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
