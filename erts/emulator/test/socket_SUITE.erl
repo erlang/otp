@@ -76,6 +76,7 @@
          api_b_open_and_close_tcp4/1,
          api_b_open_and_close_udpL/1,
          api_b_open_and_close_tcpL/1,
+         api_b_open_and_maybe_close_raw/1,
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendto_and_recvfrom_udpL/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
@@ -730,6 +731,7 @@ api_basic_cases() ->
      api_b_open_and_close_tcp4,
      api_b_open_and_close_udpL,
      api_b_open_and_close_tcpL,
+     api_b_open_and_maybe_close_raw,
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendto_and_recvfrom_udpL,
      api_b_sendmsg_and_recvmsg_udp4,
@@ -2029,6 +2031,70 @@ api_b_open_and_close(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
     Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and (maybe) close an RAW socket.
+
+api_b_open_and_maybe_close_raw(suite) ->
+    [];
+api_b_open_and_maybe_close_raw(doc) ->
+    [];
+api_b_open_and_maybe_close_raw(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_maybe_close_raw,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => raw,
+                                 protocol => {raw, 255}},
+                   ok = do_api_b_open_and_maybe_close_raw(InitState)
+           end).
+
+do_api_b_open_and_maybe_close_raw(InitState) ->
+    Tester = 
+        [
+         #{desc => "open",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol} = State) -> 
+                           ?SEV_IPRINT("try open with:"
+                                       "~n   Domain:   ~p"
+                                       "~n   Type:     ~p"
+                                       "~n   Protocol: ~p",
+                                       [Domain, Type, Protocol]),
+                           case socket:open(Domain, Type, Protocol) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, eperm = Reason} ->
+                                   ?SEV_IPRINT("not allowed => SKIP"),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("open failed:"
+                                               "~n   Reason: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{socket := Sock} = State) ->
+                           ?SEV_IPRINT("try socket close"),
+                           case socket:close(Sock) of
+                               ok ->
+                                   ?SEV_IPRINT("socket closed"),
+                                   {ok, maps:remote(sock, State)};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("close failed:"
+                                               "~n   Reason: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Tester, InitState),
     ok = ?SEV_AWAIT_FINISH([Evaluator]).
 
 
