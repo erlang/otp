@@ -15754,7 +15754,10 @@ api_opt_ipv6_flowinfo_udp6(doc) ->
 api_opt_ipv6_flowinfo_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ipv6_flowinfo_udp6,
-           fun() -> has_support_ipv6_flowinfo() end,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_ipv6_flowinfo()
+           end,
            fun() ->
                    Set  = fun(Sock, Value) ->
                                   socket:setopt(Sock, ipv6, flowinfo, Value)
@@ -16010,7 +16013,10 @@ api_opt_ipv6_hoplimit_udp6(doc) ->
 api_opt_ipv6_hoplimit_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ipv6_hoplimit_udp6,
-           fun() -> has_support_ipv6_hoplimit_or_recvhoplimit() end,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_ipv6_hoplimit_or_recvhoplimit()
+           end,
            fun() ->
 		   %% Begin by choosing which of the options we shall use
 		   Opt = case socket:supports(options, ipv6, recvhoplimit) of
