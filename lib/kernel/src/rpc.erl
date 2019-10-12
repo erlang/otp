@@ -113,13 +113,7 @@ handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
 handle_call({block_call, Mod, Fun, Args, Gleader}, _To, S) ->
     MyGL = group_leader(),
     set_group_leader(Gleader),
-    Reply = 
-	case catch apply(Mod,Fun,Args) of
-	    {'EXIT', _} = Exit ->
-		{badrpc, Exit};
-	    Other ->
-		Other
-	end,
+    Reply = safe_apply(Mod, Fun, Args),
     group_leader(MyGL, self()), % restore
     {reply, Reply, S};
 handle_call(stop, _To, S) ->
@@ -191,19 +185,20 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 	erlang:spawn_monitor(
 	  fun () ->
 		  set_group_leader(Gleader),
-		  Reply = 
-		      %% in case some sucker rex'es 
-		      %% something that throws
-		      case catch apply(Mod, Fun, Args) of
-			  {'EXIT', _} = Exit ->
-			      {badrpc, Exit};
-			  Result ->
-			      Result
-		      end,
+		  Reply = safe_apply(Mod, Fun, Args),
 		  gen_server:reply(To, Reply)
 	  end),
     {noreply, maps:put(Caller, To, S)}.
 
+safe_apply(Mod, Fun, Args) ->
+    try apply(Mod, Fun, Args) of
+        {'EXIT', _} = Exit -> {badrpc, Exit}; % bug compatible...
+        Result -> Result
+    catch
+	error:Reason:StackTrace -> {badrpc, {'EXIT', {Reason, StackTrace}}};
+	exit:Reason -> {badrpc, {'EXIT', Reason}};
+	throw:Reason -> {badrpc, Reason}
+    end.
 
 %% RPC aid functions ....
 
@@ -318,10 +313,7 @@ block_call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
     do_call(N, {block_call,M,F,A,group_leader()}, Timeout).
 
 local_call(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
-    case catch apply(M, F, A) of
-	{'EXIT',_}=V -> {badrpc, V};
-	Other -> Other
-    end.
+    safe_apply(M, F, A).
 
 do_call(Node, Request, infinity) ->
     rpc_check(catch gen_server:call({?NAME,Node}, Request, infinity));

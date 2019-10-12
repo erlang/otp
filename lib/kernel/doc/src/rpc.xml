@@ -134,6 +134,12 @@
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Res</anno></c>, or
           <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
+        <p>A call that evaluates to <c>{'EXIT', _} = <anno>Reason</anno></c> is
+          considered to have failed, causing <c>{badrpc, <anno>Reason</anno>}</c>
+          to be returned.</p>
+        <p>Prior to OTP-23, if a call failed by throwing <c><anno>Reason</anno></c>,
+          <c><anno>Reason</anno></c> would be returned. In OTP-23 and later,
+          <c>{badrpc, <anno>Reason</anno>}</c> is returned.</p>
       </desc>
     </func>
 
@@ -145,6 +151,8 @@
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Res</anno></c>, or
           <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
+          (See <seealso marker="#call/4"><c>call/4</c></seealso> for details
+          about failure handling.)
           <c><anno>Timeout</anno></c> is
           a time-out value in milliseconds. If the call times out,
           <c><anno>Reason</anno></c> is <c>timeout</c>.</p>

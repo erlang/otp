@@ -408,7 +408,7 @@ called_throws(Config) when is_list(Config) ->
 				     [{args, "-pa " ++ PA}]),
     %%
     rep(fun (Tag, Call, Args) ->
-		{Tag,up} =
+		{Tag,{badrpc,up}} =
 		    {Tag,apply(rpc, Call, Args)}
 	end, N, erlang, throw, [up]),
     rep(fun (Tag, Call, Args) ->
