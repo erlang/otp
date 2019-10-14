@@ -90,7 +90,7 @@
  
 -export([encode_handshake/4]).
 
--export([get_ticket_data/2]).
+-export([get_ticket_data/2, store_server_state/1, read_server_state/0, increment_ticket_nonce/0]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -1360,6 +1360,38 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
 
 
 %% ===== Prototype =====
+store_server_state(#server_instance_data{
+                      nonce = Nonce,
+                      ticket_iv = IV,
+                      ticket_key_shard = Key}) ->
+    case ets:whereis(tls13_server_state) of
+        undefined ->
+            ets:new(tls13_server_state, [public, named_table, ordered_set]);
+        Tid ->
+            Tid
+    end,
+    ServerId = 1,
+    ets:insert(tls13_server_state, {ServerId, Nonce, IV, Key}).
+
+
+read_server_state() ->
+    case ets:lookup(tls13_server_state, 1) of
+        [{_Id, Nonce, IV, Key}] ->
+            #server_instance_data{
+               nonce = Nonce,
+               ticket_iv = IV,
+               ticket_key_shard = Key
+              };
+        [] ->
+            %% TODO Fault handling
+            undefined
+    end.
+
+
+increment_ticket_nonce() ->
+    ets:update_counter(tls13_server_state, 1, 1).
+
+
 store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
     _TicketDb =
         case ets:whereis(tls13_session_ticket_db) of

@@ -128,7 +128,9 @@ start(internal, #client_hello{} = Hello, State0, _Module) ->
         {State, start} ->
             {next_state, start, State, []};
         {State, negotiated} ->
-            {next_state, negotiated, State, [{next_event, internal, start_handshake}]}
+            {next_state, negotiated, State, [{next_event, internal, {start_handshake, undefined}}]};
+        {State, negotiated, PSK} ->  %% Session Resumption with PSK
+            {next_state, negotiated, State, [{next_event, internal, {start_handshake, PSK}}]}
     end;
 start(internal, #server_hello{} = ServerHello, State0, _Module) ->
     case tls_handshake_1_3:do_start(ServerHello, State0) of
