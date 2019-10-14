@@ -163,6 +163,8 @@
                             'aes128-ctr' |
                             'aes128-gcm@openssh.com' |
                             'aes192-ctr' |
+                            'aes192-cbc' |
+                            'aes256-cbc' |
                             'aes256-ctr' |
                             'aes256-gcm@openssh.com' |
                             'chacha20-poly1305@openssh.com'
@@ -171,6 +173,7 @@
 -type mac_alg()          :: 'AEAD_AES_128_GCM' |
                             'AEAD_AES_256_GCM' |
                             'hmac-sha1' |
+                            'hmac-sha1-96' |
                             'hmac-sha2-256' |
                             'hmac-sha2-512'
                             .
