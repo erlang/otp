@@ -1457,7 +1457,7 @@ define etp-stack-preamble
   set $etp_stack_end = ($arg0)->hend
   if ($arg0)->state.counter & 0x8000
     printf "%%%%%% WARNING: The process is currently running, so c_p->stop will not be correct\r\n"
-    printf "%%%%%%          Consider using %s-emu instead\r\n", $arg1
+    printf "%%%%%%          Consider using -emu variant instead\r\n"
   end
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
   if ($arg0)->i != 0
