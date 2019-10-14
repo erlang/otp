@@ -108,7 +108,9 @@ default_algorithms(cipher) ->
                                       ]));
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
-				    'AEAD_AES_256_GCM']));
+				    'AEAD_AES_256_GCM',
+                                    'hmac-sha1-96'
+                                   ]));
 
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
@@ -161,6 +163,8 @@ supported_algorithms(cipher) ->
 	 {'aes128-ctr',       [{ciphers,aes_128_ctr}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
+	 {'aes256-cbc',       [{ciphers,aes_256_cbc}]},
+	 {'aes192-cbc',       [{ciphers,aes_192_cbc}]},
 	 {'aes128-cbc',       [{ciphers,aes_128_cbc}]},
 	 {'3des-cbc',         [{ciphers,des_ede3_cbc}]}
 	]
@@ -171,6 +175,7 @@ supported_algorithms(mac) ->
 	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
+	 {'hmac-sha1-96',     [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]}
 	]
@@ -1342,6 +1347,18 @@ cipher('3des-cbc') ->
 cipher('aes128-cbc') ->
     #cipher{impl = aes_128_cbc,
             key_bytes = 16,
+            iv_bytes = 16,
+            block_bytes = 16};
+
+cipher('aes192-cbc') ->
+    #cipher{impl = aes_192_cbc,
+            key_bytes = 24,
+            iv_bytes = 16,
+            block_bytes = 16};
+
+cipher('aes256-cbc') ->
+    #cipher{impl = aes_256_cbc,
+            key_bytes = 32,
             iv_bytes = 16,
             block_bytes = 16};
 
