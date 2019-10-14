@@ -3426,7 +3426,7 @@ enc_sockopt_key(socket, passcred, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PASSCRED;
 enc_sockopt_key(socket = _L, peek_off = _Opt, _Dir, local = _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PEEK_OFF;
-enc_sockopt_key(socket = L, peercred = Opt, get = _Dir, loocal = _D, _T, _P) ->
+enc_sockopt_key(socket = L, peercred = Opt, get = _Dir, local = _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;
