@@ -12757,7 +12757,8 @@ api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    has_support_sock_timestamp(),
                    is_good_enough_linux({3,0,101}),
-                   is_not_freebsd()
+                   is_not_freebsd(),
+                   is_not_darwin()
            end,
            fun() ->
                    Set  = fun(Sock, Value) ->
@@ -15047,6 +15048,11 @@ api_opt_ip_recvtos_udp(InitState) ->
 %% For all subsequent *received* messages, the ttl control message
 %% header will be with the message.
 %%
+%% On darwin we don't actually get the TTL we send even after we have
+%% enabled TTL. Instead we get the default value (which was 64).
+%% Possibly this is because we run the test in the same OS process and
+%% even the same erlang process....
+%%
 
 api_opt_ip_recvttl_udp4(suite) ->
     [];
@@ -15055,7 +15061,10 @@ api_opt_ip_recvttl_udp4(doc) ->
 api_opt_ip_recvttl_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_opt_ip_recvttl_udp4,
-           fun() -> has_support_ip_recvttl() end,
+           fun() ->
+		   has_support_ip_recvttl(),
+		   is_not_darwin()
+	   end,
            fun() ->
                    Set  = fun(Sock, Value) ->
                                   socket:setopt(Sock, ip, recvttl, Value)
@@ -15321,7 +15330,10 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Expect Msg:    ~p"
                                                "~n   Recv Msg:      ~p",
                                                [Src, BadSrc,
-                                                [], BadCHdrs,
+                                                [#{level => ip,
+						   type  => ttl,
+						   data  => "something"}],
+						BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
@@ -15330,7 +15342,10 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Expect CHdrs:  ~p"
                                                "~n   Expect Msg:    ~p"
                                                "~n   Unexp Data:    ~p",
-                                               [Src, [], ?BASIC_REQ, UnexpData]),
+                                               [Src, [#{level => ip,
+							type  => ttl,
+							data  => "something"}],
+						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
                                    %% At the moment there is no way to get
@@ -15354,6 +15369,16 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    ?SEV_IPRINT("Got TTL (~w): ~p",
                                                [TTLType, TTL]),
                                    ok;
+                               {ok, {Src, [#{level := ip,
+                                             type  := TTLType,
+                                             data  := BadTTL}], ?BASIC_REQ}}
+                               when ((TTLType =:= ttl) orelse
+                                     (TTLType =:= recvttl)) ->
+                                   ?SEV_EPRINT("Unexpected TTL: "
+                                               "~n   Expect TTL: ~p"
+                                               "~n   Recv TTL:   ~p",
+                                               [100, BadTTL]),
+                                   {error, {unexpected_ttl, {100, BadTTL}}};
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
                                                "~n   Expect Source: ~p"
@@ -15363,7 +15388,9 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Expect Msg:    ~p"
                                                "~n   Recv Msg:      ~p",
                                                [Src, BadSrc,
-                                                [], BadCHdrs,
+                                                [#{level => ip,
+						   type  => ttl,
+						   data  => 100}], BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
@@ -15372,7 +15399,10 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Expect CHdrs:  ~p"
                                                "~n   Expect Msg:    ~p"
                                                "~n   Unexp Data:    ~p",
-                                               [Src, [], ?BASIC_REQ, UnexpData]),
+                                               [Src, [#{level => ip,
+							type  => ttl,
+							data  => 100}],
+						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
                                    %% At the moment there is no way to get
@@ -35050,6 +35080,14 @@ is_not_freebsd() ->
     case os:type() of
         {unix, freebsd} ->
             skip("This does not work on FreeBSD");
+        _ ->
+            ok
+    end.
+
+is_not_darwin() ->
+    case os:type() of
+        {unix, darwin} ->
+            skip("This does not work on Darwin");
         _ ->
             ok
     end.
