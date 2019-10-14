@@ -1,4 +1,4 @@
-module 'fun_letrec_effect' ['fun_letrec_effect'/0, 'ok'/0, 'wat'/0]
+module 'fun_letrec_effect' ['fun_letrec_effect'/0, 'wat'/0]
 attributes []
 
 'fun_letrec_effect'/0 =
