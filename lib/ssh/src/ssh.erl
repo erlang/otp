@@ -492,33 +492,12 @@ stop_daemon(Address, Port, Profile) ->
 %% and will not return until the remote shell is ended.(e.g. on
 %% exit from the shell)
 %%--------------------------------------------------------------------
--spec shell(open_socket() | host()) ->  _.
+-spec shell(open_socket() | host() | connection_ref()) ->  _.
 
 shell(Socket) when is_port(Socket) ->
     shell(Socket, []);
-shell(Host) ->
-    shell(Host, ?SSH_DEFAULT_PORT, []).
 
-
--spec shell(open_socket() | host(), client_options()) ->  _.
-
-shell(Socket, Options) when is_port(Socket) ->
-    start_shell( connect(Socket, Options) );
-shell(Host, Options) ->
-    shell(Host, ?SSH_DEFAULT_PORT, Options).
-
-
--spec shell(Host, Port, Options) -> _ when
-      Host :: host(),
-      Port :: inet:port_number(),
-      Options :: client_options() .
-
-shell(Host, Port, Options) ->
-    start_shell( connect(Host, Port, Options) ).
-
-
-
-start_shell({ok, ConnectionRef}) ->
+shell(ConnectionRef) when is_pid(ConnectionRef) ->
     case ssh_connection:session_channel(ConnectionRef, infinity) of
 	{ok,ChannelId}  ->
 	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
@@ -536,8 +515,38 @@ start_shell({ok, ConnectionRef}) ->
 	    Error
     end;
 
-start_shell(Error) ->
-    Error.
+shell(Host) ->
+    shell(Host, ?SSH_DEFAULT_PORT, []).
+
+
+-spec shell(open_socket() | host(), client_options()) ->  _.
+
+shell(Socket, Options) when is_port(Socket) ->
+    case connect(Socket, Options) of
+        {ok,ConnectionRef} ->
+            shell(ConnectionRef),
+            close(ConnectionRef);
+        Error ->
+            Error
+    end;
+
+shell(Host, Options) ->
+    shell(Host, ?SSH_DEFAULT_PORT, Options).
+
+
+-spec shell(Host, Port, Options) -> _ when
+      Host :: host(),
+      Port :: inet:port_number(),
+      Options :: client_options() .
+
+shell(Host, Port, Options) ->
+    case connect(Host, Port, Options) of
+        {ok,ConnectionRef} ->
+            shell(ConnectionRef),
+            close(ConnectionRef);
+        Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -spec default_algorithms() -> algs_list() .

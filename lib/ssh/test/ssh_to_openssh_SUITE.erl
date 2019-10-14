@@ -131,12 +131,16 @@ erlang_shell_client_openssh_server() ->
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     IO = ssh_test_lib:start_io_server(),
+    Prev = lists:usort(supervisor:which_children(sshc_sup)),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
     receive_data("Hej", undefined),
     IO ! {input, self(), "exit\n"},
     receive_logout(),
-    receive_normal_exit(Shell).
+    receive_normal_exit(Shell),
+    %% Check that the connection is closed:
+    ct:log("Expects ~p", [Prev]),
+    ?wait_match(Prev, lists:usort(supervisor:which_children(sshc_sup))).
    
 %%--------------------------------------------------------------------
 %% Test that the server could redirect stdin and stdout from/to an
