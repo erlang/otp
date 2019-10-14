@@ -785,7 +785,7 @@ format(CrashReport, Encoding, Depth) ->
                              single_line => false}).
 
 do_format([OwnReport,LinkReport], Extra) ->
-    #{single_line:=Single, chars_limit:=Limit0} = Extra,
+    #{encoding:=Enc, single_line:=Single, chars_limit:=Limit0} = Extra,
     Indent = if Single -> "";
                 true -> "  "
              end,
@@ -819,7 +819,7 @@ do_format([OwnReport,LinkReport], Extra) ->
                 {PL, Limit1}
         end,
     LinkFormat = format_link_reports(LinkReport, Indent, Extra, PartLimit),
-    LinkFormatSize = io_lib:chars_length(LinkFormat),
+    LinkFormatSize = size(Enc, LinkFormat),
 
     OwnFormat = format_own_report(OwnReport, Indent, Extra,
                                   LinkFormatSize, PartLimit, Limit),
@@ -832,7 +832,7 @@ format_own_report(OwnReport, Indent, Extra, LinkFormatSize, PartLimit, Limit0) -
         {First,{Class,Reason,StackTrace},Rest} ->
             F = format_report(First, MyIndent, Extra, PartLimit),
             R = format_report(Rest, MyIndent, Extra, PartLimit),
-            #{single_line:=Single} = Extra,
+            #{encoding:=Enc, single_line:=Single} = Extra,
             Sep = nl(Single, part_separator()),
             Limit = case Limit0 of
                         unlimited ->
@@ -841,8 +841,8 @@ format_own_report(OwnReport, Indent, Extra, LinkFormatSize, PartLimit, Limit0) -
                             %% Some of the report parts are quite small,
                             %% and we can use the leftover chars to show
                             %% more of the error_info part.
-                            SizeOfOther = (io_lib:chars_length(F)
-                                           +io_lib:chars_length(R)
+                            SizeOfOther = (size(Enc, F)
+                                           +size(Enc, R)
                                            -length(Sep)*(length(F)+length(R))
                                            +LinkFormatSize),
                             max(Limit0-SizeOfOther, 1)
@@ -940,10 +940,16 @@ format_exception(Class, Reason, StackTrace, Extra, Limit) ->
             %% Notice that each call to PF uses chars_limit, which
             %% means that the total size of the formatted exception
             %% can exceed the limit a lot.
-            PF = pp_fun(Extra, Limit),
+            PF = pp_fun(Extra, Enc),
             EI = "    ",
-            [EI, erl_error:format_exception(1+length(EI), Class, Reason,
-                                            StackTrace, StackFun, PF, Enc)]
+            Lim = case Limit of
+                      unlimited -> -1;
+                      _ -> Limit
+                  end,
+            FE = erl_error:format_exception(1+length(EI), Class, Reason,
+                                            StackTrace, StackFun, PF, Enc,
+                                            Lim),
+            [EI, FE]
     end.
 
 format_mfa(Indent0, {M,F,Args}=StartF, Extra, Limit) ->
@@ -965,16 +971,16 @@ to_string(A, latin1) ->
 to_string(A, _) ->
     io_lib:write_atom(A).
 
-pp_fun(Extra, Limit) ->
+pp_fun(Extra, Enc) ->
     #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
     {P,Tl} = p(Enc, Depth),
     Width = if Single -> "0";
                true -> ""
             end,
-    Opts = chars_limit_opt(Limit),
-    fun(Term, I) -> 
-            io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
-                          [Term|Tl], Opts)
+    fun(Term, I, Limit) ->
+            S = io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
+                              [Term|Tl], [{chars_limit, Limit}]),
+            {S, sub(Limit, S, Enc)}
     end.
 
 format_tag(Indent0, Tag, Data, Extra, Limit) ->
@@ -1007,6 +1013,22 @@ modifier(_) -> "t".
 
 nl(true,Else) -> Else;
 nl(false,_) -> "\n".
+
+%% Make sure T does change sign.
+sub(T, _, _Enc) when T < 0 -> T;
+sub(T, E, Enc) ->
+    Sz = size(Enc, E),
+    if
+        T >= Sz ->
+            T - Sz;
+        true ->
+            0
+    end.
+
+size(latin1, S) ->
+    iolist_size(S);
+size(_, S) ->
+    string:length(S).
 
 %%% -----------------------------------------------------------
 %%% Stop a process and wait for it to terminate

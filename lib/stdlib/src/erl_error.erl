@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(erl_error).
 
--export([format_exception/6, format_exception/7,
+-export([format_exception/6, format_exception/7, format_exception/8,
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
 
@@ -38,20 +38,34 @@ format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun) ->
 
 %% -> iolist() | unicode:charlist() (no \n at end)
 %% FormatFun = fun(Term, I) -> iolist() | unicode:charlist().
-format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding)
+format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding) ->
+    FF = wrap_format_fun_2(FormatFun),
+    format_exception(I, Class, Reason, StackTrace, StackFun, FF, Encoding, -1).
+
+format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding,
+                 CharsLimit)
             when is_integer(I), I >= 1, is_function(StackFun, 3), 
-                 is_function(FormatFun, 2) ->
+                 is_function(FormatFun, 3), is_integer(CharsLimit) ->
     S = n_spaces(I-1),
     {Term,Trace1,Trace} = analyze_exception(Class, Reason, StackTrace),
-    Expl0 = explain_reason(Term, Class, Trace1, FormatFun, S, Encoding),
+    StLimit = if
+                  CharsLimit < 0 ->
+                      CharsLimit;
+                  true ->
+                      %% Reserve one third for the stacktrace.
+                      CharsLimit div 3
+              end,
+    St = format_stacktrace1(S, Trace, FormatFun, StackFun, Encoding, StLimit),
+    Lim = sub(sub(CharsLimit, exited(Class), latin1), St, Encoding),
+    Expl0 = explain_reason(Term, Class, Trace1, FormatFun, S, Encoding, Lim),
     FormatString = case Encoding of
                        latin1 -> "~s~s";
                        _ -> "~s~ts"
                    end,
     Expl = io_lib:fwrite(FormatString, [exited(Class), Expl0]),
-    case format_stacktrace1(S, Trace, FormatFun, StackFun, Encoding) of
+    case St of
         [] -> Expl;
-        Stack -> [Expl, $\n, Stack]
+        _ -> [Expl, $\n, St]
     end.
 
 %% -> iolist() (no \n at end)
@@ -63,7 +77,8 @@ format_stacktrace(I, StackTrace, StackFun, FormatFun, Encoding)
             when is_integer(I), I >= 1, is_function(StackFun, 3), 
                  is_function(FormatFun, 2) ->
     S = n_spaces(I-1),
-    format_stacktrace1(S, StackTrace, FormatFun, StackFun, Encoding).
+    FF = wrap_format_fun_2(FormatFun),
+    format_stacktrace1(S, StackTrace, FF, StackFun, Encoding, -1).
 
 %% -> iolist() (no \n at end)
 format_call(I, ForMForFun, As, FormatFun) ->
@@ -72,7 +87,8 @@ format_call(I, ForMForFun, As, FormatFun) ->
 %% -> iolist() | unicode:charlist()  (no \n at end)
 format_call(I, ForMForFun, As, FormatFun, Enc)
        when is_integer(I), I >= 1, is_list(As), is_function(FormatFun, 2) ->
-    format_call("", n_spaces(I-1), ForMForFun, As, FormatFun, Enc).
+    FF = wrap_format_fun_2(FormatFun),
+    format_call("", n_spaces(I-1), ForMForFun, As, FF, Enc).
 
 %% -> iolist() (no \n at end)
 format_fun(Fun) ->
@@ -93,6 +109,9 @@ format_fun(Fun, Enc) when is_function(Fun) ->
         {type, external} ->
             mfa_to_string(M, F, A, Enc)
     end.
+
+wrap_format_fun_2(FormatFun) ->
+    fun(T, I1, CL) -> {FormatFun(T, I1), CL} end.
 
 analyze_exception(error, Term, Stack) ->
     case {is_stacktrace(Stack), Stack, Term} of
@@ -127,82 +146,83 @@ is_stacktrace(_) ->
     false.
 
 %% ERTS exit codes (some of them are also returned by erl_eval):
-explain_reason(badarg, error, [], _PF, _S, _Enc) ->
+explain_reason(badarg, error, [], _PF, _S, _Enc, _CL) ->
     <<"bad argument">>;
-explain_reason({badarg,V}, error=Cl, [], PF, S, _Enc) -> % orelse, andalso
-    format_value(V, <<"bad argument: ">>, Cl, PF, S);
-explain_reason(badarith, error, [], _PF, _S, _Enc) ->
+explain_reason({badarg,V}, error=Cl, [], PF, S, _Enc, CL) -> % orelse, andalso
+    format_value(V, <<"bad argument: ">>, Cl, PF, S, CL);
+explain_reason(badarith, error, [], _PF, _S, _Enc, _CL) ->
     <<"an error occurred when evaluating an arithmetic expression">>;
-explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc)
+explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc, _CL)
                                       when is_function(Fun) ->
     %% Only the arity is displayed, not the arguments As.
     io_lib:fwrite(<<"~ts called with ~s">>,
                   [format_fun(Fun, Enc), argss(length(As))]);
-explain_reason({badfun,Term}, error=Cl, [], PF, S, _Enc) ->
-    format_value(Term, <<"bad function ">>, Cl, PF, S);
-explain_reason({badmatch,Term}, error=Cl, [], PF, S, _Enc) ->
+explain_reason({badfun,Term}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(Term, <<"bad function ">>, Cl, PF, S, CL);
+explain_reason({badmatch,Term}, error=Cl, [], PF, S, _Enc, CL) ->
     Str = <<"no match of right hand side value ">>,
-    format_value(Term, Str, Cl, PF, S);
-explain_reason({case_clause,V}, error=Cl, [], PF, S, _Enc) ->
+    format_value(Term, Str, Cl, PF, S, CL);
+explain_reason({case_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
     %% "there is no case clause with a true guard sequence and a
     %% pattern matching..."
-    format_value(V, <<"no case clause matching ">>, Cl, PF, S);
-explain_reason(function_clause, error, [{F,A}], _PF, _S, _Enc) ->
+    format_value(V, <<"no case clause matching ">>, Cl, PF, S, CL);
+explain_reason(function_clause, error, [{F,A}], _PF, _S, _Enc, _CL) ->
     %% Shell commands
     FAs = io_lib:fwrite(<<"~w/~w">>, [F, A]),
     [<<"no function clause matching call to ">> | FAs];
-explain_reason(function_clause, error=Cl, [{M,F,As,Loc}], PF, S, Enc) ->
+explain_reason(function_clause, error=Cl, [{M,F,As,Loc}], PF, S, Enc, CL) ->
     Str = <<"no function clause matching ">>,
-    [format_errstr_call(Str, Cl, {M,F}, As, PF, S, Enc),$\s|location(Loc)];
-explain_reason(if_clause, error, [], _PF, _S, _Enc) ->
+    [format_errstr_call(Str, Cl, {M,F}, As, PF, S, Enc, CL),$\s|location(Loc)];
+explain_reason(if_clause, error, [], _PF, _S, _Enc, _CL) ->
     <<"no true branch found when evaluating an if expression">>;
-explain_reason(noproc, error, [], _PF, _S, _Enc) ->
+explain_reason(noproc, error, [], _PF, _S, _Enc, _CL) ->
     <<"no such process or port">>;
-explain_reason(notalive, error, [], _PF, _S, _Enc) ->
+explain_reason(notalive, error, [], _PF, _S, _Enc, _CL) ->
     <<"the node cannot be part of a distributed system">>;
-explain_reason(system_limit, error, [], _PF, _S, _Enc) ->
+explain_reason(system_limit, error, [], _PF, _S, _Enc, _CL) ->
     <<"a system limit has been reached">>;
-explain_reason(timeout_value, error, [], _PF, _S, _Enc) ->
+explain_reason(timeout_value, error, [], _PF, _S, _Enc, _CL) ->
     <<"bad receive timeout value">>;
-explain_reason({try_clause,V}, error=Cl, [], PF, S, _Enc) ->
+explain_reason({try_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
     %% "there is no try clause with a true guard sequence and a
     %% pattern matching..."
-    format_value(V, <<"no try clause matching ">>, Cl, PF, S);
-explain_reason(undef, error, [{M,F,A,_}], _PF, _S, Enc) ->
+    format_value(V, <<"no try clause matching ">>, Cl, PF, S, CL);
+explain_reason(undef, error, [{M,F,A,_}], _PF, _S, Enc, _CL) ->
     %% Only the arity is displayed, not the arguments, if there are any.
     io_lib:fwrite(<<"undefined function ~ts">>,
                   [mfa_to_string(M, F, n_args(A), Enc)]);
-explain_reason({shell_undef,F,A,_}, error, [], _PF, _S, Enc) ->
+explain_reason({shell_undef,F,A,_}, error, [], _PF, _S, Enc, _CL) ->
     %% Give nicer reports for undefined shell functions
     %% (but not when the user actively calls shell_default:F(...)).
     FS = to_string(F, Enc),
     io_lib:fwrite(<<"undefined shell command ~ts/~w">>, [FS, n_args(A)]);
 %% Exit codes returned by erl_eval only:
-explain_reason({argument_limit,_Fun}, error, [], _PF, _S, _Enc) ->
+explain_reason({argument_limit,_Fun}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:fwrite(<<"limit of number of arguments to interpreted function"
                     " exceeded">>, []);
-explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc) ->
-    format_value(V, <<"bad filter ">>, Cl, PF, S);
-explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc) ->
-    format_value(V, <<"bad generator ">>, Cl, PF, S);
-explain_reason({unbound,V}, error, [], _PF, _S, _Enc) ->
+explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad filter ">>, Cl, PF, S, CL);
+explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad generator ">>, Cl, PF, S, CL);
+explain_reason({unbound,V}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:fwrite(<<"variable ~w is unbound">>, [V]);
 %% Exit codes local to the shell module (restricted shell):
-explain_reason({restricted_shell_bad_return, V}, exit=Cl, [], PF, S, _Enc) ->
+explain_reason({restricted_shell_bad_return, V}, exit=Cl, [], PF, S, _Enc, CL) ->
     Str = <<"restricted shell module returned bad value ">>,
-    format_value(V, Str, Cl, PF, S);
+    format_value(V, Str, Cl, PF, S, CL);
 explain_reason({restricted_shell_disallowed,{ForMF,As}}, 
-               exit=Cl, [], PF, S, Enc) ->
+               exit=Cl, [], PF, S, Enc, CL) ->
     %% ForMF can be a fun, but not a shell fun.
     Str = <<"restricted shell does not allow ">>,
-    format_errstr_call(Str, Cl, ForMF, As, PF, S, Enc);
-explain_reason(restricted_shell_started, exit, [], _PF, _S, _Enc) ->
+    format_errstr_call(Str, Cl, ForMF, As, PF, S, Enc, CL);
+explain_reason(restricted_shell_started, exit, [], _PF, _S, _Enc, _CL) ->
     <<"restricted shell starts now">>;
-explain_reason(restricted_shell_stopped, exit, [], _PF, _S, _Enc) ->
+explain_reason(restricted_shell_stopped, exit, [], _PF, _S, _Enc, _CL) ->
     <<"restricted shell stopped">>;
 %% Other exit code:
-explain_reason(Reason, Class, [], PF, S, _Enc) ->
-    PF(Reason, (iolist_size(S)+1) + exited_size(Class)).
+explain_reason(Reason, Class, [], PF, S, _Enc, CL) ->
+    {L, _} = PF(Reason, (iolist_size(S)+1) + exited_size(Class), CL),
+    L.
 
 n_args(A) when is_integer(A) ->
     A;
@@ -218,29 +238,33 @@ argss(2) ->
 argss(I) ->
     io_lib:fwrite(<<"~w arguments">>, [I]).
 
-format_stacktrace1(S0, Stack0, PF, SF, Enc) ->
+format_stacktrace1(S0, Stack0, PF, SF, Enc, CL) ->
     Stack1 = lists:dropwhile(fun({M,F,A,_}) -> SF(M, F, A)
                              end, lists:reverse(Stack0)),
     S = ["  " | S0],
     Stack = lists:reverse(Stack1),
-    format_stacktrace2(S, Stack, 1, PF, Enc).
+    format_stacktrace2(S, Stack, 1, PF, Enc, CL).
 
-format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc) when is_integer(A) ->
-    [io_lib:fwrite(<<"~s~s ~ts ~ts">>,
-                   [sep(N, S), origin(N, M, F, A),
-		    mfa_to_string(M, F, A, Enc),
-		    location(L)])
-     | format_stacktrace2(S, Fs, N + 1, PF, Enc)];
-format_stacktrace2(S, [{M,F,As,_}|Fs], N, PF, Enc) when is_list(As) ->
+format_stacktrace2(_S, _Stack, _N, _PF, _Enc, _CL=0) ->
+    [];
+format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc, CL) when is_integer(A) ->
+    Cs = io_lib:fwrite(<<"~s~s ~ts ~ts">>,
+                       [sep(N, S), origin(N, M, F, A),
+                        mfa_to_string(M, F, A, Enc),
+                        location(L)]),
+    CL1 = sub(CL, Cs, Enc),
+    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1)];
+format_stacktrace2(S, [{M,F,As,_}|Fs], N, PF, Enc, CL) when is_list(As) ->
     A = length(As),
     CalledAs = [S,<<"   called as ">>],
-    C = format_call("", CalledAs, {M,F}, As, PF, Enc),
-    [io_lib:fwrite(<<"~s~s ~ts\n~s~ts">>,
-		   [sep(N, S), origin(N, M, F, A),
-                    mfa_to_string(M, F, A, Enc),
-                    CalledAs, C])
-     | format_stacktrace2(S, Fs, N + 1, PF, Enc)];
-format_stacktrace2(_S, [], _N, _PF, _Enc) ->
+    C = format_call("", CalledAs, {M,F}, As, PF, Enc, CL),
+    Cs = io_lib:fwrite(<<"~s~s ~ts\n~s~ts">>,
+                       [sep(N, S), origin(N, M, F, A),
+                        mfa_to_string(M, F, A, Enc),
+                        CalledAs, C]),
+    CL1 = sub(CL, Enc, Cs),
+    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1)];
+format_stacktrace2(_S, [], _N, _PF, _Enc, _CL) ->
     "".
 
 location(L) ->
@@ -264,22 +288,26 @@ origin(1, M, F, A) ->
 origin(_N, _M, _F, _A) ->
     <<"in call from">>.
 
-format_errstr_call(ErrStr, Class, ForMForFun, As, PF, Pre0, Enc) ->
+format_errstr_call(ErrStr, Class, ForMForFun, As, PF, Pre0, Enc, CL) ->
     Pre1 = [Pre0 | n_spaces(exited_size(Class))],
-    format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc).
+    format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, CL).
 
 format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc) ->
+    format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, -1).
+
+format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, CL) ->
     Arity = length(As),
     [ErrStr |
      case is_op(ForMForFun, Arity) of
          {yes,Op} -> 
-             format_op(ErrStr, Pre1, Op, As, PF, Enc);
+             format_op(ErrStr, Pre1, Op, As, PF, Enc, CL);
          no ->
              MFs = mf_to_string(ForMForFun, Arity, Enc),
              I1 = string:length([Pre1,ErrStr|MFs]),
-             S1 = pp_arguments(PF, As, I1, Enc),
-             S2 = pp_arguments(PF, As, string:length([Pre1|MFs]), Enc),
-             Long = count_nl(pp_arguments(PF, [a2345,b2345], I1, Enc)) > 0,
+             S1 = pp_arguments(PF, As, I1, Enc, CL),
+             S2 = pp_arguments(PF, As, string:length([Pre1|MFs]), Enc, CL),
+             S3 = pp_arguments(PF, [a2345,b2345], I1, Enc, CL),
+             Long = count_nl(S3) > 0,
              case Long or (count_nl(S2) < count_nl(S1)) of
                  true ->
                      [$\n, Pre1, MFs, S2];
@@ -288,14 +316,15 @@ format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc) ->
              end
     end].
 
-format_op(ErrStr, Pre, Op, [A1], PF, _Enc) ->
+format_op(ErrStr, Pre, Op, [A1], PF, _Enc, CL) ->
     OpS = io_lib:fwrite(<<"~s ">>, [Op]),
     I1 = iolist_size([ErrStr,Pre,OpS]),
-    [OpS | PF(A1, I1+1)];
-format_op(ErrStr, Pre, Op, [A1, A2], PF, Enc) ->
+    {S, _} = PF(A1, I1+1, CL),
+    [OpS | S];
+format_op(ErrStr, Pre, Op, [A1, A2], PF, Enc, CL) ->
     I1 = iolist_size([ErrStr,Pre]),
-    S1 = PF(A1, I1+1),
-    S2 = PF(A2, I1+1),
+    {S1, CL1} = PF(A1, I1+1, CL),
+    {S2, _} = PF(A2, I1+1, CL1),
     OpS = atom_to_list(Op),
     Pre1 = [$\n | n_spaces(I1)],
     case count_nl(S1) > 0 of
@@ -304,26 +333,28 @@ format_op(ErrStr, Pre, Op, [A1, A2], PF, Enc) ->
         false ->
             OpS2 = io_lib:fwrite(<<" ~s ">>, [Op]),
             Size1 = iolist_size([ErrStr,Pre|OpS2]),
-            {Size2,S1_2} = size(Enc, S1),
-            S2_2 = PF(A2, Size1+Size2+1),
+            Size2 = size(Enc, S1),
+            {S2_2, _} = PF(A2, Size1+Size2+1, CL1),
             case count_nl(S2) < count_nl(S2_2) of
                 true ->
-                    [S1_2,Pre1,OpS,Pre1|S2];
+                    [S1,Pre1,OpS,Pre1|S2];
                 false ->
-                    [S1_2,OpS2|S2_2]
+                    [S1,OpS2|S2_2]
             end
     end.
 
-pp_arguments(PF, As, I, Enc) ->
+pp_arguments(PF, As, I, Enc, CL) ->
     case {As, printable_list(Enc, As)} of
         {[Int | T], true} ->
             L = integer_to_list(Int),
             Ll = length(L),
             A = list_to_atom(lists:duplicate(Ll, $a)),
-            S0 = unicode:characters_to_list(PF([A | T], I+1), Enc),
-            brackets_to_parens([$[,L,string:slice(S0, 1+Ll)], Enc);
+            {S0, _} = PF([A | T], I+1, CL),
+            S = unicode:characters_to_list(S0, Enc),
+            brackets_to_parens([$[,L,string:slice(S, 1+Ll)], Enc);
         _ -> 
-            brackets_to_parens(PF(As, I+1), Enc)
+            {S, _CL1} = PF(As, I+1, CL),
+            brackets_to_parens(S, Enc)
     end.
 
 brackets_to_parens(S, Enc) ->
@@ -361,12 +392,12 @@ mf_to_string(F, _A, Enc) ->
     FS = to_string(F, Enc),
     io_lib:fwrite(<<"~ts">>, [FS]).
 
-format_value(V, ErrStr, Class, PF, S) ->
+format_value(V, ErrStr, Class, PF, S, CL) ->
     Pre1Sz = exited_size(Class),
-    S1 = PF(V, Pre1Sz + iolist_size([S, ErrStr])+1),
+    {S1, _} = PF(V, Pre1Sz + iolist_size([S, ErrStr]) + 1, CL),
     [ErrStr | case count_nl(S1) of
                   N1 when N1 > 1 ->
-                      S2 = PF(V, iolist_size(S) + 1 + Pre1Sz),
+                      {S2, _} = PF(V, iolist_size(S) + 1 + Pre1Sz, CL),
                       case count_nl(S2) < N1 of
                           true ->
                               [$\n, S, n_spaces(Pre1Sz) | S2];
@@ -413,9 +444,17 @@ to_string(A, latin1) ->
 to_string(A, _) ->
     io_lib:write_atom(A).
 
+%% Make sure T does change sign.
+sub(T, _, _Enc) when T < 0 -> T;
+sub(T, S, Enc) ->
+    sub(T, size(Enc, S)).
+
+sub(T, Sz) when T >= Sz ->
+    T - Sz;
+sub(_T, _Sz) ->
+    0.
+
 size(latin1, S) ->
-    {iolist_size(S),S};
-size(_, S0) ->
-    S = unicode:characters_to_list(S0, unicode),
-    true = is_list(S),
-    {string:length(S),S}.
+    iolist_size(S);
+size(_, S) ->
+    string:length(S).

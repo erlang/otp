@@ -726,8 +726,9 @@ report_cb_chars_limit(_Config) ->
     %% according to the chars_limit setting.
     %%
     %% Currently, multi-line formatting with chars_limit=1024 gives
-    %% a final report of 1845 character. The excess is due to a
-    %% deficiency of erl_error:format_exception().
+    %% a final report of 1696 character. The excess is due to the fact
+    %% that io_lib_pretty counts non-white characters--the indentation
+    %% of the formatted exception is not counted.
     %%
     %% Single-line formatting with chars_limit=1024 gives a final
     %% report of 1104 characters.
