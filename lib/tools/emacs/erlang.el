@@ -2006,12 +2006,11 @@ erlang-man-download downloads the man pages without prompting the
 user."
   (interactive)
   (if (y-or-n-p "Could not find Erlang man pages on your system. Do you want to download them?")
-      (let ((download-url (read-string "URL to download man pages from:" erlang-man-download-url)))
+      (let ((download-url (read-string "URL to download man pages from: " erlang-man-download-url)))
         (concat (directory-file-name (erlang-man-download download-url)) (or subdir "")))))
 
 
-(defun erlang-man-dir (subdir &optional no_download)
-  (message subdir)
+(defun erlang-man-dir (subdir &optional no-download)
   (let ((default-man-dir (if erlang-root-dir
                              (concat (directory-file-name (concat
                                                            (file-name-as-directory erlang-root-dir)
@@ -2027,7 +2026,7 @@ user."
           alt-man-dir
         (if (file-directory-p downloaded-man-dir)
             (concat (directory-file-name downloaded-man-dir) subdir)
-          (and (not no_download) (erlang-man-download-ask subdir)))))))
+          (and (not no-download) (erlang-man-download-ask subdir)))))))
 
 ;; Should the menu be to long, let's split it into a number of
 ;; smaller menus.  Warning, this code contains beautiful
