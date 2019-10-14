@@ -135,6 +135,11 @@ coverage(Config) when is_list(Config) ->
 
     {'EXIT',{{badmap,[]},_}} = (catch monitor_plus_badmap(self())),
 
+
+    self() ! {data,no_data},
+    ok = receive_sink_tuple({any,pattern}),
+    {b,a} = receive_sink_tuple({a,b}),
+
     ok.
 
 monitor_plus_badmap(Pid) ->
@@ -182,6 +187,16 @@ tuple_to_values(Timeout, X) ->
 		    end
 	    end,
     A+B.
+
+%% Cover a help function for beam_ssa_opt:ssa_opt_sink/1.
+receive_sink_tuple({Line,Pattern}) ->
+    receive
+        {data,_} ->
+            ok
+    after 1 ->
+            id({Pattern,Line})
+    end.
+
 
 %% OTP-7980. Thanks to Vincent de Phily. The following code would
 %% be inccorrectly optimized by beam_jump.
