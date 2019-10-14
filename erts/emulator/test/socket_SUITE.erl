@@ -846,7 +846,9 @@ api_option_sock_passcred_cases() ->
 api_option_sock_priority_cases() ->
     [
      api_opt_sock_priority_udp4,
-     api_opt_sock_priority_tcp4
+     api_opt_sock_priority_tcp4%,
+     %% api_opt_sock_priority_udp6,
+     %% api_opt_sock_priority_tcp6
     ].
 
 api_option_sock_timestamp_cases() ->

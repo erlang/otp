@@ -59,7 +59,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <time.h>
+#include <stdint.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -676,7 +676,6 @@ typedef union {
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
-
 
 
 /* =================================================================== *
