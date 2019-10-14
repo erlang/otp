@@ -14,6 +14,7 @@
 	       ssl_v3,
 	       tls_connection_sup,
 	       tls_sender,
+               tls_sup,
 	       ssl_dh_groups,
 	       %% DTLS
 	       dtls_connection,
@@ -24,6 +25,7 @@
 	       dtls_connection_sup,
 	       dtls_packet_demux,
 	       dtls_listener_sup,
+               dtls_sup,
 	       %% API
 	       ssl,  %% Main API		  
 	       ssl_session_cache_api,

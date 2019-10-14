@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_connection_sup).
+-module(tls_sup).
 
 -behaviour(supervisor).
 
@@ -45,31 +45,34 @@ start_link() ->
 
 init([]) ->    
   
-    TLSSup = tls_sup_child_spec(),
-    DTLSSup = dtls_sup_child_spec(),
+    TLSConnetionManager = tls_connection_manager_child_spec(),
+    %% Handles emulated options so that they inherited by the accept
+    %% socket, even when setopts is performed on the listen socket
+    ListenOptionsTracker = listen_options_tracker_child_spec(), 
 
-    {ok, {{one_for_one, 10, 3600}, [TLSSup, DTLSSup]}}.
+    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
+				    ListenOptionsTracker
+				   ]}}.
 
-    
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_sup_child_spec() ->
-    Name = tls_sup,  
-    StartFunc = {tls_sup, start_link, []},
+tls_connection_manager_child_spec() ->
+    Name = tls_connection,  
+    StartFunc = {tls_connection_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_sup],
+    Modules = [tls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-dtls_sup_child_spec() ->
-    Name = dtls_sup,
-    StartFunc = {dtls_sup, start_link, []},
-    Restart = permanent,
+listen_options_tracker_child_spec() ->
+    Name = tls_socket,  
+    StartFunc = {ssl_listen_tracker_sup, start_link, []},
+    Restart = permanent, 
     Shutdown = 4000,
-    Modules = [dtls_sup],
+    Modules = [tls_socket],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
