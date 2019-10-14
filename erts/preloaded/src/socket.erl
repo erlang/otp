@@ -797,10 +797,10 @@
 -define(SOCKET_OPT_IPV6_RECVERR,           24).
 -define(SOCKET_OPT_IPV6_RECVHOPLIMIT,      25).
 -define(SOCKET_OPT_IPV6_RECVPKTINFO,       26). % On FreeBSD: PKTINFO
-%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
+-define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
 -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
 -define(SOCKET_OPT_IPV6_RTHDR,             29).
-%% -define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
+-define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
 -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
 %% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32). % FreeBSD
 -define(SOCKET_OPT_IPV6_V6ONLY,            33).
@@ -3604,14 +3604,15 @@ enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P)
        ((T =:= dgram) orelse (T =:= raw)) ->
     ?SOCKET_OPT_IPV6_RECVPKTINFO;
 enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
-enc_sockopt_key(ipv6 = _L, router_alert = _Opt, _Dir, _D, T, _P) when (T =:= raw) ->
+    ?SOCKET_OPT_IPV6_RECVTCLASS;
+enc_sockopt_key(ipv6 = _L, router_alert = _Opt, _Dir, _D, T, _P)
+  when (T =:= raw) ->
     ?SOCKET_OPT_IPV6_ROUTER_ALERT;
 enc_sockopt_key(ipv6 = _L, rthdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
     ?SOCKET_OPT_IPV6_RTHDR;
 enc_sockopt_key(ipv6 = L, tclass = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_TCLASS;
 enc_sockopt_key(ipv6 = _L, unicast_hops = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_UNICAST_HOPS;
 enc_sockopt_key(ipv6 = L, use_min_mtu = Opt, _Dir, _D, _T, _P) ->
