@@ -588,6 +588,7 @@ nested_access(Config) when is_list(Config) ->
     ok.
 
 -record(rr, {a,b,c}).
+-record(fileheader, {read_md5,md5,eof,trailer}).
 
 coverage(Config) when is_list(Config) ->
     %% There should only remain one record test in the code below.
@@ -599,8 +600,23 @@ coverage(Config) when is_list(Config) ->
 	    ok
     end,
     #rr{a=1,b=2,c=42} = id(R),			%Test for correctness.
+
+    %% Cover beam_ssa_opt:ssa_opt_element/1 and friends.
+    error1 = check_file_header(#fileheader{read_md5=1,md5=2}),
+    error2 = check_file_header(#fileheader{trailer=true,eof=false}),
+    error3 = check_file_header(#fileheader{}),
+
     ok.
 
+check_file_header(FH) ->
+    if
+        FH#fileheader.read_md5 =/= FH#fileheader.md5 ->
+            error1;
+        FH#fileheader.trailer =/= FH#fileheader.eof ->
+            error2;
+        true ->
+            error3
+    end.
 
 -record(default_fun, {a = fun(X) -> X*X end}).
 

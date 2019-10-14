@@ -717,7 +717,7 @@ expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     Op = #c_var{anno=lineno_anno(Lf, St1),name={F,length(As1)}},
     {#iapply{anno=#a{anno=lineno_anno(Lc, St1)},op=Op,args=As1},Aps,St1};
 expr({call,L,FunExp,As0}, St0) ->
-    {Fun,Fps,St1} = safe_fun(length(As0), FunExp, St0),
+    {Fun,Fps,St1} = safe(FunExp, St0),
     {As1,Aps,St2} = safe_list(As0, St1),
     Lanno = lineno_anno(L, St2),
     {#iapply{anno=#a{anno=Lanno},op=Fun,args=As1},Fps ++ Aps,St2};
@@ -1776,15 +1776,6 @@ safe(E0, St0) ->
     {E1,Eps,St1} = expr(E0, St0),
     {Se,Sps,St2} = force_safe(E1, St1),
     {Se,Eps ++ Sps,St2}.
-
-safe_fun(A0, E0, St0) ->
-    case safe(E0, St0) of
-        {#c_var{name={_,A1}}=E1,Eps,St1} when A1 =/= A0 ->
-            {V,St2} = new_var(St1),
-            {V,Eps ++ [#iset{var=V,arg=E1}],St2};
-        Result ->
-            Result
-    end.
 
 safe_list(Es, St) ->
     foldr(fun (E, {Ces,Esp,St0}) ->
