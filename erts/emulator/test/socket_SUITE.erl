@@ -17068,7 +17068,7 @@ api_opt_ipv6_misc_udp(InitState) ->
 			   ok
                    end},
 
-         #{desc => "send req (to dst) (w explicit tc = 1)",
+         #{desc => "send req (to dst)",
            cmd  => fun(#{sock_src := Sock,
 			 sa_dst   := Dst,
 			 opts     := Opts,
@@ -17088,6 +17088,8 @@ api_opt_ipv6_misc_udp(InitState) ->
 			       when length(CMsgHdrs) =:= length(Opts)  ->
                                    ?SEV_IPRINT("Got (expected) cmsg headers: "
 					       "~n   ~p", [CMsgHdrs]),
+				   %% We should really verify the headers:
+				   %% values, types and so on...
                                    ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
