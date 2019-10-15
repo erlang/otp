@@ -2141,6 +2141,36 @@ This function is aware of imported functions."
 Used for communication between `erlang-man-function' and the
 patch to `Man-notify-when-ready'.")
 
+(defun erlang-man-function-display-man-page (name)
+  "Helper function for erlang-man-function. Displays the man page
+  text for the Erlang function named name if it can be found."
+  (let ((modname nil)
+        (funcname nil))
+    (cond ((string-match ":" name)
+           (setq modname (substring name 0 (match-beginning 0)))
+           (setq funcname (substring name (match-end 0) nil)))
+          ((stringp name)
+           (setq modname name)))
+    (when (or (null modname) (string= modname ""))
+      (error "No Erlang module name given"))
+    (cond ((fboundp 'Man-notify-when-ready)
+           ;; Emacs 19:  The man command could possibly start an
+           ;; asynchronous process, i.e. we must hook ourselves into
+           ;; the system to be activated when the man-process
+           ;; terminates.
+           (if (null funcname)
+               ()
+             (erlang-man-patch-notify)
+             (setq erlang-man-function-name funcname))
+           (condition-case err
+               (erlang-man-module modname)
+             (error (setq erlang-man-function-name nil)
+                    (signal (car err) (cdr err)))))
+          (t
+           (erlang-man-module modname)
+           (when funcname
+             (erlang-man-find-function (current-buffer) funcname))))))
+
 (defun erlang-man-function (&optional name)
   "Find manual page for NAME, where NAME is module:function.
 The entry for `function' is displayed.
@@ -2160,41 +2190,13 @@ This function is aware of imported functions."
   (require 'man)
   (setq name (or name
                  (erlang-default-function-or-module)))
-  (require 'cl)
-  (flet ((disp-man-page-erl-fun (name)
-           (let ((modname nil)
-                 (funcname nil))
-             (cond ((string-match ":" name)
-                    (setq modname (substring name 0 (match-beginning 0)))
-                    (setq funcname (substring name (match-end 0) nil)))
-                   ((stringp name)
-                    (setq modname name)))
-             (when (or (null modname) (string= modname ""))
-               (error "No Erlang module name given"))
-             (cond ((fboundp 'Man-notify-when-ready)
-                    ;; Emacs 19:  The man command could possibly start an
-                    ;; asynchronous process, i.e. we must hook ourselves into
-                    ;; the system to be activated when the man-process
-                    ;; terminates.
-                    (if (null funcname)
-                        ()
-                      (erlang-man-patch-notify)
-                      (setq erlang-man-function-name funcname))
-                    (condition-case err
-                        (erlang-man-module modname)
-                      (error (setq erlang-man-function-name nil)
-                             (signal (car err) (cdr err)))))
-                   (t
-                    (erlang-man-module modname)
-                    (when funcname
-                      (erlang-man-find-function (current-buffer) funcname)))))))
-    (disp-man-page-erl-fun name)
-    (sleep-for 0 600)
-    ;; A hack to make sure that the function scrolls
-    ;; to the description of the function when it is
-    ;; the first time that the man page for a module
-    ;; is opened
-    (disp-man-page-erl-fun name)))
+  (erlang-man-function-display-man-page name)
+  (sleep-for 0 600)
+  ;; A hack to make sure that the function scrolls
+  ;; to the description of the function when it is
+  ;; the first time that the man page for a module
+  ;; is opened
+  (erlang-man-function-display-man-page name))
 
 
 (defun erlang-man-function-no-prompt ()
@@ -2207,7 +2209,7 @@ opening the man page for the function."
   (let ((name (erlang-default-function-or-module)))
     (if name
         (erlang-man-function name)
-      (error "No function name under the cursor. Place the cursor over the function name you want to find the man page for and try again"))))
+      (error "No function name under the cursor"))))
 
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
