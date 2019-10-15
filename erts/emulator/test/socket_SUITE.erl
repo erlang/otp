@@ -12742,8 +12742,9 @@ api_opt_sock_timestamp_udp(InitState) ->
 %%
 %% There is no mention of this not working for TCP in the man page
 %% on a SLES 11 SP4 machine (=> 3.0.101-108.87), but it does not
-%% (we don't get a timestamp control message header when its enabled),
-%% so we start by skipping from that version or older!
+%% (we don't get a timestamp control message header when its enabled).
+%% It also does not work on SLES 12 SP2 (=> 4.4.120-92.70), 
+%% so we start by skipping from that version (4.4.120) or older!
 %% Don't actually know if its the distro or the (kernel) version...
 %%
 
@@ -12756,7 +12757,7 @@ api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_opt_sock_timestamp_tcp4,
            fun() ->
                    has_support_sock_timestamp(),
-                   is_good_enough_linux({3,0,101}),
+                   is_good_enough_linux({4,4,120}),
                    is_not_freebsd(),
                    is_not_darwin()
            end,
