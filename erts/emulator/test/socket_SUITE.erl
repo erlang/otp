@@ -16231,7 +16231,8 @@ api_opt_ipv6_hoplimit_udp6(_Config) when is_list(_Config) ->
     tc_try(api_opt_ipv6_hoplimit_udp6,
            fun() ->
                    has_support_ipv6(),
-                   has_support_ipv6_hoplimit_or_recvhoplimit()
+                   has_support_ipv6_hoplimit_or_recvhoplimit(),
+		   is_good_enough_darwin({9,8,0})
            end,
            fun() ->
 		   %% Begin by choosing which of the options we shall use
@@ -35062,20 +35063,27 @@ has_support_send_or_recv_flag(Pre, Key, Flag) ->
     end.
 
 
-%% On a linux machine it checks that the version os "good enough".
+%% Checks that the version os "good enough" (of the specified platform).
 
 is_good_enough_linux(CondVsn) ->
+    is_good_enough_platform(unix, linux, CondVsn).
+
+is_good_enough_darwin(CondVsn) ->
+    is_good_enough_platform(unix, darwin, CondVsn).
+
+is_good_enough_platform(Family, Name, CondVsn) ->
     case os:type() of
-        {unix, linux} ->
-            is_good_enough_linux(os:version(), CondVsn);
-        _ ->
-            ok
+	{Family, Name} ->
+	    ID = fun() -> ?F("~w:~w", [Family, Name]) end,
+	    is_good_enough_platform2(os:version(), CondVsn, ID);
+	_ ->
+	    ok
     end.
 
-is_good_enough_linux(Vsn, CondVsn) when Vsn > CondVsn ->
+is_good_enough_platform2(Vsn, CondVsn, _) when (Vsn > CondVsn) ->
     ok;
-is_good_enough_linux(Vsn, CondVsn) ->
-    skip(?F("Not 'good enough' linux (~p <= ~p)", [Vsn, CondVsn])).
+is_good_enough_platform2(Vsn, CondVsn, ID) ->
+    skip(?F("Not 'good enough' ~s (~p <= ~p)", [ID(), Vsn, CondVsn])).
 
 is_not_freebsd() ->
     case os:type() of
