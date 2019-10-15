@@ -71,10 +71,10 @@
 typedef unsigned short erts_lock_flags_t;
 typedef unsigned short erts_lock_options_t;
 
-/* @brief Gets the type name of the lock, honoring the RW flag if supplied. */
+/** @brief Gets the type name of the lock, honoring the RW flag if supplied. */
 const char *erts_lock_flags_get_type_name(erts_lock_flags_t flags);
 
-/* @brief Gets a short-form description of the given lock options. (rw/r/w) */
+/** @brief Gets a short-form description of the given lock options. (rw/r/w) */
 const char *erts_lock_options_get_short_desc(erts_lock_options_t options);
 
 #endif /* ERTS_LOCK_FLAGS_H__ */

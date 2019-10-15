@@ -47,7 +47,7 @@ struct __erts_osenv_data_t {
 void erts_osenv_init(erts_osenv_t *env);
 void erts_osenv_clear(erts_osenv_t *env);
 
-/* @brief Merges \c with into \c env
+/** @brief Merges \c with into \c env
  *
  * @param overwrite Whether to overwrite existing entries or keep them as they
  * are. */
@@ -55,25 +55,25 @@ void erts_osenv_merge(erts_osenv_t *env, const erts_osenv_t *with, int overwrite
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* @brief Copies env[key] into \c value
+/** @brief Copies env[key] into \c value
  *
  * @return 1 on success, 0 if the key couldn't be found, and -1 if the input
  * was invalid. */
 int erts_osenv_get_term(const erts_osenv_t *env, struct process *process,
     Eterm key, Eterm *value);
 
-/* @brief Copies \c value into \c env[key]
+/** @brief Copies \c value into \c env[key]
  *
  * @return 1 on success, -1 if the input was invalid. */
 int erts_osenv_put_term(erts_osenv_t *env, Eterm key, Eterm value);
 
-/* @brief Removes \c env[key]
+/** @brief Removes \c env[key]
  *
  * @return 1 on success, 0 if the key couldn't be found, and -1 if the input
  * was invalid. */
 int erts_osenv_unset_term(erts_osenv_t *env, Eterm key);
 
-/* @brief Copies env[key] into \c value
+/** @brief Copies env[key] into \c value
  *
  * @param value [in,out] The buffer to copy the value into, may be NULL if you
  * only wish to query presence.
@@ -83,13 +83,13 @@ int erts_osenv_unset_term(erts_osenv_t *env, Eterm key);
 int erts_osenv_get_native(const erts_osenv_t *env, const erts_osenv_data_t *key,
     erts_osenv_data_t *value);
 
-/* @brief Copies \c value into \c env[key]
+/** @brief Copies \c value into \c env[key]
  *
  * @return 1 on success, -1 on failure. */
 int erts_osenv_put_native(erts_osenv_t *env, const erts_osenv_data_t *key,
     const erts_osenv_data_t *value);
 
-/* @brief Removes \c key from the env.
+/** @brief Removes \c key from the env.
  *
  * @return 1 on success, 0 if the key couldn't be found. */
 int erts_osenv_unset_native(erts_osenv_t *env, const erts_osenv_data_t *key);
@@ -103,8 +103,8 @@ typedef void (*erts_osenv_foreach_native_cb_t)(void *state,
     const erts_osenv_data_t *key,
     const erts_osenv_data_t *value);
 
-/* @brief Walks through all environment variables, calling \c callback for each
- * one. It's unsafe to modify \c env within the callback. */
+/** @brief Walks through all environment variables, calling \c callback for
+ * each one. It's unsafe to modify \c env within the callback. */
 void erts_osenv_foreach_term(const erts_osenv_t *env, struct process *process,
     void *state, erts_osenv_foreach_term_cb_t callback);
 
