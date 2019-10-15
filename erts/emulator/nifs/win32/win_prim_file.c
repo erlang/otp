@@ -269,7 +269,7 @@ static int normalize_path_result(ErlNifBinary *path) {
     return enif_realloc_binary(path, length * sizeof(WCHAR));
 }
 
-/* @brief Checks whether all the given attributes are set on the object at the
+/** @brief Checks whether all the given attributes are set on the object at the
  * given handle. Note that it assumes false on errors. */
 static int handle_has_file_attributes(HANDLE handle, DWORD mask) {
     BY_HANDLE_FILE_INFORMATION native_file_info;
@@ -280,7 +280,7 @@ static int handle_has_file_attributes(HANDLE handle, DWORD mask) {
     return !!((native_file_info.dwFileAttributes & mask) == mask);
 }
 
-/* @brief Checks whether all the given attributes are set on the object at the
+/** @brief Checks whether all the given attributes are set on the object at the
  * given path. Note that it assumes false on errors. */
 static int has_file_attributes(const efile_path_t *path, DWORD mask) {
     DWORD attributes = GetFileAttributesW((WCHAR*)path->data);
@@ -324,7 +324,7 @@ static int get_drive_number(const efile_path_t *path) {
     return -1;
 }
 
-/* @brief Checks whether two *paths* are on the same mount point; they don't
+/** @brief Checks whether two *paths* are on the same mount point; they don't
  * have to refer to existing or accessible files/directories. */
 static int has_same_mount_point(const efile_path_t *path_a, const efile_path_t *path_b) {
     WCHAR *mount_a, *mount_b;

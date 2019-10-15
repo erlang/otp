@@ -3031,8 +3031,8 @@ found_prev:
 }
 
 
-/* @brief Find object with smallest key of all larger than partially bound key.
- * Can be used as a starting point for a reverse iteration with pb_key.
+/** @brief Find object with smallest key of all larger than partially bound
+ * key. Can be used as a starting point for a reverse iteration with pb_key.
  *
  * @param pb_key The partially bound key. Example {42, '$1'}
  * @param *rootpp Will return pointer to root pointer of tree with found object.
@@ -3081,8 +3081,8 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
     }
 }
 
-/* @brief Find object with largest key of all smaller than partially bound key.
- * Can be used as a starting point for a forward iteration with pb_key.
+/** @brief Find object with largest key of all smaller than partially bound
+ * key. Can be used as a starting point for a forward iteration with pb_key.
  *
  * @param pb_key The partially bound key. Example {42, '$1'}
  * @param *rootpp Will return pointer to root pointer of found object.

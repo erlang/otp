@@ -1367,7 +1367,7 @@ static void split_catree(DbTableCATree *tb,
     }
 }
 
-/* @brief Free the entire catree and its sub-trees.
+/** @brief Free the entire catree and its sub-trees.
  *
  * @param reds Reductions to spend.
  * @return Reductions left. Negative value if not done.
@@ -1464,7 +1464,7 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
     return reds;
 }
 
-/* @brief Free all objects of a base node, but keep the base node.
+/** @brief Free all objects of a base node, but keep the base node.
  *
  * @param reds Reductions to spend.
  * @return Reductions left. Negative value if not done.
@@ -1776,7 +1776,7 @@ TreeDbTerm** catree_find_prev_root(CATreeRootIterator *iter, Eterm* keyp)
     return catree_find_nextprev_root(iter, 0, keyp);
 }
 
-/* @brief Find root of tree where object with smallest key of all larger than
+/** @brief Find root of tree where object with smallest key of all larger than
  * partially bound key may reside. Can be used as a starting point for
  * a reverse iteration with pb_key.
  *
@@ -1829,7 +1829,7 @@ TreeDbTerm** catree_find_next_from_pb_key_root(Eterm pb_key,
     }
 }
 
-/* @brief Find root of tree where object with largest key of all smaller than
+/** @brief Find root of tree where object with largest key of all smaller than
  * partially bound key may reside. Can be used as a starting point for
  * a forward iteration with pb_key.
  *

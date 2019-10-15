@@ -543,9 +543,9 @@ ERTS_GLB_INLINE Eterm erts_db_make_match_prog_ref(Process *p, Binary *mp, Eterm 
 ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary(Eterm term);
 ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
 
-/* @brief Ensure off-heap header is word aligned, make a temporary copy if not.
- *        Needed when inspecting ETS off-heap lists that may contain unaligned
- *        ProcBins if table is 'compressed'.
+/** @brief Ensure off-heap header is word aligned, make a temporary copy if
+ * not. Needed when inspecting ETS off-heap lists that may contain unaligned
+ * ProcBins if table is 'compressed'.
  */
 struct erts_tmp_aligned_offheap
 {
