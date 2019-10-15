@@ -1169,9 +1169,9 @@ maybe_send_certificate_verify(#state{session = #session{sign_alg = SignatureSche
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = State) ->
     %% Do nothing!
     State;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State) ->
-    NewSessionTicket = create_stateless_ticket(State),
-    {_, _} = tls_connection:send_handshake(NewSessionTicket, State),
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State0) ->
+    NewSessionTicket = create_stateless_ticket(State0),
+    {State, _} = tls_connection:send_handshake(NewSessionTicket, State0),
     State.
 
 
