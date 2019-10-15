@@ -22,7 +22,7 @@
 ;;; Author: Klas Johansson
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-lib))
 (require 'erlang)
 
 (defvar erlang-eunit-src-candidate-dirs '("../src" ".")
@@ -319,7 +319,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
     ;; instead of possibly several: one for each file to compile,
     ;; for instance for both x.erl and x_tests.erl.
     (save-some-buffers erlang-eunit-autosave)
-    (flet ((save-some-buffers (&optional any) nil))
+    (cl-letf (((symbol-function 'save-some-buffers) #'ignore))
 
       ;; Compilation of the source file is mandatory (the file must
       ;; exist, otherwise the procedure is aborted).  Compilation of the

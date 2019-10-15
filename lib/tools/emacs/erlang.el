@@ -4,8 +4,8 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.8.2
-;; Package-Requires: ((emacs "24.1"))
+;; Version:  2.8.3
+;; Package-Requires: ((emacs "24.3"))
 
 ;; %CopyrightBegin%
 ;;
@@ -87,7 +87,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.2"
+(defconst erlang-version "2.8.3"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
