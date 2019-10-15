@@ -1922,8 +1922,6 @@ read_code_header(LoaderState* stp)
         code = stp->codev = (BeamInstr*) &stp->hdr->functions;          \
     } 									\
 } while (0)
-    
-#define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 static void init_label(Label* lp)
 {

@@ -109,13 +109,9 @@ do {                                     \
 #  define CHECK_ARGS(T)
 #endif
 
-#define CHECK_ALIGNED(Dst) ASSERT((((Uint)&Dst) & (sizeof(Uint)-1)) == 0)
-
 #define GET_EXPORT_MODULE(p)  ((p)->info.mfa.module)
 #define GET_EXPORT_FUNCTION(p)  ((p)->info.mfa.function)
 #define GET_EXPORT_ARITY(p)  ((p)->info.mfa.arity)
-#define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
-
 
 /*
  * We reuse some of fields in the save area in the process structure.
