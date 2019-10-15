@@ -151,6 +151,7 @@
 	 api_opt_ipv6_flowinfo_udp6/1,
 	 api_opt_ipv6_hoplimit_udp6/1,
 	 api_opt_ipv6_tclass_udp6/1,
+	 api_opt_ipv6_mopts_udp6/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -873,7 +874,8 @@ api_options_ipv6_cases() ->
      api_opt_ipv6_recvpktinfo_udp6,
      api_opt_ipv6_flowinfo_udp6,
      api_opt_ipv6_hoplimit_udp6,
-     api_opt_ipv6_tclass_udp6
+     api_opt_ipv6_tclass_udp6,
+     api_opt_ipv6_mopts_udp6
     ].
 
 api_op_with_timeout_cases() ->
@@ -16787,6 +16789,306 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                                "~n   Recv TClass:   ~p",
                                                [1, TClass]),
                                    {error, {unexpected_tclass, TClass}};
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                #{level => ipv6,
+						  type  => tclass,
+						  data  => "something"},
+						BadCHdrs,
+						?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {ok, UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Unexp Data:    ~p",
+                                               [Src, #{level => ipv6,
+						       type  => tclass,
+						       data  => "something"},
+						?BASIC_REQ, UnexpData]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close src socket",
+           cmd  => fun(#{sock_src := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_src, State)}
+                   end},
+         #{desc => "close dst socket",
+           cmd  => fun(#{sock_dst := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_dst, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This intended to test "all" of the (currently) supported IPv6
+%% options that results in control message header(s).
+%% Tests that the 'tclass' control message header is received when
+%% setting the socket 'ipv6' tclass or recvtclass option is set to 
+%% true when using sendmsg/recvmsg on an IPv6 UDP (dgram) socket.
+%% So, this is done on the receiving side: 
+%%
+%%      socket:setopt(Sock, ipv6, Flag, boolean()).
+%%
+%% For all subsequent *received* messages, a control message header
+%% for each of the enabled options will be received with the message.
+%%
+%% Only allowed for dgram and raw,
+%% although we only test this with dgram.
+%%
+%% Currently we *try* to use the following opts:
+%%
+%%      recvpktinfo | pktinfo   => pktinfo
+%%      flowinfo                => flowinfo
+%%      recvhoplimit | hoplimit => hoplimit
+%%      recvtclass | tclass     => tclass
+%%
+%%
+%% Every time we add a test case for a new option (that results in
+%% a control message hedare), we should also add it here.
+%%
+
+api_opt_ipv6_mopts_udp6(suite) ->
+    [];
+api_opt_ipv6_mopts_udp6(doc) ->
+    [];
+api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_ipv6_mopts_udp6,
+           fun() ->
+                   has_support_ipv6(),
+		   case is_any_options_supported(
+			  [{ipv6, recvpktinfo},
+			   {ipv6, flowinfo},
+			   {ipv6, recvhoplimit},
+			   {ipv6, hoplimit},
+			   {ipv6, recvtclass},
+			   {ipv6, tclass}]) of
+		       true ->
+			   ok;
+		       false ->
+			   skip("None of the needed options are supported")
+		   end
+           end,
+           fun() ->
+		   %% If we get this far, we *know* that at least one of the
+		   %% options are available.
+
+		   %% This is list of all the options and there resulting
+		   %% control message header type(s):
+		   %%   [{'ipv6 socket option', 'control message header type'}]
+		   Opts =
+		       case socket:supports(options, ipv6, recvpktinfo) of
+			   true ->
+			       [{recvpktinfo, pktinfo, default}];
+			   false ->
+			       []
+		       end ++
+		       case socket:supports(options, ipv6, flowinfo) of
+			   true ->
+			       [{flowinfo, flowinfo, default}];
+			   false ->
+			       []
+		       end ++
+		       case socket:supports(options, ipv6, recvhoplimit) of
+			   true ->
+			       [{recvhoplimit, hoplimit, default}];
+			   false ->
+			       case socket:supports(options, ipv6, hoplimit) of
+				   true ->
+				       [{hoplimit, hoplimit, default}];
+				   false ->
+				       []
+			       end
+		       end ++
+		       case socket:supports(options, ipv6, recvtclass) of
+			   true ->
+			       [{recvtclass, tclass, 42}];
+			   false ->
+			       case socket:supports(options, ipv6, tclass) of
+				   true ->
+				       [{tclass, tclass, 42}];
+				   false ->
+				       []
+			       end
+		       end,
+		       
+                   Enable = fun(Sock, Opt) ->
+				    ?SEV_IPRINT("try enable ~p", [Opt]),
+				    socket:setopt(Sock, ipv6, Opt, true)
+                          end,
+                   Send = fun(Sock, Data, Dest, []) ->
+                                  MsgHdr = #{addr => Dest,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr);
+			     (Sock, Data, Dest, Hdrs) when is_list(Hdrs) ->
+				  CMsgHdrs = [#{level => ipv6,
+						type  => Type,
+						data  => Val} ||
+						 {Type, Val} <- Hdrs],
+                                  MsgHdr   = #{addr => Dest,
+					       ctrl => CMsgHdrs,
+					       iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr := Source,
+                                             ctrl := CMsgHdrs,
+                                             iov  := [Data]}} ->
+                                          {ok, {Source, CMsgHdrs, Data}};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+				 opts   => Opts,
+                                 send   => Send,
+                                 recv   => Recv,
+                                 enable => Enable},
+                   ok = api_opt_ipv6_misc_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_ipv6_misc_udp(InitState) ->
+    Seq = 
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa_src => LSA,
+                                       lsa_dst => LSA}}
+                   end},
+
+         #{desc => "open src socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_src => Sock}}
+                   end},
+         #{desc => "bind src",
+           cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "sockname src socket",
+           cmd  => fun(#{sock_src := Sock} = State) ->
+                           SASrc = sock_sockname(Sock),
+                           ?SEV_IPRINT("src sockaddr: "
+                                       "~n   ~p", [SASrc]),
+                           {ok, State#{sa_src => SASrc}}
+                   end},
+
+         #{desc => "open dst socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_dst => Sock}}
+                   end},
+         #{desc => "bind dst",
+           cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "sockname dst socket",
+           cmd  => fun(#{sock_dst := Sock} = State) ->
+                           SADst = sock_sockname(Sock),
+                           ?SEV_IPRINT("dst sockaddr: "
+                                       "~n   ~p", [SADst]),
+                           {ok, State#{sa_dst => SADst}}
+                   end},
+
+         #{desc => "enable options on dst socket",
+           cmd  => fun(#{sock_dst := DSock,
+			 sock_src := SSock,
+			 opts     := Opts,
+			 enable   := Enable} = _State) ->
+			   %% If we fail to enable *any* of the options,
+			   %% we give up.
+			   E = fun({Opt, _, _}) -> 
+					  case Enable(DSock, Opt) of
+					      ok ->
+						  ?SEV_IPRINT("dst ~w enabled",
+							      [Opt]),
+						  ok;
+					      {error, enoprotoopt = Reason} ->
+						  ?SEV_EPRINT("Expected "
+							      "Failure: "
+							      "~p => SKIP",
+							      [Reason]),
+						  (catch socket:close(DSock)),
+						  (catch socket:close(SSock)),
+						  {skip, Reason};
+					      {error, Reason} = ERROR ->
+						  ?SEV_EPRINT("Failed "
+							      "setting ~w:"
+							      "   ~p",
+							      [Opt, Reason]),
+						  ERROR
+					  end
+			       end,
+			   lists:foreach(E, Opts),
+			   ok
+                   end},
+
+         #{desc => "send req (to dst) (w explicit tc = 1)",
+           cmd  => fun(#{sock_src := Sock,
+			 sa_dst   := Dst,
+			 opts     := Opts,
+			 send     := Send}) ->
+			   Hdrs = [{Type, Data} ||
+				      {_, Type, Data} <- 
+					  Opts, (Data =/= default)],
+                           Send(Sock, ?BASIC_REQ, Dst, Hdrs)
+                   end},
+         #{desc => "recv req (from src)",
+           cmd  => fun(#{sock_dst := Sock,
+			 sa_src   := Src,
+			 recv     := Recv,
+			 opts     := Opts}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, CMsgHdrs, ?BASIC_REQ}}
+			       when length(CMsgHdrs) =:= length(Opts)  ->
+                                   ?SEV_IPRINT("Got (expected) cmsg headers: "
+					       "~n   ~p", [CMsgHdrs]),
+                                   ok;
                                {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
                                    ?SEV_EPRINT("Unexpected msg: "
                                                "~n   Expect Source: ~p"
