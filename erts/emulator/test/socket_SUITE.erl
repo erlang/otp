@@ -15814,11 +15814,7 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 			   ok;
 		       false ->
 			   skip("None of the needed options are supported")
-		   end,
-		   %% The problem here is hoplimit on darwin 9.8.0,
-		   %% but I can't be bothered to adjust the test case,
-		   %% just skip on that machine (there is only one)...
-		   is_good_enough_darwin({9,8,0})
+		   end
            end,
            fun() ->
 		   %% If we get this far, we *know* that at least one of the
@@ -15826,7 +15822,10 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 
 		   %% This is list of all the options and there resulting
 		   %% control message header type(s):
-		   %%   [{'ipv6 socket option', 'control message header type'}]
+		   %%   [{level,
+		   %%     'ipv6 socket option',
+                   %%     'control message header type',
+		   %%     default | value()}]
 		   Opts =
 		       case socket:supports(options, socket, timestamp) of
 			   true ->
@@ -15846,11 +15845,16 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ip, recvttl) of
-			   true ->
-			       [{ip, recvttl, ttl, 42}];
-			   false ->
-                               []
+                       case os:type() of
+                           {unix, darwin} ->
+                               [];
+                           _ ->
+                               case socket:supports(options, ip, recvttl) of
+                                   true ->
+                                       [{ip, recvttl, ttl, 42}];
+                                   false ->
+                                       []
+                               end
 		       end,
 
                    Enable = fun(Sock, Level, Opt) ->
