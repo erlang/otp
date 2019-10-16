@@ -580,13 +580,15 @@
 %% able to decode the data, in which case it will be a binary.
 
 -type cmsghdr_level() :: socket | ip | ipv6 | integer().
--type cmsghdr_type()  :: timestamp |
-                         pktinfo |
-                         tos |
-                         ttl |
-                         rights |
-                         credentials |
+-type cmsghdr_type()  :: credentials |
+                         hoplevel    |
                          origdstaddr |
+                         pktinfo     |
+                         recvtos     |
+                         rights |
+                         timestamp   |
+                         tos |
+                         ttl         |
                          integer().
 -type cmsghdr_recv() :: 
         #{level := socket,    type := timestamp,   data := timeval()}      |
@@ -600,8 +602,9 @@
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
         #{level := ip,        type := integer(),   data := binary()}       |
-        #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
+        #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+        #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
 -type cmsghdr_send() :: 
@@ -612,6 +615,7 @@
         #{level := ip,        type := tos,         data := ip_tos()  | binary()} |
         #{level := ip,        type := ttl,         data := integer() | binary()} |
         #{level := ip,        type := integer(),   data := binary()} |
+        #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()} |
         #{level := udp,       type := integer(),   data := binary()} |
         #{level := integer(), type := integer(),   data := binary()}.
@@ -797,10 +801,10 @@
 -define(SOCKET_OPT_IPV6_RECVERR,           24).
 -define(SOCKET_OPT_IPV6_RECVHOPLIMIT,      25).
 -define(SOCKET_OPT_IPV6_RECVPKTINFO,       26). % On FreeBSD: PKTINFO
-%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
+-define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
 -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
 -define(SOCKET_OPT_IPV6_RTHDR,             29).
-%% -define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
+-define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
 -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
 %% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32). % FreeBSD
 -define(SOCKET_OPT_IPV6_V6ONLY,            33).
@@ -3138,10 +3142,16 @@ enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        is_boolean(V) ->
     V;
+enc_setopt_value(ipv6, recvtclass, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
 enc_setopt_value(ipv6, router_alert, V, _D, T, _P)
   when is_integer(V) andalso (T =:= raw) ->
     V;
 enc_setopt_value(ipv6, rthdr, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
+enc_setopt_value(ipv6, tclass, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
 enc_setopt_value(ipv6, unicast_hops, V, _D, _T, _P)
@@ -3603,15 +3613,15 @@ enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        ((T =:= dgram) orelse (T =:= raw)) ->
     ?SOCKET_OPT_IPV6_RECVPKTINFO;
-enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, recvtclass = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_RECVTCLASS;
 enc_sockopt_key(ipv6 = _L, router_alert = _Opt, _Dir, _D, T, _P) when (T =:= raw) ->
     ?SOCKET_OPT_IPV6_ROUTER_ALERT;
 enc_sockopt_key(ipv6 = _L, rthdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
     ?SOCKET_OPT_IPV6_RTHDR;
-enc_sockopt_key(ipv6 = L, tclass = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, tclass = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_TCLASS;
 enc_sockopt_key(ipv6 = _L, unicast_hops = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_UNICAST_HOPS;
 enc_sockopt_key(ipv6 = L, use_min_mtu = Opt, _Dir, _D, _T, _P) ->
