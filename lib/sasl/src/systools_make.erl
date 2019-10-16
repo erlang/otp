@@ -1676,8 +1676,17 @@ mk_tar(Tar, RelName, Release, Appls, Flags, Path1) ->
     add_applications(Appls, Tar, Variables, Flags, false),
     add_variable_tars(Variables, Appls, Tar, Flags),
     add_system_files(Tar, RelName, Release, Path1),
-    add_erts_bin(Tar, Release, Flags).
-    
+    add_erts_bin(Tar, Release, Flags),
+    add_additional_files(Tar, Flags).
+
+add_additional_files(Tar, Flags) ->
+    case get_flag(extra_files, Flags) of
+        {extra_files, ToAdd} ->
+            [add_to_tar(Tar, From, To) || {From, To} <- ToAdd];
+        _ ->
+            ok
+    end.
+
 add_applications(Appls, Tar, Variables, Flags, Var) ->
     Res = foldl(fun({{Name,Vsn},App}, Errs) ->
 		  case catch add_appl(to_list(Name), Vsn, App,
