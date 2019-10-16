@@ -58,16 +58,15 @@
     <c>ssh:shell/1</c> client to connect to the <em>openssh</em> daemon running on a
     host called <em>tarlop</em>:</p>
 
-    <code type="erl" >
-      1>  ssh:start().
-      ok
-      2> {ok, S} = ssh:shell("tarlop").
-      otptest@tarlop:> pwd
-      /home/otptest
-      otptest@tarlop:> exit
-      logout
-      3>
-    </code>
+    <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, S} = ssh:shell("tarlop").</input>
+otptest@tarlop:> <input>pwd</input>
+/home/otptest
+otptest@tarlop:> <input>exit</input>
+logout
+3> </pre>
   </section>
 
   <section>
@@ -89,40 +88,38 @@
     <p><em>Step 1.</em> To run the example without root privileges,
     generate new keys and host keys:</p>
 
-    <code>
-      $bash> ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
-      [...]
-      $bash> ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa
-      [...]
-    </code>
+    <pre>
+$bash> <input>ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key</input>
+[...]
+$bash> <input>ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa</input>
+[...]  </pre>
 
     <p><em>Step 2.</em> Create the file <c>/tmp/otptest_user/.ssh/authorized_keys</c>
     and add the content of <c>/tmp/otptest_user/.ssh/id_rsa.pub</c>.</p>
 
+    <marker id="start-daemon-step3"></marker>
     <p><em>Step 3.</em> Start the Erlang <c>ssh</c> daemon:</p>
 
-    <code type="erl">
-      1> ssh:start().
-      ok
-      2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                                        {user_dir, "/tmp/otptest_user/.ssh"}]).
-      {ok,&lt;0.54.0>}
-      3>
-    </code>
+    <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                  {user_dir, "/tmp/otptest_user/.ssh"}]).</input>
+{ok,&lt;0.54.0>}
+3> </pre>
 
     <p><em>Step 4.</em> Use the <em>openssh</em> client from a shell to connect
     to the Erlang <c>ssh</c> daemon:</p>
 
-    <code>
-      $bash> ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa\
-             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
-      The authenticity of host 'tarlop' can't be established.
-      RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
-      Are you sure you want to continue connecting (yes/no)? yes
-      Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
-      Eshell V5.10  (abort with ^G)
-      1>
-    </code>
+    <pre>
+$bash> <input>ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa \
+                  -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts</input>
+The authenticity of host 'tarlop' can't be established.
+RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
+Are you sure you want to continue connecting (yes/no)? <input>yes</input>
+Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
+Eshell V5.10  (abort with ^G)
+1>   </pre>
 
     <p>There are two ways of shutting down an <c>ssh</c> daemon,
     see <em>Step 5a</em> and <em>Step 5b</em>.</p>
@@ -131,61 +128,299 @@
     stops the listener but leaves existing connections, started by the listener,
     operational:</p>
 
-    <code type="erl">
-      3> ssh:stop_listener(Sshd).
-      ok
-      4>
-    </code>
+    <pre>
+3> <input>ssh:stop_listener(Sshd).</input>
+ok
+4> </pre>
 
     <p><em>Step 5b.</em> Shut down the Erlang <c>ssh</c> daemon so that it
     stops the listener and all connections started by the listener:</p>
 
-    <code type="erl">
-      3> ssh:stop_daemon(Sshd)
-      ok
-      4>
-    </code>
-
+    <pre>
+3> <input>ssh:stop_daemon(Sshd).</input>
+ok
+4> </pre>
   </section>
 
   <section>
     <title>One-Time Execution</title>
 
+    <section>
+      <marker id="simple-client-example"/>
+      <title>Erlang client contacting OS standard ssh server</title>
     <p>In the following example, the Erlang shell is the client process
-    that receives the channel replies.</p>
+    that receives the channel replies as Erlang messages.</p>
 
-    <note><p>The number of received messages in this example depends on which OS
-    and which shell that is used on the machine running the <c>ssh</c> daemon.
-    See also <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>.
-    </p></note>
+    <p>Do an one-time execution of a remote OS command ("pwd") over <c>ssh</c> to the
+    ssh server of the OS at the host "tarlop":</p>
 
-    <p>Do a one-time execution of a remote command over <c>ssh</c>:</p>
+    <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 22, []).</input>
+{ok,&lt;0.57.0>}
+3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,0}
+4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).</input>
+5> <input>flush().</input> % Get all pending messages. NOTE: ordering may vary!
+Shell got {ssh_cm,&lt;0.57.0>,{data,0,0,&lt;&lt;"/home/otptest\n">>}}
+Shell got {ssh_cm,&lt;0.57.0>,{eof,0}}
+Shell got {ssh_cm,&lt;0.57.0>,{exit_status,0,0}}
+Shell got {ssh_cm,&lt;0.57.0>,{closed,0}}
+ok
+6> <input>ssh:connection_info(ConnectionRef, channels).</input>
+{channels,[]}
+7></pre>
 
-    <code type="erl" >
-      1>  ssh:start().
-      ok
-      2> {ok, ConnectionRef} = ssh:connect("tarlop", 22, []).
-      {ok,&lt;0.57.0>}
-      3>{ok, ChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
-      {ok,0}
-      4> success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).
-      5>  flush().
-      Shell got {ssh_cm,&lt;0.57.0>,{data,0,0,&lt;&lt;"/home/otptest\n">>}}
-      Shell got {ssh_cm,&lt;0.57.0>,{eof,0}}
-      Shell got {ssh_cm,&lt;0.57.0>,{exit_status,0,0}}
-      Shell got {ssh_cm,&lt;0.57.0>,{closed,0}}
-      ok
-      6>
-    </code>
+    <p>See <seealso marker="ssh_connection#description">ssh_connection</seealso> and
+    <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+    for finding documentation of the channel messages.</p>
 
-    <p>Notice that only the channel is closed. The connection is still up and can
-    handle other channels:</p>
+    <p>To collect the channel messages in a program, use <c>receive...end</c> instead of <c>flush/1</c>:</p>
+    <pre>
+5> <input>receive</input>
+5> <input>    {ssh_cm, ConnectionRef, {data, ChannelId, Type, Result}} when Type == 0 -></input>
+5> <input>        {ok,Result}</input>
+5> <input>    {ssh_cm, ConnectionRef, {data, ChannelId, Type, Result}} when Type == 1 -></input>
+5> <input>        {error,Result}</input>
+5> <input>end.</input>
+{ok,&lt;&lt;"/home/otptest\n">>}
+6></pre>
 
-    <code type="erl" >
-      6> {ok, NewChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
-        {ok,1}
-	...
-    </code>
+
+    <p>Note that only the exec channel is closed after the one-time execution.
+    The connection is still up and can handle previously opened channels. It is also
+    possible to open a new channel:</p>
+
+    <pre>
+% try to open a new channel to check if the ConnectionRef is still open
+7> <input>{ok, NewChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,1}
+8></pre>
+
+    <p>To close the connection, call the function <seealso marker="ssh#close-1"><c>ssh:close(ConnectionRef)</c></seealso>.
+    As an alternative, set the option
+    <seealso marker="ssh#type-max_idle_time_common_option"><c>{idle_time, 1}</c></seealso>
+    when opening the connection. This will cause the connection to be closed automaticaly when there are
+    no channels open for the specified time period, in this case 1 ms.
+    </p>
+    </section>
+    
+    <section>
+      <title>OS standard client and Erlang daemon (server)</title>
+      <p>An Erlang SSH daemon could be called for one-time execution of a "command". The "command" must be
+      as if entered into the erlang shell, that is a sequence of Erlang
+      <seealso marker="doc/reference_manual:expressions">expressions</seealso> ended by a period (.).
+      Variables bound in that sequence will keep their bindings throughout the expression sequence.
+      The bindings are disposed when the result is returned.</p>
+      <p>Here is an example of a suitable expression sequence:</p>
+      <pre>
+A=1, B=2, 3 == (A + B).</pre>
+      <p>It evaluates to <c>true</c> if submitted to the Erlang daemon started in
+      <seealso marker="#start-daemon-step3">Step 3</seealso> above:</p>
+      <pre>
+$bash> <input>ssh tarlop -p 8989 "A=1, B=2, 3 == (A + B)."</input>
+true
+$bash></pre>
+
+      <p>The same example but now using the Erlang ssh client to contact the Erlang server:</p>
+      <pre>
+1> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 8989, []).</input>
+{ok,&lt;0.216.0>}
+2> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,0}
+3> <input>success = ssh_connection:exec(ConnectionRef, ChannelId,
+                                 "A=1, B=2, 3 == (A + B).",
+                                 infinity).</input>
+success
+4> <input>flush().</input>
+Shell got {ssh_cm,&lt;0.216.0>,{data,0,0,&lt;&lt;"true">>}}
+Shell got {ssh_cm,&lt;0.216.0>,{exit_status,0,0}}
+Shell got {ssh_cm,&lt;0.216.0>,{eof,0}}
+Shell got {ssh_cm,&lt;0.216.0>,{closed,0}}
+ok
+5></pre>
+      
+      <p>Note that Erlang shell specific functions and control sequences like for example
+      <c>h().</c> are not supported.
+      </p>
+    </section>
+
+    <section>
+      <title>I/O from a function called in an Erlang ssh daemon</title>
+      
+      <p>Output to stdout on the server side is also displayed as well as the resulting term
+      from the function call:</p>
+      <pre>
+$bash> <input>ssh tarlop -p 8989 'io:format("Hello!~n~nHow are ~p?~n",[you]).'</input>
+Hello!
+ 
+How are you?
+ok
+$bash></pre>
+
+      <p>And similar for reading from stdin. As an example we use
+      <seealso marker="stdlib:io#read-1">io:read/1</seealso> which 
+      displays the argument as a prompt on stdout, reads a term from stdin and returns it
+      in an ok-tuple:</p>
+      <pre>
+$bash> <input>ssh tarlop -p 8989 'io:read("write something: ").'</input>
+write something: <input>[a,b,c].</input>
+{ok,[a,b,c]}
+$bash></pre>
+
+      <p>The same example but using the Erlang ssh client:</p>
+      <pre>	
+Eshell V10.5.2  (abort with ^G)
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, ConnectionRef} = ssh:connect(loopback, 8989, []).</input>
+{ok,&lt;0.92.0>}
+3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,0}
+4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId,
+                                 "io:read(\"write something: \").",
+                                 infinity).</input>
+success
+5> <input>flush().</input>
+Shell got {ssh_cm,&lt;0.92.0>,{data,0,0,&lt;&lt;"write something: ">>}}
+ok
+% All data is sent as binaries with string contents:
+6> <input>ok = ssh_connection:send(ConnectionRef, ChannelId, &lt;&lt;"[a,b,c].">>).</input>
+ok
+7> <input>flush().</input>
+ok
+%% Nothing is received, because the io:read/1
+%% requires the input line to end with a newline.
+
+%% Send a newline (it could have been included in the last send):
+8> <input>ssh_connection:send(ConnectionRef, ChannelId, &lt;&lt;"\n">>).</input>
+ok
+9> <input>flush().</input>
+Shell got {ssh_cm,&lt;0.92.0>,{data,0,0,&lt;&lt;"{ok,[a,b,c]}">>}}
+Shell got {ssh_cm,&lt;0.92.0>,{exit_status,0,0}}
+Shell got {ssh_cm,&lt;0.92.0>,{eof,0}}
+Shell got {ssh_cm,&lt;0.92.0>,{closed,0}}
+ok
+10></pre>
+    </section>
+    
+    <section>
+      <title>Configuring the server's (daemon's) command execution</title>
+      <p>Every time a daemon <seealso marker="#running-an-erlang-ssh-daemon">is started</seealso>, it enables
+      one-time execution of commands as described in the
+      <seealso marker="#simple-client-example">previous section</seealso> unless explicitly disabled.
+      </p>
+
+      <p>There is often a need to configure some other exec evaluator to tailor the input language or
+      restrict the possible functions to call. There are two ways of doing this which will be shown with examples
+      below. See <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso> and
+      <seealso marker="ssh#type-exec_daemon_option">exec_daemon_option()</seealso>) for details.</p>
+      <p>Examples of the two ways to configure the exec evaluator:</p>
+      <list type="ordered">
+	<item>Disable one-time execution.<br/>
+	To modify the daemon start example above to reject one-time execution requests,
+	we change <seealso marker="#start-daemon-step3">Step 3</seealso> by adding the option
+	<c>{exec, disabled}</c>
+	to:
+	<pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                  {user_dir, "/tmp/otptest_user/.ssh"},
+                                  {exec, disabled}
+                                 ]).</input>
+{ok,&lt;0.54.0>}
+3>	</pre>
+	<p>A call to that daemon will return the text "Prohibited." on stderr (depending on the client and OS),
+	and the exit status 255:</p>
+	<pre>
+$bash> <input>ssh tarlop -p 8989 "test."</input>
+Prohibited.
+$bash> <input>echo $?</input>
+255
+$bash>	</pre>
+	<p>And the Erlang client library also returns the text "Prohibited." on data type 1 instead of the normal 0
+	and exit status 255:</p>
+	<pre>
+2> <input>{ok, ConnectionRef} = ssh:connect(loopback, 8989, []).</input>
+{ok,&lt;0.92.0>}
+3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,0}
+4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId, "test."</input>
+success
+5> <input>flush().</input>
+Shell got {ssh_cm,&lt;0.106.0>,{data,0,1,&lt;&lt;"Prohibited.">>}}
+Shell got {ssh_cm,&lt;0.106.0>,{exit_status,0,255}}
+Shell got {ssh_cm,&lt;0.106.0>,{eof,0}}
+Shell got {ssh_cm,&lt;0.106.0>,{closed,0}}
+ok
+6></pre>
+	</item>
+	
+	<item>Install an alternative evaluator.<br/>
+	Start the damon with a reference to a <c>fun()</c> that handles the evaluation:
+	<pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>MyEvaluator = fun("1") -> {ok, some_value};
+                    ("2") -> {ok, some_other_value};
+                    ("3") -> {ok, V} = io:read("input erlang term>> "),
+                             {ok, V};
+                    (Err) -> {error,{bad_input,Err}}
+                 end.</input>
+3> <input>{ok, Sshd} = ssh:daemon(1234, [{system_dir, "/tmp/ssh_daemon"},
+                                  {user_dir, "/tmp/otptest_user/.ssh"},
+                                  {exec, {direct,MyEvaluator}}
+                                 ]).</input>
+{ok,&lt;0.275.0>}
+4></pre>
+	and call it:
+	<pre>
+$bash> <input>ssh localhost -p 1234 1</input>
+some_value
+$bash> <input>ssh localhost -p 1234 2</input>
+some_other_value
+# I/O works:
+$bash> <input>ssh localhost -p 1234 3</input>
+input erlang term>> <input>abc.</input>
+abc
+# Check that Erlang evaluation is disabled:
+$bash> <input>ssh localhost -p 1234 1+ 2.</input>
+**Error** {bad_input,"1+ 2."}
+$bash> 	</pre>
+	Note that spaces are preserved and that no point (.) is needed at the end - that was required
+	by the default evaluator.
+	<p>The error return in the Erlang client (The text as data type 1 and exit_status 255):</p>
+	<pre>
+2> <input>{ok, ConnectionRef} = ssh:connect(loopback, 1234, []).</input>
+{ok,&lt;0.92.0>}
+3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+{ok,0}
+4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId, "1+ 2."</input>
+success
+5> <input>flush().</input>
+Shell got {ssh_cm,&lt;0.106.0>,{data,0,1,&lt;&lt;"**Error** {bad_input,\"1+ 2.\"}">>}}
+Shell got {ssh_cm,&lt;0.106.0>,{exit_status,0,255}}
+Shell got {ssh_cm,&lt;0.106.0>,{eof,0}}
+Shell got {ssh_cm,&lt;0.106.0>,{closed,0}}
+ok
+6></pre>
+	<p>The <c>fun()</c> in the exec option could take up to three arguments
+	(<c>Cmd</c>, <c>User</c> and <c>ClientAddress</c>). See
+	the <seealso marker="ssh#type-exec_daemon_option">exec_daemon_option()</seealso> for the details.</p>
+	</item>
+      </list>
+
+
+      <note><p>An old, discouraged and undocumented way of installing an alternative evaluator exists.</p>
+      <p>It still works, but lacks
+      for example I/O possibility. It is because of that compatibility we need
+      the <c>{direct,...}</c>	construction.
+      </p>
+      </note>
+    </section>
+
   </section>
 
   <section>
@@ -193,27 +428,26 @@
 
     <p>Start the Erlang <c>ssh</c> daemon with the SFTP subsystem:</p>
 
-    <code type="erl" >
-      1> ssh:start().
-      ok
-      2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                           {user_dir, "/tmp/otptest_user/.ssh"},
-                           {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])
-                                        ]}]).
-      {ok,&lt;0.54.0>}
-      3>
-    </code>
+    <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                     {user_dir, "/tmp/otptest_user/.ssh"},
+                     {subsystems, [ssh_sftpd:subsystem_spec(
+                                            [{cwd, "/tmp/sftp/example"}])
+                                  ]}]).</input>
+{ok,&lt;0.54.0>}
+3> </pre>
 
     <p>Run the OpenSSH SFTP client:</p>
 
-    <code type="erl">
-      $bash> sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa\
-             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
-      Connecting to tarlop...
-      sftp> pwd
-      Remote working directory: /tmp/sftp/example
-      sftp>
-    </code>
+    <pre>
+$bash> <input>sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa \
+            -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop</input>
+Connecting to tarlop...
+sftp> <input>pwd</input>
+Remote working directory: /tmp/sftp/example
+sftp> </pre>
   </section>
 
   <section>
@@ -221,14 +455,13 @@
 
     <p>Fetch a file with the Erlang SFTP client:</p>
 
-    <code type="erl" >
-      1> ssh:start().
-      ok
-      2> {ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).
-      {ok,&lt;0.57.0>,&lt;0.51.0>}
-      3>  ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").
-      {ok,&lt;&lt;"This is a test file\n">>}
-    </code>
+    <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).</input>
+{ok,&lt;0.57.0>,&lt;0.51.0>}
+3> <input>ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").</input>
+{ok,&lt;&lt;"This is a test file\n">>} </pre>
   </section>
 
   <section>
@@ -237,17 +470,17 @@
       <title>Basic example</title>
     <p>This is an example of writing and then reading a tar file:</p>
     <code type="erl">
-      {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
-      ok = erl_tar:add(HandleWrite, .... ),
-      ok = erl_tar:add(HandleWrite, .... ),
-      ...
-      ok = erl_tar:add(HandleWrite, .... ),
-      ok = erl_tar:close(HandleWrite),
+{ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:add(HandleWrite, .... ),
+...
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:close(HandleWrite),
 
-      %% And for reading
-      {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
-      {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
-      ok = erl_tar:close(HandleRead),
+%% And for reading
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
+{ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+ok = erl_tar:close(HandleRead),
     </code>
   </section>
 
@@ -367,30 +600,30 @@ terminate(_Reason, _State) ->
  as described in Section <seealso marker="#Running an Erlang ssh Daemon">
  Running an Erlang ssh Daemon</seealso>:</p>
 
- <code type="erl" >
-   1> ssh:start().
-   ok
-   2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                        {user_dir, "/tmp/otptest_user/.ssh"}
-                        {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
-   {ok,&lt;0.54.0>}
-   3>
- </code>
+ <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                     {user_dir, "/tmp/otptest_user/.ssh"}
+                     {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).</input>
+{ok,&lt;0.54.0>}
+3> </pre>
 
- <code type="erl" >
-   1> ssh:start().
-   ok
-   2>{ok, ConnectionRef} = ssh:connect("tarlop", 8989, [{user_dir, "/tmp/otptest_user/.ssh"}]).
-    {ok,&lt;0.57.0>}
-   3>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
-   4> success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
-   5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
-   6> flush().
-   {ssh_msg, &lt;0.57.0>, {data, 0, 1, "0123456789"}}
-   {ssh_msg, &lt;0.57.0>, {eof, 0}}
-   {ssh_msg, &lt;0.57.0>, {closed, 0}}
-   7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
- </code>
+ <pre>
+1> <input>ssh:start().</input>
+ok
+2> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 8989,
+                                    [{user_dir, "/tmp/otptest_user/.ssh"}]).</input>
+ {ok,&lt;0.57.0>}
+3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
+4> <input>success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).</input>
+5> <input>ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).</input>
+6> <input>flush().</input>
+{ssh_msg, &lt;0.57.0>, {data, 0, 1, "0123456789"}}
+{ssh_msg, &lt;0.57.0>, {eof, 0}}
+{ssh_msg, &lt;0.57.0>, {closed, 0}}
+7> <input>{error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).</input> </pre>
+ 
 <p>See also <seealso marker="ssh_client_channel">ssh_client_channel(3)</seealso> (replaces ssh_channel(3)).</p>
 
 </section>

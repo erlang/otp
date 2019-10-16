@@ -403,6 +403,9 @@
 	<p>This option changes how the daemon executes exec-requests from clients. The term in the return value
 	is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case.
 	</p>
+	<p>See the User's Guide section on
+	<seealso marker="using_ssh#one-time-execution">One-Time Execution</seealso> for examples.
+	</p>
 	<p>Error texts are returned on channel-type 1 which usually is piped to <c>stderr</c> on e.g Linux systems.
 	Texts from a successful execution  are returned on channel-type 0 and
 	will in similar manner be piped to <c>stdout</c>. The exit-status code
@@ -789,7 +792,12 @@
     <datatype>
       <name name="max_idle_time_common_option"/>
       <desc>
-	<p>Sets a time-out on a connection when no channels are active. Defaults to <c>infinity</c>.</p>
+	<p>Sets a time-out on a connection when no channels are open. Defaults to <c>infinity</c>.
+	The unit is milliseconds.
+	</p>
+	<p>The timeout is not active until channels are started, so it does
+	not limit the time from the connection creation to the first channel opening.
+	</p>
       </desc>
     </datatype>
 
