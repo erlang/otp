@@ -36,8 +36,11 @@ start() ->
 stop() ->
     case whereis(?NAME) of
         Pid when is_pid(Pid) ->
-            Pid ! {?MODULE, stop},
-            ok;
+            Pid ! {?MODULE, self(), stop},
+            receive
+                {?MODULE, Pid, stop} ->
+                    ok
+            end;
         _ ->
             ok
     end.
@@ -77,6 +80,11 @@ loop(State) ->
         {monitor, Pid, Tag, Info} ->
             ?GSM:log({Pid, erlang:timestamp(), Tag, Info}),
             loop(State);
+
+        {?MODULE, From, stop} ->
+            ?GSM:log({erlang:timestamp(), stopping}),
+            From ! {?MODULE, self(), stop},
+            exit(normal);
 
         _ ->
             loop(State)

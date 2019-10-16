@@ -26,6 +26,8 @@
          log/1]).
 -export([init/1]).
 
+-include("snmp_test_lib.hrl").
+
 -define(NAME, ?MODULE).
 
 
@@ -41,7 +43,7 @@ stop() ->
 %% This does not reset the global counter but the "collector"
 %% See events for more info.
 reset_events() ->
-    cast(reset_events).
+    call(reset_events).
 
 events() ->
     call(events).
@@ -56,7 +58,7 @@ init(Parent) ->
     process_flag(priority, high),
     case global:register_name(?NAME, self()) of
         yes ->
-            info_msg("Starting", []),
+            info_msg("Starting as ~p (on ~p)", [self(), node()]),
             proc_lib:init_ack(Parent, {ok, self()}),
             loop(#{parent => Parent, ev_cnt => 0, evs => []});
         no ->
@@ -75,7 +77,14 @@ loop(State) ->
                         [maps:get(ev_cnt, State)]),
             exit(normal);
 
-        {?MODULE, reset_events} ->
+        {?MODULE, Ref, From, reset_events} ->
+            TotEvCnt = maps:get(ev_cnt, State),
+            EvCnt    = length(maps:get(evs, State)),
+            info_msg("Reset events when"
+                     "~n   Total Number of Events:   ~p"
+                     "~n   Current Number of Events: ~p",
+                     [TotEvCnt, EvCnt]),
+            From ! {?MODULE, Ref, {ok, {TotEvCnt, EvCnt}}},
             loop(State#{evs => []});
 
         {?MODULE, Ref, From, events} ->
@@ -103,7 +112,7 @@ process_event(State, Node, {Pid, TS, Tag, Info}) ->
 
 process_event(State, Node, {TS, starting}) ->
     FTS = snmp_misc:format_timestamp(TS),
-    info_msg("System Monitor on node ~p starting at ~s", [Node, FTS]),
+    info_msg("System Monitor starting on node ~p at ~s", [Node, FTS]),
     if
         (Node =/= node()) ->
             erlang:monitor_node(Node, true);
@@ -112,9 +121,20 @@ process_event(State, Node, {TS, starting}) ->
     end,
     State;
 
+process_event(State, Node, {TS, stopping}) ->
+    FTS = ?FTS(TS),
+    info_msg("System Monitor stopping on node ~p at ~s", [Node, FTS]),
+    if
+        (Node =/= node()) ->
+            erlang:monitor_node(Node, false);
+        true ->
+            ok
+    end,
+    State;
+
 process_event(State, Node, {TS, already_started}) ->
     FTS = snmp_misc:format_timestamp(TS),
-    info_msg("System Monitor on node ~p already started", [Node, FTS]),
+    info_msg("System Monitor already started on node ~p at ~s", [Node, FTS]),
     State;
 
 process_event(State, Node, nodedown) ->
@@ -131,23 +151,24 @@ process_event(State, Node, Event) ->
 %% We only *count* system events
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, long_gc = Ev, Info) ->
-    print_system_event("Long GC", Node, Pid, TS, Info),
+    print_system_event(f("Long GC (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, long_schedule = Ev, Info) ->
-    print_system_event("Long Schedule", Node, Pid, TS, Info),
+    print_system_event(f("Long Schedule (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, large_heap = Ev, Info) ->
-    print_system_event("Large Heap", Node, Pid, TS, Info),
+    print_system_event(f("Large Heap (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, busy_port = Ev, Info) ->
-    print_system_event("Busy port", Node, Pid, TS, Info),
+    print_system_event(f("Busy port (~w)", [length(Evs)]), Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
                      Node, Pid, TS, busy_dist_port = Ev, Info) ->
-    print_system_event("Busy dist port", Node, Pid, TS, Info),
+    print_system_event(f("Busy dist port (~w)", [length(Evs)]),
+                       Node, Pid, TS, Info),
     State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 
 %% And everything else

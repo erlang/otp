@@ -160,3 +160,6 @@
 -define(PRINT2(F),     ?PRINT2(F, [])).
 -define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
 
+-define(FTS(),         snmp_misc:formated_timestamp()).
+-define(FTS(TS),       snmp_misc:format_timestamp(TS)).
+
