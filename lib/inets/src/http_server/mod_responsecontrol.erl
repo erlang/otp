@@ -26,7 +26,6 @@
 -include("httpd_internal.hrl").
 
 do(Info) ->
-    ?DEBUG("do -> response_control",[]),
     case proplists:get_value(status, Info#mod.data) of
 	%% A status code has been generated!
 	{_StatusCode, _PhraseArgs, _Reason} ->
@@ -53,7 +52,6 @@ do(Info) ->
 %%wheather a response shall be createed or not
 %%----------------------------------------------------------------------
 do_responsecontrol(Info) ->
-    ?DEBUG("do_response_control -> Request URI: ~p",[Info#mod.request_uri]),
     Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
 			  Info#mod.request_uri),
     case file:read_file_info(Path) of
@@ -220,7 +218,6 @@ compare_etags(Tag,Etags) ->
 %% Control the If-Modified-Since and If-Not-Modified-Since header fields
 %%----------------------------------------------------------------------
 control_modification(Path,Info,FileInfo)->
-    ?DEBUG("control_modification() -> entry",[]),
     case control_modification_data(Info,
 				   FileInfo#file_info.mtime,
 				   "if-modified-since") of
@@ -260,23 +257,18 @@ control_modification_data(Info, ModificationTime, HeaderField)->
 	    	bad_date ->
 	    	    {bad_date, LastModified0};
 	    	ConvertedReqDate ->
-		    LastModified = 
-			calendar:universal_time_to_local_time(ConvertedReqDate),
-		    ?DEBUG("control_modification_data() -> "
-			   "~n   Request-Field:    ~s"
-			   "~n   FileLastModified: ~p"
-			   "~n   FieldValue:       ~p",
-			   [HeaderField, ModificationTime, LastModified]),
-		    FileTime =
+                    LastModified =  calendar:universal_time_to_local_time(ConvertedReqDate),		   
+                     FileTime =
 			calendar:datetime_to_gregorian_seconds(ModificationTime),
 		    FieldTime = 
 			calendar:datetime_to_gregorian_seconds(LastModified),
 		    if 
 			FileTime =< FieldTime ->
-			    ?DEBUG("File unmodified~n", []), unmodified;
+			    unmodified;
 			FileTime >= FieldTime ->
-			    ?DEBUG("File modified~n", []), modified	    
+			    modified	    
 		    end
+                    
 	    end
     end.
 
