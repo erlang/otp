@@ -298,7 +298,8 @@
 	<cell>timeval()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell>Note that setting a "high" value here can hade adverse effects
+	on other readers (when there is nothing to read).</cell>
       </row>
       <row>
 	<cell>reuseaddr</cell>
@@ -333,7 +334,8 @@
 	<cell>timeval()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell>Note that setting a "high" value here can hade adverse effects
+	on other writers</cell>
       </row>
       <row>
 	<cell>timestamp</cell>
