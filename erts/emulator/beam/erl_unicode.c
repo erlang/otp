@@ -455,6 +455,17 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			objp = list_val(ioterm);
 			obj = CAR(objp);
 		    }
+                } else if (is_big(obj)) {
+                    /*
+                     * This is obviously an error, but we
+                     * need do_build_utf8() to produce the
+                     * error; otherwise, we will generate
+                     * a badarg instead of the informative
+                     * error tuple.
+                     */
+		    DESTROY_ESTACK(stack);
+                    *costp = cost;
+                    return need;
 		} else {
 		    DESTROY_ESTACK(stack);
 		    *costp = cost;
