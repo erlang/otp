@@ -2135,6 +2135,14 @@ This function is aware of imported functions."
 ;; chosen to keep it since it provides a very useful functionality
 ;; which is not possible to achieve using a clean approach.
 ;;   / AndersL
+;;
+;; The previous hack seems to have broken in Emacs 25. This is fixed
+;; by trying to find the function in the man buffer a few times with a
+;; delay in between (see function
+;; erlang-man-repeated-search-for-function). This fix is also a hack
+;; but it should be quite robust and will work even if the function
+;; that erlang-man-function-display-man-page tries to hook into
+;; disappears or changes.
 
 (defvar erlang-man-function-name nil
   "Name of function for last `erlang-man-function' call.
@@ -2154,7 +2162,7 @@ patch to `Man-notify-when-ready'.")
     (when (or (null modname) (string= modname ""))
       (error "No Erlang module name given"))
     (cond ((fboundp 'Man-notify-when-ready)
-           ;; Emacs 19:  The man command could possibly start an
+           ;; From Emacs 19:  The man command could possibly start an
            ;; asynchronous process, i.e. we must hook ourselves into
            ;; the system to be activated when the man-process
            ;; terminates.
@@ -2169,7 +2177,9 @@ patch to `Man-notify-when-ready'.")
           (t
            (erlang-man-module modname)
            (when funcname
-             (erlang-man-find-function (current-buffer) funcname))))))
+             (erlang-man-repeated-search-for-function nil
+                                                      funcname
+                                                      modname))))))
 
 (defun erlang-man-function (&optional name)
   "Find manual page for NAME, where NAME is module:function.
@@ -2190,12 +2200,6 @@ This function is aware of imported functions."
   (require 'man)
   (setq name (or name
                  (erlang-default-function-or-module)))
-  (erlang-man-function-display-man-page name)
-  (sleep-for 0 600)
-  ;; A hack to make sure that the function scrolls
-  ;; to the description of the function when it is
-  ;; the first time that the man page for a module
-  ;; is opened
   (erlang-man-function-display-man-page name))
 
 
@@ -2210,6 +2214,54 @@ opening the man page for the function."
     (if name
         (erlang-man-function name)
       (error "No function name under the cursor"))))
+
+(defun erlang-man-repeated-search-for-function (man-buffer
+                                                function-name
+                                                &optional
+                                                module-name)
+  "This function tries to scroll MAN-BUFFER to the documentation
+of function FUNCTION-NAME. The function will try again a few
+times if the documentation for FUNCTION-NAME can't be found. This
+is necessary as the man page is loaded asynchronously from Emacs
+19 and the correct function to hook into depends on the Emacs
+version. The function will automatically try to find the correct
+buffer from the list of opened buffers if MAN-BUFFER is nil. The
+optional parameter MODULE-NAME will make the search for the
+buffer more accurate."
+  (let* ((time-between-attempts 0.5)
+         (max-wait-time 5.1)
+         (search-for-function
+          (lambda (self
+                   time-waited
+                   time-between-attempts
+                   max-wait-time
+                   man-buffer
+                   function-name
+                   module-name
+                   )
+            (when (and (not (erlang-man-find-function man-buffer function-name module-name))
+                       (<= (+ time-waited time-between-attempts)
+                           max-wait-time))
+              (message "Finding function %s..." function-name)
+                                        ; Call this function again later
+              (run-at-time time-between-attempts nil
+                           self
+                           self
+                           (+ time-waited time-between-attempts)
+                           time-between-attempts
+                           max-wait-time
+                           man-buffer
+                           function-name
+                           module-name)
+              ))))
+    (funcall search-for-function
+             search-for-function
+             0.0
+             time-between-attempts
+             max-wait-time
+             man-buffer
+             function-name
+             module-name)))
 
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
@@ -2233,31 +2285,57 @@ command is executed asynchronously."
     "Set point at the documentation of the function name in
 `erlang-man-function-name' when the man page is displayed."
     (if erlang-man-function-name
-        (erlang-man-find-function (ad-get-arg 0) erlang-man-function-name))
-    (setq erlang-man-function-name nil)))
+        (erlang-man-repeated-search-for-function (ad-get-arg 0)
+                                                 erlang-man-function-name)
+      (setq erlang-man-function-name nil))))
 
 
-(defun erlang-man-find-function (buf func)
-  "Find manual page for function in `erlang-man-function-name' in buffer BUF."
-  (if func
-      (let ((win (get-buffer-window buf)))
-        (if win
-            (progn
-              (set-buffer buf)
-              (goto-char (point-min))
-              (if (re-search-forward
-                   (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*([A-Za-z0-9 \t:,_()]*)[ \t]*->")
-                   (point-max) t)
-                  (progn
-                    (forward-word -1)
-                    (set-window-point win (point)))
+
+
+(defun erlang-man-find-function (buf func &optional module-name)
+  "Find manual page for function `erlang-man-function-name' in buffer BUF.
+The function will automatically try to find the correct buffer among the
+opened buffers if BUF is nil. The optional parameter MODULE-NAME will make
+the search for the buffer more accurate."
+  (let ((buffer (or buf
+                    (progn
+                      ; find buffer containing man page
+                      (require 'cl-lib)
+                      (car (cl-remove-if-not (lambda (buf)
+                                               (string-match
+                                                (or module-name "")
+                                                (format "%s" buf)))
+                                             (cl-remove-if-not
+                                              (lambda (buf)
+                                                (string-match
+                                                 "[Mm][Aa][Nn]"
+                                                 (format "%s" buf)))
+                                              (buffer-list))))))))
+    (if (and func buffer)
+        (let ((win (get-buffer-window buffer)))
+          (if win
+              (progn
+                (set-buffer buffer)
+                (goto-char (point-min))
                 (if (re-search-forward
-                     (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*\(")
+                     (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*([A-Za-z0-9 \t:,_()]*)[ \t]*->")
                      (point-max) t)
                     (progn
                       (forward-word -1)
-                      (set-window-point win (point)))
-                  (message "Could not find function `%s'" func))))))))
+                      (set-window-point win (point))
+                      (message "Found documentation for function `%s'" func)
+                      t)
+                  (if (re-search-forward
+                       (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*\(")
+                       (point-max) t)
+                      (progn
+                        (forward-word -1)
+                        (set-window-point win (point))
+                        (message "Found documentation for function `%s'" func)
+                        t)
+                    (progn
+                      (message "Could not find function `%s'" func)
+                      nil)))))))))
 
 (defvar erlang-man-file-regexp
   "\\(.*\\)/man[^/]*/\\([^.]+\\)\\.\\([124-9]\\|3\\(erl\\)?\\)\\(\\.gz\\)?$")
