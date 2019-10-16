@@ -140,6 +140,8 @@
          api_opt_sock_peercred_tcpL/1,
          api_opt_sock_priority_udp4/1,
          api_opt_sock_priority_tcp4/1,
+         api_opt_sock_rcvbuf_udp4/1,
+         api_opt_sock_sndbuf_udp4/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
          api_opt_ip_add_drop_membership/1,
@@ -654,9 +656,10 @@ groups() ->
      {api_options_otp,             [], api_options_otp_cases()},
      {api_options_socket,          [], api_options_socket_cases()},
      {api_option_sock_acceptconn,  [], api_option_sock_acceptconn_cases()},
-     {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_option_sock_passcred,    [], api_option_sock_passcred_cases()},
      {api_option_sock_priority,    [], api_option_sock_priority_cases()},
+     {api_option_sock_buf,         [], api_option_sock_buf_cases()},
+     {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_options_ip,              [], api_options_ip_cases()},
      {api_options_ipv6,            [], api_options_ipv6_cases()},
      %% {api_options_tcp,            [], api_options_tcp_cases()},
@@ -832,6 +835,7 @@ api_options_socket_cases() ->
      api_opt_sock_oobinline,
      {group, api_option_sock_passcred},
      {group, api_option_sock_priority},
+     {group, api_option_sock_buf},
      {group, api_option_sock_timestamp}
     ].
 
@@ -854,6 +858,12 @@ api_option_sock_priority_cases() ->
      api_opt_sock_priority_tcp4%,
      %% api_opt_sock_priority_udp6,
      %% api_opt_sock_priority_tcp6
+    ].
+
+api_option_sock_buf_cases() ->
+    [
+     api_opt_sock_rcvbuf_udp4,
+     api_opt_sock_sndbuf_udp4
     ].
 
 api_option_sock_timestamp_cases() ->
@@ -12246,6 +12256,8 @@ api_opt_sock_peercred_tcp(_InitState) ->
 %%     ok.
 
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Tests the 'PRIORITY' socket 'socket' option with IPv4 UDP:
@@ -12400,6 +12412,161 @@ api_opt_sock_priority(InitState) ->
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed setting timestamp:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the 'RCVBUF' socket 'socket' option with IPv4 UDP:
+%%
+%%               socket:setopt(Sock, socket, rcvbuf, integer()).
+%%
+%%
+
+api_opt_sock_rcvbuf_udp4(suite) ->
+    [];
+api_opt_sock_rcvbuf_udp4(doc) ->
+    [];
+api_opt_sock_rcvbuf_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_rcvbuf_udp4,
+           fun() -> has_support_sock_rcvbuf() end,
+           fun() ->
+                   ok = api_opt_sock_buf_udp4(rcvbuf)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the 'RCVBUF' socket 'socket' option with IPv4 UDP:
+%%
+%%               socket:setopt(Sock, socket, rcvbuf, integer()).
+%%
+%%
+
+api_opt_sock_sndbuf_udp4(suite) ->
+    [];
+api_opt_sock_sndbuf_udp4(doc) ->
+    [];
+api_opt_sock_sndbuf_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_sndbuf_udp4,
+           fun() -> has_support_sock_sndbuf() end,
+           fun() ->
+                   ok = api_opt_sock_buf_udp4(sndbuf)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_sock_buf_udp4(Opt) ->
+    Set  = fun(Sock, Value) ->
+                   socket:setopt(Sock, socket, Opt, Value)
+           end,
+    Get  = fun(Sock) ->
+                   socket:getopt(Sock, socket, Opt)
+           end,
+    InitState = #{domain => inet,
+                  type   => dgram,
+                  proto  => udp,
+                  set    => Set,
+                  get    => Get},
+    ok = api_opt_sock_buf(InitState).
+
+
+api_opt_sock_buf(InitState) ->
+    Seq = 
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+
+         #{desc => "open socket",
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, Type, Proto),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "bind",
+           cmd  => fun(#{sock := Sock, lsa := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get current (default) buffer size",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, Sz} ->
+                                   ?SEV_IPRINT("(default) buffer: ~p",
+                                               [Sz]),
+                                   {ok, State#{default_sz => Sz}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) "
+                                               "buffer size:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "change buffer size (default + 1024)",
+           cmd  => fun(#{sock       := Sock,
+                         default_sz := DefaultSz,
+                         set        := Set} = State) ->
+                           NewSz = DefaultSz + 1024,
+                           ?SEV_IPRINT("try set new buffrer size to ~w", [NewSz]),
+                           case Set(Sock, NewSz) of
+                               ok ->
+                                   ?SEV_IPRINT("Buffer size change success", []),
+                                   {ok, State#{new_sz => NewSz}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed changing buffer size:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "validate buffer change",
+           cmd  => fun(#{sock   := Sock,
+                         get    := Get,
+                         new_sz := ExpSz} = _State) ->
+                           ?SEV_IPRINT("try validate buffer size (~w)", [ExpSz]),
+                           case Get(Sock) of
+                               {ok, Sz} when (Sz >= ExpSz) ->
+                                   ?SEV_IPRINT("buffer size validated:"
+                                               "~n   Sz: ~w (~w)", [Sz, ExpSz]),
+                                   ok;
+                               {ok, Sz} ->
+                                   ?SEV_EPRINT("buffer size invalid:"
+                                               "~n   Sz:          ~w"
+                                               "~n   Expected Sz: ~w", [Sz, ExpSz]),
+                                   {error, {invalid_size, Sz, ExpSz}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed get buffer size:"
                                                "   ~p", [Reason]),
                                    ERROR
                            end
@@ -36022,6 +36189,12 @@ has_support_sock_peercred() ->
 
 has_support_sock_priority() ->
     has_support_socket_option_sock(priority).
+
+has_support_sock_rcvbuf() ->
+    has_support_socket_option_sock(rcvbuf).
+
+has_support_sock_sndbuf() ->
+    has_support_socket_option_sock(sndbuf).
 
 has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
