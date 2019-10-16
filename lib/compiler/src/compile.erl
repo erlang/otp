@@ -601,7 +601,7 @@ passes_1([]) ->
     {".erl",[?pass(parse_module)|standard_passes()]}.
 
 pass(from_core) ->
-    {".core",[?pass(parse_core)|core_passes()]};
+    {".core",[?pass(parse_core)|core_passes(mandatory_core_lint)]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(from_beam) ->
@@ -799,11 +799,17 @@ standard_passes() ->
      ?pass(core),
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
-     | core_passes()].
+     | core_passes(optional_core_lint)].
 
-core_passes() ->
+core_passes(LintOpt) ->
     %% Optimization and transforms of Core Erlang code.
-    [{iff,clint0,?pass(core_lint_module)},
+    CoreLint = case LintOpt of
+                   mandatory_core_lint ->
+                       ?pass(core_lint_module);
+                   optional_core_lint ->
+                       {iff,clint0,?pass(core_lint_module)}
+               end,
+    [CoreLint,
      {delay,
       [{unless,no_copt,
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
