@@ -454,6 +454,7 @@ atom noeol
 atom noproc
 atom normal
 atom nosuspend
+atom no_fail
 atom no_float
 atom no_integer
 atom no_network

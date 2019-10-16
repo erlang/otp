@@ -145,7 +145,7 @@ type(Depth) ->
 other_types() ->
     [any,
      gen_atom(),
-     gen_binary(),
+     gen_bs_matchable(),
      gen_fun(),
      none].
 
@@ -173,8 +173,10 @@ gen_atom() ->
 gen_atom_val() ->
     ?LET(N, range($0, $~), list_to_atom([N])).
 
-gen_binary() ->
-    ?SHRINK(#t_bitstring{unit=range(1, 128)}, [#t_bitstring{unit=1}]).
+gen_bs_matchable() ->
+    oneof([?LET(Unit, range(1, 128), #t_bs_matchable{tail_unit=Unit}),
+           ?LET(Unit, range(1, 128), #t_bs_context{tail_unit=Unit}),
+           ?LET(Unit, range(1, 128), #t_bitstring{size_unit=Unit})]).
 
 gen_fun() ->
     oneof([?LET(Arity, range(1, 8), #t_fun{arity=Arity}), #t_fun{arity=any}]).

@@ -253,7 +253,11 @@ expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(no_bsm3, Os) ->
     %% The new bsm pass requires bsm3 instructions.
-    [no_bsm3,no_bsm_opt|Os];
+    [no_bsm3,no_bsm_opt|expand_opt(no_bsm4, Os)];
+expand_opt(no_bsm4, Os) ->
+    %% bsm4 instructions are only used when type optimization has determined
+    %% that a match instruction won't fail.
+    expand_opt(no_type_opt, Os);
 expand_opt(r16, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r17, Os) ->
@@ -268,7 +272,8 @@ expand_opt(r21, Os) ->
     [no_shared_fun_wrappers,
      no_swap, no_put_tuple2 | expand_opt(no_bsm3, Os)];
 expand_opt(r22, Os) ->
-    [no_shared_fun_wrappers, no_swap | Os];
+    [no_shared_fun_wrappers,
+     no_swap | expand_opt(no_bsm4, Os)];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->

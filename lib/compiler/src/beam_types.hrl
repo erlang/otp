@@ -23,22 +23,23 @@
 %%
 %% The type lattice is as follows:
 %%
-%%  any                  Any Erlang term (top element).
+%%  any                      Any Erlang term (top element).
 %%
-%%    - #t_atom{}        Atom, or a set thereof.
-%%    - #t_bitstring{}   Bitstring.
-%%    - #t_bs_context{}  Match context.
-%%    - #t_fun{}         Fun.
-%%    - #t_map{}         Map.
-%%    - number           Any number.
-%%       -- float        Floating point number.
-%%       -- integer      Integer.
-%%    - list             Any list.
-%%       -- cons         Cons (nonempty list).
-%%       -- nil          The empty list.
-%%    - #t_tuple{}       Tuple.
+%%    - #t_atom{}            Atom, or a set thereof.
+%%    - #t_bs_matchable{}    Binary-matchable types.
+%%        - #t_bitstring{}   Bitstring.
+%%        - #t_bs_context{}  Match context.
+%%    - #t_fun{}             Fun.
+%%    - #t_map{}             Map.
+%%    - number               Any number.
+%%       -- float            Floating point number.
+%%       -- integer          Integer.
+%%    - list                 Any list.
+%%       -- cons             Cons (nonempty list).
+%%       -- nil              The empty list.
+%%    - #t_tuple{}           Tuple.
 %%
-%%  none                 No type (bottom element).
+%%  none                     No type (bottom element).
 %%
 %% We also use #t_union{} to represent conflicting types produced by certain
 %% expressions, e.g. the "#t_atom{} or #t_tuple{}" of lists:keyfind/3, which is
@@ -52,9 +53,11 @@
 -record(t_atom, {elements=any :: 'any' | [atom()]}).
 -record(t_fun, {arity=any :: arity() | 'any'}).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_bitstring, {unit=1 :: pos_integer()}).
--record(t_bs_context, {slots=0 :: non_neg_integer(),
+-record(t_bitstring, {size_unit=1 :: pos_integer()}).
+-record(t_bs_context, {tail_unit=1 :: pos_integer(),
+                       slots=0 :: non_neg_integer(),
                        valid=0 :: non_neg_integer()}).
+-record(t_bs_matchable, {tail_unit=1}).
 -record(t_map, {}).
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
@@ -69,7 +72,8 @@
 
 -type normal_type() :: any | none |
                        list | number |
-                       #t_atom{} | #t_bitstring{} | #t_bs_context{} |
+                       #t_atom{} |
+                       #t_bitstring{} | #t_bs_context{} | #t_bs_matchable{} |
                        #t_fun{} | #t_integer{} | #t_map{} | #t_tuple{} |
                        'cons' | 'float' | 'nil'.
 

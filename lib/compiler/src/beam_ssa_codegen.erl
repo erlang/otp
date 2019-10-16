@@ -154,14 +154,16 @@ assert_exception_block(Blocks) ->
     end.
 
 add_parameter_annos([{label, _}=Entry | Body], Anno) ->
-    ParamInfo = maps:get(parameter_type_info, Anno, #{}),
+    ParamTypes = maps:get(parameter_info, Anno, #{}),
+
     Annos = maps:fold(
-        fun(K, V, Acc) when is_map_key(K, ParamInfo) ->
-                TypeInfo = maps:get(K, ParamInfo),
-                [{'%', {type_info, V, TypeInfo}} | Acc];
+        fun(K, V, Acc) when is_map_key(K, ParamTypes) ->
+                Info = map_get(K, ParamTypes),
+                [{'%', {var_info, V, Info}} | Acc];
            (_K, _V, Acc) ->
                 Acc
         end, [], maps:get(registers, Anno)),
+
     [Entry | sort(Annos)] ++ Body.
 
 cg_fun(Blocks, St0) ->
@@ -366,7 +368,7 @@ classify_heap_need(bs_save) -> neutral;
 classify_heap_need(bs_get_position) -> gc;
 classify_heap_need(bs_set_position) -> neutral;
 classify_heap_need(bs_skip) -> gc;
-classify_heap_need(bs_start_match) -> neutral;
+classify_heap_need(bs_start_match) -> gc;
 classify_heap_need(bs_test_tail) -> neutral;
 classify_heap_need(bs_utf16_size) -> neutral;
 classify_heap_need(bs_utf8_size) -> neutral;
@@ -1506,8 +1508,9 @@ cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[#b_local{}=Func0|Args0]},
     Call = build_call(call, Arity, {f,FuncLbl}, Context, Dst),
     Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
     case Anno of
-        #{ result_type := Info } ->
-            {Is ++ [{'%', {type_info, Dst, Info}}], St};
+        #{ result_type := Type } ->
+            Info = {var_info, Dst, [{type,Type}]},
+            {Is ++ [{'%', Info}], St};
         #{} ->
             {Is, St}
     end;
@@ -1619,6 +1622,10 @@ build_apply(Arity, {return,Val,N}, _Dst) when is_integer(N) ->
 build_apply(Arity, none, Dst) ->
     [{apply,Arity}|copy({x,0}, Dst)].
 
+cg_instr(bs_start_match, [Src0], Dst, Set) ->
+    {Src, Pre} = force_reg(Src0, Dst),
+    Live = get_live(Set),
+    Pre ++ [{bs_start_match4,{atom,no_fail},Live,Src,Dst}];
 cg_instr(bs_get_tail, [Src], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_tail,Src,Dst,Live}];

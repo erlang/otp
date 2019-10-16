@@ -875,24 +875,25 @@ sote_rewrite_call(Call0, [Arg | ArgsIn], ArgsOut, State0) ->
             sote_rewrite_call(Call0, ArgsIn, [Arg | ArgsOut], State0)
     end.
 
-%% Adds parameter_type_info annotations to help the validator determine whether
-%% our optimizations were safe.
+%% Adds parameter annotations to help the validator determine whether our
+%% optimizations were safe.
 
 annotate_context_parameters({Fs, ModInfo}) ->
     mapfoldl(fun annotate_context_parameters/2, ModInfo, Fs).
 
 annotate_context_parameters(F, ModInfo) ->
     ParamInfo = funcinfo_get(F, parameter_info, ModInfo),
-    TypeAnno0 = beam_ssa:get_anno(parameter_type_info, F, #{}),
-    TypeAnno = maps:fold(fun(K, _V, Acc) when is_map_key(K, Acc) ->
-                                 %% Assertion.
-                                 error(conflicting_parameter_types);
-                            (K, suitable_for_reuse, Acc) ->
-                                 Acc#{ K => #t_bs_context{} };
-                            (_K, _V, Acc) ->
-                                 Acc
-                         end, TypeAnno0, ParamInfo),
-    {beam_ssa:add_anno(parameter_type_info, TypeAnno, F), ModInfo}.
+    ParamAnno0 = beam_ssa:get_anno(parameter_info, F, #{}),
+    ParamAnno = maps:fold(fun(K, _V, Acc) when is_map_key(K, Acc) ->
+                                  %% Assertion.
+                                  error(conflicting_parameter_types);
+                             (K, suitable_for_reuse, Acc) ->
+                                  Info = maps:get(K, Acc, []),
+                                  Acc#{ K => [accepts_match_context | Info] };
+                             (_K, _V, Acc) ->
+                                  Acc
+                          end, ParamAnno0, ParamInfo),
+    {beam_ssa:add_anno(parameter_info, ParamAnno, F), ModInfo}.
 
 %%%
 %%% +bin_opt_info

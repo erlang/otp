@@ -1424,11 +1424,11 @@ bc_options(Config) ->
          {164, big, [no_shared_fun_wrappers]},
 
          {168, small, [r22]},
-         {168, small, [no_shared_fun_wrappers]},
+         {170, small, [no_shared_fun_wrappers]},
 
          {169, small_maps, []},
          {169, big, []},
-         {169, small, []}
+         {170, small, []}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

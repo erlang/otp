@@ -190,10 +190,10 @@ types(erlang, 'length', [_]) ->
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
     PosLen = make_two_tuple(#t_integer{}, #t_integer{}),
-    Binary = #t_bitstring{unit=8},
+    Binary = #t_bitstring{size_unit=8},
     sub_unsafe(Binary, [Binary, PosLen]);
 types(erlang, 'binary_part', [_, _, _]) ->
-    Binary = #t_bitstring{unit=8},
+    Binary = #t_bitstring{size_unit=8},
     sub_unsafe(Binary, [Binary, #t_integer{}, #t_integer{}]);
 types(erlang, 'is_map_key', [_,_]) ->
     sub_unsafe(beam_types:make_boolean(), [any,#t_map{}]);

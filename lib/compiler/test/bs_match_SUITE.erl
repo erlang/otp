@@ -502,6 +502,9 @@ unit(Config) when is_list(Config) ->
     {'EXIT',_} = (catch unit_opt_2(<<1:32,33:7>>)),
     {'EXIT',_} = (catch unit_opt_2(<<2:32,55:7>>)),
 
+    <<0:64>> = unit_opt_3(<<1:128>>),
+    <<1:64>> = unit_opt_3(<<1:64>>),
+
     ok.
 
 peek1(<<B:8,_/bitstring>>) -> B.
@@ -532,6 +535,13 @@ unit_opt_2(<<St:32,KO/binary>> = Bin0) ->
                   <<KO/binary>>
           end,
     id(Bin).
+
+unit_opt_3(A) when is_binary(A) ->
+    %% There should be no test_unit instruction after the first segment, since
+    %% we already know A is a binary and its tail will still be a binary after
+    %% matching 8 bytes from it.
+    <<Bin:8/binary, _/binary>> = A,
+    Bin.
 
 shared_sub_bins(Config) when is_list(Config) ->
     {15,[<<>>,<<5>>,<<4,5>>,<<3,4,5>>,<<2,3,4,5>>]} = sum(<<1,2,3,4,5>>, [], 0),

@@ -64,7 +64,7 @@ opt_continue(Linear, Args, Anno, FuncDb) ->
             %% This is a local function and we're guaranteed to have visited
             %% every call site at least once, so we know that the parameter
             %% types are at least as narrow as the join of all argument types.
-            Ts = join_arg_types(Args, ArgTypes, Anno),
+            Ts = join_arg_types(Args, ArgTypes, #{}),
             opt_continue_1(Linear, Args, Id, Ts, FuncDb);
         #{} ->
             %% We can't infer the parameter types of exported functions, nor
@@ -74,22 +74,12 @@ opt_continue(Linear, Args, Anno, FuncDb) ->
             opt_continue_1(Linear, Args, Id, Ts, FuncDb)
     end.
 
-join_arg_types(Args, ArgTypes, Anno) ->
-    %% We suppress type optimization for parameters that have already been
-    %% optimized by another pass, as they may have done things we have no idea
-    %% how to interpret and running them over could generate incorrect code.
-    ParamTypes = maps:get(parameter_type_info, Anno, #{}),
-    Ts0 = join_arg_types_1(Args, ArgTypes, #{}),
-    maps:fold(fun(Arg, _V, Ts) ->
-                      maps:put(Arg, any, Ts)
-              end, Ts0, ParamTypes).
-
-join_arg_types_1([Arg | Args], [TM | TMs], Ts) when map_size(TM) =/= 0 ->
-    Type = beam_types:join(maps:values(TM)),
-    join_arg_types_1(Args, TMs, Ts#{ Arg => Type });
-join_arg_types_1([Arg | Args], [_TM | TMs], Ts) ->
-    join_arg_types_1(Args, TMs, Ts#{ Arg => any });
-join_arg_types_1([], [], Ts) ->
+join_arg_types([Arg | Args], [TypeMap | TMs], Ts) when TypeMap =/= #{} ->
+    Type = beam_types:join(maps:values(TypeMap)),
+    join_arg_types(Args, TMs, Ts#{ Arg => Type });
+join_arg_types([Arg | Args], [_TypeMap | TMs], Ts) ->
+    join_arg_types(Args, TMs, Ts#{ Arg => any });
+join_arg_types([], [], Ts) ->
     Ts.
 
 -spec opt_continue_1(Linear, Args, Id, Ts, FuncDb) -> Result when
@@ -134,26 +124,26 @@ opt_finish(Args, Anno, FuncDb) ->
     Id = get_func_id(Anno),
     case FuncDb of
         #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
-            ParamInfo0 = maps:get(parameter_type_info, Anno, #{}),
+            ParamInfo0 = maps:get(parameter_info, Anno, #{}),
             ParamInfo = opt_finish_1(Args, ArgTypes, ParamInfo0),
-            {Anno#{ parameter_type_info => ParamInfo }, FuncDb};
+            {Anno#{ parameter_info => ParamInfo }, FuncDb};
         #{} ->
             {Anno, FuncDb}
     end.
 
-opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
-  when is_map_key(Arg, ParamInfo); %% See join_arg_types/3
-       map_size(TypeMap) =:= 0 ->
-    opt_finish_1(Args, TypeMaps, ParamInfo);
-opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
-    JoinedType = beam_types:join(maps:values(TypeMap)),
-    ParamInfo = case JoinedType of
-                    any -> ParamInfo0;
-                    _ -> ParamInfo0#{ Arg => JoinedType }
-                end,
-    opt_finish_1(Args, TypeMaps, ParamInfo);
-opt_finish_1([], [], ParamInfo) ->
-    ParamInfo.
+opt_finish_1([_Arg | Args], [TypeMap | TypeMaps], Acc) when TypeMap =:= #{} ->
+    opt_finish_1(Args, TypeMaps, Acc);
+opt_finish_1([Arg | Args], [TypeMap | TypeMaps], Acc0) when TypeMap =/= #{} ->
+    case beam_types:join(maps:values(TypeMap)) of
+        any ->
+            opt_finish_1(Args, TypeMaps, Acc0);
+        JoinedType ->
+            Info = maps:get(Arg, Acc0, []),
+            Acc = Acc0#{ Arg => [{type, JoinedType} | Info] },
+            opt_finish_1(Args, TypeMaps, Acc)
+    end;
+opt_finish_1([], [], Acc) ->
+    Acc.
 
 get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
@@ -537,6 +527,28 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
             AnnoArgs = [anno_float_arg(A) || A <- Types],
             eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
     end;
+simplify(#b_set{op=bs_extract,args=[Ctx]}=I, Ts) ->
+    case raw_type(Ctx, Ts) of
+        #t_bitstring{} ->
+            %% This is a bs_match that has been rewritten as a bs_get_tail;
+            %% just return the input as-is.
+            Ctx;
+        #t_bs_context{} ->
+            I
+    end;
+simplify(#b_set{op=bs_match,
+                args=[#b_literal{val=binary}, Ctx, _Flags,
+                      #b_literal{val=all},
+                      #b_literal{val=OpUnit}]}=I, Ts) ->
+    %% <<..., Foo/binary>> can be rewritten as <<..., Foo/bits>> if we know the
+    %% unit is correct.
+    #t_bs_context{tail_unit=CtxUnit} = raw_type(Ctx, Ts),
+    if
+        CtxUnit rem OpUnit =:= 0 ->
+            I#b_set{op=bs_get_tail,args=[Ctx]};
+        CtxUnit rem OpUnit =/= 0 ->
+            I
+    end;
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     true = Size > N,                            %Assertion.
@@ -685,21 +697,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
         true ->
             case make_literal_list(Args) of
                 none ->
-                    case normalized_types(Args, Ts) of
-                        [any] ->
-                            I;
-                        [Type] ->
-                            case will_succeed(Bif, Type) of
-                                yes ->
-                                    #b_literal{val=true};
-                                no ->
-                                    #b_literal{val=false};
-                                maybe ->
-                                    I
-                            end;
-                        _ ->
-                            I
-                    end;
+                    eval_type_test_bif(I, Bif, raw_types(Args, Ts));
                 LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
@@ -708,6 +706,53 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
                     end
 
             end
+    end.
+
+eval_type_test_bif(I, is_atom, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_atom{});
+eval_type_test_bif(I, is_binary, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_bs_matchable{tail_unit=8});
+eval_type_test_bif(I, is_bitstring, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_bs_matchable{});
+eval_type_test_bif(I, is_boolean, [Type]) ->
+    case beam_types:is_boolean_type(Type) of
+        true ->
+            #b_literal{val=true};
+        false ->
+            case beam_types:meet(Type, #t_atom{}) of
+                #t_atom{elements=[_|_]=Es} ->
+                    case any(fun is_boolean/1, Es) of
+                        true -> I;
+                        false -> #b_literal{val=false}
+                    end;
+                #t_atom{} ->
+                    I;
+                none ->
+                    #b_literal{val=false}
+            end
+    end;
+eval_type_test_bif(I, is_float, [Type]) ->
+    eval_type_test_bif_1(I, Type, float);
+eval_type_test_bif(I, is_function, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_fun{});
+eval_type_test_bif(I, is_integer, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_integer{});
+eval_type_test_bif(I, is_list, [Type]) ->
+    eval_type_test_bif_1(I, Type, list);
+eval_type_test_bif(I, is_map, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_map{});
+eval_type_test_bif(I, is_number, [Type]) ->
+    eval_type_test_bif_1(I, Type, number);
+eval_type_test_bif(I, is_tuple, [Type]) ->
+    eval_type_test_bif_1(I, Type, #t_tuple{});
+eval_type_test_bif(I, _, _) ->
+    I.
+
+eval_type_test_bif_1(I, ArgType, Required) ->
+    case beam_types:meet(ArgType, Required) of
+        ArgType -> #b_literal{val=true};
+        none -> #b_literal{val=false};
+        _ -> I
     end.
 
 simplify_args(Args, Sub, Ts) ->
@@ -913,10 +958,37 @@ type(bs_init, _Args, _Anno, _Ts, _Ds) ->
 type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
     #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
     bs_match_type(Args);
-type(bs_match, _Args, _Anno, _Ts, _Ds) ->
-    #t_bs_context{};
-type(bs_get_tail, _Args, _Anno, _Ts, _Ds) ->
-    #t_bitstring{};
+type(bs_start_match, [Src], _Anno, Ts, _Ds) ->
+    case beam_types:meet(#t_bs_matchable{}, raw_type(Src, Ts)) of
+        none ->
+            none;
+        T ->
+            Unit = beam_types:get_bs_matchable_unit(T),
+            #t_bs_context{tail_unit=Unit}
+    end;
+type(bs_match, [#b_literal{val=binary}, Ctx, _Flags,
+                #b_literal{val=all}, #b_literal{val=OpUnit}],
+    _Anno, Ts, _Ds) ->
+
+    %% This is an explicit tail unit test which does not advance the match
+    %% position.
+    CtxType = raw_type(Ctx, Ts),
+    OpType = #t_bs_context{tail_unit=OpUnit},
+
+    beam_types:meet(CtxType, OpType);
+type(bs_match, Args, _Anno, Ts, _Ds) ->
+    [_, Ctx | _] = Args,
+
+    %% Matches advance the current position without testing the tail unit. We
+    %% try to retain unit information by taking the GCD of our current unit and
+    %% the increments we know the match will advance by.
+    #t_bs_context{tail_unit=CtxUnit} = raw_type(Ctx, Ts),
+    OpUnit = bs_match_stride(Args, Ts),
+
+    #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)};
+type(bs_get_tail, [Ctx], _Anno, Ts, _Ds) ->
+    #t_bs_context{tail_unit=Unit} = raw_type(Ctx, Ts),
+    #t_bitstring{size_unit=Unit};
 type(call, [#b_local{} | _Args], Anno, _Ts, _Ds) ->
     case Anno of
         #{ result_type := Type } -> Type;
@@ -970,6 +1042,24 @@ type(succeeded, [#b_var{}=Src], _Anno, Ts, Ds) ->
                 no -> beam_types:make_atom(false);
                 maybe -> beam_types:make_boolean()
             end;
+        #b_set{op=bs_get_tail} ->
+            beam_types:make_atom(true);
+        #b_set{op=bs_start_match,args=[Arg]} ->
+            ArgType = raw_type(Arg, Ts),
+            case beam_types:is_bs_matchable_type(ArgType) of
+                true ->
+                    %% In the future we may be able to remove this instruction
+                    %% altogether when we have a #t_bs_context{}, but for now
+                    %% we need to keep it for compatibility with older releases
+                    %% of OTP.
+                    beam_types:make_atom(true);
+                false ->
+                    %% Is it at all possible to match?
+                    case beam_types:meet(ArgType, #t_bs_matchable{}) of
+                        none -> beam_types:make_atom(false);
+                        _ -> beam_types:make_boolean()
+                    end
+            end;
         #b_set{op=get_hd} ->
             beam_types:make_atom(true);
         #b_set{op=get_tl} ->
@@ -987,94 +1077,35 @@ type(succeeded, [#b_literal{}], _Anno, _Ts, _Ds) ->
     beam_types:make_atom(true);
 type(_, _, _, _, _) -> any.
 
-%% will_succeed(TestOperation, Type) -> yes|no|maybe.
-%%  Test whether TestOperation applied to an argument of type Type
-%%  will succeed.  Return yes, no, or maybe.
-%%
-%%  Type can be any type as described in beam_types.hrl, but it must *never* be
-%%  any.
+%% We seldom know how far a match operation may advance, but we can often tell
+%% which increment it will advance by.
+bs_match_stride([#b_literal{val=Type} | Args], Ts) ->
+    bs_match_stride(Type, Args, Ts).
 
-will_succeed(is_atom, Type) ->
-    case Type of
-        #t_atom{} -> yes;
-        _ -> no
-    end;
-will_succeed(is_binary, Type) ->
-    case Type of
-        #t_bitstring{unit=U} when U rem 8 =:= 0 -> yes;
-        #t_bitstring{} -> maybe;
-        _ -> no
-    end;
-will_succeed(is_bitstring, Type) ->
-    case Type of
-        #t_bitstring{} -> yes;
-        _ -> no
-    end;
-will_succeed(is_boolean, Type) ->
-    case Type of
-        #t_atom{elements=any} ->
-            maybe;
-        #t_atom{elements=Es} ->
-            case beam_types:is_boolean_type(Type) of
-                true ->
-                    yes;
-                false ->
-                    case any(fun is_boolean/1, Es) of
-                        true -> maybe;
-                        false -> no
-                    end
-            end;
+bs_match_stride(_, [_,_,Size,#b_literal{val=Unit}], Ts) ->
+    case raw_type(Size, Ts) of
+        #t_integer{elements={Sz, Sz}} when is_integer(Sz) ->
+            Sz * Unit;
         _ ->
-            no
+            Unit
     end;
-will_succeed(is_float, Type) ->
-    case Type of
-        float -> yes;
-        number -> maybe;
-        _ -> no
-    end;
-will_succeed(is_function, Type) ->
-    case Type of
-        #t_fun{} -> yes;
-        _ -> no
-    end;
-will_succeed(is_integer, Type) ->
-    case Type of
-        #t_integer{} -> yes;
-        number -> maybe;
-        _ -> no
-    end;
-will_succeed(is_list, Type) ->
-    case Type of
-        list -> yes;
-        cons -> yes;
-        _ -> no
-    end;
-will_succeed(is_map, Type) ->
-    case Type of
-        #t_map{} -> yes;
-        _ -> no
-    end;
-will_succeed(is_number, Type) ->
-    case Type of
-        float -> yes;
-        #t_integer{} -> yes;
-        number -> yes;
-        _ -> no
-    end;
-will_succeed(is_tuple, Type) ->
-    case Type of
-        #t_tuple{} -> yes;
-        _ -> no
-    end;
-will_succeed(_, _) -> maybe.
+bs_match_stride(string, [_,#b_literal{val=String}], _) ->
+    bit_size(String);
+bs_match_stride(utf8, _, _) ->
+    8;
+bs_match_stride(utf16, _, _) ->
+    16;
+bs_match_stride(utf32, _, _) ->
+    32;
+bs_match_stride(_, _, _) ->
+    1.
 
 bs_match_type([#b_literal{val=Type}|Args]) ->
     bs_match_type(Type, Args).
 
 bs_match_type(binary, Args) ->
     [_,_,_,#b_literal{val=U}] = Args,
-    #t_bitstring{unit=U};
+    #t_bitstring{size_unit=U};
 bs_match_type(float, _) ->
     float;
 bs_match_type(integer, Args) ->
@@ -1252,13 +1283,10 @@ argument_types(Values, Ts) ->
 -spec argument_type(beam_ssa:value(), type_db()) -> type().
 
 argument_type(V, Ts) ->
-    %% Match contexts are treated as bitstrings when optimizing
-    %% arguments, as we don't yet support removing the
-    %% "bs_start_match3" instruction.
-    case raw_type(V, Ts) of
-        #t_bs_context{} -> #t_bitstring{};
-        Type -> beam_types:limit_depth(Type)
-    end.
+    beam_types:limit_depth(raw_type(V, Ts)).
+
+raw_types(Values, Ts) ->
+    [raw_type(Val, Ts) || Val <- Values].
 
 -spec raw_type(beam_ssa:value(), type_db()) -> type().
 
@@ -1353,7 +1381,7 @@ infer_type({bif,is_atom}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_atom{}},
     {[T], [T]};
 infer_type({bif,is_binary}, [Arg], _Ts, _Ds) ->
-    T = {Arg, #t_bitstring{unit=8}},
+    T = {Arg, #t_bitstring{size_unit=8}},
     {[T], [T]};
 infer_type({bif,is_bitstring}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_bitstring{}},
@@ -1428,7 +1456,16 @@ infer_success_type(call, [#b_var{}=Fun|Args], _Ts, _Ds) ->
     T = {Fun, #t_fun{arity=length(Args)}},
     {[T], []};
 infer_success_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
-    T = {Bin,#t_bitstring{}},
+    T = {Bin,#t_bs_matchable{}},
+    {[T], [T]};
+infer_success_type(bs_match, [#b_literal{val=binary},
+                              Ctx, _Flags,
+                              #b_literal{val=all},
+                              #b_literal{val=OpUnit}],
+                   _Ts, _Ds) ->
+    %% This is an explicit tail unit test which does not advance the match
+    %% position, so we know that Ctx has the same unit.
+    T = {Ctx, #t_bs_context{tail_unit=OpUnit}},
     {[T], [T]};
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
@@ -1488,3 +1525,8 @@ subtract_types([{V,T0}|Vs], Ts) ->
     end;
 subtract_types([], Ts) -> Ts.
 
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
