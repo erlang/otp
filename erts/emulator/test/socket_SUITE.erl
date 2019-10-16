@@ -141,8 +141,10 @@
          api_opt_sock_priority_udp4/1,
          api_opt_sock_priority_tcp4/1,
          api_opt_sock_rcvbuf_udp4/1,
+         api_opt_sock_rcvlowat_udp4/1,
          api_opt_sock_rcvtimeo_udp4/1,
          api_opt_sock_sndbuf_udp4/1,
+         api_opt_sock_sndlowat_udp4/1,
          api_opt_sock_sndtimeo_udp4/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
@@ -661,6 +663,7 @@ groups() ->
      {api_option_sock_passcred,    [], api_option_sock_passcred_cases()},
      {api_option_sock_priority,    [], api_option_sock_priority_cases()},
      {api_option_sock_buf,         [], api_option_sock_buf_cases()},
+     {api_option_sock_lowat,       [], api_option_sock_lowat_cases()},
      {api_option_sock_timeo,       [], api_option_sock_timeo_cases()},
      {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_options_ip,              [], api_options_ip_cases()},
@@ -839,6 +842,7 @@ api_options_socket_cases() ->
      {group, api_option_sock_passcred},
      {group, api_option_sock_priority},
      {group, api_option_sock_buf},
+     {group, api_option_sock_lowat},
      {group, api_option_sock_timeo},
      {group, api_option_sock_timestamp}
     ].
@@ -868,6 +872,12 @@ api_option_sock_buf_cases() ->
     [
      api_opt_sock_rcvbuf_udp4,
      api_opt_sock_sndbuf_udp4
+    ].
+
+api_option_sock_lowat_cases() ->
+    [
+     api_opt_sock_rcvlowat_udp4,
+     api_opt_sock_sndlowat_udp4
     ].
 
 api_option_sock_timeo_cases() ->
@@ -12548,7 +12558,7 @@ api_opt_sock_buf(InitState) ->
                          default_sz := DefaultSz,
                          set        := Set} = State) ->
                            NewSz = DefaultSz + 1024,
-                           ?SEV_IPRINT("try set new buffrer size to ~w", [NewSz]),
+                           ?SEV_IPRINT("try set new buffer size to ~w", [NewSz]),
                            case Set(Sock, NewSz) of
                                ok ->
                                    ?SEV_IPRINT("Buffer size change success", []),
@@ -12732,6 +12742,165 @@ api_opt_sock_timeo(InitState) ->
                                    {error, {invalid_timeo, TO, ExpTO}};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed get timeout:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the 'RCVLOWAT' socket 'socket' option with IPv4 UDP:
+%%
+%%               socket:setopt(Sock, socket, rcvlowat, integer()).
+%%
+%%
+
+api_opt_sock_rcvlowat_udp4(suite) ->
+    [];
+api_opt_sock_rcvlowat_udp4(doc) ->
+    [];
+api_opt_sock_rcvlowat_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_rcvlowat_udp4,
+           fun() -> has_support_sock_rcvlowat() end,
+           fun() ->
+                   ok = api_opt_sock_lowat_udp4(rcvlowat)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the 'SNDLOWAT' socket 'socket' option with IPv4 UDP:
+%%
+%%               socket:setopt(Sock, socket, sndlowat, integer()).
+%%
+%% This is (currently) not changeable on linux (among others),
+%% so we skip if we get ENOPROTOOPT when attempting a change.
+%%
+
+api_opt_sock_sndlowat_udp4(suite) ->
+    [];
+api_opt_sock_sndlowat_udp4(doc) ->
+    [];
+api_opt_sock_sndlowat_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_sndlowat_udp4,
+           fun() -> has_support_sock_sndlowat() end,
+           fun() ->
+                   ok = api_opt_sock_lowat_udp4(sndlowat)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_sock_lowat_udp4(Opt) ->
+    Set  = fun(Sock, Value) ->
+                   socket:setopt(Sock, socket, Opt, Value)
+           end,
+    Get  = fun(Sock) ->
+                   socket:getopt(Sock, socket, Opt)
+           end,
+    InitState = #{domain => inet,
+                  type   => dgram,
+                  proto  => udp,
+                  set    => Set,
+                  get    => Get},
+    ok = api_opt_sock_lowat(InitState).
+
+
+api_opt_sock_lowat(InitState) ->
+    Seq = 
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+
+         #{desc => "open socket",
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, Type, Proto),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "bind",
+           cmd  => fun(#{sock := Sock, lsa := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get current (default) lowat",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, LOWAT} ->
+                                   ?SEV_IPRINT("(default) lowat: ~p",
+                                               [LOWAT]),
+                                   {ok, State#{default_lowat => LOWAT}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) lowat:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "change lowat ( + 1 )",
+           cmd  => fun(#{sock          := Sock,
+                         default_lowat := DefaultLOWAT,
+                         set           := Set} = State) ->
+                           NewLOWAT = DefaultLOWAT + 1,
+                           ?SEV_IPRINT("try set new lowat to ~w", [NewLOWAT]),
+                           case Set(Sock, NewLOWAT) of
+                               ok ->
+                                   ?SEV_IPRINT("LOWAT change success", []),
+                                   {ok, State#{new_lowat => NewLOWAT}};
+                               {error, enoprotoopt} ->
+                                   ?SEV_IPRINT("LOWAT not changeable", []),
+                                   {skip, "Not changeable"};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed changing buffer size:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "validate lowat",
+           cmd  => fun(#{sock      := Sock,
+                         get       := Get,
+                         new_lowat := ExpLOWAT} = _State) ->
+                           ?SEV_IPRINT("try validate lowat (~w)", [ExpLOWAT]),
+                           case Get(Sock) of
+                               {ok, ExpLOWAT} ->
+                                   ?SEV_IPRINT("lowat validated:"
+                                               "~n   LOWAT: ~w", [ExpLOWAT]),
+                                   ok;
+                               {ok, LOWAT} ->
+                                   ?SEV_EPRINT("lowat invalid:"
+                                               "~n   LOWAT:          ~w"
+                                               "~n   Expected LOWAT: ~w",
+                                               [LOWAT, ExpLOWAT]),
+                                   {error, {invalid_lowat, LOWAT, ExpLOWAT}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed get lowat:"
                                                "   ~p", [Reason]),
                                    ERROR
                            end
@@ -36358,11 +36527,17 @@ has_support_sock_priority() ->
 has_support_sock_rcvbuf() ->
     has_support_socket_option_sock(rcvbuf).
 
+has_support_sock_rcvlowat() ->
+    has_support_socket_option_sock(rcvlowat).
+
 has_support_sock_rcvtimeo() ->
     has_support_socket_option_sock(rcvtimeo).
 
 has_support_sock_sndbuf() ->
     has_support_socket_option_sock(sndbuf).
+
+has_support_sock_sndlowat() ->
+    has_support_socket_option_sock(sndlowat).
 
 has_support_sock_sndtimeo() ->
     has_support_socket_option_sock(sndtimeo).
