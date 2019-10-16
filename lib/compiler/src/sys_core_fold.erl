@@ -2624,28 +2624,22 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
-	{[#c_var{name=V}=Var|Vars]=Vars0,Arg1,Body} ->
+	{[#c_var{name=V}=Var]=Vars0,Arg1,Body} ->
             case core_lib:is_var_used(V, Body) of
-                false when Vars =:= [] ->
+                false ->
                     %% If the variable is not used in the body, we can
                     %% rewrite the let to a sequence:
                     %%    let <Var> = Arg in BodyWithoutVar ==>
                     %%        seq Arg BodyWithoutVar
                     Arg = maybe_suppress_warnings(Arg1, Var, PrevBody),
                     #c_seq{arg=Arg,body=Body};
-                false ->
-                    %% There are multiple values returned by the argument
-                    %% and the first value is not used (this is a 'case'
-                    %% with exported variables, but the return value is
-                    %% ignored). We can remove the first variable and the
-                    %% the first value returned from the 'let' argument.
-                    Arg2 = remove_first_value(Arg1),
-                    Let1 = Let0#c_let{vars=Vars,arg=Arg2,body=Body},
-                    post_opt_let(Let1, Sub);
                 true ->
                     Let1 = Let0#c_let{vars=Vars0,arg=Arg1,body=Body},
                     post_opt_let(Let1, Sub)
-	    end
+	    end;
+        {_,_,_} ->
+            Let1 = Let0#c_let{vars=Vs0,arg=Arg0,body=Body},
+            post_opt_let(Let1, Sub)
     end.
 
 %% post_opt_let(Let, Sub)
@@ -2657,39 +2651,6 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
 post_opt_let(Let0, Sub) ->
     Let1 = opt_bool_case_in_let(Let0, Sub),
     opt_build_stacktrace(Let1).
-
-
-%% remove_first_value(Core0) -> Core.
-%%  Core0 is an expression that returns at least two values.
-%%  Remove the first value returned from Core0.
-
-remove_first_value(#c_values{es=[V|Vs]}) ->
-    Values = core_lib:make_values(Vs),
-    case is_safe_simple(V) of
-        false ->
-            #c_seq{arg=V,body=Values};
-        true ->
-            Values
-    end;
-remove_first_value(#c_case{clauses=Cs0}=Core) ->
-    Cs = remove_first_value_cs(Cs0),
-    Core#c_case{clauses=Cs};
-remove_first_value(#c_receive{clauses=Cs0,action=Act0}=Core) ->
-    Cs = remove_first_value_cs(Cs0),
-    Act = remove_first_value(Act0),
-    Core#c_receive{clauses=Cs,action=Act};
-remove_first_value(#c_let{body=B}=Core) ->
-    Core#c_let{body=remove_first_value(B)};
-remove_first_value(#c_seq{body=B}=Core) ->
-    Core#c_seq{body=remove_first_value(B)};
-remove_first_value(#c_primop{}=Core) ->
-    Core;
-remove_first_value(#c_call{}=Core) ->
-    Core.
-
-remove_first_value_cs(Cs) ->
-    [C#c_clause{body=remove_first_value(B)} ||
-        #c_clause{body=B}=C <- Cs].
 
 %% maybe_suppress_warnings(Arg, #c_var{}, PreviousBody) -> Arg'
 %%  Try to suppress false warnings when a variable is not used.
